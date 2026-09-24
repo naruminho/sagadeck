@@ -14,12 +14,34 @@ const TEMPLATES = [path.join(HERE, "..", "templates"), path.join(HERE, "template
 const DOCS = [path.join(HERE, "..", "docs"), path.join(HERE, "docs")].find((d) => fs.existsSync(d));
 const SKILL = [path.join(HERE, "..", "SKILL.md"), path.join(HERE, "docs", "SKILL.md")].find((f) => fs.existsSync(f));
 const VERSION = (() => { for (const f of [path.join(HERE, "..", "package.json"), path.join(HERE, "package.json")]) { try { return JSON.parse(fs.readFileSync(f, "utf8")).version; } catch {} } return "?"; })();
-const [, , cmd, ...rest] = process.argv;
-const flags = Object.fromEntries(rest.filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.slice(2).split("="); return [k, v ?? true]; }));
-const args = rest.filter((a) => !a.startsWith("--"));
+const [, , cmd, ...rawRest] = process.argv;
+const flags = {};
+const args = [];
+for (let i = 0; i < rawRest.length; i++) {
+  const item = rawRest[i];
+  if (item.startsWith("--")) {
+    const eqIdx = item.indexOf("=");
+    if (eqIdx !== -1) {
+      flags[item.slice(2, eqIdx)] = item.slice(eqIdx + 1);
+    } else {
+      const key = item.slice(2);
+      const next = rawRest[i + 1];
+      if (next && !next.startsWith("--")) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = true;
+      }
+    }
+  } else {
+    args.push(item);
+  }
+}
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
+  sagadeck napkin <texto|arquivo> [-o deck.yaml]  transforma texto bruto em diagrama visual (Napkin AI)
+  sagadeck scaffold <deck.yaml> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
   sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
   sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
@@ -34,6 +56,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
   sagadeck themes [--out=pasta]                gera uma vitrine com todos os temas
   sagadeck icons [filtro]                      lista ícones disponíveis (2.100+)
+  sagadeck search <termo> [--limit=5]          pesquisa na web via DuckDuckGo (sem bloqueio) para enriquecer dados
   sagadeck ref                                 imprime a referência completa do YAML (ótimo para dar a um LLM)
   sagadeck skill                               imprime as instruções para agentes de IA
   sagadeck --version
@@ -83,6 +106,58 @@ async function doShots(p, dir = p.shots) {
 
 async function main() {
   switch (cmd) {
+    case "napkin":
+    case "visual": {
+      const input = args.join(" ").trim();
+      if (!input) {
+        console.error("Uso: sagadeck napkin <texto bruto ou arquivo.txt> [-o deck.yaml] [--theme=sinal]");
+        process.exit(1);
+      }
+      let content = input;
+      if (fs.existsSync(input)) {
+        content = fs.readFileSync(input, "utf8");
+      }
+      const { textToVisualSlide, napkinToYaml } = await import("../src/diagram/napkin.js");
+      const theme = flags.theme || "sinal";
+      const tone = flags.tone;
+      const title = flags.title;
+
+      const outPath = flags.o || flags.out;
+      if (outPath) {
+        const target = path.resolve(outPath);
+        const yamlStr = napkinToYaml(content, { theme, tone, title });
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, yamlStr, "utf8");
+        console.log(`✓ Diagrama visual gerado com sucesso em: ${target}`);
+      } else {
+        const res = textToVisualSlide(content, { theme, tone, title });
+        console.log(`✨ [Napkin AI] Padrão detectado: ${res.detectedType.toUpperCase()} (confiança: ${Math.round(res.confidence * 100)}%)`);
+        console.log(`💡 Raciocínio: ${res.rationale}\n`);
+        const YAML = (await import("yaml")).default;
+        console.log(YAML.stringify(res.slide, { indent: 2 }));
+      }
+      break;
+    }
+    case "scaffold": {
+      const target = path.resolve(args[0] || "apresentacao.yaml");
+      if (fs.existsSync(target) && !flags.force) {
+        console.error(`Erro: o arquivo ${target} já existe. Use --force para sobrescrever.`);
+        process.exit(1);
+      }
+      const { generateScaffold } = await import("../src/templates/scaffold.js");
+      const YAML = (await import("yaml")).default;
+      const theme = flags.theme || "prata";
+      const type = flags.type || "keynote";
+      const title = flags.title || (args[0] ? path.basename(args[0], path.extname(args[0])) : "Nova Apresentação");
+      const author = flags.author || "Seu Nome";
+      const spec = generateScaffold({ title, theme, type, author });
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, YAML.stringify(spec, { indent: 2 }), "utf8");
+      console.log(`✓ Esqueleto narrativo gerado em: ${target}`);
+      console.log(`  Tipo: ${type} · Tema: ${theme} · Slides: ${spec.slides.length}`);
+      console.log(`  Estrutura ideal (cover -> statement -> stats -> steps -> cards -> end) pronta para preenchimento.`);
+      break;
+    }
     case "new": {
       const target = path.resolve(args[0] || "deck.yaml");
       if (fs.existsSync(target)) { console.error(`${target} já existe`); process.exit(1); }
@@ -193,6 +268,32 @@ async function main() {
       break;
     }
     case "icons": { const l = listIcons(args[0]); console.log(l.join("  ")); console.log(`\n${l.length} ícones`); break; }
+    case "search": {
+      const query = args.join(" ");
+      if (!query) {
+        console.error("Uso: sagadeck search <termo de busca>");
+        process.exit(1);
+      }
+      const { searchDuckDuckGo } = await import("../src/research/duckduckgo.js");
+      const limit = Number(flags.limit || 5);
+      console.log(`… pesquisando no DuckDuckGo: "${query}"`);
+      try {
+        const results = await searchDuckDuckGo(query, { limit });
+        if (flags.json) {
+          console.log(JSON.stringify(results, null, 2));
+        } else {
+          console.log(`✓ ${results.length} resultado(s) encontrado(s):\n`);
+          results.forEach((r, i) => {
+            console.log(`${i + 1}. \x1b[1m${r.title}\x1b[0m`);
+            console.log(`   \x1b[36m${r.url}\x1b[0m`);
+            if (r.snippet) console.log(`   ${r.snippet}\n`);
+          });
+        }
+      } catch (err) {
+        console.error(`✗ Erro na pesquisa: ${err.message}`);
+      }
+      break;
+    }
     case "ref": case "referencia": process.stdout.write(fs.readFileSync(path.join(DOCS, "REFERENCIA.md"), "utf8")); break;
     case "skill": process.stdout.write(fs.readFileSync(SKILL, "utf8")); break;
     case "--version": case "-v": case "version": console.log(`sagadeck ${VERSION}`); break;

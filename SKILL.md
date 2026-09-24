@@ -13,15 +13,16 @@ O sagadeck gera apresentações profissionais a partir de um arquivo YAML, ofere
 |---|---|
 | `sagadeck studio [deck.yaml] [--port=3000]` | **Abre o estúdio web estilo PowerPoint** com canvas visual 16:9, edição WYSIWYG direta, detector de sobreposição em tempo real e **chat lateral com IA**. |
 | `sagadeck autofix <deck.yaml>` | **Auto-cura do layout**: detecta e repara automaticamente sobreposição entre elementos, elementos fora das margens seguras (120px) e excesso de texto. |
-| `sagadeck mcp` | **Servidor MCP**: expõe ferramentas padronizadas (JSON-RPC) para IDEs agênticos criarem, lerem, fiscalizarem e editarem decks. |
-| `sagadeck new deck.yaml [--theme=sinal]` | cria um deck de exemplo estruturado |
+| `sagadeck search "<termo>"` | **Pesquisa web sem bloqueio (DuckDuckGo)**: busca dados reais, números e referências confiáveis para enriquecer os slides. |
+| `sagadeck mcp` | **Servidor MCP**: expõe ferramentas padronizadas (JSON-RPC) para IDEs agênticos criarem, lerem, pesquisarem, fiscalizarem e editarem decks. |
+| `sagadeck new deck.yaml [--theme=prata]` | cria um deck de exemplo estruturado |
 | `sagadeck build deck.yaml` | compila `deck.html` standalone (abre no navegador; tecla P = modo apresentador) |
 | `sagadeck check deck.yaml` | fiscal: texto estourado, sobreposição, contraste, fonte pequena, excesso de texto |
 | `sagadeck pptx deck.yaml` | gera `deck.pptx` **totalmente editável** no PowerPoint com formas e caixas nativas |
 | `sagadeck pdf deck.yaml` | gera `deck.pdf` (um slide por página) |
 | `sagadeck roteiro deck.yaml` | gera `deck - roteiro.pdf` (miniaturas + falas + relógio planejado) |
 | `sagadeck all deck.yaml` | compila tudo: html + check + autofix + pptx + pdf + roteiro |
-| `sagadeck themes` | vitrine com os 6 temas visuais |
+| `sagadeck themes` | vitrine com os 11 temas visuais |
 | `sagadeck icons <filtro>` | busca ícones na biblioteca embutida (2.100+) |
 | `sagadeck ref` / `sagadeck skill` | referência completa do formato YAML / esta skill |
 
@@ -111,7 +112,31 @@ sagadeck.studio("palestra.yaml", port=3000)
 ## Decisão de Arquitetura: Mesmo Repositório vs. Repositório Separado
 
 ### Por que o Estúdio deve ficar no **mesmo repositório** (`sagadeck`):
-1. **Fonte Única da Verdade**: Os 21 layouts, os 6 temas, as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
+1. **Fonte Única da Verdade**: Os 23 layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` estilo Keynote Apple, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
 2. **Zero Descompasso de Versões**: Em repositórios separados, quando o formato YAML ou os temas do SagaDeck evoluem, a interface visual quebra ou fica desatualizada até que alguém publique e atualize dependências externas.
 3. **Experiência de Uso (DX) Imediata**: O desenvolvedor ou agente clona o repositório ou roda `pip install sagadeck` / `npm install` e tem **tudo num só lugar**: linha de comando (`sagadeck build`), estúdio visual (`sagadeck studio`), servidor de agentes (`sagadeck mcp`) e fiscal (`sagadeck check`).
 4. **Leve e Modular**: A interface web foi construída com tecnologias nativas leves (Vanilla JS, CSS moderno e servidor HTTP embutido do Node.js sem frameworks pesados). Isso mantém o pacote pequeno (~1.1 MB empacotado) sem impactar o desempenho do compilador.
+
+---
+
+## Novos Temas Visuais & Recursos Anti-Textão
+
+### 1. Temas Modernos, Vivos, Jovens e Clean
+- **`prata`**: **Estilo Keynote Apple**. Jovem, clean, respirável e sofisticado (levado a sério). Fundo cinza prata acetinado (`#F5F5F7`), texto em ardósia/preto profundo (`#1D1D1F`), cinza titânio intermediário (`#86868B`), divisores finos (`#D2D2D7`) e azul Apple (`#0071E3`). Cartelas com efeito vidro fosco / acabamento acetinado com sombra ultra-suave e tipografia San Francisco / Inter.
+- **`rabisco`**: Estilo artesanal e lousa com fontes desenhadas à mão (`'Caveat'`, `'Patrick Hand'`, `'Ink Free'`), bordas orgânicas de caderno, sombras desenhadas, fitas adesivas/post-its e ícones em estilo doodle. Ideal quando se quer uma apresentação calorosa, amigável e ilustrada.
+- **`oceano`**: Azul elétrico ultra vibrante (`#0062FF`), ciano neon (`#00C6FF`), tipografia moderna punchy e fundo luminoso de alta energia. Perfeito para tech, startups e produtos dinâmicos.
+- **`pop`**: Alegre, colorido e chiclete com paleta super animada (roxo, rosa chiclete, menta, sol) e cantos ultra-arredondados (26px).
+- **`aurora`**: Noite espacial mágica com gradientes e luzes vivas em neon (ciano, violeta e magenta).
+
+### 2. Layouts e Componentes Visuais para Reduzir Texto
+Para apresentações de alto impacto sem "muralhas de texto":
+- **`layout: stats` (ou `stats:` / `kpis:`)**: Grade de 2 a 4 grandes números visuais, com ícones embutidos, badges de tendência (`+14% ↗`, `recorde`), valor gigante e rótulo curto.
+- **`layout: steps` (ou `steps:` / `process:` / `flow:`)**: Linha do processo horizontal conectada por setas (`01 ➔ 02 ➔ 03`), com números destacados, ícones em círculos e tags de apoio.
+- **Widgets em `cards:`**: Cada card pode conter `progress: 85` (barra de progresso com porcentagem), `tags: ["Tag1", "Tag2"]` (nuvem de pílulas visuais), `rating: 5` (estrelas avaliativas) ou badges com `check: true` / `status: "pro"`.
+
+### 3. Pesquisa na Web sem Bloqueios (DuckDuckGo) & Citação de Fontes
+- **Sem bloqueios de robô**: Modelos de IA não devem tentar raspar o Google via navegadores headless (o Google bloqueia com CAPTCHA/bot detection). O SagaDeck inclui pesquisa nativa via DuckDuckGo com `sagadeck search "<termo>"` e a ferramenta MCP `sagadeck_web_search`.
+- **Controle Flexível de Fontes**:
+  - **Quando o usuário pedir fontes citadas**: Inclua `source: "Fonte: Nome do Relatório, Ano"` nos slides com métricas (`stats`, `number`, `chart`, `split`) e a URL completa no roteiro do apresentador (`notes:`).
+  - **Quando o usuário pedir sem fontes (ou estilo clean/Apple)**: Omita o campo `source:`, mantendo o slide limpo e desobstruído.
+- **Garantia para Modelos Econômicos**: Qualquer modelo (inclusive os menores como Haiku, Flash ou GPT-4o-mini) deve sempre finalizar com o comando `sagadeck autofix <deck.yaml>`. Isso garante que o layout final fique geometricamente perfeito, sem quebra de margens e com alinhamento profissional.

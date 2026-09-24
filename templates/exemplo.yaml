@@ -56,6 +56,30 @@ slides:
     source: "Fonte: exemplo"
     time: 1
 
+  - layout: stats
+    kicker: Métricas globais
+    title: O Impacto em Números
+    stats:
+      - value: "+142%"
+        label: Aumento de Foco
+        trend: comprovado
+        trendUp: true
+        icon: zap
+        text: Testes clínicos de atenção
+      - value: "98.5%"
+        label: Produtividade do Time
+        trend: +12% no ano
+        trendUp: true
+        icon: trending-up
+        text: Retenção e energia no expediente
+      - value: "4.9"
+        label: Satisfação no Trabalho
+        trend: nota máxima
+        trendUp: true
+        icon: star
+        text: Avaliação de bem-estar corporativo
+    time: 1
+
   - layout: chart
     kicker: Consumo
     title: Quem mais toma café
@@ -90,10 +114,53 @@ slides:
     kicker: Três jeitos de preparar
     title: Cada método, um sabor
     items:
-      - { icon: coffee, title: Espresso, text: "Intenso, 25 segundos de extração." }
-      - { icon: filter, title: Coado, text: "Leve, o clássico da casa brasileira." }
-      - { icon: cup-soda, title: Gelado, text: "Cold brew: 12 horas na geladeira.", hl: true }
+      - icon: coffee
+        badge: Intenso
+        title: Espresso
+        text: "25 segundos de extração sob 9 bars de pressão."
+        check: true
+        checkText: Mais pedido
+      - icon: filter
+        badge: Clássico
+        title: Coado
+        text: "Leve e aromático, o preferido da casa brasileira."
+        progress: 85
+        progressLabel: Popularidade
+      - icon: cup-soda
+        badge: Refrescante
+        title: Cold Brew
+        text: "12 horas de infusão lenta a frio na geladeira."
+        rating: 5
+        ratingLabel: 5.0 estrelas
+        tags: ["Gelado", "Arábica"]
+        hl: true
     build: true
+    time: 1.5
+
+  - layout: steps
+    kicker: Da colheita à xícara
+    title: Quatro Etapas do Grão Perfeito
+    steps:
+      - stepNum: 1
+        title: Colheita
+        text: Seleção manual de grãos maduros no topo da serra.
+        icon: compass
+        tag: Fazenda
+      - stepNum: 2
+        title: Torra
+        text: Curva térmica precisa para liberar óleos aromáticos.
+        icon: flame
+        tag: Mestre
+      - stepNum: 3
+        title: Moagem
+        text: Granulometria calibrada para o método escolhido.
+        icon: settings
+        tag: Calibração
+      - stepNum: 4
+        title: Extração
+        text: Água a 92°C e equilíbrio sensorial na xícara.
+        icon: coffee
+        tag: Xícara
     time: 1.5
 
   - layout: split

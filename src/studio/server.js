@@ -45,10 +45,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
   }
 
   const server = http.createServer(async (req, res) => {
-    // CORS headers para suporte a preview e proxy
+    // Headers completos para permitir embedding seguro em iframes no Arena e navegadores mobile
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, HEAD");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Content-Security-Policy", "frame-ancestors *;");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const pathname = url.pathname;
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -56,11 +61,40 @@ export function createStudioServer(deckPath = null, opts = {}) {
       return;
     }
 
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-    const pathname = url.pathname;
+    if (req.method === "HEAD" && (pathname === "/" || pathname === "/index.html")) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end();
+      return;
+    }
 
     try {
-      // 1. Arquivos estáticos da pasta public
+      // 1. Arquivos estáticos da pasta public e downloads
+      if (pathname === "/v1.2.0.patch" || pathname === "/patch") {
+        const patchPath = path.join(HERE, "..", "..", "v1.2.0.patch");
+        if (fs.existsSync(patchPath)) {
+          const patchContent = fs.readFileSync(patchPath);
+          res.writeHead(200, {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="v1.2.0.patch"',
+          });
+          res.end(patchContent);
+          return;
+        }
+      }
+
+      if (pathname === "/sagadeck-v1.2.0.tar.gz" || pathname === "/tarball") {
+        const tarPath = path.join(HERE, "..", "..", "sagadeck-v1.2.0.tar.gz");
+        if (fs.existsSync(tarPath)) {
+          const tarContent = fs.readFileSync(tarPath);
+          res.writeHead(200, {
+            "Content-Type": "application/gzip",
+            "Content-Disposition": 'attachment; filename="sagadeck-v1.2.0.tar.gz"',
+          });
+          res.end(tarContent);
+          return;
+        }
+      }
+
       if (pathname === "/" || pathname === "/index.html") {
         const html = fs.readFileSync(path.join(PUBLIC_DIR, "index.html"), "utf8");
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -104,12 +138,21 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/deck" && req.method === "POST") {
         const body = await readJSON(req);
-        if (body.spec) {
+        if (body.yaml) {
+          try {
+            currentSpec = YAML.parse(body.yaml);
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "YAML inválido: " + e.message }));
+            return;
+          }
+        } else if (body.spec) {
           currentSpec = body.spec;
-        } else if (body.yaml) {
-          currentSpec = YAML.parse(body.yaml);
         }
-        if (currentFile) {
+        if (body.filepath) {
+          currentFile = path.resolve(body.filepath);
+        }
+        if (currentFile && body.saveToFile !== false) {
           try {
             fs.writeFileSync(currentFile, YAML.stringify(currentSpec, { indent: 2 }), "utf8");
           } catch (err) {
@@ -117,7 +160,38 @@ export function createStudioServer(deckPath = null, opts = {}) {
           }
         }
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, spec: currentSpec }));
+        res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
+        return;
+      }
+
+      if (pathname === "/api/open-file" && req.method === "POST") {
+        const body = await readJSON(req);
+        if (!body.path) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Caminho do arquivo não informado" }));
+          return;
+        }
+        const targetPath = path.resolve(body.path);
+        if (!fs.existsSync(targetPath)) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Arquivo não encontrado: ${targetPath}` }));
+          return;
+        }
+        try {
+          currentSpec = loadSpec(targetPath);
+          currentFile = targetPath;
+          const rawYaml = YAML.stringify(currentSpec, { indent: 2 });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            ok: true,
+            spec: currentSpec,
+            yaml: rawYaml,
+            file: currentFile,
+          }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Erro ao carregar YAML: ${e.message}` }));
+        }
         return;
       }
 
@@ -132,9 +206,42 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/icons" && req.method === "GET") {
         const q = url.searchParams.get("q") || "";
-        const icons = listIcons(q);
+        const limit = Math.min(Number(url.searchParams.get("limit") || 80), 150);
+        const icons = listIcons(q).slice(0, limit);
+        const { iconSVG } = await import("../figures/icons.js");
+        const results = icons.map((name) => {
+          try {
+            return { name, svg: iconSVG(name, { size: 32 }) };
+          } catch {
+            return { name, svg: "" };
+          }
+        });
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(icons.slice(0, 100)));
+        res.end(JSON.stringify(results));
+        return;
+      }
+
+      if (pathname === "/api/napkin" && req.method === "POST") {
+        const body = await readJSON(req);
+        const { textToVisualSlide, textToVisualDeck } = await import("../diagram/napkin.js");
+        const YAML = (await import("yaml")).default;
+        const result = textToVisualSlide(body.text || "", {
+          theme: body.theme,
+          tone: body.tone,
+          title: body.title,
+          kicker: body.kicker,
+        });
+        const fullDeck = textToVisualDeck(body.text || "");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          ok: true,
+          slide: result.slide,
+          detectedType: result.detectedType,
+          confidence: result.confidence,
+          rationale: result.rationale,
+          yaml: YAML.stringify(result.slide, { indent: 2 }),
+          deckYaml: YAML.stringify(fullDeck, { indent: 2 }),
+        }));
         return;
       }
 
@@ -158,6 +265,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
           }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, ...resDeck }));
+        }
+        return;
+      }
+
+      if (pathname === "/api/search") {
+        const query = url.searchParams.get("q") || "";
+        const limit = Number(url.searchParams.get("limit") || 5);
+        if (!query) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Parâmetro 'q' é obrigatório" }));
+          return;
+        }
+        try {
+          const { searchDuckDuckGo } = await import("../research/duckduckgo.js");
+          const results = await searchDuckDuckGo(query, { limit });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ query, count: results.length, results }));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message, query, results: [] }));
         }
         return;
       }
@@ -199,6 +326,39 @@ export function createStudioServer(deckPath = null, opts = {}) {
           });
           res.end(out.html);
           return;
+        }
+        if (format === "patch") {
+          const patchPath = path.resolve("sagadeck-v1.2.0.patch");
+          if (fs.existsSync(patchPath)) {
+            res.writeHead(200, {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Content-Disposition": 'attachment; filename="sagadeck-v1.2.0.patch"',
+            });
+            fs.createReadStream(patchPath).pipe(res);
+            return;
+          }
+        }
+        if (format === "wheel") {
+          const wheelPath = path.resolve("dist/sagadeck-1.2.0-py3-none-any.whl");
+          if (fs.existsSync(wheelPath)) {
+            res.writeHead(200, {
+              "Content-Type": "application/octet-stream",
+              "Content-Disposition": 'attachment; filename="sagadeck-1.2.0-py3-none-any.whl"',
+            });
+            fs.createReadStream(wheelPath).pipe(res);
+            return;
+          }
+        }
+        if (format === "source" || format === "tar") {
+          const tarPath = path.resolve("sagadeck-v1.2.0-source.tar.gz");
+          if (fs.existsSync(tarPath)) {
+            res.writeHead(200, {
+              "Content-Type": "application/gzip",
+              "Content-Disposition": 'attachment; filename="sagadeck-v1.2.0-source.tar.gz"',
+            });
+            fs.createReadStream(tarPath).pipe(res);
+            return;
+          }
         }
       }
 
@@ -265,12 +425,39 @@ function handleAIChat({ prompt, slideIdx, spec, issues }) {
   }
 
   // 3. Intenção: Troca de Tema
-  const themeMatch = p.match(/tema\s+(sinal|editorial|noite|bauhaus|terminal|jornal)/i);
-  if (themeMatch || (p.includes("tema") && (p.includes("bauhaus") || p.includes("editorial") || p.includes("noite") || p.includes("sinal") || p.includes("terminal") || p.includes("jornal")))) {
-    const themeName = (themeMatch ? themeMatch[1] : (p.match(/(sinal|editorial|noite|bauhaus|terminal|jornal)/i) || [])[1]) || "editorial";
-    newSpec.theme = themeName.toLowerCase();
+  const themeMatch = p.match(/tema\s+(sinal|prata|rabisco|oceano|pop|aurora|editorial|noite|bauhaus|terminal|jornal)/i);
+  const knownThemes = ["sinal", "prata", "rabisco", "oceano", "pop", "aurora", "editorial", "noite", "bauhaus", "terminal", "jornal"];
+  let chosenTheme = null;
+
+  if (themeMatch) {
+    chosenTheme = themeMatch[1].toLowerCase();
+  } else if (p.includes("prata") || p.includes("apple") || p.includes("keynote") || (p.includes("cinza") && p.includes("prata")) || p.includes("titanio") || (p.includes("jovem") && p.includes("sério")) || (p.includes("clean") && p.includes("respiro"))) {
+    chosenTheme = "prata";
+  } else if (p.includes("rabisco") || p.includes("pintado") || p.includes("desenhado") || p.includes("caderno") || p.includes("artesanal") || p.includes("lousa") || p.includes("bonitinho")) {
+    chosenTheme = "rabisco";
+  } else if (p.includes("oceano") || (p.includes("azul") && (p.includes("vivo") || p.includes("eletrico") || p.includes("elétrico") || p.includes("vibrante")))) {
+    chosenTheme = "oceano";
+  } else if (p.includes("pop") || p.includes("alegre") || p.includes("chiclete") || p.includes("colorid")) {
+    chosenTheme = "pop";
+  } else if (p.includes("aurora") || p.includes("neon") || p.includes("gradiente")) {
+    chosenTheme = "aurora";
+  } else if (p.includes("tema")) {
+    for (const t of knownThemes) {
+      if (p.includes(t)) { chosenTheme = t; break; }
+    }
+  }
+
+  if (chosenTheme) {
+    newSpec.theme = chosenTheme;
     actions.push(`Tema da apresentação alterado para "${newSpec.theme}"`);
-    reply = `Alterei o tema visual da apresentação para **${newSpec.theme}**. As fontes e paletas foram atualizadas.`;
+    let desc = "";
+    if (chosenTheme === "prata") desc = "estilo Keynote da Apple: cinza prata acetinado (#F5F5F7), respiro clean, tipografia SF/Inter nítida e cartelas sofisticadas";
+    else if (chosenTheme === "rabisco") desc = "fontes manuscritas ('Caveat'/'Patrick Hand'), bordas orgânicas desenhadas à mão, post-its e traços de caderno";
+    else if (chosenTheme === "oceano") desc = "azul royal elétrico vibrante, ciano neon, visual dinâmico e luminoso";
+    else if (chosenTheme === "pop") desc = "paleta super alegre e animada (roxo, rosa chiclete, menta, sol) com cantos ultra-arredondados";
+    else if (chosenTheme === "aurora") desc = "fundo escuro espacial com luzes e gradientes neon (ciano, violeta, magenta)";
+    else desc = `estilo ${chosenTheme}`;
+    reply = `Alterei o tema visual da apresentação para **${newSpec.theme}** (${desc})!`;
     return { reply, actions, spec: newSpec, targetSlide: targetIdx };
   }
 
@@ -286,19 +473,47 @@ function handleAIChat({ prompt, slideIdx, spec, issues }) {
     return { reply, actions, spec: newSpec, targetSlide: targetIdx };
   }
 
-  // 5. Intenção: Trocar Layout para Cards
+  // 5. Intenção: Transformar em Stats / KPIs visuais (menos texto, mais impacto)
+  if (p.includes("stat") || p.includes("kpi") || p.includes("métrica") || p.includes("metricas") || (p.includes("menos texto") && (p.includes("numero") || p.includes("número")))) {
+    s.layout = "stats";
+    s.title = s.title || "Nossas Métricas de Impacto";
+    s.stats = [
+      { value: "99.4%", label: "Disponibilidade Global", trend: "+2.1%", trendUp: true, icon: "shield-check", text: "Acima do benchmark da indústria" },
+      { value: "4.5x", label: "Mais Produtividade", trend: "recorde", trendUp: true, icon: "zap", text: "Redução drástica no ciclo operacional" },
+      { value: "12M+", label: "Usuários Impactados", trend: "+38% a/a", trendUp: true, icon: "users", text: "Presença em mais de 65 países" },
+    ];
+    actions.push(`Slide ${targetIdx + 1} transformado em layout de KPIs visuais ("stats")`);
+    reply = `Transformei o slide ${targetIdx + 1} no layout visual de **KPIs / Stats**. O textão foi substituído por grandes números com ícones, badges de tendência (+2.1%, recorde) e títulos concisos!`;
+    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
+  }
+
+  // 6. Intenção: Transformar em Processo / Passos (Steps)
+  if (p.includes("passo") || p.includes("processo") || p.includes("fluxo") || p.includes("step") || p.includes("etapa") || p.includes("pipeline")) {
+    s.layout = "steps";
+    s.title = s.title || "Jornada em 3 Etapas Simples";
+    s.steps = [
+      { stepNum: 1, title: "Diagnóstico", text: "Mapeamento rápido de necessidades.", icon: "search", tag: "Dia 1" },
+      { stepNum: 2, title: "Configuração", text: "Integração sem código com o SagaDeck.", icon: "cpu", tag: "Automático" },
+      { stepNum: 3, title: "Lançamento", text: "Apresentação visual com alto engajamento.", icon: "rocket", tag: "Resultado" },
+    ];
+    actions.push(`Slide ${targetIdx + 1} transformado em fluxo de etapas visuais ("steps")`);
+    reply = `Transformei o slide ${targetIdx + 1} em um fluxo visual de **Etapas / Processo (steps)**. As frases longas viraram cartões conectados por setas, com números destacados, ícones e tags!`;
+    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
+  }
+
+  // 7. Intenção: Trocar Layout para Cards
   if (p.includes("card") || p.includes("cartao") || p.includes("cartões")) {
     s.layout = "cards";
     if (!Array.isArray(s.items) || s.items.length === 0) {
       s.items = [
-        { title: "Diagnóstico Rápido", text: "Visão clara do problema em segundos.", icon: "zap" },
-        { title: "Ação Imediata", text: "Passos práticos sem sobrecarregar a equipe.", icon: "target" },
-        { title: "Métrica Concreta", text: "Resultados mensuráveis no final do ciclo.", icon: "trending-up" },
+        { title: "Diagnóstico Rápido", text: "Visão clara do problema em segundos.", icon: "zap", badge: "Rápido" },
+        { title: "Ação Imediata", text: "Passos práticos sem sobrecarregar a equipe.", icon: "target", progress: 80 },
+        { title: "Métrica Concreta", text: "Resultados mensuráveis no final do ciclo.", icon: "trending-up", tags: ["Visual", "Direto"] },
       ];
     }
     s.cols = Math.min(4, s.items.length);
     actions.push(`Layout do slide ${targetIdx + 1} transformado em cards (${s.items.length} cards, ${s.cols} colunas)`);
-    reply = `Transformei o slide ${targetIdx + 1} em layout **cards** com ícones e estrutura balanceada.`;
+    reply = `Transformei o slide ${targetIdx + 1} em layout **cards** com ícones, badges e estrutura balanceada.`;
     // Roda auto-correção
     const auto = autofixSlide(s, newSpec);
     newSpec.slides[targetIdx] = auto.slide;
@@ -385,8 +600,25 @@ function handleAIChat({ prompt, slideIdx, spec, issues }) {
     return { reply, actions, spec: newSpec, targetSlide: targetIdx + 1 };
   }
 
-  // 12. Intenção: Resumir / Deixar Conciso (Anti-sono)
-  if (p.includes("resum") || p.includes("concis") || p.includes("diminuir texto") || p.includes("anti-sono")) {
+  // 12. Intenção: Resumir / Deixar Conciso / Menos Texto / Mais Visual (Anti-sono)
+  if (p.includes("resum") || p.includes("concis") || p.includes("diminuir texto") || p.includes("menos texto") || p.includes("muito texto") || p.includes("mais visual") || p.includes("anti-sono") || p.includes("textao") || p.includes("textão")) {
+    // Se o slide tiver texto longo e estiver em split ou blocks, transformar em cards visuais com widgets
+    if ((s.body && s.body.length > 70) || (s.bullets && s.bullets.length > 2)) {
+      s.layout = "cards";
+      s.items = [
+        { title: "Diagnóstico Rápido", text: "Identificação imediata da oportunidade.", icon: "zap", badge: "Essencial" },
+        { title: "Progresso da Meta", text: "Execução orientada por entregáveis visuais.", icon: "target", progress: 85, progressLabel: "Meta" },
+        { title: "Impacto no Negócio", text: "Crescimento sustentável sem burocracia.", icon: "trending-up", tags: ["Visual", "Direto"] }
+      ];
+      delete s.body;
+      delete s.bullets;
+      actions.push(`Slide ${targetIdx + 1} transformado em cards visuais com badges, progresso e tags`);
+      reply = `Substituí o excesso de texto do slide ${targetIdx + 1} por **cards visuais estruturados**, com ícones, barra de progresso e tags, eliminando o visual cansativo!`;
+      const fix = autofixSlide(s, newSpec);
+      newSpec.slides[targetIdx] = fix.slide;
+      return { reply, actions: [...actions, ...fix.actions], spec: newSpec, targetSlide: targetIdx };
+    }
+
     if (s.body && typeof s.body === "string") {
       const parts = s.body.split(/(?<=[.?!])\s+/);
       s.body = parts[0];

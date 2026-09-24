@@ -1,0 +1,139 @@
+# Exemplo de Apresentação Gerada pelo Napkin AI
+# Mostra como o motor semântico converte parágrafos em diagramas de alto impacto.
+# Atalhos ao vivo: D = Caneta · M = Marca-texto · C = Limpar tela · P = Modo Apresentador
+title: Da Ideia ao Diagrama Visual
+author: SagaDeck Napkin AI
+theme: sinal
+duration: 10
+
+slides:
+  - layout: cover
+    kicker: Napkin AI · Text-to-Diagram
+    title: Da Ideia ao ==Diagrama Visual==
+    subtitle: Como o motor semântico transforma notas de reunião em apresentações de alto impacto
+    author: SagaDeck Studio
+    role: Motor Determinístico & Visual
+    time: 1
+    notes: |
+      > Sejam bem-vindos! Hoje vamos demonstrar como nunca mais perder horas desenhando caixinhas e setas.
+      Pressione D a qualquer momento para desenhar na tela com a Caneta ao Vivo.
+
+  - layout: steps
+    kicker: FLUXO DE TRABALHO
+    title: O Pipeline em Quatro Etapas
+    steps:
+      - stepNum: 1
+        title: Texto Bruto
+        text: Cole notas ou tópicos soltos.
+        icon: file-text
+        tag: Entrada
+      - stepNum: 2
+        title: Análise Semântica
+        text: O motor detecta fluxo ou métricas.
+        icon: cpu
+        tag: IA Leve
+      - stepNum: 3
+        title: Layout Visual
+        text: Geração determinística sem alucinação.
+        icon: layout-grid
+        tag: Diagrama
+      - stepNum: 4
+        title: Apresentação
+        text: HTML interativo e PowerPoint nativo.
+        icon: rocket
+        tag: Show
+    time: 2
+    notes: |
+      > Explique que cada etapa é processada localmente com zero tempo de espera.
+
+  - layout: stats
+    kicker: MÉTRICAS-CHAVE
+    title: O Ganho em Números Reais
+    stats:
+      - value: "5s"
+        label: Tempo de Geração
+        trend: instantâneo
+        trendUp: true
+        icon: zap
+        text: De texto a diagrama
+      - value: "80%"
+        label: Economia de Tokens
+        trend: zero alucinação
+        trendUp: true
+        icon: check-circle
+        text: Menor custo de IA
+      - value: "100%"
+        label: Editável no Office
+        trend: nativo .pptx
+        trendUp: true
+        icon: layers
+        text: Total compatibilidade
+      - value: "0"
+        label: Bloqueios de Tela
+        trend: wake lock
+        trendUp: true
+        icon: shield-check
+        text: Windows não suspende
+    time: 2
+
+  - layout: compare
+    kicker: COMPARAÇÃO
+    title: Tradicional vs SagaDeck Napkin
+    left:
+      title: Modo Tradicional
+      items:
+        - Desenhar caixas manuais
+        - Texto corrido sem hierarquia
+        - Layout quebra no PPT
+        - Tela bloqueia no meio da fala
+    right:
+      title: Com SagaDeck Napkin
+      items:
+        - Diagrama gerado em 5 segundos
+        - Ícones automáticos adequados
+        - 100% nativo e editável
+        - Anti-Bloqueio corporativo ativo
+    time: 2
+
+  - layout: cards
+    kicker: PILARES FUNDAMENTAIS
+    title: Recursos Visuais Inteligentes
+    cols: 3
+    items:
+      - icon: pen-tool
+        badge: Ao Vivo
+        title: Caneta & Marca-Texto
+        text: Teclas D e M para desenhar e circular no palco.
+        check: true
+        checkText: Teclas D e M
+      - icon: shield-check
+        badge: Corporativo
+        title: Escudo Anti-Bloqueio
+        text: Impede suspensão da tela em máquinas do trabalho.
+        progress: 100
+        progressLabel: Protegido
+      - icon: sparkles
+        badge: Dicionário
+        title: 2.100+ Ícones Lucide
+        text: Resolução semântica com busca fonética contra erros.
+        rating: 5
+        ratingLabel: 5.0 estrelas
+        tags: ["Visual", "Anti-Sono"]
+    time: 2
+
+  - layout: statement
+    kicker: PRINCÍPIO SAGADECK
+    text: "Menos tempo alinhando retângulos. Muito mais tempo refinando ideias."
+    by: SagaDeck Philosophy
+    center: true
+    tone: accent
+    time: 1
+
+  - layout: end
+    title: Experimente Agora.
+    subtitle: Use 'sagadeck napkin' ou abra o Studio na porta 3000.
+    contacts:
+      - "Pressione D para desenhar nesta tela"
+      - "Pressione P para abrir a tela do apresentador"
+    figure: { picto: human, pose: cheer, sign: circle }
+    time: 1

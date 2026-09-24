@@ -13,6 +13,12 @@
     autoFit: true,
     showGuides: true,
     showInspectorOverlay: true,
+    soundEnabled: true,
+    isSquint: false,
+    isHeatmap: false,
+    isYamlDrawerOpen: false,
+    selectedIcon: null,
+    iconTargetCardIndex: null,
     issues: [],
     themes: [],
     layouts: [],
@@ -21,7 +27,7 @@
   };
 
   const LAYOUT_NAMES = [
-    "cover", "statement", "section", "cards", "split", "number",
+    "cover", "statement", "section", "cards", "stats", "steps", "split", "number",
     "quote", "list", "timeline", "chart", "compare", "matrix",
     "question", "poll", "image", "code", "blocks", "end",
     "references", "video", "canvas"
@@ -71,6 +77,16 @@
     btnPresent: document.getElementById("btn-present"),
     btnExportMenu: document.getElementById("btn-export-menu"),
     exportDropdown: document.getElementById("export-dropdown"),
+    btnOpenYaml: document.getElementById("btn-open-yaml"),
+    fileInputYaml: document.getElementById("file-input-yaml"),
+    menuOpenLocal: document.getElementById("menu-open-local"),
+    menuOpenServer: document.getElementById("menu-open-server"),
+    modalOpenServer: document.getElementById("modal-open-server"),
+    inputServerPath: document.getElementById("input-server-path"),
+    btnConfirmOpenServer: document.getElementById("btn-confirm-open-server"),
+    btnCancelOpenServer: document.getElementById("btn-cancel-open-server"),
+    btnCloseOpenModal: document.getElementById("btn-close-open-modal"),
+    dropOverlay: document.getElementById("drop-overlay"),
     exportYaml: document.getElementById("export-yaml"),
     exportHtml: document.getElementById("export-html"),
     actionSaveYaml: document.getElementById("action-save-yaml"),
@@ -79,13 +95,74 @@
     chatMessages: document.getElementById("chat-messages"),
     aiScopeSelect: document.getElementById("ai-scope-select"),
     toast: document.getElementById("toast-notification"),
-    // Apresentação Fullscreen
+    // Biblioteca de Ícones
+    btnInsertIcon: document.getElementById("btn-insert-icon"),
+    modalIconPicker: document.getElementById("modal-icon-picker"),
+    btnCloseIconPicker: document.getElementById("btn-close-icon-picker"),
+    iconSearchInput: document.getElementById("icon-search-input"),
+    iconSearchCount: document.getElementById("icon-search-count"),
+    iconsGridContainer: document.getElementById("icons-grid-container"),
+    iconPreviewFooter: document.getElementById("icon-preview-footer"),
+    iconPreviewSvg: document.getElementById("icon-preview-svg"),
+    iconPreviewName: document.getElementById("icon-preview-name"),
+    btnInsertIconCard: document.getElementById("btn-insert-icon-card"),
+    btnInsertIconFigure: document.getElementById("btn-insert-icon-figure"),
+    btnInsertIconCanvas: document.getElementById("btn-insert-icon-canvas"),
+    // Recursos Inovadores Fora da Caixa
+    btnSpotlight: document.getElementById("btn-spotlight"),
+    btnSquint: document.getElementById("btn-squint"),
+    btnHeatmap: document.getElementById("btn-heatmap"),
+    btnSmartTidy: document.getElementById("btn-smart-tidy"),
+    btnYamlDrawer: document.getElementById("btn-yaml-drawer"),
+    btnAudioToggle: document.getElementById("btn-audio-toggle"),
+    heatmapOverlay: document.getElementById("heatmap-overlay"),
+    alchemyPill: document.getElementById("alchemy-pill"),
+    alchemyActions: document.getElementById("alchemy-actions"),
+    yamlDrawer: document.getElementById("yaml-drawer"),
+    yamlLiveEditor: document.getElementById("yaml-live-editor"),
+    btnCloseYamlDrawer: document.getElementById("btn-close-yaml-drawer"),
+    storyArcWidget: document.getElementById("story-arc-widget"),
+    storyArcPath: document.getElementById("story-arc-path"),
+    storyArcDot: document.getElementById("story-arc-dot"),
+    arcStatusBadge: document.getElementById("arc-status-badge"),
+    arcRecommendation: document.getElementById("arc-recommendation"),
+    commandPaletteModal: document.getElementById("command-palette-modal"),
+    paletteSearchInput: document.getElementById("palette-search-input"),
+    paletteResultsList: document.getElementById("palette-results-list"),
+    // Napkin AI (Texto -> Diagrama Visual)
+    btnNapkin: document.getElementById("btn-napkin"),
+    modalNapkin: document.getElementById("modal-napkin"),
+    btnCloseNapkin: document.getElementById("btn-close-napkin"),
+    napkinInputText: document.getElementById("napkin-input-text"),
+    napkinPreviewBox: document.getElementById("napkin-preview-box"),
+    napkinDetectedBadge: document.getElementById("napkin-detected-badge"),
+    napkinRationale: document.getElementById("napkin-rationale"),
+    napkinYamlPreview: document.getElementById("napkin-yaml-preview"),
+    btnRunNapkin: document.getElementById("btn-run-napkin"),
+    btnNapkinReplace: document.getElementById("btn-napkin-replace"),
+    btnNapkinInsert: document.getElementById("btn-napkin-insert"),
+    // Apresentação Fullscreen & Live Drawing
     presModal: document.getElementById("presentation-modal"),
     modalClosePresent: document.getElementById("modal-close-present"),
     modalStage: document.getElementById("modal-stage"),
+    presSlideRender: document.getElementById("pres-slide-render"),
+    presDrawCanvas: document.getElementById("pres-draw-canvas"),
+    presDrawToolbar: document.getElementById("pres-draw-toolbar"),
+    presDrawFab: document.getElementById("pres-draw-fab"),
+    presBtnPen: document.getElementById("pres-btn-pen"),
+    presBtnHighlighter: document.getElementById("pres-btn-highlighter"),
+    presBtnUndo: document.getElementById("pres-btn-undo"),
+    presBtnClear: document.getElementById("pres-btn-clear"),
+    presBtnCloseDraw: document.getElementById("pres-btn-close-draw"),
     presPrev: document.getElementById("pres-prev"),
     presNext: document.getElementById("pres-next"),
     presCounter: document.getElementById("pres-counter"),
+    // Navegação Mobile (Smartphones)
+    mobileNavBtnSlides: document.getElementById("mobile-btn-slides"),
+    mobileNavBtnNapkin: document.getElementById("mobile-btn-napkin"),
+    mobileNavBtnPresent: document.getElementById("mobile-btn-present"),
+    mobileNavBtnEditor: document.getElementById("mobile-btn-editor"),
+    mobileNavBtnChat: document.getElementById("mobile-btn-chat"),
   };
 
   // Inicialização
@@ -161,6 +238,15 @@
       // Atualizar painel lateral de propriedades
       updatePropertiesPanel(slide);
 
+      // Atualizar Eletrocardiograma da Narrativa (Story Arc Pulse)
+      updateStoryArc();
+
+      // Atualizar YAML Live Link
+      updateYamlLiveEditor();
+
+      // Renderizar Heatmap se ativo
+      if (state.isHeatmap) renderHeatmap();
+
       // Rodar inspeção geométrica do fiscal (detector de sobreposição e margens)
       setTimeout(inspectGeometry, 60);
     } catch (err) {
@@ -203,6 +289,16 @@
       el.addEventListener("input", () => {
         saveInlineChange(el);
         inspectGeometry();
+      });
+
+      el.addEventListener("mouseup", () => {
+        const sel = window.getSelection();
+        const selText = sel ? sel.toString().trim() : "";
+        showAlchemyPill(el, selText);
+      });
+
+      el.addEventListener("focus", () => {
+        showAlchemyPill(el, "");
       });
 
       el.addEventListener("blur", () => {
@@ -497,6 +593,587 @@
   }
 
   // ==========================================================================
+  // SÍNTESE DE ÁUDIO WEB AUDIO API (MICRO-INTERAÇÕES HÁPTICAS)
+  // ==========================================================================
+  let audioCtx = null;
+  function playHaptic(type = "snap") {
+    if (!state.soundEnabled) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      if (type === "snap") {
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 0.04);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } else if (type === "pop") {
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.06);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      }
+    } catch {}
+  }
+
+  // ==========================================================================
+  // BIBLIOTECA DE ÍCONES (2.100+ ÍCONES)
+  // ==========================================================================
+  function openIconPicker(targetCardIdx = null) {
+    state.iconTargetCardIndex = targetCardIdx;
+    dom.modalIconPicker.classList.remove("hidden");
+    dom.iconSearchInput.value = "";
+    dom.iconPreviewFooter.classList.add("hidden");
+    state.selectedIcon = null;
+    loadIcons("");
+    setTimeout(() => dom.iconSearchInput.focus(), 60);
+  }
+
+  function closeIconPicker() {
+    dom.modalIconPicker.classList.add("hidden");
+    state.iconTargetCardIndex = null;
+  }
+
+  async function loadIcons(query = "") {
+    dom.iconSearchCount.textContent = "Buscando...";
+    try {
+      const res = await fetch(`/api/icons?q=${encodeURIComponent(query)}&limit=90`);
+      const list = await res.json();
+      dom.iconsGridContainer.innerHTML = "";
+      dom.iconSearchCount.textContent = `${list.length} ícones`;
+
+      if (list.length === 0) {
+        dom.iconsGridContainer.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-dim);">Nenhum ícone encontrado para "${query}". Tente termos como "coffee", "user", "star", "chart", "rocket".</div>`;
+        return;
+      }
+
+      list.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "icon-card";
+        card.title = item.name;
+
+        const svgBox = document.createElement("div");
+        svgBox.className = "icon-svg-wrapper";
+        svgBox.innerHTML = item.svg;
+        card.appendChild(svgBox);
+
+        const label = document.createElement("span");
+        label.className = "icon-card-name";
+        label.textContent = item.name;
+        card.appendChild(label);
+
+        card.onclick = () => {
+          dom.iconsGridContainer.querySelectorAll(".icon-card").forEach((c) => c.classList.remove("selected"));
+          card.classList.add("selected");
+          state.selectedIcon = item;
+
+          if (state.iconTargetCardIndex !== null) {
+            applyIconToTargetCard(item.name);
+            return;
+          }
+
+          dom.iconPreviewFooter.classList.remove("hidden");
+          dom.iconPreviewSvg.innerHTML = item.svg;
+          dom.iconPreviewName.textContent = item.name;
+          playHaptic("snap");
+        };
+
+        dom.iconsGridContainer.appendChild(card);
+      });
+    } catch (err) {
+      dom.iconsGridContainer.innerHTML = `<div style="color:var(--danger);padding:20px;">Erro ao carregar ícones: ${err.message}</div>`;
+    }
+  }
+
+  function applyIconToTargetCard(iconName) {
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (slide && slide.items && slide.items[state.iconTargetCardIndex]) {
+      if (typeof slide.items[state.iconTargetCardIndex] === "object") {
+        slide.items[state.iconTargetCardIndex].icon = iconName;
+      } else {
+        slide.items[state.iconTargetCardIndex] = {
+          title: String(slide.items[state.iconTargetCardIndex]),
+          icon: iconName,
+        };
+      }
+      syncDeckToServer();
+      renderCurrentSlide();
+      closeIconPicker();
+      showToast(`Ícone alterado para "${iconName}"!`);
+      playHaptic("snap");
+    }
+  }
+
+  function insertSelectedIconAsCard() {
+    if (!state.selectedIcon) return;
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (!slide) return;
+
+    if (slide.layout !== "cards") {
+      slide.layout = "cards";
+    }
+    if (!Array.isArray(slide.items)) slide.items = [];
+
+    slide.items.push({
+      title: state.selectedIcon.name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      text: "Descrição do novo ponto ou benefício.",
+      icon: state.selectedIcon.name,
+    });
+    slide.cols = Math.min(4, Math.max(2, slide.items.length));
+
+    syncDeckToServer();
+    renderCurrentSlide();
+    renderThumbnails();
+    closeIconPicker();
+    showToast(`✓ Card com ícone "${state.selectedIcon.name}" adicionado!`);
+    playHaptic("pop");
+  }
+
+  function insertSelectedIconAsFigure() {
+    if (!state.selectedIcon) return;
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (!slide) return;
+
+    slide.figure = { icon: state.selectedIcon.name, size: 360 };
+    if (slide.layout !== "split" && slide.layout !== "section" && slide.layout !== "cover" && slide.layout !== "end") {
+      slide.layout = "split";
+    }
+
+    syncDeckToServer();
+    renderCurrentSlide();
+    renderThumbnails();
+    closeIconPicker();
+    showToast(`✓ Ícone "${state.selectedIcon.name}" definido como figura principal!`);
+    playHaptic("pop");
+  }
+
+  function insertSelectedIconAsCanvas() {
+    if (!state.selectedIcon) return;
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (!slide) return;
+
+    if (slide.layout !== "canvas") {
+      slide.layout = "canvas";
+    }
+    if (!Array.isArray(slide.elements)) slide.elements = [];
+
+    slide.elements.push({
+      icon: state.selectedIcon.name,
+      x: 800,
+      y: 350,
+      w: 220,
+      h: 220,
+    });
+
+    syncDeckToServer();
+    renderCurrentSlide();
+    renderThumbnails();
+    closeIconPicker();
+    showToast(`✓ Ícone "${state.selectedIcon.name}" adicionado ao canvas livre!`);
+    playHaptic("pop");
+  }
+
+  // ==========================================================================
+  // ELETROCARDIOGRAMA DA NARRATIVA (Story Arc Pulse)
+  // ==========================================================================
+  function updateStoryArc() {
+    if (!state.deck || !state.deck.slides || state.deck.slides.length === 0) return;
+    const slides = state.deck.slides;
+    const count = slides.length;
+    const svgW = 200;
+    const svgH = 36;
+
+    const ENERGY_MAP = {
+      cover: 85, statement: 80, number: 75, cards: 55, split: 60,
+      chart: 65, timeline: 50, compare: 65, matrix: 55, question: 80,
+      poll: 80, image: 70, quote: 70, end: 85, canvas: 60, blocks: 50
+    };
+
+    const points = slides.map((s, idx) => {
+      const x = count <= 1 ? svgW / 2 : (idx / (count - 1)) * (svgW - 16) + 8;
+      const baseEnergy = ENERGY_MAP[s.layout] || 60;
+      const toneBonus = s.tone === "accent" || s.tone === "alert" ? 15 : s.tone === "dark" ? 8 : 0;
+      const energy = Math.min(95, Math.max(15, baseEnergy + toneBonus));
+      const y = svgH - ((energy / 100) * (svgH - 10) + 5);
+      return { x, y, energy, layout: s.layout };
+    });
+
+    let pathD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const cur = points[i];
+      const cx = (prev.x + cur.x) / 2;
+      pathD += ` C ${cx} ${prev.y}, ${cx} ${cur.y}, ${cur.x} ${cur.y}`;
+    }
+    dom.storyArcPath.setAttribute("d", pathD);
+
+    const currentPt = points[state.currentSlideIndex] || points[0];
+    dom.storyArcDot.setAttribute("cx", currentPt.x);
+    dom.storyArcDot.setAttribute("cy", currentPt.y);
+
+    let isMonotone = false;
+    if (count >= 4) {
+      for (let i = 0; i <= count - 4; i++) {
+        const slice = slides.slice(i, i + 4);
+        const layouts = new Set(slice.map((s) => s.layout || "auto"));
+        const tones = new Set(slice.map((s) => s.tone || "light"));
+        if (layouts.size === 1 && tones.size === 1) {
+          isMonotone = true;
+          break;
+        }
+      }
+    }
+
+    if (isMonotone) {
+      dom.arcStatusBadge.className = "arc-badge warn";
+      dom.arcStatusBadge.textContent = "Ritmo Monótono";
+      dom.arcRecommendation.textContent = "4 slides seguidos similares detectados. Alterne com gráficos, perguntas ou cards!";
+    } else {
+      dom.arcStatusBadge.className = "arc-badge ok";
+      dom.arcStatusBadge.textContent = "Dinâmico ✓";
+      dom.arcRecommendation.textContent = "Alternância equilibrada de layouts e ritmos visuais.";
+    }
+  }
+
+  // ==========================================================================
+  // MODOS DE VISÃO: HEATMAP, SQUINT TEST & SMART TIDY
+  // ==========================================================================
+  function toggleSquintTest() {
+    state.isSquint = !state.isSquint;
+    dom.canvasViewport.classList.toggle("squint-mode", state.isSquint);
+    dom.btnSquint.classList.toggle("active", state.isSquint);
+    if (state.isSquint) {
+      showToast("👁️ Teste da Última Fileira: simula visualização distante ou em tela pequena");
+      playHaptic("snap");
+    }
+  }
+
+  function toggleHeatmap() {
+    state.isHeatmap = !state.isHeatmap;
+    dom.btnHeatmap.classList.toggle("active", state.isHeatmap);
+    renderHeatmap();
+    if (state.isHeatmap) {
+      showToast("🔥 Heatmap de Atenção: simulação de foco visual nos primeiros 2 segundos");
+      playHaptic("pop");
+    }
+  }
+
+  function renderHeatmap() {
+    dom.heatmapOverlay.innerHTML = "";
+    if (!state.isHeatmap) {
+      dom.heatmapOverlay.classList.add("hidden");
+      return;
+    }
+    dom.heatmapOverlay.classList.remove("hidden");
+
+    const slideEl = dom.renderedSlideContainer.querySelector(".slide");
+    if (!slideEl) return;
+
+    const stageR = dom.slideStage.getBoundingClientRect();
+    const scale = stageR.width / 1920;
+
+    const targets = Array.from(slideEl.querySelectorAll(".ttl, .nm-val, .card, .figbox, .st-line, .q-text"));
+    targets.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const lx = (r.left - stageR.left) / scale;
+      const ly = (r.top - stageR.top) / scale;
+      const lw = r.width / scale;
+      const lh = r.height / scale;
+
+      const spot = document.createElement("div");
+      const isHigh = el.classList.contains("ttl") || el.classList.contains("nm-val");
+      spot.className = `heat-spot ${isHigh ? "high" : "medium"}`;
+      const size = Math.max(lw, lh) * 1.6;
+      spot.style.width = `${size}px`;
+      spot.style.height = `${size}px`;
+      spot.style.left = `${lx + lw / 2 - size / 2}px`;
+      spot.style.top = `${ly + lh / 2 - size / 2}px`;
+      dom.heatmapOverlay.appendChild(spot);
+    });
+  }
+
+  function smartTidy() {
+    playHaptic("pop");
+    dom.slideStage.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+    dom.slideStage.style.transform = `scale(${state.zoomScale * 1.02})`;
+    setTimeout(() => {
+      dom.slideStage.style.transform = `scale(${state.zoomScale})`;
+    }, 180);
+    triggerAutofix();
+    showToast("✨ Arrumar a Casa: elementos alinhados e espaçamentos equilibrados!");
+  }
+
+  // ==========================================================================
+  // PÍLULA DE ALQUIMIA FLUTUANTE
+  // ==========================================================================
+  function showAlchemyPill(targetEl, selText) {
+    if (!targetEl) {
+      dom.alchemyPill.classList.add("hidden");
+      return;
+    }
+
+    const stageR = dom.slideStage.getBoundingClientRect();
+    const scale = stageR.width / 1920;
+    const r = targetEl.getBoundingClientRect();
+
+    const lx = (r.left - stageR.left) / scale;
+    const ly = (r.top - stageR.top) / scale;
+    const lw = r.width / scale;
+
+    dom.alchemyPill.style.left = `${Math.max(140, Math.min(1500, lx + lw / 2 - 140))}px`;
+    dom.alchemyPill.style.top = `${Math.max(20, ly - 52)}px`;
+
+    dom.alchemyActions.innerHTML = "";
+    const text = selText || targetEl.innerText || "";
+    const isNumber = /\b\d+(?:[\.,]\d+)?%?\b/.test(text);
+
+    const actions = [];
+
+    if (isNumber) {
+      actions.push({
+        label: "⚡ Virar Number",
+        fn: () => {
+          const match = text.match(/\d+(?:[\.,]\d+)?/);
+          const slide = state.deck.slides[state.currentSlideIndex];
+          slide.layout = "number";
+          slide.value = match ? match[0] : 100;
+          slide.suffix = text.includes("%") ? "%" : "";
+          syncDeckToServer();
+          renderCurrentSlide();
+          playHaptic("pop");
+          showToast("Convertido para layout Number!");
+        }
+      });
+      actions.push({
+        label: "📊 Donut Chart",
+        fn: () => {
+          const slide = state.deck.slides[state.currentSlideIndex];
+          slide.layout = "number";
+          slide.side = { chart: "donut", value: 75, center: "75%", w: 500, h: 500 };
+          syncDeckToServer();
+          renderCurrentSlide();
+          playHaptic("pop");
+          showToast("Donut Chart inserido!");
+        }
+      });
+    }
+
+    actions.push({
+      label: "🃏 Virar Cards",
+      fn: () => {
+        const slide = state.deck.slides[state.currentSlideIndex];
+        slide.layout = "cards";
+        slide.items = [
+          { title: "Ponto Principal", text: text.slice(0, 60), icon: "zap" },
+          { title: "Desdobramento", text: "Impacto no dia a dia da operação.", icon: "target" },
+          { title: "Métrica", text: "Resultados claros ao final do ciclo.", icon: "trending-up" },
+        ];
+        slide.cols = 3;
+        syncDeckToServer();
+        renderCurrentSlide();
+        playHaptic("pop");
+        showToast("Convertido em 3 Cards!");
+      }
+    });
+
+    actions.push({
+      label: "✦ Inserir Ícone",
+      fn: () => {
+        openIconPicker();
+      }
+    });
+
+    actions.push({
+      label: "✨ ==Destaque==",
+      fn: () => {
+        document.execCommand("insertText", false, `==${text}==`);
+        playHaptic("snap");
+      }
+    });
+
+    actions.push({
+      label: "🪄 Auto-Ajustar",
+      fn: () => {
+        triggerAutofix();
+      }
+    });
+
+    actions.forEach((a) => {
+      const btn = document.createElement("button");
+      btn.className = "btn-alchemy";
+      btn.textContent = a.label;
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        a.fn();
+        dom.alchemyPill.classList.add("hidden");
+      };
+      dom.alchemyActions.appendChild(btn);
+    });
+
+    dom.alchemyPill.classList.remove("hidden");
+  }
+
+  // ==========================================================================
+  // GAVETA YAML LIVE LINK
+  // ==========================================================================
+  let yamlDebounce = null;
+
+  function toggleYamlDrawer() {
+    state.isYamlDrawerOpen = !state.isYamlDrawerOpen;
+    dom.yamlDrawer.classList.toggle("hidden", !state.isYamlDrawerOpen);
+    dom.btnYamlDrawer.classList.toggle("active", state.isYamlDrawerOpen);
+    if (state.isYamlDrawerOpen) {
+      updateYamlLiveEditor();
+      dom.yamlLiveEditor.focus();
+    }
+  }
+
+  async function updateYamlLiveEditor() {
+    if (!state.isYamlDrawerOpen || !state.deck) return;
+    try {
+      const res = await fetch("/api/deck");
+      const data = await res.json();
+      dom.yamlLiveEditor.value = data.yaml;
+    } catch {}
+  }
+
+  function onYamlEditorInput() {
+    clearTimeout(yamlDebounce);
+    yamlDebounce = setTimeout(async () => {
+      try {
+        const text = dom.yamlLiveEditor.value;
+        const res = await fetch("/api/deck", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ yaml: text, saveToFile: false }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          state.deck = data.spec;
+          renderCurrentSlide();
+          renderThumbnails();
+          updateStoryArc();
+        }
+      } catch {}
+    }, 120);
+  }
+
+  // ==========================================================================
+  // PALETA DE COMANDOS (SPOTLIGHT / RAYCAST)
+  // ==========================================================================
+  const PALETTE_COMMANDS = [
+    { title: "Napkin: Transformar texto em diagrama visual", cat: "IA", icon: "🪄", fn: () => openNapkinModal() },
+    { title: "Caneta de anotações ao vivo (apresentação)", cat: "Modo", icon: "✏️", fn: () => { startPresentation(); setTimeout(() => togglePresDrawing(true, "pen"), 250); } },
+    { title: "Auto-corrigir sobreposições e margens", cat: "Fiscal", icon: "✨", fn: () => triggerAutofix() },
+    { title: "Biblioteca de 2.100+ Ícones", cat: "Inserir", icon: "✦", fn: () => openIconPicker() },
+    { title: "Arrumar a casa (Smart Tidy)", cat: "Design", icon: "✨", fn: () => smartTidy() },
+    { title: "Teste da última fileira (Squint test)", cat: "Visual", icon: "👁️", fn: () => toggleSquintTest() },
+    { title: "Heatmap de atenção humana", cat: "Visual", icon: "🔥", fn: () => toggleHeatmap() },
+    { title: "Abrir editor de YAML bi-direcional", cat: "Código", icon: "{ }", fn: () => toggleYamlDrawer() },
+    { title: "Virar layout Cards (3 colunas)", cat: "Layout", icon: "🃏", fn: () => changeCurrentLayout("cards") },
+    { title: "Virar layout Statement (Frase de impacto)", cat: "Layout", icon: "💬", fn: () => changeCurrentLayout("statement") },
+    { title: "Virar layout Number (Estatística)", cat: "Layout", icon: "🔢", fn: () => changeCurrentLayout("number") },
+    { title: "Virar layout Split (Texto + Ilustração)", cat: "Layout", icon: "🌓", fn: () => changeCurrentLayout("split") },
+    { title: "Virar layout Compare (Duelo A/B)", cat: "Layout", icon: "⚖️", fn: () => changeCurrentLayout("compare") },
+    { title: "Tema: Editorial (Serifa)", cat: "Tema", icon: "🎨", fn: () => changeTheme("editorial") },
+    { title: "Tema: Bauhaus (Geométrico)", cat: "Tema", icon: "🎨", fn: () => changeTheme("bauhaus") },
+    { title: "Tema: Sinal (DIN Amarelo)", cat: "Tema", icon: "🎨", fn: () => changeTheme("sinal") },
+    { title: "Tema: Noite (Escuro Elegante)", cat: "Tema", icon: "🎨", fn: () => changeTheme("noite") },
+    { title: "Tom: Escuro (Dark)", cat: "Tom", icon: "🌑", fn: () => changeTone("dark") },
+    { title: "Tom: Claro (Light)", cat: "Tom", icon: "☀️", fn: () => changeTone("light") },
+    { title: "Tom: Destaque (Accent)", cat: "Tom", icon: "⭐", fn: () => changeTone("accent") },
+    { title: "Adicionar novo slide", cat: "Slide", icon: "➕", fn: () => addNewSlide() },
+    { title: "Duplicar slide atual", cat: "Slide", icon: "📋", fn: () => duplicateCurrentSlide() },
+    { title: "Excluir slide atual", cat: "Slide", icon: "🗑️", fn: () => deleteCurrentSlide() },
+    { title: "Apresentar em tela cheia (F5)", cat: "Modo", icon: "▶", fn: () => startPresentation() },
+    { title: "Abrir arquivo .yaml do computador", cat: "Arquivo", icon: "📂", fn: () => dom.fileInputYaml.click() },
+  ];
+
+  function openSpotlight() {
+    dom.commandPaletteModal.classList.remove("hidden");
+    dom.paletteSearchInput.value = "";
+    renderPaletteResults("");
+    dom.paletteSearchInput.focus();
+  }
+
+  function closeSpotlight() {
+    dom.commandPaletteModal.classList.add("hidden");
+  }
+
+  function renderPaletteResults(filter = "") {
+    dom.paletteResultsList.innerHTML = "";
+    const q = filter.toLowerCase().trim();
+    const matches = PALETTE_COMMANDS.filter((cmd) =>
+      cmd.title.toLowerCase().includes(q) || cmd.cat.toLowerCase().includes(q)
+    );
+
+    matches.forEach((cmd, i) => {
+      const item = document.createElement("div");
+      item.className = `palette-item ${i === 0 ? "selected" : ""}`;
+      item.innerHTML = `
+        <div class="palette-item-left">
+          <span class="palette-icon">${cmd.icon}</span>
+          <span>${cmd.title}</span>
+        </div>
+        <span class="palette-item-category">${cmd.cat}</span>
+      `;
+      item.onclick = () => {
+        closeSpotlight();
+        cmd.fn();
+      };
+      dom.paletteResultsList.appendChild(item);
+    });
+  }
+
+  function setupSpotlightPalette() {
+    dom.paletteSearchInput.addEventListener("input", () => {
+      renderPaletteResults(dom.paletteSearchInput.value);
+    });
+    dom.paletteSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeSpotlight();
+      } else if (e.key === "Enter") {
+        const first = dom.paletteResultsList.querySelector(".palette-item");
+        if (first) {
+          first.click();
+        }
+      }
+    });
+    dom.commandPaletteModal.addEventListener("click", (e) => {
+      if (e.target === dom.commandPaletteModal) closeSpotlight();
+    });
+  }
+
+  function changeTheme(themeName) {
+    state.deck.theme = themeName;
+    dom.themeSelect.value = themeName;
+    syncDeckToServer();
+    renderCurrentSlide();
+    showToast(`Tema alterado para "${themeName}"`);
+    playHaptic("snap");
+  }
+
+  function changeTone(toneName) {
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (slide) {
+      slide.tone = toneName;
+      dom.toneSelect.value = toneName;
+      syncDeckToServer();
+      renderCurrentSlide();
+      showToast(`Tom alterado para "${toneName}"`);
+      playHaptic("snap");
+    }
+  }
+
+  // ==========================================================================
   // NAVEGAÇÃO DE MINIATURAS (BARRA LATERAL ESQUERDA)
   // ==========================================================================
   function renderThumbnails() {
@@ -713,6 +1390,192 @@
       });
     }
 
+    // Seção de Cards (com seletor de ícone em cada card)
+    if (layout === "cards" && Array.isArray(slide.items)) {
+      const cardsHeader = document.createElement("div");
+      cardsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      cardsHeader.innerHTML = `
+        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Cards do Slide (${slide.items.length})</span>
+        <button id="btn-add-card-with-icon" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Novo Card</button>
+      `;
+      dom.slideFieldsForm.appendChild(cardsHeader);
+
+      cardsHeader.querySelector("#btn-add-card-with-icon").onclick = (e) => {
+        e.preventDefault();
+        openIconPicker();
+      };
+
+      slide.items.forEach((item, idx) => {
+        const itemBox = document.createElement("div");
+        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        const iconName = typeof item === "object" ? item.icon || "star" : "star";
+        const titleVal = typeof item === "object" ? item.title || "" : String(item);
+        const textVal = typeof item === "object" ? item.text || "" : "";
+
+        itemBox.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <button class="btn btn-secondary btn-change-card-icon" style="padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;" title="Clique para trocar este ícone">
+              <span style="color:#c084fc;">✦</span> <b style="font-family:var(--font-mono);">${iconName}</b>
+            </button>
+            <button class="btn-thumb-action btn-del-card" style="color:var(--danger);font-size:12px;" title="Remover card">✕</button>
+          </div>
+          <input type="text" class="form-control card-title-input" placeholder="Título do card..." value="${titleVal}" style="font-size:12px;padding:4px 6px;">
+          <textarea class="form-control card-text-input" placeholder="Descrição do card..." rows="2" style="font-size:11px;padding:4px 6px;">${textVal}</textarea>
+        `;
+
+        itemBox.querySelector(".btn-change-card-icon").onclick = (e) => {
+          e.preventDefault();
+          openIconPicker(idx);
+        };
+        itemBox.querySelector(".btn-del-card").onclick = (e) => {
+          e.preventDefault();
+          slide.items.splice(idx, 1);
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".card-title-input").onchange = (e) => {
+          if (typeof slide.items[idx] !== "object") slide.items[idx] = { title: e.target.value };
+          else slide.items[idx].title = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".card-text-input").onchange = (e) => {
+          if (typeof slide.items[idx] !== "object") slide.items[idx] = { text: e.target.value };
+          else slide.items[idx].text = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+
+        dom.slideFieldsForm.appendChild(itemBox);
+      });
+    }
+
+    // Seção de Stats / KPIs
+    if (layout === "stats") {
+      if (!Array.isArray(slide.stats)) slide.stats = [];
+      const statsHeader = document.createElement("div");
+      statsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      statsHeader.innerHTML = `
+        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Métricas / KPIs (${slide.stats.length})</span>
+        <button id="btn-add-stat-item" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Métrica</button>
+      `;
+      dom.slideFieldsForm.appendChild(statsHeader);
+
+      statsHeader.querySelector("#btn-add-stat-item").onclick = (e) => {
+        e.preventDefault();
+        slide.stats.push({ value: "100%", label: "Nova Métrica", trend: "+10%", icon: "trending-up" });
+        syncDeckToServer();
+        renderCurrentSlide();
+      };
+
+      slide.stats.forEach((st, idx) => {
+        const itemBox = document.createElement("div");
+        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        itemBox.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <button class="btn btn-secondary btn-change-stat-icon" style="padding:2px 8px;font-size:11px;">✦ Ícone: <b>${st.icon || "star"}</b></button>
+            <button class="btn-thumb-action btn-del-stat" style="color:var(--danger);font-size:12px;">✕</button>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" class="form-control stat-val-input" placeholder="Valor (ex: 98%, 4x)" value="${st.value || ""}" style="font-size:12px;font-weight:700;padding:4px 6px;flex:1;">
+            <input type="text" class="form-control stat-trend-input" placeholder="Tendência (ex: +14%)" value="${st.trend || ""}" style="font-size:12px;padding:4px 6px;width:90px;">
+          </div>
+          <input type="text" class="form-control stat-lab-input" placeholder="Rótulo da Métrica..." value="${st.label || ""}" style="font-size:12px;padding:4px 6px;">
+        `;
+        itemBox.querySelector(".btn-change-stat-icon").onclick = (e) => {
+          e.preventDefault();
+          openIconPicker();
+        };
+        itemBox.querySelector(".btn-del-stat").onclick = (e) => {
+          e.preventDefault();
+          slide.stats.splice(idx, 1);
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".stat-val-input").onchange = (e) => {
+          st.value = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".stat-trend-input").onchange = (e) => {
+          st.trend = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".stat-lab-input").onchange = (e) => {
+          st.label = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        dom.slideFieldsForm.appendChild(itemBox);
+      });
+    }
+
+    // Seção de Steps / Processo
+    if (layout === "steps") {
+      if (!Array.isArray(slide.steps)) slide.steps = [];
+      const stepsHeader = document.createElement("div");
+      stepsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      stepsHeader.innerHTML = `
+        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Etapas do Processo (${slide.steps.length})</span>
+        <button id="btn-add-step-item" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Etapa</button>
+      `;
+      dom.slideFieldsForm.appendChild(stepsHeader);
+
+      stepsHeader.querySelector("#btn-add-step-item").onclick = (e) => {
+        e.preventDefault();
+        slide.steps.push({ stepNum: slide.steps.length + 1, title: "Nova Etapa", text: "Descrição concisa do passo.", icon: "arrow-right" });
+        syncDeckToServer();
+        renderCurrentSlide();
+      };
+
+      slide.steps.forEach((st, idx) => {
+        const itemBox = document.createElement("div");
+        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        itemBox.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;font-weight:700;color:var(--text-dim);">ETAPA ${idx + 1}</span>
+            <button class="btn-thumb-action btn-del-step" style="color:var(--danger);font-size:12px;">✕</button>
+          </div>
+          <input type="text" class="form-control step-title-input" placeholder="Título da etapa..." value="${st.title || ""}" style="font-size:12px;font-weight:700;padding:4px 6px;">
+          <input type="text" class="form-control step-text-input" placeholder="Descrição resumida..." value="${st.text || ""}" style="font-size:11px;padding:4px 6px;">
+        `;
+        itemBox.querySelector(".btn-del-step").onclick = (e) => {
+          e.preventDefault();
+          slide.steps.splice(idx, 1);
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".step-title-input").onchange = (e) => {
+          st.title = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        itemBox.querySelector(".step-text-input").onchange = (e) => {
+          st.text = e.target.value;
+          syncDeckToServer();
+          renderCurrentSlide();
+        };
+        dom.slideFieldsForm.appendChild(itemBox);
+      });
+    }
+
+    // Seção de Figura Principal / Ícone Ilustrativo
+    if (layout === "split" || layout === "section" || layout === "cover" || layout === "end" || slide.figure) {
+      const figHeader = document.createElement("div");
+      figHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      const curIcon = slide.figure?.icon ? `Ícone: ${slide.figure.icon}` : "Figura Visual";
+      figHeader.innerHTML = `
+        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">${curIcon}</span>
+        <button id="btn-pick-fig-icon" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">✦ Escolher Ícone (2.100+)</button>
+      `;
+      dom.slideFieldsForm.appendChild(figHeader);
+      figHeader.querySelector("#btn-pick-fig-icon").onclick = (e) => {
+        e.preventDefault();
+        openIconPicker();
+      };
+    }
+
     // Seção de Canvas Livre
     if (layout === "canvas") {
       dom.canvasElementsSection.classList.remove("hidden");
@@ -781,8 +1644,10 @@
   // ==========================================================================
   function updateCanvasScale() {
     const vp = dom.canvasViewport;
-    const availW = vp.clientWidth - 48;
-    const availH = vp.clientHeight - 48;
+    const isMobile = window.innerWidth <= 900;
+    const pad = isMobile ? 8 : 48;
+    const availW = vp.clientWidth - pad;
+    const availH = vp.clientHeight - pad;
     if (availW <= 0 || availH <= 0) return;
 
     if (state.autoFit) {
@@ -796,19 +1661,300 @@
   }
 
   // ==========================================================================
-  // MODO APRESENTAÇÃO FULLSCREEN (F5)
+  // MODO APRESENTAÇÃO FULLSCREEN (F5) & ANTI-BLOQUEIO CORPORATIVO
   // ==========================================================================
+  let presWakeLock = null;
+  let presKeepAwakeVideo = null;
+
+  async function requestStudioWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        presWakeLock = await navigator.wakeLock.request("screen");
+        presWakeLock.addEventListener("release", () => { presWakeLock = null; });
+        return true;
+      }
+    } catch (e) {}
+
+    try {
+      if (!presKeepAwakeVideo) {
+        presKeepAwakeVideo = document.createElement("video");
+        presKeepAwakeVideo.setAttribute("playsinline", "");
+        presKeepAwakeVideo.setAttribute("muted", "");
+        presKeepAwakeVideo.setAttribute("loop", "");
+        presKeepAwakeVideo.style.cssText = "position:fixed;width:1px;height:1px;top:-10px;left:-10px;opacity:0.01;pointer-events:none;";
+        presKeepAwakeVideo.src = "data:video/webm;base64,GkXfo0AgQoaBAUL3gQDu4vqcgQdUaW5mb1ZAdYGAZW5jb2RpbmdlcHVibGlzaGVyX2FwcGxpY2F0aW9uY2hhcnNldAB4h5C5kIEYQoEB2QCQA4N1c2WDZkZlZmVmZmVmZmVmZmVmZmVmZmVmZmVmZmVmZg==";
+        document.body.appendChild(presKeepAwakeVideo);
+        presKeepAwakeVideo.play().catch(() => {});
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function releaseStudioWakeLock() {
+    if (presWakeLock) {
+      presWakeLock.release().catch(() => {});
+      presWakeLock = null;
+    }
+    if (presKeepAwakeVideo) {
+      presKeepAwakeVideo.pause();
+      presKeepAwakeVideo.remove();
+      presKeepAwakeVideo = null;
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!dom.presModal.classList.contains("hidden") && document.visibilityState === "visible") {
+      requestStudioWakeLock();
+    }
+  });
+
   function startPresentation() {
     dom.presModal.classList.remove("hidden");
     document.documentElement.requestFullscreen?.().catch(() => {});
+    requestStudioWakeLock();
+    showToast("🛡️ Modo Apresentação: Anti-bloqueio de tela ativo");
     updatePresSlide();
   }
 
   function closePresentation() {
     dom.presModal.classList.add("hidden");
+    togglePresDrawing(false);
+    releaseStudioWakeLock();
     if (document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {});
     }
+  }
+
+  // ==========================================================================
+  // CANETA E ANOTAÇÕES AO VIVO NO MODO APRESENTAÇÃO DO STUDIO
+  // ==========================================================================
+  let isPresDrawing = false;
+  let presDrawTool = "pen"; // "pen" | "highlighter"
+  let presDrawColor = "#ef4444";
+  let isPresPointerDown = false;
+  let activePresStroke = null;
+  const presSlideStrokes = {}; // { [slideIdx]: [strokes] }
+
+  function togglePresDrawing(forceState, tool = "pen") {
+    if (!dom.presDrawCanvas) return;
+    isPresDrawing = typeof forceState === "boolean" ? forceState : !isPresDrawing;
+    if (tool) presDrawTool = tool;
+    document.body.classList.toggle("pres-drawing", isPresDrawing);
+    if (dom.presDrawToolbar) dom.presDrawToolbar.style.display = isPresDrawing ? "flex" : "none";
+    if (dom.presDrawFab) dom.presDrawFab.style.display = isPresDrawing ? "none" : "";
+    if (isPresDrawing) {
+      updatePresDrawUI();
+      showToast(presDrawTool === "highlighter" ? "🖍️ Marca-texto ativo (D: caneta, C: limpar)" : "✏️ Caneta ativa (M: marca-texto, C: limpar)");
+    }
+  }
+
+  function updatePresDrawUI() {
+    dom.presBtnPen?.classList.toggle("active", presDrawTool === "pen");
+    dom.presBtnHighlighter?.classList.toggle("active", presDrawTool === "highlighter");
+    dom.presDrawToolbar?.querySelectorAll(".draw-color").forEach((b) => {
+      b.classList.toggle("active", b.dataset.color === presDrawColor);
+    });
+  }
+
+  function getPresDrawCoords(e) {
+    const rect = dom.presDrawCanvas.getBoundingClientRect();
+    const sx = 1920 / rect.width;
+    const sy = 1080 / rect.height;
+    return {
+      x: (e.clientX - rect.left) * sx,
+      y: (e.clientY - rect.top) * sy,
+    };
+  }
+
+  function redrawPresSlideDrawings(slideIdx) {
+    const ctx = dom.presDrawCanvas?.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 1920, 1080);
+    const strokes = presSlideStrokes[slideIdx] || [];
+    for (const s of strokes) {
+      renderPresStroke(s, ctx);
+    }
+  }
+
+  function renderPresStroke(s, ctx) {
+    if (!ctx || !s.points || s.points.length < 2) return;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (s.tool === "highlighter") {
+      ctx.globalAlpha = 0.38;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width || 28;
+    } else {
+      ctx.globalAlpha = 1.0;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width || 5;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(s.points[0].x, s.points[0].y);
+    for (let i = 1; i < s.points.length; i++) {
+      const p1 = s.points[i - 1];
+      const p2 = s.points[i];
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      ctx.quadraticCurveTo(p1.x, p1.y, mx, my);
+    }
+    const last = s.points[s.points.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function undoPresDrawing() {
+    const idx = state.currentSlideIndex;
+    const strokes = presSlideStrokes[idx] || [];
+    if (strokes.length > 0) {
+      strokes.pop();
+      redrawPresSlideDrawings(idx);
+      showToast("Último traço desfeito");
+    }
+  }
+
+  function clearPresDrawing() {
+    const idx = state.currentSlideIndex;
+    presSlideStrokes[idx] = [];
+    redrawPresSlideDrawings(idx);
+    showToast("Anotações do slide limpas");
+  }
+
+  function setupPresDrawingListeners() {
+    if (!dom.presDrawCanvas) return;
+    dom.presDrawCanvas.addEventListener("pointerdown", (e) => {
+      if (!isPresDrawing) return;
+      e.preventDefault();
+      isPresPointerDown = true;
+      const pt = getPresDrawCoords(e);
+      activePresStroke = {
+        tool: presDrawTool,
+        color: presDrawColor,
+        width: presDrawTool === "highlighter" ? 28 : 5,
+        points: [pt, pt],
+      };
+      const idx = state.currentSlideIndex;
+      if (!presSlideStrokes[idx]) presSlideStrokes[idx] = [];
+      presSlideStrokes[idx].push(activePresStroke);
+      const ctx = dom.presDrawCanvas.getContext("2d");
+      renderPresStroke(activePresStroke, ctx);
+    });
+
+    dom.presDrawCanvas.addEventListener("pointermove", (e) => {
+      if (!isPresPointerDown || !activePresStroke) return;
+      e.preventDefault();
+      const pt = getPresDrawCoords(e);
+      activePresStroke.points.push(pt);
+      redrawPresSlideDrawings(state.currentSlideIndex);
+    });
+
+    const endPresDraw = () => {
+      isPresPointerDown = false;
+      activePresStroke = null;
+    };
+    dom.presDrawCanvas.addEventListener("pointerup", endPresDraw);
+    dom.presDrawCanvas.addEventListener("pointercancel", endPresDraw);
+
+    dom.presDrawFab?.addEventListener("click", () => togglePresDrawing(true, "pen"));
+    dom.presBtnPen?.addEventListener("click", () => { presDrawTool = "pen"; updatePresDrawUI(); });
+    dom.presBtnHighlighter?.addEventListener("click", () => { presDrawTool = "highlighter"; updatePresDrawUI(); });
+    dom.presBtnUndo?.addEventListener("click", undoPresDrawing);
+    dom.presBtnClear?.addEventListener("click", clearPresDrawing);
+    dom.presBtnCloseDraw?.addEventListener("click", () => togglePresDrawing(false));
+    dom.presDrawToolbar?.querySelectorAll(".draw-color").forEach((b) => {
+      b.addEventListener("click", () => {
+        presDrawColor = b.dataset.color || "#ef4444";
+        updatePresDrawUI();
+      });
+    });
+  }
+
+  // ==========================================================================
+  // NAPKIN AI (TEXTO -> DIAGRAMA VISUAL)
+  // ==========================================================================
+  let lastNapkinResult = null;
+
+  const NAPKIN_PRESETS = {
+    steps: "Etapas do Funil de Conversão:\n1. Prospecção Ativa: Mapeamento de decisores em ICP qualificado\n2. Reunião Executiva: Demonstração e levantamento de necessidades\n3. Proposta & SLA: Envio dos termos comerciais personalizados\n4. Fechamento & Go-Live: Assinatura de contrato e início da operação",
+    stats: "Resultados do Trimestre:\n- Crescimento de Receita: +142%\n- ARR Consolidado: R$ 8.4M\n- Churn Mensal: 0.6%\n- Satisfação (NPS): 91",
+    compare: "Tradicional vs SagaDeck:\n- Slides manuais e demorados vs Geração instantânea por IA\n- Quebra formatação no PPT vs 100% nativo e editável no Office\n- Alucina layouts e textos vs Salvaguardas determinísticas e anti-spoiler",
+    cards: "3 Pilares da Arquitetura:\n1. Segurança Zero-Trust: Criptografia ponta a ponta e logs de auditoria\n2. Performance Extrema: Carregamento instantâneo e renderização determinística\n3. Design System Atômico: Tokens de estilo e layouts balanceados",
+  };
+
+  function openNapkinModal() {
+    dom.modalNapkin.classList.remove("hidden");
+    dom.napkinPreviewBox.classList.add("hidden");
+    dom.btnNapkinReplace.classList.add("hidden");
+    dom.btnNapkinInsert.classList.add("hidden");
+    if (!dom.napkinInputText.value.trim()) {
+      dom.napkinInputText.value = NAPKIN_PRESETS.steps;
+    }
+    dom.napkinInputText.focus();
+  }
+
+  function closeNapkinModal() {
+    dom.modalNapkin.classList.add("hidden");
+  }
+
+  async function runNapkinConversion() {
+    const text = dom.napkinInputText.value.trim();
+    if (!text) {
+      showToast("Por favor, digite ou cole um texto para analisar.");
+      return;
+    }
+
+    dom.btnRunNapkin.disabled = true;
+    dom.btnRunNapkin.textContent = "⏳ Analisando padrão visual...";
+
+    try {
+      const res = await fetch("/api/napkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          theme: state.deck.theme || "sinal",
+          tone: "dark",
+        }),
+      });
+      const data = await res.json();
+      lastNapkinResult = data;
+
+      dom.napkinDetectedBadge.textContent = data.detectedType.toUpperCase();
+      dom.napkinRationale.textContent = data.rationale;
+      dom.napkinYamlPreview.textContent = data.yaml;
+      dom.napkinPreviewBox.classList.remove("hidden");
+      dom.btnNapkinReplace.classList.remove("hidden");
+      dom.btnNapkinInsert.classList.remove("hidden");
+
+      showToast(`✨ Padrão visual detectado: ${data.detectedType.toUpperCase()}`);
+    } catch (err) {
+      showToast("Erro ao processar diagrama no servidor.");
+    } finally {
+      dom.btnRunNapkin.disabled = false;
+      dom.btnRunNapkin.textContent = "✨ Analisar & Gerar Diagrama";
+    }
+  }
+
+  function applyNapkinSlide(replaceCurrent = false) {
+    if (!lastNapkinResult || !lastNapkinResult.slide) return;
+    const newSlide = lastNapkinResult.slide;
+
+    if (replaceCurrent) {
+      state.deck.slides[state.currentSlideIndex] = newSlide;
+      selectSlide(state.currentSlideIndex);
+      showToast(`Slide ${state.currentSlideIndex + 1} substituído pelo diagrama ${lastNapkinResult.detectedType}!`);
+    } else {
+      state.deck.slides.splice(state.currentSlideIndex + 1, 0, newSlide);
+      renderThumbnails();
+      selectSlide(state.currentSlideIndex + 1);
+      showToast(`Novo slide com diagrama ${lastNapkinResult.detectedType} inserido com sucesso!`);
+    }
+
+    syncDeckToServer();
+    closeNapkinModal();
   }
 
   function updatePresSlide() {
@@ -823,10 +1969,15 @@
     })
       .then((res) => res.json())
       .then((data) => {
-        dom.modalStage.innerHTML = data.html;
+        if (dom.presSlideRender) {
+          dom.presSlideRender.innerHTML = data.html;
+        } else {
+          dom.modalStage.innerHTML = data.html;
+        }
         const scaleW = window.innerWidth / 1920;
         const scaleH = window.innerHeight / 1080;
         dom.modalStage.style.transform = `scale(${Math.min(scaleW, scaleH)})`;
+        redrawPresSlideDrawings(idx);
       });
   }
 
@@ -984,6 +2135,129 @@
       dom.slideStage.style.transform = `scale(${state.zoomScale})`;
     };
 
+    // ==========================================================================
+    // ABRIR ARQUIVO .YML / .YAML
+    // ==========================================================================
+    async function loadYamlFile(file) {
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const res = await fetch("/api/deck", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ yaml: text, saveToFile: false }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Erro ao processar arquivo YAML");
+        }
+        state.deck = data.spec;
+        dom.deckTitle.value = state.deck.title || file.name.replace(/\.(ya?ml)$/i, "");
+        if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+        state.currentSlideIndex = 0;
+        renderThumbnails();
+        selectSlide(0);
+        showToast(`✓ Arquivo "${file.name}" carregado com sucesso (${state.deck.slides.length} slides)!`);
+      } catch (err) {
+        showToast("Erro ao abrir YAML: " + err.message);
+      }
+    }
+
+    async function loadServerPath(pathStr) {
+      if (!pathStr) return;
+      try {
+        const res = await fetch("/api/open-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: pathStr }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Erro ao carregar caminho no servidor");
+        }
+        state.deck = data.spec;
+        dom.deckTitle.value = state.deck.title || pathStr;
+        if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+        state.currentSlideIndex = 0;
+        renderThumbnails();
+        selectSlide(0);
+        showToast(`✓ Deck carregado (${state.deck.slides.length} slides)!`);
+      } catch (err) {
+        showToast("Erro ao abrir arquivo: " + err.message);
+      }
+    }
+
+    // Botão e Input de Arquivo
+    const triggerFilePicker = () => dom.fileInputYaml.click();
+    dom.btnOpenYaml.onclick = triggerFilePicker;
+    dom.menuOpenLocal.onclick = (e) => {
+      e.preventDefault();
+      triggerFilePicker();
+    };
+
+    dom.fileInputYaml.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        loadYamlFile(file);
+        dom.fileInputYaml.value = "";
+      }
+    });
+
+    // Abrir arquivo a partir do caminho do servidor
+    dom.menuOpenServer.onclick = (e) => {
+      e.preventDefault();
+      dom.modalOpenServer.classList.remove("hidden");
+      dom.inputServerPath.focus();
+    };
+    dom.btnCloseOpenModal.onclick = () => dom.modalOpenServer.classList.add("hidden");
+    dom.btnCancelOpenServer.onclick = () => dom.modalOpenServer.classList.add("hidden");
+    dom.btnConfirmOpenServer.onclick = () => {
+      const p = dom.inputServerPath.value.trim();
+      if (p) {
+        dom.modalOpenServer.classList.add("hidden");
+        loadServerPath(p);
+      }
+    };
+    dom.inputServerPath.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        dom.btnConfirmOpenServer.click();
+      }
+    });
+
+    // Drag & Drop de arquivo .yaml / .yml em qualquer lugar da tela
+    let dragCounter = 0;
+    window.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragCounter++;
+      dom.dropOverlay.classList.remove("hidden");
+    });
+    window.addEventListener("dragover", (e) => {
+      e.preventDefault();
+    });
+    window.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        dom.dropOverlay.classList.add("hidden");
+      }
+    });
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dom.dropOverlay.classList.add("hidden");
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length > 0) {
+        const file = dt.files[0];
+        if (/\.(ya?ml|txt)$/i.test(file.name)) {
+          loadYamlFile(file);
+        } else {
+          showToast("Por favor, solte um arquivo .yaml ou .yml!");
+        }
+      }
+    });
+
     // Dropdown de Exportação
     dom.btnExportMenu.onclick = (e) => {
       e.stopPropagation();
@@ -1022,15 +2296,212 @@
       }
     };
 
-    // Atalhos de Teclado (F5, Setas, Esc)
+    // ==========================================================================
+    // RECURSOS FORA DA CAIXA & ICON PICKER EVENT LISTENERS
+    // ==========================================================================
+    // Seletor de Ícones (2.100+ Lucide / Public Domain)
+    dom.btnInsertIcon.onclick = () => openIconPicker();
+    dom.btnCloseIconPicker.onclick = closeIconPicker;
+
+    let iconSearchDebounce = null;
+    dom.iconSearchInput.addEventListener("input", () => {
+      clearTimeout(iconSearchDebounce);
+      iconSearchDebounce = setTimeout(() => {
+        loadIcons(dom.iconSearchInput.value);
+      }, 150);
+    });
+
+    document.querySelectorAll(".chip-cat").forEach((chip) => {
+      chip.onclick = () => {
+        document.querySelectorAll(".chip-cat").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        dom.iconSearchInput.value = chip.dataset.cat;
+        loadIcons(chip.dataset.cat);
+      };
+    });
+
+    dom.btnInsertIconCard.onclick = insertSelectedIconAsCard;
+    dom.btnInsertIconFigure.onclick = insertSelectedIconAsFigure;
+    dom.btnInsertIconCanvas.onclick = insertSelectedIconAsCanvas;
+
+    // Recursos UX Inovadores
+    dom.btnSquint.onclick = toggleSquintTest;
+    dom.btnHeatmap.onclick = toggleHeatmap;
+    dom.btnSmartTidy.onclick = smartTidy;
+    dom.btnYamlDrawer.onclick = toggleYamlDrawer;
+    dom.btnCloseYamlDrawer.onclick = toggleYamlDrawer;
+    dom.yamlLiveEditor.addEventListener("input", onYamlEditorInput);
+    dom.btnSpotlight.onclick = openSpotlight;
+    setupSpotlightPalette();
+
+    // Napkin AI (Texto -> Diagrama Visual)
+    dom.btnNapkin.onclick = openNapkinModal;
+    dom.btnCloseNapkin.onclick = closeNapkinModal;
+    dom.btnRunNapkin.onclick = runNapkinConversion;
+    dom.btnNapkinReplace.onclick = () => applyNapkinSlide(true);
+    dom.btnNapkinInsert.onclick = () => applyNapkinSlide(false);
+    document.querySelectorAll(".btn-preset-napkin").forEach((btn) => {
+      btn.onclick = () => {
+        const ex = btn.dataset.example;
+        if (NAPKIN_PRESETS[ex]) {
+          dom.napkinInputText.value = NAPKIN_PRESETS[ex];
+          runNapkinConversion();
+        }
+      };
+    });
+
+    // Anotações e Caneta no Modo Apresentação
+    setupPresDrawingListeners();
+
+    // Navegação Mobile (Smartphones)
+    dom.mobileNavBtnSlides?.addEventListener("click", () => {
+      document.getElementById("slides-nav")?.classList.toggle("mobile-open");
+      document.getElementById("inspector-sidebar")?.classList.remove("mobile-open");
+    });
+    dom.mobileNavBtnNapkin?.addEventListener("click", () => {
+      openNapkinModal();
+    });
+    dom.mobileNavBtnPresent?.addEventListener("click", () => {
+      startPresentation();
+    });
+    dom.mobileNavBtnEditor?.addEventListener("click", () => {
+      const sb = document.getElementById("inspector-sidebar");
+      document.getElementById("slides-nav")?.classList.remove("mobile-open");
+      sb?.classList.toggle("mobile-open");
+      dom.tabBtnProps.click();
+    });
+    dom.mobileNavBtnChat?.addEventListener("click", () => {
+      const sb = document.getElementById("inspector-sidebar");
+      document.getElementById("slides-nav")?.classList.remove("mobile-open");
+      sb?.classList.toggle("mobile-open");
+      dom.tabBtnChat.click();
+    });
+
+    // Fechar gavetas mobile se tocar no viewport central
+    dom.canvasViewport.addEventListener("touchstart", () => {
+      document.getElementById("slides-nav")?.classList.remove("mobile-open");
+      document.getElementById("inspector-sidebar")?.classList.remove("mobile-open");
+    }, { passive: true });
+
+    // Touch Swipe (arrastar com o dedo para navegar pelos slides)
+    function attachSwipe(el, onNext, onPrev) {
+      if (!el) return;
+      let sx = null, sy = null;
+      el.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 1) {
+          sx = e.touches[0].clientX;
+          sy = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      el.addEventListener("touchend", (e) => {
+        if (sx === null || sy === null || e.changedTouches.length === 0) return;
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+          if (dx < 0) onNext();
+          else onPrev();
+        }
+        sx = null;
+        sy = null;
+      }, { passive: true });
+    }
+
+    attachSwipe(
+      dom.canvasViewport,
+      () => {
+        if (state.currentSlideIndex < state.deck.slides.length - 1) {
+          selectSlide(state.currentSlideIndex + 1);
+        }
+      },
+      () => {
+        if (state.currentSlideIndex > 0) {
+          selectSlide(state.currentSlideIndex - 1);
+        }
+      }
+    );
+
+    attachSwipe(
+      dom.presModal,
+      () => dom.presNext.click(),
+      () => dom.presPrev.click()
+    );
+
+    dom.btnAudioToggle.onclick = () => {
+      state.soundEnabled = !state.soundEnabled;
+      dom.btnAudioToggle.textContent = state.soundEnabled ? "🔊" : "🔇";
+      showToast(state.soundEnabled ? "Feedback sonoro ativado" : "Feedback sonoro desativado");
+      if (state.soundEnabled) playHaptic("snap");
+    };
+
+    // Oculta Alchemy pill se clicar fora
+    dom.canvasViewport.addEventListener("mousedown", (e) => {
+      if (!e.target.closest("#alchemy-pill") && !e.target.closest("[contenteditable]")) {
+        dom.alchemyPill.classList.add("hidden");
+      }
+    });
+
+    // Atalhos de Teclado (F5, Setas, Esc, Cmd+K)
     window.addEventListener("keydown", (e) => {
+      // Cmd+K / Ctrl+K abre a Spotlight Command Palette em qualquer lugar
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openSpotlight();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (!dom.modalNapkin.classList.contains("hidden")) {
+          closeNapkinModal();
+          return;
+        }
+        if (!dom.modalIconPicker.classList.contains("hidden")) {
+          closeIconPicker();
+          return;
+        }
+        if (!dom.spotlightModal.classList.contains("hidden")) {
+          closeSpotlight();
+          return;
+        }
+        if (!dom.yamlDrawer.classList.contains("hidden")) {
+          toggleYamlDrawer();
+          return;
+        }
+        if (isPresDrawing) {
+          togglePresDrawing(false);
+          return;
+        }
+        closePresentation();
+        return;
+      }
+
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+
+      if (!dom.presModal.classList.contains("hidden")) {
+        if ((e.key === "d" || e.key === "D")) {
+          e.preventDefault();
+          togglePresDrawing(isPresDrawing && presDrawTool === "pen" ? false : true, "pen");
+          return;
+        }
+        if ((e.key === "m" || e.key === "M")) {
+          e.preventDefault();
+          togglePresDrawing(isPresDrawing && presDrawTool === "highlighter" ? false : true, "highlighter");
+          return;
+        }
+        if (isPresDrawing && (e.key === "z" || e.key === "Z")) {
+          e.preventDefault();
+          undoPresDrawing();
+          return;
+        }
+        if (isPresDrawing && (e.key === "c" || e.key === "C" || e.key === "e" || e.key === "E")) {
+          e.preventDefault();
+          clearPresDrawing();
+          return;
+        }
+      }
 
       if (e.key === "F5") {
         e.preventDefault();
         startPresentation();
-      } else if (e.key === "Escape") {
-        closePresentation();
       } else if (e.key === "ArrowRight" || e.key === " ") {
         if (!dom.presModal.classList.contains("hidden")) {
           e.preventDefault();

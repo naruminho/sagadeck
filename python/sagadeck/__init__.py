@@ -13,5 +13,5 @@ Uso em Python (ex.: para uma IDE/agente coordenar):
 
 from .api import run, build, check, autofix, studio, export, reference, skill, engine_path, node_path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["run", "build", "check", "autofix", "studio", "export", "reference", "skill", "engine_path", "node_path", "__version__"]

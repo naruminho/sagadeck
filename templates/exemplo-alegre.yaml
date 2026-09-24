@@ -1,0 +1,75 @@
+title: Apresentação Alegre e Visual
+theme: rabisco
+duration: 15
+slides:
+  - layout: cover
+    kicker: Ideias Vivas · Sem Sono
+    title: Como Criar Slides Bonitinhos & Visuais
+    subtitle: Menos texto longo, muito mais impacto e cores alegres
+    author: SagaDeck Studio
+  - layout: stats
+    kicker: Métricas em Destaque
+    title: O Poder dos Números Visuais
+    stats:
+      - value: 98.7%
+        label: Retenção da Atenção
+        trend: +34%
+        trendUp: true
+        icon: heart
+        text: Público conectado do início ao fim
+      - value: 4.8x
+        label: Mais Rápido de Ler
+        trend: recorde
+        trendUp: true
+        icon: zap
+        text: Zero cansaço visual
+      - value: 2.100+
+        label: Ícones Disponíveis
+        trend: ilimitado
+        trendUp: true
+        icon: sparkles
+        text: Elementos gráficos prontos
+  - layout: steps
+    kicker: Fluxo Visual
+    title: Processo Simples em 3 Etapas
+    steps:
+      - stepNum: 1
+        title: Rascunho
+        text: Escolha o tema Rabisco ou Oceano
+        icon: pen-tool
+        tag: 1 Minuto
+      - stepNum: 2
+        title: Visualizar
+        text: Troque parágrafos por cards e métricas
+        icon: layout-grid
+        tag: Auto-Fit
+      - stepNum: 3
+        title: Apresentar
+        text: Entregue um show no palco sem sono
+        icon: smile
+        tag: Aplausos
+  - layout: cards
+    kicker: Cartões Inteligentes
+    title: Widgets que Eliminam Textão
+    cols: 3
+    items:
+      - icon: check-circle-2
+        badge: Recomendado
+        title: Checklist Visual
+        text: Substitui listas sem graça por confirmações visuais.
+        check: true
+        checkText: Pronto para uso
+      - icon: target
+        title: Meta de Conclusão
+        text: Progresso visual fácil de acompanhar.
+        progress: 88
+        progressLabel: Meta Atingida
+      - icon: award
+        title: Avaliação do Público
+        text: Nota máxima dada pela audiência.
+        rating: 5
+        ratingLabel: 5.0 no G2
+        tags:
+          - Alegre
+          - Dinâmico
+          - Sem Sono

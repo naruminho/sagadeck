@@ -1,7 +1,7 @@
 // Layouts: cada um recebe o objeto do slide (YAML) e devolve o HTML da área útil.
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { md, esc } from "./markup.js";
-import { el, text, figureHTML, attrs, SIZES, list, cards, poll, timer, counter, code } from "./elements.js";
+import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
 const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
@@ -75,6 +75,16 @@ export const LAYOUTS = {
 
   cards(s, ctx) {
     return `<div class="L-cards">${head(s)}${cards({ cards: s.items, cols: s.cols, build: s.build, class: "e", style: "--d:2;" }, ctx)}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  stats(s, ctx) {
+    const items = s.stats || s.kpis || s.items || [];
+    return `<div class="L-stats">${head(s)}${stats({ stats: items, cols: s.cols, build: s.build, class: "e", style: "--d:2;" }, ctx)}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  steps(s, ctx) {
+    const items = s.steps || s.process || s.flow || s.items || [];
+    return `<div class="L-steps">${head(s)}${steps({ steps: items, cols: s.cols, build: s.build, class: "e", style: "--d:2;" }, ctx)}</div>${src(s)}${add(s, ctx)}`;
   },
 
   list(s, ctx) {

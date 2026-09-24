@@ -3,20 +3,50 @@
 Você tem acesso ao `sagadeck`, um gerador profissional de apresentações que produz HTML interativo, PowerPoint (.pptx) editável, PDF e roteiro do apresentador a partir de um arquivo YAML.
 
 ## Comandos Principais
-- `sagadeck new <deck.yaml> [--theme=sinal|editorial|noite|bauhaus|terminal|jornal]`
+- `sagadeck search "<termo>"`: pesquisa na web via DuckDuckGo (sem bloqueio de bot/Google) para buscar dados reais e fatos
+- `sagadeck new <deck.yaml> [--theme=prata|rabisco|oceano|pop|aurora|sinal|editorial|noite]`
 - `sagadeck build <deck.yaml>`: compila o arquivo `.html`
-- `sagadeck check <deck.yaml>`: roda o fiscal de layout (detecta sobreposição, quebra de margem, contraste)
-- `sagadeck autofix <deck.yaml>`: auto-corrige sobreposições, margens (120px) e fontes automaticamente
+- `sagadeck check <deck.yaml>`: fiscal de layout (detecta sobreposição, quebra de margem 120px, texto excessivo)
+- `sagadeck autofix <deck.yaml>`: auto-corrige sobreposições, margens e excesso de texto no YAML deterministamente
 - `sagadeck studio [deck.yaml] [--port=3000]`: inicia o editor visual estilo PowerPoint com chat IA
-- `sagadeck all <deck.yaml>`: compila html + check + pptx + pdf + roteiro
-- `sagadeck mcp`: inicia o servidor MCP (JSON-RPC) para chamadas de ferramentas nativas
+- `sagadeck all <deck.yaml>`: compila html + check + autofix + pptx + pdf + roteiro
+- `sagadeck mcp`: inicia o servidor MCP (JSON-RPC) com ferramentas nativas (`sagadeck_web_search`, `sagadeck_autofix_deck`, etc.)
 
-## Regras de Design e Auto-Inspeção
-1. **Auto-Correção Obrigatória**:
-   - Nunca deixe elementos sobrepostos (bounding box collision).
-   - Respeite a margem segura de 120px nas laterais e 92px/104px no topo/fundo.
-   - Sempre execute `sagadeck check <deck.yaml>` ou `sagadeck autofix <deck.yaml>` após alterar slides.
-2. **Anti-sono**:
-   - Limite de até 40 palavras visíveis por slide. O texto discursivo deve ir para `notes:` (roteiro do apresentador).
-3. **Variedade de Layouts**:
-   - Alterne entre os 21 layouts (`cover`, `section`, `statement`, `cards`, `split`, `number`, `quote`, `timeline`, `chart`, `compare`, `matrix`, `question`, `poll`, `canvas`).
+---
+
+## Guia de Criação de Apresentações de Alta Qualidade (para qualquer modelo de IA, inclusive leves/econômicos)
+
+Siga rigorosamente este ciclo de 4 etapas ao gerar ou editar qualquer apresentação:
+
+### Etapa 1: Pesquisa de Conteúdo & Fontes (DuckDuckGo sem bloqueio)
+- Para enriquecer a apresentação com métricas reais, dados e fatos confiáveis, use `sagadeck search "<termo>"` ou a ferramenta MCP `sagadeck_web_search`.
+- **Regra de Citação**:
+  - **Se o usuário pediu com fontes / dados citados**: Adicione o campo `source: "Fonte: Nome do Relatório, Ano"` nos slides com dados (`stats`, `number`, `chart`, `cards`, `split`) e adicione a URL nas notas (`notes:`).
+  - **Se o usuário pediu sem fontes ou estilo clean**: Omita completamente o campo `source:`, mantendo o slide com visual minimalista.
+
+### Etapa 2: Escolha Consciente do Tema Visual
+- **`prata`**: **Estilo Keynote da Apple**. Ultra-clean, jovem, respirável, sério e sofisticado. Fundo cinza prata acetinado (`#F5F5F7`), texto ardósia e azul Apple (`#0071E3`). Ideal para tech, inovação, startups e reuniões de diretoria.
+- **`rabisco`**: **Artesanal & Lousa (Pintado à Mão)**. Fontes manuscritas naturais (*Caveat*/*Patrick Hand*), bordas orgânicas, post-its e traços doodle. Ideal para temas descontraídos, workshops e educação.
+- **`oceano`**: **Azul Elétrico Vibrante**. Fundo gelo translúcido, azul royal e ciano neon. Alta energia e dinamismo.
+- **`pop`**: **Alegre, Fofo & Chiclete**. Cartelas coloridas (roxo, rosa, menta, sol) e cantos ultra-arredondados (26px).
+- **`aurora`**: **Neon & Noite Espacial**. Fundo escuro profundo com gradientes luminosos.
+- **`sinal`** / **`editorial`** / **`noite`**: Clássicos e formais.
+
+### Etapa 3: Estrutura Visual Anti-Textão (NUNCA use blocos de texto corrido)
+1. **Regra de Ouro Anti-Sono**: No máximo 40 palavras visíveis por slide. Todo o discurso explicativo deve ir para o roteiro do apresentador (`notes:`).
+2. **Substitua texto por componentes visuais**:
+   - **Para métricas e números**: NUNCA escreva parágrafos. Use `layout: stats` com `value: "98%"`, `trend: "+24%"`, `icon: "zap"`, `label: "..."`.
+   - **Para processos e etapas**: Use `layout: steps` com `stepNum: 1`, `title: "..."`, `text: "..."`, `icon: "..."`, `tag: "..."`.
+   - **Para múltiplos pilares/recursos**: Use `layout: cards` com widgets visuais:
+     - `progress: 85` (barra de progresso)
+     - `tags: ["Tag1", "Tag2"]` (nuvem de tags)
+     - `rating: 5` (estrelas avaliativas)
+     - `check: true` / `status: "pro"` (pílula verde de recomendação)
+   - **Para comparações**: Use `layout: compare` com colunas `left:` e `right:`.
+   - **Ícones em todos os slides**: Use ícones da biblioteca de 2.100+ (`icon: "..."`).
+
+### Etapa 4: Validação e Auto-Cura Obrigatória
+Após criar ou modificar o arquivo YAML:
+1. Execute `sagadeck check <deck.yaml>` para fiscalizar.
+2. Execute `sagadeck autofix <deck.yaml>` para auto-reparar qualquer sobreposição, margem ou excesso de texto.
+3. Execute `sagadeck build <deck.yaml>` para gerar o HTML interativo final.

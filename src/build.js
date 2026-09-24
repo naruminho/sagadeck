@@ -7,14 +7,16 @@ import { resolveTheme, themeCSS } from "./themes.js";
 import { LAYOUTS } from "./layouts.js";
 import { el } from "./elements.js";
 import { esc, notesHTML, plain, md } from "./markup.js";
+import { normalizeSpec } from "./fiscal/normalize.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
 
 export function loadSpec(file) {
   const src = fs.readFileSync(file, "utf8");
-  let spec;
-  try { spec = YAML.parse(src); } catch (e) { throw new Error(`YAML inválido em ${file}:\n${e.message}`); }
+  let raw;
+  try { raw = YAML.parse(src); } catch (e) { throw new Error(`YAML inválido em ${file}:\n${e.message}`); }
+  const spec = normalizeSpec(raw);
   if (!spec || !Array.isArray(spec.slides)) throw new Error(`${file}: o YAML precisa de uma lista "slides:"`);
   spec._file = path.resolve(file);
   spec._dir = path.dirname(spec._file);
@@ -26,6 +28,8 @@ const slug = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f
 export function inferLayout(s) {
   if (s.layout) return s.layout;
   if (s.elements) return "canvas";
+  if (s.stats || s.kpis) return "stats";
+  if (s.steps || s.process || s.flow) return "steps";
   if (s.quote) return "quote";
   if (s.value != null) return "number";
   if (s.question && s.options) return "question";
@@ -54,7 +58,8 @@ export function wordCount(s) {
   return txt.join(" ").split(/\s+/).filter((w) => w.length > 1).length;
 }
 
-export function buildHTML(spec, opts = {}) {
+export function buildHTML(rawSpec, opts = {}) {
+  const spec = normalizeSpec(rawSpec);
   const theme = resolveTheme(spec.theme);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
   const id = spec.id || slug(spec.title);
@@ -106,9 +111,26 @@ ${themeCSS(theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">
 <div id="viewport"><div id="stage">
-${html}</div></div>
+${html}
+<canvas id="draw-canvas" width="1920" height="1080"></canvas>
+</div></div>
+<div id="draw-toolbar" class="draw-toolbar" style="display:none">
+  <button id="draw-btn-pen" class="draw-btn active" title="Caneta (D)">✏️</button>
+  <button id="draw-btn-highlighter" class="draw-btn" title="Marca-texto (M)">🖍️</button>
+  <div class="draw-separator"></div>
+  <button class="draw-color active" data-color="#ef4444" style="background:#ef4444" title="Vermelho"></button>
+  <button class="draw-color" data-color="#f59e0b" style="background:#f59e0b" title="Amarelo"></button>
+  <button class="draw-color" data-color="#38bdf8" style="background:#38bdf8" title="Azul"></button>
+  <button class="draw-color" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
+  <button class="draw-color" data-color="#ffffff" style="background:#ffffff" title="Branco"></button>
+  <div class="draw-separator"></div>
+  <button id="draw-btn-undo" class="draw-btn" title="Desfazer (Ctrl+Z ou Z)">↩️</button>
+  <button id="draw-btn-clear" class="draw-btn" title="Limpar anotações (C)">🗑️</button>
+  <button id="draw-btn-close" class="draw-btn" title="Fechar modo desenho (Esc ou D)">✕</button>
+</div>
+<button id="draw-fab" class="draw-fab" title="Ativar Caneta de Anotações (D)">✏️</button>
 <div id="hud"><div class="bar"></div></div><div id="laser"></div><div id="blank"></div><div id="overview"></div><div id="toast"></div>
-<div id="help"><b>Atalhos</b><br><kbd>→</kbd><kbd>espaço</kbd> avança · <kbd>←</kbd> volta<br><kbd>P</kbd> janela do apresentador (notas + cronômetro)<br><kbd>F</kbd> tela cheia · <kbd>G</kbd> visão geral<br><kbd>B</kbd> tela preta · <kbd>W</kbd> tela branca<br><kbd>L</kbd> apontador laser · <kbd>R</kbd> zera timer<br><kbd>5</kbd><kbd>Enter</kbd> vai ao slide 5 · <kbd>H</kbd> esta ajuda</div>
+<div id="help"><b>Atalhos</b><br><kbd>→</kbd><kbd>espaço</kbd> avança · <kbd>←</kbd> volta<br><kbd>D</kbd> caneta ao vivo · <kbd>M</kbd> marca-texto · <kbd>C</kbd> limpa tela<br><kbd>P</kbd> janela do apresentador (notas + cronômetro)<br><kbd>F</kbd> tela cheia · <kbd>G</kbd> visão geral<br><kbd>B</kbd> tela preta · <kbd>W</kbd> tela branca<br><kbd>L</kbd> apontador laser · <kbd>R</kbd> zera timer<br><kbd>5</kbd><kbd>Enter</kbd> vai ao slide 5 · <kbd>H</kbd> esta ajuda</div>
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
 <script>window.Sagadeck={_q:[],widget:function(n,d){this._q.push([n,d])}};</script>
 <script>${widgets}</script>

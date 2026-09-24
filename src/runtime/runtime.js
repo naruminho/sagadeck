@@ -172,6 +172,7 @@
       cur = i;
       slides.forEach((s, j) => s.classList.toggle("current", j === i));
       if (opts.instant) slides[i].style.transition = "none";
+      redrawSlideDrawings(i);
     }
     step = k;
     applyStep(slides[i], k, opts);
@@ -225,9 +226,156 @@
     $$(".counter", node).forEach((c) => { $(".cv", c).textContent = c.dataset.prefix + fmtNum(+c.dataset.to, +c.dataset.dec) + c.dataset.suffix; });
   }
 
+  // ---------- caneta e anotações ao vivo (live drawing) ----------
+  const drawCanvas = $("#draw-canvas");
+  const drawCtx = drawCanvas ? drawCanvas.getContext("2d") : null;
+  let isDrawingMode = false;
+  let drawTool = "pen"; // "pen" | "highlighter"
+  let drawColor = "#ef4444";
+  let isDrawingDown = false;
+  let activeStroke = null;
+  const slideDrawings = {}; // { [slideIndex]: [strokes] }
+
+  function toggleDrawing(forceState, tool = "pen") {
+    if (!drawCanvas) return;
+    isDrawingMode = typeof forceState === "boolean" ? forceState : !isDrawingMode;
+    if (tool) drawTool = tool;
+    document.body.classList.toggle("drawing", isDrawingMode);
+    const tb = $("#draw-toolbar");
+    const fab = $("#draw-fab");
+    if (tb) tb.style.display = isDrawingMode ? "flex" : "none";
+    if (fab) fab.style.display = isDrawingMode ? "none" : "";
+    if (isDrawingMode) {
+      updateDrawUI();
+      toast(drawTool === "highlighter" ? "🖍️ Marca-texto ativo (D: caneta, C: limpar)" : "✏️ Caneta ativa (M: marca-texto, C: limpar)");
+    }
+  }
+
+  function updateDrawUI() {
+    $("#draw-btn-pen")?.classList.toggle("active", drawTool === "pen");
+    $("#draw-btn-highlighter")?.classList.toggle("active", drawTool === "highlighter");
+    $$(".draw-color").forEach((b) => b.classList.toggle("active", b.dataset.color === drawColor));
+  }
+
+  function getDrawCoords(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const sx = 1920 / rect.width;
+    const sy = 1080 / rect.height;
+    return {
+      x: (e.clientX - rect.left) * sx,
+      y: (e.clientY - rect.top) * sy,
+    };
+  }
+
+  function renderStroke(s) {
+    if (!drawCtx || !s.points || s.points.length < 2) return;
+    drawCtx.save();
+    drawCtx.lineCap = "round";
+    drawCtx.lineJoin = "round";
+    if (s.tool === "highlighter") {
+      drawCtx.globalAlpha = 0.38;
+      drawCtx.strokeStyle = s.color;
+      drawCtx.lineWidth = s.width || 28;
+    } else {
+      drawCtx.globalAlpha = 1.0;
+      drawCtx.strokeStyle = s.color;
+      drawCtx.lineWidth = s.width || 5;
+    }
+
+    drawCtx.beginPath();
+    drawCtx.moveTo(s.points[0].x, s.points[0].y);
+    for (let i = 1; i < s.points.length; i++) {
+      const p1 = s.points[i - 1];
+      const p2 = s.points[i];
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      drawCtx.quadraticCurveTo(p1.x, p1.y, mx, my);
+    }
+    const last = s.points[s.points.length - 1];
+    drawCtx.lineTo(last.x, last.y);
+    drawCtx.stroke();
+    drawCtx.restore();
+  }
+
+  function redrawSlideDrawings(slideIdx) {
+    if (!drawCtx) return;
+    drawCtx.clearRect(0, 0, 1920, 1080);
+    const strokes = slideDrawings[slideIdx] || [];
+    for (const s of strokes) {
+      renderStroke(s);
+    }
+  }
+
+  function undoDrawing() {
+    const strokes = slideDrawings[cur] || [];
+    if (strokes.length > 0) {
+      strokes.pop();
+      redrawSlideDrawings(cur);
+      toast("Último traço desfeito");
+    }
+  }
+
+  function clearDrawing() {
+    slideDrawings[cur] = [];
+    if (drawCtx) drawCtx.clearRect(0, 0, 1920, 1080);
+    toast("Anotações do slide limpas");
+  }
+
+  function initDrawing() {
+    if (!drawCanvas) return;
+    drawCanvas.addEventListener("pointerdown", (e) => {
+      if (!isDrawingMode) return;
+      e.preventDefault();
+      isDrawingDown = true;
+      const pt = getDrawCoords(e);
+      activeStroke = {
+        tool: drawTool,
+        color: drawColor,
+        width: drawTool === "highlighter" ? 28 : 5,
+        points: [pt, pt],
+      };
+      if (!slideDrawings[cur]) slideDrawings[cur] = [];
+      slideDrawings[cur].push(activeStroke);
+      renderStroke(activeStroke);
+    });
+
+    drawCanvas.addEventListener("pointermove", (e) => {
+      if (!isDrawingDown || !activeStroke) return;
+      e.preventDefault();
+      const pt = getDrawCoords(e);
+      activeStroke.points.push(pt);
+      redrawSlideDrawings(cur);
+    });
+
+    const endDraw = () => {
+      isDrawingDown = false;
+      activeStroke = null;
+    };
+    drawCanvas.addEventListener("pointerup", endDraw);
+    drawCanvas.addEventListener("pointercancel", endDraw);
+
+    $("#draw-fab")?.addEventListener("click", () => toggleDrawing(true, "pen"));
+    $("#draw-btn-pen")?.addEventListener("click", () => { drawTool = "pen"; updateDrawUI(); });
+    $("#draw-btn-highlighter")?.addEventListener("click", () => { drawTool = "highlighter"; updateDrawUI(); });
+    $("#draw-btn-undo")?.addEventListener("click", undoDrawing);
+    $("#draw-btn-clear")?.addEventListener("click", clearDrawing);
+    $("#draw-btn-close")?.addEventListener("click", () => toggleDrawing(false));
+    $$(".draw-color").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        drawColor = btn.dataset.color || "#ef4444";
+        updateDrawUI();
+      });
+    });
+  }
+
   let jump = "";
   function onKey(e) {
     if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && isDrawingMode) {
+      e.preventDefault();
+      undoDrawing();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     if (/^[0-9]$/.test(k)) { jump += k; return; }
@@ -240,10 +388,17 @@
     else if (k === "f" || k === "F") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); }
     else if (k === "p" || k === "P") { if (!PRESENTER) openPresenter(); }
     else if (k === "g" || k === "G") { if (!PRESENTER) overview(); }
-    else if (k === "Escape") { document.body.classList.remove("ov", "help", "blank", "white", "laser"); }
+    else if (k === "Escape") {
+      if (isDrawingMode) toggleDrawing(false);
+      document.body.classList.remove("ov", "help", "blank", "white", "laser");
+    }
     else if (k === "b" || k === "B" || k === ".") cmd("blank");
     else if (k === "w" || k === "W") cmd("white");
     else if (k === "l" || k === "L") { document.body.classList.toggle("laser"); }
+    else if (k === "d" || k === "D") { toggleDrawing(isDrawingMode && drawTool === "pen" ? false : true, "pen"); }
+    else if (k === "m" || k === "M") { toggleDrawing(isDrawingMode && drawTool === "highlighter" ? false : true, "highlighter"); }
+    else if (isDrawingMode && (k === "c" || k === "C" || k === "e" || k === "E")) { clearDrawing(); }
+    else if (isDrawingMode && (k === "z" || k === "Z")) { undoDrawing(); }
     else if (k === "h" || k === "H" || k === "?") document.body.classList.toggle("help");
     else if (k === "r" || k === "R") { $$(".timer", slides[cur]).forEach((t) => { stopTimer(t); }); toast("Timer zerado"); }
     else if (k.length === 1) cmd("key", k);
@@ -319,7 +474,7 @@
   function presenterUI() {
     document.body.classList.add("presenter");
     const root = document.createElement("div"); root.id = "pv";
-    root.innerHTML = `<div class="pv-top"><span class="pv-clock">00:00</span><span class="pv-el">⏱ <b class="pv-elv">00:00</b> / ${DATA.duration || "?"}:00</span><span class="pv-pace">no ritmo</span>
+    root.innerHTML = `<div class="pv-top"><span class="pv-clock">00:00</span><span class="pv-el">⏱ <b class="pv-elv">00:00</b> / ${DATA.duration || "?"}:00</span><span class="pv-pace">no ritmo</span><span class="pv-pace" style="background:#1e293b;color:#38bdf8;border:1px solid rgba(56,189,248,0.3);" title="Anti-Bloqueio corporativo ativo: a tela não será bloqueada por inatividade do Windows">🛡️ Anti-Bloqueio</span>
       <button class="pv-start">Iniciar</button><button class="pv-reset">Zerar</button><button class="pv-black">Tela preta (B)</button><span class="pv-title"></span></div>
       <div><div class="pv-lbl">Agora</div><div class="pv-cur pv-box" style="aspect-ratio:16/9"><div class="pv-scale"></div></div></div>
       <div class="pv-side"><div><div class="pv-lbl pv-nextlbl">Próximo</div><div class="pv-next pv-box"><div class="pv-scale"></div></div></div><div class="pv-lbl">Notas / roteiro</div><div class="pv-notes"></div></div>`;
@@ -347,6 +502,40 @@
     if (window.opener) window.opener.postMessage({ sagadeck: DATA.id, type: "hello" }, "*");
   }
 
+  // ---------- Bloqueio de Suspensão / Anti-Lock corporativo ----------
+  let wakeLock = null;
+  let keepAwakeVideo = null;
+
+  async function requestWakeLock() {
+    if (EXPORT) return;
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+        return true;
+      }
+    } catch (err) {}
+
+    // Fallback: beacon de vídeo silencioso 1x1 inibe suspensão em navegadores corporativos
+    try {
+      if (!keepAwakeVideo) {
+        keepAwakeVideo = document.createElement("video");
+        keepAwakeVideo.setAttribute("playsinline", "");
+        keepAwakeVideo.setAttribute("muted", "");
+        keepAwakeVideo.setAttribute("loop", "");
+        keepAwakeVideo.style.cssText = "position:fixed;width:1px;height:1px;top:-10px;left:-10px;opacity:0.01;pointer-events:none;";
+        keepAwakeVideo.src = "data:video/webm;base64,GkXfo0AgQoaBAUL3gQDu4vqcgQdUaW5mb1ZAdYGAZW5jb2RpbmdlcHVibGlzaGVyX2FwcGxpY2F0aW9uY2hhcnNldAB4h5C5kIEYQoEB2QCQA4N1c2WDZkZlZmVmZmVmZmVmZmVmZmVmZmVmZmVmZg==";
+        document.body.appendChild(keepAwakeVideo);
+        keepAwakeVideo.play().catch(() => {});
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") requestWakeLock();
+  });
+
   // ---------- inicialização ----------
   function parseHash() {
     const m = location.hash.match(/^#(\d+)(?:\.(\d+))?/);
@@ -356,6 +545,8 @@
     if (EXPORT) document.documentElement.classList.add("export");
     scale(); window.addEventListener("resize", scale);
     mountWidgets();
+    initDrawing();
+    requestWakeLock();
     document.addEventListener("keydown", onKey);
     let mt; document.addEventListener("mousemove", (e) => {
       document.body.classList.add("mouse"); clearTimeout(mt); mt = setTimeout(() => document.body.classList.remove("mouse"), 1600);

@@ -9,14 +9,26 @@ alwaysApply: false
 Use o SagaDeck sempre que o usuário pedir slides, apresentações, palestras, pitch decks ou arquivos PowerPoint editáveis.
 
 ## Fluxo Agêntico Recomendado
-1. **Estrutura Narrativa**: Roteiro antes dos slides (gancho -> desenvolvimento em blocos -> fechamento com próximos passos).
-2. **Escrever YAML**: Declarar cabeçalho com `title`, `author`, `theme`, `duration`, e lista de `slides:`.
-3. **Auto-Inspeção e Fiscal**: Execute `sagadeck autofix <deck.yaml>` para garantir que nenhum elemento fique sobreposto e todas as margens de 120px sejam respeitadas.
-4. **Gerar Artefatos**: Execute `sagadeck all <deck.yaml>` ou `sagadeck build <deck.yaml>`.
-5. **Edição Visual**: O usuário pode visualizar e editar visualmente usando `sagadeck studio <deck.yaml>`.
+1. **Pesquisa & Fontes Confiáveis**: Se o tema envolver dados reais do mercado ou o usuário pedir fontes, pesquise com `sagadeck search "<termo>"` ou a ferramenta MCP `sagadeck_web_search` (DuckDuckGo, sem bloqueio de bot/Google).
+   - Se o usuário pedir com fontes/citações: adicione `source: "Fonte: Nome, Ano"` nos slides com métricas e a URL em `notes:`.
+   - Se o usuário pedir sem fontes ou estilo clean: omita o campo `source:`.
+2. **Escolha do Tema**:
+   - `prata`: Keynote da Apple, ultra-clean, jovem e sério, cinza prata acetinado e respiro máximo.
+   - `rabisco`: Artesanal, lousa, desenhado à mão com fontes manuscritas, post-its e doodles.
+   - `oceano`: Tech moderno, azul elétrico vibrante e luminoso.
+   - `pop`: Alegre, colorido e chiclete com cantos arredondados.
+   - `aurora`: Neon noturno com gradientes espaciais.
+3. **Estrutura Visual Anti-Textão**: NUNCA escreva parágrafos longos em slides (regra anti-sono: máx 40 palavras).
+   - Métricas e números $\to$ `layout: stats` (com `value:`, `trend:`, `icon:`).
+   - Processos e passos $\to$ `layout: steps` (com `stepNum:`, `title:`, `text:`, `icon:`).
+   - Recursos múltiplos $\to$ `layout: cards` com widgets (`progress:`, `tags:`, `rating:`, `check:`).
+4. **Auto-Inspeção e Fiscal**: Execute `sagadeck autofix <deck.yaml>` para garantir que nenhum elemento fique sobreposto e todas as margens de 120px sejam respeitadas deterministamente.
+5. **Gerar Artefatos**: Execute `sagadeck build <deck.yaml>` ou `sagadeck all <deck.yaml>`.
+6. **Edição Visual**: O usuário pode visualizar e editar visualmente usando `sagadeck studio <deck.yaml>`.
 
 ## Ferramentas MCP Disponíveis
 Se o cliente MCP estiver ativo (`sagadeck mcp`), você pode chamar:
+- `sagadeck_web_search`: pesquisa na web via DuckDuckGo (sem bloqueio) para buscar dados e fatos reais
 - `sagadeck_create_deck`: cria novo arquivo YAML estruturado
 - `sagadeck_read_deck`: lê e analisa um deck existente
 - `sagadeck_inspect_deck`: fiscal de layout e sobreposição

@@ -30,6 +30,11 @@
         <label class="tool-label">Tema Global</label>
         <select id="theme-select" class="tool-select" title="Tema tipográfico e paleta">
           <option value="sinal">Sinal (DIN · Amarelo)</option>
+          <option value="prata">🍏 Prata (Keynote Apple · Clean & Espacial)</option>
+          <option value="rabisco">✏️ Rabisco (Pintado à Mão · Artesanal)</option>
+          <option value="oceano">🌊 Oceano (Azul Elétrico · Vibrante)</option>
+          <option value="pop">🍬 Pop (Alegre · Colorido Chiclete)</option>
+          <option value="aurora">✨ Aurora (Neon & Gradientes)</option>
           <option value="editorial">Editorial (Serifa · Revista)</option>
           <option value="noite">Noite (Escuro · Latão)</option>
           <option value="bauhaus">Bauhaus (Geométrico)</option>
@@ -50,7 +55,21 @@
 
       <div class="tool-sep"></div>
 
+      <!-- BOTÃO ABRIR YAML / YML -->
+      <button id="btn-open-yaml" class="btn btn-secondary" title="Abrir arquivo de apresentação .yaml ou .yml">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        Abrir .yml
+      </button>
+      <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" style="display:none">
+
       <div class="tool-buttons">
+        <button id="btn-napkin" class="btn btn-secondary" title="Napkin AI: Transforma texto ou notas em diagramas visuais (Steps, Stats, Cards, Compare)">
+          🪄 Napkin (Texto → Visual)
+        </button>
+        <button id="btn-insert-icon" class="btn btn-secondary" title="Biblioteca visual com mais de 2.100 ícones para inserir no slide">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 16 12 12 8"></polygon></svg>
+          ✦ Ícones
+        </button>
         <button id="btn-add-slide" class="btn btn-secondary" title="Adicionar novo slide">
           <span class="btn-icon">+</span> Novo Slide
         </button>
@@ -83,14 +102,20 @@
       <div class="dropdown">
         <button id="btn-export-menu" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Exportar ▾
+          Arquivo ▾
         </button>
         <div id="export-dropdown" class="dropdown-menu">
-          <a href="#" id="export-yaml" class="dropdown-item">Baixar YAML (.yaml)</a>
-          <a href="#" id="export-html" class="dropdown-item">Baixar HTML Standalone (.html)</a>
-          <a href="/preview" target="_blank" class="dropdown-item">Abrir Apresentação em Nova Aba</a>
+          <a href="#" id="menu-open-local" class="dropdown-item">Abrir Arquivo do Computador (.yml / .yaml)</a>
+          <a href="#" id="menu-open-server" class="dropdown-item">Abrir Caminho no Servidor / Projeto...</a>
           <div class="dropdown-divider"></div>
           <a href="#" id="action-save-yaml" class="dropdown-item">Salvar no Arquivo Local</a>
+          <a href="#" id="export-yaml" class="dropdown-item">Baixar YAML (.yaml)</a>
+          <a href="#" id="export-html" class="dropdown-item">Baixar HTML Standalone (.html)</a>
+          <div class="dropdown-divider"></div>
+          <a href="/v1.2.0.patch" download="v1.2.0.patch" class="dropdown-item" style="color:#38bdf8;font-weight:600;">📦 Baixar Patch Git (.patch)</a>
+          <a href="/sagadeck-v1.2.0.tar.gz" download="sagadeck-v1.2.0.tar.gz" class="dropdown-item" style="color:#f59e0b;">🗜️ Baixar Código Fonte Atualizado (.tar.gz)</a>
+          <div class="dropdown-divider"></div>
+          <a href="/preview" target="_blank" class="dropdown-item">Abrir Apresentação em Nova Aba</a>
         </div>
       </div>
 
@@ -113,6 +138,21 @@
       <div id="thumbnails-list" class="thumbnails-container">
         <!-- Renderizado dinamicamente via JS -->
       </div>
+
+      <!-- O ELETROCARDIOGRAMA DA NARRATIVA (Story Arc Pulse) -->
+      <div id="story-arc-widget" class="story-arc-widget" title="Ritmo Narrativo: monitora a energia, densidade e pausas da apresentação">
+        <div class="story-arc-header">
+          <span class="arc-title">Ritmo Narrativo</span>
+          <span id="arc-status-badge" class="arc-badge ok">Dinâmico ✓</span>
+        </div>
+        <div class="story-arc-graph-wrap">
+          <svg id="story-arc-svg" class="story-arc-svg" viewBox="0 0 200 36" preserveAspectRatio="none">
+            <path id="story-arc-path" d="" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round"></path>
+            <circle id="story-arc-dot" cx="0" cy="18" r="4.5" fill="#3b82f6" stroke="#fff" stroke-width="1.5"></circle>
+          </svg>
+        </div>
+        <div id="arc-recommendation" class="arc-recommendation">Ritmo variado com alternância de layouts.</div>
+      </div>
     </aside>
 
     <!-- 2. ÁREA CENTRAL: CANVAS WYSIWYG 16:9 DO SLIDE -->
@@ -120,14 +160,34 @@
       <!-- Barra superior do canvas (Guias, zoom, status) -->
       <div class="stage-toolbar">
         <div class="stage-left-tools">
+          <button id="btn-spotlight" class="btn-spotlight" title="Paleta de Comandos Rápidos (Ctrl+K ou Cmd+K)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <span class="spotlight-text">Ações</span>
+            <kbd class="kbd-shortcut">⌘K</kbd>
+          </button>
+          <div class="tool-sep-mini"></div>
           <label class="toggle-checkbox" title="Mostrar linha tracejada da margem segura de 120px">
             <input type="checkbox" id="chk-guides" checked>
-            <span>Margens Seguras (120px)</span>
+            <span>Margens 120px</span>
           </label>
           <label class="toggle-checkbox" title="Destacar caixas e sobreposições em tempo real">
             <input type="checkbox" id="chk-inspect-overlay" checked>
-            <span>Detector de Sobreposição</span>
+            <span>Detector</span>
           </label>
+          <div class="tool-sep-mini"></div>
+          <!-- MODOS FORA DA CAIXA: VISÃO DA AUDIÊNCIA E SMART TIDY -->
+          <button id="btn-squint" class="btn-tool-pill" title="Teste da Última Fileira: Aplica leve blur para testar se o texto é legível de longe">
+            <span class="pill-icon">👁️</span> Última Fileira
+          </button>
+          <button id="btn-heatmap" class="btn-tool-pill" title="Heatmap de Atenção: Simula onde o olho humano bate primeiro">
+            <span class="pill-icon">🔥</span> Heatmap
+          </button>
+          <button id="btn-smart-tidy" class="btn-tool-pill" title="Arrumar a Casa: Alinha e redistribui elementos harmonicamente">
+            <span class="pill-icon">✨</span> Arrumar
+          </button>
+          <button id="btn-yaml-drawer" class="btn-tool-pill" title="Alternar gaveta de YAML bi-direcional ao vivo">
+            <span class="pill-icon">{ }</span> YAML
+          </button>
         </div>
 
         <div class="stage-center-status">
@@ -136,6 +196,7 @@
         </div>
 
         <div class="stage-right-tools">
+          <button id="btn-audio-toggle" class="btn-zoom" title="Ativar/Desativar sons hápticos de alinhamento">🔊</button>
           <button id="zoom-fit" class="btn-zoom" title="Ajustar à tela">Ajustar</button>
           <button id="zoom-out" class="btn-zoom" title="Reduzir">−</button>
           <span id="zoom-level">60%</span>
@@ -156,9 +217,33 @@
           <!-- Camada de sobreposições e alertas visuais do Fiscal -->
           <div id="inspector-overlay" class="inspector-layer"></div>
 
+          <!-- Camada do Heatmap de Atenção Humana -->
+          <div id="heatmap-overlay" class="heatmap-layer hidden"></div>
+
+          <!-- Pílula de Alquimia Flutuante (Context Quick Actions) -->
+          <div id="alchemy-pill" class="alchemy-pill hidden">
+            <div class="alchemy-header">
+              <span class="alchemy-sparkle">✦</span>
+              <span id="alchemy-title" class="alchemy-label">Ações Inteligentes</span>
+            </div>
+            <div id="alchemy-actions" class="alchemy-btn-group"></div>
+          </div>
+
           <!-- O SLIDE RENDERIZADO VISUALMENTE -->
           <div id="rendered-slide-container"></div>
         </div>
+      </div>
+
+      <!-- GAVETA BI-DIRECIONAL: YAML LIVE LINK -->
+      <div id="yaml-drawer" class="yaml-live-drawer hidden">
+        <div class="yaml-drawer-header">
+          <div class="yaml-drawer-title">
+            <span class="code-icon">&lt;/&gt;</span>
+            <b>YAML Live Link</b> — Alterações aqui refletem no canvas a 60fps (duas vias)
+          </div>
+          <button id="btn-close-yaml-drawer" class="btn-close-mini">✕</button>
+        </div>
+        <textarea id="yaml-live-editor" class="yaml-editor-textarea" spellcheck="false" placeholder="Código YAML do slide atual..."></textarea>
       </div>
 
       <!-- BARRA INFERIOR: NOTAS DO APRESENTADOR & TEMPO -->
@@ -240,11 +325,15 @@
         <!-- SUGESTÕES RÁPIDAS DE PROMPT -->
         <div class="chat-quick-suggestions">
           <button class="chip-prompt" data-prompt="Auto-corrigir layout deste slide (reparar sobreposição e margens)">🪄 Auto-Corrigir</button>
-          <button class="chip-prompt" data-prompt="Transformar este slide em 3 cards com ícones e texto conciso">🃏 Virar Cards</button>
-          <button class="chip-prompt" data-prompt="Deixar o texto mais conciso anti-sono e mover excesso para as notas">✍️ Mais Conciso</button>
-          <button class="chip-prompt" data-prompt="Mudar o tom deste slide para escuro (dark)">🌓 Tom Escuro</button>
-          <button class="chip-prompt" data-prompt="Adicionar um novo slide de conclusão e próximos passos">🏁 Conclusão</button>
-          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para bauhaus">🎨 Tema Bauhaus</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema para prata (estilo Keynote Apple, cinza prata clean e respirável)">🍏 Tema Prata</button>
+          <button class="chip-prompt" data-prompt="Transformar este slide em 3 grandes números / KPIs com tendências e ícones">📊 Virar KPIs</button>
+          <button class="chip-prompt" data-prompt="Transformar este slide em um fluxo visual de etapas do processo (steps)">➔ Virar Etapas</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para rabisco (desenhado à mão, estilo artesanal)">✏️ Tema Rabisco</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para oceano (azul elétrico vivo e moderno)">🌊 Tema Oceano</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para pop (alegre, colorido e chiclete)">🍬 Tema Pop</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para aurora (luzes e neon vibrante)">✨ Tema Aurora</button>
+          <button class="chip-prompt" data-prompt="Transformar este slide em cards com ícones, badges e progresso">🃏 Virar Cards</button>
+          <button class="chip-prompt" data-prompt="Reduzir texto e deixar o slide super visual (anti-sono)">✍️ Menos Texto</button>
         </div>
 
         <!-- HISTÓRICO DE MENSAGENS -->
@@ -270,16 +359,209 @@
     </aside>
   </main>
 
+  <!-- BARRA DE NAVEGAÇÃO MOBILE (Para telas de celular) -->
+  <nav id="mobile-nav-bar" class="mobile-nav-bar">
+    <button id="mobile-btn-slides" class="mobile-nav-btn" title="Lista de Slides">
+      <span class="mobile-nav-icon">📋</span>
+      <span class="mobile-nav-label">Slides</span>
+    </button>
+    <button id="mobile-btn-napkin" class="mobile-nav-btn" title="Napkin AI">
+      <span class="mobile-nav-icon">🪄</span>
+      <span class="mobile-nav-label">Napkin</span>
+    </button>
+    <button id="mobile-btn-present" class="mobile-nav-btn mobile-nav-primary" title="Apresentar em Tela Cheia">
+      <span class="mobile-nav-icon">▶</span>
+      <span class="mobile-nav-label">Apresentar</span>
+    </button>
+    <button id="mobile-btn-editor" class="mobile-nav-btn" title="Editar Slide">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span class="mobile-nav-label">Ajustes</span>
+    </button>
+    <button id="mobile-btn-chat" class="mobile-nav-btn" title="Chat com IA">
+      <span class="mobile-nav-icon">💬</span>
+      <span class="mobile-nav-label">Chat</span>
+    </button>
+  </nav>
+
   <!-- MODAL DE APRESENTAÇÃO FULLSCREEN (F5) -->
   <div id="presentation-modal" class="modal-fullscreen hidden">
     <button id="modal-close-present" class="btn-close-modal" title="Sair do modo apresentação (Esc)">✕</button>
+    <div id="pres-rotate-tip" class="pres-rotate-tip">📱 Dica: Gire na horizontal para tela cheia</div>
     <div id="modal-stage-wrapper">
-      <div id="modal-stage" class="stage-16-9"></div>
+      <div id="modal-stage" class="stage-16-9">
+        <div id="pres-slide-render" style="width:100%;height:100%;"></div>
+        <canvas id="pres-draw-canvas" width="1920" height="1080"></canvas>
+      </div>
     </div>
     <div class="presentation-controls">
       <button id="pres-prev" class="btn-pres-nav">←</button>
       <span id="pres-counter">1 / 1</span>
       <button id="pres-next" class="btn-pres-nav">→</button>
+    </div>
+    <!-- Barra de Desenho Flutuante da Apresentação -->
+    <div id="pres-draw-toolbar" class="draw-toolbar" style="display:none">
+      <button id="pres-btn-pen" class="draw-btn active" title="Caneta (D)">✏️</button>
+      <button id="pres-btn-highlighter" class="draw-btn" title="Marca-texto (M)">🖍️</button>
+      <div class="draw-separator"></div>
+      <button class="draw-color active" data-color="#ef4444" style="background:#ef4444" title="Vermelho"></button>
+      <button class="draw-color" data-color="#f59e0b" style="background:#f59e0b" title="Amarelo"></button>
+      <button class="draw-color" data-color="#38bdf8" style="background:#38bdf8" title="Azul"></button>
+      <button class="draw-color" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
+      <button class="draw-color" data-color="#ffffff" style="background:#ffffff" title="Branco"></button>
+      <div class="draw-separator"></div>
+      <button id="pres-btn-undo" class="draw-btn" title="Desfazer (Ctrl+Z ou Z)">↩️</button>
+      <button id="pres-btn-clear" class="draw-btn" title="Limpar anotações (C)">🗑️</button>
+      <button id="pres-btn-close-draw" class="draw-btn" title="Fechar modo desenho (Esc ou D)">✕</button>
+    </div>
+    <button id="pres-draw-fab" class="draw-fab" title="Ativar Caneta de Anotações (D)">✏️</button>
+  </div>
+
+  <!-- PALETA DE COMANDOS RÁPIDOS (Spotlight / Raycast) -->
+  <div id="command-palette-modal" class="palette-overlay hidden">
+    <div class="palette-box">
+      <div class="palette-input-wrap">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="palette-search-input" class="palette-input" placeholder="O que você deseja fazer? (ex: cards, escuro, auto-corrigir, novo slide...)" autocomplete="off">
+        <kbd class="kbd-esc">Esc</kbd>
+      </div>
+      <div id="palette-results-list" class="palette-results">
+        <!-- Itens de comando rápidos gerados dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DA BIBLIOTECA DE ÍCONES (2.100+ Ícones Lucide) -->
+  <div id="modal-icon-picker" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box icon-picker-dialog">
+      <div class="modal-dialog-header">
+        <div class="modal-title-with-badge">
+          <h3>Biblioteca de Ícones</h3>
+          <span class="badge-icon-count">2.100+ ícones Lucide</span>
+        </div>
+        <button id="btn-close-icon-picker" class="btn-close-dialog">✕</button>
+      </div>
+      <div class="modal-dialog-body icon-picker-body">
+        <!-- Campo de Busca em Tempo Real -->
+        <div class="icon-search-bar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="icon-search-input" class="icon-search-field" placeholder="Buscar ícone... (ex.: coffee, star, rocket, user, check, heart, arrow, chart...)" autocomplete="off">
+          <span id="icon-search-count" class="icon-search-count">Carregando...</span>
+        </div>
+
+        <!-- Chips de Categorias Populares -->
+        <div class="icon-category-chips">
+          <button class="chip-cat active" data-cat="">Todos</button>
+          <button class="chip-cat" data-cat="coffee">Café & Bebidas</button>
+          <button class="chip-cat" data-cat="chart">Gráficos & Dados</button>
+          <button class="chip-cat" data-cat="user">Pessoas & Usuários</button>
+          <button class="chip-cat" data-cat="arrow">Setas & Direção</button>
+          <button class="chip-cat" data-cat="check">Status & Check</button>
+          <button class="chip-cat" data-cat="star">Destaque & Premiação</button>
+          <button class="chip-cat" data-cat="message">Comunicação</button>
+          <button class="chip-cat" data-cat="zap">Energia & Ideia</button>
+        </div>
+
+        <!-- Grade Visual de Ícones -->
+        <div id="icons-grid-container" class="icons-grid">
+          <!-- Renderizado dinamicamente via JS com SVG -->
+        </div>
+
+        <!-- Painel de Inserção com Pré-visualização -->
+        <div id="icon-preview-footer" class="icon-preview-footer hidden">
+          <div class="icon-preview-left">
+            <div id="icon-preview-svg" class="icon-preview-svg-box"></div>
+            <div class="icon-preview-info">
+              <b id="icon-preview-name">nome-do-icone</b>
+              <span class="icon-preview-tip">Selecione onde deseja inserir:</span>
+            </div>
+          </div>
+          <div class="icon-preview-actions">
+            <button id="btn-insert-icon-card" class="btn btn-secondary" title="Adiciona um novo card com este ícone">
+              + Inserir como Card
+            </button>
+            <button id="btn-insert-icon-figure" class="btn btn-primary" title="Define como a ilustração principal do slide">
+              Definir como Figura Principal
+            </button>
+            <button id="btn-insert-icon-canvas" class="btn btn-secondary" title="Insere no canvas livre">
+              + Inserir no Canvas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PARA ABRIR ARQUIVO LOCAL DO SERVIDOR -->
+  <div id="modal-open-server" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box">
+      <div class="modal-dialog-header">
+        <h3>Abrir Arquivo .yaml / .yml</h3>
+        <button id="btn-close-open-modal" class="btn-close-dialog">✕</button>
+      </div>
+      <div class="modal-dialog-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+          Digite o caminho relativo ou absoluto do arquivo YAML no projeto:
+        </p>
+        <input type="text" id="input-server-path" class="form-control" style="width:100%;margin-bottom:12px;" placeholder="ex.: templates/exemplo.yaml ou minha-palestra.yaml" value="templates/exemplo.yaml">
+        <div style="font-size:12px;color:var(--text-dim);">
+          Dica: Você também pode simplesmente arrastar e soltar qualquer arquivo <code>.yaml</code> ou <code>.yml</code> nesta janela!
+        </div>
+      </div>
+      <div class="modal-dialog-footer">
+        <button id="btn-cancel-open-server" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-confirm-open-server" class="btn btn-primary">Abrir Arquivo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY DE DRAG & DROP PARA ARQUIVOS .YML / .YAML -->
+  <div id="drop-overlay" class="drop-overlay hidden">
+    <div class="drop-box">
+      <div class="drop-icon">📂</div>
+      <div class="drop-text">Solte o arquivo <b>.yaml</b> ou <b>.yml</b> aqui</div>
+      <div class="drop-sub">Ele será carregado instantaneamente no SagaDeck Studio</div>
+    </div>
+  </div>
+
+  <!-- MODAL NAPKIN AI (TEXTO -> DIAGRAMA VISUAL) -->
+  <div id="modal-napkin" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box" style="max-width: 760px; width: 90%;">
+      <div class="modal-dialog-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">🪄</span>
+          <h3 style="margin: 0; font-size: 18px;">Napkin AI — Converter Texto em Diagrama Visual</h3>
+        </div>
+        <button id="btn-close-napkin" class="btn-close-dialog">✕</button>
+      </div>
+      <div class="modal-dialog-body" style="padding: 18px 24px;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 0; margin-bottom: 12px; line-height: 1.5;">
+          Cole seu texto bruto, notas de reunião, lista de tópicos ou fluxo de processo. O motor semântico detecta a intenção e escolhe o layout ideal (etapas, métricas, comparação ou cards) com ícones automáticos.
+        </p>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+          <button class="btn-preset-napkin btn btn-small btn-secondary" data-example="steps">Exemplo: 4 Etapas</button>
+          <button class="btn-preset-napkin btn btn-small btn-secondary" data-example="stats">Exemplo: KPIs & Métricas</button>
+          <button class="btn-preset-napkin btn btn-small btn-secondary" data-example="compare">Exemplo: Antes vs Depois</button>
+          <button class="btn-preset-napkin btn btn-small btn-secondary" data-example="cards">Exemplo: 3 Pilares</button>
+        </div>
+        <textarea id="napkin-input-text" class="form-control" style="width: 100%; height: 140px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 12px;" placeholder="Cole aqui seu texto, processo ou lista de tópicos..."></textarea>
+
+        <div id="napkin-preview-box" class="hidden" style="padding: 14px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span id="napkin-detected-badge" class="badge-layout" style="background:#8b5cf6;color:#fff;padding:4px 10px;border-radius:6px;font-weight:600;">STEPS</span>
+            <span id="napkin-rationale" style="font-size: 12px; color: #38bdf8;"></span>
+          </div>
+          <pre id="napkin-yaml-preview" style="max-height: 140px; overflow: auto; font-size: 12px; color: #a5f3fc; margin: 0; background: transparent;"></pre>
+        </div>
+      </div>
+      <div class="modal-dialog-footer" style="padding: 14px 24px; display: flex; justify-content: space-between; align-items: center;">
+        <button id="btn-run-napkin" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #3b82f6); border: none;">
+          ✨ Analisar & Gerar Diagrama
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-napkin-replace" class="btn btn-secondary hidden">Substituir Slide Atual</button>
+          <button id="btn-napkin-insert" class="btn btn-primary hidden">➕ Inserir Novo Slide</button>
+        </div>
+      </div>
     </div>
   </div>
 

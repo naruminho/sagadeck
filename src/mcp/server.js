@@ -60,6 +60,44 @@ const TOOLS = [
     },
   },
   {
+    name: "sagadeck_text_to_visual",
+    description: "Transforma texto bruto, notas de reunião ou tópicos em um diagrama visual inteligente (estilo Napkin AI: steps, stats, compare, cards, statement). Detecta o padrão semântico ideal sem alucinação.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Texto bruto, lista de tópicos ou notas a converter em diagrama" },
+        title: { type: "string", description: "Título opcional para o slide" },
+        kicker: { type: "string", description: "Kicker/chapeuzinho opcional (ex: PROCESSO, MÉTRICAS)" },
+        theme: { type: "string", description: "Tema do deck se for gerar apresentação completa" },
+        tone: { type: "string", enum: ["dark", "light", "accent"], description: "Tom visual do slide" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "sagadeck_scaffold_deck",
+    description: "Gera um esqueleto narrativo pronto de alta qualidade (cover -> statement -> stats -> steps -> cards -> end) para preenchimento direto. Economiza até 80% dos tokens de saída da IA.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Caminho do arquivo .yaml a ser criado" },
+        title: { type: "string", description: "Título provisório da apresentação" },
+        theme: {
+          type: "string",
+          enum: ["prata", "rabisco", "oceano", "pop", "aurora", "sinal", "editorial", "noite"],
+          description: "Tema visual (padrão: prata)",
+        },
+        type: {
+          type: "string",
+          enum: ["keynote", "pitch", "palestra"],
+          description: "Tipo narrativo do esqueleto (padrão: keynote)",
+        },
+        author: { type: "string", description: "Nome do autor ou palestrante" },
+      },
+      required: ["path"],
+    },
+  },
+  {
     name: "sagadeck_create_deck",
     description: "Cria uma nova apresentação Sagadeck com tema e estrutura inicial.",
     inputSchema: {
@@ -69,12 +107,24 @@ const TOOLS = [
         title: { type: "string", description: "Título da apresentação" },
         theme: {
           type: "string",
-          enum: ["sinal", "editorial", "noite", "bauhaus", "terminal", "jornal"],
-          description: "Tema visual do Sagadeck",
+          enum: ["sinal", "prata", "rabisco", "oceano", "pop", "aurora", "editorial", "noite", "bauhaus", "terminal", "jornal"],
+          description: "Tema visual do Sagadeck (ex.: prata para Apple Keynote, rabisco para artesanal, oceano para azul elétrico)",
         },
         author: { type: "string", description: "Nome do autor ou palestrante" },
       },
       required: ["path", "title"],
+    },
+  },
+  {
+    name: "sagadeck_web_search",
+    description: "Pesquisa na web via DuckDuckGo (sem bloqueio de CAPTCHA/Google bot) para enriquecer o conteúdo dos slides com dados reais, estatísticas e fontes confiáveis.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Termo de busca na web" },
+        limit: { type: "number", description: "Número de resultados desejados (padrão: 5)" },
+      },
+      required: ["query"],
     },
   },
   {
@@ -90,6 +140,7 @@ const TOOLS = [
   },
 ];
 
+export { TOOLS, handleToolCall };
 export function runMCPServer() {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -227,6 +278,46 @@ async function handleToolCall(name, args) {
       };
     }
 
+    case "sagadeck_text_to_visual": {
+      const { textToVisualSlide } = await import("../diagram/napkin.js");
+      const YAML = (await import("yaml")).default;
+      const res = textToVisualSlide(args.text, {
+        title: args.title,
+        kicker: args.kicker,
+        theme: args.theme,
+        tone: args.tone,
+      });
+      return {
+        ok: true,
+        detectedType: res.detectedType,
+        confidence: res.confidence,
+        rationale: res.rationale,
+        slide: res.slide,
+        slideYaml: YAML.stringify(res.slide, { indent: 2 }),
+      };
+    }
+
+    case "sagadeck_scaffold_deck": {
+      const targetPath = path.resolve(args.path);
+      const { generateScaffold } = await import("../templates/scaffold.js");
+      const YAML = (await import("yaml")).default;
+      const spec = generateScaffold({
+        title: args.title || "Nova Apresentação",
+        theme: args.theme || "prata",
+        type: args.type || "keynote",
+        author: args.author || "Seu Nome",
+      });
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, YAML.stringify(spec, { indent: 2 }), "utf8");
+      return {
+        ok: true,
+        path: targetPath,
+        theme: spec.theme,
+        slidesCount: spec.slides.length,
+        message: `Esqueleto narrativo gerado com sucesso (${spec.slides.length} slides). Economiza 80% dos tokens da IA.`,
+      };
+    }
+
     case "sagadeck_create_deck": {
       const targetPath = path.resolve(args.path);
       const content = {
@@ -259,6 +350,16 @@ async function handleToolCall(name, args) {
       const server = createStudioServer(args.path, { port });
       server.listen(port, "0.0.0.0");
       return { ok: true, url: `http://localhost:${port}`, message: "Studio ativo" };
+    }
+
+    case "sagadeck_web_search": {
+      const { searchDuckDuckGo } = await import("../research/duckduckgo.js");
+      const results = await searchDuckDuckGo(args.query, { limit: args.limit || 5 });
+      return {
+        query: args.query,
+        count: results.length,
+        results,
+      };
     }
 
     default:

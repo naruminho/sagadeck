@@ -1,0 +1,90 @@
+title: Inovação & Design
+author: Keynote Clean
+theme: prata
+duration: 12
+slides:
+  - layout: cover
+    kicker: Apresentação Especial · Keynote
+    title: Simplicidade com ==Impacto==.
+    subtitle: A estética do respiro, elegância e precisão visual
+    author: Design Team
+
+  - layout: stats
+    kicker: Performance Máxima
+    title: Resultados que Falam por Si
+    stats:
+      - value: "3.5x"
+        label: "Velocidade de Processamento"
+        trend: "geração nova"
+        trendUp: true
+        icon: "cpu"
+        text: "Arquitetura ultra-otimizada"
+      - value: "22h"
+        label: "Autonomia de Bateria"
+        trend: "+6h a mais"
+        trendUp: true
+        icon: "battery-charging"
+        text: "O dia inteiro sem tomada"
+      - value: "99.9%"
+        label: "Satisfação dos Criadores"
+        trend: "líder global"
+        trendUp: true
+        icon: "sparkles"
+        text: "Aclamado pela crítica"
+
+  - layout: statement
+    kicker: Princípio Fundamental
+    text: "O design não é apenas o que parece. É como funciona."
+    by: Steve Jobs
+    center: true
+
+  - layout: steps
+    kicker: Pipeline de Excelência
+    title: Três Fases sem Fricção
+    steps:
+      - stepNum: 1
+        title: Foco Total
+        text: Eliminar todo excesso e ruído desnecessário.
+        icon: "target"
+        tag: "Clareza"
+      - stepNum: 2
+        title: Acabamento
+        text: Ajustar cada milímetro e proporção geométrica.
+        icon: "layers"
+        tag: "Precisão"
+      - stepNum: 3
+        title: Entrega
+        text: Uma experiência respirável e memorável.
+        icon: "award"
+        tag: "Excelência"
+
+  - layout: cards
+    tone: dark
+    kicker: Edição Espacial
+    title: O Poder no Modo Pro
+    cols: 3
+    items:
+      - icon: "shield-check"
+        badge: "Titânio"
+        title: "Estrutura Segura"
+        text: "Resistência de classe aeroespacial com zero peso."
+        check: true
+        checkText: "Certificado"
+      - icon: "zap"
+        title: "Eficiência Pura"
+        text: "Desempenho sustentado sob qualquer carga."
+        progress: 95
+        progressLabel: "Eficiência"
+      - icon: "star"
+        title: "Padrão de Mercado"
+        text: "A referência definitiva para profissionais sérios."
+        rating: 5
+        ratingLabel: "5.0 Keynote"
+        tags: ["Keynote", "Prata", "Apple Clean"]
+
+  - layout: end
+    title: Pense Diferente.
+    subtitle: Obrigado.
+    contacts:
+      - apple.com/keynote
+      - contato@design.org

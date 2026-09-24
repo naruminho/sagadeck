@@ -168,6 +168,131 @@ export const THEMES = {
     },
     radius: 0, deco: "none",
   },
+
+  rabisco: {
+    label: "Rabisco — artesanal & lousa: fontes desenhadas à mão, doodles, post-its e traços orgânicos",
+    colors: {
+      paper: "FFFDF6", ink: "2B2824", accent: "FF5C5C", alert: "E84118",
+      muted: "736D65", line: "E5DCCB", surface: "FFF7DB", surfaceDark: "302C28",
+      c1: "FF5C5C", c2: "2E86DE", c3: "FBC531", c4: "4CD137", c5: "9C88FF",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "FBC531", em: "accent", onHi: "ink" },
+      dark: { bg: "ink", fg: "paper", muted: "B0A89C", line: "4A453F", surface: "surfaceDark", hi: "FBC531", em: "accent", onHi: "ink" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "FFD0D0", line: "FF8585", surface: "D93838", hi: "FBC531", em: "ink", onHi: "ink" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFC5B8", line: "FF6E4A", surface: "B82805", hi: "FBC531", em: "ink", onHi: "FFFFFF" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Caveat', 'Patrick Hand', 'Comic Sans MS', 'Ink Free', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0.01em; line-height: 1.02;", pptx: { face: "Ink Free", bold: true } },
+      heading: { css: "font-family: 'Caveat', 'Patrick Hand', 'Comic Sans MS', 'Ink Free', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0; line-height: 1.08;", pptx: { face: "Ink Free" } },
+      body: { css: "font-family: 'Patrick Hand', 'Comic Neue', 'Comic Sans MS', 'Segoe UI', cursive, sans-serif; font-weight: 400; line-height: 1.34;", pptx: { face: "Comic Sans MS" }, pptxBold: { face: "Comic Sans MS", bold: true } },
+      label: { css: "font-family: 'Patrick Hand', 'Comic Neue', 'Comic Sans MS', cursive; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Comic Sans MS", bold: true } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Caveat', 'Ink Free', cursive; font-style: normal; font-weight: 700; line-height: 1.1;", pptx: { face: "Ink Free", bold: true } },
+    },
+    radius: 18, deco: "sketch",
+  },
+
+  oceano: {
+    label: "Oceano — azul elétrico vivo: visual ultra vibrante, dinâmico, moderno e luminoso",
+    colors: {
+      paper: "F0F6FF", ink: "091830", accent: "0062FF", alert: "FF3B69",
+      muted: "4D6585", line: "D4E4FC", surface: "E2EEFD", surfaceDark: "0E2242",
+      c1: "0062FF", c2: "00C6FF", c3: "6366F1", c4: "00DF89", c5: "FFB800",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "0062FF", em: "accent", onHi: "FFFFFF" },
+      dark: { bg: "071120", fg: "F0F6FF", muted: "86A2C7", line: "1A3358", surface: "surfaceDark", hi: "00C6FF", em: "00C6FF", onHi: "091830" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "BFDBFE", line: "3B82F6", surface: "004EC4", hi: "00C6FF", em: "FFFFFF", onHi: "091830" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFE4EB", line: "FF668B", surface: "D61A47", hi: "FFFFFF", em: "FFFFFF", onHi: "091830" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, sans-serif; font-weight: 800; letter-spacing: -0.035em; line-height: 0.94;", pptx: { face: "Segoe UI", bold: true } },
+      heading: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: -0.015em; line-height: 1.04;", pptx: { face: "Segoe UI Semibold" } },
+      body: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 450; line-height: 1.34;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: Georgia, serif; font-style: italic; line-height: 1.15; letter-spacing: -0.01em;", pptx: { face: "Georgia", italic: true } },
+    },
+    radius: 16, deco: "glow",
+  },
+
+  pop: {
+    label: "Pop — alegre & chiclete: paleta super animada, cartelas fofas, roxo, rosa, menta e sol",
+    colors: {
+      paper: "FFF9F2", ink: "191534", accent: "8B5CF6", alert: "EC4899",
+      muted: "6C6885", line: "FED7AA", surface: "FEF3C7", surfaceDark: "2B2252",
+      c1: "8B5CF6", c2: "EC4899", c3: "06B6D4", c4: "10B981", c5: "F59E0B",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "FDE047", em: "accent", onHi: "ink" },
+      dark: { bg: "120E29", fg: "FFF9F2", muted: "9D97B8", line: "352E5E", surface: "surfaceDark", hi: "FDE047", em: "alert", onHi: "ink" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "E9D5FF", line: "A855F7", surface: "7C3AED", hi: "FDE047", em: "FFFFFF", onHi: "ink" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FCE7F3", line: "F472B6", surface: "DB2777", hi: "FDE047", em: "FFFFFF", onHi: "ink" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Fredoka', 'Century Gothic', -apple-system, sans-serif; font-weight: 700; letter-spacing: -0.02em; line-height: 0.96;", pptx: { face: "Century Gothic", bold: true } },
+      heading: { css: "font-family: 'Fredoka', 'Century Gothic', sans-serif; font-weight: 600; line-height: 1.06;", pptx: { face: "Century Gothic", bold: true } },
+      body: { css: "font-family: 'Century Gothic', -apple-system, sans-serif; font-weight: 400; line-height: 1.34;", pptx: { face: "Century Gothic" }, pptxBold: { face: "Century Gothic", bold: true } },
+      label: { css: "font-family: 'Century Gothic', sans-serif; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Century Gothic", bold: true } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Fredoka', 'Century Gothic', sans-serif; font-style: italic; line-height: 1.15;", pptx: { face: "Century Gothic", italic: true } },
+    },
+    radius: 26, deco: "dots",
+  },
+
+  aurora: {
+    label: "Aurora — noite mágica: fundo escuro espacial com luzes vivas em neon ciano, violeta e magenta",
+    colors: {
+      paper: "0A0D17", ink: "F8FAFC", accent: "00F2FE", alert: "FF007A",
+      muted: "94A3B8", line: "1E293B", surface: "131A2B", surfaceDark: "131A2B",
+      c1: "00F2FE", c2: "4FACFE", c3: "7F00FF", c4: "FF007A", c5: "00FF87",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "0A0D17" },
+      dark: { bg: "05070D", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "0A0D17" },
+      accent: { bg: "1E1B4B", fg: "FFFFFF", muted: "C7D2FE", line: "4338CA", surface: "312E81", hi: "accent", em: "00F2FE", onHi: "0A0D17" },
+      alert: { bg: "4C0519", fg: "FFFFFF", muted: "FECDD3", line: "9F1239", surface: "881337", hi: "accent", em: "FF007A", onHi: "0A0D17" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.03em; line-height: 0.95;", pptx: { face: "Segoe UI", bold: true } },
+      heading: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: -0.01em; line-height: 1.05;", pptx: { face: "Segoe UI Semibold" } },
+      body: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.36;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: Georgia, serif; font-style: italic; line-height: 1.15;", pptx: { face: "Georgia", italic: true } },
+    },
+    radius: 20, deco: "aurora",
+  },
+
+  prata: {
+    label: "Prata — Keynote clean & espacial: prata acetinado, muito respiro, tipografia SF / Inter limpa e elegante",
+    colors: {
+      paper: "F5F5F7", ink: "1D1D1F", accent: "0071E3", alert: "FF3B30",
+      muted: "86868B", line: "D2D2D7", surface: "FFFFFF", surfaceDark: "161617",
+      c1: "0071E3", c2: "1D1D1F", c3: "86868B", c4: "E5E5EA", c5: "3A3A3C",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "E8E8ED", em: "accent", onHi: "ink" },
+      dark: { bg: "000000", fg: "F5F5F7", muted: "86868B", line: "2C2C2E", surface: "surfaceDark", hi: "3A3A3C", em: "2997FF", onHi: "FFFFFF" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "D0E6FF", line: "479DFF", surface: "005BB5", hi: "FFFFFF", em: "FFFFFF", onHi: "0071E3" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFD1CF", line: "FF6961", surface: "D32F2F", hi: "FFFFFF", em: "FFFFFF", onHi: "alert" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif; font-weight: 600; letter-spacing: -0.035em; line-height: 0.98;", pptx: { face: "Segoe UI", bold: true } },
+      heading: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: -0.015em; line-height: 1.06;", pptx: { face: "Segoe UI Semibold" } },
+      body: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: -0.005em; line-height: 1.38;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: 'SF Mono', ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15;", pptx: { face: "Segoe UI Light" } },
+    },
+    radius: 20, deco: "silver",
+  },
 };
 
 export function resolveTheme(spec) {

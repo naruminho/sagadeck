@@ -84,6 +84,11 @@ export function el(e, ctx, w, h) {
   if (e.poll) return poll(e, ctx);
   if (e.list) return list(e);
   if (e.cards) return cards(e, ctx);
+  if (e.stats || e.kpis) return stats(e, ctx);
+  if (e.steps || e.process || e.flow) return steps(e, ctx);
+  if (e.progress != null) return progress(e);
+  if (e.tags || e.chips) return tags(e);
+  if (e.rating != null) return rating(e);
   if (e.code) return code(e);
   if (e.shape) return shape(e);
   if (e.badge) return `<div${attrs(e, "badge f-label")}>${md(e.badge)}</div>`;
@@ -149,9 +154,115 @@ export function cards(e, ctx) {
     if (c.icon) top = `<div class="cd-ico">${iconSVG(c.icon, { size: 64, stroke: 1.8 })}</div>`;
     else if (c.picto) top = `<div class="cd-pic">${picto(c)}</div>`;
     else if (c.number != null) top = `<div class="cd-num t f-display">${md(String(c.number))}</div>`;
-    return `<div${attrs({ ...c, step, card: c.hl ? "hi" : true }, "cd")}>${top}${c.title ? `<div class="cd-title t f-heading">${md(c.title)}</div>` : ""}${c.text ? `<div class="cd-text t f-body">${md(c.text)}</div>` : ""}${c.foot ? `<div class="cd-foot t f-label">${md(c.foot)}</div>` : ""}</div>`;
+
+    let badgeHtml = "";
+    if (c.badge) badgeHtml = `<span class="cd-badge badge">${md(c.badge)}</span>`;
+    else if (c.trend) {
+      const isUp = c.trendUp !== false && !String(c.trend).startsWith("-");
+      badgeHtml = `<span class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${isUp ? '↑ ' : '↓ '}${esc(c.trend)}</span>`;
+    }
+
+    let extraWidgets = "";
+    if (c.progress != null) extraWidgets += progress({ progress: c.progress, label: c.progressLabel });
+    if (c.tags) extraWidgets += tags({ tags: c.tags });
+    if (c.rating != null) extraWidgets += rating({ rating: c.rating, label: c.ratingLabel });
+    if (c.check === true || c.status === "pro") extraWidgets += `<div class="check-pill pro">✓ ${c.checkText ? md(c.checkText) : "Recomendado"}</div>`;
+    if (c.check === false || c.status === "con") extraWidgets += `<div class="check-pill con">✗ ${c.checkText ? md(c.checkText) : "Evitar"}</div>`;
+
+    return `<div${attrs({ ...c, step, card: c.hl ? "hi" : true }, "cd")}>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+        ${top}
+        ${badgeHtml}
+      </div>
+      ${c.title ? `<div class="cd-title t f-heading">${md(c.title)}</div>` : ""}
+      ${c.text ? `<div class="cd-text t f-body">${md(c.text)}</div>` : ""}
+      ${extraWidgets}
+      ${c.foot ? `<div class="cd-foot t f-label">${md(c.foot)}</div>` : ""}
+    </div>`;
   }).join("");
   return `<div${attrs(e, "cards", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
+}
+
+export function stats(e, ctx) {
+  const items = e.stats || e.kpis || [];
+  const cols = e.cols || Math.min(items.length, 4) || 3;
+  const body = items.map((st, i) => {
+    const step = e.build ? (e.buildFrom ?? 1) + i : st.step;
+    const valColor = st.color ? `color:${colorVal(st.color)};` : "";
+    let iconHtml = "";
+    if (st.icon) {
+      iconHtml = `<div class="st-icon">${iconSVG(st.icon, { size: 48, stroke: 1.8 })}</div>`;
+    }
+    let trendHtml = "";
+    if (st.trend) {
+      const isUp = st.trendUp !== false && !String(st.trend).startsWith("-");
+      trendHtml = `<div class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${isUp ? '↑ ' : '↓ '}${esc(st.trend)}</div>`;
+    }
+    return `<div${attrs({ ...st, step, card: st.card ?? true }, "stat-card")}>
+      <div class="st-top">
+        ${iconHtml}
+        ${trendHtml}
+      </div>
+      <div class="st-val t f-display" style="${valColor}">${esc(String(st.value ?? st.stat ?? ""))}</div>
+      ${st.label ? `<div class="st-lab t f-heading">${md(st.label)}</div>` : ""}
+      ${st.text ? `<div class="st-sub t f-body">${md(st.text)}</div>` : ""}
+    </div>`;
+  }).join("");
+  return `<div${attrs(e, "stats-grid", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
+}
+
+export function steps(e, ctx) {
+  const items = e.steps || e.process || e.flow || [];
+  const cols = e.cols || items.length || 3;
+  const body = items.map((st, i) => {
+    const step = e.build ? (e.buildFrom ?? 1) + i : st.step;
+    const num = st.stepNum ?? (i + 1);
+    let iconHtml = "";
+    if (st.icon) {
+      iconHtml = `<div class="step-icon">${iconSVG(st.icon, { size: 42, stroke: 1.8 })}</div>`;
+    }
+    return `<div${attrs({ ...st, step, card: st.card ?? true }, "step-card")}>
+      <div class="step-header">
+        <span class="step-num t f-display">${String(num).padStart(2, "0")}</span>
+        ${iconHtml}
+      </div>
+      ${st.title ? `<div class="step-title t f-heading">${md(st.title)}</div>` : ""}
+      ${st.text ? `<div class="step-text t f-body">${md(st.text)}</div>` : ""}
+      ${st.tag ? `<div class="tag-pill" style="align-self:flex-start;margin-top:auto;">${md(st.tag)}</div>` : ""}
+      ${i < items.length - 1 ? `<div class="step-connector" aria-hidden="true">➔</div>` : ""}
+    </div>`;
+  }).join("");
+  return `<div${attrs(e, "steps-flow", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
+}
+
+export function progress(e) {
+  const val = Math.min(100, Math.max(0, Number(e.progress ?? e.value ?? 0)));
+  const label = e.label || "";
+  const color = e.color ? colorVal(e.color) : "var(--hi)";
+  return `<div${attrs(e, "prog-widget")}>
+    <div class="prog-top">
+      ${label ? `<span class="prog-label t f-heading">${md(label)}</span>` : ""}
+      <span class="prog-val t f-display">${val}%</span>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" style="width:${val}%;background:${color};"></div>
+    </div>
+  </div>`;
+}
+
+export function tags(e) {
+  const list = e.tags || e.chips || [];
+  return `<div${attrs(e, "tags-cloud")}>${list.map((t) => `<span class="tag-pill">${md(typeof t === "string" ? t : t.text)}</span>`).join("")}</div>`;
+}
+
+export function rating(e) {
+  const stars = Math.min(5, Math.max(1, Math.round(Number(e.rating || 5))));
+  const score = e.score || `${stars}.0/5`;
+  return `<div${attrs(e, "rating-widget")}>
+    <div class="rating-stars">${"★".repeat(stars)}${"☆".repeat(5 - stars)}</div>
+    ${score ? `<span class="rating-score t f-display">${esc(score)}</span>` : ""}
+    ${e.label ? `<span class="rating-label t f-body">${md(e.label)}</span>` : ""}
+  </div>`;
 }
 
 export function code(e) {

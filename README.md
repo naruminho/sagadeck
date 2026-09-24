@@ -9,7 +9,7 @@ Você (ou uma IA) escreve um arquivo `.yaml` com o conteúdo. O sagadeck gera:
 | **`.pdf`** | um slide por página, para mandar depois da palestra |
 | **`- roteiro.pdf`** | roteiro do apresentador: miniatura de cada slide + fala + interações + relógio planejado |
 
-Ele vem com 6 temas, 21 layouts, 2.100+ ícones, pictogramas e cenas geradas na hora, diagramas, 7 tipos de gráfico, e um **fiscal automático** que detecta texto estourado, sobreposição, contraste baixo e slides com texto demais ("anti-sono").
+Ele vem com 11 temas (incluindo estilo Keynote Apple em prata clean e respirável, artesanal desenhado à mão, azul elétrico vivo e pop alegre), 23 layouts (incluindo KPIs e fluxos de processo), 2.100+ ícones, pictogramas e cenas geradas na hora, diagramas, 7 tipos de gráfico, e um **fiscal automático** que detecta texto estourado, sobreposição, contraste baixo e slides com texto demais ("anti-sono").
 
 ## Instalação
 

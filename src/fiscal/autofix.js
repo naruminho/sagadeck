@@ -5,6 +5,7 @@
 // 3. Estouro de texto e fontes fora dos limites (horizontal/vertical overflow)
 // 4. Elementos fora das coordenadas do slide (0..1920, 0..1080)
 // 5. Excesso de texto anti-sono (move narrativa secundária para notes:)
+import { normalizeSpec } from "./normalize.js";
 
 export function parseIssueText(text) {
   if (!text) return { target: "", detail: "" };
@@ -14,6 +15,69 @@ export function parseIssueText(text) {
     target: parts[0] || text,
     detail: parts[1] || "",
   };
+}
+
+export function optimizeTriggerTitle(s) {
+  if (!s.title || typeof s.title !== "string") return null;
+  let title = s.title.trim();
+  const original = title;
+  let modified = false;
+  let newKicker = s.kicker;
+
+  // 1. Separador tipo "Contexto: Frase de Impacto"
+  const sepMatch = title.match(/^([^:–—]+)[:–—-]\s*(.+)$/);
+  if (sepMatch && !newKicker && sepMatch[1].trim().split(/\s+/).length <= 4) {
+    newKicker = sepMatch[1].trim();
+    title = sepMatch[2].trim();
+    modified = true;
+  }
+
+  // 2. Limpar preâmbulos prolixos comuns de IA (ex: "A implementação de...", "Um estudo sobre...", etc.)
+  const preambles = [
+    "A implementação de", "O processo de", "Um estudo detalhado sobre", "Um estudo sobre",
+    "Uma visão geral sobre", "Como funciona a", "Como fazer para", "Estratégias eficazes para",
+    "Estratégias para", "Principais desafios na", "Principais desafios em"
+  ];
+  for (const p of preambles) {
+    const re = new RegExp(`^${p}\\s+`, "i");
+    if (re.test(title)) {
+      title = title.replace(re, "").trim();
+      title = title.charAt(0).toUpperCase() + title.slice(1);
+      modified = true;
+      break;
+    }
+  }
+
+  // 3. Se ainda for longo (> 6 palavras ou > 48 caracteres), compactar para as primeiras 4-5 palavras-chave
+  const words = title.split(/\s+/);
+  if (words.length > 6 || title.length > 48) {
+    title = words.slice(0, 5).join(" ");
+    modified = true;
+  }
+
+  // 4. Se não tem destaque ==palavra==, destacar a palavra mais forte (substantivo)
+  if (!title.includes("==")) {
+    const wList = title.split(/\s+/);
+    for (let i = wList.length - 1; i >= 0; i--) {
+      const rawW = wList[i].replace(/[.,;:!?]/g, "");
+      if (rawW.length >= 4 && !/^(para|como|sobre|onde|mais|este|esta|esse|pelo|pela|com)$/i.test(rawW)) {
+        wList[i] = wList[i].replace(rawW, `==${rawW}==`);
+        modified = true;
+        break;
+      }
+    }
+    title = wList.join(" ");
+  }
+
+  if (modified) {
+    if (original !== title) {
+      s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Mensagem/Tese original do slide:\n"${original}"`;
+    }
+    s.title = title;
+    if (newKicker && !s.kicker) s.kicker = newKicker;
+    return `Título longo/spoiler encurtado para título-gatilho ("${title}"); tese completa preservada nas notas.`;
+  }
+  return null;
 }
 
 export function autofixSlide(slide, spec = {}, issues = []) {
@@ -151,19 +215,54 @@ export function autofixSlide(slide, spec = {}, issues = []) {
     }
   }
 
-  // 2. Verificações heurísticas universais (Anti-sono e Geometria Segura)
-  // Regra Anti-sono: excesso de palavras no slide
+  // 2. Verificações heurísticas universais (Anti-sono, Títulos-Gatilho e Geometria Segura)
+
+  // Otimização de Título-Gatilho (Anti-spoiler / Memória rápida)
+  const titleAction = optimizeTriggerTitle(s);
+  if (titleAction) actions.push(titleAction);
+
+  // Regra Anti-sono Inteligente: excesso de palavras no slide
   const words = countSlideWords(s);
   const maxWords = s.maxWords || spec.maxWords || 40;
   if (words > maxWords) {
-    if (s.body && typeof s.body === "string" && s.body.split(/\s+/).length > 20) {
+    let fixedWords = false;
+
+    // Transbordo do corpo (body) para notas
+    if (s.body && typeof s.body === "string" && s.body.split(/\s+/).length > 15) {
       const parts = s.body.split(/(?<=[.?!])\s+/);
       if (parts.length > 1) {
         s.body = parts[0];
         const extra = parts.slice(1).join(" ");
-        s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Explicação detalhada do apresentador:\n${extra}`;
-        actions.push(`Slide anti-sono: reduzido de ${words} para ${countSlideWords(s)} palavras; detalhes movidos para o roteiro (notes)`);
+        s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Fala complementar do slide:\n${extra}`;
+        fixedWords = true;
       }
+    }
+
+    // Transbordo de cartões (cards com texto longo)
+    if (layout === "cards" && Array.isArray(s.items)) {
+      s.items.forEach((item, idx) => {
+        if (typeof item === "object" && item.text && item.text.split(/\s+/).length > 12) {
+          const parts = item.text.split(/(?<=[.?!])\s+/);
+          if (parts.length > 1) {
+            item.text = parts[0];
+            const extra = parts.slice(1).join(" ");
+            s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Card #${idx + 1} (${item.title || "Item"}):\n${extra}`;
+            fixedWords = true;
+          }
+        }
+      });
+    }
+
+    // Transbordo de bullets excedentes
+    if (Array.isArray(s.bullets) && s.bullets.length > 4) {
+      const removed = s.bullets.slice(4);
+      s.bullets = s.bullets.slice(0, 4);
+      s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Tópicos adicionais para o apresentador:\n` + removed.map((b) => `- ${b}`).join("\n");
+      fixedWords = true;
+    }
+
+    if (fixedWords) {
+      actions.push(`Slide anti-sono: reduzido de ${words} para ${countSlideWords(s)} palavras; excedente transferido para as notas`);
     }
   }
 
@@ -217,7 +316,7 @@ export function autofixSlide(slide, spec = {}, issues = []) {
 }
 
 export function autofixDeck(spec, issuesReport = []) {
-  const newSpec = JSON.parse(JSON.stringify(spec));
+  const newSpec = normalizeSpec(spec);
   const issuesBySlide = new Map();
 
   if (Array.isArray(issuesReport)) {
