@@ -23,6 +23,7 @@ await build({
 
 const copy = (from, to) => fs.cpSync(from, to, { recursive: true });
 copy(path.join(ROOT, "src", "runtime"), path.join(OUT, "runtime"));
+copy(path.join(ROOT, "src", "studio"), path.join(OUT, "studio"));
 const pw = path.dirname(require.resolve("playwright-core/package.json"));
 copy(pw, path.join(OUT, "node_modules", "playwright-core"));
 // o sagadeck usa Chrome/Edge instalados: não precisa do trace viewer nem dos tipos

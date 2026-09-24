@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SagaDeck Studio — Editor Visual de Apresentações</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- CABEÇALHO / RIBBON SUPERIOR ESTILO POWERPOINT -->
+  <header id="ribbon">
+    <div class="ribbon-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+          <polygon points="10 8 16 11 10 14 10 8" fill="currentColor"></polygon>
+        </svg>
+      </div>
+      <div class="brand-titles">
+        <span class="brand-name">SagaDeck Studio</span>
+        <input type="text" id="deck-title-input" class="deck-title-field" value="Minha Apresentação" placeholder="Título da apresentação…" title="Clique para editar o título">
+      </div>
+    </div>
+
+    <!-- FERRAMENTAS DO SLIDE -->
+    <div class="ribbon-tools">
+      <div class="tool-group">
+        <label class="tool-label">Tema Global</label>
+        <select id="theme-select" class="tool-select" title="Tema tipográfico e paleta">
+          <option value="sinal">Sinal (DIN · Amarelo)</option>
+          <option value="editorial">Editorial (Serifa · Revista)</option>
+          <option value="noite">Noite (Escuro · Latão)</option>
+          <option value="bauhaus">Bauhaus (Geométrico)</option>
+          <option value="terminal">Terminal (Mono · Âmbar)</option>
+          <option value="jornal">Jornal (Franklin · Tinta)</option>
+        </select>
+      </div>
+
+      <div class="tool-group">
+        <label class="tool-label">Tom do Slide</label>
+        <select id="tone-select" class="tool-select" title="Contraste e tom do slide atual">
+          <option value="light">Claro (Light)</option>
+          <option value="dark">Escuro (Dark)</option>
+          <option value="accent">Destaque (Accent)</option>
+          <option value="alert">Alerta (Alert)</option>
+        </select>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <div class="tool-buttons">
+        <button id="btn-add-slide" class="btn btn-secondary" title="Adicionar novo slide">
+          <span class="btn-icon">+</span> Novo Slide
+        </button>
+        <button id="btn-dup-slide" class="btn btn-ghost" title="Duplicar slide atual">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Duplicar
+        </button>
+        <button id="btn-del-slide" class="btn btn-ghost text-danger" title="Excluir slide atual">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </div>
+
+      <div class="tool-sep"></div>
+
+      <!-- BOTÃO DO FISCAL / AUTO-CORREÇÃO COM STATUS GEOMÉTRICO -->
+      <button id="btn-autofix" class="btn btn-autofix" title="Fiscal Inteligente: Detecta e corrige sobreposições e estouro de margens automaticamente">
+        <span class="magic-icon">🪄</span>
+        <span class="autofix-label">Auto-Corrigir Layout</span>
+        <span id="fiscal-badge" class="fiscal-badge clean">0</span>
+      </button>
+
+      <div class="tool-sep"></div>
+
+      <!-- APRESENTAR E EXPORTAR -->
+      <button id="btn-present" class="btn btn-primary" title="Modo Apresentação (F5)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Apresentar
+      </button>
+
+      <div class="dropdown">
+        <button id="btn-export-menu" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar ▾
+        </button>
+        <div id="export-dropdown" class="dropdown-menu">
+          <a href="#" id="export-yaml" class="dropdown-item">Baixar YAML (.yaml)</a>
+          <a href="#" id="export-html" class="dropdown-item">Baixar HTML Standalone (.html)</a>
+          <a href="/preview" target="_blank" class="dropdown-item">Abrir Apresentação em Nova Aba</a>
+          <div class="dropdown-divider"></div>
+          <a href="#" id="action-save-yaml" class="dropdown-item">Salvar no Arquivo Local</a>
+        </div>
+      </div>
+
+      <!-- TOGGLE CHAT IA -->
+      <button id="btn-toggle-chat" class="btn btn-ai active" title="Abrir/Fechar Chat Lateral com IA">
+        <span class="ai-sparkle">✦</span>
+        Chat IA
+      </button>
+    </div>
+  </header>
+
+  <!-- CORPO PRINCIPAL COM 3 COLUNAS ESTILO POWERPOINT -->
+  <main id="app-workspace">
+    <!-- 1. BARRA LATERAL ESQUERDA: MINIATURAS DOS SLIDES -->
+    <aside id="slides-nav" class="nav-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Slides (<span id="slide-count">0</span>)</span>
+        <button id="btn-add-slide-mini" class="btn-icon-round" title="Adicionar Slide">+</button>
+      </div>
+      <div id="thumbnails-list" class="thumbnails-container">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+    </aside>
+
+    <!-- 2. ÁREA CENTRAL: CANVAS WYSIWYG 16:9 DO SLIDE -->
+    <section id="canvas-stage-wrapper">
+      <!-- Barra superior do canvas (Guias, zoom, status) -->
+      <div class="stage-toolbar">
+        <div class="stage-left-tools">
+          <label class="toggle-checkbox" title="Mostrar linha tracejada da margem segura de 120px">
+            <input type="checkbox" id="chk-guides" checked>
+            <span>Margens Seguras (120px)</span>
+          </label>
+          <label class="toggle-checkbox" title="Destacar caixas e sobreposições em tempo real">
+            <input type="checkbox" id="chk-inspect-overlay" checked>
+            <span>Detector de Sobreposição</span>
+          </label>
+        </div>
+
+        <div class="stage-center-status">
+          <span id="current-slide-label">Slide 1 de 1</span>
+          <span id="current-layout-badge" class="badge-layout">cover</span>
+        </div>
+
+        <div class="stage-right-tools">
+          <button id="zoom-fit" class="btn-zoom" title="Ajustar à tela">Ajustar</button>
+          <button id="zoom-out" class="btn-zoom" title="Reduzir">−</button>
+          <span id="zoom-level">60%</span>
+          <button id="zoom-in" class="btn-zoom" title="Aumentar">+</button>
+        </div>
+      </div>
+
+      <!-- O PALCO DO SLIDE (1920x1080 com escala proporcional) -->
+      <div id="canvas-viewport">
+        <div id="slide-stage" class="stage-16-9">
+          <!-- Guias visuais de margem segura -->
+          <div id="safe-margin-guides" class="safe-guides-layer">
+            <div class="safe-box">
+              <span class="guide-tag top-left">Área Segura (120px)</span>
+            </div>
+          </div>
+
+          <!-- Camada de sobreposições e alertas visuais do Fiscal -->
+          <div id="inspector-overlay" class="inspector-layer"></div>
+
+          <!-- O SLIDE RENDERIZADO VISUALMENTE -->
+          <div id="rendered-slide-container"></div>
+        </div>
+      </div>
+
+      <!-- BARRA INFERIOR: NOTAS DO APRESENTADOR & TEMPO -->
+      <div id="notes-bar">
+        <div class="notes-header">
+          <span class="notes-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            Roteiro do Apresentador (Notas / Fala)
+          </span>
+          <div class="notes-meta">
+            <span class="meta-item">
+              Tempo: <input type="number" id="slide-time-input" min="0" step="0.5" value="1" style="width: 48px;"> min
+            </span>
+            <span id="anti-sleep-indicator" class="meta-item anti-sleep-ok" title="Regra anti-sono: até 40 palavras visíveis">
+              Palavras: <b id="word-count-num">0</b> / 40
+            </span>
+          </div>
+        </div>
+        <textarea id="slide-notes-input" class="notes-textarea" placeholder="> Fala em voz alta do apresentador...&#10;CLIQUE: o que acontece ao avançar...&#10;INTERAÇÃO: pergunta para o público..."></textarea>
+      </div>
+    </section>
+
+    <!-- 3. BARRA LATERAL DIREITA: PROPRIEDADES + CHAT IA -->
+    <aside id="inspector-sidebar" class="right-sidebar">
+      <div class="sidebar-tabs">
+        <button id="tab-btn-props" class="tab-btn active">Propriedades</button>
+        <button id="tab-btn-chat" class="tab-btn">
+          <span class="sparkle-mini">✦</span> Chat IA
+          <span id="chat-badge" class="chat-badge-dot"></span>
+        </button>
+      </div>
+
+      <!-- ABA 1: PROPRIEDADES E FORMULÁRIO DO SLIDE -->
+      <div id="tab-panel-props" class="tab-panel active">
+        <div class="panel-section">
+          <label class="section-title">Layout do Slide</label>
+          <div id="layout-picker-grid" class="layout-picker">
+            <!-- Gerado dinamicamente com os 21 layouts -->
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <label class="section-title">Decoração de Fundo</label>
+          <select id="deco-select" class="form-control">
+            <option value="none">Nenhum</option>
+            <option value="grid">Grade (Grid suave)</option>
+            <option value="grain">Textura de Grão</option>
+            <option value="dots">Pontilhismo</option>
+          </select>
+        </div>
+
+        <div class="panel-section">
+          <label class="section-title">Campos de Conteúdo</label>
+          <div id="slide-fields-form" class="fields-form">
+            <!-- Campos específicos do layout ativo -->
+          </div>
+        </div>
+
+        <!-- Seção especial para layout livre Canvas -->
+        <div id="canvas-elements-section" class="panel-section hidden">
+          <div class="section-header-flex">
+            <label class="section-title">Elementos no Canvas</label>
+            <button id="btn-add-canvas-el" class="btn btn-small">+ Elemento</button>
+          </div>
+          <div id="canvas-elements-list" class="elements-list"></div>
+        </div>
+      </div>
+
+      <!-- ABA 2: CHAT LATERAL COM IA ("faz tudo que eu faria na mão e se auto-corrige") -->
+      <div id="tab-panel-chat" class="tab-panel">
+        <div class="chat-scope-bar">
+          <label for="ai-scope-select">Alvo da IA:</label>
+          <select id="ai-scope-select" class="scope-select">
+            <option value="current">Slide Atual (Slide 1)</option>
+            <option value="all">Toda a Apresentação</option>
+          </select>
+        </div>
+
+        <!-- SUGESTÕES RÁPIDAS DE PROMPT -->
+        <div class="chat-quick-suggestions">
+          <button class="chip-prompt" data-prompt="Auto-corrigir layout deste slide (reparar sobreposição e margens)">🪄 Auto-Corrigir</button>
+          <button class="chip-prompt" data-prompt="Transformar este slide em 3 cards com ícones e texto conciso">🃏 Virar Cards</button>
+          <button class="chip-prompt" data-prompt="Deixar o texto mais conciso anti-sono e mover excesso para as notas">✍️ Mais Conciso</button>
+          <button class="chip-prompt" data-prompt="Mudar o tom deste slide para escuro (dark)">🌓 Tom Escuro</button>
+          <button class="chip-prompt" data-prompt="Adicionar um novo slide de conclusão e próximos passos">🏁 Conclusão</button>
+          <button class="chip-prompt" data-prompt="Trocar o tema da apresentação para bauhaus">🎨 Tema Bauhaus</button>
+        </div>
+
+        <!-- HISTÓRICO DE MENSAGENS -->
+        <div id="chat-messages" class="chat-history">
+          <div class="ai-msg">
+            <div class="ai-avatar">✦</div>
+            <div class="ai-content">
+              <p>Olá! Sou o assistente inteligente do <b>SagaDeck</b>.</p>
+              <p>Consigo fazer <b>tudo que você faria na mão</b>: alterar layouts, textos, adicionar e reorganizar slides, mudar temas e inserir figuras.</p>
+              <p class="ai-highlight"><b>Capacidade de Auto-Visão:</b> Eu enxergo as coordenadas dos elementos em tempo real. Se houver sobreposição ou texto saindo da margem de 120px, eu me auto-corrijo sozinho!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FORMULÁRIO DE ENVIO DO CHAT -->
+        <form id="chat-form" class="chat-input-bar">
+          <input type="text" id="chat-input" class="chat-field" placeholder="Peça para a IA editar ou corrigir o slide…" autocomplete="off">
+          <button type="submit" id="chat-send" class="btn btn-send" title="Enviar mensagem">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <!-- MODAL DE APRESENTAÇÃO FULLSCREEN (F5) -->
+  <div id="presentation-modal" class="modal-fullscreen hidden">
+    <button id="modal-close-present" class="btn-close-modal" title="Sair do modo apresentação (Esc)">✕</button>
+    <div id="modal-stage-wrapper">
+      <div id="modal-stage" class="stage-16-9"></div>
+    </div>
+    <div class="presentation-controls">
+      <button id="pres-prev" class="btn-pres-nav">←</button>
+      <span id="pres-counter">1 / 1</span>
+      <button id="pres-next" class="btn-pres-nav">→</button>
+    </div>
+  </div>
+
+  <div id="toast-notification" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

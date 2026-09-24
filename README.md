@@ -31,6 +31,8 @@ Comandos:
 
 ```
 sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
+sagadeck studio [deck.yaml] [--port=3000]    abre o estúdio web visual estilo PowerPoint com chat lateral IA
+sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
 sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
 sagadeck check <deck.yaml>                   fiscal: estouro de texto, sobreposição, contraste, excesso de texto
@@ -39,6 +41,7 @@ sagadeck pptx <deck.yaml> [--native-charts]  PowerPoint editável
 sagadeck pdf <deck.yaml>                     PDF
 sagadeck roteiro <deck.yaml>                 roteiro do apresentador em PDF
 sagadeck all <deck.yaml>                     tudo acima
+sagadeck mcp                                 servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
 sagadeck themes                              vitrine com os 6 temas
 sagadeck icons [filtro]                      lista os ícones (ex.: sagadeck icons car)
 sagadeck ref                                 referência completa do YAML
@@ -46,14 +49,20 @@ sagadeck skill                               instruções para agentes de IA
 ```
 Opção `--out=pasta` muda onde os arquivos são salvos.
 
-## Com agentes de IA
+## Com agentes de IA e IDEs Agênticos
 
-O caminho principal é o agente usar o **terminal**: ele lê as instruções (`sagadeck skill`, também em [`SKILL.md`](SKILL.md)), a referência (`sagadeck ref`), escreve o YAML e roda `check` → `shots` → `all`. Para Claude Code, basta copiar `SKILL.md` para `~/.claude/skills/sagadeck/SKILL.md`.
+O sagadeck foi projetado para ser usado por humanos e por agentes de IA:
+
+1. **Pelo Terminal / Skill**: O agente lê as instruções (`sagadeck skill`, também em [`SKILL.md`](SKILL.md)), a referência (`sagadeck ref`), escreve o YAML e roda `autofix` → `check` → `all`. Para Claude Code, basta copiar `SKILL.md` para `~/.claude/skills/sagadeck/SKILL.md`.
+2. **Pelo Estúdio Visual**: Execute `sagadeck studio palestra.yaml` para abrir a interface web estilo PowerPoint, onde você pode editar visualmente no canvas 16:9 e conversar com a IA no chat lateral. A IA se auto-corrige e nunca deixa elementos sobrepostos ou fora das margens.
+3. **Pelo Protocolo MCP**: Execute `sagadeck mcp` para que IDEs agênticos (Cursor, Windsurf, Cline, Roo Code) descubram e invoquem diretamente as ferramentas de criação, leitura, fiscalização e auto-cura de apresentações.
 
 Se o código de uma ferramenta em Python quiser chamar o sagadeck diretamente (sem montar comandos de terminal), há uma API mínima:
 
 ```python
 import sagadeck
+sagadeck.autofix("palestra.yaml")               # corrige sobreposições e margens automaticamente
+sagadeck.studio("palestra.yaml", port=3000)     # abre o estúdio PowerPoint interativo
 sagadeck.export("palestra.yaml", out="saida")   # {'html': …, 'pptx': …, 'pdf': …, 'roteiro': …}
 print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
 contexto = sagadeck.reference()                  # referência do YAML para colocar no prompt

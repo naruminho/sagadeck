@@ -11,7 +11,7 @@ Uso em Python (ex.: para uma IDE/agente coordenar):
     print(sagadeck.reference())      # referência completa do YAML, para passar a um LLM
 """
 
-from .api import run, build, check, export, reference, skill, engine_path, node_path
+from .api import run, build, check, autofix, studio, export, reference, skill, engine_path, node_path
 
 __version__ = "1.0.0"
-__all__ = ["run", "build", "check", "export", "reference", "skill", "engine_path", "node_path", "__version__"]
+__all__ = ["run", "build", "check", "autofix", "studio", "export", "reference", "skill", "engine_path", "node_path", "__version__"]

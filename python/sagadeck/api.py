@@ -64,6 +64,18 @@ def check(deck: str | os.PathLike, out=None) -> str:
     return run("check", str(deck), out=out, capture=True, check=False).stdout
 
 
+def autofix(deck: str | os.PathLike, out=None) -> str:
+    """Roda o auto-corretor geométrico no YAML e devolve o relatório das correções."""
+    return run("autofix", str(deck), out=out, capture=True).stdout
+
+
+def studio(deck: str | os.PathLike | None = None, port: int = 3000, host: str = "0.0.0.0") -> None:
+    """Inicia o SagaDeck Studio (PowerPoint-like com chat IA) no navegador."""
+    extra = [f"--port={port}", f"--host={host}"]
+    args = [str(deck)] if deck else []
+    run("studio", *args, extra=extra, check=True)
+
+
 def export(deck: str | os.PathLike, out=None, native_charts: bool = False) -> dict:
     """Gera html, pptx, pdf e roteiro. Devolve os caminhos."""
     run("all", str(deck), out=out, extra=["--native-charts"] if native_charts else [])

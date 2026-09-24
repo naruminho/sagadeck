@@ -1,0 +1,22 @@
+# SagaDeck — Regras para Agentes e IDEs Agênticos (Cursor / Windsurf / Claude / Cline)
+
+Você tem acesso ao `sagadeck`, um gerador profissional de apresentações que produz HTML interativo, PowerPoint (.pptx) editável, PDF e roteiro do apresentador a partir de um arquivo YAML.
+
+## Comandos Principais
+- `sagadeck new <deck.yaml> [--theme=sinal|editorial|noite|bauhaus|terminal|jornal]`
+- `sagadeck build <deck.yaml>`: compila o arquivo `.html`
+- `sagadeck check <deck.yaml>`: roda o fiscal de layout (detecta sobreposição, quebra de margem, contraste)
+- `sagadeck autofix <deck.yaml>`: auto-corrige sobreposições, margens (120px) e fontes automaticamente
+- `sagadeck studio [deck.yaml] [--port=3000]`: inicia o editor visual estilo PowerPoint com chat IA
+- `sagadeck all <deck.yaml>`: compila html + check + pptx + pdf + roteiro
+- `sagadeck mcp`: inicia o servidor MCP (JSON-RPC) para chamadas de ferramentas nativas
+
+## Regras de Design e Auto-Inspeção
+1. **Auto-Correção Obrigatória**:
+   - Nunca deixe elementos sobrepostos (bounding box collision).
+   - Respeite a margem segura de 120px nas laterais e 92px/104px no topo/fundo.
+   - Sempre execute `sagadeck check <deck.yaml>` ou `sagadeck autofix <deck.yaml>` após alterar slides.
+2. **Anti-sono**:
+   - Limite de até 40 palavras visíveis por slide. O texto discursivo deve ir para `notes:` (roteiro do apresentador).
+3. **Variedade de Layouts**:
+   - Alterne entre os 21 layouts (`cover`, `section`, `statement`, `cards`, `split`, `number`, `quote`, `timeline`, `chart`, `compare`, `matrix`, `question`, `poll`, `canvas`).

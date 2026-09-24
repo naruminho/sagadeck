@@ -23,7 +23,7 @@ export function loadSpec(file) {
 
 const slug = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
-function inferLayout(s) {
+export function inferLayout(s) {
   if (s.layout) return s.layout;
   if (s.elements) return "canvas";
   if (s.quote) return "quote";
@@ -123,4 +123,26 @@ export function buildFile(file, outFile) {
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.writeFileSync(outFile, r.html);
   return { ...r, spec, outFile };
+}
+
+export function renderSlide(raw, i = 0, spec = {}) {
+  const theme = resolveTheme(spec.theme);
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
+  const footerText = spec.footer === false ? "" : spec.footer || spec.title || "";
+  const s = { ...(spec.defaults || {}), ...raw };
+  const layout = inferLayout(s);
+  const fn = LAYOUTS[layout];
+  if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
+  const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
+  const inner = fn(s, ctx);
+  const deco = s.deco ?? theme.deco;
+  const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
+  const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
+  const area = layout === "canvas" ? "free" : "safe";
+  let html = `<section class="slide current tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
+  html += `<div class="${area}">${inner}</div>`;
+  if (showFoot) html += `<div class="foot f-label"><span>${esc(plain(footerText))}</span><span class="fn">${String(i + 1).padStart(2, "0")}</span></div>`;
+  html += `</section>`;
+  return { html, layout, tone, deco, theme, inner, baseCSS: read("runtime/base.css"), themeCSS: themeCSS(theme) };
 }
