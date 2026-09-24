@@ -1,0 +1,182 @@
+// Layouts: cada um recebe o objeto do slide (YAML) e devolve o HTML da área útil.
+// Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
+import { md, esc } from "./markup.js";
+import { el, text, figureHTML, attrs, SIZES, list, cards, poll, timer, counter, code } from "./elements.js";
+
+const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
+const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
+const head = (s, as = "h2") => (s.kicker || s.title ? `<header class="hd">${kicker(s)}${title(s, as)}</header>` : "");
+const src = (s) => (s.source ? `<div class="src t f-body">${md(s.source)}</div>` : "");
+const add = (s, ctx) => (s.add ? el(s.add, ctx) : "");
+const fig = (f, ctx, w, h, cls = "") => (f ? `<div class="figbox ${cls}" style="${w ? `width:${w}px;` : ""}${h ? `height:${h}px;` : ""}">${typeof f === "object" ? el(f, ctx, w, h) : el({ image: f }, ctx)}</div>` : "");
+const build = (s, i, base = 1) => (s.build ? base + i : undefined);
+
+export const LAYOUTS = {
+  cover(s, ctx) {
+    return `<div class="L-cover">
+      <div class="cv-main">${kicker(s)}${text(s.title, "hero", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize })}
+      ${s.subtitle ? text(s.subtitle, "lead", { class: "sub e", style: "--d:2;" }) : ""}
+      ${s.author ? `<div class="author e" style="--d:3">${text(s.author, "h3", { size: 40 })}${s.role ? text(s.role, "small", { class: "muted" }) : ""}</div>` : ""}</div>
+      ${s.figure ? `<div class="cv-fig e" style="--d:2">${el(s.figure, ctx, 700, 760)}</div>` : ""}
+    </div>${add(s, ctx)}`;
+  },
+
+  section(s, ctx) {
+    return `<div class="L-section">
+      ${s.number != null ? `<div class="sc-num t f-display e">${esc(s.number)}</div>` : ""}
+      <div class="sc-text">${kicker(s, 1)}${text(s.title, "title", { class: "ttl e", style: "--d:2;", size: s.titleSize || 150, fit: true })}${s.subtitle ? text(s.subtitle, "lead", { class: "sub e", style: "--d:3;" }) : ""}</div>
+      ${s.figure ? `<div class="sc-fig e" style="--d:3">${el(s.figure, ctx, 560, 560)}</div>` : ""}
+    </div>${add(s, ctx)}`;
+  },
+
+  statement(s, ctx) {
+    const lines = s.lines
+      ? s.lines.map((l, i) => {
+          const o = typeof l === "string" ? { text: l } : l;
+          return text(o.text, o.as || "title", { ...o, step: o.step ?? build(s, i, 0), class: `st-line ${o.class || ""}`, size: o.size || s.size });
+        }).join("")
+      : text(s.text, s.as || "title", { class: "st-line e", style: "--d:1;", fit: true, size: s.size });
+    return `<div class="L-statement ${s.center ? "center" : ""}">${kicker(s)}<div class="st-body">${lines}</div>
+      ${s.by ? text(s.by, "label", { class: "st-by e", style: "--d:3;", step: s.byStep }) : ""}${src(s)}</div>${add(s, ctx)}`;
+  },
+
+  quote(s, ctx) {
+    return `<div class="L-quote">${kicker(s)}
+      <div class="q-mark t f-quote e" aria-hidden="true">“</div>
+      ${text(s.quote, "quote", { class: "q-text e", style: "--d:1;", fit: true, size: s.size })}
+      ${s.by ? `<div class="q-by e" style="--d:2">${text(s.by, "h3", { size: 40 })}${s.role ? text(s.role, "small", { class: "muted" }) : ""}</div>` : ""}
+      ${s.after ? text(s.after, "lead", { class: "q-after", step: s.afterStep ?? 1, color: "em" }) : ""}
+    </div>${add(s, ctx)}`;
+  },
+
+  number(s, ctx) {
+    const v = typeof s.value === "object" ? s.value : { counter: s.value, prefix: s.prefix, suffix: s.suffix, decimals: s.decimals, from: s.from };
+    return `<div class="L-number">
+      <div class="nb-main">${kicker(s)}
+        <div class="nb-val e" style="--d:1;${s.valueColor ? `color:var(--${s.valueColor});` : ""}">${counter({ ...v, size: s.size || 300, fit: true })}</div>
+        ${s.label ? text(s.label, "lead", { class: "nb-label e", style: "--d:2;", size: s.labelSize || 52 }) : ""}
+        ${s.context ? text(s.context, "body", { class: "nb-ctx muted", step: s.contextStep }) : ""}
+      </div>
+      ${s.side ? `<div class="nb-side" ${s.sideStep ? `data-step="${s.sideStep}"` : ""}>${el(s.side, ctx, 640, 700)}</div>` : ""}
+    </div>${src(s)}${add(s, ctx)}`;
+  },
+
+  split(s, ctx) {
+    const ratio = String(s.ratio || "1:1").split(":").map(Number);
+    const left = `${s.body ? text(s.body, s.bodyAs || "lead", { class: "sp-body e", style: "--d:2;" }) : ""}
+      ${s.bullets ? list({ list: s.bullets, build: s.build, size: s.bulletSize }) : ""}
+      ${s.content ? el(s.content, ctx) : ""}`;
+    const W = Math.round(1680 * ratio[1] / (ratio[0] + ratio[1]));
+    const right = s.figure ? `<div class="sp-fig e" style="--d:2;flex:${ratio[1]}" ${s.figureStep ? `data-step="${s.figureStep}"` : ""}>${el(s.figure, ctx, W - 40, 740)}</div>` : "";
+    return `<div class="L-split ${s.reverse ? "rev" : ""}">
+      <div class="sp-text" style="flex:${ratio[0]}">${head(s, s.titleAs || "h2")}${left}</div>${right}
+    </div>${src(s)}${add(s, ctx)}`;
+  },
+
+  cards(s, ctx) {
+    return `<div class="L-cards">${head(s)}${cards({ cards: s.items, cols: s.cols, build: s.build, class: "e", style: "--d:2;" }, ctx)}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  list(s, ctx) {
+    return `<div class="L-list">${head(s)}${list({ list: s.items, numbered: s.numbered !== false, build: s.build, size: s.size })}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  timeline(s, ctx) {
+    const ev = s.events || [];
+    const hl = new Set([].concat(s.highlight ?? []));
+    const body = ev.map((e, i) => `<div${attrs({ step: e.step ?? build(s, i) }, `tl-ev ${hl.has(i) ? "hl" : ""}`)}>
+        <div class="tl-dot"></div><div class="tl-when t f-display">${md(e.when)}</div>
+        <div class="tl-title t f-heading">${md(e.title || "")}</div>${e.text ? `<div class="tl-text t f-body">${md(e.text)}</div>` : ""}
+        ${e.tag ? `<div class="tl-tag t f-label">${md(e.tag)}</div>` : ""}</div>`).join("");
+    return `<div class="L-timeline">${head(s)}<div class="tl" style="--n:${ev.length}"><div class="tl-line"></div>${body}</div>${s.after ? text(s.after, "h3", { class: "tl-after", step: s.afterStep ?? (s.build ? ev.length + 1 : 1), face: "quote", size: 48 }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  chart(s, ctx) {
+    const side = s.side || s.note;
+    const w = side ? 1120 : 1680, h = s.chartHeight || (s.title ? 600 : 720);
+    const ch = { ...s.chart, chart: s.chart.chart || s.chart.type };
+    return `<div class="L-chart">${head(s)}<div class="ch-row">
+      <div class="ch-fig e" style="--d:2" ${s.chartStep ? `data-step="${s.chartStep}"` : ""}>${figureHTML(ch, ctx, w, h)}</div>
+      ${side ? `<div class="ch-side" ${s.sideStep ? `data-step="${s.sideStep}"` : ""}>${typeof side === "string" ? text(side, "lead") : el(side, ctx)}</div>` : ""}
+    </div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  compare(s, ctx) {
+    const col = (c, k, i) => `<div${attrs({ step: c.step ?? build(s, i) }, `cp-col cp-${k} ${c.hl ? "hl" : ""}`)}>
+      ${c.label ? text(c.label, "label", { class: "cp-label" }) : ""}
+      ${c.figure ? `<div class="cp-fig">${el(c.figure, ctx, 520, 320)}</div>` : ""}
+      ${c.value != null ? text(String(c.value), "h2", { class: "cp-value", size: c.valueSize || 150 }) : ""}
+      ${c.title ? text(c.title, "h3", { class: "cp-title" }) : ""}
+      ${c.text ? text(c.text, "body", { class: "cp-text" }) : ""}
+      ${c.items ? list({ list: c.items, size: 32 }) : ""}</div>`;
+    return `<div class="L-compare">${head(s)}<div class="cp-row">${col(s.left, "l", 0)}<div class="cp-vs t f-display">${esc(s.vs ?? "×")}</div>${col(s.right, "r", 1)}</div>
+      ${s.after ? text(s.after, "h3", { class: "cp-after", step: s.afterStep ?? (s.build ? 3 : 1), face: "quote", size: 50 }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  matrix(s, ctx) {
+    const cells = s.cells || [];
+    const body = cells.map((c, i) => `<div${attrs({ step: c.step ?? build(s, i) }, `mx-cell ${c.hl ? "hl" : ""}`)}>
+      ${c.icon || c.picto ? `<div class="mx-ico">${el(c.icon ? { icon: c.icon, size: 60 } : c, ctx)}</div>` : ""}
+      ${text(c.title, "h3", { class: "mx-title" })}${c.text ? text(c.text, "body", { class: "mx-text" }) : ""}${c.example ? text(c.example, "small", { class: "mx-ex" }) : ""}</div>`).join("");
+    const [xl, xr] = s.x || ["", ""], [yt, yb] = s.y || ["", ""];
+    return `<div class="L-matrix">${head(s)}<div class="mx">
+      <div class="mx-y"><span class="t f-label">${md(yt)}</span><span class="t f-label">${md(yb)}</span></div>
+      <div class="mx-grid">${body}</div>
+      <div class="mx-x"><span class="t f-label">${md(xl)}</span><span class="t f-label">${md(xr)}</span></div></div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  question(s, ctx) {
+    const letters = "ABCDEFGH";
+    const opts = (s.options || []).map((o, i) => {
+      const obj = typeof o === "string" ? { text: o } : o;
+      return `<div${attrs({ step: obj.step ?? build(s, i) }, "qs-opt")}><span class="qs-key t f-display">${esc(obj.key || (s.keys || letters)[i])}</span>${text(obj.text, "lead", { class: "qs-text", size: s.optionSize })}${obj.sub ? text(obj.sub, "small", { class: "qs-sub muted" }) : ""}</div>`;
+    }).join("");
+    return `<div class="L-question">
+      <div class="qs-top">${kicker(s)}${text(s.question || s.title, "h2", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize })}${s.context ? text(s.context, "lead", { class: "muted e", style: "--d:2;" }) : ""}</div>
+      <div class="qs-row"><div class="qs-opts" style="grid-template-columns:repeat(${s.cols || Math.min(3, (s.options || []).length || 1)},1fr)">${opts}</div>
+      ${s.timer ? `<div class="qs-timer">${timer({ timer: s.timer, size: 230, label: s.timerLabel })}</div>` : ""}</div>
+      ${s.hint ? text(s.hint, "h3", { class: "qs-hint e", style: "--d:3;", size: 42 }) : ""}
+    </div>${add(s, ctx)}`;
+  },
+
+  poll(s, ctx) {
+    return `<div class="L-poll">${kicker(s)}${text(s.question || s.title, "h2", { class: "ttl e", style: "--d:1;", size: s.titleSize })}
+      ${s.context ? text(s.context, "lead", { class: "muted" }) : ""}
+      ${poll({ poll: s.id || s.poll, options: s.options, compare: s.compare, hint: s.hint, class: "e", style: "--d:2;" }, ctx)}</div>${add(s, ctx)}`;
+  },
+
+  image(s, ctx) {
+    return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, 1080)}</div>
+      ${s.title || s.caption ? `<div class="im-cap">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl" }) : ""}${s.caption ? text(s.caption, "body") : ""}</div>` : ""}</div>${add(s, ctx)}`;
+  },
+
+  code(s, ctx) {
+    return `<div class="L-code">${head(s)}<div class="cd-row">${code({ code: s.code, highlight: s.highlight, size: s.size, class: "e", style: "--d:2;" })}
+      ${s.note ? `<div class="cd-note" ${s.noteStep ? `data-step="${s.noteStep}"` : ""}>${typeof s.note === "string" ? text(s.note, "lead") : el(s.note, ctx)}</div>` : ""}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  blocks(s, ctx) {
+    return `<div class="L-blocks">${head(s, s.titleAs || "h2")}<div class="bl-body">${el(s.content || [], ctx)}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  end(s, ctx) {
+    return `<div class="L-end"><div class="en-main">${kicker(s)}${text(s.title || "Obrigado.", "hero", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize })}
+      ${s.subtitle ? text(s.subtitle, "lead", { class: "sub e", style: "--d:2;" }) : ""}
+      ${s.contacts ? `<div class="en-contacts e" style="--d:3">${s.contacts.map((c) => text(c, "h3", { size: 38 })).join("")}</div>` : ""}</div>
+      ${s.figure ? `<div class="en-fig e" style="--d:2">${el(s.figure, ctx, 640, 700)}</div>` : ""}</div>${add(s, ctx)}`;
+  },
+
+  references(s, ctx) {
+    const items = s.items || [];
+    return `<div class="L-refs">${head(s, "h3")}<div class="rf-cols">${items.map((r) => `<div class="rf t f-body">${md(r)}</div>`).join("")}</div></div>${add(s, ctx)}`;
+  },
+
+  video(s, ctx) {
+    return `<div class="L-video">${head(s)}<div class="vd-row">${el({ video: s.url, label: s.label, class: "e", style: "--d:2;" }, ctx)}${s.figure ? `<div class="vd-fig">${el(s.figure, ctx, 600, 560)}</div>` : ""}</div>${s.caption ? text(s.caption, "body", { class: "muted" }) : ""}</div>${add(s, ctx)}`;
+  },
+
+  // Posicionamento livre (x, y, w, h em px numa tela de 1920 × 1080)
+  canvas(s, ctx) {
+    return (s.elements || []).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");
+  },
+};

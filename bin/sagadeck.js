@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+// sagadeck — gerador de apresentações.  Uso: sagadeck <comando> <deck.yaml> [opções]
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import os from "node:os";
+import { buildFile, loadSpec, buildHTML } from "../src/build.js";
+import { THEMES } from "../src/themes.js";
+import { listIcons } from "../src/figures/icons.js";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+// templates: ../templates (repositório) ou ./templates (motor empacotado para o pip)
+const TEMPLATES = [path.join(HERE, "..", "templates"), path.join(HERE, "templates")].find((d) => fs.existsSync(d));
+const DOCS = [path.join(HERE, "..", "docs"), path.join(HERE, "docs")].find((d) => fs.existsSync(d));
+const SKILL = [path.join(HERE, "..", "SKILL.md"), path.join(HERE, "docs", "SKILL.md")].find((f) => fs.existsSync(f));
+const VERSION = (() => { for (const f of [path.join(HERE, "..", "package.json"), path.join(HERE, "package.json")]) { try { return JSON.parse(fs.readFileSync(f, "utf8")).version; } catch {} } return "?"; })();
+const [, , cmd, ...rest] = process.argv;
+const flags = Object.fromEntries(rest.filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.slice(2).split("="); return [k, v ?? true]; }));
+const args = rest.filter((a) => !a.startsWith("--"));
+
+const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
+
+  sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
+  sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
+  sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
+  sagadeck shots <deck.yaml> [--steps] [--only=3,5]  PNG de cada slide + folhas de contato (para revisar)
+  sagadeck pptx <deck.yaml> [--native-charts]  gera <deck>.pptx editável (com animações dos cliques e notas)
+  sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
+  sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
+  sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
+  sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
+  sagadeck themes [--out=pasta]                gera uma vitrine com todos os temas
+  sagadeck icons [filtro]                      lista ícones disponíveis (2.100+)
+  sagadeck ref                                 imprime a referência completa do YAML (ótimo para dar a um LLM)
+  sagadeck skill                               imprime as instruções para agentes de IA
+  sagadeck --version
+
+Saídas vão para a pasta do YAML (ou --out=pasta).`;
+
+function paths(yamlFile) {
+  if (!yamlFile) { console.error("Informe o arquivo .yaml"); process.exit(1); }
+  const abs = path.resolve(yamlFile);
+  const out = flags.out ? path.resolve(flags.out) : path.dirname(abs);
+  const base = path.basename(abs).replace(/\.(ya?ml)$/i, "");
+  return { abs, out, base, html: path.join(out, `${base}.html`), pptx: path.join(out, `${base}.pptx`), pdf: path.join(out, `${base}.pdf`), roteiro: path.join(out, `${base} - roteiro.pdf`), shots: path.join(out, `${base}-revisao`), tmpShots: path.join(os.tmpdir(), `sagadeck-${base.replace(/[^\w-]+/g, "_")}`) };
+}
+
+function doBuild(p, quiet) {
+  const r = buildFile(p.abs, p.html);
+  if (!quiet) {
+    console.log(`✓ HTML: ${p.html}`);
+    console.log(`  ${r.meta.slides.length} slides · tema ${r.theme.name} · tempo planejado ${r.planned} min${r.spec.duration ? ` de ${r.spec.duration}` : ""}`);
+    if (r.warnings.length) { console.log("⚠ Anti-sono:"); r.warnings.forEach((w) => console.log("  - " + w)); }
+  }
+  return r;
+}
+
+async function doCheck(p) {
+  const { check } = await import("../src/export/shots.js");
+  const { report, errors } = await check(p.html);
+  if (errors.length) { console.log("✗ Erros de JavaScript:"); errors.forEach((e) => console.log("  - " + e)); }
+  if (!report.length) console.log("✓ check: nenhum problema de layout encontrado");
+  else {
+    console.log(`⚠ check: ${report.length} slide(s) com possíveis problemas`);
+    for (const r of report) for (const i of r.issues) console.log(`  slide ${r.slide}: ${i.kind}${i.px ? ` (${i.px}px)` : ""}${i.ratio ? ` (${i.ratio}:1)` : ""} — "${i.text}"`);
+  }
+  return report;
+}
+
+async function doShots(p, dir = p.shots) {
+  const { shots, contactSheet } = await import("../src/export/shots.js");
+  const only = flags.only ? String(flags.only).split(",").map(Number) : null;
+  const { files, errors } = await shots(p.html, dir, { steps: !!flags.steps, only });
+  const sheets = await contactSheet(files, dir);
+  console.log(`✓ ${files.length} imagens em ${dir}`);
+  sheets.forEach((s) => console.log(`  folha: ${s}`));
+  if (errors.length) errors.forEach((e) => console.log("  ✗ " + e));
+  return files;
+}
+
+async function main() {
+  switch (cmd) {
+    case "new": {
+      const target = path.resolve(args[0] || "deck.yaml");
+      if (fs.existsSync(target)) { console.error(`${target} já existe`); process.exit(1); }
+      let t = fs.readFileSync(path.join(TEMPLATES, "exemplo.yaml"), "utf8");
+      if (flags.theme) t = t.replace(/^theme: .*/m, `theme: ${flags.theme}`);
+      fs.writeFileSync(target, t);
+      console.log(`✓ criado ${target}\n  próximo passo: sagadeck build "${target}"`);
+      break;
+    }
+    case "build": doBuild(paths(args[0])); break;
+    case "check": { const p = paths(args[0]); doBuild(p); await doCheck(p); break; }
+    case "shots": { const p = paths(args[0]); doBuild(p, true); await doShots(p); break; }
+    case "pptx": {
+      const p = paths(args[0]); const r = doBuild(p, true);
+      const { exportPptx } = await import("../src/export/pptx.js");
+      console.log("… exportando PowerPoint");
+      const { errors } = await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], log: flags.verbose ? console.log : () => {} });
+      errors.forEach((e) => console.log("  ✗ " + e));
+      console.log(`✓ PPTX: ${p.pptx}`);
+      break;
+    }
+    case "pdf": {
+      const p = paths(args[0]); doBuild(p, true);
+      const { pdf } = await import("../src/export/shots.js");
+      await pdf(p.html, p.pdf); console.log(`✓ PDF: ${p.pdf}`); break;
+    }
+    case "roteiro": {
+      const p = paths(args[0]); const r = doBuild(p, true);
+      const { shots } = await import("../src/export/shots.js");
+      const { roteiroPDF } = await import("../src/export/roteiro.js");
+      const { files } = await shots(p.html, p.tmpShots + "-mini", { scale: 0.5, jpeg: true });
+      await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: p.roteiro, title: r.meta.title, author: r.meta.author, duration: r.spec.duration });
+      console.log(`✓ Roteiro: ${p.roteiro}`); break;
+    }
+    case "all": {
+      const p = paths(args[0]); const r = doBuild(p);
+      await doCheck(p);
+      const files = await doShots(p, flags.revisao ? p.shots : p.tmpShots);
+      const { exportPptx } = await import("../src/export/pptx.js");
+      await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"] });
+      console.log(`✓ PPTX: ${p.pptx}`);
+      const { pdf } = await import("../src/export/shots.js");
+      await pdf(p.html, p.pdf); console.log(`✓ PDF: ${p.pdf}`);
+      const { roteiroPDF } = await import("../src/export/roteiro.js");
+      const { shots: mini } = await import("../src/export/shots.js");
+      const small = (await mini(p.html, p.tmpShots + "-mini", { scale: 0.5, jpeg: true })).files;
+      await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: small, outFile: p.roteiro, title: r.meta.title, author: r.meta.author, duration: r.spec.duration });
+      console.log(`✓ Roteiro: ${p.roteiro}`);
+      break;
+    }
+    case "watch": {
+      const p = paths(args[0]); doBuild(p);
+      console.log("observando mudanças… (Ctrl+C para sair)");
+      let t; fs.watch(path.dirname(p.abs), () => { clearTimeout(t); t = setTimeout(() => { try { doBuild(p); } catch (e) { console.error("✗ " + e.message); } }, 150); });
+      break;
+    }
+    case "themes": {
+      const out = path.resolve(flags.out || path.join(process.cwd(), "sagadeck-temas"));
+      fs.mkdirSync(out, { recursive: true });
+      const { shots, contactSheet } = await import("../src/export/shots.js");
+      const src = path.join(TEMPLATES, "exemplo.yaml");
+      for (const name of Object.keys(THEMES)) {
+        const spec = loadSpec(src); spec.theme = name; spec.id = "tema-" + name;
+        const html = path.join(out, `tema-${name}.html`);
+        fs.writeFileSync(html, buildHTML(spec).html);
+        const { files } = await shots(html, path.join(out, `tema-${name}`), {});
+        const sheets = await contactSheet(files, path.join(out, `tema-${name}`), { perSheet: 12 });
+        console.log(`✓ ${name}: ${html}\n  ${sheets[0]}`);
+      }
+      break;
+    }
+    case "icons": { const l = listIcons(args[0]); console.log(l.join("  ")); console.log(`\n${l.length} ícones`); break; }
+    case "ref": case "referencia": process.stdout.write(fs.readFileSync(path.join(DOCS, "REFERENCIA.md"), "utf8")); break;
+    case "skill": process.stdout.write(fs.readFileSync(SKILL, "utf8")); break;
+    case "--version": case "-v": case "version": console.log(`sagadeck ${VERSION}`); break;
+    default: console.log(HELP);
+  }
+}
+
+main().catch((e) => { console.error("✗ " + (e.stack || e.message)); process.exit(1); });

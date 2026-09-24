@@ -1,0 +1,161 @@
+# Deck de exemplo do sagadeck — mostra todos os layouts.
+# Gere com:  sagadeck build exemplo.yaml   (depois abra o .html; P = modo apresentador)
+title: Como o café mudou o trabalho
+author: Seu Nome
+theme: sinal          # sinal | editorial | noite | bauhaus | terminal | jornal
+duration: 15          # minutos (o modo apresentador mostra se você está adiantado/atrasado)
+
+slides:
+  - layout: cover
+    kicker: Palestra de exemplo · 15 min
+    title: Como o ==café== mudou o trabalho
+    subtitle: Uma história em 15 slides, com gráficos, perguntas e pictogramas.
+    author: Seu Nome
+    role: Cargo · Empresa
+    figure: { picto: scene, name: desk, papers: true }
+    time: 1
+    notes: |
+      > Bom dia! Hoje eu não vou falar de café. Vou falar de você às 15h.
+      INTERAÇÃO: pergunte no chat quantos cafés cada um já tomou hoje.
+
+  - layout: question
+    kicker: Pergunta rápida
+    question: Quantos cafés você já tomou hoje?
+    options: ["Nenhum", "Um", "Dois ou três", "Perdi a conta"]
+    cols: 4
+    timer: 20
+    hint: Responda no chat com a letra.
+    time: 1.5
+
+  - layout: section
+    number: "01"
+    kicker: Parte um
+    title: A origem
+    subtitle: Da Etiópia para a sua mesa.
+    figure: { icon: coffee, size: 420 }
+    time: 0.5
+
+  - layout: statement
+    kicker: Um dado
+    lines:
+      - text: O café é a ==segunda bebida== mais consumida do mundo.
+      - text: Só perde para a água.
+        as: h2
+        color: muted
+    build: true
+    time: 1
+
+  - layout: number
+    kicker: Por dia
+    value: 2.25
+    decimals: 2
+    suffix: " bi"
+    label: de xícaras de café consumidas no mundo
+    context: Dado ilustrativo para o exemplo.
+    side: { chart: donut, value: 65, center: "65%", w: 560, h: 560 }
+    source: "Fonte: exemplo"
+    time: 1
+
+  - layout: chart
+    kicker: Consumo
+    title: Quem mais toma café
+    chart:
+      chart: bar
+      data:
+        - { label: Finlândia, value: 12 }
+        - { label: Noruega, value: 9.9 }
+        - { label: Brasil, value: 5.8 }
+        - { label: EUA, value: 4.2 }
+      suffix: " kg"
+      highlight: [2]
+    side: "O Brasil **produz** mais do que **consome** — mas ainda consome muito."
+    source: "Valores ilustrativos, kg por pessoa/ano"
+    time: 1.5
+
+  - layout: chart
+    kicker: Ao longo do dia
+    title: A energia depois do café
+    chart:
+      chart: line
+      labels: ["8h", "9h", "10h", "11h", "12h", "13h", "14h", "15h", "16h"]
+      series:
+        - { name: com café, values: [40, 70, 80, 72, 60, 50, 75, 68, 55] }
+        - { name: sem café, values: [40, 45, 50, 52, 50, 42, 38, 35, 40] }
+      annotations: [{ at: 6, text: "2º café", dy: -70 }]
+      min: 0
+      max: 100
+    time: 1.5
+
+  - layout: cards
+    kicker: Três jeitos de preparar
+    title: Cada método, um sabor
+    items:
+      - { icon: coffee, title: Espresso, text: "Intenso, 25 segundos de extração." }
+      - { icon: filter, title: Coado, text: "Leve, o clássico da casa brasileira." }
+      - { icon: cup-soda, title: Gelado, text: "Cold brew: 12 horas na geladeira.", hl: true }
+    build: true
+    time: 1.5
+
+  - layout: split
+    kicker: Ritual
+    title: O café é uma pausa disfarçada
+    bullets:
+      - Levantar da cadeira
+      - Conversar com alguém
+      - Voltar com outra ideia
+    build: true
+    figure: { picto: human, pose: walk, sign: circle }
+    time: 1
+
+  - layout: timeline
+    kicker: História
+    title: Linha do tempo
+    events:
+      - { when: "850", title: Etiópia, text: "A lenda das cabras agitadas." }
+      - { when: "1554", title: Istambul, text: "Primeiras casas de café." }
+      - { when: "1727", title: Brasil, text: "Chegam as primeiras mudas." }
+      - { when: "1901", title: Solúvel, text: "Café instantâneo patenteado." }
+    highlight: 2
+    build: true
+    time: 1.5
+
+  - layout: compare
+    kicker: Duelo
+    title: Espresso ou coado?
+    left: { label: Espresso, value: "25s", text: "de extração, sob pressão" }
+    right: { label: Coado, value: "4min", text: "de extração, por gravidade", hl: true }
+    after: "Não existe certo. Existe o **seu**."
+    time: 1
+
+  - layout: matrix
+    kicker: Classifique
+    title: Que tipo de pessoa do café você é?
+    x: ["pouco café", "muito café"]
+    y: ["gourmet", "prático"]
+    cells:
+      - { title: Degustador, text: "Pouco, mas especial." }
+      - { title: Barista, text: "Muito e perfeito.", hl: true }
+      - { title: Econômico, text: "Pouco e rápido." }
+      - { title: Maratonista, text: "Garrafa térmica cheia." }
+    build: true
+    time: 1
+
+  - layout: poll
+    kicker: Enquete
+    question: Você trocaria o café por chá?
+    id: cafe-cha
+    options: ["Nunca", "Talvez", "Já troquei"]
+    time: 1
+
+  - layout: quote
+    quote: O café é o combustível da conversa, não do trabalho.
+    by: Alguém sábio
+    role: provavelmente numa pausa
+    time: 0.5
+
+  - layout: end
+    title: Obrigado.
+    subtitle: Agora, sim, um café.
+    contacts: ["linkedin.com/in/seu-perfil", "seu@email.com"]
+    figure: { picto: human, pose: cheer, sign: circle }
+    time: 0.5

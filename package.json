@@ -1,0 +1,40 @@
+{
+  "name": "sagadeck",
+  "version": "1.0.0",
+  "description": "Gerador de apresentações: YAML -> HTML animado + PowerPoint editável, com temas e figuras geradas na hora.",
+  "type": "module",
+  "bin": {
+    "sagadeck": "bin/sagadeck.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "jszip": "^3.10.2",
+    "lucide-static": "^1.47.0",
+    "playwright-core": "^1.63.0",
+    "pptxgenjs": "^4.0.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "build:py": "node scripts/bundle.mjs && python -m build",
+    "test:live": "node tools/test-live.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naruminho/sagadeck"
+  },
+  "author": "Narumi Abe",
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "docs",
+    "SKILL.md"
+  ]
+}
