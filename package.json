@@ -1,6 +1,6 @@
 {
   "name": "sagadeck",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Gerador de apresentações: YAML -> HTML animado + PowerPoint editável, com temas e figuras geradas na hora.",
   "type": "module",
   "bin": {
