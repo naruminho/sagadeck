@@ -1,0 +1,25 @@
+---
+description: Instruções completas para criação e edição de apresentações com o SagaDeck
+globs: ["**/*.yaml", "**/*.yml", "**/deck*"]
+alwaysApply: false
+---
+
+# SagaDeck — Skill de Apresentações para IDEs Agênticos
+
+Use o SagaDeck sempre que o usuário pedir slides, apresentações, palestras, pitch decks ou arquivos PowerPoint editáveis.
+
+## Fluxo Agêntico Recomendado
+1. **Estrutura Narrativa**: Roteiro antes dos slides (gancho -> desenvolvimento em blocos -> fechamento com próximos passos).
+2. **Escrever YAML**: Declarar cabeçalho com `title`, `author`, `theme`, `duration`, e lista de `slides:`.
+3. **Auto-Inspeção e Fiscal**: Execute `sagadeck autofix <deck.yaml>` para garantir que nenhum elemento fique sobreposto e todas as margens de 120px sejam respeitadas.
+4. **Gerar Artefatos**: Execute `sagadeck all <deck.yaml>` ou `sagadeck build <deck.yaml>`.
+5. **Edição Visual**: O usuário pode visualizar e editar visualmente usando `sagadeck studio <deck.yaml>`.
+
+## Ferramentas MCP Disponíveis
+Se o cliente MCP estiver ativo (`sagadeck mcp`), você pode chamar:
+- `sagadeck_create_deck`: cria novo arquivo YAML estruturado
+- `sagadeck_read_deck`: lê e analisa um deck existente
+- `sagadeck_inspect_deck`: fiscal de layout e sobreposição
+- `sagadeck_autofix_deck`: auto-correção geométrica de sobreposição e margens
+- `sagadeck_build_html`: compila HTML standalone
+- `sagadeck_launch_studio`: abre o estúdio visual PowerPoint

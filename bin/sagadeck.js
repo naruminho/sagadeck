@@ -28,6 +28,9 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
+  sagadeck studio [deck.yaml] [--port=3000]    abre o editor visual estilo PowerPoint com chat lateral IA
+  sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
+  sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
   sagadeck themes [--out=pasta]                gera uma vitrine com todos os temas
   sagadeck icons [filtro]                      lista ícones disponíveis (2.100+)
@@ -134,6 +137,44 @@ async function main() {
       const p = paths(args[0]); doBuild(p);
       console.log("observando mudanças… (Ctrl+C para sair)");
       let t; fs.watch(path.dirname(p.abs), () => { clearTimeout(t); t = setTimeout(() => { try { doBuild(p); } catch (e) { console.error("✗ " + e.message); } }, 150); });
+      break;
+    }
+    case "studio": case "web": {
+      const { createStudioServer } = await import("../src/studio/server.js");
+      const deckFile = args[0] ? path.resolve(args[0]) : null;
+      const port = Number(flags.port || process.env.PORT || 3000);
+      const host = flags.host || "0.0.0.0";
+      const server = createStudioServer(deckFile, { port, host });
+      server.listen(port, host, () => {
+        console.log(`✓ SagaDeck Studio rodando em http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
+        console.log(`  Visualizador & Editor PowerPoint + Chat Lateral com IA ativo.`);
+      });
+      break;
+    }
+    case "autofix": {
+      const p = paths(args[0]);
+      const { autofixDeck } = await import("../src/fiscal/autofix.js");
+      const YAML = (await import("yaml")).default;
+      const spec = loadSpec(p.abs);
+      console.log(`… analisando e auto-corrigindo ${p.abs}`);
+      const res = autofixDeck(spec);
+      const outYaml = flags.out ? path.resolve(flags.out) : p.abs;
+      fs.writeFileSync(outYaml, YAML.stringify(res.spec, { indent: 2 }), "utf8");
+      console.log(`✓ Auto-correção concluída! Salvo em: ${outYaml}`);
+      if (res.actions.length === 0) {
+        console.log("  Nenhum problema de sobreposição ou margem encontrado.");
+      } else {
+        console.log(`  ${res.modifiedSlidesCount} slide(s) corrigido(s):`);
+        for (const a of res.actions) {
+          console.log(`  • Slide ${a.slide} (${a.layout}):`);
+          for (const item of a.actions) console.log(`    - ${item}`);
+        }
+      }
+      break;
+    }
+    case "mcp": {
+      const { runMCPServer } = await import("../src/mcp/server.js");
+      runMCPServer();
       break;
     }
     case "themes": {
