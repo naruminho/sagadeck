@@ -891,9 +891,16 @@
     };
     img.src = URL.createObjectURL(file);
   }
+  // Altura da caixa do chat = o conteúdo (ou o placeholder, se vazia) + a borda; barra de rolagem só no limite.
   function autoGrowChat() {
-    dom.chatInput.style.height = "auto";
-    dom.chatInput.style.height = `${Math.min(180, dom.chatInput.scrollHeight)}px`;
+    const el = dom.chatInput;
+    const empty = !el.value;
+    if (empty) el.value = el.placeholder; // scrollHeight ignora o placeholder: mede com ele no lugar
+    el.style.height = "auto";
+    const need = el.scrollHeight + (el.offsetHeight - el.clientHeight);
+    if (empty) el.value = "";
+    el.style.height = `${Math.min(180, need)}px`;
+    el.style.overflowY = need > 180 ? "auto" : "hidden";
   }
 
   function appendChatMessage(sender, text, actions = []) {
@@ -2946,6 +2953,12 @@
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); handleChatSubmit(); }
     });
     dom.chatInput.addEventListener("input", autoGrowChat);
+    // a largura muda (painel, janela, placeholder trocado): recalcula
+    let chatW = 0;
+    new ResizeObserver(() => {
+      const w = dom.chatInput.clientWidth;
+      if (w && w !== chatW) { chatW = w; autoGrowChat(); }
+    }).observe(dom.chatInput);
     dom.chatInput.addEventListener("paste", (e) => {
       const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === "file" && it.type.startsWith("image/")).map((it) => it.getAsFile());
       if (files.length) { e.preventDefault(); files.forEach(addChatImage); }

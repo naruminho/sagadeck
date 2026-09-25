@@ -366,6 +366,33 @@ test("studio", async (t) => {
   });
 
   // ------------------------------------------------------------ assistente
+  await t.test("caixa do chat não come o texto (placeholder ou digitado) e cresce até o limite", async () => {
+    await p.click("#tab-btn-chat");
+    const fits = () => p.evaluate(() => {
+      const el = document.querySelector("#chat-input");
+      const probe = el.cloneNode(); // mede o conteúdo real (texto ou placeholder) com a mesma largura
+      probe.style.cssText = `position:absolute;visibility:hidden;height:auto;width:${el.getBoundingClientRect().width}px`;
+      probe.value = el.value || el.placeholder;
+      el.parentElement.append(probe);
+      const need = probe.scrollHeight;
+      probe.remove();
+      return { need, has: el.clientHeight, scrollbar: el.scrollHeight > el.clientHeight + 1 };
+    });
+    for (const width of [1440, 1100]) { // painel lateral estreito: o placeholder quebra em 2 linhas
+      await p.setViewportSize({ width, height: 1000 }); await settle(300);
+      await p.fill("#chat-input", "");
+      const empty = await fits();
+      assert.ok(empty.has >= empty.need && !empty.scrollbar, `vazio em ${width}px: ${JSON.stringify(empty)}`);
+    }
+    await p.fill("#chat-input", ["linha", "linha", "linha", "linha", "fim"].join("\n"));
+    const typed = await fits();
+    assert.ok(typed.has >= typed.need && !typed.scrollbar, `digitado: ${JSON.stringify(typed)}`);
+    await p.fill("#chat-input", Array(30).fill("linha").join("\n"));
+    assert.ok(await p.evaluate(() => document.querySelector("#chat-input").clientHeight <= 182), "para de crescer no limite");
+    await p.fill("#chat-input", "");
+    await p.setViewportSize({ width: 1440, height: 1000 });
+  });
+
   await t.test("colar/anexar imagem no chat mostra a miniatura para enviar", async () => {
     await p.setInputFiles("#chat-attach-input", { name: "ref.png", mimeType: "image/png", buffer: PNG_1PX });
     await p.waitForSelector("#chat-attachments .chat-att img");
