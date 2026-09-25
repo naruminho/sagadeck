@@ -119,7 +119,7 @@ export const LAYOUTS = {
       ${c.title ? text(c.title, "h3", { class: "cp-title" }) : ""}
       ${c.text ? text(c.text, "body", { class: "cp-text" }) : ""}
       ${c.items ? list({ list: c.items, size: 32 }) : ""}</div>`;
-    return `<div class="L-compare">${head(s)}<div class="cp-row">${col(s.left, "l", 0)}<div class="cp-vs t f-display">${esc(s.vs ?? "×")}</div>${col(s.right, "r", 1)}</div>
+    return `<div class="L-compare">${head(s)}<div class="cp-row">${col(s.left, "l", 0)}<div${attrs({ step: s.right?.step ?? build(s, 1) }, "cp-vs t f-display")}>${esc(s.vs ?? "×")}</div>${col(s.right, "r", 1)}</div>
       ${s.after ? text(s.after, "h3", { class: "cp-after", step: s.afterStep ?? (s.build ? 3 : 1), face: "quote", size: 50 }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
