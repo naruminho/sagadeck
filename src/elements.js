@@ -75,6 +75,9 @@ export function el(e, ctx, w, h) {
   if (e == null) return "";
   if (typeof e === "string" || typeof e === "number") return text(String(e), "body");
   if (Array.isArray(e)) return e.map((x) => el(x, ctx, w, h)).join("");
+  if (e.image_prompt && !e.image && !isFigure(e)) {
+    return `<div${attrs(e, "fig fig-pending")}><div class="fp-in"><span class="fp-tag f-label">imagem a gerar</span><span class="fp-text f-body">${esc(String(e.image_prompt).slice(0, 180))}</span></div></div>`;
+  }
   if (isFigure(e)) return figureHTML(e, ctx, w, h);
   if (e.text != null) return text(e.text, e.as || "body", e);
   if (e.row) return `<div${attrs(e, "row", `gap:${px(e.gap ?? 48)};align-items:${e.valign || "stretch"};justify-content:${e.justify || "flex-start"};`)}>${e.row.map((x) => el(x, ctx)).join("")}</div>`;

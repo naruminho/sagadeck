@@ -185,6 +185,82 @@ export const LAYOUTS = {
     return `<div class="L-video">${head(s)}<div class="vd-row">${el({ video: s.url, label: s.label, class: "e", style: "--d:2;" }, ctx)}${s.figure ? `<div class="vd-fig">${el(s.figure, ctx, 600, 560)}</div>` : ""}</div>${s.caption ? text(s.caption, "body", { class: "muted" }) : ""}</div>${add(s, ctx)}`;
   },
 
+  // Página inteira: uma figura (imagem, imagem gerada pela IA, SVG, HTML, gráfico…) ocupa o slide todo;
+  // texto opcional por cima, com um véu para garantir leitura. overlay: bottom | left | center | none
+  full(s, ctx) {
+    const f = s.figure ?? (s.image || s.image_prompt ? { image: s.image, image_prompt: s.image_prompt } : null);
+    const fig = f == null ? "" : typeof f === "object" ? { fit: s.fit || "cover", ...f } : { image: f, fit: s.fit || "cover" };
+    const hasText = s.title || s.caption || s.kicker;
+    const pos = s.overlay || (hasText ? "bottom" : "none");
+    // figura desenhada (gráfico, ícone, diagrama) com texto à esquerda: vai para a direita em vez de ficar por baixo do texto
+    const drawn = fig && !(fig.image || fig.image_prompt || fig.video);
+    return `<div class="L-full${drawn && pos === "left" ? " fl-shift" : ""}">${fig ? `<div class="fl-fig">${el(fig, ctx, 1920, 1080)}</div>` : ""}
+      ${hasText && pos !== "none" ? `<div class="fl-over fl-${pos}"><div class="fl-txt">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize }) : ""}${s.caption ? text(s.caption, "lead", { class: "e", style: "--d:2;" }) : ""}</div></div>` : ""}</div>`;
+  },
+
+  // Manchete: uma frase enorme que ocupa o slide (encolhe para caber)
+  headline(s, ctx) {
+    return `<div class="L-headline">${kicker(s)}${text(s.text || s.title, s.as || "hero", { class: "hl-text e", style: "--d:1;", fit: true, size: s.size || 300 })}
+      ${s.caption ? text(s.caption, "lead", { class: "hl-cap muted e", style: "--d:2;" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Funil: etapas que afunilam (largura decrescente), com valor e texto ao lado
+  funnel(s, ctx) {
+    const st = s.stages || s.items || [];
+    const n = Math.max(1, st.length);
+    const rows = st.map((x, i) => {
+      const o = typeof x === "string" ? { title: x } : x;
+      const w = 100 - i * (48 / Math.max(1, n - 1));
+      const mix = 100 - i * (40 / Math.max(1, n - 1));
+      return `<div${attrs({ step: o.step ?? build(s, i) }, `fn-row ${o.hl ? "hl" : ""}`)}>
+        <div class="fn-barwrap"><div class="fn-bar" style="width:${w.toFixed(1)}%;--mix:${mix.toFixed(0)}%">${o.value != null ? `<span class="fn-val t f-display">${md(String(o.value))}</span>` : ""}<span class="fn-title t f-heading">${md(o.title || "")}</span></div></div>
+        ${o.text ? `<div class="fn-text t f-body">${md(o.text)}</div>` : "<div></div>"}</div>`;
+    }).join("");
+    return `<div class="L-funnel">${head(s)}<div class="fn">${rows}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Pirâmide: níveis do topo (estreito) para a base (larga)
+  pyramid(s, ctx) {
+    const lv = s.levels || s.items || [];
+    const n = Math.max(1, lv.length);
+    const rows = lv.map((x, i) => {
+      const o = typeof x === "string" ? { title: x } : x;
+      const w = 34 + i * (66 / Math.max(1, n - 1));
+      return `<div${attrs({ step: o.step ?? build(s, i) }, `py-row ${o.hl ? "hl" : ""}`)}>
+        <div class="py-barwrap"><div class="py-bar" style="width:${w.toFixed(1)}%"><span class="t f-heading">${md(o.title || "")}</span></div></div>
+        ${o.text ? `<div class="py-text t f-body">${md(o.text)}</div>` : "<div></div>"}</div>`;
+    }).join("");
+    return `<div class="L-pyramid">${head(s)}<div class="py">${rows}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Agenda: seções numeradas; current = número da seção em que estamos (as anteriores ficam "feitas")
+  agenda(s, ctx) {
+    const it = s.items || [];
+    const cur = Number(s.current) || 0;
+    const rows = it.map((x, i) => {
+      const o = typeof x === "string" ? { title: x } : x;
+      const state = cur ? (i + 1 === cur ? "cur" : i + 1 < cur ? "done" : "") : "";
+      return `<div${attrs({ step: o.step ?? build(s, i) }, `ag-row ${state}`)}><span class="ag-n t f-display">${String(i + 1).padStart(2, "0")}</span>
+        <div class="ag-txt">${text(o.title || "", "h3", { class: "ag-title" })}${o.text ? text(o.text, "body", { class: "ag-sub muted" }) : ""}</div>${o.time ? `<span class="ag-time t f-label">${md(o.time)}</span>` : ""}</div>`;
+    }).join("");
+    return `<div class="L-agenda">${head(s)}<div class="ag">${rows}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Mosaico (bento): blocos de tamanhos diferentes. size: big (2×2) | wide (2×1) | tall (1×2) | normal
+  bento(s, ctx) {
+    const tiles = s.tiles || s.items || [];
+    const anySize = tiles.some((t) => t && typeof t === "object" && t.size);
+    const body = tiles.map((x, i) => {
+      const t = typeof x === "string" ? { title: x } : x;
+      const size = t.size || (!anySize && i === 0 ? "big" : "");
+      const fig = t.figure ? el(t.figure, ctx, 700, 500) : t.icon ? el({ icon: t.icon, size: size === "big" ? 180 : 96 }, ctx) : "";
+      return `<div${attrs({ step: t.step ?? build(s, i) }, `bt-tile ${size ? "bt-" + size : ""} ${t.hl ? "hl" : ""}`)}>
+        ${fig ? `<div class="bt-fig">${fig}</div>` : ""}${t.value != null ? `<div class="bt-val t f-display">${md(String(t.value))}</div>` : ""}
+        ${t.title ? text(t.title, size === "big" ? "h2" : "h3", { class: "bt-title" }) : ""}${t.text ? text(t.text, "body", { class: "bt-text" }) : ""}</div>`;
+    }).join("");
+    return `<div class="L-bento">${head(s)}<div class="bt" style="--cols:${s.cols || 4}">${body}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
   // Posicionamento livre (x, y, w, h em px numa tela de 1920 × 1080)
   canvas(s, ctx) {
     return (s.elements || []).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");

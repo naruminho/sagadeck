@@ -39,7 +39,7 @@ slides:
 
 ## Marcação inline (qualquer texto)
 
-`**negrito**` · `*itálico*` · `==marca-texto==` (animado) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
+`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
 
 ## Layouts
 
@@ -66,6 +66,12 @@ slides:
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
 | `end` | `title, subtitle, contacts, figure` | encerramento |
 | `references` | `title, items` | fontes (2 colunas) |
+| `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
+| `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
+| `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
+| `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
+| `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
+| `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 

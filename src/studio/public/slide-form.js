@@ -46,6 +46,7 @@
     els: (k, label, o = {}) => ({ k, label, type: "elements", ...o }),
     chart: (k, label, o = {}) => ({ k, label, type: "chart", ...o }),
     more: (fields) => ({ type: "more", fields }),
+    action: (label, run, o = {}) => ({ type: "action", label, run, ...o }),
   };
   // item de lista: texto simples | campos de objeto | texto-ou-objeto (string vira {text}) | elemento
   const T = "text";
@@ -123,6 +124,23 @@
     references: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Referências", TA, { addLabel: "Adicionar referência" })],
     video: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("url", "Link do vídeo"), f.text("label", "Texto do botão", { placeholder: "Assistir" }), f.text("caption", "Legenda"), f.el("figure", "Figura")],
     canvas: [f.els("elements", "Elementos", { positioned: true })],
+    headline: [f.text("kicker", "Chapéu"), f.area("text", "Frase"), f.text("caption", "Legenda"),
+      f.more([f.select("as", "Estilo", TEXT_ROLES, { empty: "Enorme" }), f.num("size", "Tamanho máximo (px)")])],
+    full: [f.el("figure", "Figura (ocupa o slide todo)"), f.text("kicker", "Chapéu"), f.area("title", "Título por cima"), f.text("caption", "Legenda"),
+      f.select("overlay", "Posição do texto", [["bottom", "Embaixo"], ["left", "À esquerda"], ["center", "No centro"], ["none", "Sem texto"]], { empty: "Automático" }),
+      f.more([f.select("fit", "Enquadramento", [["cover", "Preencher"], ["contain", "Caber inteira"]]), f.num("titleSize", "Tamanho do título (px)")])],
+    funnel: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("stages", "Etapas do funil", obj([f.text("title", "Etapa"), f.text("value", "Valor"), f.text("text", "Comentário"), f.bool("hl", "Destacar")]),
+      { addLabel: "Adicionar etapa", newItem: () => ({ title: "Etapa", value: "" }) }), f.more([f.bool("build", "Uma por clique")])],
+    pyramid: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("levels", "Níveis (do topo para a base)", obj([f.text("title", "Nível"), f.text("text", "Comentário"), f.bool("hl", "Destacar")]),
+      { addLabel: "Adicionar nível", newItem: () => ({ title: "Nível" }) }), f.more([f.bool("build", "Um por clique")])],
+    agenda: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.num("current", "Seção atual (número)"),
+      f.list("items", "Seções", obj([f.text("title", "Seção"), f.text("text", "Detalhe"), f.text("time", "Tempo")]), { addLabel: "Adicionar seção", newItem: () => ({ title: "Seção" }) }),
+      f.more([f.bool("build", "Uma por clique")])],
+    bento: [f.text("kicker", "Chapéu"), f.text("title", "Título"),
+      f.list("tiles", "Blocos", obj([f.text("title", "Título"), f.text("value", "Número grande"), f.area("text", "Texto"), f.icon("icon", "Ícone"),
+        f.select("size", "Tamanho", [["big", "Grande (2×2)"], ["wide", "Largo (2×1)"], ["tall", "Alto (1×2)"]], { empty: "Normal" }), f.bool("hl", "Destacar"),
+        f.more([f.el("figure", "Figura (no lugar do ícone)")])]), { addLabel: "Adicionar bloco", newItem: () => ({ title: "Bloco", icon: "star" }) }),
+      f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
   };
   const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto"]);
 
@@ -152,7 +170,8 @@
         f.bool("button", "Botão de parada", { when: (e) => e.name === "car-top" || e.name === "elevator" }),
         f.num("count", "Quantidade", { when: (e) => e.picto === "crowd" }), f.num("highlight", "Destacados", { when: (e) => e.picto === "crowd" })] },
     { id: "image", label: "Imagem", is: (e) => e.image || e.image_prompt, tpl: () => ({ image: "", fit: "cover" }),
-      fields: [f.text("image", "Arquivo ou link"), f.area("image_prompt", "Descrição para a IA gerar", { hint: "Gerada com “sagadeck imagens” ou pelo assistente com imagens ligadas." }),
+      fields: [f.text("image", "Arquivo ou link"), f.area("image_prompt", "Descrição para a IA gerar", { hint: "Escreva e clique em Gerar imagem agora." }),
+        f.action("Gerar imagem agora", (e) => CTX.generateImage?.(e), { when: (e) => e.image_prompt && !e.image }),
         f.select("fit", "Enquadramento", [["cover", "Preencher"], ["contain", "Caber inteira"]]), f.text("alt", "Texto alternativo"), f.num("radius", "Cantos (px)")] },
     { id: "chart", label: "Gráfico", is: (e) => e.chart, tpl: () => ({ chart: "bar", data: [{ label: "A", value: 10 }, { label: "B", value: 20 }] }), chart: true },
     { id: "diagram", label: "Diagrama", is: (e) => e.diagram, tpl: () => ({ diagram: "flow", steps: ["Início", "Meio", "Fim"] }),
@@ -308,6 +327,11 @@
       case "elements": return elementsField(o, spec, path);
       case "chart": return chartField(o, spec, path);
       case "more": return moreGroup(o, spec.fields, path + ".more");
+      case "action": {
+        const b = h("button", { class: "btn btn-secondary sf-action", type: "button" }, spec.label);
+        b.onclick = () => spec.run(o, b);
+        return b;
+      }
       default: return null;
     }
   }

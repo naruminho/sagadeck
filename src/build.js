@@ -44,7 +44,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -79,7 +79,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const deco = s.deco ?? theme.deco;
     const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
     const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-    const area = layout === "canvas" ? "free" : "safe";
+    const area = layout === "canvas" || layout === "full" ? "free" : "safe";
     html += `<section class="slide tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
     if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
     html += `<div class="${area}">${inner}</div>`;
@@ -167,7 +167,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   let html = `<section class="slide current tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;

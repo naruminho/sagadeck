@@ -28,11 +28,12 @@
     currentCSS: "",
   };
 
+  // ordem da galeria: abertura, frase, números, listas/estruturas, dados, interação, mídia, livres, fim
   const LAYOUT_NAMES = [
-    "cover", "statement", "section", "cards", "stats", "steps", "split", "number",
-    "quote", "list", "timeline", "chart", "compare", "matrix",
-    "question", "poll", "image", "code", "blocks", "end",
-    "references", "video", "canvas"
+    "cover", "section", "statement", "headline", "quote", "number", "split", "full",
+    "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
+    "chart", "compare", "matrix", "question", "poll", "image", "code", "video",
+    "blocks", "canvas", "references", "end",
   ];
 
   // Nome que a pessoa vê para cada layout (o YAML continua com o nome em inglês).
@@ -42,6 +43,7 @@
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
+    headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
   const layoutLabel = (name) => LAYOUT_LABELS[name] || name || "Automático";
 
@@ -1748,25 +1750,69 @@
   // ==========================================================================
   // PAINEL DE PROPRIEDADES (LATERAL DIREITA)
   // ==========================================================================
+  // Galeria de layouts: prévia de verdade (exemplo desenhado no tema do deck) + descrição
   function buildLayoutPicker() {
     dom.layoutPickerGrid.innerHTML = "";
     LAYOUT_NAMES.forEach((name) => {
-      const chip = document.createElement("button");
-      chip.className = "layout-chip";
-      chip.textContent = layoutLabel(name);
-      chip.title = name;
-      chip.dataset.layout = name;
-      chip.onclick = () => {
+      const card = document.createElement("button");
+      card.className = "layout-card";
+      card.dataset.layout = name;
+      card.title = name;
+      card.innerHTML = `<div class="lc-prev"><div class="thumb-render"></div></div><div class="lc-name"></div><div class="lc-desc"></div>`;
+      card.querySelector(".lc-name").textContent = layoutLabel(name);
+      card.onclick = () => {
         closePopovers();
         changeCurrentLayout(name);
       };
-      dom.layoutPickerGrid.appendChild(chip);
+      dom.layoutPickerGrid.appendChild(card);
     });
+  }
+
+  let layoutPreviewKey = "";
+  async function loadLayoutPreviews() {
+    const key = `${state.deck?.theme}|${state.deck?.markStyle || ""}`;
+    const cur = state.deck?.slides[state.currentSlideIndex]?.layout || "blocks";
+    dom.layoutPickerGrid.querySelectorAll(".layout-card").forEach((c) => c.classList.toggle("active", c.dataset.layout === cur));
+    if (key === layoutPreviewKey) return;
+    try {
+      const data = await (await fetch("/api/layout-previews")).json();
+      ensureSlideStyles(data.baseCSS, data.themeCSS);
+      dom.layoutPickerGrid.querySelectorAll(".layout-card").forEach((c) => {
+        const n = c.dataset.layout;
+        c.querySelector(".thumb-render").innerHTML = data.html[n] || "";
+        c.querySelector(".lc-desc").textContent = data.info[n]?.[1] || "";
+      });
+      layoutPreviewKey = key;
+    } catch {}
+  }
+
+  // Ao trocar de layout, o conteúdo em lista (cartões, etapas, eventos, níveis…) vai junto
+  const LIST_KEY = { cards: "items", bento: "tiles", stats: "stats", steps: "steps", funnel: "stages", pyramid: "levels", list: "items",
+    agenda: "items", timeline: "events", matrix: "cells", question: "options", poll: "options", split: "bullets", statement: "lines", references: "items", end: "contacts" };
+  const SOURCE_KEYS = ["items", "tiles", "stats", "kpis", "steps", "process", "flow", "stages", "levels", "events", "cells", "options", "bullets", "lines", "contacts"];
+  function carryContent(slide, to) {
+    const target = LIST_KEY[to];
+    if (!target || (Array.isArray(slide[target]) && slide[target].length)) return;
+    const srcKey = SOURCE_KEYS.find((k) => Array.isArray(slide[k]) && slide[k].length);
+    if (!srcKey) return;
+    const entries = slide[srcKey].map((x) => {
+      if (typeof x !== "object" || x == null) return { title: String(x ?? "") };
+      return { title: x.title ?? x.label ?? x.text ?? x.name ?? "", text: x.title != null ? x.text ?? x.sub : x.sub, icon: x.icon, value: x.value ?? x.when ?? x.number };
+    });
+    const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== ""));
+    const plainList = ["bullets", "options", "lines", "contacts"];
+    if (plainList.includes(target) && to !== "question") slide[target] = entries.map((e) => e.title);
+    else if (to === "list" || to === "question") slide[target] = entries.map((e) => (e.text ? { text: e.title, sub: e.text } : e.title));
+    else if (to === "timeline") slide[target] = entries.map((e) => clean({ when: e.value ?? "", title: e.title, text: e.text }));
+    else if (to === "stats") slide[target] = entries.map((e) => clean({ value: e.value ?? e.title, label: e.value != null ? e.title : e.text, icon: e.icon }));
+    else slide[target] = entries.map((e) => clean(e));
   }
 
   function changeCurrentLayout(layoutName) {
     const slide = state.deck.slides[state.currentSlideIndex];
     if (!slide) return;
+    carryContent(slide, layoutName);
+    if ((layoutName === "statement" || layoutName === "headline") && !slide.text && slide.title) slide.text = slide.title;
     slide.layout = layoutName;
     syncDeckToServer();
     renderCurrentSlide();
@@ -1809,9 +1855,29 @@
       commit: formCommit,
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
+      generateImage: (_el, btn) => generateSlideImages(btn),
     });
     hydrateIcons(dom.slideFieldsForm);
     pane.scrollTop = scroll;
+  }
+
+  async function generateSlideImages(btn) {
+    clearTimeout(formSyncTimer);
+    await syncDeckToServer(); // o prompt que acabou de ser digitado precisa estar no servidor
+    if (btn) { btn.disabled = true; btn.textContent = "Gerando imagem…"; }
+    try {
+      const res = await fetch("/api/ai/slide-images", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index: state.currentSlideIndex }),
+      });
+      const data = await res.json();
+      if (data.spec) state.deck = data.spec;
+      showToast(data.ok ? "Imagem gerada" : `Não deu para gerar a imagem: ${data.error || "erro"}`, data.ok ? 2500 : 6000);
+    } catch (e) {
+      showToast(`Não deu para gerar a imagem: ${e.message}`, 6000);
+    }
+    renderCurrentSlide();
+    renderThumbnails();
   }
 
   function formCommit(structural) {
@@ -2361,7 +2427,7 @@
       pop.style.top = `${r.bottom + 4}px`;
       pop.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - w - 8))}px`;
     });
-    popover(dom.btnLayoutGallery, dom.layoutPopover);
+    popover(dom.btnLayoutGallery, dom.layoutPopover, loadLayoutPreviews);
     popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
     [dom.layoutPopover, dom.storyArcPopover].forEach((p) => p.addEventListener("click", (e) => e.stopPropagation()));
     dom.btnPresentMenu.addEventListener("click", (e) => {

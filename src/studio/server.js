@@ -11,7 +11,7 @@ import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
-import { editDeck, textToSlide, generateDeck, toYaml } from "../ai/deck-ai.js";
+import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, "public");
@@ -53,6 +53,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   }
 
   let lastPreview = { ok: true, error: null, warnings: [] }; // resultado do último /preview
+  const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
   function persist() {
@@ -248,6 +249,24 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // YAML de um slide só (gaveta de YAML em "Slide atual")
+      // "Gerar imagem agora": transforma os image_prompt de UM slide em imagens de verdade
+      if (pathname === "/api/ai/slide-images" && req.method === "POST") {
+        const body = await readJSON(req);
+        const i = Number(body.index);
+        const slide = currentSpec?.slides?.[i];
+        const send = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        if (!slide) return send(404, { error: "slide não existe" });
+        try {
+          const wrapper = { ...withBase(currentSpec), slides: [slide] };
+          const r = await materializeImages(wrapper, { ...imageOptions(wrapper), keepFailed: true });
+          persist();
+          send(r.done.length || !r.failed.length ? 200 : 502, { ok: !!r.done.length, done: r.done.length, failed: r.failed, error: r.failed[0]?.error, spec: currentSpec });
+        } catch (e) {
+          send(500, { error: e.message });
+        }
+        return;
+      }
+
       if (pathname === "/api/slide-yaml" && req.method === "GET") {
         const i = Number(url.searchParams.get("i"));
         const slide = currentSpec?.slides?.[i];
@@ -274,6 +293,25 @@ export function createStudioServer(deckPath = null, opts = {}) {
         persist();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
+        return;
+      }
+
+      // Galeria de layouts: um exemplo de cada, desenhado no tema do deck (cache por tema)
+      if (pathname === "/api/layout-previews") {
+        const { LAYOUT_INFO, LAYOUT_SAMPLES } = await import("./layout-samples.js");
+        const theme = currentSpec?.theme || "sinal";
+        const key = `${theme}|${currentSpec?.markStyle || ""}`;
+        if (!layoutPreviewCache.has(key)) {
+          const spec = { theme, markStyle: currentSpec?.markStyle, title: "", footer: false, slides: [] };
+          const out = {};
+          for (const [name, sample] of Object.entries(LAYOUT_SAMPLES)) {
+            try { out[name] = renderSlide(sample, 0, spec).html; } catch (e) { out[name] = ""; }
+          }
+          layoutPreviewCache.set(key, out);
+        }
+        const r = renderSlide({ layout: "statement", text: "x" }, 0, { theme });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ info: LAYOUT_INFO, html: layoutPreviewCache.get(key), baseCSS: r.baseCSS, themeCSS: r.themeCSS }));
         return;
       }
 
