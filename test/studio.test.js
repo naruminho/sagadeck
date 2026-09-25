@@ -15,6 +15,7 @@ test("studio", async (t) => {
   if (!browser) return;
   const deckFile = tempDeck();
   const studio = await startStudio(deckFile.file);
+  try {
   const { page: p, errors } = await newPage(browser, studio.url);
   const form = "#slide-fields-form";
   const deck = () => p.evaluate(async () => (await (await fetch("/api/deck")).json()).spec);
@@ -372,8 +373,9 @@ test("studio", async (t) => {
   });
 
   await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
-
-  await browser.close();
-  await studio.close();
-  deckFile.cleanup();
+  } finally {
+    await browser.close();
+    await studio.close();
+    deckFile.cleanup();
+  }
 });

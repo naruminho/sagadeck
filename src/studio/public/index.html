@@ -329,12 +329,13 @@
             <option value="all">Apresentação inteira</option>
           </select>
           <label class="check-sm" title="Deixa a IA criar ilustrações (mais lento)"><input type="checkbox" id="ai-images-toggle"> Criar imagens</label>
+          <button id="btn-brainstorm-apply" class="btn btn-primary btn-sm hidden" type="button" title="Autoriza a IA a aplicar o que vocês combinaram na conversa">Pode fazer</button>
         </div>
 
         <div id="chat-messages" class="chat-history">
           <div id="chat-empty" class="chat-empty">
             <i class="ic" data-ic="bot"></i>
-            <p>Peça qualquer mudança no slide ou na apresentação.</p>
+            <p>Peça uma mudança no slide ou só converse: pergunte o que acho, peça ideias, conte o que quer apresentar. Eu só mexo nos slides quando você pedir.</p>
             <div class="chat-suggestions">
               <button class="chip-prompt" data-prompt="Reduzir o texto deste slide e deixá-lo mais visual">Menos texto</button>
               <button class="chip-prompt" data-prompt="Converter este slide em etapas de um processo">Converter em etapas</button>

@@ -18,8 +18,10 @@ export function tempDeck(src = FIXTURE) {
 // Sobe o Studio numa porta livre com o deck de teste.
 // Sem SAGADECK_LIVE=1 o LLM fica "desligado" (endereço sem ninguém): o Studio usa as regras locais e os testes
 // ficam rápidos e determinísticos.
-export async function startStudio(deckFile) {
-  if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
+// Com { llmUrl }, usa esse LLM (ex.: o falso de test/mock-llm.js).
+export async function startStudio(deckFile, { llmUrl } = {}) {
+  if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
+  else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
   const { createStudioServer } = await import("../src/studio/server.js");
   const server = createStudioServer(deckFile, { host: "127.0.0.1" });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
@@ -29,6 +31,9 @@ export async function startStudio(deckFile) {
     close: async () => {
       server.closeAllConnections?.();
       await new Promise((r) => server.close(r));
+      // o Chrome que tira as fotos do slide para a IA fica aberto entre pedidos; sem fechar, o processo não termina
+      const { closeSnapshots } = await import("../src/studio/snapshot.js");
+      await closeSnapshots();
     },
   };
 }

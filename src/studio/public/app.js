@@ -693,6 +693,79 @@
   // ==========================================================================
   // CHAT LATERAL COM IA
   // ==========================================================================
+  // --------------------------------------------------------------------------
+  // CONVERSA (brainstorm) sem escolher modo: o servidor percebe se é pedido de mudança ou conversa
+  // (src/ai/intent.js). Resposta de conversa não mexe no deck, traz opções clicáveis e libera
+  // "Transformar em slides".
+  // --------------------------------------------------------------------------
+  function updateBrainstormApply() {
+    const recent = state.chatHistory.slice(-4);
+    document.getElementById("btn-brainstorm-apply").classList.toggle("hidden", !recent.some((m) => m.talk));
+  }
+
+  function renderChatOptions(msg, options) {
+    if (!options?.length) return;
+    const row = document.createElement("div");
+    row.className = "bs-options";
+    for (const o of options) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "bs-option";
+      b.textContent = o;
+      b.onclick = () => {
+        row.querySelectorAll("button").forEach((x) => (x.disabled = true));
+        dom.chatInput.value = o;
+        handleChatSubmit();
+      };
+      row.append(b);
+    }
+    msg.querySelector(".ai-content").append(row);
+  }
+
+  // atalho depois de uma conversa: autoriza a IA a aplicar o que foi combinado
+  function applyBrainstorm() {
+    dom.chatInput.value = "Pode fazer: aplique nos slides o que combinamos nesta conversa.";
+    handleChatSubmit();
+  }
+
+  // Versões de um slide lado a lado; nada muda até escolher uma
+  async function renderVariants(msg, variants) {
+    const box = document.createElement("div");
+    box.className = "variants";
+    msg.querySelector(".ai-content").append(box);
+    for (const [k, v] of variants.options.entries()) {
+      const card = document.createElement("div");
+      card.className = "variant";
+      card.innerHTML = `<div class="variant-prev"><div class="thumb-render"></div></div><div class="variant-foot"><b></b><button type="button" class="btn btn-secondary btn-sm">Usar esta</button></div>`;
+      card.querySelector("b").textContent = v.label;
+      const btn = card.querySelector("button");
+      btn.dataset.variant = k;
+      btn.onclick = () => {
+        const s = JSON.parse(JSON.stringify(v.slide));
+        if (variants.insert) state.deck.slides.splice(variants.index, 0, s);
+        else state.deck.slides[variants.index] = s;
+        state.currentSlideIndex = variants.index;
+        box.querySelectorAll(".variant").forEach((c) => c.classList.toggle("chosen", c === card));
+        box.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        btn.textContent = "Escolhida";
+        state.chatHistory.push({ role: "user", text: `Escolhi a versão "${v.label}" (já apliquei no slide ${variants.index + 1}).` });
+        syncDeckToServer();
+        renderThumbnails();
+        renderCurrentSlide();
+        showToast(`Versão "${v.label}" aplicada no slide ${variants.index + 1}`, 2200);
+      };
+      box.append(card);
+      try {
+        const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slide: v.slide, index: variants.index }) })).json();
+        const prev = card.querySelector(".variant-prev");
+        prev.querySelector(".thumb-render").innerHTML = r.html;
+        prev.style.setProperty("--thumb-scale", String(prev.clientWidth / 1920));
+      } catch {}
+    }
+    box.scrollIntoView({ block: "nearest" });
+  }
+
   async function handleChatSubmit(e) {
     if (e) e.preventDefault();
     const message = dom.chatInput.value.trim();
@@ -718,7 +791,7 @@
       : "Analisando estrutura, geometria dos slides e aplicando correções…");
     dom.chatSend.disabled = true;
     dom.chatInput.disabled = true;
-    const history = state.chatHistory.slice(-6);
+    const history = state.chatHistory.slice(-16);
     state.chatHistory.push({ role: "user", text: message });
     const attachments = state.chatAttachments.slice();
     clearChatAttachments();
@@ -735,6 +808,28 @@
         renderNotes: state.renderNotes || [],
       }, (ev) => work.update(ev));
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
+      if (data.variants) {
+        state.chatHistory.push({ role: "assistant", text: `${data.reply}\n(versões: ${data.variants.options.map((o) => o.label).join(" | ")})`, talk: true });
+        work.done();
+        const msg = appendChatMessage("ai", data.reply);
+        await renderVariants(msg, data.variants);
+        updateBrainstormApply();
+        return;
+      }
+      if (data.talk) {
+        // conversa: nada muda nos slides
+        state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
+        work.done();
+        const msg = appendChatMessage("ai", data.reply);
+        msg.classList.add("bs");
+        const tag = document.createElement("div");
+        tag.className = "bs-tag";
+        tag.textContent = "💬 Conversa — nada mudou nos slides";
+        msg.querySelector(".ai-content").prepend(tag);
+        renderChatOptions(msg, data.options);
+        updateBrainstormApply();
+        return;
+      }
       state.chatHistory.push({ role: "assistant", text: data.reply });
 
       // Atualizar o deck com as modificações feitas pela IA
@@ -750,6 +845,7 @@
       // Substituir o indicador pela resposta completa
       work.done();
       appendChatMessage("ai", data.reply, data.actions);
+      updateBrainstormApply();
     } catch (err) {
       work.fail(err.message);
     } finally {
@@ -2765,6 +2861,9 @@
       renderCurrentSlide();
       renderThumbnails();
     });
+
+    // assistente: "Transformar em slides" aparece depois de uma conversa
+    document.getElementById("btn-brainstorm-apply").addEventListener("click", applyBrainstorm);
 
     // cabeçalho e rodapé
     document.getElementById("btn-header-footer").addEventListener("click", openHeaderFooter);

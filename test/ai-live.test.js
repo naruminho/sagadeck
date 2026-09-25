@@ -1,0 +1,57 @@
+// Com o LLM de VERDADE (modelrelay): o modelo entende sozinho se é conversa, ação ou pedido de versões?
+// Só roda com SAGADECK_LIVE=1 (lento, depende do modelo). Ex.: SAGADECK_LIVE=1 node --test test/ai-live.test.js
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { editDeck } from "../src/ai/deck-ai.js";
+import { loadSpec } from "../src/build.js";
+import { plain } from "../src/markup.js";
+import { FIXTURE } from "./helpers.js";
+
+const LIVE = process.env.SAGADECK_LIVE === "1";
+const opts = { skip: !LIVE && "defina SAGADECK_LIVE=1", timeout: 240000 };
+const spec = () => loadSpec(FIXTURE);
+const idx = (s, layout) => s.slides.findIndex((x) => x.layout === layout);
+
+const TALK = [
+  ["o que você acha da capa?", "cover"],
+  ["tô pensando em abrir com uma história pessoal em vez desse título, faz sentido?", "cover"],
+  ["essa linha do tempo tá boa ou ficou fraca?", "timeline"],
+  ["me dá umas ideias pra deixar esse slide menos chato", "cards"],
+];
+
+for (const [msg, layout] of TALK) {
+  test(`conversa (não mexe): "${msg}"`, opts, async () => {
+    const s = spec();
+    const r = await editDeck({ spec: s, instruction: msg, targetSlide: idx(s, layout) });
+    assert.ok(r.talk, `a IA mexeu no deck em vez de conversar: ${r.reply}`);
+    assert.deepEqual(r.spec.slides, s.slides);
+    assert.ok(r.options?.length >= 2, `sem opções clicáveis: ${r.reply}`);
+  });
+}
+
+test('ação: "muda o título da capa para Fraudes no Pix"', opts, async () => {
+  const s = spec();
+  const r = await editDeck({ spec: s, instruction: "muda o título da capa para Fraudes no Pix", targetSlide: 0 });
+  assert.ok(!r.talk && !r.variants, r.reply);
+  assert.match(plain(r.spec.slides[0].title), /Fraudes no Pix/); // destaque (==Pix==) é escolha dela
+});
+
+test('versões: "me mostra 3 versões diferentes desse slide de indicadores"', opts, async () => {
+  const s = spec();
+  const r = await editDeck({ spec: s, instruction: "me mostra 3 versões diferentes desse slide de indicadores", targetSlide: idx(s, "stats") });
+  assert.ok(r.variants, `não veio versões: ${r.reply}`);
+  assert.ok(r.variants.options.length >= 2);
+  assert.deepEqual(r.spec.slides, s.slides, "nada muda até escolher");
+});
+
+test("refinamento: conversa e depois 'pode fazer' aplica o combinado", opts, async () => {
+  const s = spec();
+  const i = idx(s, "statement");
+  const history = [
+    { role: "user", text: "o que você acha desse slide da frase?" },
+    { role: "assistant", text: "A frase é boa, mas genérica. Sugiro trocar por algo concreto: \"Fraude no Pix cresceu 40% em 2025\", com ==40%== destacado." },
+  ];
+  const r = await editDeck({ spec: s, instruction: "gostei, pode fazer", targetSlide: i, history });
+  assert.ok(!r.talk, `ficou só conversando: ${r.reply}`);
+  assert.match(JSON.stringify(r.spec.slides[i]), /40%/);
+});

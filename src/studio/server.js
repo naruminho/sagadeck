@@ -474,6 +474,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
         await respond(res, body.stream, async (emit) => {
           let result;
+          const history = Array.isArray(body.history) ? body.history : [];
           if (body.mode !== "rules" && await llmAvailable()) {
             try {
               const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
@@ -488,7 +489,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
                 issues,
                 images: !!body.images,
                 imageOptions: imageOptions(withBase(spec)),
-                history: Array.isArray(body.history) ? body.history : [],
+                history,
                 onProgress: emit,
                 visuals,
                 renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],

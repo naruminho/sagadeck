@@ -282,11 +282,35 @@ const EDIT_RULES = `Regras de edição:
 - Preserve o SIGNIFICADO do que você altera. Se o usuário não gostou de uma figura, a nova precisa representar a mesma coisa: uma pessoa continua sendo uma pessoa/cena com pessoas (outra pose, outra cena, outro picto), um processo continua sendo um processo. NUNCA troque uma figura específica por um símbolo genérico (escudo, check, estrela, raio) sem o usuário pedir.
 - CONSISTÊNCIA: se o que você muda é um motivo que se repete no deck (o mesmo personagem/picto, o mesmo tipo de figura, o mesmo estilo de elemento), mude TODAS as ocorrências do mesmo jeito e diga na resposta quais slides mudou. Harmonia visual entre os slides vale mais que acertar um slide isolado.
 - Pictos (human, crowd, scene…) são desenhados pelo motor num estilo fixo: você só controla os parâmetros (pose, sign, name, count…). Se a reclamação é sobre o traço de um picto em si, diga isso com franqueza e ofereça alternativas (ex.: outro tipo de figura no deck todo, ou ilustrações geradas se as imagens estiverem ligadas) — de preferência perguntando antes de mudar vários slides.
-- Se o pedido for ambíguo, ou a mudança certa afetar muitos slides de um jeito que o usuário talvez não espere, PERGUNTE: responda só com a pergunta, sem bloco yaml.
+- Se a mudança certa afetar muitos slides de um jeito que o usuário talvez não espere, PERGUNTE antes (responda sem bloco yaml).
 - Quando houver imagens do slide renderizado, OLHE para elas antes de responder: elas mostram o que a plateia vê (sobreposição, texto cortado, ordem dos cliques). Descreva o que você vê em vez de perguntar o que o usuário quis dizer.
 - Imagens coladas pelo usuário são referência (ex.: "recrie este slide"): reproduza a estrutura, a hierarquia e o conteúdo com os recursos do sagadeck.`;
 
+// Você decide, a cada mensagem, o que a pessoa quer — não existe "modo".
+const CONVERSATION_RULES = `Como responder (você decide pelo que a pessoa quer AGORA, lendo a mensagem e a conversa):
+1. CONVERSA — opinião, feedback, "o que você acha", ideias, dúvidas, rodadas de refinamento, contar o que quer apresentar:
+   NÃO mexa em nada (sem bloco yaml). Seja um parceiro: diga o que funciona e o que dá para melhorar, sugira conteúdo concreto
+   (dado, história, exemplo, pergunta para a plateia, jeito visual de mostrar), pergunte o que falta (no máximo 2 perguntas).
+   Curto: até ~150 palavras. Termine com um bloco \`\`\`opcoes com 2 a 4 respostas curtas (até 8 palavras) que a pessoa poderia clicar,
+   uma por linha — inclua uma que peça para aplicar o que foi sugerido (ex.: "Pode fazer isso").
+2. AÇÃO — pediu para corrigir, alterar, adicionar, remover, ou autorizou o que foi combinado ("pode fazer", "manda ver", "aplica"):
+   faça, com o bloco yaml de patch. Se veio de uma conversa, aplique exatamente o que foi combinado nela.
+3. VERSÕES — pediu alternativas, opções ou "N versões" de um slide: devolva um bloco yaml com \`variants\` (2 a 4 versões completas e
+   realmente diferentes entre si: layout, estrutura ou abordagem visual). Nada muda até a pessoa escolher.
+Na dúvida entre conversar e mexer, CONVERSE e ofereça fazer. Nunca mude slides que ninguém pediu para mudar.`;
+
 // Formato de patch: o LLM devolve só o que mudou (bem mais rápido que reescrever o deck inteiro).
+const VARIANTS_FORMAT = `Formato de VERSÕES (caso 3), no lugar do patch:
+\`\`\`yaml
+variants:
+  slide: 3          # número do slide que as versões substituiriam (ou after: N para um slide NOVO depois do N)
+  options:
+    - label: Mais visual      # nome curto da versão
+      slide: { layout: …, … } # slide COMPLETO
+    - label: Com números
+      slide: { layout: …, … }
+\`\`\``;
+
 const PATCH_FORMAT = `Formato da resposta:
 1. Uma ou duas frases curtas dizendo o que você mudou e em quais slides (ou só a sua pergunta, se for perguntar).
 2. Se mudou algo, UM bloco \`\`\`yaml só com as mudanças, neste formato (todas as chaves são opcionais):
@@ -358,7 +382,7 @@ function motifsOf(node, acc = new Set()) {
 // Trava de consistência: se um slide alterado perdeu um picto que continua em slides NÃO alterados,
 // o deck fica com dois estilos para a mesma coisa. Devolve ao LLM (uma vez) para propagar ou perguntar.
 function checkMotifs(parsed, base) {
-  if (parsed.question || !parsed.changed?.length || parsed.motifsChecked) return parsed;
+  if (parsed.talk || parsed.variants || !parsed.changed?.length || parsed.motifsChecked) return parsed;
   const changedNew = new Set(parsed.changed);
   const survivors = new Set(); // pictos nos slides que ficaram iguais
   parsed.spec.slides.forEach((s, i) => { if (!changedNew.has(i)) motifsOf(s, survivors); });
@@ -379,19 +403,44 @@ function checkMotifs(parsed, base) {
 }
 
 // Resposta do chat: pergunta (sem yaml), patch, ou — tolerado — o deck completo.
+// separa o texto das respostas rápidas clicáveis (bloco ```opcoes)
+export function parseOptions(text) {
+  const m = String(text || "").match(/```\s*op[cç][oõ]es\s*\n([\s\S]*?)```/i);
+  const options = m ? m[1].split("\n").map((l) => l.replace(/^\s*([-*•]|\d+[.)])\s*/, "").trim()).filter(Boolean).slice(0, 4) : [];
+  return { text: (m ? String(text).replace(m[0], "") : String(text || "")).trim(), options };
+}
+
+function parseVariants(v, base, prose) {
+  const n = base.slides.length;
+  const insert = v.after != null;
+  const at = Number(insert ? v.after : v.slide);
+  if (!Number.isInteger(at) || at < (insert ? 0 : 1) || at > n) throw new Error(`variants: ${insert ? "after" : "slide"} ${v.after ?? v.slide} não existe (o deck tem ${n} slides).`);
+  const list = (Array.isArray(v.options) ? v.options : Array.isArray(v.versions) ? v.versions : []).slice(0, 4);
+  if (list.length < 2) throw new Error("variants precisa de 2 a 4 versões em options, cada uma com label e slide completo.");
+  const options = list.map((o, k) => {
+    if (!o?.slide || typeof o.slide !== "object") throw new Error(`variants.options[${k}] precisa de slide: { layout: …, … }`);
+    return { label: String(o.label || `Versão ${k + 1}`).slice(0, 60), slide: normalizeSpec({ slides: [o.slide] }).slides[0] };
+  });
+  validateSlides({ ...base, slides: options.map((o) => o.slide) });
+  return { spec: base, prose, changed: [], variants: { index: insert ? at : at - 1, insert, options } };
+}
+
 function parseEditText(text, base) {
-  // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete", é YAML.
-  const bare = /^(slides|deck|insert|delete)\s*:/m.exec(text);
+  const { text: body, options } = parseOptions(text);
+  text = body;
+  // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete"/"variants:", é YAML.
+  const bare = /^(slides|deck|insert|delete|variants)\s*:/m.exec(text);
   if (!/```/.test(text) && bare) text = `${text.slice(0, bare.index)}\n\`\`\`yaml\n${text.slice(bare.index)}\n\`\`\``;
   const hasYaml = /```/.test(text);
   if (!hasYaml) {
     const prose = cleanProse(String(text));
     if (!prose) throw new Error("Resposta vazia.");
-    return { spec: base, prose, changed: [], question: true };
+    return { spec: base, prose, changed: [], talk: true, options };
   }
   const { yaml, prose } = extractYaml(text);
   const raw = parseYaml(yaml);
-  if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete.");
+  if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete (ou variants).");
+  if (raw.variants) return parseVariants(raw.variants, base, prose);
   if (Array.isArray(raw.slides)) { // devolveu o deck inteiro: aceita, valida tudo
     const { spec } = parseDeckText(text, base);
     const changed = spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(base.slides[i]) ? i : -1)).filter((i) => i >= 0);
@@ -438,20 +487,23 @@ Antes de responder, verifique (e siga as Regras de edição):
     ? [{ type: "text", text }, ...visuals.flatMap((v) => [{ type: "text", text: `Imagem: ${v.label}` }, { type: "image_url", image_url: { url: v.dataUrl } }])]
     : text;
   const messages = [
-    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${PATCH_FORMAT}` },
+    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}` },
     // últimas trocas do chat, para o LLM entender respostas curtas ("sim", "pode fazer")
-    ...history.slice(-6).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 1500) })),
+    ...history.slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 2000) })),
     { role: "user", content: userContent },
   ];
   let motifObjected = false;
-  const { spec: edited, prose, attempts, changed = [], question } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants } =
     await askUntilValid(messages, (t) => {
       const parsed = parseEditText(t, spec);
       if (motifObjected) return parsed; // já objetou uma vez: a 2ª resposta vale, mesmo insistindo
       try { return checkMotifs(parsed, spec); } catch (e) { if (e.soft) motifObjected = true; throw e; }
     }, { onProgress });
   const actions = [];
-  if (question) return { reply: prose, spec, actions, targetSlide, question: true };
+  // conversa: nada muda (a resposta pode trazer opções clicáveis)
+  if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
+  // versões para escolher: nada muda até a pessoa escolher uma
+  if (variants) return { reply: prose || `${variants.options.length} versões para você escolher.`, spec, actions, targetSlide, variants };
   if (attempts > 1) actions.push(`YAML corrigido após ${attempts - 1} tentativa(s) inválida(s)`);
   if (changed.length) actions.push(`Slides alterados: ${changed.map((i) => i + 1).join(", ")}`);
   // sem imagens habilitadas, max 0 só troca eventuais image_prompt por um ícone

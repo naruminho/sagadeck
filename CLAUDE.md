@@ -10,6 +10,10 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
   - `test/engine.test.js`: motor sem navegador (layouts, marcação, auto-correção, patch da IA, YAML). Rápido; prefira aqui sempre que der.
   - `test/runtime.test.js`: a apresentação num Chrome headless (cliques, animações, `window.sagadeck`).
   - `test/studio.test.js`: o Studio de ponta a ponta. Sobe o servidor com `test/fixtures/deck.yaml` numa pasta temporária e clica de verdade.
+  - `test/ai.test.js`: IA com o LLM falso (`test/mock-llm.js`), que dá respostas roteirizadas. Testa o encanamento: o que vai no prompt, imagens, patch, conversa, versões.
+  - `test/studio-ai.test.js`: o assistente no Studio com o LLM falso (editar, conversar, "Pode fazer", versões).
+  - `test/ai-live.test.js`: o modelo de verdade decide bem (conversa × ação × versões)? Só com `SAGADECK_LIVE=1` e o modelrelay no ar.
+- Comportamento de IA se decide no prompt, pelo modelo, e não com regex ou fluxos fixos. O teste com mock garante o encanamento; o teste ao vivo garante a decisão.
 - Bug corrigido: primeiro escreva o teste que falha com o bug, depois corrija. Confira que ele falha sem a correção.
 - Layout novo: entra em `src/layouts.js`, `src/studio/layout-samples.js` (nome, descrição e exemplo), no formulário `src/studio/public/slide-form.js` e em `docs/REFERENCIA.md`. `engine.test.js` já falha se faltar o exemplo ou a descrição.
 - Recurso novo no Studio: um `t.test(...)` em `studio.test.js` que usa o recurso como a pessoa usaria (clique, digitação) e confere o resultado **no deck salvo**, não só na tela.
