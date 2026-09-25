@@ -105,6 +105,8 @@ function levenshtein(a, b) {
   return d[m][n];
 }
 
+const warnedIcons = new Set();
+
 export function resolveIconName(rawName) {
   if (!rawName) return "sparkles";
   const clean = String(rawName).toLowerCase().trim().replace(/_/g, "-");
@@ -141,7 +143,11 @@ export function resolveIconName(rawName) {
 
   if (bestMatch) return bestMatch;
 
-  // 5. Fallback gracioso para evitar crash do build
+  // 5. Fallback gracioso para evitar crash do build — mas avisa, senão o erro passa despercebido
+  if (!warnedIcons.has(clean)) {
+    warnedIcons.add(clean);
+    console.warn(`⚠ ícone "${rawName}" não existe; usei "sparkles". Procure o nome certo com: sagadeck icons <palavra>`);
+  }
   return "sparkles";
 }
 

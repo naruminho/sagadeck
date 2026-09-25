@@ -90,10 +90,10 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 
 ## Figuras geradas na hora
 
-**Ícones** (2.100+ do Lucide — veja `sagadeck icons carro`): `{ icon: gavel, size: 200, stroke: 1.5, color: em }`
+**Ícones** (2.100+ do Lucide — veja `sagadeck icons carro`): `{ icon: gavel, size: 200, stroke: 1.5, color: em }` — nome oficial em inglês, mas aceita sinônimos comuns em português (`foguete`, `dinheiro`, `equipe`…) e erros de digitação leves; nome desconhecido vira `sparkles` com aviso no terminal.
 
 **Pictogramas** (estilo sinalização):
-- `{ picto: human, pose: walk, sign: circle }` — poses: `stand walk run sit drive phone watch point raise shrug think stamp cheer sleep`; `sign`: `circle | square | triangle` (placa atrás)
+- `{ picto: human, pose: walk, sign: circle }` — poses: `stand walk run sit drive phone watch point raise shrug think stamp cheer sleep` (também em português: `em pé`, `andando`, `correndo`, `sentado`, `dirigindo`, `no celular`, `olhando`, `apontando`, `mão levantada`, `dando de ombros`, `pensando`, `carimbando`, `comemorando`, `dormindo`); `sign`: `circle | square | triangle` (placa atrás)
 - `{ picto: machine }` — a "máquina"
 - `{ picto: crowd, count: 20, highlight: 3 }` — bonequinhos, os primeiros destacados
 - `{ picto: scene, name: … }` — cenas prontas:
@@ -116,6 +116,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML).
+**Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
 
 ## Notas / roteiro (`notes`)
 
