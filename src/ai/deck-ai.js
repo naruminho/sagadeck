@@ -41,7 +41,8 @@ Regras de qualidade:
 - Temas disponíveis: ${themes}.
 - YAML: coloque entre aspas duplas todo texto que comece com marcação (\`**\`, \`*\`, \`==\`, \`^^\`, \`~~\`, \`[\`) ou que contenha ": ".
 ${images
-    ? `- Você PODE pedir ilustrações geradas por IA com \`image_prompt: "descrição visual detalhada, em inglês"\` no lugar de \`image\` — por exemplo \`figure: { image_prompt: "...", fit: cover }\` num split/cover, ou um slide \`layout: image\` com \`image_prompt\`. No máximo ${maxImages} imagens novas por resposta; use só quando uma foto/ilustração realmente ajudar.`
+    ? `- Você PODE pedir ilustrações geradas por IA com \`image_prompt: "descrição visual detalhada, em inglês"\` no lugar de \`image\` — por exemplo \`figure: { image_prompt: "...", fit: cover }\` num split/cover, ou um slide \`layout: image\` ou \`full\` com \`image_prompt\`. No máximo ${maxImages} imagens novas por resposta.
+- Gerar imagem custa dinheiro e leva segundos: use \`image_prompt\` só quando a pessoa pedir imagem/foto/ilustração (ou aceitar sua sugestão de gerar). Fora isso, use ícones, pictos, gráficos e diagramas do sagadeck — e, se uma foto ajudaria muito, OFEREÇA gerar em vez de gerar.`
     : "- NÃO use `image_prompt` nem imagens externas; use as figuras geradas do sagadeck."}
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 
@@ -460,7 +461,7 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
   const focus = typeof targetSlide === "number"
-    ? `O usuário está olhando o slide ${targetSlide + 1}; se o pedido não disser qual slide, é nele — mas respeite a regra de consistência.`
+    ? `O usuário está olhando o slide ${targetSlide + 1}; se o pedido não disser qual slide, é nele — mas respeite a regra de consistência. Se ele citar slides pelo número ("arrume os slides 3, 4 e 8"), mexa exatamente nesses; se falar da apresentação toda, vale para todos.`
     : "O pedido vale para a apresentação inteira.";
   const problems = issues?.length
     ? `\nProblemas que o fiscal de layout detectou no slide ${typeof targetSlide === "number" ? targetSlide + 1 : "atual"} (corrija se tiver a ver com o pedido):\n${JSON.stringify(issues).slice(0, 4000)}`
@@ -508,11 +509,14 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (variants) return { reply: prose || `${variants.options.length} versões para você escolher.`, spec, actions, targetSlide, variants };
   if (attempts > 1) actions.push(`YAML corrigido após ${attempts - 1} tentativa(s) inválida(s)`);
   if (changed.length) actions.push(`Slides alterados: ${changed.map((i) => i + 1).join(", ")}`);
-  // sem imagens habilitadas, max 0 só troca eventuais image_prompt por um ícone
-  const nImgs = images ? countImagePrompts(edited) : 0;
-  const imgs = await materializeImages(edited, images
-    ? { ...imageOptions, onProgress: (m) => onProgress?.({ phase: "images", text: `${m[0].toUpperCase()}${m.slice(1)} (${nImgs} no total)…` }) }
-    : { max: 0 });
+  // Imagens: só as pedidas nos slides que a IA alterou agora. Pedidos pendentes em outros slides ficam
+  // como estão (nem geram custo nem somem); se a geração falhar, o pedido fica como placeholder.
+  const touched = { ...edited, slides: changed.map((i) => edited.slides[i]).filter(Boolean) }; // mesmos objetos: gera no lugar
+  const nImgs = images ? countImagePrompts(touched) : 0;
+  const imgs = nImgs
+    ? await materializeImages(touched, { ...imageOptions, keepFailed: true,
+      onProgress: (m) => onProgress?.({ phase: "images", text: `${m[0].toUpperCase()}${m.slice(1)} (${nImgs} no total)…` }) })
+    : { done: [], failed: [] };
   imgs.done.forEach((d) => actions.push(`Imagem gerada: ${path.basename(d.file)}`));
   imgs.failed.forEach((f) => actions.push(`Falhou ao gerar imagem ("${f.prompt.slice(0, 50)}"): ${f.error}`));
   // Auto-cura só onde o inspetor viu problema de verdade (as issues são do slide aberto na tela).

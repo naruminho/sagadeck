@@ -125,8 +125,6 @@
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
     chatMessages: document.getElementById("chat-messages"),
-    aiScopeSelect: document.getElementById("ai-scope-select"),
-    aiImagesToggle: document.getElementById("ai-images-toggle"),
     aiStatus: document.getElementById("ai-status"),
     // Gerar deck com IA
     btnAiDeck: document.getElementById("btn-ai-deck"),
@@ -286,14 +284,6 @@
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
     syncThemeGallery();
-
-    // Atualizar seletor de alvo da IA (mantém a escolha)
-    const scope = dom.aiScopeSelect.value || "current";
-    dom.aiScopeSelect.innerHTML = `
-      <option value="current">Este slide (${idx + 1})</option>
-      <option value="all">Apresentação inteira</option>
-    `;
-    dom.aiScopeSelect.value = scope;
 
     try {
       const res = await fetch("/api/render-slide", {
@@ -782,8 +772,8 @@
     dom.chatInput.value = "";
     autoGrowChat();
 
-    const scope = dom.aiScopeSelect.value;
-    const targetIdx = scope === "all" ? null : state.currentSlideIndex;
+    // a IA sempre sabe qual slide está na tela; outros slides (ou o deck todo) a pessoa diz no pedido
+    const targetIdx = state.currentSlideIndex;
 
     // Indicador de progresso ao vivo (etapa, segundos, texto chegando)
     const work = createProgressBubble(state.ai.available
@@ -802,7 +792,6 @@
         targetSlide: targetIdx,
         spec: state.deck,
         issues: state.issues,
-        images: dom.aiImagesToggle.checked,
         history,
         attachments,
         renderNotes: state.renderNotes || [],
@@ -1197,7 +1186,6 @@
         btn.onclick = () => {
           closePopovers();
           openPane("chat");
-          dom.aiScopeSelect.value = "all";
           dom.chatInput.value = `Deixe a apresentação menos repetitiva, sem perder conteúdo nem a ordem da narrativa. Problemas de ritmo: ${v.problems.join("; ")}.`;
           handleChatSubmit();
         };
@@ -2206,7 +2194,7 @@
       const res = await fetch("/api/napkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, layout: napkinType === "auto" ? undefined : napkinType, theme: state.deck.theme || "sinal", images: dom.aiImagesToggle.checked }),
+        body: JSON.stringify({ text, layout: napkinType === "auto" ? undefined : napkinType, theme: state.deck.theme || "sinal", images: true }),
       });
       const data = await res.json();
       // formato escolhido pela pessoa manda: se o resultado veio em outro layout, converte o conteúdo
@@ -2403,7 +2391,6 @@
       : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para verificar de novo.`;
     dom.aiStatus.classList.toggle("on", on);
     dom.aiStatus.classList.toggle("off", !on);
-    dom.aiImagesToggle.disabled = !on;
   }
 
   function openAiDeckModal() {

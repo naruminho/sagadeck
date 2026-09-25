@@ -64,3 +64,33 @@ test("gerar deck: sai variado (sem 3 layouts iguais seguidos, com slides de impa
   console.log(`direção: ${r.direction}\nlayouts: ${r.spec.slides.map((s) => s.layout).join(", ")}`);
   assert.deepEqual(v.problems, [], v.problems.join("; "));
 });
+
+test('slides citados: "arrume os slides 3 e 4 pra ficarem mais bonitos"', opts, async () => {
+  const s = spec();
+  const r = await editDeck({ spec: s, instruction: "arrume os slides 3 e 4 pra ficarem mais bonitos", targetSlide: 0, images: true });
+  const changed = r.spec.slides.map((x, i) => (JSON.stringify(x) !== JSON.stringify(s.slides[i]) ? i + 1 : 0)).filter(Boolean);
+  console.log(`  mudou: ${changed.join(", ")} | ${r.reply.slice(0, 120)}`);
+  assert.ok(changed.includes(3) && changed.includes(4), `mudou ${changed}`);
+  assert.ok(!changed.includes(1), "não mexeu no slide da tela");
+});
+
+test('sem pedir imagem, não gera ("deixa esse slide mais bonito")', opts, async () => {
+  const s = spec();
+  const i = s.slides.findIndex((x) => x.layout === "statement");
+  const r = await editDeck({ spec: s, instruction: "deixa esse slide mais bonito", targetSlide: i, images: true });
+  assert.ok(!r.actions.some((a) => /Imagem gerada/.test(a)), r.actions.join("; "));
+  assert.doesNotMatch(JSON.stringify(r.spec.slides[i]), /image_prompt|imagens\//);
+});
+
+test('pedindo, gera ("coloca uma foto de um cofre de banco nesse slide")', opts, async () => {
+  const os = await import("node:os");
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-live-"));
+  const s = spec();
+  const i = s.slides.findIndex((x) => x.layout === "statement");
+  const r = await editDeck({ spec: s, instruction: "coloca uma foto de um cofre de banco nesse slide", targetSlide: i, images: true,
+    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") } });
+  console.log(`  ${r.actions.join(" | ")}`);
+  assert.ok(r.actions.some((a) => /Imagem gerada/.test(a)), r.actions.join("; "));
+});

@@ -780,3 +780,4 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .variant-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; font-size: 12px; }
 .arc-problems { margin: 6px 0 8px; padding-left: 16px; font-size: 12px; color: var(--text-2); }
 .arc-problems:empty { display: none; }
+.chat-options:has(> .hidden:only-child) { display: none; }  /* só o "Pode fazer" escondido: sem barra vazia */

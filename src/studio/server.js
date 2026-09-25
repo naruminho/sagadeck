@@ -366,7 +366,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         let notice = "";
         if (body.mode !== "rules" && body.text && await llmAvailable()) {
           try {
-            result = await textToSlide(body.text, { ...opts, images: !!body.images, imageOptions: imageOptions(withBase(currentSpec)) });
+            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(withBase(currentSpec)) });
             mode = "llm";
           } catch (e) {
             notice = `A IA falhou (${e.message}); usei as regras locais.`;
@@ -496,7 +496,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
                 instruction: prompt,
                 targetSlide: target,
                 issues,
-                images: !!body.images,
+                images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
                 imageOptions: imageOptions(withBase(spec)),
                 history,
                 onProgress: emit,

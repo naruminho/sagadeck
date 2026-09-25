@@ -22,6 +22,11 @@ function script(req) {
     assert.ok(req.messages.some((m) => /abra com o prejuízo/.test(typeof m.content === "string" ? m.content : "")), "a conversa foi junto");
     return INSERT;
   }
+  if (/slides 2 e 3/.test(p)) {
+    return ["Ajustei os slides 2 e 3.", "```yaml", "slides:", "  2:", "    layout: cards", "    title: Pilares ajustados",
+      "    items: [{ title: A }, { title: B }]", "  3:", "    layout: timeline", "    title: Linha ajustada",
+      '    events: [{ when: "2020", title: X }, { when: "2024", title: Y }]', "```"].join("\n");
+  }
   if (/versões/.test(p)) return "Duas versões da capa.\n```yaml\nvariants:\n  slide: 1\n  options:\n    - label: Manchete\n      slide: { layout: headline, text: \"Fraude custa ==3 mi==\" }\n    - label: Número\n      slide: { layout: number, value: 3, suffix: \" mi\", label: em fraudes }\n```";
   if (/kicker novo/.test(p)) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
@@ -46,6 +51,25 @@ test("studio + IA (LLM falso)", async (t) => {
 
     await p.click('.thumb-card[data-idx="0"]');
     await p.click("#tab-btn-chat");
+
+    await t.test("sem seletor de alcance nem 'Criar imagens': quem diz é a pessoa", async () => {
+      assert.equal(await p.locator("#ai-scope-select, #ai-images-toggle").count(), 0);
+      assert.ok(await p.isHidden("#tab-panel-chat .chat-options"), "sem barra vazia");
+    });
+
+    await t.test("citar slides pelo número mexe exatamente neles", async () => {
+      await p.click('.thumb-card[data-idx="0"]');
+      const before = await deck();
+      await send("arrume os slides 2 e 3 pra ficarem mais bonitos");
+      const req = lastReq(/slides 2 e 3/);
+      assert.match(req.lastUser, /olhando o slide 1/, "a IA sabe qual está na tela");
+      assert.match(req.system, /só quando a pessoa pedir imagem/, "regra de quando gerar imagem");
+      const d = await deck();
+      assert.equal(d.slides[1].title, "Pilares ajustados");
+      assert.equal(d.slides[2].title, "Linha ajustada");
+      assert.deepEqual(d.slides[0], before.slides[0], "o slide da tela não mudou");
+      assert.deepEqual(d.slides.slice(3), before.slides.slice(3));
+    });
 
     await t.test("'Pode fazer' não aparece antes de conversar", async () => {
       assert.ok(await p.isHidden("#btn-brainstorm-apply"));

@@ -166,3 +166,24 @@ test("modelo sem visão (ex.: DeepSeek V4 Flash): refaz sem imagens, avisa e nã
   assert.deepEqual(llm.requests.slice(m).map((q) => q.hasImages), [false]);
   assert.ok(r2.actions.some((a) => /não enxerga imagens/.test(a)));
 });
+
+test("editar um slide não gera nem apaga imagens pendentes de outros slides", async () => {
+  const spec = { ...base(), slides: [...base().slides, { layout: "full", image_prompt: "sala de controle à noite", title: "Pendente" }] };
+  const imageReqs = () => llm.requests.filter((q) => /^Generate an image/.test(q.lastUser)).length;
+  reply = () => ["Mudei o slide 2.", "```yaml", "slides:", "  2:", "    layout: statement", "    text: Outra ideia", "```"].join("\n");
+  const n = imageReqs();
+  const r = await editDeck({ spec, instruction: "muda o slide 2", targetSlide: 1, images: true });
+  assert.equal(r.spec.slides[1].text, "Outra ideia");
+  assert.equal(r.spec.slides[3].image_prompt, "sala de controle à noite", "o pedido de imagem do slide 4 continua lá");
+  assert.equal(imageReqs(), n, "nenhuma imagem gerada para slide que ninguém mexeu");
+});
+
+test("imagem pedida num slide alterado: gera; se falhar, fica o placeholder e um aviso", async () => {
+  reply = (req) => (/^Generate an image/.test(req.lastUser) ? "não consigo gerar agora"
+    : ["Coloquei uma foto.", "```yaml", "slides:", "  2:", "    layout: full", "    image_prompt: foto de um cofre", "    title: Cofre", "```"].join("\n"));
+  const n = llm.requests.length;
+  const r = await editDeck({ spec: base(), instruction: "coloca uma foto de um cofre no slide 2", targetSlide: 1, images: true });
+  assert.ok(llm.requests.slice(n).some((q) => /^Generate an image: foto de um cofre/.test(q.lastUser)), "tentou gerar");
+  assert.equal(r.spec.slides[1].image_prompt, "foto de um cofre", "falhou: o pedido fica como placeholder");
+  assert.ok(r.actions.some((a) => /Falhou ao gerar imagem/.test(a)), r.actions.join("; "));
+});
