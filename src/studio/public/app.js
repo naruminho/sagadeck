@@ -89,8 +89,6 @@
     tabPanelChat: document.getElementById("tab-panel-chat"),
     layoutPickerGrid: document.getElementById("layout-picker-grid"),
     slideFieldsForm: document.getElementById("slide-fields-form"),
-    canvasElementsSection: document.getElementById("canvas-elements-section"),
-    canvasElementsList: document.getElementById("canvas-elements-list"),
     slideNotesInput: document.getElementById("slide-notes-input"),
     slideTimeInput: document.getElementById("slide-time-input"),
     wordCountNum: document.getElementById("word-count-num"),
@@ -166,6 +164,7 @@
     yamlDrawer: document.getElementById("yaml-drawer"),
     yamlLiveEditor: document.getElementById("yaml-live-editor"),
     btnCloseYamlDrawer: document.getElementById("btn-close-yaml-drawer"),
+    yamlStatus: document.getElementById("yaml-status"),
     storyArcWidget: document.getElementById("story-arc-widget"),
     storyArcPath: document.getElementById("story-arc-path"),
     storyArcDot: document.getElementById("story-arc-dot"),
@@ -257,8 +256,12 @@
   }
 
   // Renderizar o Slide Atual no Canvas Central
+  let renderSeq = 0;
   async function renderCurrentSlide() {
     if (!state.deck || !state.deck.slides || state.deck.slides.length === 0) return;
+    const seq = ++renderSeq;
+    const rebuildForm = !state.skipFormRebuild;
+    state.skipFormRebuild = false;
     const idx = state.currentSlideIndex;
     const slide = state.deck.slides[idx];
     if (!slide) return;
@@ -286,6 +289,7 @@
         body: JSON.stringify({ slide, index: idx, spec: state.deck }),
       });
       const data = await res.json();
+      if (seq !== renderSeq) return; // já pediram um render mais novo
 
       // Injetar estilos do Sagadeck se ainda não existirem
       ensureSlideStyles(data.baseCSS, data.themeCSS);
@@ -302,8 +306,8 @@
       // Atualizar contagem de palavras anti-sono
       updateWordCount(slide);
 
-      // Atualizar painel lateral de propriedades
-      updatePropertiesPanel(slide);
+      // Atualizar painel Formatar (a não ser que a mudança tenha vindo dele)
+      if (rebuildForm) updatePropertiesPanel(slide);
 
       // Atualizar Eletrocardiograma da Narrativa (Story Arc Pulse)
       updateStoryArc();
@@ -710,8 +714,13 @@
   // ==========================================================================
   // BIBLIOTECA DE ÍCONES (2.100+ ÍCONES)
   // ==========================================================================
-  function openIconPicker(targetCardIdx = null) {
+  function openIconPicker(targetCardIdx = null, pickCallback = null) {
     state.iconTargetCardIndex = targetCardIdx;
+    state.iconPickCallback = pickCallback;
+    // no modo "escolher para um campo" só existe uma ação
+    dom.btnInsertIconCard.classList.toggle("hidden", !!pickCallback);
+    dom.btnInsertIconCanvas.classList.toggle("hidden", !!pickCallback);
+    dom.btnInsertIconFigure.textContent = pickCallback ? "Usar este ícone" : "Usar como figura";
     dom.modalIconPicker.classList.remove("hidden");
     dom.iconSearchInput.value = "";
     dom.iconPreviewFooter.classList.add("hidden");
@@ -723,6 +732,7 @@
   function closeIconPicker() {
     dom.modalIconPicker.classList.add("hidden");
     state.iconTargetCardIndex = null;
+    state.iconPickCallback = null;
   }
 
   async function loadIcons(query = "") {
@@ -822,6 +832,13 @@
 
   function insertSelectedIconAsFigure() {
     if (!state.selectedIcon) return;
+    if (state.iconPickCallback) {
+      const cb = state.iconPickCallback;
+      const name = state.selectedIcon.name;
+      closeIconPicker();
+      cb(name);
+      return;
+    }
     const slide = state.deck.slides[state.currentSlideIndex];
     if (!slide) return;
 
@@ -1114,13 +1131,15 @@
     dom.yamlDrawer.classList.toggle("hidden", !state.isYamlDrawerOpen);
     dom.btnYamlDrawer.classList.toggle("active", state.isYamlDrawerOpen);
     if (state.isYamlDrawerOpen) {
-      updateYamlLiveEditor();
+      updateYamlLiveEditor({ force: true });
       dom.yamlLiveEditor.focus();
     }
   }
 
-  async function updateYamlLiveEditor() {
+  async function updateYamlLiveEditor({ force = false } = {}) {
     if (!state.isYamlDrawerOpen || !state.deck) return;
+    // enquanto a pessoa digita na gaveta, o texto dela manda — não sobrescreve
+    if (!force && document.activeElement === dom.yamlLiveEditor) return;
     try {
       const res = await fetch("/api/deck");
       const data = await res.json();
@@ -1128,26 +1147,38 @@
     } catch {}
   }
 
+  // Gaveta de YAML: aplica quando a pessoa para de digitar e o YAML é válido; se não for, mostra o
+  // erro e não mexe no deck (nem no texto dela).
   function onYamlEditorInput() {
     clearTimeout(yamlDebounce);
     yamlDebounce = setTimeout(async () => {
       try {
-        const text = dom.yamlLiveEditor.value;
         const res = await fetch("/api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ yaml: text, saveToFile: false }),
+          body: JSON.stringify({ yaml: dom.yamlLiveEditor.value }),
         });
         const data = await res.json();
-        if (data.ok) {
-          state.deck = data.spec;
-          renderCurrentSlide();
-          renderThumbnails();
-          updateStoryArc();
+        if (!res.ok || !data.ok) {
+          dom.yamlStatus.textContent = data.error || "YAML inválido";
+          dom.yamlStatus.classList.add("error");
+          return;
         }
-      } catch {}
-    }, 120);
+        dom.yamlStatus.textContent = "Aplicado";
+        dom.yamlStatus.classList.remove("error");
+        state.deck = data.spec;
+        if (state.currentSlideIndex >= state.deck.slides.length) state.currentSlideIndex = state.deck.slides.length - 1;
+        renderCurrentSlide();
+        renderThumbnails();
+        updateStoryArc();
+        updateSaveStatus();
+      } catch (e) {
+        dom.yamlStatus.textContent = e.message;
+        dom.yamlStatus.classList.add("error");
+      }
+    }, 600);
   }
+
 
   // ==========================================================================
   // PALETA DE COMANDOS (SPOTLIGHT / RAYCAST)
@@ -1493,313 +1524,30 @@
     showToast(`Layout: ${layoutLabel(layoutName)}`);
   }
 
+  // Painel Formatar: formulário completo do layout (slide-form.js). Cada mudança atualiza o slide
+  // na hora; mudanças de estrutura (adicionar/remover/trocar tipo) reconstroem o formulário.
+  let formSyncTimer = null;
   function updatePropertiesPanel(slide) {
-    // Atualizar chip ativo no picker de layouts
-    const chips = dom.layoutPickerGrid.querySelectorAll(".layout-chip");
-    chips.forEach((c) => {
-      c.classList.toggle("active", c.dataset.layout === (slide.layout || "auto"));
+    const pane = dom.tabPanelProps;
+    const scroll = pane.scrollTop;
+    window.SlideForm.render(dom.slideFieldsForm, slide, {
+      commit: formCommit,
+      pickIcon: (cb) => openIconPicker(null, cb),
+      layoutLabel,
     });
-
-    // Campos dinâmicos conforme o layout
-    dom.slideFieldsForm.innerHTML = "";
-    const layout = slide.layout || "blocks";
-
-    // Campo Título
-    createField("Título", slide.title || slide.text || "", (val) => {
-      if (slide.title !== undefined || !slide.text) slide.title = val;
-      else slide.text = val;
-      renderCurrentSlide();
-    });
-
-    // Campo Kicker
-    createField("Chapéu (acima do título)", slide.kicker || "", (val) => {
-      slide.kicker = val;
-      renderCurrentSlide();
-    });
-
-    // Campo Subtítulo
-    if (layout === "cover" || layout === "section" || layout === "end") {
-      createField("Subtítulo", slide.subtitle || "", (val) => {
-        slide.subtitle = val;
-        renderCurrentSlide();
-      });
-    }
-
-    // Campos específicos para Number
-    if (layout === "number") {
-      createField("Valor", slide.value ?? 100, (val) => {
-        slide.value = val;
-        renderCurrentSlide();
-      });
-      createField("Unidade", slide.suffix || "", (val) => {
-        slide.suffix = val;
-        renderCurrentSlide();
-      });
-      createField("Rótulo", slide.label || "", (val) => {
-        slide.label = val;
-        renderCurrentSlide();
-      });
-    }
-
-    // Campos específicos para Quote
-    if (layout === "quote") {
-      createField("Citação", slide.quote || "", (val) => {
-        slide.quote = val;
-        renderCurrentSlide();
-      }, true);
-      createField("Autor", slide.by || "", (val) => {
-        slide.by = val;
-        renderCurrentSlide();
-      });
-    }
-
-    // Seção de Cards (com seletor de ícone em cada card)
-    if (layout === "cards" && Array.isArray(slide.items)) {
-      const cardsHeader = document.createElement("div");
-      cardsHeader.className = "pane-section-head";
-      cardsHeader.innerHTML = `
-        <span>Cartões (${slide.items.length})</span>
-        <button id="btn-add-card-with-icon" class="btn-small">Adicionar cartão</button>
-      `;
-      dom.slideFieldsForm.appendChild(cardsHeader);
-
-      cardsHeader.querySelector("#btn-add-card-with-icon").onclick = (e) => {
-        e.preventDefault();
-        openIconPicker();
-      };
-
-      slide.items.forEach((item, idx) => {
-        const itemBox = document.createElement("div");
-        itemBox.className = "item-box";
-        const iconName = typeof item === "object" ? item.icon || "star" : "star";
-        const titleVal = typeof item === "object" ? item.title || "" : String(item);
-        const textVal = typeof item === "object" ? item.text || "" : "";
-
-        itemBox.innerHTML = `
-          <div class="item-box-head">
-            <button class="btn-small btn-change-card-icon" title="Trocar o ícone">Ícone: <b>${iconName}</b></button>
-            <button class="icon-btn icon-btn-sm btn-del-card" title="Remover cartão"><i class="ic" data-ic="trash-2"></i></button>
-          </div>
-          <input type="text" class="form-control card-title-input" placeholder="Título" value="${escAttr(titleVal)}">
-          <textarea class="form-control card-text-input" placeholder="Texto" rows="2">${escHtml(textVal)}</textarea>
-        `;
-
-        itemBox.querySelector(".btn-change-card-icon").onclick = (e) => {
-          e.preventDefault();
-          openIconPicker(idx);
-        };
-        itemBox.querySelector(".btn-del-card").onclick = (e) => {
-          e.preventDefault();
-          slide.items.splice(idx, 1);
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".card-title-input").onchange = (e) => {
-          if (typeof slide.items[idx] !== "object") slide.items[idx] = { title: e.target.value };
-          else slide.items[idx].title = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".card-text-input").onchange = (e) => {
-          if (typeof slide.items[idx] !== "object") slide.items[idx] = { text: e.target.value };
-          else slide.items[idx].text = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-
-        dom.slideFieldsForm.appendChild(itemBox);
-      });
-    }
-
-    // Seção de Stats / KPIs
-    if (layout === "stats") {
-      if (!Array.isArray(slide.stats)) slide.stats = [];
-      const statsHeader = document.createElement("div");
-      statsHeader.className = "pane-section-head";
-      statsHeader.innerHTML = `
-        <span>Indicadores (${slide.stats.length})</span>
-        <button id="btn-add-stat-item" class="btn-small">Adicionar</button>
-      `;
-      dom.slideFieldsForm.appendChild(statsHeader);
-
-      statsHeader.querySelector("#btn-add-stat-item").onclick = (e) => {
-        e.preventDefault();
-        slide.stats.push({ value: "100%", label: "Nova Métrica", trend: "+10%", icon: "trending-up" });
-        syncDeckToServer();
-        renderCurrentSlide();
-      };
-
-      slide.stats.forEach((st, idx) => {
-        const itemBox = document.createElement("div");
-        itemBox.className = "item-box";
-        itemBox.innerHTML = `
-          <div class="item-box-head">
-            <button class="btn-small btn-change-stat-icon" title="Trocar o ícone">Ícone: <b>${escHtml(st.icon || "star")}</b></button>
-            <button class="icon-btn icon-btn-sm btn-del-stat" title="Remover"><i class="ic" data-ic="trash-2"></i></button>
-          </div>
-          <div class="item-box-row">
-            <input type="text" class="form-control stat-val-input" placeholder="Valor (ex.: 98%)" value="${escAttr(st.value || "")}">
-            <input type="text" class="form-control stat-trend-input" placeholder="Tendência (ex.: +14%)" value="${escAttr(st.trend || "")}">
-          </div>
-          <input type="text" class="form-control stat-lab-input" placeholder="Rótulo" value="${escAttr(st.label || "")}">
-        `;
-        itemBox.querySelector(".btn-change-stat-icon").onclick = (e) => {
-          e.preventDefault();
-          openIconPicker();
-        };
-        itemBox.querySelector(".btn-del-stat").onclick = (e) => {
-          e.preventDefault();
-          slide.stats.splice(idx, 1);
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".stat-val-input").onchange = (e) => {
-          st.value = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".stat-trend-input").onchange = (e) => {
-          st.trend = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".stat-lab-input").onchange = (e) => {
-          st.label = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        dom.slideFieldsForm.appendChild(itemBox);
-      });
-    }
-
-    // Seção de Steps / Processo
-    if (layout === "steps") {
-      if (!Array.isArray(slide.steps)) slide.steps = [];
-      const stepsHeader = document.createElement("div");
-      stepsHeader.className = "pane-section-head";
-      stepsHeader.innerHTML = `
-        <span>Etapas (${slide.steps.length})</span>
-        <button id="btn-add-step-item" class="btn-small">Adicionar etapa</button>
-      `;
-      dom.slideFieldsForm.appendChild(stepsHeader);
-
-      stepsHeader.querySelector("#btn-add-step-item").onclick = (e) => {
-        e.preventDefault();
-        slide.steps.push({ stepNum: slide.steps.length + 1, title: "Nova Etapa", text: "Descrição concisa do passo.", icon: "arrow-right" });
-        syncDeckToServer();
-        renderCurrentSlide();
-      };
-
-      slide.steps.forEach((st, idx) => {
-        const itemBox = document.createElement("div");
-        itemBox.className = "item-box";
-        itemBox.innerHTML = `
-          <div class="item-box-head">
-            <span class="field-label">Etapa ${idx + 1}</span>
-            <button class="icon-btn icon-btn-sm btn-del-step" title="Remover etapa"><i class="ic" data-ic="trash-2"></i></button>
-          </div>
-          <input type="text" class="form-control step-title-input" placeholder="Título" value="${escAttr(st.title || "")}">
-          <input type="text" class="form-control step-text-input" placeholder="Descrição" value="${escAttr(st.text || "")}">
-        `;
-        itemBox.querySelector(".btn-del-step").onclick = (e) => {
-          e.preventDefault();
-          slide.steps.splice(idx, 1);
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".step-title-input").onchange = (e) => {
-          st.title = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        itemBox.querySelector(".step-text-input").onchange = (e) => {
-          st.text = e.target.value;
-          syncDeckToServer();
-          renderCurrentSlide();
-        };
-        dom.slideFieldsForm.appendChild(itemBox);
-      });
-    }
-
-    // Seção de Figura Principal / Ícone Ilustrativo
-    if (layout === "split" || layout === "section" || layout === "cover" || layout === "end" || slide.figure) {
-      const figHeader = document.createElement("div");
-      figHeader.className = "pane-section-head";
-      const curIcon = slide.figure?.icon ? `Figura: ${slide.figure.icon}` : "Figura";
-      figHeader.innerHTML = `
-        <span>${curIcon}</span>
-        <button id="btn-pick-fig-icon" class="btn-small">Escolher ícone</button>
-      `;
-      dom.slideFieldsForm.appendChild(figHeader);
-      figHeader.querySelector("#btn-pick-fig-icon").onclick = (e) => {
-        e.preventDefault();
-        openIconPicker();
-      };
-    }
-
-    // Seção de Canvas Livre
-    if (layout === "canvas") {
-      dom.canvasElementsSection.classList.remove("hidden");
-      renderCanvasElementsList(slide);
-    } else {
-      dom.canvasElementsSection.classList.add("hidden");
-    }
     hydrateIcons(dom.slideFieldsForm);
+    pane.scrollTop = scroll;
   }
 
-  function createField(label, value, onChange, isTextarea = false) {
-    const group = document.createElement("div");
-    group.className = "field-group";
-
-    const lbl = document.createElement("label");
-    lbl.textContent = label;
-    group.appendChild(lbl);
-
-    const input = document.createElement(isTextarea ? "textarea" : "input");
-    input.className = "form-control";
-    input.value = value;
-    if (isTextarea) input.rows = 3;
-
-    input.addEventListener("change", () => {
-      onChange(input.value);
-      syncDeckToServer();
-    });
-
-    group.appendChild(input);
-    dom.slideFieldsForm.appendChild(group);
-  }
-
-  function renderCanvasElementsList(slide) {
-    dom.canvasElementsList.innerHTML = "";
-    if (!Array.isArray(slide.elements)) slide.elements = [];
-
-    slide.elements.forEach((el, i) => {
-      const item = document.createElement("div");
-      item.style.cssText = "background:var(--bg-card);padding:8px;border-radius:4px;margin-bottom:6px;font-size:12px;";
-      item.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-          <b>#${i + 1} (${el.text ? el.text.slice(0, 15) : "Elemento"})</b>
-          <span style="color:var(--text-dim)">[x:${el.x ?? 0}, y:${el.y ?? 0}]</span>
-        </div>
-        <div style="display:flex;gap:4px;">
-          <input type="number" value="${el.x ?? 120}" style="width:50px" placeholder="X" onchange="window.updateCanvasEl(${i}, 'x', +this.value)">
-          <input type="number" value="${el.y ?? 120}" style="width:50px" placeholder="Y" onchange="window.updateCanvasEl(${i}, 'y', +this.value)">
-          <input type="number" value="${el.w ?? 300}" style="width:50px" placeholder="W" onchange="window.updateCanvasEl(${i}, 'w', +this.value)">
-          <input type="number" value="${el.h ?? 100}" style="width:50px" placeholder="H" onchange="window.updateCanvasEl(${i}, 'h', +this.value)">
-        </div>
-      `;
-      dom.canvasElementsList.appendChild(item);
-    });
-  }
-
-  window.updateCanvasEl = (idx, prop, val) => {
+  function formCommit(structural) {
+    clearTimeout(formSyncTimer);
+    formSyncTimer = setTimeout(syncDeckToServer, 400);
     const slide = state.deck.slides[state.currentSlideIndex];
-    if (slide && slide.elements && slide.elements[idx]) {
-      slide.elements[idx][prop] = val;
-      syncDeckToServer();
-      renderCurrentSlide();
-    }
-  };
+    if (structural) updatePropertiesPanel(slide);
+    state.skipFormRebuild = true; // o formulário já está certo: não reconstruir (perderia o foco)
+    renderCurrentSlide();
+  }
+
 
   // ==========================================================================
   // AUTO-FIT E ESCALA DO CANVAS 16:9

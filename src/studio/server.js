@@ -133,7 +133,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(css);
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -166,7 +166,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // 3. API Endpoints
       if (pathname === "/api/deck" && req.method === "GET") {
-        const rawYaml = YAML.stringify(currentSpec, { indent: 2 });
+        const rawYaml = toYaml(currentSpec); // sem os campos internos (_dir, _file)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           spec: currentSpec,
@@ -189,7 +189,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const body = await readJSON(req);
         if (body.yaml) {
           try {
-            currentSpec = YAML.parse(body.yaml);
+            const parsed = YAML.parse(body.yaml);
+            if (!parsed || !Array.isArray(parsed.slides)) throw new Error('falta a lista "slides:"');
+            // o YAML editado não traz os campos internos: mantém a pasta do deck (imagens, CSS, widgets)
+            const keep = body.source === "browser-file" ? {} : Object.fromEntries(Object.entries(currentSpec || {}).filter(([k]) => k.startsWith("_")));
+            currentSpec = { ...parsed, ...keep };
           } catch (e) {
             res.writeHead(400, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "YAML inválido: " + e.message }));
@@ -227,7 +231,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         try {
           currentSpec = loadSpec(targetPath);
           currentFile = targetPath;
-          const rawYaml = YAML.stringify(currentSpec, { indent: 2 });
+          const rawYaml = toYaml(currentSpec);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
             ok: true,
