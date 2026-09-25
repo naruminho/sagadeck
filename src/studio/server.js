@@ -181,7 +181,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
             desc: String(t.label || "").split(/\s+[—–-]\s+/)[1] || "",
             paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
           }])),
-          file: currentFile,
           layouts: Object.keys(LAYOUTS),
         }));
         return;

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import jsQR from "jsqr";
 import { buildHTML, loadSpec } from "../src/build.js";
 import { browserOrSkip, newPage, tempDeck } from "./helpers.js";
 
@@ -51,6 +52,20 @@ test("runtime", async (t) => {
     const i = idx("timeline");
     await page.evaluate((i) => window.sagadeck.goto(i, 0, true), i);
     assert.equal(await shown(i), 3);
+  });
+
+  await t.test("QR code é lido por um leitor de verdade (mesmo em slide escuro)", async () => {
+    const i = idx("end");
+    await page.evaluate((i) => window.sagadeck.goto(i, 0, true), i);
+    const png = (await page.locator(`section[data-idx="${i}"] .qr-box`).screenshot()).toString("base64");
+    const img = await page.evaluate(async (b64) => {
+      const im = new Image(); im.src = "data:image/png;base64," + b64; await im.decode();
+      const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+      const cx = c.getContext("2d"); cx.drawImage(im, 0, 0);
+      return { w: c.width, h: c.height, data: Array.from(cx.getImageData(0, 0, c.width, c.height).data) };
+    }, png);
+    const code = jsQR(Uint8ClampedArray.from(img.data), img.w, img.h);
+    assert.equal(code?.data, "https://www.linkedin.com/in/exemplo-sagadeck");
   });
 
   await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));

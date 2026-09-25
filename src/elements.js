@@ -1,6 +1,7 @@
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
 // anim (up|fade|pop|left|right|zoom|none), w, h, flex, align, class, style, card.
+import { qrSVG } from "./figures/qr.js";
 import fs from "node:fs";
 import path from "node:path";
 import { md, esc } from "./markup.js";
@@ -51,6 +52,11 @@ export function text(t, as = "body", el = {}) {
 }
 
 export function figureHTML(el, ctx, w, h) {
+  if (el.qr) {
+    const size = el.size || 360;
+    const svg = qrSVG(el.qr, { ec: el.ec, ink: el.ink || "#111", paper: el.paper || "#fff" });
+    return `<div${attrs(el, "fig fig-qr")}><div class="qr-box" style="width:${size}px;">${svg}</div>${el.label ? `<div class="qr-label f-label">${md(el.label)}</div>` : ""}</div>`;
+  }
   if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${colorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
@@ -68,7 +74,7 @@ function imageSrc(p, ctx) {
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image || el.qr);
 
 // Renderiza qualquer elemento
 export function el(e, ctx, w, h) {

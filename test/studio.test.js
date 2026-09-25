@@ -264,6 +264,14 @@ test("studio", async (t) => {
     await p.click("#btn-close-yaml-drawer");
   });
 
+  await t.test("QR code no encerramento: editar o link pelo formulário", async () => {
+    const i = await go("end");
+    const input = p.locator(`${form} .sf-field:has-text("QR code (link)") input`);
+    await input.fill("https://www.linkedin.com/in/outro-perfil"); await settle();
+    assert.equal((await deck()).slides[i].qr, "https://www.linkedin.com/in/outro-perfil");
+    assert.ok(await p.isVisible("#rendered-slide-container .qr-svg"), "QR desenhado no slide");
+  });
+
   // ------------------------------------------------------------ diagrama de texto
   await t.test("diagrama de texto: formatos com prévia, exemplos e resultado desenhado", async () => {
     await go("cover");

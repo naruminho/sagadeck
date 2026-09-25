@@ -64,7 +64,7 @@ slides:
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
-| `end` | `title, subtitle, contacts, figure` | encerramento |
+| `end` | `title, subtitle, contacts, figure, qr, qrLabel` | encerramento; `qr: <link>` põe um QR code ao lado (ex.: LinkedIn) |
 | `references` | `title, items` | fontes (2 colunas) |
 | `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
 | `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
@@ -87,6 +87,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | lista | `{ list: [...], numbered: true, build: true }` |
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
+| QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
 | forma | `{ shape: rect|rounded|circle|pill|line, fill: hi, stroke: fg, w, h }` |
 | selo | `{ badge: "NOVO" }` |
 | vídeo | `{ video: "https://…", label: "Assistir" }` |

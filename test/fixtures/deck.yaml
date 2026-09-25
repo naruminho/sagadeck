@@ -62,3 +62,6 @@ slides:
   - layout: end
     title: Obrigado.
     contacts: [equipe@exemplo.com]
+    qr: https://www.linkedin.com/in/exemplo-sagadeck
+    qrLabel: Meu LinkedIn
+    tone: dark

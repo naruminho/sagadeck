@@ -173,3 +173,10 @@ test("diagrama de texto: preserva o conteúdo (números e frases inteiras)", () 
   const tl = textToVisualSlide(NAPKIN_EXAMPLES.timeline.text, {}).slide.events;
   assert.deepEqual(tl.map((e) => e.when), ["2019", "2021", "2023", "2026"]);
 });
+
+// ---------------------------------------------------------------- QR code
+test("QR code: figura e campo qr do encerramento viram SVG; sem link, erro claro", () => {
+  assert.match(html({ layout: "blocks", content: [{ qr: "https://exemplo.com", label: "Site" }] }), /qr-svg[\s\S]*Site/);
+  assert.match(html({ layout: "end", title: "Obrigado", qr: "https://linkedin.com/in/x", qrLabel: "LinkedIn" }), /qr-svg/);
+  assert.throws(() => html({ layout: "blocks", content: [{ qr: " " }] }), /informe o texto ou link/);
+});

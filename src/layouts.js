@@ -173,7 +173,8 @@ export const LAYOUTS = {
     return `<div class="L-end"><div class="en-main">${kicker(s)}${text(s.title || "Obrigado.", "hero", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize })}
       ${s.subtitle ? text(s.subtitle, "lead", { class: "sub e", style: "--d:2;" }) : ""}
       ${s.contacts ? `<div class="en-contacts e" style="--d:3">${s.contacts.map((c) => text(c, "h3", { size: 38 })).join("")}</div>` : ""}</div>
-      ${s.figure ? `<div class="en-fig e" style="--d:2">${el(s.figure, ctx, 640, 700)}</div>` : ""}</div>${add(s, ctx)}`;
+      ${s.figure ? `<div class="en-fig e" style="--d:2">${el(s.figure, ctx, 640, 700)}</div>` : ""}
+      ${s.qr ? `<div class="en-fig e" style="--d:3">${el(typeof s.qr === "object" ? { size: 420, ...s.qr } : { qr: s.qr, size: 420, label: s.qrLabel }, ctx)}</div>` : ""}</div>${add(s, ctx)}`;
   },
 
   references(s, ctx) {
