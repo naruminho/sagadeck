@@ -35,6 +35,35 @@
     "references", "video", "canvas"
   ];
 
+  // Nome que a pessoa vê para cada layout (o YAML continua com o nome em inglês).
+  const LAYOUT_LABELS = {
+    cover: "Capa", section: "Seção", statement: "Frase de impacto", quote: "Citação", number: "Número grande",
+    split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
+    timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
+    question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
+    blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
+  };
+  const layoutLabel = (name) => LAYOUT_LABELS[name] || name || "Automático";
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("sagadeck." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("sagadeck." + k, JSON.stringify(v)); } catch {} },
+  };
+
+  const escHtml = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escAttr = (v) => escHtml(v).replace(/"/g, "&quot;");
+
+  // <i class="ic" data-ic="nome"> -> SVG do Lucide (ui-icons.js)
+  function hydrateIcons(root = document) {
+    const icons = window.UI_ICONS || {};
+    root.querySelectorAll(".ic[data-ic]").forEach((el) => {
+      const name = el.dataset.ic;
+      if (el.dataset.done === name || !icons[name]) return;
+      el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]}</svg>`;
+      el.dataset.done = name;
+    });
+  }
+
   // Elementos do DOM
   const dom = {
     deckTitle: document.getElementById("deck-title-input"),
@@ -179,11 +208,33 @@
     mobileNavBtnPresent: document.getElementById("mobile-btn-present"),
     mobileNavBtnEditor: document.getElementById("mobile-btn-editor"),
     mobileNavBtnChat: document.getElementById("mobile-btn-chat"),
+    // Estrutura nova (faixa de opções, painéis, barra de status)
+    saveStatus: document.getElementById("save-status"),
+    ribbonTabs: document.querySelectorAll("#ribbon-tabs .ribbon-tab[data-tab]"),
+    ribbonPanels: document.querySelectorAll("#ribbon .ribbon-panel"),
+    btnLayoutGallery: document.getElementById("btn-layout-gallery"),
+    layoutPopover: document.getElementById("layout-popover"),
+    btnStoryArc: document.getElementById("btn-story-arc"),
+    storyArcPopover: document.getElementById("story-arc-popover"),
+    themeGallery: document.getElementById("theme-gallery"),
+    presentSplit: document.getElementById("present-split"),
+    btnPresentMenu: document.getElementById("btn-present-menu"),
+    presentFromStart: document.getElementById("present-from-start"),
+    presentFromCurrent: document.getElementById("present-from-current"),
+    btnClosePane: document.getElementById("btn-close-pane"),
+    btnPaneProps: document.getElementById("btn-pane-props"),
+    btnNotesToggle: document.getElementById("btn-notes-toggle"),
+    btnNotesToggleStatus: document.getElementById("btn-notes-toggle-status"),
+    notesBar: document.getElementById("notes-bar"),
+    statusIssues: document.getElementById("status-issues"),
+    chatEmpty: document.getElementById("chat-empty"),
   };
 
   // Inicialização
   async function init() {
+    hydrateIcons();
     setupEventListeners();
+    setupShell();
     buildLayoutPicker();
     await loadDeck();
     refreshAIStatus();
@@ -201,10 +252,14 @@
       const data = await res.json();
       state.deck = data.spec;
       state.themes = data.themes || [];
+      state.themeMeta = data.themeMeta || {};
       state.layouts = data.layouts || LAYOUT_NAMES;
+      state.file = data.file || null;
 
-      dom.deckTitle.value = state.deck.title || "Minha Apresentação";
+      buildThemeGallery();
+      dom.deckTitle.value = state.deck.title || "";
       if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+      updateSaveStatus();
 
       renderThumbnails();
       selectSlide(0);
@@ -221,17 +276,20 @@
     if (!slide) return;
 
     dom.currentSlideLabel.textContent = `Slide ${idx + 1} de ${state.deck.slides.length}`;
-    dom.currentLayoutBadge.textContent = slide.layout || "auto";
+    dom.currentLayoutBadge.textContent = layoutLabel(slide.layout);
     dom.toneSelect.value = slide.tone || "light";
     dom.decoSelect.value = slide.deco || "none";
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
+    syncThemeGallery();
 
-    // Atualizar seletor de alvo da IA
+    // Atualizar seletor de alvo da IA (mantém a escolha)
+    const scope = dom.aiScopeSelect.value || "current";
     dom.aiScopeSelect.innerHTML = `
-      <option value="current">Slide Atual (Slide ${idx + 1})</option>
-      <option value="all">Toda a Apresentação (${state.deck.slides.length} slides)</option>
+      <option value="current">Este slide (${idx + 1})</option>
+      <option value="all">Apresentação inteira</option>
     `;
+    dom.aiScopeSelect.value = scope;
 
     try {
       const res = await fetch("/api/render-slide", {
@@ -247,6 +305,8 @@
       // Renderizar HTML no palco
       dom.renderedSlideContainer.innerHTML = data.html;
       fitSlideText(dom.renderedSlideContainer);
+      // a miniatura deste slide usa o mesmo HTML (acompanha cada edição)
+      putThumb(idx, slide, data.html);
 
       // Habilitar edição WYSIWYG inline
       enableInlineEditing();
@@ -451,15 +511,20 @@
       }
     }
 
-    // Atualizar badge do fiscal
+    // Atualizar badge do fiscal (faixa Revisar) e a barra de status
     const count = state.issues.length;
     dom.fiscalBadge.textContent = count;
     if (count === 0) {
       dom.fiscalBadge.className = "fiscal-badge clean";
-      dom.fiscalBadge.title = "✓ Layout 100% perfeito: sem sobreposições e respeitando as margens";
+      dom.fiscalBadge.title = "Sem sobreposições nem texto fora das margens";
+      dom.statusIssues.textContent = "";
+      dom.statusIssues.classList.remove("warn");
     } else {
       dom.fiscalBadge.className = "fiscal-badge warn";
-      dom.fiscalBadge.title = `⚠ ${count} problema(s) detectado(s): sobreposição ou quebra de margem`;
+      dom.fiscalBadge.title = `${count} problema(s): sobreposição ou texto fora das margens`;
+      dom.statusIssues.textContent = count === 1 ? "1 problema de layout" : `${count} problemas de layout`;
+      dom.statusIssues.title = "Clique para corrigir automaticamente";
+      dom.statusIssues.classList.add("warn");
     }
 
     // Desenhar caixas no overlay se ativado
@@ -584,6 +649,7 @@
   }
 
   function appendChatMessage(sender, text, actions = []) {
+    dom.chatEmpty?.remove();
     const msgDiv = document.createElement("div");
     msgDiv.className = sender === "user" ? "user-msg" : "ai-msg";
 
@@ -1098,32 +1164,35 @@
   // ==========================================================================
   // PALETA DE COMANDOS (SPOTLIGHT / RAYCAST)
   // ==========================================================================
+  // Busca de comandos (Ctrl+K). "ic" = ícone Lucide; "cat" = aba da faixa onde o comando também mora.
   const PALETTE_COMMANDS = [
-    { title: "Napkin: Transformar texto em diagrama visual", cat: "IA", icon: "🪄", fn: () => openNapkinModal() },
-    { title: "Caneta de anotações ao vivo (apresentação)", cat: "Modo", icon: "✏️", fn: () => { startPresentation(); setTimeout(() => togglePresDrawing(true, "pen"), 250); } },
-    { title: "Auto-corrigir sobreposições e margens", cat: "Fiscal", icon: "✨", fn: () => triggerAutofix() },
-    { title: "Biblioteca de 2.100+ Ícones", cat: "Inserir", icon: "✦", fn: () => openIconPicker() },
-    { title: "Arrumar a casa (Smart Tidy)", cat: "Design", icon: "✨", fn: () => smartTidy() },
-    { title: "Teste da última fileira (Squint test)", cat: "Visual", icon: "👁️", fn: () => toggleSquintTest() },
-    { title: "Heatmap de atenção humana", cat: "Visual", icon: "🔥", fn: () => toggleHeatmap() },
-    { title: "Abrir editor de YAML bi-direcional", cat: "Código", icon: "{ }", fn: () => toggleYamlDrawer() },
-    { title: "Virar layout Cards (3 colunas)", cat: "Layout", icon: "🃏", fn: () => changeCurrentLayout("cards") },
-    { title: "Virar layout Statement (Frase de impacto)", cat: "Layout", icon: "💬", fn: () => changeCurrentLayout("statement") },
-    { title: "Virar layout Number (Estatística)", cat: "Layout", icon: "🔢", fn: () => changeCurrentLayout("number") },
-    { title: "Virar layout Split (Texto + Ilustração)", cat: "Layout", icon: "🌓", fn: () => changeCurrentLayout("split") },
-    { title: "Virar layout Compare (Duelo A/B)", cat: "Layout", icon: "⚖️", fn: () => changeCurrentLayout("compare") },
-    { title: "Tema: Editorial (Serifa)", cat: "Tema", icon: "🎨", fn: () => changeTheme("editorial") },
-    { title: "Tema: Bauhaus (Geométrico)", cat: "Tema", icon: "🎨", fn: () => changeTheme("bauhaus") },
-    { title: "Tema: Sinal (DIN Amarelo)", cat: "Tema", icon: "🎨", fn: () => changeTheme("sinal") },
-    { title: "Tema: Noite (Escuro Elegante)", cat: "Tema", icon: "🎨", fn: () => changeTheme("noite") },
-    { title: "Tom: Escuro (Dark)", cat: "Tom", icon: "🌑", fn: () => changeTone("dark") },
-    { title: "Tom: Claro (Light)", cat: "Tom", icon: "☀️", fn: () => changeTone("light") },
-    { title: "Tom: Destaque (Accent)", cat: "Tom", icon: "⭐", fn: () => changeTone("accent") },
-    { title: "Adicionar novo slide", cat: "Slide", icon: "➕", fn: () => addNewSlide() },
-    { title: "Duplicar slide atual", cat: "Slide", icon: "📋", fn: () => duplicateCurrentSlide() },
-    { title: "Excluir slide atual", cat: "Slide", icon: "🗑️", fn: () => deleteCurrentSlide() },
-    { title: "Apresentar em tela cheia (F5)", cat: "Modo", icon: "▶", fn: () => startPresentation() },
-    { title: "Abrir arquivo .yaml do computador", cat: "Arquivo", icon: "📂", fn: () => dom.fileInputYaml.click() },
+    { title: "Novo slide", cat: "Início", ic: "plus", fn: () => addNewSlide() },
+    { title: "Duplicar slide", cat: "Início", ic: "copy", fn: () => duplicateCurrentSlide() },
+    { title: "Excluir slide", cat: "Início", ic: "trash-2", fn: () => deleteCurrentSlide() },
+    { title: "Trocar layout do slide", cat: "Início", ic: "layout-template", fn: () => { selectRibbonTab("inicio"); dom.btnLayoutGallery.click(); } },
+    { title: "Tom escuro", cat: "Início", ic: "sun-moon", fn: () => changeTone("dark") },
+    { title: "Tom claro", cat: "Início", ic: "sun-moon", fn: () => changeTone("light") },
+    { title: "Tom de destaque", cat: "Início", ic: "sun-moon", fn: () => changeTone("accent") },
+    { title: "Inserir ícone", cat: "Inserir", ic: "shapes", fn: () => openIconPicker() },
+    { title: "Diagrama a partir de texto", cat: "Inserir", ic: "workflow", fn: () => openNapkinModal() },
+    { title: "Trocar tema", cat: "Design", ic: "palette", fn: () => selectRibbonTab("design") },
+    { title: "Nova apresentação com IA", cat: "IA", ic: "wand-sparkles", fn: () => openAiDeckModal() },
+    { title: "Abrir assistente", cat: "IA", ic: "bot", fn: () => openPane("chat") },
+    { title: "Corrigir layout do slide", cat: "Revisar", ic: "wand", fn: () => triggerAutofix() },
+    { title: "Arrumar elementos", cat: "Revisar", ic: "layout-dashboard", fn: () => smartTidy() },
+    { title: "Teste da última fileira", cat: "Revisar", ic: "scan-eye", fn: () => toggleSquintTest() },
+    { title: "Mapa de atenção", cat: "Revisar", ic: "flame", fn: () => toggleHeatmap() },
+    { title: "Ritmo narrativo", cat: "Revisar", ic: "activity", fn: () => { selectRibbonTab("revisar"); dom.btnStoryArc.click(); } },
+    { title: "Painel Formatar", cat: "Exibir", ic: "sliders-horizontal", fn: () => openPane("props") },
+    { title: "Mostrar/ocultar anotações", cat: "Exibir", ic: "sticky-note", fn: () => dom.btnNotesToggle.click() },
+    { title: "Editar YAML do slide", cat: "Exibir", ic: "code-xml", fn: () => toggleYamlDrawer() },
+    { title: "Apresentar deste slide", cat: "Apresentar", ic: "play", fn: () => startPresentation() },
+    { title: "Apresentar do início", cat: "Apresentar", ic: "play", fn: () => { state.currentSlideIndex = 0; startPresentation(); } },
+    { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => { startPresentation(); setTimeout(() => togglePresDrawing(true, "pen"), 250); } },
+    { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
+    { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
+    { title: "Baixar YAML", cat: "Arquivo", ic: "download", fn: () => dom.exportYaml.click() },
+    { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
   function openSpotlight() {
@@ -1139,17 +1208,16 @@
 
   function renderPaletteResults(filter = "") {
     dom.paletteResultsList.innerHTML = "";
-    const q = filter.toLowerCase().trim();
-    const matches = PALETTE_COMMANDS.filter((cmd) =>
-      cmd.title.toLowerCase().includes(q) || cmd.cat.toLowerCase().includes(q)
-    );
+    const norm = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const q = norm(filter.trim());
+    const matches = PALETTE_COMMANDS.filter((cmd) => norm(cmd.title).includes(q) || norm(cmd.cat).includes(q));
 
     matches.forEach((cmd, i) => {
       const item = document.createElement("div");
       item.className = `palette-item ${i === 0 ? "selected" : ""}`;
       item.innerHTML = `
         <div class="palette-item-left">
-          <span class="palette-icon">${cmd.icon}</span>
+          <i class="ic palette-icon" data-ic="${cmd.ic}"></i>
           <span>${cmd.title}</span>
         </div>
         <span class="palette-item-category">${cmd.cat}</span>
@@ -1160,6 +1228,7 @@
       };
       dom.paletteResultsList.appendChild(item);
     });
+    hydrateIcons(dom.paletteResultsList);
   }
 
   function setupSpotlightPalette() {
@@ -1186,8 +1255,34 @@
     dom.themeSelect.value = themeName;
     syncDeckToServer();
     renderCurrentSlide();
-    showToast(`Tema alterado para "${themeName}"`);
+    renderThumbnails();
+    showToast(`Tema: ${state.themeMeta?.[themeName]?.label || themeName}`);
     playHaptic("snap");
+  }
+
+  // Galeria de temas da aba Design: cartão com as cores do tema; o <select> escondido segue valendo.
+  function buildThemeGallery() {
+    const names = state.themes.length ? state.themes : Object.keys(state.themeMeta || {});
+    dom.themeSelect.innerHTML = names.map((n) => `<option value="${n}">${n}</option>`).join("");
+    dom.themeGallery.innerHTML = "";
+    names.forEach((n) => {
+      const m = state.themeMeta?.[n] || { label: n, paper: "#fff", ink: "#222", accent: "#0f6cbd" };
+      const card = document.createElement("button");
+      card.className = "theme-card";
+      card.dataset.theme = n;
+      card.title = m.desc ? `${m.label} — ${m.desc}` : m.label;
+      card.style.background = m.paper;
+      card.innerHTML = `<span class="tc-aa" style="color:${m.ink}">Aa</span><span class="tc-bar" style="background:${m.accent}"></span><span class="tc-name"></span>`;
+      card.querySelector(".tc-name").textContent = m.label;
+      card.onclick = () => changeTheme(n);
+      dom.themeGallery.appendChild(card);
+    });
+    syncThemeGallery();
+  }
+
+  function syncThemeGallery() {
+    const cur = state.deck?.theme || "sinal";
+    dom.themeGallery.querySelectorAll(".theme-card").forEach((c) => c.classList.toggle("active", c.dataset.theme === cur));
   }
 
   function changeTone(toneName) {
@@ -1205,8 +1300,21 @@
   // ==========================================================================
   // NAVEGAÇÃO DE MINIATURAS (BARRA LATERAL ESQUERDA)
   // ==========================================================================
+  // Miniaturas = o próprio slide renderizado, em escala. Renderizadas sob demanda (quando aparecem
+  // na lista), com cache por conteúdo; o slide aberto atualiza a sua a cada edição (putThumb).
+  const thumbCache = new Map(); // chave (tema + índice + slide) -> html
+  const thumbKey = (idx, slide) => `${state.deck?.theme || ""}|${idx}|${JSON.stringify(slide)}`;
+  let thumbObserver = null;
+  const thumbQueue = [];
+  let thumbActive = 0;
+
+  const plainTitle = (slide, idx) => String(slide.title || slide.text || slide.question || slide.quote || `Slide ${idx + 1}`)
+    .replace(/==|\*\*|\^\^|~~|`/g, "").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2").slice(0, 60);
+
   function renderThumbnails() {
     if (!state.deck || !state.deck.slides) return;
+    thumbObserver?.disconnect();
+    thumbQueue.length = 0;
     dom.thumbnailsList.innerHTML = "";
     dom.slideCount.textContent = state.deck.slides.length;
 
@@ -1214,64 +1322,97 @@
       const card = document.createElement("div");
       card.className = `thumb-card ${idx === state.currentSlideIndex ? "active" : ""}`;
       card.dataset.idx = idx;
-
-      const header = document.createElement("div");
-      header.className = "thumb-header";
+      card.title = `${idx + 1}. ${plainTitle(slide, idx)} — ${layoutLabel(slide.layout)}`;
 
       const num = document.createElement("span");
       num.className = "thumb-num";
       num.textContent = idx + 1;
-      header.appendChild(num);
+      card.appendChild(num);
 
-      const badge = document.createElement("span");
-      badge.className = "thumb-badge";
-      badge.textContent = slide.layout || "auto";
-      header.appendChild(badge);
-
-      card.appendChild(header);
-
-      // Mini preview de tela
       const screen = document.createElement("div");
       screen.className = "thumb-screen";
-
-      const previewTitle = document.createElement("span");
-      previewTitle.style.cssText = "font-size:11px;color:#aaa;padding:6px;text-align:center;";
-      const t = slide.title || slide.text || slide.question || slide.quote || "Slide " + (idx + 1);
-      // sem a marcação inline (==marca==, **negrito**, ^^ênfase^^, ~~riscado~~, `código`)
-      previewTitle.textContent = String(t).replace(/==|\*\*|\^\^|~~|`/g, "").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2").slice(0, 36);
-      screen.appendChild(previewTitle);
-
+      const cached = thumbCache.get(thumbKey(idx, slide));
+      if (cached) {
+        screen.innerHTML = `<div class="thumb-render">${cached}</div>`;
+      } else {
+        const fb = document.createElement("div");
+        fb.className = "thumb-fallback";
+        fb.textContent = plainTitle(slide, idx);
+        screen.appendChild(fb);
+      }
       card.appendChild(screen);
 
-      // Ações rápidas de thumbnail
       const actions = document.createElement("div");
       actions.className = "thumb-actions";
-
-      const btnUp = document.createElement("button");
-      btnUp.className = "btn-thumb-action";
-      btnUp.innerHTML = "↑";
-      btnUp.title = "Mover para cima";
-      btnUp.onclick = (e) => { e.stopPropagation(); moveSlide(idx, -1); };
-
-      const btnDown = document.createElement("button");
-      btnDown.className = "btn-thumb-action";
-      btnDown.innerHTML = "↓";
-      btnDown.title = "Mover para baixo";
-      btnDown.onclick = (e) => { e.stopPropagation(); moveSlide(idx, 1); };
-
-      actions.appendChild(btnUp);
-      actions.appendChild(btnDown);
+      [["arrow-up", "Mover para cima", -1], ["arrow-down", "Mover para baixo", 1]].forEach(([ic, title, dir]) => {
+        const b = document.createElement("button");
+        b.className = "btn-thumb-action";
+        b.title = title;
+        b.innerHTML = `<i class="ic" data-ic="${ic}"></i>`;
+        b.onclick = (e) => { e.stopPropagation(); moveSlide(idx, dir); };
+        actions.appendChild(b);
+      });
       card.appendChild(actions);
 
       card.addEventListener("click", () => selectSlide(idx));
       dom.thumbnailsList.appendChild(card);
+    });
+    hydrateIcons(dom.thumbnailsList);
+
+    thumbObserver = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        thumbObserver.unobserve(e.target);
+        const idx = +e.target.dataset.idx;
+        const slide = state.deck.slides[idx];
+        if (slide && !thumbCache.has(thumbKey(idx, slide))) thumbQueue.push(idx);
+      }
+      pumpThumbs();
+    }, { root: dom.thumbnailsList, rootMargin: "300px 0px" });
+    dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((c) => thumbObserver.observe(c));
+  }
+
+  function pumpThumbs() {
+    while (thumbActive < 3 && thumbQueue.length) {
+      const idx = thumbQueue.shift();
+      const slide = state.deck.slides[idx];
+      if (!slide) continue;
+      thumbActive++;
+      fetch("/api/render-slide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slide, index: idx, spec: state.deck }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          ensureSlideStyles(data.baseCSS, data.themeCSS);
+          putThumb(idx, slide, data.html);
+        })
+        .catch(() => {})
+        .finally(() => { thumbActive--; pumpThumbs(); });
+    }
+  }
+
+  function putThumb(idx, slide, html) {
+    if (!html) return;
+    thumbCache.set(thumbKey(idx, slide), html);
+    const screen = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${idx}"] .thumb-screen`);
+    if (!screen) return;
+    screen.innerHTML = `<div class="thumb-render">${html}</div>`;
+  }
+
+  function markActiveThumb() {
+    dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((c) => {
+      const on = +c.dataset.idx === state.currentSlideIndex;
+      c.classList.toggle("active", on);
+      if (on) c.scrollIntoView({ block: "nearest" });
     });
   }
 
   function selectSlide(idx) {
     if (idx < 0 || idx >= state.deck.slides.length) return;
     state.currentSlideIndex = idx;
-    renderThumbnails();
+    markActiveThumb();
     renderCurrentSlide();
   }
 
@@ -1339,11 +1480,13 @@
   function buildLayoutPicker() {
     dom.layoutPickerGrid.innerHTML = "";
     LAYOUT_NAMES.forEach((name) => {
-      const chip = document.createElement("div");
+      const chip = document.createElement("button");
       chip.className = "layout-chip";
-      chip.textContent = name;
+      chip.textContent = layoutLabel(name);
+      chip.title = name;
       chip.dataset.layout = name;
       chip.onclick = () => {
+        closePopovers();
         changeCurrentLayout(name);
       };
       dom.layoutPickerGrid.appendChild(chip);
@@ -1356,8 +1499,7 @@
     slide.layout = layoutName;
     syncDeckToServer();
     renderCurrentSlide();
-    renderThumbnails();
-    showToast(`Layout alterado para "${layoutName}"`);
+    showToast(`Layout: ${layoutLabel(layoutName)}`);
   }
 
   function updatePropertiesPanel(slide) {
@@ -1379,7 +1521,7 @@
     });
 
     // Campo Kicker
-    createField("Kicker (Chapéu)", slide.kicker || "", (val) => {
+    createField("Chapéu (acima do título)", slide.kicker || "", (val) => {
       slide.kicker = val;
       renderCurrentSlide();
     });
@@ -1394,11 +1536,11 @@
 
     // Campos específicos para Number
     if (layout === "number") {
-      createField("Valor Numérico", slide.value ?? 100, (val) => {
+      createField("Valor", slide.value ?? 100, (val) => {
         slide.value = val;
         renderCurrentSlide();
       });
-      createField("Sufixo / Unidade", slide.suffix || "", (val) => {
+      createField("Unidade", slide.suffix || "", (val) => {
         slide.suffix = val;
         renderCurrentSlide();
       });
@@ -1414,7 +1556,7 @@
         slide.quote = val;
         renderCurrentSlide();
       }, true);
-      createField("Autor da Citação", slide.by || "", (val) => {
+      createField("Autor", slide.by || "", (val) => {
         slide.by = val;
         renderCurrentSlide();
       });
@@ -1423,10 +1565,10 @@
     // Seção de Cards (com seletor de ícone em cada card)
     if (layout === "cards" && Array.isArray(slide.items)) {
       const cardsHeader = document.createElement("div");
-      cardsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      cardsHeader.className = "pane-section-head";
       cardsHeader.innerHTML = `
-        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Cards do Slide (${slide.items.length})</span>
-        <button id="btn-add-card-with-icon" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Novo Card</button>
+        <span>Cartões (${slide.items.length})</span>
+        <button id="btn-add-card-with-icon" class="btn-small">Adicionar cartão</button>
       `;
       dom.slideFieldsForm.appendChild(cardsHeader);
 
@@ -1437,20 +1579,18 @@
 
       slide.items.forEach((item, idx) => {
         const itemBox = document.createElement("div");
-        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        itemBox.className = "item-box";
         const iconName = typeof item === "object" ? item.icon || "star" : "star";
         const titleVal = typeof item === "object" ? item.title || "" : String(item);
         const textVal = typeof item === "object" ? item.text || "" : "";
 
         itemBox.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <button class="btn btn-secondary btn-change-card-icon" style="padding:2px 8px;font-size:11px;display:flex;align-items:center;gap:4px;" title="Clique para trocar este ícone">
-              <span style="color:#c084fc;">✦</span> <b style="font-family:var(--font-mono);">${iconName}</b>
-            </button>
-            <button class="btn-thumb-action btn-del-card" style="color:var(--danger);font-size:12px;" title="Remover card">✕</button>
+          <div class="item-box-head">
+            <button class="btn-small btn-change-card-icon" title="Trocar o ícone">Ícone: <b>${iconName}</b></button>
+            <button class="icon-btn icon-btn-sm btn-del-card" title="Remover cartão"><i class="ic" data-ic="trash-2"></i></button>
           </div>
-          <input type="text" class="form-control card-title-input" placeholder="Título do card..." value="${titleVal}" style="font-size:12px;padding:4px 6px;">
-          <textarea class="form-control card-text-input" placeholder="Descrição do card..." rows="2" style="font-size:11px;padding:4px 6px;">${textVal}</textarea>
+          <input type="text" class="form-control card-title-input" placeholder="Título" value="${escAttr(titleVal)}">
+          <textarea class="form-control card-text-input" placeholder="Texto" rows="2">${escHtml(textVal)}</textarea>
         `;
 
         itemBox.querySelector(".btn-change-card-icon").onclick = (e) => {
@@ -1484,10 +1624,10 @@
     if (layout === "stats") {
       if (!Array.isArray(slide.stats)) slide.stats = [];
       const statsHeader = document.createElement("div");
-      statsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      statsHeader.className = "pane-section-head";
       statsHeader.innerHTML = `
-        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Métricas / KPIs (${slide.stats.length})</span>
-        <button id="btn-add-stat-item" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Métrica</button>
+        <span>Indicadores (${slide.stats.length})</span>
+        <button id="btn-add-stat-item" class="btn-small">Adicionar</button>
       `;
       dom.slideFieldsForm.appendChild(statsHeader);
 
@@ -1500,17 +1640,17 @@
 
       slide.stats.forEach((st, idx) => {
         const itemBox = document.createElement("div");
-        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        itemBox.className = "item-box";
         itemBox.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <button class="btn btn-secondary btn-change-stat-icon" style="padding:2px 8px;font-size:11px;">✦ Ícone: <b>${st.icon || "star"}</b></button>
-            <button class="btn-thumb-action btn-del-stat" style="color:var(--danger);font-size:12px;">✕</button>
+          <div class="item-box-head">
+            <button class="btn-small btn-change-stat-icon" title="Trocar o ícone">Ícone: <b>${escHtml(st.icon || "star")}</b></button>
+            <button class="icon-btn icon-btn-sm btn-del-stat" title="Remover"><i class="ic" data-ic="trash-2"></i></button>
           </div>
-          <div style="display:flex;gap:6px;">
-            <input type="text" class="form-control stat-val-input" placeholder="Valor (ex: 98%, 4x)" value="${st.value || ""}" style="font-size:12px;font-weight:700;padding:4px 6px;flex:1;">
-            <input type="text" class="form-control stat-trend-input" placeholder="Tendência (ex: +14%)" value="${st.trend || ""}" style="font-size:12px;padding:4px 6px;width:90px;">
+          <div class="item-box-row">
+            <input type="text" class="form-control stat-val-input" placeholder="Valor (ex.: 98%)" value="${escAttr(st.value || "")}">
+            <input type="text" class="form-control stat-trend-input" placeholder="Tendência (ex.: +14%)" value="${escAttr(st.trend || "")}">
           </div>
-          <input type="text" class="form-control stat-lab-input" placeholder="Rótulo da Métrica..." value="${st.label || ""}" style="font-size:12px;padding:4px 6px;">
+          <input type="text" class="form-control stat-lab-input" placeholder="Rótulo" value="${escAttr(st.label || "")}">
         `;
         itemBox.querySelector(".btn-change-stat-icon").onclick = (e) => {
           e.preventDefault();
@@ -1545,10 +1685,10 @@
     if (layout === "steps") {
       if (!Array.isArray(slide.steps)) slide.steps = [];
       const stepsHeader = document.createElement("div");
-      stepsHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
+      stepsHeader.className = "pane-section-head";
       stepsHeader.innerHTML = `
-        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">Etapas do Processo (${slide.steps.length})</span>
-        <button id="btn-add-step-item" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">+ Etapa</button>
+        <span>Etapas (${slide.steps.length})</span>
+        <button id="btn-add-step-item" class="btn-small">Adicionar etapa</button>
       `;
       dom.slideFieldsForm.appendChild(stepsHeader);
 
@@ -1561,14 +1701,14 @@
 
       slide.steps.forEach((st, idx) => {
         const itemBox = document.createElement("div");
-        itemBox.style.cssText = "background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:8px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px;";
+        itemBox.className = "item-box";
         itemBox.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:11px;font-weight:700;color:var(--text-dim);">ETAPA ${idx + 1}</span>
-            <button class="btn-thumb-action btn-del-step" style="color:var(--danger);font-size:12px;">✕</button>
+          <div class="item-box-head">
+            <span class="field-label">Etapa ${idx + 1}</span>
+            <button class="icon-btn icon-btn-sm btn-del-step" title="Remover etapa"><i class="ic" data-ic="trash-2"></i></button>
           </div>
-          <input type="text" class="form-control step-title-input" placeholder="Título da etapa..." value="${st.title || ""}" style="font-size:12px;font-weight:700;padding:4px 6px;">
-          <input type="text" class="form-control step-text-input" placeholder="Descrição resumida..." value="${st.text || ""}" style="font-size:11px;padding:4px 6px;">
+          <input type="text" class="form-control step-title-input" placeholder="Título" value="${escAttr(st.title || "")}">
+          <input type="text" class="form-control step-text-input" placeholder="Descrição" value="${escAttr(st.text || "")}">
         `;
         itemBox.querySelector(".btn-del-step").onclick = (e) => {
           e.preventDefault();
@@ -1593,11 +1733,11 @@
     // Seção de Figura Principal / Ícone Ilustrativo
     if (layout === "split" || layout === "section" || layout === "cover" || layout === "end" || slide.figure) {
       const figHeader = document.createElement("div");
-      figHeader.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px;";
-      const curIcon = slide.figure?.icon ? `Ícone: ${slide.figure.icon}` : "Figura Visual";
+      figHeader.className = "pane-section-head";
+      const curIcon = slide.figure?.icon ? `Figura: ${slide.figure.icon}` : "Figura";
       figHeader.innerHTML = `
-        <span style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">${curIcon}</span>
-        <button id="btn-pick-fig-icon" class="btn btn-secondary" style="padding:2px 8px;font-size:11px;">✦ Escolher Ícone (2.100+)</button>
+        <span>${curIcon}</span>
+        <button id="btn-pick-fig-icon" class="btn-small">Escolher ícone</button>
       `;
       dom.slideFieldsForm.appendChild(figHeader);
       figHeader.querySelector("#btn-pick-fig-icon").onclick = (e) => {
@@ -1613,6 +1753,7 @@
     } else {
       dom.canvasElementsSection.classList.add("hidden");
     }
+    hydrateIcons(dom.slideFieldsForm);
   }
 
   function createField(label, value, onChange, isTextarea = false) {
@@ -2018,26 +2159,67 @@
   // SINCRONIZAÇÃO E EVENT LISTENERS
   // ==========================================================================
   async function syncDeckToServer() {
+    updateSaveStatus("saving");
     try {
-      await fetch("/api/deck", {
+      const res = await fetch("/api/deck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spec: state.deck }),
       });
+      const data = await res.json().catch(() => ({}));
+      if ("file" in data) state.file = data.file;
+      updateSaveStatus(res.ok ? "saved" : "error");
     } catch (err) {
       console.warn("Erro ao sincronizar com servidor:", err);
+      updateSaveStatus("error");
     }
   }
 
-  function updateWordCount(slide) {
-    const text = JSON.stringify(slide);
-    const words = text.split(/\s+/).length;
-    dom.wordCountNum.textContent = words;
-    if (words > 40) {
-      dom.antiSleepIndicator.className = "meta-item anti-sleep-warn";
+  // "Salvo" quando há um arquivo de verdade por trás; senão, avisa que as mudanças só vivem aqui.
+  function updateSaveStatus(phase = "saved") {
+    const el = dom.saveStatus;
+    const name = state.file ? state.file.split(/[\\/]/).pop() : "";
+    el.classList.remove("unsaved");
+    if (phase === "saving") {
+      el.textContent = "Salvando…";
+    } else if (phase === "error") {
+      el.textContent = "Erro ao salvar";
+      el.classList.add("unsaved");
+    } else if (state.file && !/[\\/]templates[\\/]/.test(state.file)) {
+      el.textContent = "Salvo";
+      el.title = `Salvo em ${state.file}`;
     } else {
-      dom.antiSleepIndicator.className = "meta-item anti-sleep-ok";
+      el.textContent = "Não salvo em arquivo";
+      el.title = "Aberto pelo navegador ou exemplo. Use Arquivo › Baixar YAML, ou abra por caminho para salvar direto.";
+      el.classList.add("unsaved");
     }
+    if (name && phase === "saved" && !el.classList.contains("unsaved")) el.title = `Salvo em ${state.file}`;
+  }
+
+  // Palavras visíveis no slide — mesma conta do fiscal do build (wordCount em src/build.js):
+  // ignora anotações, ids e configurações; tira a marcação inline.
+  function visibleWordCount(slide) {
+    const plain = (s) => String(s).replace(/==|\*\*|\^\^|~~|`|\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2");
+    const skip = new Set(["notes", "source", "id", "layout", "tone", "style", "class", "ratio", "deco", "time", "icon", "picto", "pose", "sign", "name", "theme", "fit", "anim", "align", "color", "bg", "image", "image_prompt", "alt", "url"]);
+    const txt = [];
+    const walk = (v, k) => {
+      if (skip.has(k)) return;
+      if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }
+      else if (Array.isArray(v)) v.forEach((x) => walk(x));
+      else if (v && typeof v === "object" && !v.svg && !v.chart && !v.html) for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
+    };
+    walk(slide);
+    return txt.join(" ").split(/\s+/).filter((w) => w.length > 1).length;
+  }
+
+  function updateWordCount(slide) {
+    const words = visibleWordCount(slide);
+    const limit = slide.maxWords || state.deck?.maxWords || 40;
+    dom.wordCountNum.textContent = words;
+    dom.antiSleepIndicator.className = `status-item ${words > limit ? "anti-sleep-warn" : "anti-sleep-ok"}`;
+    dom.antiSleepIndicator.title = words > limit
+      ? `${words} palavras na tela (recomendado: até ${limit}). Mova detalhes para as anotações.`
+      : `Palavras visíveis no slide (recomendado: até ${limit})`;
   }
 
   // Mesmo ajuste do runtime (fitAll em src/runtime/runtime.js): textos com data-fit encolhem até
@@ -2078,7 +2260,7 @@
       state.ai = { available: false };
     }
     const on = !!state.ai.available;
-    dom.aiStatus.textContent = on ? `● IA: ${state.ai.textModel}` : "● IA offline (regras locais)";
+    dom.aiStatus.textContent = on ? "IA ligada" : "IA desligada";
     dom.aiStatus.title = on
       ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
       : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para verificar de novo.`;
@@ -2126,6 +2308,8 @@
       });
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       state.deck = data.spec;
+      state.file = data.file || null;
+      updateSaveStatus();
       dom.deckTitle.value = state.deck.title || "Apresentação";
       if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
       state.currentSlideIndex = 0;
@@ -2221,6 +2405,116 @@
     };
   }
 
+  // ==========================================================================
+  // ESTRUTURA DA TELA: faixa de opções, popovers, painel lateral, anotações
+  // ==========================================================================
+  function closePopovers(except) {
+    document.querySelectorAll(".popover.open").forEach((p) => { if (p !== except) p.classList.remove("open"); });
+    document.querySelectorAll(".split-button.show, .file-menu-wrap.show").forEach((m) => { if (!m.contains(except)) m.classList.remove("show"); });
+  }
+
+  function selectRibbonTab(name) {
+    dom.ribbonTabs.forEach((t) => {
+      const on = t.dataset.tab === name;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on);
+    });
+    dom.ribbonPanels.forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
+    store.set("ribbonTab", name);
+  }
+
+  const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
+
+  // Painel lateral: um conteúdo de cada vez ("props" = Formatar, "chat" = Assistente)
+  function openPane(which, { toggle = false } = {}) {
+    const pane = dom.inspectorSidebar;
+    const current = dom.tabPanelChat.classList.contains("active") ? "chat" : "props";
+    const visible = isMobile() ? pane.classList.contains("mobile-open") : !pane.classList.contains("collapsed");
+    if (toggle && visible && current === which) return closePane();
+    const chat = which === "chat";
+    dom.tabBtnChat.classList.toggle("active", chat);
+    dom.tabBtnProps.classList.toggle("active", !chat);
+    dom.tabPanelChat.classList.toggle("active", chat);
+    dom.tabPanelProps.classList.toggle("active", !chat);
+    pane.classList.remove("collapsed");
+    if (isMobile()) {
+      pane.classList.add("mobile-open");
+      document.getElementById("slides-nav")?.classList.remove("mobile-open");
+    }
+    dom.btnToggleChat.classList.toggle("active", chat);
+    dom.btnPaneProps.classList.toggle("active", !chat);
+    store.set("pane", which);
+    if (chat) setTimeout(() => dom.chatInput.focus(), 0);
+    requestAnimationFrame(() => state.autoFit && updateCanvasScale());
+  }
+
+  function closePane() {
+    dom.inspectorSidebar.classList.add("collapsed");
+    dom.inspectorSidebar.classList.remove("mobile-open");
+    dom.btnToggleChat.classList.remove("active");
+    dom.btnPaneProps.classList.remove("active");
+    store.set("pane", null);
+    requestAnimationFrame(() => state.autoFit && updateCanvasScale());
+  }
+
+  function setNotesVisible(on) {
+    dom.notesBar.classList.toggle("hidden", !on);
+    dom.btnNotesToggle.classList.toggle("active", on);
+    dom.btnNotesToggleStatus.classList.toggle("active", on);
+    store.set("notes", on);
+    requestAnimationFrame(() => state.autoFit && updateCanvasScale());
+  }
+
+  function setupShell() {
+    // abas da faixa de opções
+    dom.ribbonTabs.forEach((t) => t.addEventListener("click", () => selectRibbonTab(t.dataset.tab)));
+    selectRibbonTab(store.get("ribbonTab", "inicio"));
+
+    // popovers (layout, ritmo) e menus (Arquivo, Apresentar)
+    // os popovers são "fixed" e ancorados no botão: a faixa rola na horizontal e cortaria um absolute
+    const popover = (btn, pop, onOpen) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const opening = !pop.classList.contains("open");
+      closePopovers();
+      if (!opening) return;
+      pop.classList.add("open");
+      onOpen?.();
+      const r = btn.getBoundingClientRect();
+      const w = pop.offsetWidth;
+      pop.style.top = `${r.bottom + 4}px`;
+      pop.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - w - 8))}px`;
+    });
+    popover(dom.btnLayoutGallery, dom.layoutPopover);
+    popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
+    [dom.layoutPopover, dom.storyArcPopover].forEach((p) => p.addEventListener("click", (e) => e.stopPropagation()));
+    dom.btnPresentMenu.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = !dom.presentSplit.classList.contains("show");
+      closePopovers();
+      dom.presentSplit.classList.toggle("show", open);
+    });
+    dom.presentFromStart.onclick = () => { closePopovers(); state.currentSlideIndex = 0; startPresentation(); };
+    dom.presentFromCurrent.onclick = () => { closePopovers(); startPresentation(); };
+    document.addEventListener("click", () => closePopovers());
+
+    // painel lateral
+    dom.tabBtnProps.onclick = () => openPane("props");
+    dom.tabBtnChat.onclick = () => openPane("chat");
+    dom.btnToggleChat.onclick = () => openPane("chat", { toggle: true });
+    dom.btnPaneProps.onclick = () => openPane("props", { toggle: true });
+    dom.btnClosePane.onclick = closePane;
+    const pane = store.get("pane", "props");
+    if (pane && !isMobile()) openPane(pane); else closePane();
+
+    // anotações
+    dom.btnNotesToggle.onclick = () => setNotesVisible(dom.notesBar.classList.contains("hidden"));
+    dom.btnNotesToggleStatus.onclick = dom.btnNotesToggle.onclick;
+    setNotesVisible(store.get("notes", true));
+
+    // barra de status
+    dom.statusIssues.onclick = triggerAutofix;
+  }
+
   function setupEventListeners() {
     // Título do Deck
     dom.deckTitle.addEventListener("change", () => {
@@ -2229,13 +2523,8 @@
       showToast("Título atualizado");
     });
 
-    // Seletor de Tema
-    dom.themeSelect.addEventListener("change", () => {
-      state.deck.theme = dom.themeSelect.value;
-      syncDeckToServer();
-      renderCurrentSlide();
-      showToast(`Tema alterado para "${state.deck.theme}"`);
-    });
+    // Seletor de Tema (escondido; a galeria da aba Design chama changeTheme direto)
+    dom.themeSelect.addEventListener("change", () => changeTheme(dom.themeSelect.value));
 
     // Seletor de Tom do Slide
     dom.toneSelect.addEventListener("change", () => {
@@ -2279,27 +2568,6 @@
     dom.btnDupSlide.onclick = duplicateCurrentSlide;
     dom.btnDelSlide.onclick = deleteCurrentSlide;
     dom.btnAutofix.onclick = triggerAutofix;
-
-    // Toggle Chat Lateral
-    dom.btnToggleChat.onclick = () => {
-      dom.btnToggleChat.classList.toggle("active");
-      dom.inspectorSidebar.classList.toggle("collapsed");
-    };
-
-    // Alternância de Abas na Barra Direita
-    dom.tabBtnProps.onclick = () => {
-      dom.tabBtnProps.classList.add("active");
-      dom.tabBtnChat.classList.remove("active");
-      dom.tabPanelProps.classList.add("active");
-      dom.tabPanelChat.classList.remove("active");
-    };
-    dom.tabBtnChat.onclick = () => {
-      dom.tabBtnChat.classList.add("active");
-      dom.tabBtnProps.classList.remove("active");
-      dom.tabPanelChat.classList.add("active");
-      dom.tabPanelProps.classList.remove("active");
-      dom.chatInput.focus();
-    };
 
     // Chat Form
     dom.chatForm.onsubmit = handleChatSubmit;
@@ -2357,6 +2625,8 @@
           throw new Error(data.error || "Erro ao processar arquivo YAML");
         }
         state.deck = data.spec;
+        state.file = null;
+        updateSaveStatus();
         dom.deckTitle.value = state.deck.title || file.name.replace(/\.(ya?ml)$/i, "");
         if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
         state.currentSlideIndex = 0;
@@ -2382,6 +2652,8 @@
           throw new Error(data.error || "Erro ao carregar caminho no servidor");
         }
         state.deck = data.spec;
+        state.file = data.file || null;
+        updateSaveStatus();
         dom.deckTitle.value = state.deck.title || pathStr;
         if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
         state.currentSlideIndex = 0;
@@ -2464,14 +2736,18 @@
       }
     });
 
-    // Dropdown de Exportação
+    // Menu Arquivo
     dom.btnExportMenu.onclick = (e) => {
       e.stopPropagation();
-      dom.exportDropdown.parentElement.classList.toggle("show");
+      const open = !dom.exportDropdown.parentElement.classList.contains("show");
+      closePopovers();
+      dom.exportDropdown.parentElement.classList.toggle("show", open);
+      // fixed e ancorado: a faixa de abas rola na horizontal e cortaria o menu
+      const r = dom.btnExportMenu.getBoundingClientRect();
+      dom.exportDropdown.style.top = `${r.bottom + 2}px`;
+      dom.exportDropdown.style.left = `${Math.max(8, r.left)}px`;
     };
-    document.addEventListener("click", () => {
-      dom.exportDropdown.parentElement.classList.remove("show");
-    });
+    dom.exportDropdown.addEventListener("click", () => dom.exportDropdown.parentElement.classList.remove("show"));
 
     dom.exportYaml.onclick = (e) => {
       e.preventDefault();
@@ -2577,18 +2853,8 @@
     dom.mobileNavBtnPresent?.addEventListener("click", () => {
       startPresentation();
     });
-    dom.mobileNavBtnEditor?.addEventListener("click", () => {
-      const sb = document.getElementById("inspector-sidebar");
-      document.getElementById("slides-nav")?.classList.remove("mobile-open");
-      sb?.classList.toggle("mobile-open");
-      dom.tabBtnProps.click();
-    });
-    dom.mobileNavBtnChat?.addEventListener("click", () => {
-      const sb = document.getElementById("inspector-sidebar");
-      document.getElementById("slides-nav")?.classList.remove("mobile-open");
-      sb?.classList.toggle("mobile-open");
-      dom.tabBtnChat.click();
-    });
+    dom.mobileNavBtnEditor?.addEventListener("click", () => openPane("props", { toggle: true }));
+    dom.mobileNavBtnChat?.addEventListener("click", () => openPane("chat", { toggle: true }));
 
     // Fechar gavetas mobile se tocar no viewport central
     dom.canvasViewport.addEventListener("touchstart", () => {
@@ -2639,10 +2905,20 @@
       () => dom.presPrev.click()
     );
 
+    const syncAudioButton = () => {
+      const ic = dom.btnAudioToggle.querySelector(".ic");
+      ic.dataset.ic = state.soundEnabled ? "volume-2" : "volume-x";
+      delete ic.dataset.done;
+      hydrateIcons(dom.btnAudioToggle);
+      dom.btnAudioToggle.classList.toggle("active", state.soundEnabled);
+    };
+    state.soundEnabled = store.get("sound", true);
+    syncAudioButton();
     dom.btnAudioToggle.onclick = () => {
       state.soundEnabled = !state.soundEnabled;
-      dom.btnAudioToggle.textContent = state.soundEnabled ? "🔊" : "🔇";
-      showToast(state.soundEnabled ? "Feedback sonoro ativado" : "Feedback sonoro desativado");
+      store.set("sound", state.soundEnabled);
+      syncAudioButton();
+      showToast(state.soundEnabled ? "Sons ligados" : "Sons desligados");
       if (state.soundEnabled) playHaptic("snap");
     };
 
@@ -2663,6 +2939,13 @@
       }
 
       if (e.key === "Escape") {
+        if (document.querySelector(".popover.open, .split-button.show, .file-menu-wrap.show")) {
+          closePopovers();
+          return;
+        }
+        for (const m of [dom.modalAiDeck, dom.modalOpenServer]) {
+          if (!m.classList.contains("hidden")) { m.classList.add("hidden"); return; }
+        }
         if (!dom.modalNapkin.classList.contains("hidden")) {
           closeNapkinModal();
           return;
@@ -2671,7 +2954,7 @@
           closeIconPicker();
           return;
         }
-        if (!dom.spotlightModal.classList.contains("hidden")) {
+        if (!dom.commandPaletteModal.classList.contains("hidden")) {
           closeSpotlight();
           return;
         }

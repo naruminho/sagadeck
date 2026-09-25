@@ -17,7 +17,7 @@ const PUBLIC_DIR = path.join(HERE, "public");
 // templates de exemplo do pacote (repositório: ../../templates · motor empacotado: ./templates)
 const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve(HERE, "templates")];
 const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
-const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function createStudioServer(deckPath = null, opts = {}) {
@@ -131,8 +131,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(css);
         return;
       }
-      if (pathname === "/app.js") {
-        const js = fs.readFileSync(path.join(PUBLIC_DIR, "app.js"), "utf8");
+      if (pathname === "/app.js" || pathname === "/ui-icons.js") {
+        const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
         return;
@@ -155,6 +155,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
           yaml: rawYaml,
           file: currentFile,
           themes: Object.keys(THEMES),
+          // para a galeria de temas: nome curto + cores de fundo, texto e destaque
+          themeMeta: Object.fromEntries(Object.entries(THEMES).map(([k, t]) => [k, {
+            label: String(t.label || k).split(/\s+[—–-]\s+/)[0],
+            desc: String(t.label || "").split(/\s+[—–-]\s+/)[1] || "",
+            paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
+          }])),
+          file: currentFile,
           layouts: Object.keys(LAYOUTS),
         }));
         return;

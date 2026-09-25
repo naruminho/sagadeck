@@ -59,7 +59,7 @@ const warnedPoses = new Set();
 export function resolvePose(name) {
   if (!name) return "stand";
   if (POSES[name]) return name;
-  const key = String(name).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[\s_]+/g, "-");
+  const key = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[\s_]+/g, "-");
   if (POSES[key]) return key;
   if (POSE_ALIASES[key]) return POSE_ALIASES[key];
   if (!warnedPoses.has(name)) {
