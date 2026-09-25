@@ -189,19 +189,7 @@
     // Apresentação Fullscreen & Live Drawing
     presModal: document.getElementById("presentation-modal"),
     modalClosePresent: document.getElementById("modal-close-present"),
-    modalStage: document.getElementById("modal-stage"),
-    presSlideRender: document.getElementById("pres-slide-render"),
-    presDrawCanvas: document.getElementById("pres-draw-canvas"),
-    presDrawToolbar: document.getElementById("pres-draw-toolbar"),
-    presDrawFab: document.getElementById("pres-draw-fab"),
-    presBtnPen: document.getElementById("pres-btn-pen"),
-    presBtnHighlighter: document.getElementById("pres-btn-highlighter"),
-    presBtnUndo: document.getElementById("pres-btn-undo"),
-    presBtnClear: document.getElementById("pres-btn-clear"),
-    presBtnCloseDraw: document.getElementById("pres-btn-close-draw"),
-    presPrev: document.getElementById("pres-prev"),
-    presNext: document.getElementById("pres-next"),
-    presCounter: document.getElementById("pres-counter"),
+    presFrame: document.getElementById("pres-frame"),
     // Navegação Mobile (Smartphones)
     mobileNavBtnSlides: document.getElementById("mobile-btn-slides"),
     mobileNavBtnNapkin: document.getElementById("mobile-btn-napkin"),
@@ -1185,13 +1173,13 @@
     { title: "Ritmo narrativo", cat: "Revisar", ic: "activity", fn: () => { selectRibbonTab("revisar"); dom.btnStoryArc.click(); } },
     { title: "Painel Formatar", cat: "Exibir", ic: "sliders-horizontal", fn: () => openPane("props") },
     { title: "Mostrar/ocultar anotações", cat: "Exibir", ic: "sticky-note", fn: () => dom.btnNotesToggle.click() },
-    { title: "Editar YAML do slide", cat: "Exibir", ic: "code-xml", fn: () => toggleYamlDrawer() },
+    { title: "Editar YAML da apresentação", cat: "Exibir", ic: "code-xml", fn: () => toggleYamlDrawer() },
     { title: "Interface escura", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("dark") },
     { title: "Interface clara", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("light") },
     { title: "Interface automática (segue o sistema)", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("system") },
     { title: "Apresentar deste slide", cat: "Apresentar", ic: "play", fn: () => startPresentation() },
     { title: "Apresentar do início", cat: "Apresentar", ic: "play", fn: () => { state.currentSlideIndex = 0; startPresentation(); } },
-    { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => { startPresentation(); setTimeout(() => togglePresDrawing(true, "pen"), 250); } },
+    { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => startPresentation({ pen: true }) },
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
     { title: "Baixar YAML", cat: "Arquivo", ic: "download", fn: () => dom.exportYaml.click() },
@@ -1835,215 +1823,56 @@
   }
 
   // ==========================================================================
-  // MODO APRESENTAÇÃO FULLSCREEN (F5) & ANTI-BLOQUEIO CORPORATIVO
+  // MODO APRESENTAÇÃO: a apresentação real (mesmo HTML do "Em uma nova aba") por cima do Studio.
+  // O runtime traz tudo: cliques/etapas, timers, enquetes, caneta (D/M), tela cheia (F),
+  // modo apresentador (P) e anti-bloqueio de tela. Aqui só abrimos, sincronizamos o slide e fechamos.
   // ==========================================================================
-  let presWakeLock = null;
-  let presKeepAwakeVideo = null;
+  let presCurWatch = null;
 
-  async function requestStudioWakeLock() {
-    try {
-      if ("wakeLock" in navigator) {
-        presWakeLock = await navigator.wakeLock.request("screen");
-        presWakeLock.addEventListener("release", () => { presWakeLock = null; });
-        return true;
-      }
-    } catch (e) {}
-
-    try {
-      if (!presKeepAwakeVideo) {
-        presKeepAwakeVideo = document.createElement("video");
-        presKeepAwakeVideo.setAttribute("playsinline", "");
-        presKeepAwakeVideo.setAttribute("muted", "");
-        presKeepAwakeVideo.setAttribute("loop", "");
-        presKeepAwakeVideo.style.cssText = "position:fixed;width:1px;height:1px;top:-10px;left:-10px;opacity:0.01;pointer-events:none;";
-        presKeepAwakeVideo.src = "data:video/webm;base64,GkXfo0AgQoaBAUL3gQDu4vqcgQdUaW5mb1ZAdYGAZW5jb2RpbmdlcHVibGlzaGVyX2FwcGxpY2F0aW9uY2hhcnNldAB4h5C5kIEYQoEB2QCQA4N1c2WDZkZlZmVmZmVmZmVmZmVmZmVmZmVmZmVmZmVmZg==";
-        document.body.appendChild(presKeepAwakeVideo);
-        presKeepAwakeVideo.play().catch(() => {});
-      }
-    } catch (e) {}
-    return false;
+  function presRuntime() {
+    try { return dom.presFrame.contentWindow?.sagadeck || null; } catch { return null; }
   }
 
-  function releaseStudioWakeLock() {
-    if (presWakeLock) {
-      presWakeLock.release().catch(() => {});
-      presWakeLock = null;
-    }
-    if (presKeepAwakeVideo) {
-      presKeepAwakeVideo.pause();
-      presKeepAwakeVideo.remove();
-      presKeepAwakeVideo = null;
-    }
-  }
-
-  document.addEventListener("visibilitychange", () => {
-    if (!dom.presModal.classList.contains("hidden") && document.visibilityState === "visible") {
-      requestStudioWakeLock();
-    }
-  });
-
-  function startPresentation() {
+  async function startPresentation({ pen = false } = {}) {
+    await syncDeckToServer(); // a prévia é montada a partir do deck do servidor
+    const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
+    dom.presFrame.src = `/preview?t=${Date.now()}#${start}`;
     document.documentElement.requestFullscreen?.().catch(() => {});
-    requestStudioWakeLock();
-    showToast("🛡️ Modo Apresentação: Anti-bloqueio de tela ativo");
-    updatePresSlide();
+    dom.presFrame.onload = async () => {
+      const win = dom.presFrame.contentWindow;
+      if (dom.presModal.classList.contains("hidden") || win.location.href === "about:blank") return;
+      const status = await fetch("/api/preview-status").then((r) => r.json()).catch(() => ({ ok: true, warnings: [] }));
+      if (!status.ok || !win.sagadeck) {
+        closePresentation();
+        showToast(`Não consegui abrir a apresentação: ${status.error || "erro ao montar o HTML"}`, 9000);
+        return;
+      }
+      if (status.warnings.length) showToast(`Apresentando com avisos: ${status.warnings.join(" · ")}`, 9000);
+      dom.presFrame.focus();
+      // Esc fecha a apresentação (se a caneta estiver ligada, o runtime a desliga primeiro)
+      // fase de captura: roda antes do runtime, que desliga a caneta no mesmo Esc
+      win.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !win.document.body.classList.contains("drawing")) closePresentation();
+      }, true);
+      if (pen) win.document.dispatchEvent(new KeyboardEvent("keydown", { key: "d", bubbles: true }));
+      clearInterval(presCurWatch);
+      presCurWatch = setInterval(() => {
+        const rt = presRuntime();
+        if (rt && typeof rt.cur === "number") state.presCur = rt.cur;
+      }, 300);
+    };
   }
 
   function closePresentation() {
+    if (dom.presModal.classList.contains("hidden")) return;
+    clearInterval(presCurWatch);
+    const cur = presRuntime()?.cur ?? state.presCur;
     dom.presModal.classList.add("hidden");
-    togglePresDrawing(false);
-    releaseStudioWakeLock();
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
-    }
-  }
-
-  // ==========================================================================
-  // CANETA E ANOTAÇÕES AO VIVO NO MODO APRESENTAÇÃO DO STUDIO
-  // ==========================================================================
-  let isPresDrawing = false;
-  let presDrawTool = "pen"; // "pen" | "highlighter"
-  let presDrawColor = "#ef4444";
-  let isPresPointerDown = false;
-  let activePresStroke = null;
-  const presSlideStrokes = {}; // { [slideIdx]: [strokes] }
-
-  function togglePresDrawing(forceState, tool = "pen") {
-    if (!dom.presDrawCanvas) return;
-    isPresDrawing = typeof forceState === "boolean" ? forceState : !isPresDrawing;
-    if (tool) presDrawTool = tool;
-    document.body.classList.toggle("pres-drawing", isPresDrawing);
-    if (dom.presDrawToolbar) dom.presDrawToolbar.style.display = isPresDrawing ? "flex" : "none";
-    if (dom.presDrawFab) dom.presDrawFab.style.display = isPresDrawing ? "none" : "";
-    if (isPresDrawing) {
-      updatePresDrawUI();
-      showToast(presDrawTool === "highlighter" ? "🖍️ Marca-texto ativo (D: caneta, C: limpar)" : "✏️ Caneta ativa (M: marca-texto, C: limpar)");
-    }
-  }
-
-  function updatePresDrawUI() {
-    dom.presBtnPen?.classList.toggle("active", presDrawTool === "pen");
-    dom.presBtnHighlighter?.classList.toggle("active", presDrawTool === "highlighter");
-    dom.presDrawToolbar?.querySelectorAll(".draw-color").forEach((b) => {
-      b.classList.toggle("active", b.dataset.color === presDrawColor);
-    });
-  }
-
-  function getPresDrawCoords(e) {
-    const rect = dom.presDrawCanvas.getBoundingClientRect();
-    const sx = 1920 / rect.width;
-    const sy = 1080 / rect.height;
-    return {
-      x: (e.clientX - rect.left) * sx,
-      y: (e.clientY - rect.top) * sy,
-    };
-  }
-
-  function redrawPresSlideDrawings(slideIdx) {
-    const ctx = dom.presDrawCanvas?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, 1920, 1080);
-    const strokes = presSlideStrokes[slideIdx] || [];
-    for (const s of strokes) {
-      renderPresStroke(s, ctx);
-    }
-  }
-
-  function renderPresStroke(s, ctx) {
-    if (!ctx || !s.points || s.points.length < 2) return;
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    if (s.tool === "highlighter") {
-      ctx.globalAlpha = 0.38;
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.width || 28;
-    } else {
-      ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.width || 5;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(s.points[0].x, s.points[0].y);
-    for (let i = 1; i < s.points.length; i++) {
-      const p1 = s.points[i - 1];
-      const p2 = s.points[i];
-      const mx = (p1.x + p2.x) / 2;
-      const my = (p1.y + p2.y) / 2;
-      ctx.quadraticCurveTo(p1.x, p1.y, mx, my);
-    }
-    const last = s.points[s.points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function undoPresDrawing() {
-    const idx = state.currentSlideIndex;
-    const strokes = presSlideStrokes[idx] || [];
-    if (strokes.length > 0) {
-      strokes.pop();
-      redrawPresSlideDrawings(idx);
-      showToast("Último traço desfeito");
-    }
-  }
-
-  function clearPresDrawing() {
-    const idx = state.currentSlideIndex;
-    presSlideStrokes[idx] = [];
-    redrawPresSlideDrawings(idx);
-    showToast("Anotações do slide limpas");
-  }
-
-  function setupPresDrawingListeners() {
-    if (!dom.presDrawCanvas) return;
-    dom.presDrawCanvas.addEventListener("pointerdown", (e) => {
-      if (!isPresDrawing) return;
-      e.preventDefault();
-      isPresPointerDown = true;
-      const pt = getPresDrawCoords(e);
-      activePresStroke = {
-        tool: presDrawTool,
-        color: presDrawColor,
-        width: presDrawTool === "highlighter" ? 28 : 5,
-        points: [pt, pt],
-      };
-      const idx = state.currentSlideIndex;
-      if (!presSlideStrokes[idx]) presSlideStrokes[idx] = [];
-      presSlideStrokes[idx].push(activePresStroke);
-      const ctx = dom.presDrawCanvas.getContext("2d");
-      renderPresStroke(activePresStroke, ctx);
-    });
-
-    dom.presDrawCanvas.addEventListener("pointermove", (e) => {
-      if (!isPresPointerDown || !activePresStroke) return;
-      e.preventDefault();
-      const pt = getPresDrawCoords(e);
-      activePresStroke.points.push(pt);
-      redrawPresSlideDrawings(state.currentSlideIndex);
-    });
-
-    const endPresDraw = () => {
-      isPresPointerDown = false;
-      activePresStroke = null;
-    };
-    dom.presDrawCanvas.addEventListener("pointerup", endPresDraw);
-    dom.presDrawCanvas.addEventListener("pointercancel", endPresDraw);
-
-    dom.presDrawFab?.addEventListener("click", () => togglePresDrawing(true, "pen"));
-    dom.presBtnPen?.addEventListener("click", () => { presDrawTool = "pen"; updatePresDrawUI(); });
-    dom.presBtnHighlighter?.addEventListener("click", () => { presDrawTool = "highlighter"; updatePresDrawUI(); });
-    dom.presBtnUndo?.addEventListener("click", undoPresDrawing);
-    dom.presBtnClear?.addEventListener("click", clearPresDrawing);
-    dom.presBtnCloseDraw?.addEventListener("click", () => togglePresDrawing(false));
-    dom.presDrawToolbar?.querySelectorAll(".draw-color").forEach((b) => {
-      b.addEventListener("click", () => {
-        presDrawColor = b.dataset.color || "#ef4444";
-        updatePresDrawUI();
-      });
-    });
+    dom.presFrame.src = "about:blank";
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    // volta para o slide em que a apresentação parou
+    if (typeof cur === "number" && cur !== state.currentSlideIndex && state.deck?.slides[cur]) selectSlide(cur);
   }
 
   // ==========================================================================
@@ -2131,31 +1960,6 @@
 
     syncDeckToServer();
     closeNapkinModal();
-  }
-
-  function updatePresSlide() {
-    const idx = state.currentSlideIndex;
-    dom.presCounter.textContent = `${idx + 1} / ${state.deck.slides.length}`;
-    const slide = state.deck.slides[idx];
-
-    fetch("/api/render-slide", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slide, index: idx, spec: state.deck }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (dom.presSlideRender) {
-          dom.presSlideRender.innerHTML = data.html;
-        } else {
-          dom.modalStage.innerHTML = data.html;
-        }
-        const scaleW = window.innerWidth / 1920;
-        const scaleH = window.innerHeight / 1080;
-        dom.modalStage.style.transform = `scale(${Math.min(scaleW, scaleH)})`;
-        fitSlideText(dom.presSlideRender || dom.modalStage);
-        redrawPresSlideDrawings(idx);
-      });
   }
 
   // ==========================================================================
@@ -2637,7 +2441,7 @@
         const res = await fetch("/api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ yaml: text, saveToFile: false }),
+          body: JSON.stringify({ yaml: text, saveToFile: false, source: "browser-file" }),
         });
         const data = await res.json();
         if (!res.ok || data.error) {
@@ -2784,18 +2588,7 @@
     // Modo Apresentação Fullscreen
     dom.btnPresent.onclick = startPresentation;
     dom.modalClosePresent.onclick = closePresentation;
-    dom.presPrev.onclick = () => {
-      if (state.currentSlideIndex > 0) {
-        state.currentSlideIndex--;
-        updatePresSlide();
-      }
-    };
-    dom.presNext.onclick = () => {
-      if (state.currentSlideIndex < state.deck.slides.length - 1) {
-        state.currentSlideIndex++;
-        updatePresSlide();
-      }
-    };
+
 
     // ==========================================================================
     // RECURSOS FORA DA CAIXA & ICON PICKER EVENT LISTENERS
@@ -2858,8 +2651,6 @@
       };
     });
 
-    // Anotações e Caneta no Modo Apresentação
-    setupPresDrawingListeners();
 
     // Navegação Mobile (Smartphones)
     dom.mobileNavBtnSlides?.addEventListener("click", () => {
@@ -2918,11 +2709,7 @@
       }
     );
 
-    attachSwipe(
-      dom.presModal,
-      () => dom.presNext.click(),
-      () => dom.presPrev.click()
-    );
+
 
     const syncAudioButton = () => {
       const ic = dom.btnAudioToggle.querySelector(".ic");
@@ -2981,54 +2768,21 @@
           toggleYamlDrawer();
           return;
         }
-        if (isPresDrawing) {
-          togglePresDrawing(false);
-          return;
-        }
         closePresentation();
         return;
       }
 
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
 
-      if (!dom.presModal.classList.contains("hidden")) {
-        if ((e.key === "d" || e.key === "D")) {
-          e.preventDefault();
-          togglePresDrawing(isPresDrawing && presDrawTool === "pen" ? false : true, "pen");
-          return;
-        }
-        if ((e.key === "m" || e.key === "M")) {
-          e.preventDefault();
-          togglePresDrawing(isPresDrawing && presDrawTool === "highlighter" ? false : true, "highlighter");
-          return;
-        }
-        if (isPresDrawing && (e.key === "z" || e.key === "Z")) {
-          e.preventDefault();
-          undoPresDrawing();
-          return;
-        }
-        if (isPresDrawing && (e.key === "c" || e.key === "C" || e.key === "e" || e.key === "E")) {
-          e.preventDefault();
-          clearPresDrawing();
-          return;
-        }
-      }
-
       if (e.key === "F5") {
         e.preventDefault();
         startPresentation();
       } else if (e.key === "ArrowRight" || e.key === " ") {
-        if (!dom.presModal.classList.contains("hidden")) {
-          e.preventDefault();
-          dom.presNext.click();
-        } else if (state.currentSlideIndex < state.deck.slides.length - 1) {
+        if (state.currentSlideIndex < state.deck.slides.length - 1) {
           selectSlide(state.currentSlideIndex + 1);
         }
       } else if (e.key === "ArrowLeft") {
-        if (!dom.presModal.classList.contains("hidden")) {
-          e.preventDefault();
-          dom.presPrev.click();
-        } else if (state.currentSlideIndex > 0) {
+        if (state.currentSlideIndex > 0) {
           selectSlide(state.currentSlideIndex - 1);
         }
       }

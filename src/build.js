@@ -93,10 +93,17 @@ export function buildHTML(rawSpec, opts = {}) {
     slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", time: s.time || 0, layout, words });
   });
 
+  // CSS e widgets próprios ficam ao lado do YAML. Se faltar um (ex.: deck aberto pelo navegador no
+  // Studio, sem a pasta original), a apresentação sai sem ele e com aviso — não quebra inteira.
+  const readCompanion = (f, kind) => {
+    const file = path.resolve(ctx.baseDir, f);
+    try { return fs.readFileSync(file, "utf8"); }
+    catch { warnings.push(`${kind} "${f}" não encontrado em ${ctx.baseDir} — a apresentação saiu sem ele`); return ""; }
+  };
   let customCSS = "";
-  for (const c of [].concat(spec.css || [])) customCSS += fs.readFileSync(path.resolve(ctx.baseDir, c), "utf8") + "\n";
+  for (const c of [].concat(spec.css || [])) customCSS += readCompanion(c, "CSS") + "\n";
   let widgets = "";
-  for (const w of [].concat(spec.widgets || [])) widgets += `\n/* ${w} */\n` + fs.readFileSync(path.resolve(ctx.baseDir, w), "utf8") + "\n";
+  for (const w of [].concat(spec.widgets || [])) widgets += `\n/* ${w} */\n` + readCompanion(w, "widget") + "\n";
 
   const data = { id, title: spec.title || "", author: spec.author || "", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);

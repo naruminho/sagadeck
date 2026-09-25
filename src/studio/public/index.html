@@ -209,7 +209,7 @@
         <div class="rgroup-body">
           <button id="btn-notes-toggle" class="rbtn rbtn-lg" title="Mostrar ou ocultar as anotações do apresentador"><i class="ic" data-ic="sticky-note"></i><span>Anotações</span></button>
           <button id="btn-pane-props" class="rbtn rbtn-lg" title="Painel com os campos do slide"><i class="ic" data-ic="sliders-horizontal"></i><span>Formatar</span></button>
-          <button id="btn-yaml-drawer" class="rbtn rbtn-lg" title="Editar o YAML do slide"><i class="ic" data-ic="code-xml"></i><span>YAML</span></button>
+          <button id="btn-yaml-drawer" class="rbtn rbtn-lg" title="Editar o YAML da apresentação"><i class="ic" data-ic="code-xml"></i><span>YAML</span></button>
         </div>
         <div class="rgroup-label">Painéis</div>
       </div>
@@ -259,7 +259,7 @@
 
       <div id="yaml-drawer" class="yaml-drawer hidden">
         <div class="drawer-header">
-          <span><i class="ic" data-ic="code-xml"></i> YAML deste slide</span>
+          <span><i class="ic" data-ic="code-xml"></i> YAML da apresentação</span>
           <button id="btn-close-yaml-drawer" class="icon-btn" title="Fechar"><i class="ic" data-ic="x"></i></button>
         </div>
         <textarea id="yaml-live-editor" class="yaml-editor" spellcheck="false"></textarea>
@@ -353,36 +353,10 @@
 
   <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
 
-  <!-- MODO APRESENTAÇÃO -->
+  <!-- MODO APRESENTAÇÃO: a apresentação real (runtime completo) por cima do Studio -->
   <div id="presentation-modal" class="modal-fullscreen hidden">
-    <button id="modal-close-present" class="btn-close-modal" title="Sair (Esc)">✕</button>
-    <div id="pres-rotate-tip" class="pres-rotate-tip">Gire o celular para ver em tela cheia</div>
-    <div id="modal-stage-wrapper">
-      <div id="modal-stage" class="stage-16-9">
-        <div id="pres-slide-render" style="width:100%;height:100%;"></div>
-        <canvas id="pres-draw-canvas" width="1920" height="1080"></canvas>
-      </div>
-    </div>
-    <div class="presentation-controls">
-      <button id="pres-prev" class="btn-pres-nav" title="Anterior">←</button>
-      <span id="pres-counter">1 / 1</span>
-      <button id="pres-next" class="btn-pres-nav" title="Próximo">→</button>
-    </div>
-    <div id="pres-draw-toolbar" class="draw-toolbar" style="display:none">
-      <button id="pres-btn-pen" class="draw-btn active" title="Caneta (D)">✏️</button>
-      <button id="pres-btn-highlighter" class="draw-btn" title="Marca-texto (M)">🖍️</button>
-      <div class="draw-separator"></div>
-      <button class="draw-color active" data-color="#ef4444" style="background:#ef4444" title="Vermelho"></button>
-      <button class="draw-color" data-color="#f59e0b" style="background:#f59e0b" title="Amarelo"></button>
-      <button class="draw-color" data-color="#38bdf8" style="background:#38bdf8" title="Azul"></button>
-      <button class="draw-color" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
-      <button class="draw-color" data-color="#ffffff" style="background:#ffffff" title="Branco"></button>
-      <div class="draw-separator"></div>
-      <button id="pres-btn-undo" class="draw-btn" title="Desfazer (Z)">↩️</button>
-      <button id="pres-btn-clear" class="draw-btn" title="Limpar (C)">🗑️</button>
-      <button id="pres-btn-close-draw" class="draw-btn" title="Fechar caneta (D)">✕</button>
-    </div>
-    <button id="pres-draw-fab" class="draw-fab" title="Caneta (D)">✏️</button>
+    <iframe id="pres-frame" class="pres-frame" title="Apresentação" allow="fullscreen; screen-wake-lock"></iframe>
+    <button id="modal-close-present" class="btn-close-modal" title="Voltar ao editor (Esc)">✕</button>
   </div>
 
   <!-- BUSCA DE COMANDOS -->

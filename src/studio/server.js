@@ -51,6 +51,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
     }
   }
 
+  let lastPreview = { ok: true, error: null, warnings: [] }; // resultado do último /preview
+
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
   function persist() {
     if (!currentFile || isBundledTemplate(currentFile)) return;
@@ -140,9 +142,25 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // 2. Visualização Completa (Preview Standalone)
       if (pathname === "/preview") {
-        const out = buildHTML(currentSpec);
+        let out;
+        try {
+          out = buildHTML(currentSpec);
+        } catch (e) {
+          lastPreview = { ok: false, error: e.message, warnings: [] };
+          res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end(`Não consegui montar a apresentação: ${e.message}`);
+          return;
+        }
+        // avisos de montagem (ex.: CSS/widget ao lado do YAML que não foi achado) para o Studio mostrar
+        lastPreview = { ok: true, error: null, warnings: out.warnings.filter((w) => !/palavras \(limite/.test(w)) };
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(out.html);
+        return;
+      }
+
+      if (pathname === "/api/preview-status") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(lastPreview));
         return;
       }
 
@@ -182,7 +200,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
         if (body.filepath) {
           currentFile = path.resolve(body.filepath);
-        } else if (body.yaml && body.saveToFile === false) {
+        } else if (body.source === "browser-file") {
           // Deck aberto pelo navegador (seletor/arrastar): o servidor não sabe o caminho dele.
           // Esquece o arquivo anterior — senão as edições deste deck iam parar por cima daquele.
           currentFile = null;
