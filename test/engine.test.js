@@ -14,6 +14,7 @@ import { LAYOUT_INFO, LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
 import { textToVisualSlide } from "../src/diagram/napkin.js";
 import { NAPKIN_EXAMPLES } from "../src/diagram/napkin-examples.js";
 import { fillTokens, formatDate } from "../src/chrome.js";
+import { varietyReport, CREATIVE_DIRECTIONS, pickDirection } from "../src/ai/variety.js";
 import { ROOT, FIXTURE } from "./helpers.js";
 
 const spec = { title: "Teste", theme: "bauhaus", slides: [] };
@@ -227,4 +228,31 @@ test("todo ícone usado na interface existe no pacote de ícones (scripts/vendor
   used.delete("nome"); // exemplo num comentário
   const missing = [...used].filter((n) => !have.has(n));
   assert.deepEqual(missing, [], "adicione em NAMES de scripts/vendor-ui-icons.mjs e rode o script");
+});
+
+// ---------------------------------------------------------------- variedade (anti-repetição)
+const card = (t) => ({ layout: "cards", title: t, items: [{ title: "a" }, { title: "b" }] });
+
+test("variedade: deck repetitivo é apontado com o motivo", () => {
+  const v = varietyReport({ slides: [{ layout: "cover" }, card(1), card(2), card(3), card(4), { layout: "list" }, { layout: "list" }, { layout: "end" }] });
+  assert.equal(v.ok, false);
+  const all = v.problems.join(" | ");
+  assert.match(all, /4 slides seguidos no mesmo layout \(cards, slides 2–5\)/);
+  assert.match(all, /layouts diferentes/);
+  assert.match(all, /listas\/cartões/);
+  assert.match(all, /nenhum slide de impacto/);
+  assert.match(all, /mesmo tom/);
+});
+
+test("variedade: deck variado passa (inclusive o deck de teste)", () => {
+  const v = varietyReport({ slides: [{ layout: "cover" }, { layout: "headline" }, card(1), { layout: "number", tone: "dark" }, { layout: "timeline" },
+    { layout: "compare" }, { layout: "question" }, { layout: "bento" }, { layout: "end" }] });
+  assert.deepEqual(v.problems, []);
+  assert.equal(varietyReport(loadSpec(FIXTURE)).ok, true);
+});
+
+test("direções criativas: várias, e o sorteio cobre todas", () => {
+  assert.ok(CREATIVE_DIRECTIONS.length >= 5);
+  const seen = new Set(CREATIVE_DIRECTIONS.map((_, k) => pickDirection((k + 0.5) / CREATIVE_DIRECTIONS.length)));
+  assert.equal(seen.size, CREATIVE_DIRECTIONS.length);
 });

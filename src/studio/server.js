@@ -10,6 +10,7 @@ import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
+import { varietyReport } from "../ai/variety.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -337,6 +338,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
         });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(results));
+        return;
+      }
+
+      // variedade do deck (painel Ritmo)
+      if (pathname === "/api/variety" && req.method === "POST") {
+        const body = await readJSON(req);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(varietyReport(body.spec || currentSpec)));
         return;
       }
 

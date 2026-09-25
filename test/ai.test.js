@@ -3,7 +3,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startMockLLM } from "./mock-llm.js";
-import { editDeck, textToSlide, parseOptions } from "../src/ai/deck-ai.js";
+import { editDeck, textToSlide, parseOptions, generateDeck } from "../src/ai/deck-ai.js";
+import YAML from "yaml";
 
 const base = () => ({
   title: "Deck", theme: "bauhaus",
@@ -104,4 +105,41 @@ test("parseOptions separa a resposta das opções clicáveis", () => {
   assert.equal(r.text, "Boa! Quem é o público?");
   assert.deepEqual(r.options, ["Time técnico", "Diretoria", "Clientes"]);
   assert.deepEqual(parseOptions("Sem opções.").options, []);
+});
+
+// ---------------------------------------------------------------- geração: direção criativa + revisão de ritmo
+const deckYaml = (layouts) => "```yaml\n" + YAML.stringify({ title: "Fraudes", theme: "bauhaus", duration: 10,
+  slides: layouts.map((l, k) => (l === "cards" ? { layout: "cards", title: `C${k}`, items: [{ title: "a" }, { title: "b" }], time: 1 }
+    : l === "cover" ? { layout: "cover", title: "Fraudes", time: 1 } : l === "end" ? { layout: "end", title: "Fim", time: 1 }
+    : l === "number" ? { layout: "number", value: 42, label: "x", tone: "dark", time: 1 } : l === "headline" ? { layout: "headline", text: "Uau", time: 1 }
+    : l === "question" ? { layout: "question", question: "E aí?", options: ["a", "b"], time: 1 } : { layout: l, title: `T${k}`, time: 1 })) }) + "```";
+const BORING = ["cover", "cards", "cards", "cards", "cards", "cards", "cards", "end"];
+const VARIED = ["cover", "headline", "cards", "number", "question", "cards", "headline", "end"];
+
+test("gerar deck: direção criativa no prompt e revisão quando sai repetitivo", async () => {
+  const n = llm.requests.length;
+  reply = (req) => (/Ficou repetitivo/.test(req.lastUser) ? deckYaml(VARIED) : deckYaml(BORING));
+  const r = await generateDeck("fraudes no pix", { direction: "Keynote minimalista: teste." });
+  const reqs = llm.requests.slice(n);
+  assert.match(reqs[0].lastUser, /Direção criativa deste deck: Keynote minimalista: teste\./);
+  assert.match(reqs[0].lastUser, /Nunca 3 slides seguidos com o mesmo layout/);
+  const rev = reqs.find((q) => /Ficou repetitivo/.test(q.lastUser));
+  assert.ok(rev, "pediu revisão de ritmo");
+  assert.match(rev.lastUser, /slides seguidos no mesmo layout/);
+  assert.deepEqual(r.spec.slides.map((s) => s.layout), VARIED);
+  assert.equal(r.direction, "Keynote minimalista: teste.");
+});
+
+test("gerar deck: revisão que não melhora é descartada", async () => {
+  reply = () => deckYaml(BORING); // a revisão devolve igual
+  const r = await generateDeck("fraudes", { direction: "x" });
+  assert.deepEqual(r.spec.slides.map((s) => s.layout), BORING);
+  assert.equal(r.variety.ok, false);
+});
+
+test("gerar deck: deck já variado não gasta revisão", async () => {
+  reply = () => deckYaml(VARIED);
+  const n = llm.requests.length;
+  await generateDeck("fraudes", { direction: "x" });
+  assert.equal(llm.requests.slice(n).filter((q) => /Ficou repetitivo/.test(q.lastUser)).length, 0);
 });

@@ -1175,28 +1175,26 @@
     dom.storyArcDot.setAttribute("cx", currentPt.x);
     dom.storyArcDot.setAttribute("cy", currentPt.y);
 
-    let isMonotone = false;
-    if (count >= 4) {
-      for (let i = 0; i <= count - 4; i++) {
-        const slice = slides.slice(i, i + 4);
-        const layouts = new Set(slice.map((s) => s.layout || "auto"));
-        const tones = new Set(slice.map((s) => s.tone || "light"));
-        if (layouts.size === 1 && tones.size === 1) {
-          isMonotone = true;
-          break;
-        }
-      }
-    }
-
-    if (isMonotone) {
-      dom.arcStatusBadge.className = "arc-badge warn";
-      dom.arcStatusBadge.textContent = "Ritmo Monótono";
-      dom.arcRecommendation.textContent = "4 slides seguidos similares detectados. Alterne com gráficos, perguntas ou cards!";
-    } else {
-      dom.arcStatusBadge.className = "arc-badge ok";
-      dom.arcStatusBadge.textContent = "Dinâmico ✓";
-      dom.arcRecommendation.textContent = "Alternância equilibrada de layouts e ritmos visuais.";
-    }
+    // variedade medida no servidor (src/ai/variety.js — a mesma régua da geração com IA)
+    fetch("/api/variety", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: state.deck }) })
+      .then((r) => r.json()).then((v) => {
+        const ok = v.ok;
+        dom.arcStatusBadge.className = `arc-badge ${ok ? "ok" : "warn"}`;
+        dom.arcStatusBadge.textContent = ok ? "Variado ✓" : "Repetitivo";
+        dom.arcRecommendation.textContent = `${v.distinct} layouts diferentes em ${v.slides} slides.`;
+        const ul = document.getElementById("arc-problems");
+        ul.innerHTML = "";
+        v.problems.forEach((p) => { const li = document.createElement("li"); li.textContent = p; ul.append(li); });
+        const btn = document.getElementById("btn-vary-deck");
+        btn.classList.toggle("hidden", ok);
+        btn.onclick = () => {
+          closePopovers();
+          openPane("chat");
+          dom.aiScopeSelect.value = "all";
+          dom.chatInput.value = `Deixe a apresentação menos repetitiva, sem perder conteúdo nem a ordem da narrativa. Problemas de ritmo: ${v.problems.join("; ")}.`;
+          handleChatSubmit();
+        };
+      }).catch(() => {});
   }
 
   // ==========================================================================

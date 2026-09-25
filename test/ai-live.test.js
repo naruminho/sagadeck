@@ -55,3 +55,12 @@ test("refinamento: conversa e depois 'pode fazer' aplica o combinado", opts, asy
   assert.ok(!r.talk, `ficou só conversando: ${r.reply}`);
   assert.match(JSON.stringify(r.spec.slides[i]), /40%/);
 });
+
+test("gerar deck: sai variado (sem 3 layouts iguais seguidos, com slides de impacto)", { ...opts, timeout: 600000 }, async () => {
+  const { generateDeck } = await import("../src/ai/deck-ai.js");
+  const { varietyReport } = await import("../src/ai/variety.js");
+  const r = await generateDeck("Palestra de 15 minutos para gestores de um banco sobre como detectar fraudes no Pix com dados.", { slides: 10 });
+  const v = varietyReport(r.spec);
+  console.log(`direção: ${r.direction}\nlayouts: ${r.spec.slides.map((s) => s.layout).join(", ")}`);
+  assert.deepEqual(v.problems, [], v.problems.join("; "));
+});

@@ -12,6 +12,7 @@ import { LAYOUTS } from "../layouts.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { autofixDeck, autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
+import { varietyReport, pickDirection } from "./variety.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAX_ATTEMPTS = 3;
@@ -562,7 +563,7 @@ Responda com:
 }
 
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, images = false, imageOptions = {}, onProgress, onEvent } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, direction, images = false, imageOptions = {}, onProgress, onEvent } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const wishes = [
@@ -570,10 +571,17 @@ export async function generateDeck(briefing, { theme, slides, duration, images =
     slides ? `Cerca de ${slides} slides.` : "Entre 8 e 14 slides.",
     duration ? `Duração planejada: ${duration} minutos (campo duration).` : "",
   ].filter(Boolean).join(" ");
+  const dir = direction || pickDirection();
   const messages = [
     { role: "system", content: systemPrompt({ images, maxImages: 4 }) },
     { role: "user", content: `Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
 Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
+
+Direção criativa deste deck: ${dir}
+Ritmo visual (a plateia enjoa de slides iguais):
+- Nunca 3 slides seguidos com o mesmo layout; use pelo menos metade de layouts diferentes (manchete, número grande, página inteira, mosaico, funil, pirâmide, comparação, matriz, linha do tempo, pergunta, enquete…).
+- No máximo ~40% de listas/cartões; alterne com slides de impacto (headline, number, statement, full, quote, question).
+- Alterne o tom (dark/accent) nos momentos-chave: virada, dado forte, pergunta.
 
 Briefing:
 """
@@ -604,9 +612,30 @@ Responda só com o deck completo num bloco \`\`\`yaml.` },
       say(`não consegui enxugar (${e.message}); mantive a versão anterior`);
     }
   }
+  // Uma rodada de variedade se ficou repetitivo; a versão nova só vale se melhorar.
+  const before = varietyReport(spec);
+  if (!before.ok) {
+    say(`deixando menos repetitivo (${before.problems.length} problema(s) de ritmo)…`);
+    try {
+      const { spec: varied } = await askUntilValid([
+        { role: "system", content: systemPrompt({ images, maxImages: 4 }) },
+        { role: "user", content: `Deck:\n\`\`\`yaml\n${toYaml(spec)}\`\`\`
+Ficou repetitivo — a plateia vai enjoar:
+${before.problems.map((p) => `- ${p}`).join("\n")}
+
+Reescreva variando os layouts, o ritmo e o tom, SEM perder conteúdo nem a ordem da narrativa (direção criativa: ${dir}).
+Troque slides de lista/cartões por formatos de impacto onde fizer sentido; mantenha notes e time.
+Responda só com o deck completo num bloco \`\`\`yaml.` },
+      ], (t) => parseDeckText(t), { onProgress: onEvent });
+      if (varietyReport(varied).problems.length < before.problems.length) spec = varied;
+      else say("a revisão de ritmo não melhorou; mantive a versão anterior");
+    } catch (e) {
+      say(`não consegui variar (${e.message}); mantive a versão anterior`);
+    }
+  }
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
   const fixed = autofixDeck(spec, []);
-  return { spec: publicSpec(fixed.spec), images: imgs };
+  return { spec: publicSpec(fixed.spec), images: imgs, direction: dir, variety: varietyReport(fixed.spec) };
 }
 
 export function toYaml(spec) {

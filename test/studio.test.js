@@ -316,6 +316,27 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  // ------------------------------------------------------------ variedade
+  await t.test("Ritmo: deck repetitivo mostra os problemas e oferece 'Deixar menos repetitivo'", async () => {
+    const orig = await deck();
+    const boring = { ...orig, slides: [orig.slides[0], ...[1, 2, 3, 4].map((k) => ({ layout: "cards", title: `C${k}`, items: [{ title: "a" }, { title: "b" }] })), orig.slides.at(-1)] };
+    const post = (spec) => p.evaluate(async (spec) => fetch("/api/deck", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec }) }), spec);
+    await post(boring);
+    await p.reload({ waitUntil: "networkidle" }); await settle(600);
+    await tab("revisar");
+    await p.click("#btn-story-arc");
+    await p.waitForFunction(() => document.querySelector("#arc-status-badge").textContent === "Repetitivo");
+    assert.match(await p.innerText("#arc-problems"), /4 slides seguidos no mesmo layout/);
+    await p.click("#btn-vary-deck"); await settle(600);
+    const userMsg = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .user-msg")].pop()?.innerText || "");
+    assert.match(userMsg, /menos repetitiva/);
+    await p.evaluate(() => { const w = document.querySelector(".ai-working"); return w; });
+    await p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 30000 });
+    await post(orig);
+    await p.reload({ waitUntil: "networkidle" }); await settle(600);
+    assert.equal((await deck()).slides.length, orig.slides.length);
+  });
+
   // ------------------------------------------------------------ diagrama de texto
   await t.test("diagrama de texto: formatos com prévia, exemplos e resultado desenhado", async () => {
     await go("cover");
