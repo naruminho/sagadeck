@@ -1186,6 +1186,9 @@
     { title: "Painel Formatar", cat: "Exibir", ic: "sliders-horizontal", fn: () => openPane("props") },
     { title: "Mostrar/ocultar anotações", cat: "Exibir", ic: "sticky-note", fn: () => dom.btnNotesToggle.click() },
     { title: "Editar YAML do slide", cat: "Exibir", ic: "code-xml", fn: () => toggleYamlDrawer() },
+    { title: "Interface escura", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("dark") },
+    { title: "Interface clara", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("light") },
+    { title: "Interface automática (segue o sistema)", cat: "Exibir", ic: "sun-moon", fn: () => setAppTheme("system") },
     { title: "Apresentar deste slide", cat: "Apresentar", ic: "play", fn: () => startPresentation() },
     { title: "Apresentar do início", cat: "Apresentar", ic: "play", fn: () => { state.currentSlideIndex = 0; startPresentation(); } },
     { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => { startPresentation(); setTimeout(() => togglePresDrawing(true, "pen"), 250); } },
@@ -2513,6 +2516,22 @@
 
     // barra de status
     dom.statusIssues.onclick = triggerAutofix;
+
+    // tema da interface (claro/escuro/automático); o <head> já aplicou antes do primeiro desenho
+    const themeSelect = document.getElementById("app-theme-select");
+    themeSelect.value = store.get("appTheme", "system");
+    themeSelect.addEventListener("change", () => setAppTheme(themeSelect.value));
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (store.get("appTheme", "system") === "system") setAppTheme("system");
+    });
+  }
+
+  function setAppTheme(pref) {
+    store.set("appTheme", pref);
+    const dark = pref === "dark" || (pref === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    const sel = document.getElementById("app-theme-select");
+    if (sel) sel.value = pref;
   }
 
   function setupEventListeners() {

@@ -6,6 +6,16 @@
   <title>SagaDeck Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
+  <script>
+    // Tema da interface antes do primeiro desenho (sem piscar branco no escuro).
+    // Preferência: "system" (padrão), "light" ou "dark" — trocada em Exibir › Preferências.
+    (function () {
+      var pref = "system";
+      try { pref = JSON.parse(localStorage.getItem("sagadeck.appTheme")) || "system"; } catch (e) {}
+      var dark = pref === "dark" || (pref === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
 </head>
 <body>
   <!-- ======================================================================
@@ -205,6 +215,15 @@
       </div>
       <div class="rgroup">
         <div class="rgroup-body">
+          <div class="rgroup-fields">
+            <label class="rfield"><span>Interface</span>
+              <select id="app-theme-select" class="rselect" title="Cores da interface do Studio (o slide mantém o tema dele)">
+                <option value="system">Automática</option>
+                <option value="light">Clara</option>
+                <option value="dark">Escura</option>
+              </select>
+            </label>
+          </div>
           <button id="btn-audio-toggle" class="rbtn rbtn-lg" title="Sons de feedback ao alinhar"><i class="ic" data-ic="volume-2"></i><span>Sons</span></button>
         </div>
         <div class="rgroup-label">Preferências</div>
