@@ -325,7 +325,7 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .drawer-header > span { display: inline-flex; align-items: center; gap: 6px; }
 .yaml-status { flex: 1; margin-left: 12px; font-weight: 400; color: var(--ok); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .yaml-status.error { color: var(--err); }
-.yaml-editor { flex: 1; resize: none; border: 0; outline: none; padding: 6px 12px 10px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; background: var(--chrome); }
+
 .notes-bar { height: 96px; background: var(--chrome); border-top: 1px solid var(--ui-line); }
 .notes-input { width: 100%; height: 100%; resize: none; border: 0; outline: none; padding: 10px 16px; font-size: 13px; line-height: 1.5; background: transparent; }
 .notes-input::placeholder { color: var(--text-3); }
@@ -646,3 +646,36 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .auto-item .acts { display: flex; gap: 4px; }
 .thumb-auto { position: absolute; left: 26px; bottom: 10px; z-index: 2; font-size: 11px; padding: 0 5px; border-radius: 8px; background: var(--warn); color: #fff; }
 #status-fit { color: var(--text-3); }
+
+/* barra de formatação flutuante (edição direta no slide) */
+.format-bar { position: fixed; z-index: 300; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--chrome); border-radius: 8px; box-shadow: var(--shadow-2); flex-wrap: wrap; max-width: min(720px, 96vw); }
+.format-bar button { height: 28px; min-width: 28px; padding: 0 8px; border-radius: 4px; font-size: 13px; color: var(--text); }
+.format-bar button:hover { background: var(--hover); }
+.fb-sep { width: 1px; height: 20px; background: var(--ui-line); margin: 0 4px; }
+.fb-mark { background: linear-gradient(#ffd54a, #ffd54a) no-repeat 0 60% / 100% 70%; color: #111; padding: 0 3px; }
+.fb-em { color: var(--brand); font-weight: 700; }
+.format-bar .alchemy-pill { position: static !important; display: flex; align-items: center; gap: 4px; padding: 0; background: none; box-shadow: none; font-size: 12px; }
+.format-bar .alchemy-pill.hidden { display: none; }
+.format-bar .alchemy-label { color: var(--text-3); font-size: 12px; }
+.format-bar .btn-alchemy { font-size: 12px; padding: 3px 8px; }
+
+/* gaveta de YAML: realce de sintaxe (pre por trás de uma textarea transparente) */
+.yaml-code { position: relative; flex: 1; min-height: 0; background: var(--chrome); }
+.yaml-hl, .yaml-editor { position: absolute; inset: 0; margin: 0; padding: 8px 14px 12px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; white-space: pre; tab-size: 2; overflow: auto; border: 0; }
+.yaml-hl { pointer-events: none; color: var(--text); }
+.yaml-editor { resize: none; outline: none; background: transparent; color: transparent; caret-color: var(--text); }
+.yaml-editor::selection { background: color-mix(in srgb, var(--brand) 30%, transparent); color: transparent; }
+.yh-key { color: #0b6bcb; }
+.yh-str { color: #a15c00; }
+.yh-num { color: #0a7d4f; }
+.yh-bool { color: #8b2fc9; }
+.yh-com { color: #7d8590; font-style: italic; }
+.yh-sep { color: var(--brand); font-weight: 700; font-style: normal; }
+.yh-mk { background: color-mix(in srgb, #ffd54a 45%, transparent); border-radius: 2px; }
+.yh-dash { color: var(--text-3); }
+:root[data-theme="dark"] .yh-key { color: #6cb6ff; }
+:root[data-theme="dark"] .yh-str { color: #f0b86e; }
+:root[data-theme="dark"] .yh-num { color: #56d364; }
+:root[data-theme="dark"] .yh-bool { color: #d2a8ff; }
+.segmented-sm .seg { height: 22px; padding: 0 8px; font-size: 12px; }
+.drawer-header { gap: 10px; }

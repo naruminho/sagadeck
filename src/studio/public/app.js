@@ -161,10 +161,14 @@
     heatmapOverlay: document.getElementById("heatmap-overlay"),
     alchemyPill: document.getElementById("alchemy-pill"),
     alchemyActions: document.getElementById("alchemy-actions"),
+    formatBar: document.getElementById("format-bar"),
     yamlDrawer: document.getElementById("yaml-drawer"),
     yamlLiveEditor: document.getElementById("yaml-live-editor"),
     btnCloseYamlDrawer: document.getElementById("btn-close-yaml-drawer"),
     yamlStatus: document.getElementById("yaml-status"),
+    yamlHl: document.getElementById("yaml-hl"),
+    yamlModeSlide: document.getElementById("yaml-mode-slide"),
+    yamlModeDeck: document.getElementById("yaml-mode-deck"),
     storyArcWidget: document.getElementById("story-arc-widget"),
     storyArcPath: document.getElementById("story-arc-path"),
     storyArcDot: document.getElementById("story-arc-dot"),
@@ -348,71 +352,165 @@
   }
 
   // ==========================================================================
-  // EDIÇÃO DIRETA WYSIWYG INLINE
+  // EDIÇÃO DIRETA NO SLIDE (como no Word/PowerPoint)
+  // Qualquer texto do slide é editável: descobrimos de qual campo do YAML ele veio (comparando o
+  // texto puro) e, ao salvar, convertemos o HTML editado de volta para a marcação do sagadeck
+  // (**negrito**, *itálico*, ==destaque==, ^^cor^^, ~~riscado~~), sem perder a formatação.
   // ==========================================================================
+  const plainOf = (v) => String(v ?? "")
+    .replace(/\*\*|==|\^\^|~~|`/g, "").replace(/(^|[^*])\*([^*]+)\*/g, "$1$2").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\s+/g, " ").trim();
+
+  // [objeto, chave] do texto do YAML cujo texto puro é `text` (ignora anotações e campos internos)
+  function findTextPath(slide, text) {
+    const want = text.replace(/\s+/g, " ").trim();
+    if (!want) return null;
+    let found = null;
+    const walk = (o) => {
+      if (found || !o || typeof o !== "object") return;
+      for (const [k, v] of Object.entries(o)) {
+        if (k === "notes" || k === "auto" || k.startsWith("_")) continue;
+        if (typeof v === "string") { if (plainOf(v) === want) { found = [o, k]; return; } }
+        else walk(v);
+      }
+    };
+    walk(slide);
+    return found;
+  }
+
+  function domToMarkup(node) {
+    let out = "";
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out += n.nodeValue.replace(/ /g, " "); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase();
+      if (tag === "br") { out += "\n"; return; }
+      const inner = domToMarkup(n);
+      if (!inner) return;
+      if (tag === "b" || tag === "strong") out += `**${inner}**`;
+      else if (tag === "i" || tag === "em") out += `*${inner}*`;
+      else if (tag === "mark") out += `==${inner}==`;
+      else if (tag === "s" || tag === "strike" || tag === "del") out += `~~${inner}~~`;
+      else if (tag === "code") out += "`" + inner + "`";
+      else if (tag === "a") out += `[${inner}](${n.getAttribute("href")})`;
+      else if (tag === "span" && n.classList.contains("em")) out += `^^${inner}^^`;
+      else if (tag === "div" || tag === "p") out += (out && !out.endsWith("\n") ? "\n" : "") + inner;
+      else out += inner;
+    });
+    return out;
+  }
+
+  let editingEl = null;
+  let inlineSaveTimer = null;
+
   function enableInlineEditing() {
     const container = dom.renderedSlideContainer;
-    const editableSelectors = [
-      ".ttl", ".sub", ".kicker", ".st-line", ".q-text",
-      ".nm-val", ".card-title", ".card-text", ".rf",
-      ".sc-text .ttl", ".cv-main .ttl", ".en-main .ttl",
-      "p", "li"
-    ];
-
-    const elements = container.querySelectorAll(editableSelectors.join(", "));
-    elements.forEach((el) => {
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (!slide) return;
+    container.querySelectorAll(".t").forEach((el) => {
+      if (el.closest(".fig, svg")) return;
+      const path = findTextPath(slide, el.innerText);
+      if (!path) { el.title = "Este texto é gerado pelo layout — edite no painel Formatar"; return; }
+      el._path = path;
       el.setAttribute("contenteditable", "true");
       el.setAttribute("spellcheck", "false");
-
+      el.addEventListener("focus", () => { editingEl = el; showFormatBar(el); });
       el.addEventListener("input", () => {
-        saveInlineChange(el);
+        clearTimeout(inlineSaveTimer);
+        inlineSaveTimer = setTimeout(() => saveInlineChange(el), 250);
         inspectGeometry();
       });
-
       el.addEventListener("mouseup", () => {
         const sel = window.getSelection();
-        const selText = sel ? sel.toString().trim() : "";
-        showAlchemyPill(el, selText);
+        showAlchemyPill(el, sel ? sel.toString().trim() : "");
       });
-
-      el.addEventListener("focus", () => {
-        showAlchemyPill(el, "");
-      });
-
+      el.addEventListener("keydown", (e) => { if (e.key === "Escape") el.blur(); });
       el.addEventListener("blur", () => {
-        syncDeckToServer();
-        renderThumbnails();
+        clearTimeout(inlineSaveTimer);
+        saveInlineChange(el);
+        // clique na barra de formatação não conta como sair do texto
+        setTimeout(() => {
+          if (document.activeElement === el || dom.formatBar.contains(document.activeElement)) return;
+          editingEl = null;
+          hideFormatBar();
+          syncDeckToServer();
+          renderCurrentSlide(); // redesenha (miniatura e painel acompanham)
+        }, 0);
       });
     });
   }
 
-  // Mapear Edição Inline de Volta ao Objeto do Slide
+  // grava o texto editado de volta no campo do YAML, com a marcação
   function saveInlineChange(el) {
     const slide = state.deck.slides[state.currentSlideIndex];
-    if (!slide) return;
-    const text = el.innerText.trim();
-
-    if (el.classList.contains("ttl")) {
-      slide.title = text;
-      dom.deckTitle.value = text;
-    } else if (el.classList.contains("sub")) {
-      slide.subtitle = text;
-    } else if (el.classList.contains("kicker")) {
-      slide.kicker = text;
-    } else if (el.classList.contains("st-line")) {
-      if (slide.lines && Array.isArray(slide.lines)) {
-        slide.lines[0] = text;
-      } else {
-        slide.text = text;
-      }
-    } else if (el.classList.contains("q-text")) {
-      slide.quote = text;
-    } else if (el.classList.contains("nm-val")) {
-      slide.value = text;
-    }
-
+    if (!slide || !el._path) return;
+    const [obj, key] = el._path;
+    const markup = domToMarkup(el).replace(/\*\*\*\*|====|\^\^\^\^|~~~~/g, "").trim();
+    if (obj[key] === markup) return;
+    obj[key] = markup;
     updateWordCount(slide);
-    updatePropertiesPanel(slide);
+  }
+
+  // ---- barra de formatação flutuante ----
+  function showFormatBar(el) {
+    const r = el.getBoundingClientRect();
+    const bar = dom.formatBar;
+    bar.classList.remove("hidden");
+    const top = r.top - bar.offsetHeight - 8;
+    bar.style.top = `${Math.max(8, top < 60 ? r.bottom + 8 : top)}px`;
+    bar.style.left = `${Math.max(8, Math.min(window.innerWidth - bar.offsetWidth - 8, r.left))}px`;
+  }
+  function hideFormatBar() {
+    dom.formatBar.classList.add("hidden");
+    dom.alchemyPill.classList.add("hidden");
+  }
+
+  function selectionIn(el) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    return el.contains(range.commonAncestorContainer) ? range : null;
+  }
+
+  // envolve a seleção numa tag (mark / span.em); se ela já estiver dentro de uma, desfaz
+  function toggleWrap(el, tag, cls) {
+    const range = selectionIn(el);
+    if (!range || range.collapsed) { showToast("Selecione o trecho primeiro."); return; }
+    let anc = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
+    const existing = anc.closest(cls ? `${tag}.${cls}` : tag);
+    if (existing && el.contains(existing)) {
+      existing.replaceWith(...existing.childNodes);
+    } else {
+      const w = document.createElement(tag);
+      if (cls) w.className = cls;
+      if (tag === "mark") w.classList.add("play");
+      w.appendChild(range.extractContents());
+      range.insertNode(w);
+    }
+  }
+
+  function formatCommand(cmd) {
+    const el = editingEl;
+    if (!el) return;
+    // sempre envolvendo em tag (execCommand("bold") olha o estilo calculado: num título que já é
+    // negrito pelo CSS ele TIRA o negrito em vez de marcar **…**)
+    if (cmd === "bold") toggleWrap(el, "b");
+    else if (cmd === "italic") toggleWrap(el, "i");
+    else if (cmd === "strike") toggleWrap(el, "s");
+    else if (cmd === "mark") toggleWrap(el, "mark");
+    else if (cmd === "em") toggleWrap(el, "span", "em");
+    else if (cmd === "clear") {
+      const range = selectionIn(el);
+      if (range && !range.collapsed) {
+        const t = range.toString();
+        range.deleteContents();
+        range.insertNode(document.createTextNode(t));
+      } else {
+        el.textContent = el.innerText; // sem seleção: limpa o texto todo
+      }
+    }
+    saveInlineChange(el);
+    el.focus();
   }
 
   // ==========================================================================
@@ -1183,16 +1281,50 @@
   // ==========================================================================
   // GAVETA YAML LIVE LINK
   // ==========================================================================
+  // ==========================================================================
+  // GAVETA DE YAML: "Slide atual" (padrão) ou "Apresentação inteira", com realce de sintaxe,
+  // separadores entre slides e rolagem até o slide atual.
+  // ==========================================================================
   let yamlDebounce = null;
+  state.yamlMode = store.get("yamlMode", "slide");
 
   function toggleYamlDrawer() {
     state.isYamlDrawerOpen = !state.isYamlDrawerOpen;
     dom.yamlDrawer.classList.toggle("hidden", !state.isYamlDrawerOpen);
     dom.btnYamlDrawer.classList.toggle("active", state.isYamlDrawerOpen);
     if (state.isYamlDrawerOpen) {
-      updateYamlLiveEditor({ force: true });
+      setYamlMode(state.yamlMode);
       dom.yamlLiveEditor.focus();
     }
+    requestAnimationFrame(() => state.autoFit && updateCanvasScale());
+  }
+
+  function setYamlMode(mode) {
+    state.yamlMode = mode;
+    store.set("yamlMode", mode);
+    dom.yamlModeSlide.classList.toggle("active", mode === "slide");
+    dom.yamlModeDeck.classList.toggle("active", mode === "deck");
+    dom.yamlStatus.textContent = "";
+    updateYamlLiveEditor({ force: true });
+  }
+
+  // separador visível antes de cada slide ("  - " no primeiro nível da lista slides:)
+  function withSlideSeparators(yaml) {
+    let n = 0;
+    const lines = yaml.split("\n");
+    let inSlides = false;
+    const out = [];
+    for (const line of lines) {
+      if (/^slides:\s*$/.test(line)) inSlides = true;
+      else if (/^\S/.test(line)) inSlides = false;
+      if (inSlides && /^ {2}- /.test(line)) {
+        n++;
+        const layout = (line.match(/layout:\s*(\S+)/) || [])[1] || "";
+        out.push(`  # ─────────── slide ${n}${layout ? ` · ${layoutLabel(layout)}` : ""} ───────────`);
+      }
+      out.push(line);
+    }
+    return out.join("\n");
   }
 
   async function updateYamlLiveEditor({ force = false } = {}) {
@@ -1200,22 +1332,67 @@
     // enquanto a pessoa digita na gaveta, o texto dela manda — não sobrescreve
     if (!force && document.activeElement === dom.yamlLiveEditor) return;
     try {
-      const res = await fetch("/api/deck");
-      const data = await res.json();
-      dom.yamlLiveEditor.value = data.yaml;
+      if (state.yamlMode === "slide") {
+        const r = await (await fetch(`/api/slide-yaml?i=${state.currentSlideIndex}`)).json();
+        setYamlText(r.yaml || "");
+        dom.yamlLiveEditor.scrollTop = 0;
+      } else {
+        const r = await (await fetch("/api/deck")).json();
+        setYamlText(withSlideSeparators(r.yaml));
+        // rola até o separador do slide atual
+        const lineNo = dom.yamlLiveEditor.value.split("\n").findIndex((l) => l.includes(`# ─────────── slide ${state.currentSlideIndex + 1}`));
+        const lh = parseFloat(getComputedStyle(dom.yamlLiveEditor).lineHeight) || 19;
+        dom.yamlLiveEditor.scrollTop = Math.max(0, lineNo * lh - 8);
+        syncYamlScroll();
+      }
     } catch {}
   }
 
-  // Gaveta de YAML: aplica quando a pessoa para de digitar e o YAML é válido; se não for, mostra o
-  // erro e não mexe no deck (nem no texto dela).
+  function setYamlText(text) {
+    dom.yamlLiveEditor.value = text;
+    renderYamlHighlight();
+  }
+
+  // realce simples, linha a linha: chaves, textos, números, sim/não, comentários e ==destaques==
+  function highlightYaml(text) {
+    const value = (v) => {
+      let h = escHtml(v);
+      if (/^\s*(true|false|null|~)\s*$/.test(v)) return `<span class="yh-bool">${h}</span>`;
+      if (/^\s*-?\d+(\.\d+)?\s*$/.test(v)) return `<span class="yh-num">${h}</span>`;
+      h = h.replace(/(&quot;[^&]*?&quot;|"[^"]*"|'[^']*')/g, '<span class="yh-str">$1</span>');
+      h = h.replace(/(==[^=]+==|\^\^[^^]+\^\^|\*\*[^*]+\*\*)/g, '<span class="yh-mk">$1</span>');
+      return h;
+    };
+    return text.split("\n").map((line) => {
+      if (/^\s*#/.test(line)) return `<span class="yh-com${line.includes("───") ? " yh-sep" : ""}">${escHtml(line)}</span>`;
+      const m = /^(\s*)(- )?([^\s:#][^:#]*?)(:)(\s.*)?$/.exec(line);
+      if (m) return `${m[1]}${m[2] ? '<span class="yh-dash">- </span>' : ""}<span class="yh-key">${escHtml(m[3])}</span>${m[4]}${m[5] ? value(m[5]) : ""}`;
+      const d = /^(\s*)(- )(.*)$/.exec(line);
+      if (d) return `${d[1]}<span class="yh-dash">- </span>${value(d[3])}`;
+      return value(line);
+    }).join("\n") + "\n";
+  }
+  function renderYamlHighlight() {
+    dom.yamlHl.innerHTML = highlightYaml(dom.yamlLiveEditor.value);
+    syncYamlScroll();
+  }
+  function syncYamlScroll() {
+    dom.yamlHl.scrollTop = dom.yamlLiveEditor.scrollTop;
+    dom.yamlHl.scrollLeft = dom.yamlLiveEditor.scrollLeft;
+  }
+
+  // Aplica quando a pessoa para de digitar e o YAML é válido; se não for, mostra o erro e não
+  // mexe no deck (nem no texto dela).
   function onYamlEditorInput() {
+    renderYamlHighlight();
     clearTimeout(yamlDebounce);
     yamlDebounce = setTimeout(async () => {
       try {
-        const res = await fetch("/api/deck", {
+        const slideMode = state.yamlMode === "slide";
+        const res = await fetch(slideMode ? "/api/slide-yaml" : "/api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ yaml: dom.yamlLiveEditor.value }),
+          body: JSON.stringify(slideMode ? { index: state.currentSlideIndex, yaml: dom.yamlLiveEditor.value } : { yaml: dom.yamlLiveEditor.value }),
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
@@ -1237,6 +1414,8 @@
       }
     }, 600);
   }
+
+
 
 
   // ==========================================================================
@@ -1362,6 +1541,8 @@
   }
 
   function syncThemeGallery() {
+    const ms = document.getElementById("mark-style-select");
+    if (ms) ms.value = state.deck?.markStyle || "marca-texto";
     const cur = state.deck?.theme || "sinal";
     dom.themeGallery.querySelectorAll(".theme-card").forEach((c) => c.classList.toggle("active", c.dataset.theme === cur));
   }
@@ -2210,6 +2391,23 @@
     // barra de status
     dom.statusIssues.onclick = triggerAutofix;
 
+    // barra de formatação: mousedown não tira o foco nem a seleção do texto
+    dom.formatBar.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
+    dom.formatBar.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-fmt]");
+      if (b) formatCommand(b.dataset.fmt);
+    });
+
+    // estilo do ==destaque== no deck todo
+    const markSel = document.getElementById("mark-style-select");
+    markSel.addEventListener("change", () => {
+      if (markSel.value === "marca-texto") delete state.deck.markStyle;
+      else state.deck.markStyle = markSel.value;
+      syncDeckToServer();
+      renderCurrentSlide();
+      renderThumbnails();
+    });
+
     // tema da interface (claro/escuro/automático); o <head> já aplicou antes do primeiro desenho
     const themeSelect = document.getElementById("app-theme-select");
     themeSelect.value = store.get("appTheme", "system");
@@ -2526,6 +2724,9 @@
     dom.btnYamlDrawer.onclick = toggleYamlDrawer;
     dom.btnCloseYamlDrawer.onclick = toggleYamlDrawer;
     dom.yamlLiveEditor.addEventListener("input", onYamlEditorInput);
+    dom.yamlLiveEditor.addEventListener("scroll", syncYamlScroll);
+    dom.yamlModeSlide.onclick = () => setYamlMode("slide");
+    dom.yamlModeDeck.onclick = () => setYamlMode("deck");
     dom.btnSpotlight.onclick = openSpotlight;
     setupSpotlightPalette();
 

@@ -9,6 +9,7 @@ import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
+import { normalizeSpec } from "../fiscal/normalize.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml } from "../ai/deck-ai.js";
 
@@ -243,6 +244,36 @@ export function createStudioServer(deckPath = null, opts = {}) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: `Erro ao carregar YAML: ${e.message}` }));
         }
+        return;
+      }
+
+      // YAML de um slide só (gaveta de YAML em "Slide atual")
+      if (pathname === "/api/slide-yaml" && req.method === "GET") {
+        const i = Number(url.searchParams.get("i"));
+        const slide = currentSpec?.slides?.[i];
+        res.writeHead(slide ? 200 : 404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(slide ? { yaml: YAML.stringify(slide, { indent: 2 }) } : { error: "slide não existe" }));
+        return;
+      }
+      if (pathname === "/api/slide-yaml" && req.method === "POST") {
+        const body = await readJSON(req);
+        const i = Number(body.index);
+        let slide;
+        try {
+          let raw = YAML.parse(body.yaml || "");
+          if (Array.isArray(raw)) raw = raw[0];
+          if (!raw || typeof raw !== "object") throw new Error("o slide precisa ser um objeto (ex.: layout: statement)");
+          slide = normalizeSpec({ slides: [raw] }).slides[0];
+          renderSlide(slide, i, currentSpec); // valida: layout existe, elementos reconhecidos
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+          return;
+        }
+        currentSpec.slides[i] = slide;
+        persist();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
         return;
       }
 

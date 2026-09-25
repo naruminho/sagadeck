@@ -135,6 +135,20 @@
 
     <!-- DESIGN -->
     <div class="ribbon-panel" data-panel="design">
+      <div class="rgroup">
+        <div class="rgroup-body rgroup-fields">
+          <label class="rfield"><span>Destaque</span>
+            <select id="mark-style-select" class="rselect" title="Como o ==destaque== aparece em toda a apresentação">
+              <option value="marca-texto">Marca-texto</option>
+              <option value="sublinhado">Sublinhado</option>
+              <option value="cor">Só cor</option>
+              <option value="negrito">Negrito colorido</option>
+              <option value="nenhum">Sem destaque</option>
+            </select>
+          </label>
+        </div>
+        <div class="rgroup-label">Texto</div>
+      </div>
       <div class="rgroup rgroup-grow">
         <div class="rgroup-body">
           <div id="theme-gallery" class="theme-gallery" role="listbox" aria-label="Temas"></div>
@@ -249,21 +263,24 @@
           <div id="safe-margin-guides" class="safe-guides-layer"><div class="safe-box"></div></div>
           <div id="inspector-overlay" class="inspector-layer"></div>
           <div id="heatmap-overlay" class="heatmap-layer hidden"></div>
-          <div id="alchemy-pill" class="alchemy-pill hidden">
-            <span id="alchemy-title" class="alchemy-label"><i class="ic" data-ic="sparkles"></i></span>
-            <div id="alchemy-actions" class="alchemy-btn-group"></div>
-          </div>
           <div id="rendered-slide-container"></div>
         </div>
       </div>
 
       <div id="yaml-drawer" class="yaml-drawer hidden">
         <div class="drawer-header">
-          <span><i class="ic" data-ic="code-xml"></i> YAML da apresentação</span>
+          <span><i class="ic" data-ic="code-xml"></i> YAML</span>
+          <div class="segmented segmented-sm" role="tablist">
+            <button id="yaml-mode-slide" class="seg active" type="button">Slide atual</button>
+            <button id="yaml-mode-deck" class="seg" type="button">Apresentação inteira</button>
+          </div>
           <span id="yaml-status" class="yaml-status"></span>
           <button id="btn-close-yaml-drawer" class="icon-btn" title="Fechar"><i class="ic" data-ic="x"></i></button>
         </div>
-        <textarea id="yaml-live-editor" class="yaml-editor" spellcheck="false"></textarea>
+        <div class="yaml-code">
+          <pre id="yaml-hl" class="yaml-hl" aria-hidden="true"></pre>
+          <textarea id="yaml-live-editor" class="yaml-editor" spellcheck="false" wrap="off"></textarea>
+        </div>
       </div>
 
       <div id="notes-bar" class="notes-bar">
@@ -352,6 +369,22 @@
     <button id="mobile-btn-editor" class="mobile-nav-btn"><i class="ic" data-ic="sliders-horizontal"></i><span>Formatar</span></button>
     <button id="mobile-btn-chat" class="mobile-nav-btn"><i class="ic" data-ic="bot"></i><span>Assistente</span></button>
   </nav>
+
+  <!-- BARRA DE FORMATAÇÃO (aparece ao editar um texto no slide) -->
+  <div id="format-bar" class="format-bar hidden" role="toolbar" aria-label="Formatação">
+    <button data-fmt="bold" title="Negrito (Ctrl+B)"><b>N</b></button>
+    <button data-fmt="italic" title="Itálico (Ctrl+I)"><i>I</i></button>
+    <button data-fmt="strike" title="Riscado"><s>S</s></button>
+    <span class="fb-sep"></span>
+    <button data-fmt="mark" title="Destaque (==texto==) — o estilo do destaque é escolhido em Design"><span class="fb-mark">Destaque</span></button>
+    <button data-fmt="em" title="Cor de ênfase (^^texto^^)"><span class="fb-em">Cor</span></button>
+    <button data-fmt="clear" title="Limpar formatação da seleção">Limpar</button>
+    <span class="fb-sep"></span>
+    <div id="alchemy-pill" class="alchemy-pill hidden">
+      <span id="alchemy-title" class="alchemy-label">Converter:</span>
+      <div id="alchemy-actions" class="alchemy-btn-group"></div>
+    </div>
+  </div>
 
   <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
 

@@ -98,6 +98,11 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-k
 .t a{color:inherit;text-decoration-thickness:.06em;text-underline-offset:.14em}
 mark{color:var(--on-hi);background:linear-gradient(var(--hi),var(--hi)) no-repeat 0 55%/0% 92%;padding:0 .1em;margin:0 -.04em;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background-size .8s var(--ease-out) .25s}
 mark.play{background-size:100% 92%}
+/* estilos alternativos do ==destaque== (markStyle) */
+.ms-sublinhado mark{background:none;color:inherit;padding:0;margin:0;text-decoration:underline;text-decoration-color:var(--hi);text-decoration-thickness:.12em;text-underline-offset:.16em}
+.ms-cor mark{background:none;color:var(--em);padding:0;margin:0}
+.ms-negrito mark{background:none;color:var(--em);font-weight:800;padding:0;margin:0}
+.ms-nenhum mark{background:none;color:inherit;padding:0;margin:0}
 s{text-decoration-thickness:.08em;text-decoration-color:var(--em)}
 code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparent);padding:.04em .28em;border-radius:6px}
 
