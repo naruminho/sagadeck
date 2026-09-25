@@ -1,0 +1,64 @@
+# Deck de teste da suíte (npm test). Cobre um pouco de tudo que o Studio edita.
+# Os testes copiam este arquivo para uma pasta temporária — pode mudar à vontade,
+# mas mantenha os slides que os testes procuram (por layout ou título).
+title: Deck de teste
+theme: bauhaus
+duration: 10
+slides:
+  - layout: cover
+    kicker: Suíte de testes
+    title: Título da ==capa==
+    subtitle: Subtítulo
+    author: Equipe
+    figure: { icon: rocket, size: 320 }
+
+  - layout: cards
+    kicker: Pilares
+    title: Três pilares
+    items:
+      - { icon: shield, title: Seguro, text: Criptografia de ponta a ponta }
+      - { icon: zap, title: Rápido, text: "**Carrega** num instante" }
+      - { icon: heart, title: Simples, text: Sem manual }
+
+  - layout: timeline
+    title: Linha do tempo
+    build: true
+    events:
+      - { when: "2019", title: Início }
+      - { when: "2022", title: Virada }
+      - { when: "2026", title: Hoje }
+
+  - layout: compare
+    title: Antes × depois
+    left: { label: Antes, value: 3 dias }
+    right: { label: Depois, value: 2 h, hl: true }
+
+  - layout: blocks
+    title: Três lugares para colocar um humano
+    content:
+      - row:
+          - col: [{ icon: user, size: 160 }, { h2: HITL }, { body: A máquina sugere. }]
+            step: 1
+          - col: [{ icon: eye, size: 160 }, { h2: HOTL }, { body: A máquina decide. }]
+            step: 2
+          - col: [{ icon: moon, size: 160 }, { h2: HOOTL }, { body: A máquina faz tudo. }]
+            step: 3
+
+  - layout: statement
+    kicker: A ideia
+    text: Uma frase que ==muda tudo==.
+
+  - layout: stats
+    title: Resultados
+    stats:
+      - { value: "+42%", label: Receita }
+      - { value: "91", label: NPS }
+
+  - layout: full
+    image_prompt: foto de uma sala de controle à noite
+    title: Página inteira
+    overlay: bottom
+
+  - layout: end
+    title: Obrigado.
+    contacts: [equipe@exemplo.com]

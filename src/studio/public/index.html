@@ -95,22 +95,32 @@
       </div>
       <div class="rgroup">
         <div class="rgroup-body rgroup-fields">
-          <label class="rfield"><span>Tom</span>
-            <select id="tone-select" class="rselect" title="Cores deste slide">
+          <div class="rfield"><span>Tom</span>
+            <button id="btn-tone" class="vpick-btn" type="button" aria-haspopup="true" title="Cores deste slide (com prévia)"><span class="vpick-sw"></span><span class="vpick-name">Claro</span><i class="ic caret" data-ic="chevron-down"></i></button>
+            <select id="tone-select" class="rselect hidden" aria-hidden="true" tabindex="-1">
               <option value="light">Claro</option>
               <option value="dark">Escuro</option>
               <option value="accent">Destaque</option>
               <option value="alert">Alerta</option>
             </select>
-          </label>
-          <label class="rfield"><span>Fundo</span>
-            <select id="deco-select" class="rselect" title="Textura de fundo deste slide">
+          </div>
+          <div class="rfield"><span>Fundo</span>
+            <button id="btn-deco" class="vpick-btn" type="button" aria-haspopup="true" title="Textura de fundo deste slide (com prévia)"><span class="vpick-sw"></span><span class="vpick-name">Liso</span><i class="ic caret" data-ic="chevron-down"></i></button>
+            <select id="deco-select" class="rselect hidden" aria-hidden="true" tabindex="-1">
               <option value="none">Liso</option>
               <option value="grid">Grade</option>
               <option value="grain">Granulado</option>
               <option value="dots">Pontilhado</option>
+              <option value="sketch">Caderno</option>
+              <option value="glow">Brilho</option>
+              <option value="aurora">Aurora</option>
+              <option value="silver">Prata</option>
             </select>
-          </label>
+          </div>
+          <div id="variant-popover" class="popover variant-popover">
+            <div class="popover-title"></div>
+            <div class="variant-grid"></div>
+          </div>
         </div>
         <div class="rgroup-label">Aparência</div>
       </div>

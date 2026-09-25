@@ -282,6 +282,7 @@
     dom.currentLayoutBadge.textContent = layoutLabel(slide.layout);
     dom.toneSelect.value = slide.tone || "light";
     dom.decoSelect.value = slide.deco || "none";
+    updateVariantButtons();
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
     syncThemeGallery();
@@ -1627,6 +1628,36 @@
       card.appendChild(actions);
 
       card.addEventListener("click", () => selectSlide(idx));
+      // arrastar para reordenar
+      card.draggable = true;
+      card.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("application/x-sagadeck-slide", String(idx));
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        dom.thumbnailsList.querySelectorAll(".drop-before, .drop-after").forEach((c) => c.classList.remove("drop-before", "drop-after"));
+      });
+      card.addEventListener("dragover", (e) => {
+        if (!e.dataTransfer.types.includes("application/x-sagadeck-slide")) return;
+        e.preventDefault();
+        const r = card.getBoundingClientRect();
+        const after = e.clientY > r.top + r.height / 2;
+        dom.thumbnailsList.querySelectorAll(".drop-before, .drop-after").forEach((c) => c !== card && c.classList.remove("drop-before", "drop-after"));
+        card.classList.toggle("drop-after", after);
+        card.classList.toggle("drop-before", !after);
+      });
+      card.addEventListener("drop", (e) => {
+        const from = Number(e.dataTransfer.getData("application/x-sagadeck-slide"));
+        if (Number.isNaN(from)) return;
+        e.preventDefault();
+        const after = card.classList.contains("drop-after");
+        let to = idx + (after ? 1 : 0);
+        if (from < to) to--;
+        moveSlideTo(from, to);
+        showToast(`Slide ${from + 1} movido para a posição ${to + 1}`, 1800);
+      });
       dom.thumbnailsList.appendChild(card);
     });
     hydrateIcons(dom.thumbnailsList);
@@ -1690,11 +1721,17 @@
   }
 
   function moveSlide(idx, dir) {
-    const target = idx + dir;
-    if (target < 0 || target >= state.deck.slides.length) return;
-    const item = state.deck.slides.splice(idx, 1)[0];
-    state.deck.slides.splice(target, 0, item);
-    state.currentSlideIndex = target;
+    moveSlideTo(idx, idx + dir);
+  }
+
+  // move o slide `from` para a posição `to` (índice final); o slide selecionado continua selecionado
+  function moveSlideTo(from, to) {
+    const n = state.deck.slides.length;
+    if (to < 0 || to >= n || from === to) return;
+    const current = state.deck.slides[state.currentSlideIndex];
+    const item = state.deck.slides.splice(from, 1)[0];
+    state.deck.slides.splice(to, 0, item);
+    state.currentSlideIndex = state.deck.slides.indexOf(current);
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
@@ -2351,6 +2388,65 @@
   // ==========================================================================
   // ESTRUTURA DA TELA: faixa de opções, popovers, painel lateral, anotações
   // ==========================================================================
+  // --------------------------------------------------------------------------
+  // Tom / Fundo com prévia: em vez de um select com nomes, mostra o slide atual em cada opção
+  // --------------------------------------------------------------------------
+  const variantPop = document.getElementById("variant-popover");
+  const VARIANTS = {
+    tone: { title: "Tom do slide", select: () => dom.toneSelect, key: "tone", def: "light", re: /\btone-\S+/,
+      desc: { light: "Fundo claro do tema", dark: "Fundo escuro, texto claro", accent: "Cor forte do tema", alert: "Para avisos e riscos" } },
+    deco: { title: "Fundo do slide", select: () => dom.decoSelect, key: "deco", def: "none", re: /\bdeco-\S+/,
+      desc: { none: "Sem textura", grid: "Quadriculado discreto", grain: "Textura de papel", dots: "Pontos em grade", sketch: "Caderno pontilhado, cartões desenhados",
+        glow: "Brilho azul nos cantos", aurora: "Manchas coloridas suaves", silver: "Luz prateada, cartões de vidro" } },
+  };
+  const variantLabel = (kind, v) => [...VARIANTS[kind].select().options].find((o) => o.value === v)?.textContent || v;
+
+  function updateVariantButtons() {
+    const slide = state.deck?.slides[state.currentSlideIndex];
+    for (const kind of ["tone", "deco"]) {
+      const btn = document.getElementById(`btn-${kind}`);
+      if (!btn || !slide) continue;
+      const v = slide[kind] || VARIANTS[kind].def;
+      btn.querySelector(".vpick-name").textContent = variantLabel(kind, v);
+      btn.querySelector(".vpick-sw").className = `vpick-sw sw-${kind}-${v}`;
+    }
+  }
+
+  function openVariantPicker(kind) {
+    const cfg = VARIANTS[kind];
+    const slide = state.deck.slides[state.currentSlideIndex];
+    const cur = slide?.[cfg.key] || cfg.def;
+    variantPop.querySelector(".popover-title").textContent = cfg.title;
+    const grid = variantPop.querySelector(".variant-grid");
+    grid.innerHTML = "";
+    const src = dom.renderedSlideContainer.querySelector(".slide");
+    for (const opt of cfg.select().options) {
+      const v = opt.value;
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = `variant-card${v === cur ? " active" : ""}`;
+      card.dataset.value = v;
+      card.innerHTML = `<div class="lc-prev"><div class="thumb-render"></div></div><div class="lc-name"></div><div class="lc-desc"></div>`;
+      card.querySelector(".lc-name").textContent = opt.textContent;
+      card.querySelector(".lc-desc").textContent = cfg.desc[v] || "";
+      if (src) {
+        const clone = src.cloneNode(true);
+        clone.className = clone.className.replace(new RegExp(cfg.re.source, "g"), "").trim();
+        if (!(kind === "deco" && v === "none")) clone.classList.add(`${kind}-${v}`);
+        clone.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+        card.querySelector(".thumb-render").append(clone);
+      }
+      card.onclick = () => {
+        closePopovers();
+        const sel = cfg.select();
+        sel.value = v;
+        sel.dispatchEvent(new Event("change"));
+        updateVariantButtons();
+      };
+      grid.append(card);
+    }
+  }
+
   function closePopovers(except) {
     document.querySelectorAll(".popover.open").forEach((p) => { if (p !== except) p.classList.remove("open"); });
     document.querySelectorAll(".split-button.show, .file-menu-wrap.show").forEach((m) => { if (!m.contains(except)) m.classList.remove("show"); });
@@ -2429,6 +2525,10 @@
     });
     popover(dom.btnLayoutGallery, dom.layoutPopover, loadLayoutPreviews);
     popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
+    // Tom e Fundo: botões com prévia (o slide atual desenhado em cada opção)
+    popover(document.getElementById("btn-tone"), variantPop, () => openVariantPicker("tone"));
+    popover(document.getElementById("btn-deco"), variantPop, () => openVariantPicker("deco"));
+    variantPop.addEventListener("click", (e) => e.stopPropagation());
     [dom.layoutPopover, dom.storyArcPopover].forEach((p) => p.addEventListener("click", (e) => e.stopPropagation()));
     dom.btnPresentMenu.addEventListener("click", (e) => {
       e.stopPropagation();

@@ -689,3 +689,29 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .lc-prev .thumb-render { transform: scale(var(--thumb-scale)); }
 .lc-name { font-size: 12px; font-weight: 600; }
 .lc-desc { font-size: 11px; color: var(--text-3); line-height: 1.3; min-height: 2.6em; }
+
+/* Tom / Fundo com prévia */
+.vpick-btn { display: inline-flex; align-items: center; gap: 8px; min-width: 130px; height: 28px; padding: 0 8px; border: 1px solid var(--ui-line-strong); border-radius: 4px; background: var(--chrome); color: var(--text); font-size: 12px; }
+.vpick-btn:hover { border-color: var(--ui-line-hover); }
+.vpick-btn .caret { margin-left: auto; }
+.vpick-sw { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--ui-line); flex: none; background: #fff; }
+.sw-tone-dark { background: #1d1d1f; }
+.sw-tone-accent { background: var(--brand); }
+.sw-tone-alert { background: #c62828; }
+.sw-deco-grid { background-image: linear-gradient(#bbb 1px, transparent 1px), linear-gradient(90deg, #bbb 1px, transparent 1px); background-size: 5px 5px; }
+.sw-deco-dots, .sw-deco-sketch { background-image: radial-gradient(#999 1px, transparent 1px); background-size: 4px 4px; }
+.sw-deco-grain { background: #eee8dc; }
+.sw-deco-glow { background: radial-gradient(circle at 80% 20%, #9cc2ff, #fff 70%); }
+.sw-deco-aurora { background: linear-gradient(135deg, #7ff 0%, #b7f 50%, #f7b 100%); }
+.sw-deco-silver { background: linear-gradient(180deg, #fff, #cfd1d6); }
+.variant-popover { width: min(560px, calc(100vw - 16px)); max-height: min(70vh, 600px); overflow-y: auto; }
+.variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.variant-card { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 6px; border: 2px solid transparent; text-align: left; background: none; color: inherit; }
+.variant-card:hover { background: var(--hover); }
+.variant-card.active { border-color: var(--brand); background: var(--selected); }
+.variant-card .lc-prev { --thumb-scale: .0775; }
+
+/* arrastar miniaturas para reordenar */
+.thumb-card.dragging { opacity: .4; }
+.thumb-card.drop-before { box-shadow: 0 -3px 0 0 var(--brand); }
+.thumb-card.drop-after { box-shadow: 0 3px 0 0 var(--brand); }

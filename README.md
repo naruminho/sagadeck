@@ -112,7 +112,12 @@ npm install
 node bin/sagadeck.js build templates/exemplo.yaml
 npm run bundle          # empacota o motor em python/sagadeck/engine
 npm run build:py        # gera dist/*.whl e dist/*.tar.gz
+npm test                # suíte inteira: motor + runtime + Studio (clicando num Chrome headless)
+npm run test:unit       # só o motor (rápido, sem navegador)
+SAGADECK_LIVE=1 npm test  # inclui os testes que chamam o LLM de verdade (modelrelay)
 ```
+**Toda funcionalidade nova entra com teste** em `test/` — é o que garante que um refactor não apague o que já funciona. Veja [CLAUDE.md](CLAUDE.md).
+
 Publicação: crie uma release `vX.Y.Z` no GitHub (o workflow `.github/workflows/publish.yml` publica no PyPI via *trusted publishing*). A versão fica em `package.json` e `python/sagadeck/__init__.py` (o bundle confere se são iguais).
 
 ## Apresentando (HTML)
