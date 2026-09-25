@@ -41,7 +41,7 @@ function stripListMarker(line) {
 /**
  * Converte um bloco de texto bruto em um slide de diagrama visual inteligente (estilo Napkin AI).
  */
-export function textToVisualSlide(rawText, options = {}) {
+function classifyText(rawText, options = {}) {
   let text = (rawText || "").trim();
   if (!text) {
     return {
@@ -309,7 +309,7 @@ function detectSequentialFlow(lines, title = "") {
 // Auxiliar: Extrai métricas e valores quantitativos
 function extractMetrics(lines) {
   const stats = [];
-  const metricRegex = /([+~-]?\s*(?:R\$\s*|\$\s*|USD\s*|€\s*)?\d+[.,\d]*\s*(?:%|x|M|bi|mi|milhões|bilhões|k|ms|s|h|fps)?)/i;
+  const metricRegex = /([+~-]?\s*(?:R\$\s*|\$\s*|USD\s*|€\s*)?\d+[.,\d]*\s*(?:%|milhões|bilhões|mil|mi|bi|ms|fps|x|M|k|s|h)?)/i;
 
   for (const line of lines) {
     const clean = stripListMarker(line);
@@ -418,9 +418,8 @@ function splitTitleDesc(text) {
   if (match && match[1].length < 40) {
     return [match[1].trim(), match[2].trim()];
   }
-  const words = text.split(" ");
-  if (words.length <= 4) return [text, ""];
-  return [words.slice(0, 3).join(" "), words.slice(3).join(" ")];
+  // sem separador (":" ou travessão), a frase inteira é o título — cortar no meio estraga o sentido
+  return [text, ""];
 }
 
 /**
@@ -453,4 +452,88 @@ export function textToVisualDeck(rawText, options = {}) {
 export function napkinToYaml(rawText, options = {}) {
   const deck = textToVisualDeck(rawText, options);
   return YAML.stringify(deck, { indent: 2 });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Camada pública: estruturas específicas (linha do tempo, funil, pirâmide, agenda, matriz) antes do
+// classificador genérico, e saída sempre no formato que os layouts de verdade leem.
+// ---------------------------------------------------------------------------------------------
+const GENERIC_KICKERS = new Set(["PILARES FUNDAMENTAIS", "FLUXO DE TRABALHO", "MÉTRICAS-CHAVE", "IMPACTO", "CONCEITO", "COMPARAÇÃO", "CÓDIGO"]);
+const INVENTED = ["Processo manual lento", "Alto custo de equipe", "Risco de erro humano", "Automação instantânea", "Zero custo extra", "Precisão determinística"];
+
+export function textToVisualSlide(rawText, options = {}) {
+  const text = String(rawText || "").trim();
+  const special = text ? detectStructure(text, options) : null;
+  const r = special || classifyText(text, options);
+  r.slide = tidySlide(r.slide, options);
+  return r;
+}
+
+function headAndBody(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const first = lines[0] || "";
+  const isHead = lines.length > 2 && (first.endsWith(":") || !/^([-*•]|\d+[.)]|\d{4}\b)/.test(first));
+  return { title: isHead ? first.replace(/^#+\s*/, "").replace(/:$/, "").trim() : "", body: isHead ? lines.slice(1) : lines };
+}
+const strip = (l) => l.replace(/^([-*•]|\d+[.)])\s*/, "").trim();
+const splitKV = (l) => {
+  const m = strip(l).match(/^(.+?)\s*[:—–]\s+(.+)$/) || strip(l).match(/^(.+?)\s+-\s+(.+)$/);
+  return m ? [m[1].trim(), m[2].trim()] : [strip(l), ""];
+};
+
+function detectStructure(text, options) {
+  const { title, body } = headAndBody(text);
+  const t = `${title} ${options.layout || ""}`.toLowerCase();
+  const base = (layout, extra, why) => ({ slide: { layout, ...(title ? { title } : {}), ...extra }, detectedType: layout, confidence: 0.9, rationale: why });
+  if (body.length < 2) return null;
+
+  // linha do tempo: linhas que começam com ano (2019 — …, 2021: …, Q3 2024 - …)
+  const dated = body.map((l) => strip(l).match(/^((?:Q[1-4]\s*)?(?:19|20)\d{2}|(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\w*\.?\s*(?:de\s*)?(?:19|20)?\d{2,4})\s*[:—–-]\s*(.+)$/i));
+  if (dated.filter(Boolean).length >= 2 && dated.filter(Boolean).length >= body.length - 1) {
+    return base("timeline", { events: dated.filter(Boolean).map((m) => { const [ti, tx] = splitKV(m[2]); return { when: m[1], title: ti, ...(tx ? { text: tx } : {}) }; }) },
+      "Linhas começam com datas: linha do tempo.");
+  }
+  if (/\bfunil\b|funnel/.test(t)) {
+    return base("funnel", { stages: body.map((l) => { const [a, b] = splitKV(l); return b ? { title: a, value: b } : { title: a }; }) }, "O texto fala de um funil: etapas que afunilam.");
+  }
+  if (/pir[aâ]mide|pyramid/.test(t)) {
+    return base("pyramid", { levels: body.map((l) => { const [a, b] = splitKV(l); return /^(topo|meio|base)$/i.test(a) && b ? { title: b } : b ? { title: a, text: b } : { title: a }; }) }, "O texto descreve níveis de uma pirâmide.");
+  }
+  if (/\bagenda\b|programa[cç][aã]o|cronograma do (evento|dia)/.test(t)) {
+    return base("agenda", { items: body.map((l) => { const m = strip(l).match(/^(.*?)\s*\(([^)]*\d[^)]*)\)\s*$/); return m ? { title: m[1], time: m[2] } : { title: strip(l) }; }) }, "O texto é uma agenda.");
+  }
+  if ((/matriz|2\s*[x×]\s*2|impacto e esfor[cç]o/.test(t)) && body.length === 4) {
+    const cells = body.map((l) => { const [a, b] = splitKV(l); return b ? { title: b, text: a } : { title: a }; });
+    return base("matrix", { cells }, "Quatro quadrantes: matriz 2×2.");
+  }
+  return null;
+}
+
+// Saída no formato que os layouts leem (nada de campos que o motor ignora nem conteúdo inventado).
+function tidySlide(slide, options) {
+  const s = { ...slide };
+  if (s.kicker && GENERIC_KICKERS.has(s.kicker) && !options.kicker) delete s.kicker;
+  const fixItem = (x) => {
+    if (!x || typeof x !== "object") return x;
+    const o = { ...x };
+    if (o.desc != null && o.text == null) o.text = o.desc;
+    delete o.desc;
+    delete o.step; // "step" no item = aparece no clique N; o napkin não deve decidir animação
+    if (o.text === "") delete o.text;
+    if (typeof o.title === "string") o.title = o.title.charAt(0).toUpperCase() + o.title.slice(1);
+    return o;
+  };
+  if (s.layout === "cards" && Array.isArray(s.cards) && !s.items) { s.items = s.cards; delete s.cards; }
+  for (const k of ["items", "steps", "stats", "stages", "levels", "events", "cells"]) if (Array.isArray(s[k])) s[k] = s[k].map(fixItem);
+  if (s.layout === "split" && (s.left || s.right)) {
+    s.bullets = [...(Array.isArray(s.left) ? s.left : []), ...(Array.isArray(s.right) ? s.right : [])];
+    delete s.left; delete s.right;
+  }
+  if (s.layout === "compare") {
+    for (const side of ["left", "right"]) {
+      const it = s[side]?.items;
+      if (Array.isArray(it) && it.some((x) => INVENTED.includes(x))) s[side] = { ...s[side], items: [] };
+    }
+  }
+  return s;
 }

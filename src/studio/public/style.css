@@ -425,7 +425,7 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .form-row .field-label { display: flex; flex-direction: column; gap: 4px; }
 .form-row input[type="number"] { width: 80px; }
 .status-line { min-height: 18px; font-size: 12px; color: var(--brand); }
-.napkin-input { min-height: 140px; font-family: var(--font-mono); font-size: 12px; }
+
 .preset-row { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
 .napkin-preview { border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: 10px 12px; background: var(--chrome-2); }
 .napkin-preview-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 12px; }
@@ -715,3 +715,29 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .thumb-card.dragging { opacity: .4; }
 .thumb-card.drop-before { box-shadow: 0 -3px 0 0 var(--brand); }
 .thumb-card.drop-after { box-shadow: 0 3px 0 0 var(--brand); }
+
+/* Diagrama de texto: texto + formatos à esquerda, resultado desenhado à direita */
+.modal-xl { width: min(1180px, 96vw); }
+.napkin-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; overflow: auto; }
+.napkin-left, .napkin-right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.napkin-label { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 4px; }
+.napkin-label .muted { font-weight: 400; }
+textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-family: var(--font-ui, inherit); font-size: 14px; line-height: 1.5; padding: 10px 12px; }
+.napkin-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.napkin-type { display: flex; flex-direction: column; gap: 3px; padding: 4px; border: 2px solid transparent; border-radius: 6px; background: none; color: inherit; text-align: left; }
+.napkin-type:hover { background: var(--hover); }
+.napkin-type.active { border-color: var(--brand); background: var(--selected); }
+.napkin-type .lc-prev { --thumb-scale: .0425; }
+.napkin-type .lc-name { font-size: 11px; font-weight: 500; }
+.nt-auto { display: flex; align-items: center; justify-content: center; background: var(--chrome-2) !important; color: var(--brand); }
+.nt-auto .ic { width: 22px; height: 22px; }
+.napkin-examples { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.napkin-example { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--chrome); color: inherit; text-align: left; font-size: 12px; }
+.napkin-example:hover { border-color: var(--brand); }
+.napkin-example span { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.napkin-stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: var(--canvas-bg); box-shadow: var(--shadow-1); --thumb-scale: .28; }
+.napkin-stage .thumb-render { transform: scale(var(--thumb-scale)); }
+.napkin-stage.loading::after { content: "Gerando…"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--chrome) 70%, transparent); font-weight: 600; }
+.napkin-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; padding: 20px; text-align: center; }
+.napkin-preview details summary { cursor: pointer; font-size: 12px; color: var(--text-2); margin-top: 6px; }
+@media (max-width: 820px) { .napkin-body { grid-template-columns: 1fr; } }

@@ -11,6 +11,8 @@ import { autofixSlide, recordAuto } from "../src/fiscal/autofix.js";
 import { applyPatch, toYaml, countImagePrompts, extractYaml } from "../src/ai/deck-ai.js";
 import { THEMES } from "../src/themes.js";
 import { LAYOUT_INFO, LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
+import { textToVisualSlide } from "../src/diagram/napkin.js";
+import { NAPKIN_EXAMPLES } from "../src/diagram/napkin-examples.js";
 import { ROOT, FIXTURE } from "./helpers.js";
 
 const spec = { title: "Teste", theme: "bauhaus", slides: [] };
@@ -144,4 +146,30 @@ test("o deck de teste e os exemplos do pacote constroem sem erro", () => {
     const out = buildHTML(loadSpec(f));
     assert.ok(out.html.includes("<section"), f);
   }
+});
+
+// ---------------------------------------------------------------- diagrama de texto (regras locais, sem IA)
+test("diagrama de texto: cada exemplo vira o layout certo e renderiza", () => {
+  for (const [key, ex] of Object.entries(NAPKIN_EXAMPLES)) {
+    const { slide } = textToVisualSlide(ex.text, {});
+    assert.equal(slide.layout, ex.layout, key);
+    assert.doesNotThrow(() => html(slide), key);
+  }
+});
+
+test("diagrama de texto: saída só com campos que os layouts leem", () => {
+  for (const [key, ex] of Object.entries(NAPKIN_EXAMPLES)) {
+    const json = JSON.stringify(textToVisualSlide(ex.text, {}).slide);
+    assert.doesNotMatch(json, /"(desc|cards|step)":/, `${key}: ${json}`); // step = animação por clique que ninguém pediu
+    assert.doesNotMatch(json, /PILARES FUNDAMENTAIS|FLUXO DE TRABALHO|Processo manual lento/, `${key}: conteúdo inventado`);
+  }
+});
+
+test("diagrama de texto: preserva o conteúdo (números e frases inteiras)", () => {
+  const stats = JSON.stringify(textToVisualSlide(NAPKIN_EXAMPLES.stats.text, {}).slide);
+  assert.match(stats, /R\$ 8,4 mi/);
+  const steps = textToVisualSlide(NAPKIN_EXAMPLES.steps.text, {}).slide.steps;
+  assert.equal(steps[0].title, "Cliente abre chamado pelo app");
+  const tl = textToVisualSlide(NAPKIN_EXAMPLES.timeline.text, {}).slide.events;
+  assert.deepEqual(tl.map((e) => e.when), ["2019", "2021", "2023", "2026"]);
 });

@@ -341,11 +341,18 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      if (pathname === "/api/napkin-examples" && req.method === "GET") {
+        const { NAPKIN_EXAMPLES } = await import("../diagram/napkin-examples.js");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(NAPKIN_EXAMPLES));
+        return;
+      }
+
       if (pathname === "/api/napkin" && req.method === "POST") {
         const body = await readJSON(req);
         const { textToVisualSlide, textToVisualDeck } = await import("../diagram/napkin.js");
         const YAML = (await import("yaml")).default;
-        const opts = { theme: body.theme, tone: body.tone, title: body.title, kicker: body.kicker };
+        const opts = { theme: body.theme, tone: body.tone, title: body.title, kicker: body.kicker, layout: body.layout };
         let result = null;
         let mode = "rules";
         let notice = "";

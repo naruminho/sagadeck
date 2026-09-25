@@ -2013,21 +2013,60 @@
   // ==========================================================================
   let lastNapkinResult = null;
 
-  const NAPKIN_PRESETS = {
-    steps: "Etapas do Funil de Conversão:\n1. Prospecção Ativa: Mapeamento de decisores em ICP qualificado\n2. Reunião Executiva: Demonstração e levantamento de necessidades\n3. Proposta & SLA: Envio dos termos comerciais personalizados\n4. Fechamento & Go-Live: Assinatura de contrato e início da operação",
-    stats: "Resultados do Trimestre:\n- Crescimento de Receita: +142%\n- ARR Consolidado: R$ 8.4M\n- Churn Mensal: 0.6%\n- Satisfação (NPS): 91",
-    compare: "Tradicional vs SagaDeck:\n- Slides manuais e demorados vs Geração instantânea por IA\n- Quebra formatação no PPT vs 100% nativo e editável no Office\n- Alucina layouts e textos vs Salvaguardas determinísticas e anti-spoiler",
-    cards: "3 Pilares da Arquitetura:\n1. Segurança Zero-Trust: Criptografia ponta a ponta e logs de auditoria\n2. Performance Extrema: Carregamento instantâneo e renderização determinística\n3. Design System Atômico: Tokens de estilo e layouts balanceados",
-  };
+  // Formatos que o diagrama de texto sabe gerar; os exemplos vêm do servidor (src/diagram/napkin-examples.js)
+  const NAPKIN_TYPES = ["auto", "steps", "funnel", "timeline", "stats", "number", "compare", "cards", "bento", "pyramid", "matrix", "list", "agenda", "chart"];
+  let napkinType = "auto";
+
+  function buildNapkinPickers() {
+    const types = document.getElementById("napkin-types");
+    if (types.childElementCount) return;
+    for (const t of NAPKIN_TYPES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `napkin-type${t === napkinType ? " active" : ""}`;
+      b.dataset.type = t;
+      b.innerHTML = t === "auto"
+        ? `<div class="lc-prev nt-auto"><i class="ic" data-ic="sparkles"></i></div><div class="lc-name">Automático</div>`
+        : `<div class="lc-prev"><div class="thumb-render"></div></div><div class="lc-name"></div>`;
+      if (t !== "auto") b.querySelector(".lc-name").textContent = layoutLabel(t);
+      b.onclick = () => {
+        napkinType = t;
+        types.querySelectorAll(".napkin-type").forEach((x) => x.classList.toggle("active", x === b));
+      };
+      types.append(b);
+    }
+    const ex = document.getElementById("napkin-examples");
+    fetch("/api/napkin-examples").then((r) => r.json()).then((examples) => {
+      for (const [key, { label, text }] of Object.entries(examples)) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "napkin-example";
+        b.dataset.example = key;
+        b.innerHTML = `<b></b><span></span>`;
+        b.querySelector("b").textContent = label;
+        b.querySelector("span").textContent = text.split("\n")[0];
+        b.onclick = () => { dom.napkinInputText.value = text; runNapkinConversion(); };
+        ex.append(b);
+      }
+      if (!dom.napkinInputText.value.trim()) dom.napkinInputText.value = examples.steps?.text || "";
+    }).catch(() => {});
+    hydrateIcons(dom.modalNapkin);
+    // prévias dos formatos: as mesmas da galeria de layouts
+    fetch("/api/layout-previews").then((r) => r.json()).then((data) => {
+      ensureSlideStyles(data.baseCSS, data.themeCSS);
+      types.querySelectorAll(".napkin-type").forEach((b) => {
+        const r = b.querySelector(".thumb-render");
+        if (r) r.innerHTML = data.html[b.dataset.type] || "";
+      });
+    }).catch(() => {});
+  }
 
   function openNapkinModal() {
+    buildNapkinPickers();
     dom.modalNapkin.classList.remove("hidden");
     dom.napkinPreviewBox.classList.add("hidden");
     dom.btnNapkinReplace.classList.add("hidden");
     dom.btnNapkinInsert.classList.add("hidden");
-    if (!dom.napkinInputText.value.trim()) {
-      dom.napkinInputText.value = NAPKIN_PRESETS.steps;
-    }
     dom.napkinInputText.focus();
   }
 
@@ -2035,44 +2074,56 @@
     dom.modalNapkin.classList.add("hidden");
   }
 
+  // desenha o slide gerado dentro do modal (igual à miniatura)
+  async function renderNapkinStage(slide) {
+    const stage = document.getElementById("napkin-stage");
+    try {
+      const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slide, index: state.currentSlideIndex }) })).json();
+      stage.innerHTML = `<div class="thumb-render">${r.html}</div>`;
+      stage.style.setProperty("--thumb-scale", String(stage.clientWidth / 1920));
+    } catch {
+      stage.innerHTML = `<div class="napkin-empty">Não deu para desenhar a prévia.</div>`;
+    }
+  }
+
   async function runNapkinConversion() {
     const text = dom.napkinInputText.value.trim();
     if (!text) {
-      showToast("Por favor, digite ou cole um texto para analisar.");
+      showToast("Escreva ou cole um texto primeiro.");
       return;
     }
-
     dom.btnRunNapkin.disabled = true;
-    dom.btnRunNapkin.textContent = "⏳ Analisando padrão visual...";
-
+    dom.btnRunNapkin.textContent = "Gerando…";
+    document.getElementById("napkin-stage").classList.add("loading");
     try {
       const res = await fetch("/api/napkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          theme: state.deck.theme || "sinal",
-          tone: "dark",
-          images: dom.aiImagesToggle.checked,
-        }),
+        body: JSON.stringify({ text, layout: napkinType === "auto" ? undefined : napkinType, theme: state.deck.theme || "sinal", images: dom.aiImagesToggle.checked }),
       });
       const data = await res.json();
+      // formato escolhido pela pessoa manda: se o resultado veio em outro layout, converte o conteúdo
+      if (napkinType !== "auto" && data.slide && data.slide.layout !== napkinType) {
+        carryContent(data.slide, napkinType);
+        data.slide.layout = napkinType;
+        data.detectedType = napkinType;
+      }
       lastNapkinResult = data;
-
-      dom.napkinDetectedBadge.textContent = data.detectedType.toUpperCase();
-      dom.napkinRationale.textContent = (data.mode === "llm" ? "🤖 LLM · " : "⚙ regras · ") + data.rationale;
+      dom.napkinDetectedBadge.textContent = layoutLabel(data.detectedType);
+      dom.napkinRationale.textContent = (data.mode === "llm" ? "IA · " : "regras locais · ") + (data.rationale || "");
       if (data.notice) showToast(data.notice);
       dom.napkinYamlPreview.textContent = data.yaml;
       dom.napkinPreviewBox.classList.remove("hidden");
       dom.btnNapkinReplace.classList.remove("hidden");
       dom.btnNapkinInsert.classList.remove("hidden");
-
-      if (!data.notice) showToast(`✨ Padrão visual detectado: ${data.detectedType.toUpperCase()}`);
+      await renderNapkinStage(data.slide);
     } catch (err) {
-      showToast("Erro ao processar diagrama no servidor.");
+      showToast("Erro ao gerar o diagrama no servidor.");
     } finally {
+      document.getElementById("napkin-stage").classList.remove("loading");
       dom.btnRunNapkin.disabled = false;
-      dom.btnRunNapkin.textContent = "✨ Analisar & Gerar Diagrama";
+      dom.btnRunNapkin.textContent = "Gerar de novo";
     }
   }
 
@@ -2083,12 +2134,12 @@
     if (replaceCurrent) {
       state.deck.slides[state.currentSlideIndex] = newSlide;
       selectSlide(state.currentSlideIndex);
-      showToast(`Slide ${state.currentSlideIndex + 1} substituído pelo diagrama ${lastNapkinResult.detectedType}!`);
+      showToast(`Slide ${state.currentSlideIndex + 1} substituído (${layoutLabel(lastNapkinResult.detectedType)})`);
     } else {
       state.deck.slides.splice(state.currentSlideIndex + 1, 0, newSlide);
       renderThumbnails();
       selectSlide(state.currentSlideIndex + 1);
-      showToast(`Novo slide com diagrama ${lastNapkinResult.detectedType} inserido com sucesso!`);
+      showToast(`Novo slide inserido (${layoutLabel(lastNapkinResult.detectedType)})`);
     }
 
     syncDeckToServer();
@@ -2909,15 +2960,6 @@
     dom.btnRunNapkin.onclick = runNapkinConversion;
     dom.btnNapkinReplace.onclick = () => applyNapkinSlide(true);
     dom.btnNapkinInsert.onclick = () => applyNapkinSlide(false);
-    document.querySelectorAll(".btn-preset-napkin").forEach((btn) => {
-      btn.onclick = () => {
-        const ex = btn.dataset.example;
-        if (NAPKIN_PRESETS[ex]) {
-          dom.napkinInputText.value = NAPKIN_PRESETS[ex];
-          runNapkinConversion();
-        }
-      };
-    });
 
 
     // Navegação Mobile (Smartphones)

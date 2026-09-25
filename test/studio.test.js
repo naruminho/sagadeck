@@ -28,6 +28,12 @@ test("studio", async (t) => {
   };
   const tab = (name) => p.click(`.ribbon-tab[data-tab="${name}"]`);
   const settle = (ms = 900) => p.waitForTimeout(ms);
+  // cada teste começa com a tela "limpa": um teste que falha com um modal aberto não derruba os seguintes
+  t.beforeEach(async () => {
+    await p.keyboard.press("Escape");
+    await p.keyboard.press("Escape");
+    await p.evaluate(() => document.querySelectorAll(".popover.open").forEach((x) => x.classList.remove("open")));
+  });
 
   // ------------------------------------------------------------ slides
   await t.test("novo, duplicar e excluir slide", async () => {
@@ -244,6 +250,7 @@ test("studio", async (t) => {
   });
 
   await t.test("gaveta de YAML: deck inteiro com separadores e YAML inválido não aplica", async () => {
+    if (!(await p.isVisible("#yaml-live-editor"))) { await tab("exibir"); await p.click("#btn-yaml-drawer"); }
     await p.click("#yaml-mode-deck"); await settle(600);
     const v = await p.inputValue("#yaml-live-editor");
     assert.match(v, /# ─+ slide 1/);
@@ -255,6 +262,34 @@ test("studio", async (t) => {
     await p.fill("#yaml-live-editor", v); await settle(1200);
     await p.click("#yaml-mode-slide");
     await p.click("#btn-close-yaml-drawer");
+  });
+
+  // ------------------------------------------------------------ diagrama de texto
+  await t.test("diagrama de texto: formatos com prévia, exemplos e resultado desenhado", async () => {
+    await go("cover");
+    await tab("inserir");
+    await p.click("#btn-napkin");
+    await p.waitForFunction(() => document.querySelector('.napkin-type[data-type="funnel"] .thumb-render')?.innerHTML.length > 50);
+    assert.ok(await p.locator(".napkin-type").count() >= 12, "formatos");
+    assert.ok(await p.locator(".napkin-example").count() >= 8, "exemplos");
+    const h = await p.evaluate(() => document.querySelector("#napkin-input-text").getBoundingClientRect().height);
+    assert.ok(h >= 200, `área de texto grande (${h}px)`);
+    // exemplo gera e desenha
+    await p.click('.napkin-example[data-example="stats"]');
+    await p.waitForSelector("#napkin-stage .thumb-render .slide");
+    // formato escolhido pela pessoa manda
+    await p.click('.napkin-type[data-type="funnel"]');
+    await p.fill("#napkin-input-text", ["Funil:", "- Visitas: 100", "- Cadastros: 40", "- Clientes: 10"].join("\n"));
+    await p.click("#btn-run-napkin");
+    await p.waitForSelector('#napkin-stage .slide[data-layout="funnel"]');
+    const n = (await deck()).slides.length;
+    await p.click("#btn-napkin-insert"); await settle();
+    const d = await deck();
+    assert.equal(d.slides.length, n + 1);
+    const s = d.slides.find((x) => x.layout === "funnel" && JSON.stringify(x).includes("Cadastros"));
+    assert.ok(s, "slide de funil inserido com o conteúdo");
+    await tab("inicio");
+    await p.click("#btn-del-slide"); await settle();
   });
 
   // ------------------------------------------------------------ assistente

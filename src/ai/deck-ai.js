@@ -486,8 +486,8 @@ function pickTarget(before, after, current) {
 }
 
 // Napkin com LLM: texto bruto -> um slide visual.
-export async function textToSlide(text, { theme, tone, title, kicker, images = false, imageOptions = {} } = {}) {
-  const hints = [theme && `tema do deck: ${theme}`, tone && `tom: ${tone}`, title && `título sugerido: ${title}`, kicker && `kicker: ${kicker}`]
+export async function textToSlide(text, { theme, tone, title, kicker, layout, images = false, imageOptions = {} } = {}) {
+  const hints = [layout && `use OBRIGATORIAMENTE o layout ${layout}`, theme && `tema do deck: ${theme}`, tone && `tom: ${tone}`, title && `título sugerido: ${title}`, kicker && `kicker: ${kicker}`]
     .filter(Boolean).join("; ");
   const messages = [
     { role: "system", content: systemPrompt({ images, maxImages: 1 }) },
