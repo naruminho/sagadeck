@@ -8,7 +8,15 @@ title: Nome da palestra          # obrigatório (vira rodapé e título da janel
 author: Seu Nome · Cargo
 theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | jornal  (ou tema customizado, ver fim)
 duration: 50                     # minutos — o modo apresentador mostra se você está adiantado/atrasado
-footer: texto do rodapé          # opcional; false desliga
+event: Summit de Dados 2026       # opcional — para {evento} no rodapé/cabeçalho
+department: Engenharia de Dados  # opcional — para {depto}
+date: 2026-03-07                 # opcional — para {data}; sem date, usa a data do dia
+footer: texto do rodapé          # opcional; false desliga; ou { left, center, right } com variáveis:
+#   footer: { left: "{autor} · {evento}", center: "{data:DD MMM AAAA}", right: "{n} / {total}" }
+#   header: { left: "{depto}", right: "Confidencial" }
+#   variáveis: {titulo} {autor} {evento} {depto} {data} {data:MÁSCARA} {pagina} (01) {n} (1) {total}
+#   máscara: DD MM AAAA AA MMM (jan) MMMM (janeiro). Capa, seção, encerramento e página inteira ficam sem.
+markStyle: marca-texto           # como o ==destaque== aparece: marca-texto | sublinhado | cor | negrito | nenhum
 tone: light                      # tom padrão dos slides (light | dark | accent | alert)
 maxWords: 40                     # alerta "anti-sono" quando um slide passa disso
 css: [estilo.css]                # CSS extra (opcional)

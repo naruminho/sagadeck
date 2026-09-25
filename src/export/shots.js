@@ -88,9 +88,9 @@ function inPageCheck(i) {
     const fsz = parseFloat(getComputedStyle(e).fontSize);
     if (getComputedStyle(e).maxHeight !== "none" && e.scrollHeight > e.clientHeight + fsz * 0.3) issues.push({ kind: "estouro-vertical", text: label(e) });
     if (r.right > 1920 + 2 || r.bottom > 1080 + 2 || r.left < -2 || r.top < -2) issues.push({ kind: "fora-do-slide", text: label(e) });
-    if (safe && !e.closest(".foot") && r.bottom > R(safe).bottom + 24) issues.push({ kind: "passa-da-margem-inferior", text: label(e), px: Math.round(r.bottom - R(safe).bottom) });
+    if (safe && !e.closest(".foot, .headbar") && r.bottom > R(safe).bottom + 24) issues.push({ kind: "passa-da-margem-inferior", text: label(e), px: Math.round(r.bottom - R(safe).bottom) });
     const fs = fsz;
-    if (fs < 19 && !e.closest(".foot")) issues.push({ kind: "fonte-pequena", text: label(e), px: Math.round(fs) });
+    if (fs < 19 && !e.closest(".foot, .headbar")) issues.push({ kind: "fonte-pequena", text: label(e), px: Math.round(fs) });
     const c1 = lum(getComputedStyle(e).color), c2 = lum(bgOf(e));
     const ratio = (Math.max(c1, c2) + 0.05) / (Math.min(c1, c2) + 0.05);
     if (ratio < 3) issues.push({ kind: "baixo-contraste", text: label(e), ratio: +ratio.toFixed(2) });

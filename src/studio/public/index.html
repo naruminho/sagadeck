@@ -159,6 +159,12 @@
         </div>
         <div class="rgroup-label">Texto</div>
       </div>
+      <div class="rgroup">
+        <div class="rgroup-body">
+          <button id="btn-header-footer" class="rbtn rbtn-lg" title="Autor, evento, data, número da página… em todos os slides"><i class="ic" data-ic="panel-bottom"></i><span>Cabeçalho<br>e rodapé</span></button>
+        </div>
+        <div class="rgroup-label">Páginas</div>
+      </div>
       <div class="rgroup rgroup-grow">
         <div class="rgroup-body">
           <div id="theme-gallery" class="theme-gallery" role="listbox" aria-label="Temas"></div>
@@ -475,6 +481,47 @@
 
   <div id="drop-overlay" class="drop-overlay hidden">
     <div class="drop-box"><i class="ic" data-ic="folder-open"></i><div>Solte o arquivo .yaml para abrir</div></div>
+  </div>
+
+  <!-- CABEÇALHO E RODAPÉ -->
+  <div id="modal-hf" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box modal-xl" role="dialog" aria-labelledby="hf-title">
+      <div class="modal-dialog-header">
+        <h3 id="hf-title">Cabeçalho e rodapé</h3>
+        <button id="btn-close-hf" class="icon-btn" title="Fechar"><i class="ic" data-ic="x"></i></button>
+      </div>
+      <div class="modal-dialog-body hf-body">
+        <div class="hf-left">
+          <div class="napkin-label">Modelos</div>
+          <div class="hf-presets"></div>
+          <div class="napkin-label">Dados da apresentação</div>
+          <div class="hf-deck">
+            <label>Autor<input class="form-control" data-deck="author" placeholder="Seu nome"></label>
+            <label>Evento<input class="form-control" data-deck="event" placeholder="Ex.: Summit de Dados 2026"></label>
+            <label>Departamento<input class="form-control" data-deck="department" placeholder="Ex.: Engenharia de Dados"></label>
+            <label>Data<input class="form-control" data-deck="date" type="date" title="Vazio = data do dia em que o deck é aberto"></label>
+          </div>
+          <div class="napkin-label">Personalizar <span class="muted">— clique num campo e depois numa variável</span></div>
+          <div class="hf-tokens"></div>
+          <div class="hf-grid">
+            <span class="hf-row">Cabeçalho</span>
+            <input class="form-control" data-slot="header.left" placeholder="esquerda"><input class="form-control" data-slot="header.center" placeholder="centro"><input class="form-control" data-slot="header.right" placeholder="direita">
+            <span class="hf-row">Rodapé</span>
+            <input class="form-control" data-slot="footer.left" placeholder="esquerda"><input class="form-control" data-slot="footer.center" placeholder="centro"><input class="form-control" data-slot="footer.right" placeholder="direita">
+          </div>
+          <p class="muted hf-note">Capa, seções, encerramento e slides de página inteira ficam sem cabeçalho e rodapé.</p>
+        </div>
+        <div class="hf-right">
+          <div class="napkin-label">Prévia</div>
+          <div class="hf-stage napkin-stage"></div>
+        </div>
+      </div>
+      <div class="modal-dialog-footer">
+        <span class="spacer"></span>
+        <button id="btn-hf-cancel" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-hf-apply" class="btn btn-primary">Aplicar em todos os slides</button>
+      </div>
+    </div>
   </div>
 
   <!-- DIAGRAMA A PARTIR DE TEXTO (NAPKIN) -->

@@ -272,6 +272,49 @@ test("studio", async (t) => {
     assert.ok(await p.isVisible("#rendered-slide-container .qr-svg"), "QR desenhado no slide");
   });
 
+  // ------------------------------------------------------------ cabeçalho e rodapé
+  await t.test("cabeçalho e rodapé: modelo + dados do deck + variável, com prévia, salvos no deck", async () => {
+    await go("cards");
+    await tab("design");
+    await p.click("#btn-header-footer");
+    assert.ok(await p.isVisible("#modal-hf"));
+    await p.fill('[data-deck="author"]', "Narumi");
+    await p.fill('[data-deck="event"]', "Summit");
+    await p.fill('[data-deck="department"]', "Dados");
+    await p.fill('[data-deck="date"]', "2026-03-07");
+    await p.click('.hf-preset[data-preset="corp"]');
+    // variável inserida no campo escolhido
+    await p.fill('[data-slot="footer.left"]', "");
+    await p.click('[data-slot="footer.left"]');
+    await p.click('.hf-token[data-token="{autor}"]');
+    await settle(700);
+    const prev = await p.innerText("#modal-hf .hf-stage");
+    assert.match(prev, /NARUMI/i, "prévia mostra o autor");
+    assert.match(prev, /CONFIDENCIAL/i, "prévia mostra o cabeçalho do modelo");
+    await p.click("#btn-hf-apply"); await settle();
+    const d = await deck();
+    assert.equal(d.author, "Narumi");
+    assert.deepEqual(d.footer, { left: "{autor}", center: "{data:MM/AAAA}", right: "{n} / {total}" });
+    assert.deepEqual(d.header, { left: "{depto}", right: "Confidencial" });
+    assert.equal(saved().event, "Summit");
+    const canvas = await p.innerText("#rendered-slide-container .slide");
+    assert.match(canvas, /03\/2026/);
+    assert.match(canvas, new RegExp(`${d.slides.findIndex((s) => s.layout === "cards") + 1} / ${d.slides.length}`));
+    // miniaturas acompanham (o cache não pode segurar o rodapé antigo)
+    await p.waitForFunction(() => /NARUMI/i.test(document.querySelector(".thumb-card.active .thumb-render")?.innerText || ""));
+  });
+
+  await t.test("cabeçalho e rodapé: modelo Padrão volta ao título + número", async () => {
+    await tab("design");
+    await p.click("#btn-header-footer");
+    await p.click('.hf-preset[data-preset="padrao"]');
+    await p.click("#btn-hf-apply"); await settle();
+    const d = await deck();
+    assert.equal(d.footer, undefined);
+    assert.equal(d.header, undefined);
+    await tab("inicio");
+  });
+
   // ------------------------------------------------------------ diagrama de texto
   await t.test("diagrama de texto: formatos com prévia, exemplos e resultado desenhado", async () => {
     await go("cover");

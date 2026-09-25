@@ -16,7 +16,7 @@ const NAMES = [
   "play", "chevron-down", "search", "x", "bot", "message-square-text", "panel-right", "sticky-note", "code-xml",
   "scan-eye", "flame", "layout-dashboard", "activity", "wand", "square-dashed", "scan-line", "volume-2", "volume-x",
   "zoom-in", "zoom-out", "maximize", "arrow-up", "arrow-down", "send", "image-plus", "circle-alert", "check",
-  "monitor-play", "sliders-horizontal", "loader-circle",
+  "monitor-play", "sliders-horizontal", "loader-circle", "panel-bottom",
 ];
 
 const icons = {};

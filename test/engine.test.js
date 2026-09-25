@@ -13,6 +13,7 @@ import { THEMES } from "../src/themes.js";
 import { LAYOUT_INFO, LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
 import { textToVisualSlide } from "../src/diagram/napkin.js";
 import { NAPKIN_EXAMPLES } from "../src/diagram/napkin-examples.js";
+import { fillTokens, formatDate } from "../src/chrome.js";
 import { ROOT, FIXTURE } from "./helpers.js";
 
 const spec = { title: "Teste", theme: "bauhaus", slides: [] };
@@ -179,4 +180,51 @@ test("QR code: figura e campo qr do encerramento viram SVG; sem link, erro claro
   assert.match(html({ layout: "blocks", content: [{ qr: "https://exemplo.com", label: "Site" }] }), /qr-svg[\s\S]*Site/);
   assert.match(html({ layout: "end", title: "Obrigado", qr: "https://linkedin.com/in/x", qrLabel: "LinkedIn" }), /qr-svg/);
   assert.throws(() => html({ layout: "blocks", content: [{ qr: " " }] }), /informe o texto ou link/);
+});
+
+test("markStyle vale também na apresentação/exportação (buildHTML), não só no editor", () => {
+  const out = buildHTML({ title: "x", theme: "bauhaus", markStyle: "sublinhado", slides: [{ layout: "statement", text: "==a==" }, { layout: "statement", text: "==b==", markStyle: "cor" }] }).html;
+  assert.match(out, /<section[^>]*ms-sublinhado/);
+  assert.match(out, /<section[^>]*ms-cor/);
+});
+
+// ---------------------------------------------------------------- cabeçalho e rodapé
+
+test("rodapé padrão continua título + número", () => {
+  const out = renderSlide({ layout: "statement", text: "x" }, 2, { title: "Meu deck", theme: "bauhaus", slides: [{}, {}, {}] }).html;
+  assert.match(out, /class="foot[^"]*"[^>]*>.*Meu deck.*>03</s);
+  assert.doesNotMatch(out, /headbar/);
+});
+
+test("rodapé e cabeçalho com variáveis e máscara de data", () => {
+  const spec = { title: "Deck", author: "Narumi", event: "Summit", department: "Dados", date: "2026-03-07", slides: [{}, {}, {}, {}] };
+  assert.equal(fillTokens("{autor} · {evento} · {depto}", spec, 0, 4), "Narumi · Summit · Dados");
+  assert.equal(fillTokens("{n} / {total} — {pagina}", spec, 1, 4), "2 / 4 — 02");
+  assert.equal(fillTokens("{data}", spec, 0, 4), "07/03/2026");
+  assert.equal(fillTokens("{data:DD MMM AAAA}", spec, 0, 4), "07 mar 2026");
+  assert.equal(fillTokens("{data:MMMM 'YY}", spec, 0, 4), "março '26");
+  assert.equal(formatDate("hoje", "AAAA").length, 4);
+  const out = renderSlide({ layout: "statement", text: "x" }, 1, { ...spec, theme: "bauhaus",
+    footer: { left: "{autor}", center: "{evento}", right: "{n}/{total}" }, header: { right: "{depto} · {data:MM/AAAA}" } }).html;
+  assert.match(out, /bar-left[^>]*>Narumi</);
+  assert.match(out, /bar-center[^>]*>Summit</);
+  assert.match(out, /bar-right[^>]*>2\/4</);
+  assert.match(out, /headbar[\s\S]*Dados · 03\/2026/);
+});
+
+test("footer: false tira rodapé; capa não tem rodapé nem cabeçalho", () => {
+  assert.doesNotMatch(renderSlide({ layout: "statement", text: "x" }, 0, { title: "D", footer: false, slides: [{}] }).html, /class="foot/);
+  const cover = renderSlide({ layout: "cover", title: "x" }, 0, { title: "D", header: { left: "Confidencial" }, slides: [{}] }).html;
+  assert.doesNotMatch(cover, /class="(foot|headbar)/);
+});
+
+// ---------------------------------------------------------------- interface do Studio
+test("todo ícone usado na interface existe no pacote de ícones (scripts/vendor-ui-icons.mjs)", () => {
+  const pub = path.join(ROOT, "src", "studio", "public");
+  const src = ["index.html", "app.js", "slide-form.js"].map((f) => fs.readFileSync(path.join(pub, f), "utf8")).join("\n");
+  const have = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(pub, "ui-icons.js"), "utf8").match(/UI_ICONS = (\{.*\});/s)[1])));
+  const used = new Set([...src.matchAll(/data-ic="([a-z0-9-]+)"/g)].map((m) => m[1]));
+  used.delete("nome"); // exemplo num comentário
+  const missing = [...used].filter((n) => !have.has(n));
+  assert.deepEqual(missing, [], "adicione em NAMES de scripts/vendor-ui-icons.mjs e rode o script");
 });

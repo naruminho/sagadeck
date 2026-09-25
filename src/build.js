@@ -1,4 +1,5 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
+import { barHTML } from "./chrome.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,7 +64,6 @@ export function buildHTML(rawSpec, opts = {}) {
   const theme = resolveTheme(spec.theme);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
   const id = spec.id || slug(spec.title);
-  const footerText = spec.footer === false ? "" : spec.footer || spec.title || "";
   const warnings = [];
   const slidesMeta = [];
   let html = "";
@@ -76,15 +76,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
     try { inner = fn(s, ctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
-    const deco = s.deco ?? theme.deco;
-    const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
-    const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-    const area = layout === "canvas" || layout === "full" ? "free" : "safe";
-    html += `<section class="slide tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
-    if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
-    html += `<div class="${area}">${inner}</div>`;
-    if (showFoot) html += `<div class="foot f-label"><span>${esc(plain(footerText))}</span><span class="fn">${String(i + 1).padStart(2, "0")}</span></div>`;
-    html += `</section>\n`;
+    html += slideShell({ s, i, spec, theme, ctx, layout, tone, inner }) + "\n";
 
     const words = wordCount({ ...raw, notes: undefined });
     const limit = s.maxWords || spec.maxWords || 40;
@@ -154,10 +146,27 @@ export function buildFile(file, outFile) {
   return { ...r, spec, outFile };
 }
 
+// <section> de um slide: tom, textura, estilo do destaque, fundo, área, cabeçalho e rodapé.
+// Única montagem para o Studio (renderSlide) e para a apresentação/exportação (buildHTML).
+function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = false }) {
+  const deco = s.deco ?? theme.deco;
+  const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
+  const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
+  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
+  // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
+  const markStyle = s.markStyle || spec.markStyle;
+  const total = spec.slides?.length || i + 1;
+  let html = `<section class="slide${current ? " current" : ""} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
+  if (bars && s.header !== false) html += barHTML("header", spec, i, total);
+  html += `<div class="${area}">${inner}</div>`;
+  if (bars) html += barHTML("footer", spec, i, total);
+  return html + `</section>`;
+}
+
 export function renderSlide(raw, i = 0, spec = {}) {
   const theme = resolveTheme(spec.theme);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
-  const footerText = spec.footer === false ? "" : spec.footer || spec.title || "";
   const s = { ...(spec.defaults || {}), ...raw };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
@@ -165,15 +174,6 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
-  const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
-  const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
-  // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
-  const markStyle = s.markStyle || spec.markStyle;
-  let html = `<section class="slide current tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
-  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
-  html += `<div class="${area}">${inner}</div>`;
-  if (showFoot) html += `<div class="foot f-label"><span>${esc(plain(footerText))}</span><span class="fn">${String(i + 1).padStart(2, "0")}</span></div>`;
-  html += `</section>`;
+  const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });
   return { html, layout, tone, deco, theme, inner, baseCSS: read("runtime/base.css"), themeCSS: themeCSS(theme) };
 }
