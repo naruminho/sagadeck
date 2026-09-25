@@ -94,3 +94,21 @@ test('pedindo, gera ("coloca uma foto de um cofre de banco nesse slide")', opts,
   console.log(`  ${r.actions.join(" | ")}`);
   assert.ok(r.actions.some((a) => /Imagem gerada/.test(a)), r.actions.join("; "));
 });
+
+for (const [label, extra, check] of [
+  ["você decide onde ilustrar → alguns slides, não todos", " Você decide onde vale ilustrar com imagens.", (n, total) => n >= 1 && n <= total - 2],
+  ["sem falar de imagens → nenhuma", "", (n) => n === 0],
+]) {
+  test(`gerar deck: ${label}`, { ...opts, timeout: 900000 }, async () => {
+    const os = await import("node:os");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { generateDeck } = await import("../src/ai/deck-ai.js");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-live-"));
+    const r = await generateDeck("Palestra de 10 minutos para gestores de um banco sobre golpes no Pix e como a análise de dados ajuda." + extra,
+      { slides: 8, imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") } });
+    const n = r.images.done.length + r.images.failed.length;
+    console.log(`  ${n} imagem(ns) em ${r.spec.slides.length} slides: ${r.images.done.map((d) => d.prompt.slice(0, 50)).join(" | ")}`);
+    assert.ok(check(n, r.spec.slides.length), `${n} imagens em ${r.spec.slides.length} slides`);
+  });
+}

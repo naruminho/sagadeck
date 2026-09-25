@@ -135,7 +135,6 @@
     aiDeckBriefing: document.getElementById("ai-deck-briefing"),
     aiDeckTheme: document.getElementById("ai-deck-theme"),
     aiDeckSlides: document.getElementById("ai-deck-slides"),
-    aiDeckImages: document.getElementById("ai-deck-images"),
     aiDeckStatus: document.getElementById("ai-deck-status"),
     toast: document.getElementById("toast-notification"),
     // Biblioteca de Ícones
@@ -2424,7 +2423,6 @@
         briefing,
         theme: dom.aiDeckTheme.value,
         slides: Number(dom.aiDeckSlides.value) || undefined,
-        images: dom.aiDeckImages.checked,
       }, (ev) => {
         if (ev.type !== "progress") return;
         phase = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;

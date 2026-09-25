@@ -460,7 +460,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             theme: body.theme || undefined,
             slides: Number(body.slides) || undefined,
             duration: Number(body.duration) || undefined,
-            images: !!body.images,
+            images: true, // o briefing diz se quer imagens (e onde)
             imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
             onEvent: emit,
           });

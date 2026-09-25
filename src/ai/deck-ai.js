@@ -42,7 +42,10 @@ Regras de qualidade:
 - YAML: coloque entre aspas duplas todo texto que comece com marcação (\`**\`, \`*\`, \`==\`, \`^^\`, \`~~\`, \`[\`) ou que contenha ": ".
 ${images
     ? `- Você PODE pedir ilustrações geradas por IA com \`image_prompt: "descrição visual detalhada, em inglês"\` no lugar de \`image\` — por exemplo \`figure: { image_prompt: "...", fit: cover }\` num split/cover, ou um slide \`layout: image\` ou \`full\` com \`image_prompt\`. No máximo ${maxImages} imagens novas por resposta.
-- Gerar imagem custa dinheiro e leva segundos: use \`image_prompt\` só quando a pessoa pedir imagem/foto/ilustração (ou aceitar sua sugestão de gerar). Fora isso, use ícones, pictos, gráficos e diagramas do sagadeck — e, se uma foto ajudaria muito, OFEREÇA gerar em vez de gerar.`
+- Gerar imagem custa dinheiro e leva segundos. Leia o que a pessoa pediu:
+  - pediu imagem/foto/ilustração em um slide ou em todos → gere onde ela pediu;
+  - pediu para VOCÊ decidir ("ilustre onde fizer sentido", "você decide as imagens") → não é tudo ou nada: ilustre só os slides em que uma imagem ajuda de verdade (capa, abertura de seção, um momento marcante, um lugar/objeto/pessoa concreto) e deixe os outros com ícones, gráficos e diagramas do sagadeck;
+  - não falou de imagem → não gere; use ícones, pictos, gráficos e diagramas — e, se uma foto ajudaria muito, OFEREÇA gerar.`
     : "- NÃO use `image_prompt` nem imagens externas; use as figuras geradas do sagadeck."}
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 
@@ -568,7 +571,7 @@ Responda com:
 }
 
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, direction, images = false, imageOptions = {}, onProgress, onEvent } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, direction, images = true, imageOptions = {}, onProgress, onEvent } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const wishes = [
@@ -578,7 +581,7 @@ export async function generateDeck(briefing, { theme, slides, duration, directio
   ].filter(Boolean).join(" ");
   const dir = direction || pickDirection();
   const messages = [
-    { role: "system", content: systemPrompt({ images, maxImages: 4 }) },
+    { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
     { role: "user", content: `Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
 Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
 
@@ -605,7 +608,7 @@ Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duratio
     say(`enxugando ${wordy.length} slide(s) com texto demais…`);
     try {
       ({ spec } = await askUntilValid([
-        { role: "system", content: systemPrompt({ images, maxImages: 4 }) },
+        { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
         { role: "user", content: `Deck:\n\`\`\`yaml\n${toYaml(spec)}\`\`\`
 O fiscal anti-sono reclama destes slides (palavras na tela, sem contar notes):
 ${wordy.map((w) => `- slide ${w.n}: ${w.words} palavras (limite ${w.limit})`).join("\n")}
@@ -623,7 +626,7 @@ Responda só com o deck completo num bloco \`\`\`yaml.` },
     say(`deixando menos repetitivo (${before.problems.length} problema(s) de ritmo)…`);
     try {
       const { spec: varied } = await askUntilValid([
-        { role: "system", content: systemPrompt({ images, maxImages: 4 }) },
+        { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
         { role: "user", content: `Deck:\n\`\`\`yaml\n${toYaml(spec)}\`\`\`
 Ficou repetitivo — a plateia vai enjoar:
 ${before.problems.map((p) => `- ${p}`).join("\n")}

@@ -40,7 +40,8 @@ for (let i = 0; i < rawRest.length; i++) {
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
-  sagadeck new <deck.yaml> --prompt "briefing" [--slides=10] [--theme=x] [--images]  deck inteiro escrito pelo LLM
+  sagadeck new <deck.yaml> --prompt "briefing" [--slides=10] [--theme=x]  deck inteiro escrito pelo LLM
+                                   (imagens: peça no briefing; --images = "você decide onde ilustrar", --no-images = nenhuma)
   sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
   sagadeck imagens <deck.yaml>                 gera as imagens pedidas com image_prompt: no YAML (modelo de imagem)
   sagadeck scaffold <deck.yaml> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
@@ -187,13 +188,15 @@ async function main() {
         // Deck inteiro escrito pelo LLM a partir de um briefing
         let briefing = String(flags.prompt || flags.briefing);
         if (fs.existsSync(briefing)) briefing = fs.readFileSync(briefing, "utf8");
+        if (flags.images === true) briefing += "\n\nImagens: você decide onde vale ilustrar com imagens geradas (não precisa ser em todos os slides).";
+        if (flags["no-images"]) briefing += "\n\nNão gere imagens.";
         const { generateDeck, toYaml } = await import("../src/ai/deck-ai.js");
         const dir = path.dirname(target);
         const { spec, images } = await generateDeck(briefing, {
           theme: typeof flags.theme === "string" ? flags.theme : undefined,
           slides: Number(flags.slides) || undefined,
           duration: Number(flags.duration) || undefined,
-          images: !!flags.images,
+          images: !flags["no-images"],
           imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
           onProgress: (m) => console.log(`  … ${m}`),
         });

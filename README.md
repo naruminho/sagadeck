@@ -104,7 +104,7 @@ e não insiste nesse modelo até reiniciar. Tudo funciona, só que a IA não vê
 Pronto: com o modelrelay instalado no mesmo Python, `sagadeck studio`, `new`, `napkin` e `imagens` sobem um `modelrelay serve` sozinhos enquanto rodam. Rodando o motor Node direto (`node bin/sagadeck.js`), deixe um `modelrelay serve` aberto em outro terminal.
 
 ```bash
-sagadeck new palestra.yaml --prompt "Palestra de 15 min para gerentes sobre IA com segurança" --slides=10 --images
+sagadeck new palestra.yaml --prompt "Palestra de 15 min para gerentes sobre IA com segurança. Ilustre onde fizer sentido." --slides=10
 sagadeck napkin "1) cliente abre chamado 2) triagem por IA 3) analista revisa"   # --rules força as regras
 sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no YAML
 ```
@@ -117,6 +117,12 @@ sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no
 | `SAGADECK_LLM_TIMEOUT` | `180` | segundos por chamada |
 | `SAGADECK_NO_RELAY` | — | `1` impede o pacote Python de subir o modelrelay |
 | `SAGADECK_APP` | `sagadeck` | nome com que o sagadeck se identifica ao modelrelay (`[apps.<nome>.models]`) |
+
+**Imagens geradas: você pede no texto**, no chat, no briefing do "Deck com IA" ou no `--prompt`; não há caixa para marcar.
+"Com fotos em todos os slides" ilustra todos; "você decide onde ilustrar" deixa a IA escolher só os slides em que uma imagem
+ajuda (capa, abertura, um momento marcante) e usar ícones, gráficos e diagramas no resto; sem falar de imagens, ela não gera
+nenhuma (gerar custa) e, quando uma foto ajudaria muito, oferece. Na linha de comando, `--images` equivale a "você decide onde
+ilustrar" e `--no-images` proíbe. Imagens só são geradas para os slides que a IA acabou de criar ou alterar.
 
 Todo YAML vindo do LLM é validado (renderiza cada slide); se falhar, o erro volta para o LLM corrigir (até 3 tentativas). Decks gerados passam por uma rodada de enxugamento quando o fiscal anti-sono reclamaria.
 

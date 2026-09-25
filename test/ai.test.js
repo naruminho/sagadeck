@@ -187,3 +187,23 @@ test("imagem pedida num slide alterado: gera; se falhar, fica o placeholder e um
   assert.equal(r.spec.slides[1].image_prompt, "foto de um cofre", "falhou: o pedido fica como placeholder");
   assert.ok(r.actions.some((a) => /Falhou ao gerar imagem/.test(a)), r.actions.join("; "));
 });
+
+test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você decide onde, nenhum)", async () => {
+  const deck = { title: "Fraudes", theme: "bauhaus", duration: 10, slides: [
+    { layout: "cover", title: "Fraudes", figure: { image_prompt: "a bank vault at night" }, time: 1 },
+    { layout: "headline", text: "Uau", time: 1 },
+    { layout: "number", value: 42, label: "x", tone: "dark", time: 1 },
+    { layout: "full", image_prompt: "a crowded subway station", title: "Todo dia", time: 1 },
+    { layout: "question", question: "E aí?", options: ["a", "b"], time: 1 },
+    { layout: "end", title: "Fim", time: 1 },
+  ] };
+  reply = (req) => (/^Generate an image/.test(req.lastUser) ? "sem imagem (mock)" : "```yaml\n" + YAML.stringify(deck) + "```");
+  const n = llm.requests.length;
+  await generateDeck("fraudes no pix. Ilustre onde fizer sentido.", { direction: "x" });
+  const reqs = llm.requests.slice(n);
+  assert.match(reqs[0].system, /Você PODE pedir ilustrações/, "imagens liberadas sem precisar de caixa marcada");
+  assert.match(reqs[0].system, /pediu para VOCÊ decidir/);
+  assert.match(reqs[0].system, /não falou de imagem → não gere/);
+  const asked = reqs.filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", ""));
+  assert.deepEqual(asked.sort(), ["a bank vault at night", "a crowded subway station"], "só os slides que a IA escolheu ilustrar");
+});

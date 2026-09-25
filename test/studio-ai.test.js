@@ -12,7 +12,13 @@ const INSERT = "Criei 2 slides.\n```yaml\ninsert:\n  - after: 1\n    slide: { la
 
 // o "modelo": aqui ele "decide" pelo pedido (o de verdade decide lendo a mensagem e a conversa)
 const pedido = (req) => (req.lastUser.match(/Pedido: ([^\n]*)/) || [])[1] || "";
+const NEW_DECK = ["```yaml", "title: Deck gerado", "theme: bauhaus", "duration: 5", "slides:",
+  "  - { layout: cover, title: Deck gerado, time: 1 }", "  - { layout: headline, text: Uma ideia, time: 1 }",
+  "  - { layout: number, value: 3, label: milhões, tone: dark, time: 1 }", "  - { layout: question, question: E aí?, options: [Sim, Não], time: 1 }",
+  "  - { layout: end, title: Obrigado, time: 1 }", "```"].join("\n");
+
 function script(req) {
+  if (/Crie uma apresentação completa/.test(req.lastUser)) return NEW_DECK;
   const p = pedido(req);
   if (/sem visão/.test(p) && req.hasImages) return { status: 404, error: "No endpoints found that support image input" };
   if (/sem visão/.test(p)) return ["Respondi sem ver o slide.", "```opcoes", "Ok", "Outra coisa", "```"].join("\n");
@@ -63,7 +69,7 @@ test("studio + IA (LLM falso)", async (t) => {
       await send("arrume os slides 2 e 3 pra ficarem mais bonitos");
       const req = lastReq(/slides 2 e 3/);
       assert.match(req.lastUser, /olhando o slide 1/, "a IA sabe qual está na tela");
-      assert.match(req.system, /só quando a pessoa pedir imagem/, "regra de quando gerar imagem");
+      assert.match(req.system, /não falou de imagem → não gere/, "regra de quando gerar imagem");
       const d = await deck();
       assert.equal(d.slides[1].title, "Pilares ajustados");
       assert.equal(d.slides[2].title, "Linha ajustada");
@@ -139,6 +145,20 @@ test("studio + IA (LLM falso)", async (t) => {
       const txt = await lastAI();
       assert.match(txt, /Respondi sem ver o slide/);
       assert.match(txt, /não enxerga imagens/);
+    });
+
+    await t.test("Deck com IA: sem caixa 'Criar imagens'; o briefing diz (e a IA pode ilustrar)", async () => {
+      await p.click('.ribbon-tab[data-tab="ia"]');
+      await p.click("#btn-ai-deck");
+      assert.equal(await p.locator("#ai-deck-images").count(), 0);
+      assert.match(await p.getAttribute("#ai-deck-briefing", "placeholder"), /imagens: peça no texto/);
+      await p.fill("#ai-deck-briefing", "Palestra curta sobre fraudes. Você decide onde ilustrar.");
+      await p.click("#btn-run-ai-deck");
+      await p.waitForFunction(() => document.querySelector("#modal-ai-deck")?.classList.contains("hidden"), null, { timeout: 60000 });
+      const req = llm.requests.findLast((r) => /Crie uma apresentação completa/.test(r.lastUser));
+      assert.match(req.lastUser, /Você decide onde ilustrar/);
+      assert.match(req.system, /Você PODE pedir ilustrações/);
+      assert.equal((await deck()).title, "Deck gerado");
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
