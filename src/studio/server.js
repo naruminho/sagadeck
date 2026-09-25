@@ -401,15 +401,22 @@ export function createStudioServer(deckPath = null, opts = {}) {
           let result;
           if (body.mode !== "rules" && await llmAvailable()) {
             try {
+              const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
+              const visuals = await lookAt(withBase(spec), target, prompt, emit);
+              for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
+                if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
+              }
               result = await editDeck({
                 spec: withBase(spec),
                 instruction: prompt,
-                targetSlide: typeof body.targetSlide === "number" ? body.targetSlide : null,
+                targetSlide: target,
                 issues,
                 images: !!body.images,
                 imageOptions: imageOptions(withBase(spec)),
                 history: Array.isArray(body.history) ? body.history : [],
                 onProgress: emit,
+                visuals,
+                renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
               });
               result.mode = "llm";
             } catch (e) {
@@ -493,6 +500,21 @@ export function createStudioServer(deckPath = null, opts = {}) {
   });
 
   return server;
+}
+
+// "Olhos" da IA: foto do slide renderizado (uma por clique se o pedido falar de animação/ordem).
+// Sem Chrome disponível, segue sem foto — a IA só perde a visão, o pedido continua.
+const ANIM_WORDS = /clique|click|anima|aparec|revel|ordem|sequ[eê]n|entra|some|surge|transi/i;
+async function lookAt(spec, index, prompt, emit) {
+  if (typeof index !== "number" || !spec?.slides?.[index]) return [];
+  try {
+    emit({ phase: "looking", text: "Olhando o slide…" });
+    const { slideSnapshots } = await import("./snapshot.js");
+    return await slideSnapshots(spec, index, { mode: ANIM_WORDS.test(prompt) ? "steps" : "final" });
+  } catch (e) {
+    console.warn("[Studio] sem foto do slide para a IA:", e.message);
+    return [];
+  }
 }
 
 // Resposta de uma tarefa de IA. Com stream, manda NDJSON: uma linha {type:"progress",…} por etapa/pedaço

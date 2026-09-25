@@ -197,7 +197,10 @@ async function askUntilValid(messages, parse, opts = {}) {
         // Objeção de conteúdo: refaz o pedido original com o fato anexado, sem a resposta rejeitada —
         // se ela ficasse na conversa, o LLM pediria desculpas ao usuário por algo que ele nunca viu.
         const last = messages[messages.length - 1];
-        messages = [...messages.slice(0, -1), { ...last, content: `${last.content}\n\n${e.message}` }];
+        const content = Array.isArray(last.content)
+          ? [...last.content, { type: "text", text: e.message }]
+          : `${last.content}\n\n${e.message}`;
+        messages = [...messages.slice(0, -1), { ...last, content }];
       } else {
         messages = [...messages,
           { role: "assistant", content: res.text },
@@ -266,11 +269,22 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
 
 // Regras do chat de edição: o que o LLM errou na prática (trocar figura por símbolo genérico,
 // mudar um motivo recorrente num slide só, "chutar" em vez de perguntar).
+// O que o motor e o Studio fazem sozinhos — sem isto a IA acha que o resultado estranho é culpa dela
+// (ou do usuário) e tenta "corrigir" algo que não controla.
+const AUTOMATION_NOTES = `Comportamentos automáticos do sagadeck (não são decisões suas nem do usuário):
+- Auto-correção: pode encurtar/mudar título, mover texto para notes, reduzir titleSize, mudar colunas ou tom. Cada mudança fica registrada no slide em \`auto\` (campo, antes, motivo). Se o usuário reclamar de algo que está em \`auto\`, diga claramente que foi a auto-correção automática e ofereça desfazer: restaurar o valor \`antes\` e remover aquela entrada de \`auto\` no patch.
+- Títulos marcados para caber (fit) têm a fonte reduzida automaticamente na hora de desenhar se não couberem — se o usuário achar o título pequeno, o caminho é encurtar o texto ou mudar o layout, não o tamanho.
+- ==texto== vira marca-texto animado; **negrito**; ^^texto^^ = cor de ênfase; ~~riscado~~.
+- Elementos com \`step\` só aparecem no clique indicado; \`build: true\` revela itens um por clique.
+- Um layout só desenha os campos dele (ex.: \`cover\` ignora \`content\`) — campo ignorado não aparece, por mais que exista no YAML.`;
+
 const EDIT_RULES = `Regras de edição:
 - Preserve o SIGNIFICADO do que você altera. Se o usuário não gostou de uma figura, a nova precisa representar a mesma coisa: uma pessoa continua sendo uma pessoa/cena com pessoas (outra pose, outra cena, outro picto), um processo continua sendo um processo. NUNCA troque uma figura específica por um símbolo genérico (escudo, check, estrela, raio) sem o usuário pedir.
 - CONSISTÊNCIA: se o que você muda é um motivo que se repete no deck (o mesmo personagem/picto, o mesmo tipo de figura, o mesmo estilo de elemento), mude TODAS as ocorrências do mesmo jeito e diga na resposta quais slides mudou. Harmonia visual entre os slides vale mais que acertar um slide isolado.
 - Você não vê os slides renderizados. Pictos (human, crowd, scene…) são desenhados pelo motor num estilo fixo: você só controla os parâmetros (pose, sign, name, count…). Se a reclamação é sobre o traço de um picto em si, diga isso com franqueza e ofereça alternativas (ex.: outro tipo de figura no deck todo, ou ilustrações geradas se as imagens estiverem ligadas) — de preferência perguntando antes de mudar vários slides.
-- Se o pedido for ambíguo, ou a mudança certa afetar muitos slides de um jeito que o usuário talvez não espere, PERGUNTE: responda só com a pergunta, sem bloco yaml.`;
+- Se o pedido for ambíguo, ou a mudança certa afetar muitos slides de um jeito que o usuário talvez não espere, PERGUNTE: responda só com a pergunta, sem bloco yaml.
+- Quando houver imagens do slide renderizado, OLHE para elas antes de responder: elas mostram o que a plateia vê (sobreposição, texto cortado, ordem dos cliques). Descreva o que você vê em vez de perguntar o que o usuário quis dizer.
+- Imagens coladas pelo usuário são referência (ex.: "recrie este slide"): reproduza a estrutura, a hierarquia e o conteúdo com os recursos do sagadeck.`;
 
 // Formato de patch: o LLM devolve só o que mudou (bem mais rápido que reescrever o deck inteiro).
 const PATCH_FORMAT = `Formato da resposta:
@@ -390,7 +404,8 @@ function parseEditText(text, base) {
 }
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
-export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress }) {
+export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
+  visuals = [], renderNotes = [] }) {
   const deck = publicSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -400,22 +415,33 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
   const problems = issues?.length
     ? `\nProblemas que o fiscal de layout detectou no slide ${typeof targetSlide === "number" ? targetSlide + 1 : "atual"} (corrija se tiver a ver com o pedido):\n${JSON.stringify(issues).slice(0, 4000)}`
     : "";
-  const messages = [
-    { role: "system", content: `${systemPrompt({ images })}\n\n${EDIT_RULES}\n\n${PATCH_FORMAT}` },
-    // últimas trocas do chat, para o LLM entender respostas curtas ("sim", "pode fazer")
-    ...history.slice(-6).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 1500) })),
-    { role: "user", content: `Deck atual (${deck.slides.length} slides):
+  const slideAuto = typeof targetSlide === "number" ? spec.slides[targetSlide]?.auto : null;
+  const autoLog = Array.isArray(slideAuto) && slideAuto.length
+    ? `\nMudanças automáticas já registradas no slide ${targetSlide + 1} (campo \`auto\`):\n${slideAuto.map((e) => `- ${e.campo}: antes = ${JSON.stringify(e.antes)} — ${e.motivo}`).join("\n").slice(0, 3000)}`
+    : "";
+  const drawn = renderNotes.length ? `\nComo o slide foi desenhado agora: ${renderNotes.join("; ")}` : "";
+  const text = `Deck atual (${deck.slides.length} slides):
 \`\`\`yaml
 ${YAML.stringify(numbered, { indent: 2 })}slides:
 ${slidesYaml}\`\`\`
-${focus}${problems}
+${focus}${problems}${autoLog}${drawn}
 
 Pedido: ${instruction}
 
 Antes de responder, verifique (e siga as Regras de edição):
 - Se vai trocar uma figura: a nova representa a MESMA coisa (pessoa → pessoa/cena com pessoas)? Ícone genérico não vale.
 - O elemento que você vai mudar aparece em outros slides? Se sim, mude todos igual ou pergunte antes.
-- Na dúvida, pergunte (resposta sem bloco yaml).` },
+- Se a reclamação é sobre algo que está em \`auto\` ou é comportamento automático, diga isso com clareza.
+- Na dúvida, pergunte (resposta sem bloco yaml).`;
+  // multimodal: texto + fotos do slide renderizado + imagens coladas pelo usuário
+  const userContent = visuals.length
+    ? [{ type: "text", text }, ...visuals.flatMap((v) => [{ type: "text", text: `Imagem: ${v.label}` }, { type: "image_url", image_url: { url: v.dataUrl } }])]
+    : text;
+  const messages = [
+    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${PATCH_FORMAT}` },
+    // últimas trocas do chat, para o LLM entender respostas curtas ("sim", "pode fazer")
+    ...history.slice(-6).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 1500) })),
+    { role: "user", content: userContent },
   ];
   let motifObjected = false;
   const { spec: edited, prose, attempts, changed = [], question } =
@@ -440,7 +466,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (issues?.length && typeof targetSlide === "number" && edited.slides[targetSlide]) {
     const fix = autofixSlide(edited.slides[targetSlide], edited, issues);
     edited.slides[targetSlide] = fix.slide;
-    fix.actions.forEach((x) => actions.push(`Slide ${targetSlide + 1}: ${x}`));
+    fix.actions.forEach((x) => actions.push(`⚙ Auto-correção (slide ${targetSlide + 1}): ${x}`));
   }
   return {
     reply: prose || "Pronto, apliquei o pedido.",

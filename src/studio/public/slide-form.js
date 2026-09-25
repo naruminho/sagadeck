@@ -123,7 +123,7 @@
     video: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("url", "Link do vídeo"), f.text("label", "Texto do botão", { placeholder: "Assistir" }), f.text("caption", "Legenda"), f.el("figure", "Figura")],
     canvas: [f.els("elements", "Elementos", { positioned: true })],
   };
-  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time"]);
+  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto"]);
 
   // ---------------------------------------------------------------------------------------------
   // Elementos (src/elements.js): tipos, como reconhecer e campos

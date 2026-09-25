@@ -281,6 +281,7 @@
       </div>
 
       <div id="tab-panel-props" class="tab-panel active">
+        <div id="auto-banner" class="auto-banner" hidden></div>
         <div id="slide-fields-form" class="fields-form"></div>
         <div class="pane-section">
           <label class="field-label" for="slide-time-input">Tempo planejado</label>
@@ -310,8 +311,13 @@
         </div>
 
         <form id="chat-form" class="chat-input-bar">
-          <input type="text" id="chat-input" class="chat-field" placeholder="Pergunte ou peça uma mudança…" autocomplete="off">
-          <button type="submit" id="chat-send" class="icon-btn icon-btn-primary" title="Enviar"><i class="ic" data-ic="send"></i></button>
+          <div id="chat-attachments" class="chat-attachments" hidden></div>
+          <div class="chat-compose">
+            <textarea id="chat-input" class="chat-field" rows="1" placeholder="Pergunte, peça uma mudança ou cole uma imagem (Ctrl+V)…" autocomplete="off"></textarea>
+            <button type="button" id="chat-attach" class="icon-btn" title="Anexar imagem"><i class="ic" data-ic="image-plus"></i></button>
+            <button type="submit" id="chat-send" class="icon-btn icon-btn-primary" title="Enviar (Enter)"><i class="ic" data-ic="send"></i></button>
+          </div>
+          <input type="file" id="chat-attach-input" accept="image/*" multiple hidden>
         </form>
       </div>
     </aside>
@@ -326,6 +332,7 @@
     <span id="anti-sleep-indicator" class="status-item anti-sleep-ok" title="Palavras visíveis no slide (limite recomendado: 40)"><b id="word-count-num">0</b> palavras</span>
     <button id="status-issues" class="status-item status-btn" title="Problemas de layout neste slide"></button>
     <div id="step-control" class="step-control" hidden></div>
+    <span id="status-fit" class="status-item" title=""></span>
     <span class="spacer"></span>
     <button id="ai-status" class="status-item status-btn" title=""></button>
     <button id="btn-notes-toggle-status" class="status-item status-btn" title="Anotações"><i class="ic" data-ic="sticky-note"></i> Anotações</button>

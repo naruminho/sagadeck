@@ -49,7 +49,7 @@ const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas"]);
 export function wordCount(s) {
   const txt = [];
   const walk = (v, k) => {
-    if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone") return;
+    if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
     if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }
     else if (Array.isArray(v)) v.forEach((x) => walk(x));
     else if (v && typeof v === "object" && !v.svg && !v.chart && !v.html) for (const [kk, vv] of Object.entries(v)) walk(vv, kk);

@@ -215,6 +215,11 @@
     notesBar: document.getElementById("notes-bar"),
     statusIssues: document.getElementById("status-issues"),
     stepControl: document.getElementById("step-control"),
+    statusFit: document.getElementById("status-fit"),
+    autoBanner: document.getElementById("auto-banner"),
+    chatAttachments: document.getElementById("chat-attachments"),
+    chatAttach: document.getElementById("chat-attach"),
+    chatAttachInput: document.getElementById("chat-attach-input"),
     chatEmpty: document.getElementById("chat-empty"),
   };
 
@@ -592,9 +597,16 @@
     const message = dom.chatInput.value.trim();
     if (!message) return;
 
-    // Adicionar bolha do usuário
-    appendChatMessage("user", message);
+    // Adicionar bolha do usuário (com as imagens anexadas)
+    const bubble = appendChatMessage("user", message);
+    if (state.chatAttachments.length) {
+      const row = document.createElement("div");
+      row.className = "msg-atts";
+      state.chatAttachments.forEach((u) => { const img = document.createElement("img"); img.src = u; row.appendChild(img); });
+      bubble.querySelector(".user-content")?.appendChild(row);
+    }
     dom.chatInput.value = "";
+    autoGrowChat();
 
     const scope = dom.aiScopeSelect.value;
     const targetIdx = scope === "all" ? null : state.currentSlideIndex;
@@ -607,6 +619,8 @@
     dom.chatInput.disabled = true;
     const history = state.chatHistory.slice(-6);
     state.chatHistory.push({ role: "user", text: message });
+    const attachments = state.chatAttachments.slice();
+    clearChatAttachments();
 
     try {
       const data = await streamAI("/api/ai/chat", {
@@ -616,6 +630,8 @@
         issues: state.issues,
         images: dom.aiImagesToggle.checked,
         history,
+        attachments,
+        renderNotes: state.renderNotes || [],
       }, (ev) => work.update(ev));
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       state.chatHistory.push({ role: "assistant", text: data.reply });
@@ -640,6 +656,47 @@
       dom.chatInput.disabled = false;
       dom.chatInput.focus();
     }
+  }
+
+  // ---- anexos do chat (colar/arrastar/escolher imagem) ----
+  state.chatAttachments = [];
+  function clearChatAttachments() {
+    state.chatAttachments = [];
+    renderChatAttachments();
+  }
+  function renderChatAttachments() {
+    const box = dom.chatAttachments;
+    box.hidden = !state.chatAttachments.length;
+    box.innerHTML = "";
+    state.chatAttachments.forEach((url, i) => {
+      const it = document.createElement("div");
+      it.className = "chat-att";
+      it.innerHTML = `<img alt=""><button type="button" title="Remover">✕</button>`;
+      it.querySelector("img").src = url;
+      it.querySelector("button").onclick = () => { state.chatAttachments.splice(i, 1); renderChatAttachments(); };
+      box.appendChild(it);
+    });
+  }
+  // reduz para no máximo 1280 px (a IA não precisa de mais, e a requisição fica leve)
+  function addChatImage(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    if (state.chatAttachments.length >= 4) { showToast("Até 4 imagens por mensagem."); return; }
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      state.chatAttachments.push(c.toDataURL("image/jpeg", 0.85));
+      URL.revokeObjectURL(img.src);
+      renderChatAttachments();
+      openPane("chat");
+    };
+    img.src = URL.createObjectURL(file);
+  }
+  function autoGrowChat() {
+    dom.chatInput.style.height = "auto";
+    dom.chatInput.style.height = `${Math.min(180, dom.chatInput.scrollHeight)}px`;
   }
 
   function appendChatMessage(sender, text, actions = []) {
@@ -1366,6 +1423,14 @@
       }
       card.appendChild(screen);
 
+      if (Array.isArray(slide.auto) && slide.auto.length) {
+        const badge = document.createElement("span");
+        badge.className = "thumb-auto";
+        badge.textContent = "⚙";
+        badge.title = `${slide.auto.length} mudança(s) automática(s) — veja no painel Formatar`;
+        card.appendChild(badge);
+      }
+
       const actions = document.createElement("div");
       actions.className = "thumb-actions";
       [["arrow-up", "Mover para cima", -1], ["arrow-down", "Mover para baixo", 1]].forEach(([ic, title, dir]) => {
@@ -1530,7 +1595,33 @@
   // Painel Formatar: formulário completo do layout (slide-form.js). Cada mudança atualiza o slide
   // na hora; mudanças de estrutura (adicionar/remover/trocar tipo) reconstroem o formulário.
   let formSyncTimer = null;
+  function renderAutoBanner(slide) {
+    const log = Array.isArray(slide.auto) ? slide.auto : [];
+    const box = dom.autoBanner;
+    box.hidden = !log.length;
+    if (!log.length) { box.innerHTML = ""; return; }
+    const show = (v) => (v == null ? "(vazio)" : typeof v === "string" ? v : JSON.stringify(v));
+    box.innerHTML = `<h4><span>⚙</span> Mudanças automáticas neste slide</h4>
+      <p class="hint">Feitas pela auto-correção, não por você nem pela IA. Desfaça o que não quiser.</p>
+      ${log.map((e, i) => `<div class="auto-item">
+        <span class="what">${escHtml(e.campo)}</span>
+        <span class="acts"><button class="btn-small" data-undo="${i}">Desfazer</button><button class="btn-small" data-keep="${i}">Manter</button></span>
+        <span class="why">${escHtml(e.motivo || "")}</span>
+        <span class="was" title="${escAttr(show(e.antes))}">Antes: ${escHtml(show(e.antes).slice(0, 120))}</span>
+      </div>`).join("")}`;
+    const done = () => { if (!slide.auto.length) delete slide.auto; renderThumbnails(); formCommit(true); };
+    box.querySelectorAll("[data-undo]").forEach((b) => b.onclick = () => {
+      const e = slide.auto[+b.dataset.undo];
+      if (e.antes == null) delete slide[e.campo]; else slide[e.campo] = e.antes;
+      slide.auto.splice(+b.dataset.undo, 1);
+      showToast(`Desfeito: ${e.campo}`);
+      done();
+    });
+    box.querySelectorAll("[data-keep]").forEach((b) => b.onclick = () => { slide.auto.splice(+b.dataset.keep, 1); done(); });
+  }
+
   function updatePropertiesPanel(slide) {
+    renderAutoBanner(slide);
     const pane = dom.tabPanelProps;
     const scroll = pane.scrollTop;
     window.SlideForm.render(dom.slideFieldsForm, slide, {
@@ -1765,7 +1856,7 @@
   // ignora anotações, ids e configurações; tira a marcação inline.
   function visibleWordCount(slide) {
     const plain = (s) => String(s).replace(/==|\*\*|\^\^|~~|`|\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2");
-    const skip = new Set(["notes", "source", "id", "layout", "tone", "style", "class", "ratio", "deco", "time", "icon", "picto", "pose", "sign", "name", "theme", "fit", "anim", "align", "color", "bg", "image", "image_prompt", "alt", "url"]);
+    const skip = new Set(["notes", "auto", "source", "id", "layout", "tone", "style", "class", "ratio", "deco", "time", "icon", "picto", "pose", "sign", "name", "theme", "fit", "anim", "align", "color", "bg", "image", "image_prompt", "alt", "url"]);
     const txt = [];
     const walk = (v, k) => {
       if (skip.has(k)) return;
@@ -1838,8 +1929,20 @@
       let guard = 0;
       while (over() && fs > +el.dataset.fs0 * 0.3 && guard++ < 60) { fs *= 0.95; el.style.fontSize = fs.toFixed(1) + "px"; }
     });
+    const report = () => {
+      if (root !== dom.renderedSlideContainer) return;
+      const notes = [];
+      root.querySelectorAll("[data-fit]").forEach((el) => {
+        const r = parseFloat(el.style.fontSize) / (+el.dataset.fs0 || 1);
+        if (r < 0.9) notes.push(`o motor reduziu automaticamente a fonte de "${el.textContent.trim().slice(0, 40)}" para ${Math.round(r * 100)}% para caber`);
+      });
+      state.renderNotes = notes;
+      dom.statusFit.textContent = notes.length ? "⚙ Texto reduzido para caber" : "";
+      dom.statusFit.title = notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "";
+    };
     run();
-    document.fonts?.ready.then(run); // a fonte do tema pode chegar depois e mudar as medidas
+    report();
+    document.fonts?.ready.then(() => { run(); report(); }); // a fonte do tema pode chegar depois e mudar as medidas
   }
 
   // ==========================================================================
@@ -2178,8 +2281,18 @@
     dom.btnDelSlide.onclick = deleteCurrentSlide;
     dom.btnAutofix.onclick = triggerAutofix;
 
-    // Chat Form
+    // Chat Form: Enter envia, Shift+Enter quebra linha; Ctrl+V de imagem anexa
     dom.chatForm.onsubmit = handleChatSubmit;
+    dom.chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); handleChatSubmit(); }
+    });
+    dom.chatInput.addEventListener("input", autoGrowChat);
+    dom.chatInput.addEventListener("paste", (e) => {
+      const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === "file" && it.type.startsWith("image/")).map((it) => it.getAsFile());
+      if (files.length) { e.preventDefault(); files.forEach(addChatImage); }
+    });
+    dom.chatAttach.onclick = () => dom.chatAttachInput.click();
+    dom.chatAttachInput.onchange = () => { [...dom.chatAttachInput.files].forEach(addChatImage); dom.chatAttachInput.value = ""; };
 
     // Chips de Sugestões de Prompt do Chat
     document.querySelectorAll(".chip-prompt").forEach((btn) => {
@@ -2335,6 +2448,8 @@
       dragCounter = 0;
       dom.dropOverlay.classList.add("hidden");
       const dt = e.dataTransfer;
+      const images = [...(dt?.files || [])].filter((f) => f.type.startsWith("image/"));
+      if (images.length) { images.forEach(addChatImage); return; }
       if (dt && dt.files && dt.files.length > 0) {
         const file = dt.files[0];
         if (/\.(ya?ml|txt)$/i.test(file.name)) {
