@@ -87,6 +87,20 @@ No `~/.modelrelay/config.toml`, defina os apelidos que o sagadeck usa:
 "image" = "google/gemini-2.5-flash-image"   # imagens
 ```
 
+O sagadeck se identifica para o modelrelay (cabeçalho `X-Modelrelay-App: sagadeck`), então dá para usar
+modelos diferentes só nele, sem afetar outros apps que usam o mesmo modelrelay:
+
+```toml
+[apps.sagadeck.models]                      # só o que muda para o sagadeck; o resto vem de [models]
+"text" = "deepseek/deepseek-v4-flash"
+```
+
+Confira com `modelrelay show --app sagadeck`. Detalhes na seção *Per-app models* do README do modelrelay.
+
+**Modelo sem visão** (ex.: DeepSeek V4 Flash): o assistente manda uma foto do slide e as imagens que você cola.
+Se o modelo recusar imagem, o sagadeck refaz o pedido sem as imagens, avisa na resposta ("não enxerga imagens")
+e não insiste nesse modelo até reiniciar. Tudo funciona, só que a IA não vê o slide renderizado.
+
 Pronto: com o modelrelay instalado no mesmo Python, `sagadeck studio`, `new`, `napkin` e `imagens` sobem um `modelrelay serve` sozinhos enquanto rodam. Rodando o motor Node direto (`node bin/sagadeck.js`), deixe um `modelrelay serve` aberto em outro terminal.
 
 ```bash
@@ -102,6 +116,7 @@ sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no
 | `SAGADECK_TEXT_MODEL` / `SAGADECK_IMAGE_MODEL` | `text` / `image` | nomes dos modelos |
 | `SAGADECK_LLM_TIMEOUT` | `180` | segundos por chamada |
 | `SAGADECK_NO_RELAY` | — | `1` impede o pacote Python de subir o modelrelay |
+| `SAGADECK_APP` | `sagadeck` | nome com que o sagadeck se identifica ao modelrelay (`[apps.<nome>.models]`) |
 
 Todo YAML vindo do LLM é validado (renderiza cada slide); se falhar, o erro volta para o LLM corrigir (até 3 tentativas). Decks gerados passam por uma rodada de enxugamento quando o fiscal anti-sono reclamaria.
 

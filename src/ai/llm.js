@@ -26,11 +26,13 @@ export function llmConfig(env = process.env) {
     textModel: env.SAGADECK_TEXT_MODEL || "text",
     imageModel: env.SAGADECK_IMAGE_MODEL || "image",
     timeoutMs: Number(env.SAGADECK_LLM_TIMEOUT || 180) * 1000,
+    // o modelrelay escolhe os modelos deste app em [apps.sagadeck.models] (o resto vem de [models])
+    app: env.SAGADECK_APP || "sagadeck",
   };
 }
 
 function headers(cfg) {
-  const h = { "Content-Type": "application/json" };
+  const h = { "Content-Type": "application/json", "X-Modelrelay-App": cfg.app || "sagadeck" };
   if (cfg.key) h.Authorization = `Bearer ${cfg.key}`;
   return h;
 }
@@ -52,9 +54,36 @@ export async function llmAvailable({ force = false } = {}) {
   return ok;
 }
 
+// Modelos que já recusaram imagem nesta execução (ex.: DeepSeek V4 Flash): não mandamos mais imagem para eles.
+const noVision = new Set();
+const hasImageParts = (messages) => messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === "image_url"));
+const refusesImages = (e) => /support image input|image input is not supported|does not support images?|no endpoints found that support image/i.test(e?.message || "");
+function withoutImages(messages) {
+  return messages.map((m) => (!Array.isArray(m.content) ? m : {
+    ...m,
+    content: m.content.map((p) => (p.type === "image_url" ? { type: "text", text: "[imagem omitida: o modelo atual não aceita imagens]" } : p)),
+  }));
+}
+
 // Uma chamada de chat. Devolve { text, images: [{ mime, data: Buffer, url }], usage, model }.
 // Com `onDelta(pedaço, textoAtéAgora)`, pede streaming e avisa a cada pedaço de texto que chega.
-export async function chat(messages, { model, temperature, maxTokens, onDelta, cfg = llmConfig() } = {}) {
+// Se o modelo não aceita imagem, refaz sem as imagens e marca `imagesDropped` (quem chamou avisa o usuário).
+export async function chat(messages, opts = {}) {
+  const cfg = opts.cfg || llmConfig();
+  const key = `${cfg.url}|${cfg.app}|${opts.model || cfg.textModel}`;
+  if (hasImageParts(messages) && noVision.has(key)) {
+    return { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
+  }
+  try {
+    return await chatOnce(messages, { ...opts, cfg });
+  } catch (e) {
+    if (!hasImageParts(messages) || !refusesImages(e)) throw e;
+    noVision.add(key);
+    return { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
+  }
+}
+
+async function chatOnce(messages, { model, temperature, maxTokens, onDelta, cfg = llmConfig() } = {}) {
   const body = { model: model || cfg.textModel, messages };
   if (temperature !== undefined) body.temperature = temperature;
   if (maxTokens) body.max_tokens = maxTokens;

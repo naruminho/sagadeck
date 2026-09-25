@@ -143,3 +143,26 @@ test("gerar deck: deck já variado não gasta revisão", async () => {
   await generateDeck("fraudes", { direction: "x" });
   assert.equal(llm.requests.slice(n).filter((q) => /Ficou repetitivo/.test(q.lastUser)).length, 0);
 });
+
+test("o sagadeck se identifica para o modelrelay (modelos por app)", async () => {
+  reply = () => "ok";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+  assert.equal(llm.requests[n].headers["x-modelrelay-app"], "sagadeck");
+});
+
+test("modelo sem visão (ex.: DeepSeek V4 Flash): refaz sem imagens, avisa e não insiste", async () => {
+  const NO_VISION = { status: 404, error: "HTTP 404: No endpoints found that support image input" };
+  reply = (req) => (req.hasImages ? NO_VISION : "Vi pelo YAML: o título está ok.");
+  const visuals = [{ label: "slide 2 renderizado", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }];
+  const n = llm.requests.length;
+  const r = await editDeck({ spec: base(), instruction: "o que você acha?", targetSlide: 1, visuals });
+  assert.match(r.reply, /título está ok/);
+  assert.ok(r.actions.some((a) => /não enxerga imagens/.test(a)), r.actions.join("; "));
+  assert.deepEqual(llm.requests.slice(n).map((q) => q.hasImages), [true, false], "tentou com imagem, refez sem");
+  // da próxima vez, nem tenta mandar imagem para esse modelo
+  const m = llm.requests.length;
+  const r2 = await editDeck({ spec: base(), instruction: "e agora?", targetSlide: 1, visuals });
+  assert.deepEqual(llm.requests.slice(m).map((q) => q.hasImages), [false]);
+  assert.ok(r2.actions.some((a) => /não enxerga imagens/.test(a)));
+});

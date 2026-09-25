@@ -14,6 +14,8 @@ const INSERT = "Criei 2 slides.\n```yaml\ninsert:\n  - after: 1\n    slide: { la
 const pedido = (req) => (req.lastUser.match(/Pedido: ([^\n]*)/) || [])[1] || "";
 function script(req) {
   const p = pedido(req);
+  if (/sem visão/.test(p) && req.hasImages) return { status: 404, error: "No endpoints found that support image input" };
+  if (/sem visão/.test(p)) return ["Respondi sem ver o slide.", "```opcoes", "Ok", "Outra coisa", "```"].join("\n");
   if (/o que você acha/.test(p)) return "Gosto do tema. Quem é o público?\n```opcoes\nO público é a diretoria\nO público é técnico\n```";
   if (/diretoria/.test(p)) return "Para a diretoria, abra com o prejuízo em R$ e uma pergunta.\n```opcoes\nPode fazer isso\nMais uma ideia\n```";
   if (/Pode fazer/.test(p)) {
@@ -106,6 +108,13 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.equal(d.slides[0].layout, "number");
       assert.equal(saved().slides[0].layout, "number");
       assert.ok(await p.locator('.variant.chosen').count() === 1);
+    });
+
+    await t.test("modelo sem visão: a conversa funciona e o aviso aparece", async () => {
+      await send("teste sem visão: o que acha?");
+      const txt = await lastAI();
+      assert.match(txt, /Respondi sem ver o slide/);
+      assert.match(txt, /não enxerga imagens/);
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

@@ -811,7 +811,7 @@
       if (data.variants) {
         state.chatHistory.push({ role: "assistant", text: `${data.reply}\n(versões: ${data.variants.options.map((o) => o.label).join(" | ")})`, talk: true });
         work.done();
-        const msg = appendChatMessage("ai", data.reply);
+        const msg = appendChatMessage("ai", data.reply, data.actions);
         await renderVariants(msg, data.variants);
         updateBrainstormApply();
         return;
@@ -820,7 +820,7 @@
         // conversa: nada muda nos slides
         state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
         work.done();
-        const msg = appendChatMessage("ai", data.reply);
+        const msg = appendChatMessage("ai", data.reply, data.actions);
         msg.classList.add("bs");
         const tag = document.createElement("div");
         tag.className = "bs-tag";

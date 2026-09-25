@@ -190,7 +190,7 @@ async function askUntilValid(messages, parse, opts = {}) {
       // Correção só de formato: a explicação que vale é a da 1ª resposta (não o "desculpe, corrigi").
       // Revisão de conteúdo (soft): o que foi aplicado é a última resposta, então vale a explicação dela.
       if (attempt > 1 && firstProse && !lastError?.soft) parsed.prose = firstProse;
-      return { ...parsed, attempts: attempt };
+      return { ...parsed, attempts: attempt, imagesDropped: !!res.imagesDropped };
     } catch (e) {
       lastError = e;
       if (process.env.SAGADECK_AI_DEBUG) console.error(`[ia] tentativa ${attempt} inválida: ${e.message}`);
@@ -494,13 +494,14 @@ Antes de responder, verifique (e siga as Regras de edição):
     { role: "user", content: userContent },
   ];
   let motifObjected = false;
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped } =
     await askUntilValid(messages, (t) => {
       const parsed = parseEditText(t, spec);
       if (motifObjected) return parsed; // já objetou uma vez: a 2ª resposta vale, mesmo insistindo
       try { return checkMotifs(parsed, spec); } catch (e) { if (e.soft) motifObjected = true; throw e; }
     }, { onProgress });
   const actions = [];
+  if (imagesDropped) actions.push("⚠ O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, use um modelo com visão em [apps.sagadeck.models] do modelrelay.");
   // conversa: nada muda (a resposta pode trazer opções clicáveis)
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
   // versões para escolher: nada muda até a pessoa escolher uma
