@@ -37,7 +37,9 @@
   }
 
   function applyStep(s, k, opts = {}) {
-    $$("[data-step]", s).forEach((e) => e.classList.toggle("in", k >= +e.dataset.step || opts.all));
+    // !! obrigatório: toggle(nome, undefined) INVERTE a classe em vez de desligar — "false || undefined"
+    // fazia cada clique inverter os itens ainda escondidos (tudo, 1º, tudo, último…).
+    $$("[data-step]", s).forEach((e) => e.classList.toggle("in", !!(k >= +e.dataset.step || opts.all)));
     $$("[data-exit]", s).forEach((e) => e.classList.toggle("out", !opts.all && k >= +e.dataset.exit));
     $$(".pl, mark, .chart", s).forEach((e) => {
       if (!hiddenByStep(e, s)) play(e, opts.instant);

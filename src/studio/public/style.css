@@ -613,3 +613,13 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .sf-more[open] > summary::before { content: "▾ "; }
 .sf-more > div { padding: 4px 0 4px 10px; border-left: 2px solid var(--ui-line); }
 .sf-more > .sf-field, .sf-more > .sf-check, .sf-more > .sf-list, .sf-more > fieldset { margin: 12px 0 0 10px; }
+
+/* seletor de cliques do slide (barra de status) */
+.step-control { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; }
+.step-control[hidden] { display: none; }
+.step-lbl { margin-right: 4px; color: var(--text-3); }
+.step-btn { min-width: 24px; height: 22px; padding: 0 6px; border-radius: 4px; font-size: 12px; color: var(--text-2); }
+.step-btn:hover { background: var(--hover); }
+.step-btn.active { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+/* miniaturas: sempre o slide completo (tudo o que entra por clique) */
+.thumb-render [data-step] { opacity: 1 !important; transform: none !important; }

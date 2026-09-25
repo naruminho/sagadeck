@@ -214,6 +214,7 @@
     btnNotesToggleStatus: document.getElementById("btn-notes-toggle-status"),
     notesBar: document.getElementById("notes-bar"),
     statusIssues: document.getElementById("status-issues"),
+    stepControl: document.getElementById("step-control"),
     chatEmpty: document.getElementById("chat-empty"),
   };
 
@@ -296,6 +297,7 @@
 
       // Renderizar HTML no palco
       dom.renderedSlideContainer.innerHTML = data.html;
+      applyEditorStep(idx);
       fitSlideText(dom.renderedSlideContainer);
       // a miniatura deste slide usa o mesmo HTML (acompanha cada edição)
       putThumb(idx, slide, data.html);
@@ -1039,7 +1041,7 @@
 
     if (isNumber) {
       actions.push({
-        label: "⚡ Virar Number",
+        label: "Converter em número",
         fn: () => {
           const match = text.match(/\d+(?:[\.,]\d+)?/);
           const slide = state.deck.slides[state.currentSlideIndex];
@@ -1049,11 +1051,11 @@
           syncDeckToServer();
           renderCurrentSlide();
           playHaptic("pop");
-          showToast("Convertido para layout Number!");
+          showToast("Convertido em número grande");
         }
       });
       actions.push({
-        label: "📊 Donut Chart",
+        label: "Converter em gráfico de rosca",
         fn: () => {
           const slide = state.deck.slides[state.currentSlideIndex];
           slide.layout = "number";
@@ -1061,13 +1063,13 @@
           syncDeckToServer();
           renderCurrentSlide();
           playHaptic("pop");
-          showToast("Donut Chart inserido!");
+          showToast("Gráfico de rosca inserido");
         }
       });
     }
 
     actions.push({
-      label: "🃏 Virar Cards",
+      label: "Converter em cartões",
       fn: () => {
         const slide = state.deck.slides[state.currentSlideIndex];
         slide.layout = "cards";
@@ -1080,7 +1082,7 @@
         syncDeckToServer();
         renderCurrentSlide();
         playHaptic("pop");
-        showToast("Convertido em 3 Cards!");
+        showToast("Convertido em 3 cartões");
       }
     });
 
@@ -1433,6 +1435,7 @@
 
   function selectSlide(idx) {
     if (idx < 0 || idx >= state.deck.slides.length) return;
+    if (idx !== state.currentSlideIndex) state.editorStep = "all"; // outro slide: volta a mostrar tudo
     state.currentSlideIndex = idx;
     markActiveThumb();
     renderCurrentSlide();
@@ -1596,7 +1599,14 @@
         showToast(`Não consegui abrir a apresentação: ${status.error || "erro ao montar o HTML"}`, 9000);
         return;
       }
-      if (status.warnings.length) showToast(`Apresentando com avisos: ${status.warnings.join(" · ")}`, 9000);
+      if (status.warnings.length) {
+        const key = `${state.file || state.deck?.title}|${status.warnings.join("|")}`;
+        if (!state.shownPreviewWarnings?.has(key)) {
+          (state.shownPreviewWarnings ||= new Set()).add(key);
+          const files = status.warnings.map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
+          showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
+        }
+      }
       dom.presFrame.focus();
       // Esc fecha a apresentação (se a caneta estiver ligada, o runtime a desliga primeiro)
       // fase de captura: roda antes do runtime, que desliga a caneta no mesmo Esc
@@ -1775,6 +1785,34 @@
     dom.antiSleepIndicator.title = words > limit
       ? `${words} palavras na tela (recomendado: até ${limit}). Mova detalhes para as anotações.`
       : `Palavras visíveis no slide (recomendado: até ${limit})`;
+  }
+
+  // Cliques no editor: por padrão mostra tudo (inclusive o que entra por clique, que o runtime
+  // esconde até a hora); o seletor da barra de status mostra o slide como a plateia vê em cada clique.
+  function applyEditorStep(idx) {
+    const root = dom.renderedSlideContainer;
+    const nodes = [...root.querySelectorAll("[data-step]")];
+    const total = nodes.reduce((m, e) => Math.max(m, +e.dataset.step || 0), 0);
+    const k = state.editorStep === "all" || state.editorStep == null ? Infinity : Math.min(+state.editorStep, total);
+    nodes.forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
+    root.querySelectorAll("[data-exit]").forEach((e) => e.classList.toggle("out", k !== Infinity && k >= +e.dataset.exit));
+    root.querySelectorAll(".pl, mark, .chart").forEach((e) => e.classList.add("play"));
+    renderStepControl(total);
+  }
+
+  function renderStepControl(total) {
+    const box = dom.stepControl;
+    if (!total) { box.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    const cur = state.editorStep ?? "all";
+    const opts = [["all", "Tudo"], ...Array.from({ length: total + 1 }, (_, i) => [String(i), String(i)])];
+    box.innerHTML = `<span class="step-lbl">Cliques</span>` + opts.map(([v, l]) =>
+      `<button class="step-btn ${String(cur) === v ? "active" : ""}" data-step-val="${v}" title="${v === "all" ? "Mostrar tudo (edição)" : `Como a plateia vê no clique ${v}`}">${l}</button>`).join("");
+    box.querySelectorAll(".step-btn").forEach((b) => b.onclick = () => {
+      state.editorStep = b.dataset.stepVal;
+      applyEditorStep(state.currentSlideIndex);
+      setTimeout(inspectGeometry, 60);
+    });
   }
 
   // Mesmo ajuste do runtime (fitAll em src/runtime/runtime.js): textos com data-fit encolhem até
