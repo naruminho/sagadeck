@@ -1608,3 +1608,32 @@ body.pres-drawing #pres-draw-canvas {
 }
 
 .hidden { display: none !important; }
+
+/* Opções da IA (imagens + status do LLM) */
+.ai-options-bar { justify-content: space-between; gap: 8px; }
+.ai-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; user-select: none; }
+.ai-status { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.ai-status.on { color: #34d399; }
+.ai-status.off { color: #fbbf24; }
+
+/* No editor o marca-texto (==x==) aparece já pintado: a animação só roda no modo apresentação */
+#slide-stage mark, #modal-stage mark { background-size: 100% 92%; transition: none; }
+
+/* Barra superior: ferramentas rolam na horizontal; Apresentar/Exportar/Chat ficam sempre à vista */
+.ribbon-tools { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.ribbon-tools > * { flex-shrink: 0; }
+.ribbon-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Chat: indicador de trabalho da IA (etapa + segundos + começo da resposta) */
+.ai-working .ai-content { min-width: 220px; }
+.work-line { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.work-text { flex: 1; color: var(--text-main); }
+.work-time { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; }
+.work-dots { display: inline-flex; gap: 3px; }
+.work-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: work-bounce 1s infinite ease-in-out; }
+.work-dots i:nth-child(2) { animation-delay: .15s; }
+.work-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes work-bounce { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.work-preview { margin-top: 6px; font-size: 12px; color: var(--text-muted); white-space: pre-wrap; max-height: 90px; overflow: hidden; }
+.work-preview:empty { display: none; }
+#chat-send:disabled, #chat-input:disabled { opacity: .55; cursor: wait; }

@@ -20,6 +20,8 @@
     selectedIcon: null,
     iconTargetCardIndex: null,
     issues: [],
+    ai: { available: false, textModel: "", imageModel: "", url: "" },
+    chatHistory: [],
     themes: [],
     layouts: [],
     history: [],
@@ -92,8 +94,22 @@
     actionSaveYaml: document.getElementById("action-save-yaml"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
+    chatSend: document.getElementById("chat-send"),
     chatMessages: document.getElementById("chat-messages"),
     aiScopeSelect: document.getElementById("ai-scope-select"),
+    aiImagesToggle: document.getElementById("ai-images-toggle"),
+    aiStatus: document.getElementById("ai-status"),
+    // Gerar deck com IA
+    btnAiDeck: document.getElementById("btn-ai-deck"),
+    modalAiDeck: document.getElementById("modal-ai-deck"),
+    btnCloseAiDeck: document.getElementById("btn-close-ai-deck"),
+    btnCancelAiDeck: document.getElementById("btn-cancel-ai-deck"),
+    btnRunAiDeck: document.getElementById("btn-run-ai-deck"),
+    aiDeckBriefing: document.getElementById("ai-deck-briefing"),
+    aiDeckTheme: document.getElementById("ai-deck-theme"),
+    aiDeckSlides: document.getElementById("ai-deck-slides"),
+    aiDeckImages: document.getElementById("ai-deck-images"),
+    aiDeckStatus: document.getElementById("ai-deck-status"),
     toast: document.getElementById("toast-notification"),
     // Biblioteca de Ícones
     btnInsertIcon: document.getElementById("btn-insert-icon"),
@@ -170,6 +186,8 @@
     setupEventListeners();
     buildLayoutPicker();
     await loadDeck();
+    refreshAIStatus();
+    setInterval(refreshAIStatus, 30000);
     updateCanvasScale();
     window.addEventListener("resize", () => {
       if (state.autoFit) updateCanvasScale();
@@ -228,6 +246,7 @@
 
       // Renderizar HTML no palco
       dom.renderedSlideContainer.innerHTML = data.html;
+      fitSlideText(dom.renderedSlideContainer);
 
       // Habilitar edição WYSIWYG inline
       enableInlineEditing();
@@ -521,21 +540,26 @@
     const scope = dom.aiScopeSelect.value;
     const targetIdx = scope === "all" ? null : state.currentSlideIndex;
 
-    // Indicador de "pensando / corrigindo"
-    const thinkingEl = appendChatMessage("ai", "Analisando estrutura, geometria dos slides e aplicando correções…");
+    // Indicador de progresso ao vivo (etapa, segundos, texto chegando)
+    const work = createProgressBubble(state.ai.available
+      ? `Enviando para o LLM (${state.ai.textModel})…`
+      : "Analisando estrutura, geometria dos slides e aplicando correções…");
+    dom.chatSend.disabled = true;
+    dom.chatInput.disabled = true;
+    const history = state.chatHistory.slice(-6);
+    state.chatHistory.push({ role: "user", text: message });
 
     try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          targetSlide: targetIdx,
-          spec: state.deck,
-          issues: state.issues,
-        }),
-      });
-      const data = await res.json();
+      const data = await streamAI("/api/ai/chat", {
+        message,
+        targetSlide: targetIdx,
+        spec: state.deck,
+        issues: state.issues,
+        images: dom.aiImagesToggle.checked,
+        history,
+      }, (ev) => work.update(ev));
+      if (!data.spec) throw new Error(data.error || "resposta sem deck");
+      state.chatHistory.push({ role: "assistant", text: data.reply });
 
       // Atualizar o deck com as modificações feitas pela IA
       state.deck = data.spec;
@@ -547,11 +571,15 @@
       renderThumbnails();
       await renderCurrentSlide();
 
-      // Substituir mensagem de thinking pela resposta completa
-      thinkingEl.remove();
+      // Substituir o indicador pela resposta completa
+      work.done();
       appendChatMessage("ai", data.reply, data.actions);
     } catch (err) {
-      thinkingEl.innerHTML = `<span style="color:var(--danger)">Erro: ${err.message}</span>`;
+      work.fail(err.message);
+    } finally {
+      dom.chatSend.disabled = false;
+      dom.chatInput.disabled = false;
+      dom.chatInput.focus();
     }
   }
 
@@ -568,7 +596,8 @@
     content.className = sender === "user" ? "user-content" : "ai-content";
 
     // Formatar quebras de linha e negritos
-    const formatted = text
+    const formatted = String(text)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
       .replace(/\n/g, "<br>");
     content.innerHTML = formatted;
@@ -1208,7 +1237,8 @@
       const previewTitle = document.createElement("span");
       previewTitle.style.cssText = "font-size:11px;color:#aaa;padding:6px;text-align:center;";
       const t = slide.title || slide.text || slide.question || slide.quote || "Slide " + (idx + 1);
-      previewTitle.textContent = t.slice(0, 36);
+      // sem a marcação inline (==marca==, **negrito**, ^^ênfase^^, ~~riscado~~, `código`)
+      previewTitle.textContent = String(t).replace(/==|\*\*|\^\^|~~|`/g, "").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2").slice(0, 36);
       screen.appendChild(previewTitle);
 
       card.appendChild(screen);
@@ -1917,19 +1947,21 @@
           text,
           theme: state.deck.theme || "sinal",
           tone: "dark",
+          images: dom.aiImagesToggle.checked,
         }),
       });
       const data = await res.json();
       lastNapkinResult = data;
 
       dom.napkinDetectedBadge.textContent = data.detectedType.toUpperCase();
-      dom.napkinRationale.textContent = data.rationale;
+      dom.napkinRationale.textContent = (data.mode === "llm" ? "🤖 LLM · " : "⚙ regras · ") + data.rationale;
+      if (data.notice) showToast(data.notice);
       dom.napkinYamlPreview.textContent = data.yaml;
       dom.napkinPreviewBox.classList.remove("hidden");
       dom.btnNapkinReplace.classList.remove("hidden");
       dom.btnNapkinInsert.classList.remove("hidden");
 
-      showToast(`✨ Padrão visual detectado: ${data.detectedType.toUpperCase()}`);
+      if (!data.notice) showToast(`✨ Padrão visual detectado: ${data.detectedType.toUpperCase()}`);
     } catch (err) {
       showToast("Erro ao processar diagrama no servidor.");
     } finally {
@@ -1977,6 +2009,7 @@
         const scaleW = window.innerWidth / 1920;
         const scaleH = window.innerHeight / 1080;
         dom.modalStage.style.transform = `scale(${Math.min(scaleW, scaleH)})`;
+        fitSlideText(dom.presSlideRender || dom.modalStage);
         redrawPresSlideDrawings(idx);
       });
   }
@@ -2007,13 +2040,185 @@
     }
   }
 
-  function showToast(msg) {
+  // Mesmo ajuste do runtime (fitAll em src/runtime/runtime.js): textos com data-fit encolhem até
+  // caber na área útil. Sem isso, títulos longos transbordam no editor mas não no HTML final.
+  function fitSlideText(root) {
+    const run = () => root.querySelectorAll("[data-fit]").forEach((el) => {
+      const safe = el.closest(".safe") || el.closest(".slide");
+      if (!safe) return;
+      if (!el.dataset.fs0) el.dataset.fs0 = parseFloat(getComputedStyle(el).fontSize);
+      let fs = +el.dataset.fs0;
+      el.style.fontSize = fs + "px";
+      const over = () => {
+        const sr = safe.getBoundingClientRect(), r = el.getBoundingClientRect();
+        const sc = (el.closest(".slide") || safe).getBoundingClientRect().width / 1920 || 1;
+        const tol = fs * 0.3;
+        if (el.scrollHeight > el.clientHeight + tol || el.scrollWidth > el.clientWidth + 2 || (r.bottom - sr.bottom) / sc > tol) return true;
+        for (const t of safe.querySelectorAll(".t")) {
+          const tr = t.getBoundingClientRect();
+          if ((tr.bottom - sr.bottom) / sc > 6 || (sr.top - tr.top) / sc > 6) return true;
+        }
+        return false;
+      };
+      let guard = 0;
+      while (over() && fs > +el.dataset.fs0 * 0.3 && guard++ < 60) { fs *= 0.95; el.style.fontSize = fs.toFixed(1) + "px"; }
+    });
+    run();
+    document.fonts?.ready.then(run); // a fonte do tema pode chegar depois e mudar as medidas
+  }
+
+  // ==========================================================================
+  // LLM: STATUS E GERAÇÃO DE DECK
+  // ==========================================================================
+  async function refreshAIStatus(force = false) {
+    try {
+      const res = await fetch("/api/ai/status" + (force ? "?refresh=1" : ""));
+      state.ai = await res.json();
+    } catch {
+      state.ai = { available: false };
+    }
+    const on = !!state.ai.available;
+    dom.aiStatus.textContent = on ? `● IA: ${state.ai.textModel}` : "● IA offline (regras locais)";
+    dom.aiStatus.title = on
+      ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
+      : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para verificar de novo.`;
+    dom.aiStatus.classList.toggle("on", on);
+    dom.aiStatus.classList.toggle("off", !on);
+    dom.aiImagesToggle.disabled = !on;
+  }
+
+  function openAiDeckModal() {
+    dom.aiDeckTheme.innerHTML = '<option value="">IA escolhe</option>' +
+      (state.themes || []).map((t) => `<option value="${t}">${t}</option>`).join("");
+    dom.aiDeckStatus.textContent = state.ai.available ? "" : '⚠ Nenhum LLM disponível — rode "modelrelay serve" antes de gerar.';
+    dom.modalAiDeck.classList.remove("hidden");
+    dom.aiDeckBriefing.focus();
+  }
+
+  function closeAiDeckModal() {
+    dom.modalAiDeck.classList.add("hidden");
+  }
+
+  async function runAiDeckGeneration() {
+    const briefing = dom.aiDeckBriefing.value.trim();
+    if (!briefing) {
+      showToast("Descreva a apresentação que você quer.");
+      return;
+    }
+    dom.btnRunAiDeck.disabled = true;
+    const started = Date.now();
+    let phase = `Enviando para ${state.ai.textModel || "o LLM"}…`;
+    const show = () => {
+      dom.aiDeckStatus.textContent = `⏳ ${phase} · ${Math.round((Date.now() - started) / 1000)}s`;
+    };
+    const tick = setInterval(show, 500);
+    show();
+    try {
+      const data = await streamAI("/api/ai/generate", {
+        briefing,
+        theme: dom.aiDeckTheme.value,
+        slides: Number(dom.aiDeckSlides.value) || undefined,
+        images: dom.aiDeckImages.checked,
+      }, (ev) => {
+        if (ev.type !== "progress") return;
+        phase = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
+        show();
+      });
+      if (!data.spec) throw new Error(data.error || "resposta sem deck");
+      state.deck = data.spec;
+      dom.deckTitle.value = state.deck.title || "Apresentação";
+      if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+      state.currentSlideIndex = 0;
+      renderThumbnails();
+      selectSlide(0);
+      closeAiDeckModal();
+      const failed = data.images?.failed?.length ? ` · ${data.images.failed.length} imagem(ns) falharam` : "";
+      showToast(`✨ Deck gerado: ${state.deck.slides.length} slides, salvo em ${data.file}${failed}`);
+    } catch (err) {
+      dom.aiDeckStatus.textContent = "✗ " + err.message;
+    } finally {
+      clearInterval(tick);
+      dom.btnRunAiDeck.disabled = false;
+    }
+  }
+
+  function showToast(msg, duration = 3200) {
     dom.toast.textContent = msg;
     dom.toast.classList.remove("hidden");
     clearTimeout(dom.toast._timer);
     dom.toast._timer = setTimeout(() => {
       dom.toast.classList.add("hidden");
-    }, 3200);
+    }, duration);
+  }
+
+  // Chama um endpoint de IA com stream NDJSON; onEvent recebe {type:"progress"|"tick", …}. Devolve o resultado.
+  async function streamAI(url, body, onEvent) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+    const type = res.headers.get("content-type") || "";
+    if (!type.includes("ndjson")) {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === "result") return ev.data;
+        if (ev.type === "error") throw new Error(ev.error);
+        onEvent?.(ev);
+      }
+    }
+    throw new Error("A conexão com o servidor caiu antes da resposta.");
+  }
+
+  // Bolha de "trabalhando": etapa atual, segundos, caracteres recebidos e o começo da resposta.
+  function createProgressBubble(initial) {
+    const el = appendChatMessage("ai", "");
+    el.classList.add("ai-working");
+    const content = el.querySelector(".ai-content");
+    content.innerHTML = `<div class="work-line"><span class="work-dots"><i></i><i></i><i></i></span><span class="work-text"></span><span class="work-time">0s</span></div><div class="work-preview"></div>`;
+    const text = content.querySelector(".work-text");
+    const time = content.querySelector(".work-time");
+    const preview = content.querySelector(".work-preview");
+    const started = Date.now();
+    text.textContent = initial;
+    const timer = setInterval(() => {
+      const s = Math.round((Date.now() - started) / 1000);
+      time.textContent = `${s}s`;
+    }, 500);
+    return {
+      el,
+      update(ev) {
+        if (ev.type !== "progress") return;
+        text.textContent = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
+        if (ev.preview) preview.textContent = ev.preview;
+        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+      },
+      done() { clearInterval(timer); el.remove(); },
+      fail(msg) {
+        clearInterval(timer);
+        el.classList.remove("ai-working");
+        content.innerHTML = "";
+        const span = document.createElement("span");
+        span.style.color = "var(--danger)";
+        span.textContent = `Erro: ${msg}`;
+        content.appendChild(span);
+      },
+    };
   }
 
   function setupEventListeners() {
@@ -2157,7 +2362,8 @@
         state.currentSlideIndex = 0;
         renderThumbnails();
         selectSlide(0);
-        showToast(`✓ Arquivo "${file.name}" carregado com sucesso (${state.deck.slides.length} slides)!`);
+        // O navegador não informa o caminho do arquivo: as edições ficam só aqui até exportar.
+        showToast(`✓ "${file.name}" aberto (${state.deck.slides.length} slides). As edições não são salvas no arquivo: use Arquivo › YAML, ou abra por Arquivo › Abrir Caminho no Servidor para salvar direto.`, 9000);
       } catch (err) {
         showToast("Erro ao abrir YAML: " + err.message);
       }
@@ -2333,6 +2539,13 @@
     dom.yamlLiveEditor.addEventListener("input", onYamlEditorInput);
     dom.btnSpotlight.onclick = openSpotlight;
     setupSpotlightPalette();
+
+    // Deck com IA + status do LLM
+    dom.btnAiDeck.onclick = openAiDeckModal;
+    dom.btnCloseAiDeck.onclick = closeAiDeckModal;
+    dom.btnCancelAiDeck.onclick = closeAiDeckModal;
+    dom.btnRunAiDeck.onclick = runAiDeckGeneration;
+    dom.aiStatus.onclick = () => refreshAIStatus(true);
 
     // Napkin AI (Texto -> Diagrama Visual)
     dom.btnNapkin.onclick = openNapkinModal;

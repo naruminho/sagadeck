@@ -40,7 +40,9 @@ for (let i = 0; i < rawRest.length; i++) {
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
-  sagadeck napkin <texto|arquivo> [-o deck.yaml]  transforma texto bruto em diagrama visual (Napkin AI)
+  sagadeck new <deck.yaml> --prompt "briefing" [--slides=10] [--theme=x] [--images]  deck inteiro escrito pelo LLM
+  sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
+  sagadeck imagens <deck.yaml>                 gera as imagens pedidas com image_prompt: no YAML (modelo de imagem)
   sagadeck scaffold <deck.yaml> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
   sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
@@ -122,6 +124,26 @@ async function main() {
       const tone = flags.tone;
       const title = flags.title;
 
+      // Com um LLM disponível (e sem --rules), o slide é escrito pela IA.
+      const { llmAvailable } = await import("../src/ai/llm.js");
+      if (!flags.rules && await llmAvailable()) {
+        const { textToSlide } = await import("../src/ai/deck-ai.js");
+        const YAML = (await import("yaml")).default;
+        const outPath = flags.o || flags.out;
+        const dir = outPath ? path.dirname(path.resolve(outPath)) : process.cwd();
+        const res = await textToSlide(content, { theme, tone, title, images: !!flags.images, imageOptions: { baseDir: dir } });
+        console.log(`✨ [Napkin · LLM] layout: ${res.detectedType.toUpperCase()}\n💡 ${res.rationale}\n`);
+        if (outPath) {
+          const target = path.resolve(outPath);
+          fs.mkdirSync(path.dirname(target), { recursive: true });
+          fs.writeFileSync(target, YAML.stringify({ title: title || "Diagrama", theme, slides: [res.slide] }, { indent: 2 }), "utf8");
+          console.log(`✓ Diagrama visual gerado em: ${target}`);
+        } else {
+          console.log(YAML.stringify(res.slide, { indent: 2 }));
+        }
+        break;
+      }
+
       const outPath = flags.o || flags.out;
       if (outPath) {
         const target = path.resolve(outPath);
@@ -161,10 +183,49 @@ async function main() {
     case "new": {
       const target = path.resolve(args[0] || "deck.yaml");
       if (fs.existsSync(target)) { console.error(`${target} já existe`); process.exit(1); }
+      if (flags.prompt || flags.briefing) {
+        // Deck inteiro escrito pelo LLM a partir de um briefing
+        let briefing = String(flags.prompt || flags.briefing);
+        if (fs.existsSync(briefing)) briefing = fs.readFileSync(briefing, "utf8");
+        const { generateDeck, toYaml } = await import("../src/ai/deck-ai.js");
+        const dir = path.dirname(target);
+        const { spec, images } = await generateDeck(briefing, {
+          theme: typeof flags.theme === "string" ? flags.theme : undefined,
+          slides: Number(flags.slides) || undefined,
+          duration: Number(flags.duration) || undefined,
+          images: !!flags.images,
+          imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
+          onProgress: (m) => console.log(`  … ${m}`),
+        });
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(target, toYaml(spec));
+        console.log(`✓ criado ${target} com IA: ${spec.slides.length} slides · tema ${spec.theme || "sinal"}`);
+        images.done.forEach((d) => console.log(`  🖼 ${path.relative(process.cwd(), d.file)}`));
+        images.failed.forEach((f) => console.log(`  ✗ imagem não gerada ("${f.prompt.slice(0, 50)}"): ${f.error}`));
+        console.log(`  próximo passo: sagadeck studio "${target}"  ou  sagadeck all "${target}"`);
+        break;
+      }
       let t = fs.readFileSync(path.join(TEMPLATES, "exemplo.yaml"), "utf8");
       if (flags.theme) t = t.replace(/^theme: .*/m, `theme: ${flags.theme}`);
       fs.writeFileSync(target, t);
       console.log(`✓ criado ${target}\n  próximo passo: sagadeck build "${target}"`);
+      break;
+    }
+    case "imagens": case "images": {
+      // Gera as imagens pedidas com `image_prompt:` no YAML e troca por `image: imagens/…`
+      const p = paths(args[0]);
+      const { loadSpec } = await import("../src/build.js");
+      const { materializeImages, countImagePrompts, toYaml } = await import("../src/ai/deck-ai.js");
+      const spec = loadSpec(p.abs);
+      const n = countImagePrompts(spec);
+      if (!n) { console.log("Nenhum `image_prompt:` no deck; nada a gerar."); break; }
+      console.log(`Gerando ${n} imagem(ns)…`);
+      const { done, failed } = await materializeImages(spec, { baseDir: spec._dir, keepFailed: true, onProgress: (m) => console.log(`  … ${m}`) });
+      fs.writeFileSync(p.abs, toYaml(spec));
+      done.forEach((d) => console.log(`  🖼 ${path.relative(process.cwd(), d.file)}`));
+      failed.forEach((f) => console.log(`  ✗ "${f.prompt.slice(0, 50)}": ${f.error}`));
+      console.log(`✓ ${done.length} gerada(s), YAML atualizado: ${p.abs}`);
+      if (failed.length) process.exitCode = 1;
       break;
     }
     case "build": doBuild(paths(args[0])); break;

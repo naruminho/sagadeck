@@ -9,9 +9,16 @@ import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
+import { llmAvailable, llmConfig } from "../ai/llm.js";
+import { editDeck, textToSlide, generateDeck, toYaml } from "../ai/deck-ai.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, "public");
+// templates de exemplo do pacote (repositório: ../../templates · motor empacotado: ./templates)
+const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve(HERE, "templates")];
+const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
+const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function createStudioServer(deckPath = null, opts = {}) {
   let currentFile = deckPath ? path.resolve(deckPath) : null;
@@ -42,6 +49,23 @@ export function createStudioServer(deckPath = null, opts = {}) {
         ],
       };
     }
+  }
+
+  // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
+  function persist() {
+    if (!currentFile || isBundledTemplate(currentFile)) return;
+    try { fs.writeFileSync(currentFile, toYaml(currentSpec), "utf8"); } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
+  }
+
+  // Onde a IA grava imagens geradas: pasta "imagens" ao lado do deck (ou na pasta atual, se o deck é um exemplo).
+  function imageOptions(spec) {
+    const deckDir = currentFile && !isBundledTemplate(currentFile) ? path.dirname(currentFile) : process.cwd();
+    return { baseDir: spec._dir || deckDir, assetsDir: path.join(deckDir, "imagens") };
+  }
+
+  function withBase(spec) {
+    if (!spec._dir && currentFile) return { ...spec, _dir: path.dirname(currentFile), _file: currentFile };
+    return spec;
   }
 
   const server = http.createServer(async (req, res) => {
@@ -151,14 +175,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
         if (body.filepath) {
           currentFile = path.resolve(body.filepath);
+        } else if (body.yaml && body.saveToFile === false) {
+          // Deck aberto pelo navegador (seletor/arrastar): o servidor não sabe o caminho dele.
+          // Esquece o arquivo anterior — senão as edições deste deck iam parar por cima daquele.
+          currentFile = null;
         }
-        if (currentFile && body.saveToFile !== false) {
-          try {
-            fs.writeFileSync(currentFile, YAML.stringify(currentSpec, { indent: 2 }), "utf8");
-          } catch (err) {
-            console.error("[Studio] Erro ao salvar arquivo:", err);
-          }
-        }
+        if (body.saveToFile !== false) persist();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
         return;
@@ -225,12 +247,19 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const body = await readJSON(req);
         const { textToVisualSlide, textToVisualDeck } = await import("../diagram/napkin.js");
         const YAML = (await import("yaml")).default;
-        const result = textToVisualSlide(body.text || "", {
-          theme: body.theme,
-          tone: body.tone,
-          title: body.title,
-          kicker: body.kicker,
-        });
+        const opts = { theme: body.theme, tone: body.tone, title: body.title, kicker: body.kicker };
+        let result = null;
+        let mode = "rules";
+        let notice = "";
+        if (body.mode !== "rules" && body.text && await llmAvailable()) {
+          try {
+            result = await textToSlide(body.text, { ...opts, images: !!body.images, imageOptions: imageOptions(withBase(currentSpec)) });
+            mode = "llm";
+          } catch (e) {
+            notice = `A IA falhou (${e.message}); usei as regras locais.`;
+          }
+        }
+        if (!result) result = textToVisualSlide(body.text || "", opts);
         const fullDeck = textToVisualDeck(body.text || "");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
@@ -239,6 +268,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
           detectedType: result.detectedType,
           confidence: result.confidence,
           rationale: result.rationale,
+          mode,
+          notice,
           yaml: YAML.stringify(result.slide, { indent: 2 }),
           deckYaml: YAML.stringify(fullDeck, { indent: 2 }),
         }));
@@ -289,6 +320,47 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      if (pathname === "/api/ai/status" && req.method === "GET") {
+        const cfg = llmConfig();
+        const available = await llmAvailable({ force: url.searchParams.has("refresh") });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ available, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
+        return;
+      }
+
+      if (pathname === "/api/ai/generate" && req.method === "POST") {
+        const body = await readJSON(req);
+        if (!String(body.briefing || "").trim()) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Descreva a apresentação (briefing)." }));
+          return;
+        }
+        if (!(await llmAvailable({ force: true }))) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Nenhum LLM respondendo em ${llmConfig().url}. Rode "modelrelay serve" ou ajuste SAGADECK_LLM_URL.` }));
+          return;
+        }
+        // Arquivo novo na pasta do deck aberto (ou na pasta atual), sem sobrescrever nada.
+        const dir = currentFile && !isBundledTemplate(currentFile) ? path.dirname(currentFile) : process.cwd();
+        await respond(res, body.stream, async (emit) => {
+          const gen = await generateDeck(body.briefing, {
+            theme: body.theme || undefined,
+            slides: Number(body.slides) || undefined,
+            duration: Number(body.duration) || undefined,
+            images: !!body.images,
+            imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
+            onEvent: emit,
+          });
+          let target = path.join(dir, `${slugify(gen.spec.title)}.yaml`);
+          for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${slugify(gen.spec.title)}-${n}.yaml`);
+          fs.writeFileSync(target, toYaml(gen.spec), "utf8");
+          currentFile = target;
+          currentSpec = loadSpec(target);
+          return { ok: true, spec: currentSpec, file: currentFile, images: gen.images };
+        });
+        return;
+      }
+
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         const prompt = body.message || "";
@@ -296,14 +368,34 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const spec = body.spec || currentSpec;
         const issues = body.issues || [];
 
-        const result = handleAIChat({ prompt, slideIdx, spec, issues });
-        currentSpec = result.spec;
-        if (currentFile) {
-          try { fs.writeFileSync(currentFile, YAML.stringify(currentSpec, { indent: 2 })); } catch {}
-        }
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(result));
+        await respond(res, body.stream, async (emit) => {
+          let result;
+          if (body.mode !== "rules" && await llmAvailable()) {
+            try {
+              result = await editDeck({
+                spec: withBase(spec),
+                instruction: prompt,
+                targetSlide: typeof body.targetSlide === "number" ? body.targetSlide : null,
+                issues,
+                images: !!body.images,
+                imageOptions: imageOptions(withBase(spec)),
+                history: Array.isArray(body.history) ? body.history : [],
+                onProgress: emit,
+              });
+              result.mode = "llm";
+            } catch (e) {
+              // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
+              console.error("[Studio] IA falhou:", e.message);
+              return { reply: `⚠ A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
+            }
+          } else {
+            result = handleAIChat({ prompt, slideIdx, spec, issues });
+            result.mode = "rules";
+          }
+          currentSpec = result.spec;
+          persist();
+          return result;
+        });
         return;
       }
 
@@ -372,6 +464,36 @@ export function createStudioServer(deckPath = null, opts = {}) {
   });
 
   return server;
+}
+
+// Resposta de uma tarefa de IA. Com stream, manda NDJSON: uma linha {type:"progress",…} por etapa/pedaço
+// de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
+async function respond(res, stream, work) {
+  if (!stream) {
+    try {
+      const data = await work(() => {});
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+  res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
+  const send = (obj) => res.write(JSON.stringify(obj) + "\n");
+  const started = Date.now();
+  const heartbeat = setInterval(() => send({ type: "tick", elapsed: Date.now() - started }), 1000);
+  try {
+    const data = await work((ev) => send({ type: "progress", elapsed: Date.now() - started, ...ev }));
+    send({ type: "result", data });
+  } catch (e) {
+    console.error("[Studio] tarefa de IA falhou:", e.message);
+    send({ type: "error", error: e.message });
+  } finally {
+    clearInterval(heartbeat);
+    res.end();
+  }
 }
 
 function readJSON(req) {

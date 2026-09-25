@@ -68,6 +68,43 @@ print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
 contexto = sagadeck.reference()                  # referência do YAML para colocar no prompt
 ```
 
+## IA de verdade (LLM)
+
+O chat lateral do Studio, o Napkin (texto → slide), o **"✨ Deck com IA"** e a geração de imagens usam um LLM quando há um disponível; sem LLM, o chat e o Napkin continuam funcionando com as regras locais.
+
+O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completions`). O caminho recomendado é o [modelrelay](https://github.com/naruminho/modelrelay), que decide pela configuração dele para onde as chamadas vão (OpenRouter, OpenAI, gateway corporativo), sem nada disso no sagadeck:
+
+```bash
+pip install git+https://github.com/naruminho/modelrelay
+modelrelay init
+```
+
+No `~/.modelrelay/config.toml`, defina os apelidos que o sagadeck usa:
+
+```toml
+[models]
+"text"  = "google/gemini-2.5-flash"         # chat, Napkin e geração de deck
+"image" = "google/gemini-2.5-flash-image"   # imagens
+```
+
+Pronto: com o modelrelay instalado no mesmo Python, `sagadeck studio`, `new`, `napkin` e `imagens` sobem um `modelrelay serve` sozinhos enquanto rodam. Rodando o motor Node direto (`node bin/sagadeck.js`), deixe um `modelrelay serve` aberto em outro terminal.
+
+```bash
+sagadeck new palestra.yaml --prompt "Palestra de 15 min para gerentes sobre IA com segurança" --slides=10 --images
+sagadeck napkin "1) cliente abre chamado 2) triagem por IA 3) analista revisa"   # --rules força as regras
+sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no YAML
+```
+
+| variável | padrão | |
+|---|---|---|
+| `SAGADECK_LLM_URL` | `http://127.0.0.1:8765/v1` | qualquer API compatível com OpenAI (ex.: `https://openrouter.ai/api/v1`) |
+| `SAGADECK_LLM_KEY` | — | bearer token, se apontar direto para um provedor |
+| `SAGADECK_TEXT_MODEL` / `SAGADECK_IMAGE_MODEL` | `text` / `image` | nomes dos modelos |
+| `SAGADECK_LLM_TIMEOUT` | `180` | segundos por chamada |
+| `SAGADECK_NO_RELAY` | — | `1` impede o pacote Python de subir o modelrelay |
+
+Todo YAML vindo do LLM é validado (renderiza cada slide); se falhar, o erro volta para o LLM corrigir (até 3 tentativas). Decks gerados passam por uma rodada de enxugamento quando o fiscal anti-sono reclamaria.
+
 ## Desenvolvimento
 
 ```bash

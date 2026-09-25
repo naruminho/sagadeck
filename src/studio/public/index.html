@@ -63,6 +63,9 @@
       <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" style="display:none">
 
       <div class="tool-buttons">
+        <button id="btn-ai-deck" class="btn btn-secondary" title="Gerar uma apresentação inteira a partir de um briefing, usando o LLM">
+          ✨ Deck com IA
+        </button>
         <button id="btn-napkin" class="btn btn-secondary" title="Napkin AI: Transforma texto ou notas em diagramas visuais (Steps, Stats, Cards, Compare)">
           🪄 Napkin (Texto → Visual)
         </button>
@@ -91,8 +94,10 @@
         <span id="fiscal-badge" class="fiscal-badge clean">0</span>
       </button>
 
-      <div class="tool-sep"></div>
+    </div>
 
+    <!-- APRESENTAR, EXPORTAR E CHAT: sempre visíveis (as ferramentas acima rolam se faltar espaço) -->
+    <div class="ribbon-actions">
       <!-- APRESENTAR E EXPORTAR -->
       <button id="btn-present" class="btn btn-primary" title="Modo Apresentação (F5)">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -320,6 +325,12 @@
             <option value="current">Slide Atual (Slide 1)</option>
             <option value="all">Toda a Apresentação</option>
           </select>
+        </div>
+        <div class="chat-scope-bar ai-options-bar">
+          <label class="ai-toggle" title="Permite que a IA gere ilustrações com o modelo de imagem (mais lento, custa mais)">
+            <input type="checkbox" id="ai-images-toggle"> 🖼 Gerar imagens
+          </label>
+          <span id="ai-status" class="ai-status" title="">● verificando IA…</span>
         </div>
 
         <!-- SUGESTÕES RÁPIDAS DE PROMPT -->
@@ -561,6 +572,36 @@
           <button id="btn-napkin-replace" class="btn btn-secondary hidden">Substituir Slide Atual</button>
           <button id="btn-napkin-insert" class="btn btn-primary hidden">➕ Inserir Novo Slide</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GERAR DECK COM IA -->
+  <div id="modal-ai-deck" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box" style="max-width: 640px; width: 90%;">
+      <div class="modal-dialog-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">✨</span>
+          <h3 style="margin: 0; font-size: 18px;">Gerar apresentação com IA</h3>
+        </div>
+        <button id="btn-close-ai-deck" class="btn-close-dialog">✕</button>
+      </div>
+      <div class="modal-dialog-body" style="padding: 18px 24px;">
+        <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 12px; line-height: 1.5;">
+          Descreva o assunto, o público e o objetivo. A IA escreve o deck inteiro (com notas do apresentador), valida o YAML e aplica a auto-correção de layout.
+        </p>
+        <textarea id="ai-deck-briefing" class="form-control" style="width: 100%; height: 130px; font-size: 13px; resize: vertical; margin-bottom: 12px;"
+          placeholder="ex.: Palestra de 15 minutos para gerentes de agência sobre como usar IA generativa com segurança no atendimento."></textarea>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 13px;">
+          <label>Tema <select id="ai-deck-theme" class="scope-select"><option value="">IA escolhe</option></select></label>
+          <label>Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control" style="width: 70px;"></label>
+          <label class="ai-toggle"><input type="checkbox" id="ai-deck-images"> 🖼 Gerar imagens</label>
+        </div>
+        <div id="ai-deck-status" style="margin-top: 12px; font-size: 12px; color: #38bdf8; min-height: 16px;"></div>
+      </div>
+      <div class="modal-dialog-footer" style="padding: 14px 24px; display: flex; justify-content: flex-end; gap: 8px;">
+        <button id="btn-cancel-ai-deck" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-run-ai-deck" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #3b82f6); border: none;">✨ Gerar deck</button>
       </div>
     </div>
   </div>

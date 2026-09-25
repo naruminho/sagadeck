@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from .api import SagadeckError, engine_path, node_path
+from .llm import command_of, llm_env
 
 
 def main() -> int:
@@ -11,7 +12,8 @@ def main() -> int:
         print(f"✗ {e}", file=sys.stderr)
         return 1
     try:
-        return subprocess.call(cmd)
+        with llm_env(command_of(sys.argv[1:])) as env:
+            return subprocess.call(cmd, env=env)
     except KeyboardInterrupt:
         return 130
 
