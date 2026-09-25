@@ -127,27 +127,10 @@
     }));
   });
 
-  // ---------- ajuste automático de texto ----------
+  // ---------- ajuste para caber (src/runtime/fit.js, o mesmo código do Studio) ----------
   function fitAll(root = document) {
-    $$("[data-fit]", root).forEach((el) => {
-      const safe = el.closest(".safe") || el.closest(".slide");
-      if (!el.dataset.fs0) el.dataset.fs0 = parseFloat(getComputedStyle(el).fontSize);
-      let fs = +el.dataset.fs0; el.style.fontSize = fs + "px";
-      const over = () => {
-        const sr = safe.getBoundingClientRect(), r = el.getBoundingClientRect();
-        const sc = stage.getBoundingClientRect().width / 1920 || 1;
-        const tol = fs * 0.3; // ignora a "sobra" natural de acentos/descendentes com entrelinha curta
-        if (el.scrollHeight > el.clientHeight + tol || el.scrollWidth > el.clientWidth + 2 || (r.bottom - sr.bottom) / sc > tol) return true;
-        // qualquer outro texto do slide passando da área útil também conta: o título "cede" espaço
-        for (const t of safe.querySelectorAll(".t")) {
-          const tr = t.getBoundingClientRect();
-          if ((tr.bottom - sr.bottom) / sc > 6 || (sr.top - tr.top) / sc > 6) return true;
-        }
-        return false;
-      };
-      let guard = 0;
-      while (over() && fs > +el.dataset.fs0 * 0.3 && guard++ < 60) { fs *= 0.95; el.style.fontSize = fs.toFixed(1) + "px"; }
-    });
+    window.SagadeckFit.fitText(root);
+    $$(".slide", root).forEach((s) => window.SagadeckFit.shrink(s));
   }
 
   // ---------- escala ----------

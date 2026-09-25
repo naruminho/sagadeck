@@ -15,7 +15,10 @@ import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = path.join(HERE, "public");
+// Caminhos que existem no repositório (src/studio/…) OU no motor empacotado do pip (engine/studio/…, engine/runtime/…)
+const firstDir = (...dirs) => dirs.find((d) => fs.existsSync(d)) || dirs[0];
+const PUBLIC_DIR = firstDir(path.join(HERE, "public"), path.join(HERE, "studio", "public"));
+const RUNTIME_DIR = firstDir(path.join(HERE, "..", "runtime"), path.join(HERE, "runtime"));
 // templates de exemplo do pacote (repositório: ../../templates · motor empacotado: ./templates)
 const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve(HERE, "templates")];
 const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
@@ -36,7 +39,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
   if (!currentSpec) {
     // Carregar deck padrão de exemplo se não foi passado nenhum arquivo
-    const samplePath = path.join(HERE, "..", "..", "templates", "exemplo.yaml");
+    const samplePath = TEMPLATE_DIRS.map((d) => path.join(d, "exemplo.yaml")).find((f) => fs.existsSync(f)) || "";
     if (fs.existsSync(samplePath)) {
       currentSpec = loadSpec(samplePath);
       currentFile = samplePath;
@@ -134,6 +137,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const css = fs.readFileSync(path.join(PUBLIC_DIR, "style.css"), "utf8");
         res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
         res.end(css);
+        return;
+      }
+      if (pathname === "/fit.js") { // o mesmo ajuste da apresentação (src/runtime/fit.js)
+        res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
       if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js") {

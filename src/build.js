@@ -133,6 +133,7 @@ ${html}
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
 <script>window.Sagadeck={_q:[],widget:function(n,d){this._q.push([n,d])}};</script>
 <script>${widgets}</script>
+<script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };

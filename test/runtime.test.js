@@ -97,6 +97,27 @@ test("runtime", async (t) => {
     assert.ok(Math.abs(r.title - r.left) < 2);
   });
 
+  await t.test("conteúdo que não cabe é reduzido até caber (nada fica por cima do vizinho)", async () => {
+    const i = slides.findIndex((x) => x.title === "Conteúdo que não cabe");
+    await page.evaluate((i) => window.sagadeck.goto(i, 0, true), i);
+    const r = await page.evaluate((i) => {
+      const s = document.querySelector(`section[data-idx="${i}"]`);
+      const row = s.querySelector(".row"), next = row.nextElementSibling, safe = s.querySelector(".safe");
+      const lastBottom = Math.max(...[...row.querySelectorAll(".t")].map((t) => t.getBoundingClientRect().bottom));
+      return { lastBottom, nextTop: next.getBoundingClientRect().top, nextBottom: next.getBoundingClientRect().bottom,
+        safeBottom: safe.getBoundingClientRect().bottom, shrink: s.dataset.shrink };
+    }, i);
+    assert.ok(r.lastBottom <= r.nextTop + 1, `texto termina em ${r.lastBottom}, a linha seguinte começa em ${r.nextTop}`);
+    assert.ok(r.nextBottom <= r.safeBottom + 1, "cabe na área útil");
+    assert.ok(+r.shrink > 0.6 && +r.shrink < 1, `reduzido para ${r.shrink}`);
+  });
+
+  await t.test("slide que já cabe não é reduzido", async () => {
+    const i = slides.findIndex((x) => x.layout === "blocks");
+    await page.evaluate((i) => window.sagadeck.goto(i, 0, true), i);
+    assert.equal(await page.evaluate((i) => document.querySelector(`section[data-idx="${i}"]`).dataset.shrink || "", i), "");
+  });
+
   await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
 
   await browser.close();

@@ -279,6 +279,7 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
 const AUTOMATION_NOTES = `Comportamentos automáticos do sagadeck (não são decisões suas nem do usuário):
 - Auto-correção: pode encurtar/mudar título, mover texto para notes, reduzir titleSize, mudar colunas ou tom. Cada mudança fica registrada no slide em \`auto\` (campo, antes, motivo). Se o usuário reclamar de algo que está em \`auto\`, diga claramente que foi a auto-correção automática e ofereça desfazer: restaurar o valor \`antes\` e remover aquela entrada de \`auto\` no patch.
 - Títulos marcados para caber (fit) têm a fonte reduzida automaticamente na hora de desenhar se não couberem — se o usuário achar o título pequeno, o caminho é encurtar o texto ou mudar o layout, não o tamanho.
+- Se o conteúdo da área útil não couber (uma caixa ficaria por cima da outra), o motor reduz TODO o conteúdo do slide proporcionalmente (o Studio avisa "Conteúdo reduzido para caber (N%)"). Se o usuário achar tudo pequeno, o caminho é tirar conteúdo, diminuir figuras ou dividir o slide em dois.
 - ==texto== vira marca-texto animado; **negrito**; ^^texto^^ = cor de ênfase; ~~riscado~~.
 - Elementos com \`step\` só aparecem no clique indicado; \`build: true\` revela itens um por clique.
 - Um layout só desenha os campos dele (ex.: \`cover\` ignora \`content\`) — campo ignorado não aparece, por mais que exista no YAML.`;

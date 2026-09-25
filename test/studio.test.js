@@ -144,6 +144,22 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
+    const i = await go((s) => s.title === "Conteúdo que não cabe");
+    await settle(900);
+    const overlap = (sel) => p.evaluate((sel) => {
+      const s = document.querySelector(sel);
+      const row = s.querySelector(".row"), next = row.nextElementSibling;
+      const last = Math.max(...[...row.querySelectorAll(".t")].map((t) => t.getBoundingClientRect().bottom));
+      return last - next.getBoundingClientRect().top;
+    }, sel);
+    assert.ok(await overlap("#rendered-slide-container .slide") <= 1, "canvas sem sobreposição");
+    assert.match(await p.textContent("#status-fit"), /reduzid/i, "aviso de ajuste automático");
+    assert.match(await p.getAttribute("#status-fit", "title"), /conteúdo do slide/i);
+    await p.waitForFunction((i) => document.querySelector(`.thumb-card[data-idx="${i}"] .thumb-render .slide`), i);
+    assert.ok(await overlap(`.thumb-card[data-idx="${i}"] .thumb-render .slide`) <= 1, "miniatura sem sobreposição");
+  });
+
   // ------------------------------------------------------------ edição
   await t.test("digitar no formulário atualiza slide e arquivo sem perder o foco", async () => {
     const i = await go("cards");

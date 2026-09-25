@@ -59,6 +59,22 @@ slides:
     title: Página inteira
     overlay: bottom
 
+  # transborda de propósito (colunas altas + linha embaixo): o motor precisa reduzir, não sobrepor
+  - layout: blocks
+    kicker: Aperto
+    title: Conteúdo que não cabe
+    content:
+      - row:
+          - col: [{ picto: scene, name: car-top, driver: human, passenger: machine, w: 300, h: 380 }, { h2: HITL, size: 100 }, { label: humano no loop }, { body: "A máquina sugere. **Você decide.**", size: 32 }]
+            items: center
+          - col: [{ picto: scene, name: car-top, driver: machine, passenger: human-watch, button: true, w: 300, h: 380 }, { h2: HOTL, size: 100 }, { label: humano sobre o loop }, { body: "A máquina decide. **Você freia.**", size: 32 }]
+            items: center
+          - col: [{ picto: scene, name: car-top, driver: machine, back: sleep, w: 300, h: 380 }, { h2: HOOTL, size: 100 }, { label: humano fora do loop }, { body: "A máquina faz tudo. **Você dorme.**", size: 32 }]
+            items: center
+        gap: 60
+        flex: 1
+      - { label: "Combinado: nas votações, reaja com 👍 = IN ❤️ = ON 😮 = OUT", align: center }
+
   - layout: end
     title: Obrigado.
     contacts: [equipe@exemplo.com]

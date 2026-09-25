@@ -749,6 +749,7 @@
           body: JSON.stringify({ slide: v.slide, index: variants.index }) })).json();
         const prev = card.querySelector(".variant-prev");
         prev.querySelector(".thumb-render").innerHTML = r.html;
+        requestAnimationFrame(() => fitRendered(prev));
         prev.style.setProperty("--thumb-scale", String(prev.clientWidth / 1920));
       } catch {}
     }
@@ -1692,6 +1693,7 @@
       const cached = thumbCache.get(thumbKey(idx, slide));
       if (cached) {
         screen.innerHTML = `<div class="thumb-render">${cached}</div>`;
+        requestAnimationFrame(() => fitRendered(screen));
       } else {
         const fb = document.createElement("div");
         fb.className = "thumb-fallback";
@@ -1795,6 +1797,7 @@
     const screen = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${idx}"] .thumb-screen`);
     if (!screen) return;
     screen.innerHTML = `<div class="thumb-render">${html}</div>`;
+    requestAnimationFrame(() => fitRendered(screen));
   }
 
   function markActiveThumb() {
@@ -2174,6 +2177,7 @@
       const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide, index: state.currentSlideIndex }) })).json();
       stage.innerHTML = `<div class="thumb-render">${r.html}</div>`;
+      requestAnimationFrame(() => fitRendered(stage));
       stage.style.setProperty("--thumb-scale", String(stage.clientWidth / 1920));
     } catch {
       stage.innerHTML = `<div class="napkin-empty">Não deu para desenhar a prévia.</div>`;
@@ -2336,27 +2340,16 @@
 
   // Mesmo ajuste do runtime (fitAll em src/runtime/runtime.js): textos com data-fit encolhem até
   // caber na área útil. Sem isso, títulos longos transbordam no editor mas não no HTML final.
+  // Ajuste para caber: o mesmo código da apresentação (src/runtime/fit.js): título cede espaço e, se o
+  // conteúdo ainda vaza (uma caixa por cima da outra), tudo é reduzido proporcionalmente.
+  function fitRendered(root) {
+    if (!window.SagadeckFit || !root) return;
+    window.SagadeckFit.fitText(root);
+    root.querySelectorAll(".slide").forEach((s) => window.SagadeckFit.shrink(s));
+  }
+
   function fitSlideText(root) {
-    const run = () => root.querySelectorAll("[data-fit]").forEach((el) => {
-      const safe = el.closest(".safe") || el.closest(".slide");
-      if (!safe) return;
-      if (!el.dataset.fs0) el.dataset.fs0 = parseFloat(getComputedStyle(el).fontSize);
-      let fs = +el.dataset.fs0;
-      el.style.fontSize = fs + "px";
-      const over = () => {
-        const sr = safe.getBoundingClientRect(), r = el.getBoundingClientRect();
-        const sc = (el.closest(".slide") || safe).getBoundingClientRect().width / 1920 || 1;
-        const tol = fs * 0.3;
-        if (el.scrollHeight > el.clientHeight + tol || el.scrollWidth > el.clientWidth + 2 || (r.bottom - sr.bottom) / sc > tol) return true;
-        for (const t of safe.querySelectorAll(".t")) {
-          const tr = t.getBoundingClientRect();
-          if ((tr.bottom - sr.bottom) / sc > 6 || (sr.top - tr.top) / sc > 6) return true;
-        }
-        return false;
-      };
-      let guard = 0;
-      while (over() && fs > +el.dataset.fs0 * 0.3 && guard++ < 60) { fs *= 0.95; el.style.fontSize = fs.toFixed(1) + "px"; }
-    });
+    const run = () => fitRendered(root);
     const report = () => {
       if (root !== dom.renderedSlideContainer) return;
       const notes = [];
@@ -2364,8 +2357,10 @@
         const r = parseFloat(el.style.fontSize) / (+el.dataset.fs0 || 1);
         if (r < 0.9) notes.push(`o motor reduziu automaticamente a fonte de "${el.textContent.trim().slice(0, 40)}" para ${Math.round(r * 100)}% para caber`);
       });
+      const z = +(root.querySelector(".slide")?.dataset.shrink || 1);
+      if (z < 1) notes.push(`o motor reduziu automaticamente todo o conteúdo do slide para ${Math.round(z * 100)}% para caber (sem isso, uma parte ficaria por cima de outra)`);
       state.renderNotes = notes;
-      dom.statusFit.textContent = notes.length ? "⚙ Texto reduzido para caber" : "";
+      dom.statusFit.textContent = z < 1 ? `⚙ Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "⚙ Texto reduzido para caber" : "";
       dom.statusFit.title = notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "";
     };
     run();
@@ -2712,6 +2707,7 @@
       const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide: spec.slides[i], index: i, spec }) })).json();
       stage.innerHTML = `<div class="thumb-render">${r.html}</div>`;
+      requestAnimationFrame(() => fitRendered(stage));
       stage.style.setProperty("--thumb-scale", String(stage.clientWidth / 1920));
     } catch {}
   }
