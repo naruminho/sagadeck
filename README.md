@@ -79,7 +79,7 @@ O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completi
 pip install git+https://github.com/naruminho/modelrelay
 ```
 
-O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **IA** no alto da
+O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **modelrelay** no alto da
 biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor
 (OpenRouter, OpenAI, Google, DeepSeek, o gateway da empresa…), cola a chave, testa e diz qual modelo faz
 **texto** e qual faz **imagem**. A tela grava o `~/.modelrelay/config.toml`, que também dá para editar à mão

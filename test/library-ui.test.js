@@ -154,7 +154,7 @@ async function fakeRelay({ console = true } = {}) {
   return { url: `http://127.0.0.1:${server.address().port}`, close: () => server.close() };
 }
 
-test("botão IA: abre a tela de configuração do modelrelay local; some quando não há tela ou no multiusuário", { timeout: 60000 }, async (t) => {
+test("botão modelrelay: abre a tela de configuração do modelrelay local; some quando não há tela ou no multiusuário", { timeout: 60000 }, async (t) => {
   const relay = await fakeRelay(), old = await fakeRelay({ console: false });
   try {
     const setup = async (llmUrl, opts = {}) => {
@@ -177,6 +177,7 @@ test("botão IA: abre a tela de configuração do modelrelay local; some quando 
       await p.waitForSelector("#btn-ai:not([hidden])");
       assert.equal(await p.getAttribute("#btn-ai", "href"), relay.url + "/");
       assert.equal(await p.getAttribute("#btn-ai", "target"), "_blank");
+      assert.equal((await p.innerText("#btn-ai")).trim(), "modelrelay");
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();
