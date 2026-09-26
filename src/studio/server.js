@@ -80,8 +80,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
-  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile());
-  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile()); // LOOPBACK: definido abaixo, junto da trava de origem
   const rtSessions = new Map(); // conversas em tempo real abertas: sid -> { conn, buffer, res }
   // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
   function apiContextFor(req, W) {
