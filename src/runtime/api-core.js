@@ -72,7 +72,7 @@
   function normalize(s) {
     s = s || {};
     const req = s.request || {};
-    const mode = ["polling", "stream", "sync"].includes(s.mode) ? s.mode : "sync";
+    const mode = ["polling", "stream", "sync", "realtime"].includes(s.mode) ? s.mode : "sync";
     const p = s.polling || {};
     return {
       _normalized: true,
@@ -85,6 +85,8 @@
         form: req.form && typeof req.form === "object" ? req.form : null, // multipart: { campo: "@file" | texto }
         auth: req.auth !== false,
       },
+      audio: s.audio ? String(s.audio === true ? "fala.mp3" : s.audio) : null, // TTS: a resposta é áudio (nome do arquivo no código)
+      mic: !!s.mic, // STT: gravar do microfone no próprio slide
       token: s.token || null, // este slide gera o token (ex.: Identity): caminho do token na resposta
       file: s.file || null,   // arquivo padrão, ao lado do deck (upload @file ou {{file.base64}})
       polling: mode !== "polling" ? null : {
@@ -97,17 +99,54 @@
         timeout: Number(p.timeout) > 0 ? Number(p.timeout) : 120,
       },
       stream: mode !== "stream" ? null : { text: (s.stream && s.stream.text) || "$.choices[0].delta.content" },
+      realtime: mode !== "realtime" ? null : realtimeOf(s.realtime || {}, req),
       steps: s.steps || null,
       stepTitle: s.stepTitle || null,
       stepText: s.stepText || null,
       answer: s.answer || null,
       save: s.save && typeof s.save === "object" ? s.save : {},
       tokenVar: s.tokenVar || "API_TOKEN",
+      // aba Parâmetros: { "caminho.no.corpo": "o que faz" } — a documentação que falta
+      fields: s.fields && typeof s.fields === "object" ? s.fields : null,
+      // embeddings: gera o vetor da referência e de cada frase e compara por cosseno
+      similarity: s.similarity ? {
+        vector: s.similarity.vector || "$.data[0].embedding",
+        reference: String(s.similarity.reference || ""),
+        texts: [].concat(s.similarity.texts || []).map(String),
+      } : null,
       code: [].concat(s.code || ["curl", "python", "python-comentado"]),
       tab: s.tab || "body",
       portal: s.portal || null,
     };
   }
+
+  // Conversa em tempo real (WebSocket): o que mandar ao conectar, como mandar áudio e texto, e como reconhecer
+  // o que chega. Os padrões seguem o formato mais comum dessas APIs; qualquer parte pode ser trocada no slide.
+  function realtimeOf(r, req) {
+    const rc = r.receive || {};
+    const one = (v, d) => (v === undefined ? d : v);
+    return {
+      url: String(r.url || req.url || ""),
+      auth: r.auth || "header", // header (Authorization: Bearer) | query:<parâmetro> | none
+      open: [].concat(r.open || []),
+      audio: {
+        rate: Number((r.audio && r.audio.rate) || 24000),
+        send: one(r.audio && r.audio.send, { type: "input_audio_buffer.append", audio: "{{audio}}" }),
+        commit: [].concat(one(r.audio && r.audio.commit, [{ type: "input_audio_buffer.commit" }, { type: "response.create" }])),
+      },
+      text: [].concat(one(r.text, [{ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: "{{text}}" }] } }, { type: "response.create" }])),
+      receive: {
+        type: rc.type || "$.type",
+        audio: rc.audio || { type: ["response.audio.delta", "response.output_audio.delta"], data: "$.delta" },
+        text: rc.text || { type: ["response.audio_transcript.delta", "response.text.delta", "response.output_text.delta", "response.output_audio_transcript.delta"], data: "$.delta" },
+        user: rc.user || { type: ["conversation.item.input_audio_transcription.completed"], data: "$.transcript" },
+        done: [].concat(rc.done || ["response.done"]),
+        error: rc.error || { type: ["error"], data: "$.error.message" },
+      },
+    };
+  }
+  // o evento que chegou é deste tipo? (tipo único ou lista)
+  const isType = (ev, rule, typePath) => { if (!rule) return false; const t = get(ev, typePath); return [].concat(rule.type || rule).map(String).includes(String(t)); };
 
   // chave estável de um slide para guardar a última resposta (modo gravado)
   function key(s) {
@@ -191,7 +230,7 @@
     } else if (a.mode === "stream") {
       L.add(curlCmd(req, a.tokenVar, "N", name), "start");
     } else {
-      L.add(curlCmd(req, a.tokenVar, "", name), "start");
+      L.add(curlCmd(req, a.tokenVar, "", name) + (a.audio ? ` \\\n  --output ${dq(a.audio)}` : ""), "start");
     }
     const o = L.out();
     // dentro de '…' o shell não expande $: fecha a aspa, põe "$NOME" e reabre
@@ -281,6 +320,11 @@
     } else {
       L.add(pyCall("resposta", req, ["timeout=60"]), "start", "a chamada: espera a resposta completa");
       L.add("resposta.raise_for_status()", "start", "para aqui se deu erro (4xx/5xx)");
+      if (a.audio) {
+        L.add(`open(${dq(a.audio)}, "wb").write(resposta.content)`, "done", "a resposta é o áudio: salva num arquivo");
+        L.add(`print("áudio salvo em", ${dq(a.audio)})`, "done");
+        return L.out();
+      }
       L.add("dados = resposta.json()", "done");
       if (a.steps) {
         L.add(`for etapa in dados${pyPath(a.steps)}:`, "done", "o resultado de cada etapa");
@@ -292,15 +336,87 @@
     return L.out();
   }
 
+  // similaridade por cosseno: 1 = mesma direção (mesmo sentido), 0 = nada a ver
+  function cosine(a, b) {
+    let dot = 0, na = 0, nb = 0;
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+  }
+
+  // código da comparação de frases: uma função embedding(), o cosseno em Python puro e o laço
+  function pythonSimilarity(a, vars, explain) {
+    const L = Lines(explain);
+    const toPy = (v) => (v === "{{text}}" ? { __py: "texto" } : Array.isArray(v) ? v.map(toPy) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPy(x)])) : v);
+    const req = render({ ...a.request, body: toPy(a.request.body) }, vars);
+    L.add("import math\nimport os").blank().add("import requests", null, "requests faz as chamadas HTTP (pip install requests)").blank();
+    if (req.auth) L.add(`TOKEN = os.environ[${JSON.stringify(a.tokenVar)}]`, null, "o token de acesso vem de uma variável de ambiente").blank();
+    pyHeaders(L, a, req);
+    L.blank();
+    L.add("def embedding(texto):", "start", "transforma um texto num vetor de números (o embedding)");
+    L.add(pyCall("    r", req, ["timeout=60"], "    ").replace(/^    r = /, "    r = "), "start");
+    L.add("    r.raise_for_status()", "start");
+    L.add(`    return r.json()${pyPath(a.similarity.vector)}`, "start");
+    L.blank();
+    L.add("def cosseno(a, b):", null, "similaridade por cosseno: 1 = mesmo sentido, perto de 0 = nada a ver");
+    L.add("    produto = sum(x * y for x, y in zip(a, b))");
+    L.add("    return produto / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))");
+    L.blank();
+    L.add(`referencia = embedding(${JSON.stringify(a.similarity.reference)})`, "start", "o vetor da frase de referência");
+    L.add(`print(len(referencia), "números")`, "start");
+    L.add(`for frase in ${pyLiteral(a.similarity.texts)}:`, "poll", "compara cada frase com a referência");
+    L.add('    print(f"{cosseno(referencia, embedding(frase)):.2f}  {frase}")', "poll");
+    return L.out();
+  }
+
+  function pythonRealtime(a, vars, explain) {
+    const L = Lines(explain);
+    const R = a.realtime;
+    const url = render(R.url, vars);
+    L.add("import asyncio\nimport json\nimport os").blank().add("import websockets", null, "conversa em tempo real por WebSocket (pip install websockets)").blank();
+    const q = R.auth.startsWith("query:") ? R.auth.slice(6) : null;
+    L.add(q ? `URL = f${dq(url + (url.includes("?") ? "&" : "?") + q + "={os.environ['" + a.tokenVar + "']}")}` : `URL = ${dq(url)}`);
+    if (R.auth === "header") L.add(`HEADERS = {"Authorization": f"Bearer {os.environ['${a.tokenVar}']}"}`, null, "o token vai no cabeçalho da conexão"); // aspas simples: vale para Python < 3.12
+    L.blank();
+    const textMsgs = render(R.text, { ...vars, text: "Olá! Em uma frase: o que você faz?" });
+    const textTypes = [].concat(R.receive.text.type).map((t) => JSON.stringify(t)).join(", ");
+    L.add("async def main():", "start");
+    L.add(`    async with websockets.connect(URL${R.auth === "header" ? ", additional_headers=HEADERS" : ""}) as ws:`, "start", "    abre a conexão (fica aberta a conversa toda)");
+    for (const m of render(R.open, vars)) L.add(`        await ws.send(json.dumps(${pyLiteral(m, "        ")}))`, "start", "        configuração da sessão, mandada ao conectar");
+    textMsgs.forEach((m, i) => L.add(`        await ws.send(json.dumps(${pyLiteral(m, "        ")}))`, "start", i === 0 ? "        manda uma pergunta em texto (no slide, também dá para falar)" : ""));
+    L.add("        async for mensagem in ws:", "poll", "        cada evento chega como uma mensagem JSON");
+    L.add("            evento = json.loads(mensagem)", "poll");
+    L.add(`            if evento${pyPath(R.receive.type)} in (${textTypes}${[].concat(R.receive.text.type).length === 1 ? "," : ""}):`, "poll", "            pedaço do texto da resposta");
+    L.add(`                print(evento${pyPath(R.receive.text.data)}, end="", flush=True)`, "poll");
+    L.add(`            if evento${pyPath(R.receive.type)} in (${R.receive.done.map((d) => JSON.stringify(d)).join(", ")}${R.receive.done.length === 1 ? "," : ""}):`, "done", "            a resposta terminou");
+    L.add("                break", "done");
+    L.blank().add("asyncio.run(main())", "start");
+    return L.out();
+  }
+  function wscat(a, vars) {
+    const L = Lines(false);
+    const R = a.realtime;
+    const url = render(R.url, vars);
+    const q = R.auth.startsWith("query:") ? R.auth.slice(6) : null;
+    L.add("# curl não fala WebSocket; o wscat (npm i -g wscat) abre a conversa no terminal", "start");
+    L.add(`wscat -c ${dq(q ? url + (url.includes("?") ? "&" : "?") + q + "=$" + a.tokenVar : url)}${R.auth === "header" ? ` \\\n  -H "Authorization: Bearer $${a.tokenVar}"` : ""}`, "start");
+    L.add("# depois de conectar, cole uma mensagem por vez:", "poll");
+    for (const m of [...render(R.open, vars), ...render(R.text, { ...vars, text: "Olá!" })]) L.add(JSON.stringify(m), "poll");
+    return L.out();
+  }
+
   const LANGS = { curl: "curl", python: "Python", "python-comentado": "Python comentado" };
   function code(slide, lang, vars) {
     const a = slide && slide._normalized ? slide : normalize(slide);
+    if (a.realtime) return lang === "curl" ? wscat(a, vars || {}) : pythonRealtime(a, vars || {}, lang === "python-comentado");
+    if (a.similarity && lang !== "curl") return pythonSimilarity(a, vars || {}, lang === "python-comentado");
+    if (a.similarity && lang === "curl") return curl(a, Object.assign({}, vars, { text: a.similarity.reference }));
     if (lang === "curl") return curl(a, vars || {});
     return python(a, vars || {}, lang === "python-comentado");
   }
 
   // o slide mexe com arquivo? (upload @file ou {{file.…}})
-  const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
-  const api = { usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
+  const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || a.mic || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
+  const api = { isType, cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
   g.SagadeckApiCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

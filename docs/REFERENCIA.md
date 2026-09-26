@@ -71,6 +71,7 @@ slides:
 | `code` | `title, code, highlight: [linhas], note` | código com linhas destacadas |
 | `codewalk` | `title, filename, language, code, size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: cada etapa destaca linhas e explica uma saída simulada |
 | `spotlight` | `title, image` ou `figure`, `caption, hotspots: [{x, y, width, height, title, text}]` | foco guiado em regiões de screenshots, imagens ou diagramas |
+| `api` | `title, request: {method, url, body/form, headers, auth}, mode, answer, save, token, polling, steps, file, mic, audio, similarity, fields` | requisição ao vivo (tipo Postman) com código curl/Python; ver [Slide api](#slide-api-requisição-ao-vivo) |
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
@@ -116,6 +117,130 @@ slides:
 No `spotlight`, `x` e `y` indicam o canto superior esquerdo da região; os quatro números são porcentagens da imagem. As regiões são limitadas à imagem, respeitam a proporção de screenshots verticais e podem ser clicadas diretamente. Também é possível usar `figure` com SVG ou diagrama no lugar de `image`. Prefira 2–4 etapas e explicações curtas para manter o slide legível. Em HTML sem JavaScript aparece a primeira etapa; PDF, impressão e exportação estática mostram um resumo de todas as etapas, sem controles. Imagens locais são embutidas no HTML para funcionar offline.
 
 O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
+
+## Slide `api`: requisição ao vivo
+
+Um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente (curl, Python e
+Python comentado), e o botão **Executar** roda o pedido de verdade e mostra a resposta. Serve para aula
+de API: a plateia vê o código, o status mudando e o resultado.
+
+Os pedidos saem do **Studio** (Node, na sua máquina), nunca do navegador: sem problema de CORS, com o
+certificado da empresa e com o token fora da página. Sem o Studio (HTML exportado, PDF, servidor
+multiusuário), o slide mostra a **última resposta gravada** e o botão vira *Reproduzir gravação*.
+
+```yaml
+- layout: api
+  kicker: Ao vivo
+  title: Pergunte ao ==modelo==
+  request:
+    method: POST                     # padrão: POST se tiver corpo, senão GET
+    url: "{{base}}/chat"             # {{variáveis}} vêm do ambiente e dos slides anteriores
+    body: { messages: [ { role: user, content: "Explique RAG em uma frase" } ] }
+    headers: { X-Canal: workshop }   # opcional
+    auth: true                       # manda o token do ambiente (padrão)
+  answer: "$.choices[0].message.content"   # o campo em destaque na resposta
+  save: { resposta_id: "$.id" }            # guarda para os próximos slides: {{resposta_id}}
+  portal: "https://…"                      # botão "Abrir no portal"
+  notes: …
+```
+
+| Campo | O que faz |
+|---|---|
+| `mode` | `sync` (padrão), `polling` (inicia e consulta até terminar), `stream` (texto chega aos poucos, SSE) ou `realtime` (conversa por WebSocket, abaixo) |
+| `request` | `method, url, headers, body` (JSON) ou `form` (upload multipart), `auth` |
+| `answer` | caminho do campo em destaque (`$.a.b[0].c`) |
+| `save` | `{ nome: "$.caminho" }`: guarda valores da resposta para `{{nome}}` nos slides seguintes (ex.: o `path_id` do upload no OCR e no indexador) |
+| `token` | este slide gera o token (ex.: Identity): `token: "$.access_token"`. O token passa a ser o do ambiente; a tela mostra o JWT decodificado e a contagem até expirar, nunca o token |
+| `polling` | `id` (código da execução no início), `check: { method, url }` (use `{{id}}`), `status`, `done: [..]`, `failed: [..]`, `interval` (s), `timeout` (s) |
+| `steps`, `stepTitle`, `stepText` | lista de etapas na resposta final: vira um cartão por etapa (ex.: OCR → LLM) |
+| `stream` | `{ text: "$.choices[0].delta.content" }`: onde está o texto de cada pedaço |
+| `file` | arquivo padrão, ao lado do deck. No corpo: `{{file.base64}}`, `{{file.name}}`, `{{file.type}}`; no `form`: `"@file"`. Dá para trocar arrastando outro arquivo no slide |
+| `mic` | `true`: botão **Gravar** (microfone). Ao parar, envia a gravação como o arquivo do slide (STT) |
+| `audio` | a resposta é áudio (TTS): toca no slide, com a onda; no código, salva em `audio: fala.mp3` |
+| `similarity` | embeddings: `{ reference, texts: [..], vector: "$.data[0].embedding" }`; o corpo usa `{{text}}`. Mostra o vetor e a similaridade por cosseno de cada frase |
+| `fields` | aba **Parâmetros**: `{ "$.campo": "o que faz" }`, com o valor atual de cada campo |
+| `code` | abas de código: `[curl, python, python-comentado]` (padrão: as três) |
+| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `python`, `python-comentado` |
+| `tokenVar` | nome da variável de ambiente do token no código gerado (padrão `API_TOKEN`) |
+| `id` | chave da gravação (padrão: título + URL) |
+
+Na apresentação: a URL e o corpo são editáveis na hora (a execução usa o que está na tela); o código
+das abas acompanha. Com `polling`, as linhas do código acendem na fase que está rodando (início, laço de
+consulta, resultado) enquanto a linha do tempo mostra cada status.
+
+### Conversa em tempo real (`mode: realtime`, WebSocket)
+
+O Studio abre o WebSocket com o serviço (token no cabeçalho ou na URL, certificado da empresa) e faz a
+ponte com a apresentação. No slide: **Conectar**, **Falar** (microfone, com o volume), campo de texto, a
+conversa em balões (o que foi dito, transcrito, e a resposta enquanto o áudio toca) e a aba **Mensagens**
+com cada evento que passou, nos dois sentidos (o áudio aparece resumido).
+
+```yaml
+- layout: api
+  title: Conversa por voz
+  mode: realtime
+  realtime:
+    url: "{{ws}}/realtime?model=…"
+    auth: header                 # header (Authorization: Bearer) | query:<parâmetro> | none
+    open:                        # mensagens mandadas ao conectar
+      - { type: session.update, session: { voice: alloy } }
+    audio:                       # microfone → PCM16 mono nesta taxa, em pedaços de ~200 ms
+      rate: 24000
+      send: { type: input_audio_buffer.append, audio: "{{audio}}" }                 # {{audio}} = pedaço em base64
+      commit: [ { type: input_audio_buffer.commit }, { type: response.create } ]   # ao clicar em Parar
+    text:                        # ao digitar ({{text}})
+      - { type: conversation.item.create, item: { type: message, role: user, content: [ { type: input_text, text: "{{text}}" } ] } }
+      - { type: response.create }
+    receive:                     # como reconhecer o que chega
+      type: "$.type"
+      audio: { type: [response.audio.delta], data: "$.delta" }                 # PCM16 na mesma taxa
+      text:  { type: [response.audio_transcript.delta, response.text.delta], data: "$.delta" }
+      user:  { type: [conversation.item.input_audio_transcription.completed], data: "$.transcript" }
+      done:  [response.done]
+      error: { type: [error], data: "$.error.message" }
+```
+
+Só `url` é obrigatório: os padrões acima seguem o formato mais comum dessas APIs; troque o que o seu
+serviço fizer diferente. O código gerado é Python (`websockets`) e `wscat`. A conversa fica gravada (em
+texto) para o modo sem Studio.
+
+### Ambientes: `~/.sagadeck/ambientes.yaml`
+
+Endereços, credenciais e segredos ficam **na máquina**, nunca no deck (o deck pode ir para o GitHub).
+Outro lugar: variável `SAGADECK_AMBIENTES`. O selo no slide (DEV, HOM…) troca o ambiente.
+
+```yaml
+current: hom
+environments:
+  dev:
+    vars: { base: "https://api-dev.exemplo.com/v1", wf: "resumo" }   # {{base}}, {{wf}} nos slides
+    token:                                # opcional: token que expira (client credentials)
+      url: "https://identidade-dev.exemplo.com/token"
+      client_id: "meu-id"
+      client_secret_env: MINHA_SECRET     # ou client_secret: "…"
+      field: "$.access_token"             # onde está o token na resposta
+      ttl_minutes: 30                     # renovado 2 min antes de vencer
+      # format: form | json (padrão), id_field, secret_field, extra: {…}, header, prefix
+    secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
+    ca: "C:/certs/empresa.pem"            # certificado da empresa (inspeção TLS); ou NODE_EXTRA_CA_CERTS
+    timeout: 60
+  hom:
+    vars: { base: "https://api-hom.exemplo.com/v1" }
+    token: { url: "…", client_id: "…", client_secret_env: MINHA_SECRET }
+```
+
+- `vars` vão para a tela (URLs, nomes); **segredo nunca vai em `vars`**. Segredos ficam em `secrets:` e
+  entram no slide como `{{secret.nome}}`: quem troca pelo valor é o Studio, na hora de enviar. No código
+  gerado aparecem como `$NOME` (curl) e `os.environ["NOME"]` (Python).
+- Tokens, segredos e cabeçalhos do ambiente saem **mascarados** (`••••x9Qa`) em tudo o que aparece: pedido
+  enviado, resposta, gravação.
+- A última resposta boa de cada slide fica em `<deck>.respostas.json`, ao lado do deck (sem tokens).
+
+### Segurança
+
+Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pela própria página
+(outros sites e HTML aberto do disco são recusados), só com JSON. No modo multiusuário (servidor) e com
+`--host` aberto para a rede, o slide só mostra gravações.
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 

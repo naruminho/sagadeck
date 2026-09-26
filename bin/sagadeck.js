@@ -57,6 +57,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
+  sagadeck ensaio-api [--port=3000]            ensaio do slide "api": deck de exemplo contra uma API de mentira (sem VPN)
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
   sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
@@ -329,6 +330,28 @@ async function main() {
         const shown = host === "0.0.0.0" ? "localhost" : host;
         console.log(`✓ SagaDeck Studio em http://${shown}:${port}${deckFile ? "" : "  (biblioteca)"}`);
         console.log(multiuser ? `  multiusuário: bibliotecas em ${path.join(library, "usuarios")}` : `  biblioteca: ${library}`);
+      });
+      break;
+    }
+    // Ensaio do slide "api": API de mentira + ambientes temporários + o deck de exemplo, no Studio.
+    // Nada disso toca no seu ~/.sagadeck/ambientes.yaml.
+    case "ensaio-api": {
+      const { startMockApi, demoEnvFile } = await import("../src/api-demo.js");
+      const { createStudioServer } = await import("../src/studio/server.js");
+      const { defaultLibraryRoot } = await import("../src/library.js");
+      const mock = await startMockApi({ statuses: ["STARTED", "RUNNING", "RUNNING", "FINISHED"] });
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-ensaio-"));
+      const envFile = path.join(dir, "ambientes.yaml");
+      fs.writeFileSync(envFile, demoEnvFile(mock));
+      const deckFile = path.join(dir, "ensaio-api.yaml");
+      fs.copyFileSync(path.join(TEMPLATES, "ensaio-api.yaml"), deckFile);
+      fs.writeFileSync(path.join(dir, "contrato.txt"), "Cláusula 1: prazo de 30 dias.\nCláusula 2: multa de 2%.\n");
+      const port = Number(flags.port || process.env.PORT || 3000);
+      const server = createStudioServer(deckFile, { port, host: "127.0.0.1", library: defaultLibraryRoot(), apiEnvFile: envFile });
+      server.listen(port, "127.0.0.1", () => {
+        console.log(`✓ Ensaio no Studio: http://127.0.0.1:${port}/editor`);
+        console.log(`  API de mentira em ${mock.url} · ambientes do ensaio em ${envFile}`);
+        console.log("  Apresente (F5 / Apresentar) e clique em Executar em cada slide. Ctrl+C encerra.");
       });
       break;
     }

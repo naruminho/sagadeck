@@ -81,8 +81,19 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
-  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile());
-  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile()); // LOOPBACK: definido abaixo, junto da trava de origem
+  const rtSessions = new Map(); // conversas em tempo real abertas: sid -> { conn, buffer, res }
+  // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
+  function apiContextFor(req, W) {
+    if (opts.multiuser) return null;
+    try {
+      const st = apiEnv.state();
+      const cur = st.envs.find((e) => e.name === st.current);
+      if (!cur) return null;
+      return { env: cur.name, live: !apiBlocked(req), vars: cur.vars, secrets: Object.keys(apiEnv.env().secrets || {}), saved: W.apiVars || {} };
+    } catch { return null; }
+  }
+
   // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
   function apiBlocked(req) {
     if (opts.multiuser) return { code: 403, message: "No servidor (multiusuário) o slide API só mostra a última gravação; executar é no Studio local." };
@@ -115,23 +126,55 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return spec;
   }
 
+  // Só a própria página usa o Studio. Ele roda na máquina da pessoa (no banco, dentro da VPN): sem isto,
+  // qualquer site aberto no navegador faria fetch para 127.0.0.1 e leria a biblioteca, apagaria decks, gastaria a IA.
+  // Por isso não há CORS: nenhum Access-Control-Allow-*, e pedido de outra origem para /api/* leva 403.
+  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  const hostnameOf = (h) => { try { return new URL(`http://${h}`).hostname; } catch { return ""; } };
+  // Escutando só nesta máquina, o Host tem que ser desta máquina: barra o DNS rebinding
+  // (malicioso.exemplo resolvendo para 127.0.0.1 tem Origin igual ao Host, mas não é a página do Studio).
+  const loopbackOnly = !opts.multiuser && LOOPBACK.has(opts.host);
+  function wrongHost(req) {
+    if (!loopbackOnly) return false;
+    const h = hostnameOf(req.headers.host || "");
+    return !(LOOPBACK.has(h) || h.endsWith(".localhost"));
+  }
+  // Pedido feito por outra página? O navegador manda Origin em todo POST e em todo pedido de outra origem;
+  // a própria página, no GET, não manda. "null" (HTML aberto do disco) também é outra página.
+  function foreignOrigin(req) {
+    const origin = req.headers.origin;
+    if (!origin) return false;
+    let oh = "";
+    try { oh = new URL(origin).host.toLowerCase(); } catch { return true; }
+    const own = [req.headers.host];
+    // atrás do proxy (BabsDeck) o Host pode ser o do Studio (127.0.0.1:porta); o endereço do portal vem em X-Forwarded-Host
+    if (opts.multiuser && req.headers["x-forwarded-host"]) own.push(String(req.headers["x-forwarded-host"]).split(",")[0].trim());
+    return !own.some((h) => h && String(h).toLowerCase() === oh);
+  }
+
   const server = http.createServer(async (req, res) => {
+    // Iframe só na própria origem: a apresentação dentro do editor (#pres-frame carrega "preview").
+    // Nenhum outro site embute o Studio (clickjacking); CORP same-origin: outro site não carrega nem as capas.
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const pathname = url.pathname;
+
+    if (wrongHost(req) || (pathname.startsWith("/api/") && foreignOrigin(req))) {
+      res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Pedido vindo de outra página: bloqueado." }));
+      return;
+    }
+
     const W = workspaceOf(req);
     if (!W) { // multiusuário sem o cabeçalho do proxy: ninguém autenticado
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "sessão ausente: entre pelo portal" }));
       return;
     }
-    // Headers completos para permitir embedding seguro em iframes no Arena e navegadores mobile
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, HEAD");
-    res.setHeader("Access-Control-Allow-Headers", "*");
-    res.setHeader("Content-Security-Policy", "frame-ancestors *;");
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-    const pathname = url.pathname;
-
+    // sem CORS: o preflight responde, mas não libera nada (o navegador barra o pedido de outra origem)
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
@@ -588,7 +631,37 @@ export function createStudioServer(deckPath = null, opts = {}) {
                 onProgress: emit,
                 visuals,
                 renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
+                apiContext: apiContextFor(req, W),
               });
+              // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
+              // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
+              const convo = [...history, { role: "user", text: prompt }]
+              for (let round = 1; result.test?.length && round <= 3; round++) {
+                if (apiBlocked(req)) { result.actions.push("Testes de slides api só no Studio local."); break; }
+                const reports = [];
+                for (const i of result.test) {
+                  const slide = result.spec.slides[i];
+                  emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
+                  const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
+                  if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
+                  if (r.record) {
+                    const key = globalThis.SagadeckApiCore.key(slide);
+                    if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
+                    else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
+                  }
+                  reports.push({ slide: i + 1, ...r.report });
+                  result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
+                }
+                convo.push({ role: "assistant", text: result.reply });
+                const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
+                emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
+                const next = await editDeck({
+                  spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
+                  imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+                });
+                convo.push({ role: "user", text: instruction });
+                result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
+              }
               result.mode = "llm";
             } catch (e) {
               // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
@@ -620,6 +693,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
           return reply(200, { live: !blocked, reason: blocked?.message || null, ...(blocked ? { envs: [], current: null } : st), tokens, recordings: { ...readRecordings(W.file), ...(W.apiRecordings || {}) } });
         }
         if (blocked) return reply(blocked.code, { error: blocked.message, live: false });
+        // conversa em tempo real: os eventos do serviço chegam ao navegador por aqui (SSE)
+        if (pathname === "/api/http/rt/events" && req.method === "GET") {
+          const s = rtSessions.get(url.searchParams.get("sid") || "");
+          if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+          res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
+          s.res = res;
+          for (const ev of s.buffer.splice(0)) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+          req.on("close", () => { if (s.res === res) { s.conn.close(); rtSessions.delete(s.sid); } });
+          return;
+        }
         if (req.method !== "POST") return reply(405, { error: "use POST" });
         if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
         let body;
@@ -638,6 +721,28 @@ export function createStudioServer(deckPath = null, opts = {}) {
         try {
           if (pathname === "/api/http/env") return reply(200, apiEnv.use(String(body.name || "")));
           if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));
+          if (pathname === "/api/http/rt/open") {
+            const r = await apiEnv.openRealtime(body.realtime || {});
+            const sid = crypto.randomUUID();
+            const s = { sid, conn: r.conn, buffer: [], res: null };
+            const push = (ev) => { if (s.res) s.res.write(`data: ${JSON.stringify(ev)}\n\n`); else s.buffer.push(ev); };
+            r.conn.on("message", (m, isText) => push(isText ? { dir: "in", text: r.mask(m) } : { dir: "in", bin: m.toString("base64") }));
+            r.conn.on("close", (code, why) => { push({ type: "close", code, why: String(why || "") }); if (s.res) s.res.end(); rtSessions.delete(sid); });
+            rtSessions.set(sid, s);
+            for (const m of [].concat(body.open || [])) r.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { sid, url: r.url, env: r.env });
+          }
+          if (pathname === "/api/http/rt/send") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+            for (const m of [].concat(body.messages || [])) s.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { ok: true });
+          }
+          if (pathname === "/api/http/rt/close") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (s) { s.conn.close(); rtSessions.delete(s.sid); }
+            return reply(200, { ok: true });
+          }
           if (pathname === "/api/http/record") {
             if (!body.key || !body.record) return reply(400, { error: "faltou key/record" });
             const f = W.file && !isBundledTemplate(W.file) ? writeRecording(W.file, String(body.key), body.record) : null;

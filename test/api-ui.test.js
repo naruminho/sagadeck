@@ -24,6 +24,10 @@ const DECK = (mock) => ({
     { layout: "api", id: "upload", title: "FileManager", file: "contrato.txt", request: { url: "{{base}}/upload", form: { file: "@file", pasta: "workshop" } }, save: { path_id: "$.path_id" } },
     { layout: "api", id: "ocr", title: "OCR pelo path_id", request: { url: "{{base}}/ocr", body: { path_id: "{{path_id}}" } }, answer: "$.text" },
     { layout: "api", id: "fora", title: "Serviço fora do ar", request: { url: "http://127.0.0.1:1/x", auth: false } },
+    { layout: "api", id: "emb", title: "Embeddings", request: { url: "{{base}}/embeddings", body: { model: "emb", input: "{{text}}" } },
+      similarity: { reference: "Quero abrir uma conta no banco", texts: ["Vai chover amanhã em São Paulo?", "Como faço para abrir uma conta?"] } },
+    { layout: "api", id: "idx", title: "Indexar Excel linha a linha", request: { url: "{{base}}/sync", body: { mode: "rows", sheet: { name: "Plan1", header_row: 1 } } },
+      fields: { "$.mode": "rows = cada linha vira um documento", "$.sheet.header_row": "linha do cabeçalho (começa em 1)", "$.sheet.nao_tem": "não enviado" } },
   ],
 });
 
@@ -122,6 +126,38 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       assert.match(await txt(`${s} .api-saved`), /store\/outro\.txt/);
     });
 
+    await t.test("embeddings: vetor em faixa colorida e similaridade por cosseno, a mais parecida em destaque", async () => {
+      const s = await go(7);
+      assert.equal(await p.getAttribute(`${s} [data-tab="texts"]`, "aria-selected"), "true", "abre na aba Frases");
+      await p.click(`${s} [data-tab="python"]`);
+      assert.match(await txt(`${s} [data-pane="python"]`), /def cosseno\(a, b\):/);
+      await p.click(`${s} [data-tab="texts"]`);
+      await p.fill(`${s} [data-api-texts]`, "Vai chover amanhã em São Paulo?\nComo faço para abrir uma conta?\nAbrir conta no banco hoje");
+      await run(s);
+      assert.equal(await p.$$eval(`${s} .api-vec i`, (els) => els.length), 48);
+      assert.match(await txt(`${s} .api-sim-ref`), /vetor com 64 números/i);
+      const rows = await p.$$eval(`${s} .api-sim-row`, (els) => els.map((e) => [e.querySelector(".api-sim-t").textContent, +e.dataset.score, e.classList.contains("win")]));
+      assert.equal(rows.length, 3);
+      assert.ok(rows[0][1] >= rows[1][1] && rows[1][1] >= rows[2][1], "ordenado da mais parecida para a menos");
+      assert.match(rows[0][0], /conta/);
+      assert.equal(rows[0][2], true, "a vencedora fica em destaque");
+      assert.match(rows[2][0], /chover/);
+      assert.match(await txt(`${s} .api-status`), /4 embeddings/);
+    });
+
+    await t.test("parâmetros: a tabela explica cada campo e acompanha o corpo editado", async () => {
+      const s = await go(8);
+      await p.click(`${s} [data-tab="fields"]`);
+      const rows = await p.$$eval(`${s} [data-field]`, (els) => els.map((e) => [...e.querySelectorAll("td")].map((td) => td.textContent)));
+      assert.deepEqual(rows[0], ["mode", '"rows"', "rows = cada linha vira um documento"]);
+      assert.deepEqual(rows[1], ["sheet.header_row", "1", "linha do cabeçalho (começa em 1)"]);
+      assert.equal(rows[2][1], "—");
+      await p.click(`${s} [data-tab="body"]`);
+      await p.fill(`${s} [data-api-body]`, JSON.stringify({ mode: "pdf", sheet: { header_row: 2 } }));
+      await p.click(`${s} [data-tab="fields"]`);
+      assert.equal(await txt(`${s} [data-field="$.sheet.header_row"] .api-fv`), "2");
+    });
+
     await t.test("serviço fora do ar: mensagem que fala da VPN", async () => {
       const s = await go(6);
       await run(s);
@@ -150,7 +186,8 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
 
     await t.test("as respostas boas ficam gravadas ao lado do deck", () => {
       const rec = JSON.parse(fs.readFileSync(deckFile.replace(".yaml", ".respostas.json"), "utf8"));
-      assert.ok(rec.llm && rec.wf && rec.stream && rec.upload && rec.ocr, Object.keys(rec).join(","));
+      assert.ok(rec.llm && rec.wf && rec.stream && rec.upload && rec.ocr && rec.emb, Object.keys(rec).join(","));
+      assert.equal(rec.emb.sim.items.length, 3);
       assert.equal(rec.wf.polls.length, 4);
       assert.doesNotMatch(JSON.stringify(rec), /tok-\d|assinatura\dXyZw/, "nenhum token na gravação");
       assert.ok(!rec.fora, "falha não é gravada");
@@ -204,6 +241,44 @@ test("segurança: só a própria página, só nesta máquina, nada no multiusuá
   } finally {
     await studio.close();
     await multi.close();
+    await mock.close();
+  }
+});
+
+test("controle flutuante: janelinha por cima com ambiente, Executar e o resultado; ← → passam os slides", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const mock = await startMockApi();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pip-"));
+  const deckFile = path.join(dir, "pip.yaml");
+  fs.writeFileSync(process.env.SAGADECK_AMBIENTES, envFileFor(mock));
+  fs.writeFileSync(deckFile, YAML.stringify({ title: "PiP", slides: [
+    { layout: "api", title: "LLM", request: { method: "POST", url: "{{base}}/sync", body: { messages: [{ role: "user", content: "oi" }] } }, answer: "$.choices[0].message.content" },
+    { layout: "statement", text: "Sem requisição aqui" },
+  ] }));
+  const studio = await startStudio(deckFile);
+  try {
+    const { page: p, errors } = await newPage(browser, `${studio.url}/preview`, { width: 1920, height: 1080 });
+    await p.waitForFunction(() => window.sagadeckApi && window.sagadeckApi.state.live);
+    const hasPip = await p.evaluate(() => "documentPictureInPicture" in window);
+    if (!hasPip) return t.skip("este Chrome não tem Document Picture-in-Picture");
+    await p.click('.slide[data-idx="0"] [data-api-pip]');
+    await p.waitForFunction(() => window.sagadeckApi.pip && window.sagadeckApi.pip.document.querySelector(".pip-run"));
+    const pip = (sel) => p.evaluate((s) => { const e = window.sagadeckApi.pip.document.querySelector(s); return e ? e.textContent : null; }, sel);
+    assert.equal((await pip(".pip-env")).trim(), "HOM");
+    assert.equal((await pip(".pip-top b")).trim(), "LLM");
+    await p.evaluate(() => window.sagadeckApi.pip.document.querySelector(".pip-run").click());
+    await p.waitForFunction(() => /eco: oi/.test(window.sagadeckApi.pip.document.querySelector(".pip-out")?.textContent || ""), null, { timeout: 10000 });
+    assert.match(await p.innerText('.slide[data-idx="0"] .api-answer'), /eco: oi/, "executou no slide de verdade");
+    assert.match(await pip(".pip-status"), /200/);
+    await p.evaluate(() => window.sagadeckApi.pip.document.querySelector('[data-go="1"]').click());
+    await p.waitForFunction(() => window.sagadeck.cur === 1);
+    await p.waitForFunction(() => /não tem requisição/.test(window.sagadeckApi.pip.document.body.textContent));
+    assert.match(await pip(".pip-nav span"), /2 \/ 2/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
     await mock.close();
   }
 });

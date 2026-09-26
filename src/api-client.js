@@ -20,6 +20,7 @@ import http from "node:http";
 import https from "node:https";
 import YAML from "yaml";
 import "./runtime/api-core.js";
+import { connectWs } from "./ws.js";
 
 const C = globalThis.SagadeckApiCore;
 
@@ -122,7 +123,8 @@ export class ApiEnvironments {
     return { current: data.current || null, environments: envs };
   }
 
-  currentName(data = this.load()) {
+  currentName(data) {
+    if (!data) { try { data = this.load(); } catch { return null; } } // arquivo quebrado: sem ambiente, sem derrubar ninguém
     const names = Object.keys(data.environments);
     if (this.selected && names.includes(this.selected)) return this.selected;
     if (data.current && names.includes(data.current)) return data.current;
@@ -291,11 +293,129 @@ export class ApiEnvironments {
       this.tokens.set(p.env.name, { value, expiresAt: Date.now() + ttl, renewAt: Date.now() + ttl - Math.min(120000, ttl / 2), fromSlide: true });
       jwt = decodeJwt(value);
     }
-    const body = parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
+    // áudio (TTS): vai inteiro, em base64, para o slide tocar
+    const body = /^audio\//i.test(type) ? { _audio: true, type: type.split(";")[0], base64: r.buf.toString("base64") }
+      : parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
     return {
       ok: r.res.statusCode < 400, status: r.res.statusCode, statusText: r.res.statusMessage || "", ms: r.ms, size: r.buf.length,
       type, body, sent: p.sent(r.headers), env: p.env.name, token: this.tokenInfo(p.env.name), ...(jwt ? { jwt } : {}),
     };
+  }
+
+  // Executa um slide inteiro, do jeito que a apresentação faria, e devolve:
+  //   report: o que a IA precisa para corrigir o slide (status, erro, se os caminhos $.… existem, resposta resumida)
+  //   record: a gravação (mesmo formato da apresentação), saved: os valores de save:
+  // Usado pelo assistente de IA para testar os slides que ele criou (loop "gerar → testar → corrigir").
+  async runSlide(slide, { vars = {}, deckDir = null, maxSeconds = 60 } = {}) {
+    const a = C.normalize(slide);
+    const short = (v, n = 1500) => { const s = typeof v === "string" ? v : JSON.stringify(v); return s && s.length > n ? s.slice(0, n) + "…" : s; };
+    const report = { mode: a.similarity ? "similarity" : a.mode, env: this.currentName() };
+    if (a.mic && !a.file) return { report: { ...report, skipped: "este slide grava do microfone: só dá para testar na apresentação" } };
+    if (a.realtime) return { report: { ...report, skipped: "conversa em tempo real (WebSocket): teste na apresentação, clicando em Conectar" } };
+    let file = null;
+    if (a.file) {
+      if (!deckDir) return { report: { ...report, ok: false, erro: "salve o deck numa pasta para usar file:" } };
+      const abs = path.resolve(deckDir, a.file);
+      if (!abs.startsWith(path.resolve(deckDir) + path.sep) || !fs.existsSync(abs)) return { report: { ...report, ok: false, erro: `não achei o arquivo ${a.file} na pasta do deck` } };
+      file = { name: path.basename(abs), type: mimeOf(abs), data: fs.readFileSync(abs) };
+    }
+    let env;
+    try { env = this.env(); } catch (e) { return { report: { ...report, ok: false, erro: e.message, tipo: "ambiente" } }; }
+    let req = C.render(a.request, { ...(env.vars || {}), ...vars });
+    const miss = C.missing(req, {}).filter((m) => !/^(file|secret)\./.test(m) && !(a.similarity && m === "text"));
+    if (miss.length) return { report: { ...report, ok: false, erro: `faltam variáveis: ${miss.map((m) => `{{${m}}}`).join(", ")} (defina em vars do ambiente ou num save: de um slide anterior)` } };
+    if (a.token) req.captureToken = a.token;
+    const paths = (body) => {
+      const out = {};
+      if (a.answer) { const v = C.get(body, a.answer); out.answer = v === undefined ? `NÃO EXISTE ${a.answer}` : short(v, 300); }
+      if (a.steps) { const v = C.get(body, a.steps); out.steps = Array.isArray(v) ? `${v.length} etapas` : `NÃO EXISTE lista em ${a.steps}`; }
+      return out;
+    };
+    const saved = {};
+    const keep = (body) => { for (const [k, p] of Object.entries(a.save || {})) { const v = C.get(body, p); if (v !== undefined) saved[k] = v; else report[`save.${k}`] = `NÃO EXISTE ${p}`; } };
+    try {
+      if (a.similarity) {
+        const embed = async (t) => {
+          const r = await this.send({ ...C.render(req, { text: t }), file });
+          const v = C.get(r.body, a.similarity.vector);
+          if (!r.ok || !Array.isArray(v)) throw Object.assign(new Error(!r.ok ? `HTTP ${r.status}: ${short(r.body, 600)}` : `NÃO EXISTE vetor em ${a.similarity.vector}; resposta: ${short(r.body, 600)}`), { r });
+          return v;
+        };
+        const ref = await embed(a.similarity.reference);
+        const items = [];
+        for (const t of a.similarity.texts) items.push({ text: t, score: C.cosine(ref, await embed(t)) });
+        items.sort((x, y) => y.score - x.score);
+        const sim = { reference: a.similarity.reference, dims: ref.length, preview: ref.slice(0, 48).map((x) => +Number(x).toFixed(4)), items, done: true };
+        return { report: { ...report, ok: true, dims: ref.length, similaridades: items.map((i) => `${i.score.toFixed(2)} ${i.text}`) }, record: { mode: "similarity", env: report.env, sim }, saved };
+      }
+      if (a.mode === "stream") {
+        const up = await this.open({ ...req, file });
+        let raw = "";
+        for await (const c of up.res) raw += c;
+        raw = up.mask(raw);
+        let text = "", pieces = 0;
+        for (const line of raw.split("\n")) {
+          const d = line.trim().startsWith("data:") ? line.trim().slice(5).trim() : null;
+          if (!d || d === "[DONE]") continue;
+          try { const p = C.get(JSON.parse(d), a.stream.text); if (p != null) { text += p; pieces++; } } catch {}
+        }
+        const ok = up.res.statusCode < 400 && pieces > 0;
+        return { report: { ...report, ok, status: up.res.statusCode, pedacos: pieces, texto: short(text, 400), ...(pieces ? {} : { erro: `nenhum pedaço com texto em ${a.stream.text}; começo da resposta: ${short(raw, 600)}` }) },
+          record: ok ? { mode: "stream", env: report.env, stream: { status: up.res.statusCode, text, ms: 0, pieces } } : null, saved };
+      }
+      const t0 = Date.now();
+      const start = await this.send({ ...req, file });
+      report.status = start.status;
+      if (!start.ok) return { report: { ...report, ok: false, resposta: short(start.body) } };
+      if (a.mode !== "polling") {
+        keep(start.body);
+        return { report: { ...report, ok: true, ms: start.ms, ...paths(start.body), ...(start.jwt ? { jwt: start.jwt.payload } : {}), resposta: short(start.body) }, record: { mode: "sync", env: report.env, result: start }, saved };
+      }
+      const id = C.get(start.body, a.polling.id);
+      if (id == null) return { report: { ...report, ok: false, erro: `NÃO EXISTE ${a.polling.id} (o código da execução) na resposta do início`, resposta: short(start.body) } };
+      const check = C.render(a.polling.check, { ...(env.vars || {}), ...vars, id });
+      const polls = [];
+      for (;;) {
+        if ((Date.now() - t0) / 1000 > Math.min(a.polling.timeout, maxSeconds)) return { report: { ...report, ok: false, erro: `não terminou em ${Math.min(a.polling.timeout, maxSeconds)} s`, status: polls.map((p) => p.status) } };
+        const r = await this.send(check);
+        if (!r.ok) return { report: { ...report, ok: false, erro: `consulta respondeu HTTP ${r.status}`, resposta: short(r.body) } };
+        const st = C.get(r.body, a.polling.status);
+        polls.push({ status: String(st), t: Date.now() - t0 });
+        if (st === undefined) return { report: { ...report, ok: false, erro: `NÃO EXISTE ${a.polling.status} (o status) na consulta`, resposta: short(r.body) } };
+        if (a.polling.done.includes(String(st))) {
+          keep(r.body);
+          return { report: { ...report, ok: true, statuses: polls.map((p) => p.status), ...paths(r.body), resposta: short(r.body) }, record: { mode: "polling", env: report.env, start, polls, final: r }, saved };
+        }
+        if (a.polling.failed.includes(String(st))) return { report: { ...report, ok: false, erro: `a execução terminou com ${st}`, resposta: short(r.body) } };
+        await new Promise((res) => setTimeout(res, a.polling.interval * 1000));
+      }
+    } catch (e) {
+      return { report: { ...report, ok: false, erro: e.message, ...(e.kind ? { tipo: e.kind } : {}) } };
+    }
+  }
+
+  // Conversa em tempo real: abre o WebSocket com o serviço (token no cabeçalho ou na URL, certificado da
+  // empresa). Devolve a conexão; o Studio faz a ponte com o navegador.
+  async openRealtime(rt) {
+    const env = this.env();
+    const sv = this.secretVars(env);
+    let url = C.render(String(rt.url || ""), { ...(env.vars || {}), ...sv });
+    const t = env.token || {};
+    const headers = { ...(env.headers || {}) };
+    const auth = String(rt.auth || "header");
+    if (auth !== "none") {
+      const tok = await this.token(env);
+      if (tok && auth.startsWith("query:")) { const u = new URL(url); u.searchParams.set(auth.slice(6), tok); url = u.toString(); }
+      else if (tok) headers[t.header || "Authorization"] = (t.prefix ?? "Bearer ") + tok;
+    }
+    let conn;
+    try {
+      conn = await connectWs(url, { headers, ca: this.ca(env), insecure: !!env.insecure, timeout: (Number(env.timeout) || 60) * 1000 });
+    } catch (e) {
+      if (e.status) throw new ApiError(this.maskText(env, e.message), "http", { status: e.status });
+      throw e.kind ? e : explain(e, url.replace(/^ws/, "http"));
+    }
+    return { conn, env: env.name, url: this.maskText(env, url), mask: (s) => this.maskText(env, s) };
   }
 
   // Streaming: devolve a resposta do serviço aberta, para o Studio repassar pedaço a pedaço.

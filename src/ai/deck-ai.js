@@ -331,7 +331,16 @@ insert:            # slides novos; after = número do slide depois do qual entra
   - after: 3
     slide: { layout: statement, text: … }
 delete: [7]        # números (atuais) dos slides a remover
+test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
 \`\`\``;
+
+// Slides "api": montar a partir da documentação colada e testar de verdade (loop gerar → testar → corrigir).
+const API_RULES = `Slides "api" (requisições ao vivo; ver a seção do slide api na referência):
+- Monte a partir da documentação que a pessoa colar: método, URL (com {{base}} e as variáveis do ambiente), corpo, e os caminhos $.… da resposta (answer, save, polling.id, polling.status, steps, similarity.vector). Não invente campos que a documentação não mostra; quando não tiver certeza de um caminho, use o mais provável e TESTE.
+- Segredos (client_secret, chaves) NUNCA no slide nem em vars: use {{secret.nome}} com o nome listado no ambiente. Se faltar, peça para a pessoa criar em secrets: no ambiente.
+- Para testar de verdade, inclua \`test: [números]\` no bloco yaml (pode ser um yaml só com test, sem mudanças). O Studio executa no ambiente atual e te devolve, por slide: ok, status, erro, a resposta real (resumida) e "NÃO EXISTE $.x" para caminho que não existe na resposta.
+- Com o resultado do teste: se falhou ou algum caminho NÃO EXISTE, corrija os slides com base na resposta REAL e peça test de novo. Se funcionou, confirme em uma frase, sem yaml. Se o erro for do ambiente (sem VPN, credencial, segredo faltando), não mexa no slide: explique o que a pessoa precisa fazer.
+- Teste quando criar ou corrigir slides api e a pessoa quiser que funcionem (ex.: "gera e testa", "o slide 5 está dando erro"). Teste em ordem: quem gera valores com save: (ex.: upload → path_id) vem antes de quem usa.`;
 
 // Aplica um patch {deck, slides, insert, delete} ao deck; devolve { spec, changed: [índices no deck novo] }.
 export function applyPatch(base, patch) {
@@ -435,7 +444,7 @@ function parseEditText(text, base) {
   const { text: body, options } = parseOptions(text);
   text = body;
   // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete"/"variants:", é YAML.
-  const bare = /^(slides|deck|insert|delete|variants)\s*:/m.exec(text);
+  const bare = /^(slides|deck|insert|delete|variants|test)\s*:/m.exec(text);
   if (!/```/.test(text) && bare) text = `${text.slice(0, bare.index)}\n\`\`\`yaml\n${text.slice(bare.index)}\n\`\`\``;
   const hasYaml = /```/.test(text);
   if (!hasYaml) {
@@ -455,12 +464,19 @@ function parseEditText(text, base) {
   const { spec, changed } = applyPatch(base, raw);
   if (spec.theme && !THEMES[spec.theme]) throw new Error(`Tema "${spec.theme}" não existe. Use um de: ${Object.keys(THEMES).join(", ")}.`);
   validateSlides({ ...spec, slides: changed.map((i) => spec.slides[i]) });
-  return { spec, prose, changed };
+  // test: [n] → slides api que o Studio vai executar (números no deck depois das mudanças)
+  const test = [].concat(raw.test || []).map(Number);
+  for (const n of test) {
+    if (!Number.isInteger(n) || n < 1 || n > spec.slides.length) throw new Error(`test: slide ${n} não existe (o deck tem ${spec.slides.length} slides).`);
+    // objeção de conteúdo (soft): refaz o pedido com o fato, e vale a explicação da resposta nova
+    if ((spec.slides[n - 1].layout || "") !== "api") throw Object.assign(new Error(`FATO DO DECK: o slide ${n} não é um slide api; só slides api podem ser testados (test:).`), { soft: true });
+  }
+  return { spec, prose, changed, test: test.map((n) => n - 1) };
 }
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [] }) {
+  visuals = [], renderNotes = [], apiContext = null }) {
   const deck = publicSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -475,11 +491,15 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
     ? `\nMudanças automáticas já registradas no slide ${targetSlide + 1} (campo \`auto\`):\n${slideAuto.map((e) => `- ${e.campo}: antes = ${JSON.stringify(e.antes)} — ${e.motivo}`).join("\n").slice(0, 3000)}`
     : "";
   const drawn = renderNotes.length ? `\nComo o slide foi desenhado agora: ${renderNotes.join("; ")}` : "";
+  // ambiente dos slides api: nomes e endereços (não são segredo); dos segredos, só os nomes
+  const apiEnvText = apiContext && apiContext.env
+    ? `\nAmbiente das requisições (slides api): ${apiContext.env}${apiContext.live ? "" : " (executar desligado aqui)"}. Variáveis: ${Object.entries(apiContext.vars || {}).map(([k, v]) => `{{${k}}} = ${v}`).join(", ") || "nenhuma"}. Segredos: ${(apiContext.secrets || []).map((k) => `{{secret.${k}}}`).join(", ") || "nenhum"}.${Object.keys(apiContext.saved || {}).length ? ` Valores guardados por testes anteriores (save:): ${Object.keys(apiContext.saved).map((k) => `{{${k}}}`).join(", ")}.` : ""}`
+    : "";
   const text = `Deck atual (${deck.slides.length} slides):
 \`\`\`yaml
 ${YAML.stringify(numbered, { indent: 2 })}slides:
 ${slidesYaml}\`\`\`
-${focus}${problems}${autoLog}${drawn}
+${focus}${problems}${autoLog}${drawn}${apiEnvText}
 
 Pedido: ${instruction}
 
@@ -493,13 +513,13 @@ Antes de responder, verifique (e siga as Regras de edição):
     ? [{ type: "text", text }, ...visuals.flatMap((v) => [{ type: "text", text: `Imagem: ${v.label}` }, { type: "image_url", image_url: { url: v.dataUrl } }])]
     : text;
   const messages = [
-    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}` },
+    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}` },
     // últimas trocas do chat, para o LLM entender respostas curtas ("sim", "pode fazer")
     ...history.slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 2000) })),
     { role: "user", content: userContent },
   ];
   let motifObjected = false;
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, test = [] } =
     await askUntilValid(messages, (t) => {
       const parsed = parseEditText(t, spec);
       if (motifObjected) return parsed; // já objetou uma vez: a 2ª resposta vale, mesmo insistindo
@@ -531,8 +551,9 @@ Antes de responder, verifique (e siga as Regras de edição):
     fix.actions.forEach((x) => actions.push(`⚙ Auto-correção (slide ${targetSlide + 1}): ${x}`));
   }
   return {
-    reply: prose || "Pronto, apliquei o pedido.",
+    reply: prose || (test.length && !changed.length ? "Vou testar." : "Pronto, apliquei o pedido."),
     spec: edited,
+    test,
     actions,
     targetSlide: changed.includes(targetSlide) ? targetSlide : (changed[0] ?? pickTarget(spec, edited, targetSlide)),
   };

@@ -73,12 +73,17 @@
     let req;
     try { req = readReq(root); } catch { req = cfg.request; }
     const a = Object.assign({}, cfg, { request: req });
+    if (cfg.similarity) {
+      const ref = $("[data-api-ref]", root), txt = $("[data-api-texts]", root);
+      a.similarity = Object.assign({}, cfg.similarity, { reference: ref ? ref.value : cfg.similarity.reference, texts: txt ? txt.value.split("\n").map((t) => t.trim()).filter(Boolean) : cfg.similarity.texts });
+    }
     $$(".api-code", root).forEach((pane) => {
       const out = C.code(a, pane.dataset.pane, Object.assign(vars(), root._file ? { "file.name": root._file.name } : {}));
       const cm = new Set(out.comments);
       pane._marks = out.marks;
       pane.innerHTML = out.code.split("\n").map((l, i) => `<div class="cl${cm.has(i + 1) ? " cm" : ""}" data-ln="${i + 1}"><span class="cn">${i + 1}</span><span class="cc">${esc(l) || " "}</span></div>`).join("");
     });
+    $$("[data-field]", root).forEach((tr) => { const v = req.body === undefined ? undefined : C.get(req.body, tr.dataset.field); const td = $(".api-fv", tr); if (td) td.textContent = v === undefined ? "—" : JSON.stringify(v); });
     // o endereço de verdade, embaixo do que tem {{variáveis}}
     const res = $("[data-api-resolved]", root);
     if (res) {
@@ -118,7 +123,7 @@
     btn.dataset.kind = kind;
     btn.title = title;
     $(".api-env-name", btn).textContent = String(name).toUpperCase();
-    label(root, !STATE.live && rec ? "Reproduzir gravação" : "Executar");
+    label(root, !STATE.live && rec ? "Reproduzir gravação" : root._cfg.realtime ? (root._rt ? "Desconectar" : "Conectar") : "Executar");
   }
 
   function label(root, t) { const sp = $("[data-api-run] span", root); if (sp) sp.textContent = t; }
@@ -163,9 +168,45 @@
     }).join('<div class="api-step-arrow" aria-hidden="true">→</div>')}</div>`;
   }
 
+  // ---------- áudio: tocar a resposta (TTS) com a onda desenhada ----------
+  function playAudio(root, box, audio) {
+    const cv = $("canvas", box), ctx = cv.getContext("2d");
+    const el = $("audio", box);
+    const draw = (data) => {
+      const w = (cv.width = cv.clientWidth * 2), h = (cv.height = cv.clientHeight * 2);
+      ctx.clearRect(0, 0, w, h);
+      const n = 64, bw = w / n;
+      for (let i = 0; i < n; i++) {
+        const v = data ? data[Math.floor((i / n) * data.length)] / 255 : 0.08;
+        const bh = Math.max(4, v * h * 0.9);
+        ctx.fillStyle = "#9fc3ff";
+        ctx.fillRect(i * bw + 2, (h - bh) / 2, bw - 4, bh);
+      }
+    };
+    draw(null);
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ac = root._ac || (root._ac = new AC());
+      const src = ac.createMediaElementSource(el), an = ac.createAnalyser();
+      an.fftSize = 256;
+      src.connect(an); an.connect(ac.destination);
+      const data = new Uint8Array(an.frequencyBinCount);
+      const tick = () => { an.getByteFrequencyData(data); draw(data); if (!el.paused) requestAnimationFrame(tick); else draw(null); };
+      el.addEventListener("play", () => { ac.resume(); requestAnimationFrame(tick); });
+    } catch {}
+    el.play().catch(() => {});
+  }
+
   function showResult(root, r, badge) {
     const cfg = root._cfg;
     status(root, statusBar(r, badge));
+    if (r.body && r.body._audio) {
+      let box = $(".api-result", root);
+      if (!box) { box = document.createElement("div"); box.className = "api-result"; out(root).appendChild(box); }
+      box.innerHTML = `<div class="api-audio"><canvas></canvas><audio controls src="data:${esc(r.body.type)};base64,${r.body.base64}"></audio></div>`;
+      playAudio(root, $(".api-audio", box));
+      return;
+    }
     const ans = cfg.answer && r.body && typeof r.body === "object" ? C.get(r.body, cfg.answer) : undefined;
     const html = (ans != null ? `<div class="api-answer"><div class="f-label">${esc(cfg.answer.replace(/^\$\.?/, ""))}</div><div class="api-answer-t">${esc(typeof ans === "string" ? ans : JSON.stringify(ans))}</div></div>` : "") +
       stepCards(cfg, r.body) +
@@ -203,6 +244,54 @@
       paintCode(root);
     };
     rd.readAsDataURL(f);
+  }
+
+  // ---------- microfone (STT): grava, mostra o nível e envia ao parar ----------
+  async function toggleMic(root) {
+    const btn = $("[data-api-mic]", root), cv = $(".api-level", root);
+    if (root._rec) { root._rec.stop(); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { clearOut(root); showError(root, "Não consegui usar o microfone: " + (e.message || e.name) + ". (Só funciona pelo Studio, em 127.0.0.1, com permissão do navegador.)"); return; }
+    const chunks = [];
+    const rec = new MediaRecorder(stream);
+    root._rec = rec;
+    btn.classList.add("rec"); $("span", btn).textContent = "Parar";
+    cv.hidden = false;
+    let raf;
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ac.createAnalyser(); an.fftSize = 256;
+      ac.createMediaStreamSource(stream).connect(an);
+      const data = new Uint8Array(an.frequencyBinCount), g = cv.getContext("2d");
+      const tick = () => {
+        an.getByteTimeDomainData(data);
+        let peak = 0; for (const v of data) peak = Math.max(peak, Math.abs(v - 128) / 128);
+        g.clearRect(0, 0, cv.width, cv.height);
+        const bars = 16;
+        for (let i = 0; i < bars; i++) { g.fillStyle = i / bars < peak * 1.6 ? "#ff9aa2" : "#2a3446"; g.fillRect(i * 10, 6, 7, 24); }
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+      rec.addEventListener("stop", () => { cancelAnimationFrame(raf); ac.close(); });
+    } catch {}
+    rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      root._rec = null;
+      btn.classList.remove("rec"); $("span", btn).textContent = "Gravar"; cv.hidden = true;
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      const rd = new FileReader();
+      rd.onload = () => {
+        const ext = /ogg/.test(blob.type) ? "ogg" : /mp4/.test(blob.type) ? "m4a" : "webm";
+        root._file = { name: "gravacao." + ext, type: blob.type.split(";")[0], base64: String(rd.result).split(",")[1] || "" };
+        const n = $(".api-file-name", root); if (n) n.textContent = root._file.name;
+        paintCode(root);
+        run(root); // parou de falar: já envia
+      };
+      rd.readAsDataURL(blob);
+    };
+    rec.start();
   }
 
   function showError(root, msg, kind) {
@@ -313,6 +402,51 @@
     return { mode: "stream", env: STATE.current, stream: { status: up, text: text || raw, ms, pieces: n } };
   }
 
+  // ---------- embeddings: vetor e similaridade por cosseno ----------
+  const pct = (x) => Math.max(0, Math.min(100, x * 100)).toFixed(1) + "%";
+  const num = (x) => x.toFixed(2).replace(".", ",");
+  function vecHTML(preview, dims) {
+    const max = Math.max(1e-9, ...preview.map((v) => Math.abs(v)));
+    return `<div class="api-vec">${preview.map((v, k) => `<i style="--k:${k};background:hsl(${v < 0 ? 212 : 24} 85% ${Math.round(92 - (Math.abs(v) / max) * 46)}%)" title="${v}"></i>`).join("")}</div><div class="api-sim-l">vetor com ${Number(dims).toLocaleString("pt-BR")} números · os ${preview.length} primeiros (azul negativo, laranja positivo)</div>`;
+  }
+  function simBox(root, sim) {
+    let box = $(".api-sim", root);
+    if (!box) { box = document.createElement("div"); box.className = "api-sim"; out(root).appendChild(box); }
+    box.innerHTML = `<div class="api-sim-ref"><div class="f-label">referência</div><div class="api-sim-t">${esc(sim.reference)}</div>${sim.preview ? vecHTML(sim.preview, sim.dims) : ""}</div>` +
+      sim.items.map((it) => `<div class="api-sim-row" data-score="${it.score}"><div class="api-sim-t">${esc(it.text)}</div><div class="api-sim-bar"><i style="--w:0%"></i></div><b>${it.score == null ? "…" : num(it.score)}</b></div>`).join("");
+    const best = Math.max(...sim.items.map((it) => (it.score == null ? -Infinity : it.score)));
+    requestAnimationFrame(() => $$(".api-sim-row", box).forEach((row, i) => {
+      const sc = sim.items[i].score;
+      if (sc != null) { $("i", row).style.setProperty("--w", pct(sc)); row.classList.toggle("win", sim.items.length > 1 && sc === best && sim.done); }
+    }));
+  }
+  async function runSimilarity(root, req) {
+    const cfg = root._cfg;
+    const ref = ($("[data-api-ref]", root) || {}).value || cfg.similarity.reference;
+    const texts = (($("[data-api-texts]", root) || {}).value || cfg.similarity.texts.join("\n")).split("\n").map((t) => t.trim()).filter(Boolean);
+    if (!ref.trim() || !texts.length) throw new Error("Escreva a frase de referência e pelo menos uma para comparar (aba Frases).");
+    const embed = async (t) => {
+      const r = await call("api/http/send", payload(root, C.render(req, { text: t })));
+      if (!r.ok) { showResult(root, r); throw new Error(`O serviço respondeu ${r.status}.`); }
+      const v = C.get(r.body, cfg.similarity.vector);
+      if (!Array.isArray(v) || !v.length) throw new Error(`A resposta não tem o vetor em ${cfg.similarity.vector}.`);
+      return { v, r };
+    };
+    const t0 = performance.now();
+    light(root, "start");
+    const first = await embed(ref);
+    const sim = { reference: ref, dims: first.v.length, preview: first.v.slice(0, 48).map((x) => +Number(x).toFixed(4)), items: texts.map((t) => ({ text: t, score: null })) };
+    simBox(root, sim);
+    light(root, "poll");
+    for (const it of sim.items) { pulse(root); it.score = C.cosine(first.v, (await embed(it.text)).v); simBox(root, sim); }
+    sim.done = true;
+    sim.items.sort((a, b) => b.score - a.score);
+    simBox(root, sim);
+    light(root, "done");
+    status(root, statusBar(first.r, `<span class="api-meta">${texts.length + 1} embeddings · ${fmtMs(performance.now() - t0)}</span>`));
+    return { mode: "similarity", env: STATE.current, sim };
+  }
+
   function keep(root, rec) {
     const cfg = root._cfg;
     const body = rec.final ? rec.final.body : rec.result ? rec.result.body : null;
@@ -328,9 +462,200 @@
     }
   }
 
+  // ---------- conversa em tempo real (WebSocket, pela ponte do Studio) ----------
+  const b64ToBytes = (b64) => { const s = atob(b64 || ""); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+  const bytesToB64 = (u) => { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+  // no registro, o áudio vira "(N KB de áudio)" — o que importa é ver o tipo e a estrutura
+  const shortAudio = (o) => JSON.stringify(o, (k, v) => (typeof v === "string" && v.length > 200 && /^[A-Za-z0-9+/=]+$/.test(v) ? `…(${(v.length * 0.75 / 1024).toFixed(1).replace(".", ",")} KB de áudio)` : v));
+  function logRt(root, dir, msg) {
+    const box = $(".api-log", root);
+    if (!box) return;
+    const obj = typeof msg === "string" ? (() => { try { return JSON.parse(msg); } catch { return msg; } })() : msg;
+    const type = obj && typeof obj === "object" ? C.get(obj, root._cfg.realtime.receive.type) : null;
+    const row = document.createElement("div");
+    row.className = dir === "↑" ? "up" : "dn";
+    row.innerHTML = `<b>${dir}</b><em>${esc(type || "")}</em><span>${esc(typeof obj === "string" ? obj : shortAudio(obj))}</span>`;
+    // pedaços de áudio seguidos viram uma linha só, com contador
+    const last = box.lastElementChild;
+    if (last && last.dataset.type === String(type) && /audio/.test(String(type)) && last.className === row.className) { last.dataset.n = +(last.dataset.n || 1) + 1; last.querySelector("em").textContent = `${type} ×${last.dataset.n}`; return; }
+    row.dataset.type = String(type);
+    box.appendChild(row);
+    while (box.children.length > 300) box.firstChild.remove();
+    box.scrollTop = box.scrollHeight;
+  }
+  function bubble(root, who, text) {
+    let box = $(".api-rt", root);
+    if (!box) { box = document.createElement("div"); box.className = "api-rt"; out(root).appendChild(box); }
+    const b = document.createElement("div");
+    b.className = "api-bub " + who;
+    b.textContent = text || "";
+    box.appendChild(b);
+    out(root).scrollTop = out(root).scrollHeight;
+    (root._rt ? root._rt.log : []).push({ who, text: text || "" });
+    return b;
+  }
+  function playPcm(root, b64) {
+    const st = root._rt, rate = root._cfg.realtime.audio.rate;
+    const bytes = b64ToBytes(b64);
+    const n = bytes.length >> 1;
+    if (!n) return;
+    const view = new DataView(bytes.buffer), f = new Float32Array(n);
+    for (let i = 0; i < n; i++) f[i] = view.getInt16(i * 2, true) / 32768;
+    st.ac = st.ac || new (window.AudioContext || window.webkitAudioContext)();
+    const buf = st.ac.createBuffer(1, n, rate);
+    buf.copyToChannel(f, 0);
+    const src = st.ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(st.ac.destination);
+    const at = Math.max(st.ac.currentTime + 0.05, st.next || 0);
+    src.start(at);
+    st.next = at + buf.duration;
+    st.played = (st.played || 0) + 1;
+  }
+  function onRt(root, ev) {
+    const st = root._rt;
+    if (!st) return;
+    if (ev.type === "close") { logRt(root, "↓", `(conexão fechada: ${ev.code}${ev.why ? " " + ev.why : ""})`); rtClosed(root); return; }
+    if (ev.bin) { logRt(root, "↓", `(binário, ${Math.round(ev.bin.length * 0.75)} bytes)`); return; }
+    logRt(root, "↓", ev.text);
+    let m;
+    try { m = JSON.parse(ev.text); } catch { return; }
+    const R = root._cfg.realtime, T = R.receive.type;
+    if (C.isType(m, R.receive.audio, T)) playPcm(root, C.get(m, R.receive.audio.data));
+    else if (C.isType(m, R.receive.text, T)) {
+      if (!st.bot) { st.bot = bubble(root, "bot", ""); st.bot.classList.add("live"); st.botText = ""; st.botEntry = st.log[st.log.length - 1]; }
+      st.botText += String(C.get(m, R.receive.text.data) ?? "");
+      st.bot.textContent = st.botText;
+      st.botEntry.text = st.botText;
+      out(root).scrollTop = out(root).scrollHeight;
+    } else if (C.isType(m, R.receive.user, T)) bubble(root, "user", String(C.get(m, R.receive.user.data) ?? ""));
+    else if (R.receive.done.includes(String(C.get(m, T)))) { if (st.bot) st.bot.classList.remove("live"); st.bot = null; }
+    else if (C.isType(m, R.receive.error, T)) showError(root, String(C.get(m, R.receive.error.data) || "erro do serviço"));
+  }
+  async function rtSend(root, msgs) {
+    const st = root._rt;
+    if (!st) return;
+    [].concat(msgs).forEach((m) => { if (!/input_audio_buffer\.append/.test(JSON.stringify(m).slice(0, 80))) logRt(root, "↑", m); else logRt(root, "↑", { type: C.get(m, root._cfg.realtime.receive.type) || "áudio" }); });
+    await call("api/http/rt/send", { sid: st.sid, messages: [].concat(msgs) });
+  }
+  function rtControls(root, on) {
+    $$("[data-rt-mic],[data-rt-text],[data-rt-send]", root).forEach((e) => { e.disabled = !on; });
+  }
+  async function rtOpen(root) {
+    const cfg = root._cfg, R = cfg.realtime;
+    let open;
+    try { open = JSON.parse(($("[data-api-body]", root) || {}).value || "[]"); } catch (e) { return showError(root, "As mensagens de 'Ao conectar' não são um JSON válido: " + e.message); }
+    const url = C.render($("[data-api-url]", root).value.trim(), vars());
+    const miss = C.missing(url, {}).filter((m) => !/^secret\./.test(m));
+    if (miss.length) return showError(root, `Falta ${miss.map((m) => "{{" + m + "}}").join(", ")} (vars do ambiente).`);
+    clearOut(root);
+    label(root, "Conectando…");
+    const r = await call("api/http/rt/open", { realtime: { url, auth: R.auth }, open: C.render([].concat(open), vars()) });
+    root._rt = { sid: r.sid, log: [], t0: Date.now() };
+    [].concat(open).forEach((m) => logRt(root, "↑", m));
+    const es = new EventSource("api/http/rt/events?sid=" + encodeURIComponent(r.sid));
+    root._rt.es = es;
+    es.onmessage = (e) => { try { onRt(root, JSON.parse(e.data)); } catch {} };
+    es.onerror = () => { if (root._rt && root._rt.es === es && es.readyState === 2) rtClosed(root); };
+    label(root, "Desconectar");
+    root.classList.add("rt-on");
+    status(root, `<span class="api-pill ok">conectado</span><span class="api-meta">${esc(String(r.env || "").toUpperCase())} · ${esc(r.url.replace(/[?].*/, ""))}</span>`);
+    rtControls(root, true);
+  }
+  function rtClosed(root) {
+    const st = root._rt;
+    if (!st) return;
+    if (st.mic) stopMic(root, false);
+    if (st.es) st.es.close();
+    root._rt = null;
+    root.classList.remove("rt-on");
+    rtControls(root, false);
+    label(root, "Conectar");
+    status(root, `<span class="api-meta">desconectado · ${fmtMs(Date.now() - st.t0)} de conversa</span>`);
+    const talk = st.log.filter((b) => b.text);
+    if (talk.length) {
+      const rec = { mode: "realtime", env: STATE.current, talk };
+      STATE.recordings[root._cfg.key] = Object.assign({ at: new Date().toISOString() }, rec);
+      call("api/http/record", { key: root._cfg.key, record: rec }).catch(() => {});
+    }
+    window.sagadeckApi.rtLast = { played: st.played || 0, talk };
+  }
+  async function rtToggle(root) {
+    if (root._rt) {
+      const st = root._rt;
+      call("api/http/rt/close", { sid: st.sid }).catch(() => {});
+      rtClosed(root);
+      return;
+    }
+    if (!STATE.live) { const rec = STATE.recordings[root._cfg.key]; if (rec) return replay(root, rec, true); return showError(root, STATE.reason || "Sem o Studio para conectar."); }
+    try { await rtOpen(root); } catch (e) { label(root, "Conectar"); showError(root, e.message, e.kind); }
+  }
+  // microfone → PCM16 mono na taxa do serviço, em pedaços de ~200 ms
+  async function startMic(root) {
+    const st = root._rt, R = root._cfg.realtime;
+    const btn = $("[data-rt-mic]", root), cv = $(".api-level", root);
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { return showError(root, "Não consegui usar o microfone: " + (e.message || e.name)); }
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ac.createMediaStreamSource(stream);
+    const proc = ac.createScriptProcessor(4096, 1, 1);
+    const ratio = ac.sampleRate / R.audio.rate;
+    let pend = [], pendN = 0;
+    const g = cv.getContext("2d");
+    proc.onaudioprocess = (e) => {
+      const x = e.inputBuffer.getChannelData(0);
+      let peak = 0;
+      const n = Math.floor(x.length / ratio), out16 = new Int16Array(n);
+      for (let i = 0; i < n; i++) {
+        let s = 0, c = 0;
+        for (let j = Math.floor(i * ratio); j < Math.floor((i + 1) * ratio) && j < x.length; j++) { s += x[j]; c++; }
+        const v = Math.max(-1, Math.min(1, c ? s / c : 0));
+        peak = Math.max(peak, Math.abs(v));
+        out16[i] = v < 0 ? v * 32768 : v * 32767;
+      }
+      g.clearRect(0, 0, cv.width, cv.height);
+      for (let i = 0; i < 16; i++) { g.fillStyle = i / 16 < peak * 1.6 ? "#ff9aa2" : "#2a3446"; g.fillRect(i * 10, 6, 7, 24); }
+      pend.push(out16); pendN += n;
+      if (pendN >= R.audio.rate * 0.2) {
+        const all = new Int16Array(pendN); let o = 0;
+        for (const p of pend) { all.set(p, o); o += p.length; }
+        pend = []; pendN = 0;
+        st.sentAudio = (st.sentAudio || 0) + all.length;
+        rtSend(root, [C.render(R.audio.send, Object.assign(vars(), { audio: bytesToB64(new Uint8Array(all.buffer)) }))]).catch(() => {});
+      }
+    };
+    src.connect(proc); proc.connect(ac.destination);
+    st.mic = { stream, ac, proc, flush: () => { if (pendN) { const all = new Int16Array(pendN); let o = 0; for (const p of pend) { all.set(p, o); o += p.length; } pend = []; pendN = 0; return all; } return null; } };
+    btn.classList.add("rec"); $("span", btn).textContent = "Parar"; cv.hidden = false;
+  }
+  function stopMic(root, commit = true) {
+    const st = root._rt, R = root._cfg.realtime;
+    if (!st || !st.mic) return;
+    const { stream, ac, proc, flush } = st.mic;
+    st.mic = null;
+    const rest = flush();
+    proc.disconnect(); stream.getTracks().forEach((t) => t.stop()); ac.close();
+    const btn = $("[data-rt-mic]", root); btn.classList.remove("rec"); $("span", btn).textContent = "Falar"; $(".api-level", root).hidden = true;
+    if (!commit) return;
+    const msgs = [];
+    if (rest && rest.length) msgs.push(C.render(R.audio.send, Object.assign(vars(), { audio: bytesToB64(new Uint8Array(rest.buffer)) })));
+    msgs.push(...C.render(R.audio.commit, vars()));
+    rtSend(root, msgs).catch((e) => showError(root, e.message));
+  }
+  function sendText(root) {
+    const inp = $("[data-rt-text]", root);
+    const text = inp.value.trim();
+    if (!text || !root._rt) return;
+    inp.value = "";
+    bubble(root, "user", text);
+    rtSend(root, C.render(root._cfg.realtime.text, Object.assign(vars(), { text }))).catch((e) => showError(root, e.message));
+  }
+
   async function run(root) {
     const btn = $("[data-api-run]", root);
     btn.blur();
+    if (root._cfg.realtime) return rtToggle(root);
     if (root._running) return;
     const cfg = root._cfg;
     const menu = $(".api-menu", root); if (menu) menu.remove();
@@ -342,18 +667,20 @@
     }
     let req;
     try { req = C.render(readReq(root), vars()); } catch (e) { clearOut(root); return showError(root, e.message); }
-    const miss = C.missing(req, {}).filter((m) => !/^(file|secret)\./.test(m));
+    const miss = C.missing(req, {}).filter((m) => !/^(file|secret)\./.test(m) && !(cfg.similarity && m === "text"));
     if (miss.length) { clearOut(root); return showError(root, `Falta ${miss.map((m) => "{{" + m + "}}").join(", ")}: defina em vars do ambiente, ou execute antes o slide que guarda esse valor (save:).`); }
     root._running = true;
     btn.disabled = true; label(root, "Executando…");
     root.classList.add("running");
     clearOut(root);
     try {
-      const rec = cfg.mode === "polling" ? await runPolling(root, req) : cfg.mode === "stream" ? await runStream(root, req) : await runSync(root, req);
+      const rec = cfg.similarity ? await runSimilarity(root, req) : cfg.mode === "polling" ? await runPolling(root, req) : cfg.mode === "stream" ? await runStream(root, req) : await runSync(root, req);
       if (rec) {
         keep(root, rec);
-        STATE.recordings[cfg.key] = Object.assign({ at: new Date().toISOString() }, rec);
-        call("api/http/record", { key: cfg.key, record: rec }).catch(() => {});
+        const big = rec.result && rec.result.body && rec.result.body._audio && rec.result.body.base64.length > 1500000;
+        const saved = big ? Object.assign({}, rec, { result: Object.assign({}, rec.result, { body: { nota: "áudio grande demais para gravar" } }) }) : rec;
+        STATE.recordings[cfg.key] = Object.assign({ at: new Date().toISOString() }, saved);
+        call("api/http/record", { key: cfg.key, record: saved }).catch(() => {});
       }
     } catch (e) {
       showError(root, e.message, e.kind);
@@ -370,6 +697,18 @@
     const badge = `<span class="api-rec">gravado ${esc(when(rec.at))}${rec.env ? " · " + esc(String(rec.env).toUpperCase()) : ""}</span>`;
     clearOut(root);
     const wait = (ms) => (animate ? sleep(Math.min(ms, 900)) : Promise.resolve());
+    if (rec.mode === "realtime" && rec.talk) {
+      clearOut(root);
+      for (const b of rec.talk) { if (animate) await sleep(350); const el = document.createElement("div"); el.className = "api-bub " + b.who; el.textContent = b.text; let box = $(".api-rt", root); if (!box) { box = document.createElement("div"); box.className = "api-rt"; out(root).appendChild(box); } box.appendChild(el); }
+      status(root, `<span class="api-meta">conversa gravada</span>${badge}`);
+      return;
+    }
+    if (rec.mode === "similarity" && rec.sim) {
+      light(root, "done");
+      simBox(root, Object.assign({}, rec.sim, { done: true }));
+      status(root, `<span class="api-meta">${rec.sim.items.length + 1} embeddings</span>${badge}`);
+      return;
+    }
     if (rec.mode === "polling" && rec.final) {
       light(root, "start");
       row(root, "início", `${rec.start ? rec.start.status : ""} · execução ${C.get(rec.start && rec.start.body, root._cfg.polling.id) ?? ""}`, "start");
@@ -396,17 +735,92 @@
     }
   }
 
+  // ---------- controle flutuante (Document Picture-in-Picture) ----------
+  // Uma janelinha sempre por cima (o portal pode ficar em tela cheia): ambiente, Executar, status e o
+  // resumo da resposta do slide atual, espelhados daqui; ← → passam os slides.
+  const PIP_CSS = `body{margin:0;background:#0d1320;color:#e8edf5;font:15px system-ui,sans-serif}
+    .pip{display:flex;flex-direction:column;height:100vh;box-sizing:border-box;padding:12px;gap:10px}
+    .pip-top{display:flex;align-items:center;gap:8px;min-height:28px}
+    .pip-top b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+    .pip-env{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:12px;border:1px solid #ffffff2a;font:700 12px system-ui;letter-spacing:.08em}
+    .pip-env i{width:9px;height:9px;border-radius:50%;background:#8a8f98}
+    .pip-env[data-kind=dev] i{background:#2fb96b}.pip-env[data-kind=hom] i{background:#f0a020}.pip-env[data-kind=prod] i{background:#e5484d}
+    .pip-run{height:44px;border:0;border-radius:10px;background:#ffd21f;color:#1a1a1a;font:800 17px system-ui;cursor:pointer}
+    .pip-run:disabled{opacity:.6}
+    .pip-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:22px;font-size:13px}
+    .pip-status .api-pill{font-size:13px;padding:3px 9px}.pip-status .api-meta{color:#8d9ab1}.pip-status .api-rec{margin-left:0;font-size:11px}
+    .pip-body{flex:1;min-height:0;overflow:auto;border-radius:10px;background:#101725}
+    .pip-out{zoom:.5;padding:16px}
+    .pip-nav{display:flex;align-items:center;gap:8px}
+    .pip-nav button{width:40px;height:32px;border:1px solid #ffffff2a;border-radius:8px;background:none;color:#e8edf5;font:700 16px system-ui;cursor:pointer}
+    .pip-nav span{flex:1;text-align:center;color:#8d9ab1;font-size:13px}
+    .pip-empty{padding:16px;color:#8d9ab1}`;
+  let pipWin = null;
+  const currentRoot = () => { const i = window.sagadeck ? window.sagadeck.cur : 0; const sl = document.querySelectorAll(".slide")[i]; return sl ? $(".L-api[data-api]", sl) : null; };
+  function renderPip() {
+    if (!pipWin || pipWin.closed) return;
+    const d = pipWin.document, root = currentRoot();
+    const i = window.sagadeck ? window.sagadeck.cur : 0, n = window.sagadeck ? window.sagadeck.n : 1;
+    const env = root ? $("[data-api-env]", root) : null;
+    const html = root
+      ? `<div class="pip-top"><span class="pip-env" data-kind="${esc(env.dataset.kind || "")}"><i></i>${esc($(".api-env-name", env).textContent)}</span><b>${esc(root._cfg.title || "Requisição")}</b></div>
+        <button class="pip-run" ${root._running ? "disabled" : ""}>${root._running ? "Executando…" : esc($("[data-api-run] span", root).textContent)}</button>
+        <div class="pip-status">${$(".api-status", root).innerHTML}</div>
+        <div class="pip-body"><div class="pip-out">${$(".api-out", root).innerHTML}</div></div>`
+      : `<div class="pip-top"><b>Slide ${i + 1}</b></div><div class="pip-body"><div class="pip-empty">Este slide não tem requisição.</div></div>`;
+    const key = html + i;
+    if (d.body._key !== key) {
+      d.body._key = key;
+      d.body.innerHTML = `<div class="pip">${html}<div class="pip-nav"><button data-go="-1" title="Slide anterior">←</button><span>${i + 1} / ${n}</span><button data-go="1" title="Próximo slide">→</button></div></div>`;
+    }
+  }
+  async function openPip(root) {
+    if (!("documentPictureInPicture" in window)) { clearOut(root); showError(root, "Este navegador não tem o controle flutuante (use o Chrome ou o Edge atualizados)."); return; }
+    if (window.top !== window) { // dentro do Studio (quadro): o Chrome só abre a janelinha em janela própria
+      window.open(location.href.split("#")[0] + "#" + ((window.sagadeck ? window.sagadeck.cur : 0) + 1), "_blank");
+      return;
+    }
+    if (pipWin && !pipWin.closed) { pipWin.focus(); return; }
+    pipWin = await window.documentPictureInPicture.requestWindow({ width: 420, height: 560 });
+    const css = pipWin.document.createElement("style");
+    css.textContent = Array.from(document.querySelectorAll("style")).map((s) => s.textContent).join("\n") + PIP_CSS;
+    pipWin.document.head.appendChild(css);
+    pipWin.document.title = "Controle · " + (document.title || "SagaDeck");
+    pipWin.document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-go]");
+      if (b && window.sagadeck) window.sagadeck.goto(Math.max(0, Math.min(window.sagadeck.n - 1, window.sagadeck.cur + Number(b.dataset.go))), 0);
+      if (e.target.closest(".pip-run")) { const r = currentRoot(); if (r) run(r); }
+    });
+    pipWin.document.addEventListener("keydown", (e) => {
+      if (!window.sagadeck) return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") window.sagadeck.goto(Math.min(window.sagadeck.n - 1, window.sagadeck.cur + 1), 0);
+      if (e.key === "ArrowLeft" || e.key === "PageUp") window.sagadeck.goto(Math.max(0, window.sagadeck.cur - 1), 0);
+    });
+    const iv = setInterval(() => { if (!pipWin || pipWin.closed) { clearInterval(iv); pipWin = null; return; } renderPip(); }, 300);
+    renderPip();
+    window.sagadeckApi.pip = pipWin;
+  }
+
   function mount(root) {
     try { root._cfg = JSON.parse(root.dataset.api); } catch { return; }
     $$("[data-tab]", root).forEach((b) => { b.onclick = () => showTab(root, b.dataset.tab); });
     $("[data-api-run]", root).onclick = () => run(root);
     $("[data-api-env]", root).onclick = (e) => envMenu(root, e.currentTarget);
-    ["[data-api-url]", "[data-api-body]", "[data-api-headers]"].forEach((sel) => { const el = $(sel, root); if (el) el.addEventListener("input", () => paintCode(root)); });
+    if (root._cfg.realtime) {
+      $("[data-rt-mic]", root).onclick = () => (root._rt && root._rt.mic ? stopMic(root) : startMic(root));
+      $("[data-rt-send]", root).onclick = () => sendText(root);
+      $("[data-rt-text]", root).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendText(root); } });
+    }
+    const pipBtn = $("[data-api-pip]", root);
+    if (pipBtn) pipBtn.onclick = () => openPip(root).catch((e) => { clearOut(root); showError(root, "Não abriu o controle flutuante: " + e.message); });
+    ["[data-api-url]", "[data-api-body]", "[data-api-headers]", "[data-api-ref]", "[data-api-texts]"].forEach((sel) => { const el = $(sel, root); if (el) el.addEventListener("input", () => paintCode(root)); });
     // Enter/espaço num botão do slide não avançam a apresentação
     const zone = $("[data-api-file]", root);
     if (zone) {
       const inp = $("[data-api-input]", zone);
       $("[data-api-pick]", zone).onclick = () => inp.click();
+      const mic = $("[data-api-mic]", zone);
+      if (mic) mic.onclick = () => toggleMic(root);
       inp.onchange = () => pickFile(root, inp.files[0]);
       const req = $(".api-req", root);
       req.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("drag"); });

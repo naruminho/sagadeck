@@ -147,3 +147,25 @@ test("{{secret.x}}: o valor nunca aparece no código — $X no curl (fora das as
   const py = C.code(s, "python", { base: "https://x" }).code;
   assert.match(py, /"client_secret": os\.environ\["CLIENT_SECRET"\],/);
 });
+
+test("tempo real: padrões no formato mais comum, trocáveis no slide; código Python (websockets) e wscat", () => {
+  const s = { mode: "realtime", realtime: { url: "{{ws}}/rt", open: [{ type: "session.update", session: { voice: "alloy" } }] } };
+  const a = C.normalize(s);
+  assert.equal(a.realtime.audio.rate, 24000);
+  assert.deepEqual(a.realtime.audio.send, { type: "input_audio_buffer.append", audio: "{{audio}}" });
+  assert.ok(C.isType({ type: "response.audio.delta" }, a.realtime.receive.audio, "$.type"));
+  assert.ok(!C.isType({ type: "outro" }, a.realtime.receive.audio, "$.type"));
+  const custom = C.normalize({ mode: "realtime", realtime: { url: "u", auth: "query:token", receive: { type: "$.event", text: { type: "texto", data: "$.valor" } } } });
+  assert.ok(C.isType({ event: "texto" }, custom.realtime.receive.text, "$.event"));
+  const py = C.code(s, "python", { ws: "wss://x" }).code;
+  assert.match(py, /import websockets/);
+  assert.match(py, /HEADERS = \{"Authorization": f"Bearer \{os\.environ\['API_TOKEN'\]\}"\}/, "aspas simples dentro do f-string (Python < 3.12)");
+  assert.match(py, /async with websockets\.connect\(URL, additional_headers=HEADERS\) as ws:/);
+  assert.match(py, /"voice": "alloy"/);
+  assert.match(py, /asyncio\.run\(main\(\)\)/);
+  assert.match(C.code(custom, "python", {}).code, /URL = f"u\?token=\{os\.environ\['API_TOKEN'\]\}"/);
+  const w = C.code(s, "curl", { ws: "wss://x" }).code;
+  assert.match(w, /^# curl não fala WebSocket/);
+  assert.match(w, /wscat -c "wss:\/\/x\/rt" \\\n {2}-H "Authorization: Bearer \$API_TOKEN"/);
+  assert.match(w, /\{"type":"session\.update"/);
+});

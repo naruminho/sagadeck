@@ -1,0 +1,131 @@
+# Ensaio de aula de APIs de IA: roda contra a API de mentira (`sagadeck ensaio-api`).
+# Serve de modelo: troque as URLs e os caminhos $.… pelos do seu serviço e ponha os ambientes em
+# ~/.sagadeck/ambientes.yaml. Veja a seção "Slide api" em docs/REFERENCIA.md.
+title: "Ensaio: APIs de IA ao vivo"
+theme: sinal
+author: Seu nome
+duration: 30
+slides:
+  - layout: cover
+    kicker: Ensaio
+    title: APIs de IA, ==ao vivo==
+    subtitle: Do token à resposta, executando na frente de todo mundo
+    notes: Este deck roda contra uma API de mentira. Tudo o que você vê aqui funciona igual com o serviço de verdade, trocando as URLs.
+
+  - layout: api
+    id: identity
+    kicker: Passo 1 · Identity
+    title: Primeiro, o ==token==
+    text: Toda chamada leva um JWT que vale 30 minutos
+    request:
+      method: POST
+      url: "{{identity}}"
+      auth: false
+      body: { client_id: "{{client_id}}", client_secret: "{{secret.client_secret}}" }
+    token: "$.data.token"
+    notes: |
+      Mostre o corpo: o client_secret aparece como {{secret.client_secret}} — o valor fica no ambiente, nunca no slide.
+      Execute: o JWT aparece decodificado, com a contagem regressiva. Daqui para frente, todo slide usa este token (olhe o final ••••).
+
+  - layout: api
+    id: llm
+    kicker: Passo 2 · LLM
+    title: A pergunta mais ==simples==
+    request:
+      method: POST
+      url: "{{base}}/sync"
+      body: { messages: [ { role: user, content: "O que é RAG, em uma frase?" } ] }
+    answer: "$.choices[0].message.content"
+    notes: Edite a pergunta na hora (aba Corpo) e execute de novo. Mostre as abas curl e Python.
+
+  - layout: api
+    id: workflow
+    kicker: Passo 3 · Workflow
+    title: Inicia e ==acompanha== até terminar
+    text: O início devolve só o código da execução; a consulta repete até FINISHED
+    mode: polling
+    tab: python-comentado
+    request: { url: "{{base}}/start", body: { workflow: "{{wf}}", input: { path_id: "store/contrato.txt" } } }
+    polling: { id: "$.executionId", check: { url: "{{base}}/status/{{id}}" }, status: "$.status", done: [FINISHED], failed: [ERROR], interval: 0.8 }
+    steps: "$.responses"
+    stepText: "$.output"
+    notes: Deixe na aba Python comentado e execute — o laço while acende a cada consulta, enquanto a linha do tempo cresce.
+
+  - layout: api
+    id: stream
+    kicker: Passo 4 · Streaming
+    title: A resposta chega ==aos poucos==
+    mode: stream
+    request: { method: POST, url: "{{base}}/stream", body: { stream: true } }
+    notes: "Compare com o síncrono: aqui o texto aparece enquanto é gerado."
+
+  - layout: api
+    id: upload
+    kicker: Passo 5 · FileManager
+    title: Sobe o arquivo, volta o ==path_id==
+    file: contrato.txt
+    request: { url: "{{base}}/upload", form: { file: "@file", pasta: workshop } }
+    save: { path_id: "$.path_id" }
+    notes: Arraste outro arquivo no slide se quiser. O path_id fica guardado para os próximos slides.
+
+  - layout: api
+    id: ocr
+    kicker: Passo 6 · OCR
+    title: Lendo pelo ==path_id==
+    request: { url: "{{base}}/ocr", body: { path_id: "{{path_id}}" } }
+    answer: "$.text"
+    notes: "Mostre que {{path_id}} veio do slide anterior (aba curl: já com o valor)."
+
+  - layout: api
+    id: indexador
+    kicker: Passo 7 · Indexador
+    title: Planilha ==linha a linha==
+    tab: fields
+    request: { url: "{{base}}/index", body: { path_id: "{{path_id}}", mode: rows, sheet: { header_row: 1 }, chunk_size: 0 } }
+    fields:
+      "$.mode": "rows: cada linha vira um documento; pdf: o arquivo inteiro, em pedaços"
+      "$.sheet.header_row": "linha do cabeçalho (começa em 1): as colunas viram metadados"
+      "$.chunk_size": "com rows, tem que ser 0 — qualquer outro valor faz a indexação falhar"
+      "$.path_id": "o que o FileManager devolveu"
+    answer: "$.documents"
+    notes: "Mude chunk_size para 800 na aba Corpo e execute: a indexação falha. É a combinação que a documentação não conta."
+
+  - layout: api
+    id: embeddings
+    kicker: Passo 8 · Embeddings
+    title: Qual frase fica ==mais perto==?
+    request: { url: "{{base}}/embeddings", body: { model: emb, input: "{{text}}" } }
+    similarity:
+      reference: Quero abrir uma conta no banco
+      texts: [ "Vai chover amanhã em São Paulo?", "Como faço para abrir uma conta?", "Abrir conta no banco hoje" ]
+    notes: "Peça frases para a plateia e escreva na aba Frases."
+
+  - layout: api
+    id: tts
+    kicker: Passo 9 · Voz
+    title: Texto que ==fala==
+    audio: fala.wav
+    request: { url: "{{base}}/tts", body: { text: "Bom dia, pessoal" } }
+
+  - layout: api
+    id: stt
+    kicker: Passo 10 · Escuta
+    title: Fala que vira ==texto==
+    mic: true
+    request: { url: "{{base}}/stt", form: { audio: "@file", idioma: pt-BR } }
+    answer: "$.text"
+    notes: "Clique em Gravar, fale, clique em Parar: ele envia sozinho."
+
+  - layout: api
+    id: tempo-real
+    kicker: Passo 11 · Tempo real
+    title: Conversa por ==voz==, ao vivo
+    mode: realtime
+    realtime:
+      url: "{{ws}}/realtime"
+      open: [ { type: session.update, session: { voice: alloy, instructions: "Responda em português, curto." } } ]
+    notes: "Conecte, clique em Falar, fale e clique em Parar. Mostre a aba Mensagens: cada evento do WebSocket, nos dois sentidos."
+
+  - layout: end
+    title: Obrigado.
+    subtitle: Perguntas?
