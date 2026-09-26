@@ -2737,6 +2737,104 @@
     showToast("Cabeçalho e rodapé aplicados em todos os slides", 2200);
   }
 
+  // ---------------------------------------------------------------- slides de API
+  // Inserir → Slide de API: exemplos prontos (os slides do deck de ensaio), que rodam no ambiente embutido ENSAIO
+  let apiExamples = null;
+  async function loadApiExamples() {
+    const list = document.getElementById("api-examples-list");
+    if (!apiExamples) {
+      try { apiExamples = (await (await fetch("api/api-examples")).json()).examples || []; } catch { apiExamples = []; }
+    }
+    list.innerHTML = "";
+    if (!apiExamples.length) { list.textContent = "Nenhum exemplo encontrado."; return; }
+    apiExamples.forEach((ex, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "api-ex-item";
+      b.dataset.example = i;
+      b.innerHTML = "<b></b><span></span>";
+      b.querySelector("b").textContent = ex.label || ex.title;
+      b.querySelector("span").textContent = ex.title;
+      b.onclick = () => { closePopovers(); insertApiExample(ex); };
+      list.append(b);
+    });
+  }
+
+  async function insertApiExample(ex) {
+    const slide = JSON.parse(JSON.stringify(ex.slide));
+    const at = state.currentSlideIndex + 1;
+    state.deck.slides.splice(at, 0, slide);
+    state.currentSlideIndex = at;
+    syncDeckToServer();
+    renderThumbnails();
+    renderCurrentSlide();
+    let extra = "";
+    if (slide.file) { // o exemplo de upload usa um arquivo ao lado do deck
+      const r = await fetch("api/api-examples/files", { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+      if (r.written?.length) extra = ` (${r.written.join(", ")} criado ao lado do deck)`;
+    }
+    showToast(`Slide de API "${ex.label || ex.title}" adicionado${extra}. Apresente e clique em Executar; para o seu serviço, troque os endereços em Ambientes.`, 5200);
+  }
+
+  // Ambientes: o ~/.sagadeck/ambientes.yaml como texto, validado pelo Studio antes de gravar
+  const apiEnvsModal = () => document.getElementById("modal-api-envs");
+  function apiEnvsStatus(text, kind = "") {
+    const el = document.getElementById("api-envs-status");
+    el.textContent = text;
+    el.className = `sf-hint api-envs-status ${kind}`;
+  }
+  function renderApiEnvChips(st) {
+    const list = document.getElementById("api-envs-list");
+    list.innerHTML = "";
+    for (const e of st.envs || []) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `env-chip${e.name === st.current ? " active" : ""}`;
+      b.dataset.env = e.name;
+      b.textContent = e.name.toUpperCase();
+      if (e.builtin) b.insertAdjacentHTML("beforeend", " <small>embutido · API de mentira</small>");
+      b.title = Object.entries(e.vars || {}).map(([k, v]) => `{{${k}}} = ${v}`).join("\n");
+      b.onclick = async () => {
+        const r = await fetch("api/http/env", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: e.name }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
+        renderApiEnvChips(j);
+        apiEnvsStatus(`Em uso: ${e.name.toUpperCase()}`, "ok");
+      };
+      list.append(b);
+    }
+    if (!list.childElementCount) list.textContent = "Nenhum ambiente ainda: escreva abaixo e salve.";
+  }
+  async function openApiEnvs() {
+    const m = apiEnvsModal(), ta = document.getElementById("api-envs-text"), save = document.getElementById("btn-api-envs-save");
+    m.classList.remove("hidden");
+    apiEnvsStatus("Carregando…");
+    const r = await fetch("api/http/ambientes");
+    const j = await r.json().catch(() => ({}));
+    const locked = !r.ok;
+    ta.disabled = save.disabled = locked;
+    if (locked) {
+      ta.value = "";
+      document.getElementById("api-envs-list").textContent = "";
+      document.getElementById("api-envs-file").textContent = "";
+      return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
+    }
+    ta.value = j.text || "";
+    document.getElementById("api-envs-file").textContent = j.file || "";
+    const st = await (await fetch("api/http/state")).json().catch(() => ({ envs: [] }));
+    renderApiEnvChips(st);
+    apiEnvsStatus(j.exists ? "" : "O arquivo ainda não existe: este é um modelo comentado. Ajuste e salve para criar.");
+  }
+  function closeApiEnvs() { apiEnvsModal().classList.add("hidden"); }
+  async function saveApiEnvs() {
+    const text = document.getElementById("api-envs-text").value;
+    const r = await fetch("api/http/ambientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
+    renderApiEnvChips(j);
+    apiEnvsStatus("Salvo. Os slides de API já usam o arquivo novo.", "ok");
+  }
+
   function closePopovers(except) {
     document.querySelectorAll(".popover.open").forEach((p) => { if (p !== except) p.classList.remove("open"); });
     document.querySelectorAll(".split-button.show, .file-menu-wrap.show").forEach((m) => { if (!m.contains(except)) m.classList.remove("show"); });
@@ -2815,6 +2913,9 @@
     });
     popover(dom.btnLayoutGallery, dom.layoutPopover, loadLayoutPreviews);
     popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
+    const apiExamplesPop = document.getElementById("api-examples-popover");
+    popover(document.getElementById("btn-api-slide"), apiExamplesPop, loadApiExamples);
+    apiExamplesPop.addEventListener("click", (e) => e.stopPropagation());
     // Tom e Fundo: botões com prévia (o slide atual desenhado em cada opção)
     popover(document.getElementById("btn-tone"), variantPop, () => openVariantPicker("tone"));
     popover(document.getElementById("btn-deco"), variantPop, () => openVariantPicker("deco"));
@@ -2872,6 +2973,12 @@
     document.getElementById("btn-close-hf").addEventListener("click", closeHeaderFooter);
     document.getElementById("btn-hf-cancel").addEventListener("click", closeHeaderFooter);
     document.getElementById("btn-hf-apply").addEventListener("click", applyHeaderFooter);
+
+    // ambientes dos slides de API
+    document.getElementById("btn-api-envs").addEventListener("click", openApiEnvs);
+    document.getElementById("btn-close-api-envs").addEventListener("click", closeApiEnvs);
+    document.getElementById("btn-api-envs-cancel").addEventListener("click", closeApiEnvs);
+    document.getElementById("btn-api-envs-save").addEventListener("click", saveApiEnvs);
 
     // tema da interface (claro/escuro/automático); o <head> já aplicou antes do primeiro desenho
     const themeSelect = document.getElementById("app-theme-select");
@@ -3399,6 +3506,10 @@
         }
         if (!document.getElementById("modal-hf").classList.contains("hidden")) {
           closeHeaderFooter();
+          return;
+        }
+        if (!apiEnvsModal().classList.contains("hidden")) {
+          closeApiEnvs();
           return;
         }
         if (!dom.modalIconPicker.classList.contains("hidden")) {

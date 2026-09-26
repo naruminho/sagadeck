@@ -14,6 +14,7 @@
 //   GET  /v1/vaza          devolve o token no corpo (para conferir a máscara)
 // Tudo menos /token exige "Authorization: Bearer <token válido>".
 import http from "node:http";
+import YAML from "yaml";
 import { acceptWs } from "./ws.js";
 
 export async function startMockApi({ clientId = "id-teste", clientSecret = "segredo-teste-123", statuses = ["STARTED", "RUNNING", "RUNNING", "FINISHED"], ttlSeconds = 1800, format = "json" } = {}) {
@@ -181,14 +182,24 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
   };
 }
 
+// O ambiente do ensaio: tudo o que o deck de exemplo (templates/ensaio-api.yaml) usa, apontando para a API de mentira.
+// O Studio local o oferece como o ambiente embutido "ensaio"; o `sagadeck ensaio-api` grava como dev e hom.
+export function demoEnv(mock) {
+  return {
+    vars: { base: `${mock.url}/v1`, ws: `${mock.url.replace("http", "ws")}/v1`, identity: `${mock.url}/identity`, client_id: mock.clientId, wf: "resumo" },
+    token: { url: `${mock.url}/token`, client_id: mock.clientId, client_secret: mock.clientSecret, ttl_minutes: 30 },
+    secrets: { client_secret: mock.clientSecret },
+  };
+}
+
+// arquivos que o deck de exemplo espera ao lado dele (file: contrato.txt)
+export const DEMO_FILES = { "contrato.txt": "Cláusula 1: prazo de 30 dias.\nCláusula 2: multa de 2%.\n" };
+
 // ambientes.yaml do ensaio: dois ambientes (dev e hom) na API de mentira, com o segredo do Identity em secrets:
 export function demoEnvFile(mock) {
-  const env = (name) => `  ${name}:
-    vars: { base: "${mock.url}/v1", ws: "${mock.url.replace("http", "ws")}/v1", identity: "${mock.url}/identity", client_id: "${mock.clientId}", wf: "resumo" }
-    token: { url: "${mock.url}/token", client_id: "${mock.clientId}", client_secret: "${mock.clientSecret}", ttl_minutes: 30 }
-    secrets: { client_secret: "${mock.clientSecret}" }
-`;
-  return `# Ambientes do ensaio (API de mentira em ${mock.url}). Os seus ficam em ~/.sagadeck/ambientes.yaml.\ncurrent: hom\nenvironments:\n${env("dev")}${env("hom")}`;
+  const env = demoEnv(mock);
+  return `# Ambientes do ensaio (API de mentira em ${mock.url}). Os seus ficam em ~/.sagadeck/ambientes.yaml.\n`
+    + YAML.stringify({ current: "hom", environments: { dev: env, hom: env } }, { aliasDuplicateObjects: false });
 }
 
 // ambientes.yaml apontando para a API de mentira

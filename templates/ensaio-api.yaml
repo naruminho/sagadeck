@@ -1,6 +1,7 @@
-# Ensaio de aula de APIs de IA: roda contra a API de mentira (`sagadeck ensaio-api`).
-# Serve de modelo: troque as URLs e os caminhos $.… pelos do seu serviço e ponha os ambientes em
-# ~/.sagadeck/ambientes.yaml. Veja a seção "Slide api" em docs/REFERENCIA.md.
+# Ensaio de aula de APIs de IA: roda contra a API de mentira, no ambiente embutido ENSAIO do Studio
+# (biblioteca → Nova → "Exemplo: aula de APIs ao vivo", ou `sagadeck ensaio-api`).
+# Serve de modelo: troque as URLs e os caminhos $.… pelos do seu serviço e cadastre os seus ambientes
+# no Studio (Inserir → Ambientes), que grava em ~/.sagadeck/ambientes.yaml. Veja "Slide api" em docs/REFERENCIA.md.
 title: "Ensaio: APIs de IA ao vivo"
 theme: sinal
 author: Seu nome
@@ -10,7 +11,10 @@ slides:
     kicker: Ensaio
     title: APIs de IA, ==ao vivo==
     subtitle: Do token à resposta, executando na frente de todo mundo
-    notes: Este deck roda contra uma API de mentira. Tudo o que você vê aqui funciona igual com o serviço de verdade, trocando as URLs.
+    notes: |
+      Este deck roda contra uma API de mentira (o ambiente ENSAIO, que o Studio sobe sozinho). Apresente e clique em Executar em cada slide.
+      Se você já tem ambientes seus, clique no selo do slide (DEV, HOM…) e escolha ENSAIO.
+      Tudo funciona igual com o serviço de verdade: troque os endereços em Inserir → Ambientes.
 
   - layout: api
     id: identity

@@ -32,6 +32,7 @@ Comandos:
 ```
 sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
 sagadeck studio [deck.yaml] [--port=3000]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA
+sagadeck ensaio-api [--port=3000]            exemplo de slides de API rodando contra uma API de mentira
 sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
 sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
@@ -202,6 +203,29 @@ X-Forwarded-Host $host;`): é com ele que o Studio reconhece a própria página.
 
 **Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
 navegador, mas não para editar.
+
+## Slides para devs: API ao vivo
+
+O layout `api` é um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente
+(curl, Python e Python comentado), e o botão **Executar** roda o pedido de verdade na frente da plateia:
+síncrono, polling com linha do tempo, streaming, upload, token (JWT decodificado), embeddings, TTS/STT e
+conversa em tempo real por WebSocket. Os pedidos saem do Studio (na sua máquina), então não tem CORS e o
+token nunca vai para a página.
+
+Para ver funcionando sem configurar nada:
+
+- **Biblioteca → Nova → Exemplo: aula de APIs ao vivo.** Cria um deck com um slide de cada tipo, que roda no
+  ambiente **ENSAIO**: uma API de mentira que o Studio sobe sozinho (sem VPN, sem chave). Apresente e clique
+  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.)
+- **No editor, Inserir → Slide de API:** os mesmos exemplos, um de cada vez, entram depois do slide atual.
+  O painel **Formatar** edita o endereço, o corpo em JSON, o modo (síncrono, polling, streaming, tempo real)
+  e o que guardar para os próximos slides.
+- **Inserir → Ambientes:** onde ficam os endereços (`{{base}}`), tokens e segredos do *seu* serviço
+  (dev, hom, prod). É gravado em `~/.sagadeck/ambientes.yaml`, na sua máquina, nunca no deck. O selo no
+  slide (DEV, HOM, ENSAIO…) troca o ambiente na hora.
+
+Executar só funciona no Studio local; no HTML exportado e no modo multiusuário, o slide mostra a última
+resposta gravada. Todos os campos estão na [referência](docs/REFERENCIA.md#slide-api-requisição-ao-vivo).
 
 ## Apresentando (HTML)
 

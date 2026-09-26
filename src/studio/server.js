@@ -16,6 +16,7 @@ import { varietyReport } from "../ai/variety.js";
 import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
+import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -28,6 +29,26 @@ const RUNTIME_DIR = firstDir(path.join(HERE, "..", "runtime"), path.join(HERE, "
 // templates de exemplo do pacote (repositório: ../../templates · motor empacotado: ./templates)
 const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve(HERE, "templates")];
 const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
+const templateFile = (name) => TEMPLATE_DIRS.map((d) => path.join(d, name)).find((f) => fs.existsSync(f));
+
+// Modelo do ~/.sagadeck/ambientes.yaml, para quem ainda não tem um (tela Ambientes do Studio).
+const AMBIENTES_MODELO = `# Ambientes do slide "api": endereços e credenciais ficam aqui, na sua máquina, nunca no deck.
+# Nos slides, {{base}} vira o valor de vars.base do ambiente escolhido (o selo DEV/HOM no slide troca).
+# Segredo nunca vai em vars: use secrets (e, melhor ainda, uma variável de ambiente com env:).
+current: dev
+environments:
+  dev:
+    vars: { base: "https://api-dev.exemplo.com/v1" }
+    # token:                               # token que expira (client credentials), renovado sozinho
+    #   url: "https://identidade-dev.exemplo.com/token"
+    #   client_id: "meu-id"
+    #   client_secret_env: MINHA_SECRET    # nome da variável de ambiente com o segredo
+    #   field: "$.access_token"
+    # secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
+    # ca: "C:/certs/empresa.pem"           # certificado da empresa (inspeção TLS)
+  hom:
+    vars: { base: "https://api-hom.exemplo.com/v1" }
+`;
 const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
@@ -82,6 +103,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
   const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile()); // LOOPBACK: definido abaixo, junto da trava de origem
   const rtSessions = new Map(); // conversas em tempo real abertas: sid -> { conn, buffer, res }
+  // Ambiente embutido "ensaio": a API de mentira (src/api-demo.js), para o deck de exemplo rodar sem VPN e
+  // sem configurar nada. Só no Studio local; sobe na primeira vez que um slide api precisa e fecha com o Studio.
+  let ensaio = null;
+  function ensureEnsaio() {
+    if (opts.multiuser || opts.ensaio === false) return Promise.resolve(null);
+    ensaio ??= startMockApi().then((mock) => { apiEnv.builtin.ensaio = demoEnv(mock); return mock; })
+      .catch((e) => { console.error("[Studio] API de ensaio não subiu:", e.message); return null; });
+    return ensaio;
+  }
   // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
   function apiContextFor(req, W) {
     if (opts.multiuser) return null;
@@ -413,6 +443,29 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Inserir → Slide de API: os slides api do deck de exemplo, um por tipo (token, síncrono, polling…)
+      if (pathname === "/api/api-examples" && req.method === "GET") {
+        const tpl = templateFile("ensaio-api.yaml");
+        const slides = tpl ? (YAML.parse(fs.readFileSync(tpl, "utf8")).slides || []).filter((sl) => sl.layout === "api") : [];
+        const examples = slides.map(({ id, ...slide }) => ({ label: String(slide.kicker || "").replace(/^Passo \d+ · /, ""), title: String(slide.title || "").replace(/==/g, ""), mode: slide.mode || "sync", slide }));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ examples }));
+        return;
+      }
+      // o exemplo que usa um arquivo (file: contrato.txt) precisa dele ao lado do deck; nunca sobrescreve
+      if (pathname === "/api/api-examples/files" && req.method === "POST") {
+        const written = [];
+        if (W.file && !isBundledTemplate(W.file)) {
+          for (const [name, text] of Object.entries(DEMO_FILES)) {
+            const f = path.join(path.dirname(W.file), name);
+            if (!fs.existsSync(f)) { fs.writeFileSync(f, text); written.push(name); }
+          }
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ written }));
+        return;
+      }
+
       if (pathname === "/api/render-slide" && req.method === "POST") {
         const { slide, index, spec } = await readJSON(req);
         const deckSpec = spec || W.spec;
@@ -594,6 +647,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const slideIdx = typeof body.targetSlide === "number" ? body.targetSlide : 0;
         const spec = body.spec || W.spec;
         const issues = body.issues || [];
+        // a IA vê (e testa) os slides api no ambiente atual, que pode ser o embutido "ensaio"
+        if (!apiBlocked(req) && (spec.slides || []).some((sl) => sl && sl.layout === "api")) await ensureEnsaio();
 
         await respond(res, body.stream, async (emit) => {
           let result;
@@ -671,6 +726,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname.startsWith("/api/http/")) {
         const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
         const blocked = apiBlocked(req);
+        if (!blocked) await ensureEnsaio();
         if (pathname === "/api/http/state" && req.method === "GET") {
           let st;
           try { st = apiEnv.state(); } catch (e) { st = { error: e.message, envs: [] }; }
@@ -688,10 +744,32 @@ export function createStudioServer(deckPath = null, opts = {}) {
           req.on("close", () => { if (s.res === res) { s.conn.close(); rtSessions.delete(s.sid); } });
           return;
         }
+        // tela Ambientes: o arquivo como texto (ou um modelo comentado, se ainda não existe)
+        if (pathname === "/api/http/ambientes" && req.method === "GET") {
+          const exists = fs.existsSync(apiEnv.file);
+          return reply(200, { file: apiEnv.file, exists, text: exists ? fs.readFileSync(apiEnv.file, "utf8") : AMBIENTES_MODELO, builtin: Object.keys(apiEnv.builtin) });
+        }
         if (req.method !== "POST") return reply(405, { error: "use POST" });
         if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
         let body;
         try { body = await readJSON(req); } catch (e) { return reply(400, { error: e.message }); }
+        if (pathname === "/api/http/ambientes") {
+          // só grava YAML que o slide api entende: nada de arquivo quebrado no lugar do que funcionava
+          const text = String(body.text ?? "");
+          let data;
+          try { data = YAML.parse(text) || {}; } catch (e) { return reply(400, { error: `YAML inválido: ${e.message}` }); }
+          if (typeof data !== "object" || Array.isArray(data)) return reply(400, { error: "O arquivo precisa ter current: e environments:" });
+          const envs = data.environments;
+          if (envs != null && (typeof envs !== "object" || Array.isArray(envs))) return reply(400, { error: "environments precisa ser uma lista de nomes (dev:, hom:…), não uma lista com traços" });
+          for (const [name, e] of Object.entries(envs || {})) {
+            if (!e || typeof e !== "object") return reply(400, { error: `O ambiente "${name}" está vazio: ponha pelo menos vars: { base: "…" }` });
+            if (e.vars != null && (typeof e.vars !== "object" || Array.isArray(e.vars))) return reply(400, { error: `vars do ambiente "${name}" precisa ser nome: valor` });
+          }
+          fs.mkdirSync(path.dirname(apiEnv.file), { recursive: true });
+          fs.writeFileSync(apiEnv.file, text.endsWith("\n") ? text : text + "\n", "utf8");
+          apiEnv.tokens.clear(); // credencial pode ter mudado: o próximo pedido pega um token novo
+          return reply(200, apiEnv.state());
+        }
         // o arquivo do slide: o que foi arrastado na hora, ou o padrão (file:), só de dentro da pasta do deck
         const fileOf = (b) => {
           if (b.file && b.file.base64) return { name: String(b.file.name || "arquivo"), type: String(b.file.type || mimeOf(b.file.name)), data: Buffer.from(b.file.base64, "base64") };
@@ -795,6 +873,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const title = String(b.title || "Nova apresentação").trim();
               const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
                 slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              return ok({ id });
+            }
+            case "/api/library/decks/example": {
+              // exemplo de slides api (aula de APIs de IA): roda no ambiente embutido "ensaio", sem configurar nada
+              const tpl = templateFile("ensaio-api.yaml");
+              if (!tpl) throw new Error("o exemplo não veio no pacote (templates/ensaio-api.yaml)");
+              const id = L.createDeck(b.topic || "", YAML.parse(fs.readFileSync(tpl, "utf8")));
+              const dir = path.dirname(L.resolveId(id));
+              for (const [name, text] of Object.entries(DEMO_FILES)) fs.writeFileSync(path.join(dir, name), text);
               return ok({ id });
             }
             case "/api/library/decks/move": return ok({ id: L.moveDeck(b.id, b.topic || "") });
@@ -931,6 +1018,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
     }
   });
 
+  server.on("close", () => { ensaio?.then((mock) => mock?.close()); });
   return server;
 }
 
