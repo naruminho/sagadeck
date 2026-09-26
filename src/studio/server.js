@@ -15,6 +15,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { varietyReport } from "../ai/variety.js";
 import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
+import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { slideSnapshots } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -77,6 +78,24 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return workspaces.get(user);
   }
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
+
+  // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
+  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile());
+  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
+  function apiBlocked(req) {
+    if (opts.multiuser) return { code: 403, message: "No servidor (multiusuário) o slide API só mostra a última gravação; executar é no Studio local." };
+    if (opts.host && !LOOPBACK.has(opts.host)) return { code: 403, message: "O Studio está aberto para a rede (--host): executar pedidos fica desligado." };
+    const host = (() => { try { return new URL(`http://${req.headers.host || ""}`).hostname; } catch { return ""; } })();
+    if (!LOOPBACK.has(host)) return { code: 403, message: "Executar pedidos só pelo endereço desta máquina (127.0.0.1)." };
+    const origin = req.headers.origin;
+    if (origin) { // "null" (HTML aberto do disco) também é outra página
+      let oh = "";
+      try { oh = new URL(origin).host; } catch {}
+      if (oh !== req.headers.host) return { code: 403, message: "Pedido vindo de outra página: bloqueado." };
+    }
+    return null;
+  }
 
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
   function persist(W) {
@@ -573,6 +592,58 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // ── Biblioteca (tópicos e apresentações da área de trabalho) ──
+      // ---------- slide "api": executa pedidos HTTP (ver src/api-client.js) ----------
+      // Só no modo local, só pelo endereço desta máquina e só da própria página: nenhum outro site
+      // (nem outro computador da rede) usa a sua VPN e o seu token por aqui.
+      if (pathname.startsWith("/api/http/")) {
+        const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
+        const blocked = apiBlocked(req);
+        if (pathname === "/api/http/state" && req.method === "GET") {
+          let st;
+          try { st = apiEnv.state(); } catch (e) { st = { error: e.message, envs: [] }; }
+          const tokens = Object.fromEntries((st.envs || []).map((e) => [e.name, apiEnv.tokenInfo(e.name)]));
+          return reply(200, { live: !blocked, reason: blocked?.message || null, ...(blocked ? { envs: [], current: null } : st), tokens, recordings: { ...readRecordings(W.file), ...(W.apiRecordings || {}) } });
+        }
+        if (blocked) return reply(blocked.code, { error: blocked.message, live: false });
+        if (req.method !== "POST") return reply(405, { error: "use POST" });
+        if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
+        let body;
+        try { body = await readJSON(req); } catch (e) { return reply(400, { error: e.message }); }
+        // o arquivo do slide: o que foi arrastado na hora, ou o padrão (file:), só de dentro da pasta do deck
+        const fileOf = (b) => {
+          if (b.file && b.file.base64) return { name: String(b.file.name || "arquivo"), type: String(b.file.type || mimeOf(b.file.name)), data: Buffer.from(b.file.base64, "base64") };
+          if (!b.fileRef) return null;
+          const dir = W.file ? path.dirname(W.file) : null;
+          if (!dir) throw Object.assign(new Error("Salve o deck numa pasta para usar um arquivo padrão (file:)."), { kind: "config" });
+          const abs = path.resolve(dir, String(b.fileRef));
+          if (!abs.startsWith(dir + path.sep)) throw Object.assign(new Error("O arquivo precisa estar dentro da pasta do deck."), { kind: "config" });
+          if (!fs.existsSync(abs)) throw Object.assign(new Error(`Não achei ${b.fileRef} na pasta do deck (${dir}).`), { kind: "config" });
+          return { name: path.basename(abs), type: mimeOf(abs), data: fs.readFileSync(abs) };
+        };
+        try {
+          if (pathname === "/api/http/env") return reply(200, apiEnv.use(String(body.name || "")));
+          if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));
+          if (pathname === "/api/http/record") {
+            if (!body.key || !body.record) return reply(400, { error: "faltou key/record" });
+            const f = W.file && !isBundledTemplate(W.file) ? writeRecording(W.file, String(body.key), body.record) : null;
+            if (!f) (W.apiRecordings = W.apiRecordings || {})[body.key] = { ...body.record, at: new Date().toISOString() };
+            return reply(200, { ok: true, file: f });
+          }
+          if (pathname === "/api/http/stream") {
+            const up = await apiEnv.open({ ...(body.request || {}), file: fileOf(body) });
+            res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache", "X-Api-Status": String(up.res.statusCode), "X-Api-Type": up.res.headers["content-type"] || "" });
+            up.res.on("data", (c) => res.write(up.mask(c.toString("utf8"))));
+            up.res.on("end", () => res.end());
+            up.res.on("error", () => res.end());
+            req.on("close", () => up.res.destroy());
+            return;
+          }
+        } catch (e) {
+          return reply(e.kind === "config" ? 400 : 502, { error: e.message, kind: e.kind || "error" });
+        }
+        return reply(404, { error: "não existe" });
+      }
+
       if (pathname.startsWith("/api/library")) {
         const L = W.library;
         const ok = (obj = {}) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, ...obj })); };
