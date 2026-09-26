@@ -10,6 +10,8 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 // Blindagem: qualquer código que caia na biblioteca padrão durante os testes usa uma pasta temporária,
 // nunca a ~/sagadeck de quem está rodando.
 process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-"));
+// idem para os ambientes do slide "api" (~/.sagadeck/ambientes.yaml tem as credenciais de quem roda)
+process.env.SAGADECK_AMBIENTES = path.join(process.env.SAGADECK_HOME, "ambientes-de-teste.yaml");
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).

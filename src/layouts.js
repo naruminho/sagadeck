@@ -2,6 +2,7 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { md, esc } from "./markup.js";
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
+import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
 const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
@@ -260,6 +261,68 @@ export const LAYOUTS = {
         ${t.title ? text(t.title, size === "big" ? "h2" : "h3", { class: "bt-title" }) : ""}${t.text ? text(t.text, "body", { class: "bt-text" }) : ""}</div>`;
     }).join("");
     return `<div class="L-bento">${head(s)}<div class="bt" style="--cols:${s.cols || 4}">${body}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Requisição ao vivo (tipo Postman): URL, corpo e código (curl/Python) editáveis; "Executar" roda o
+  // pedido pelo Studio (síncrono, polling ou streaming) e mostra a resposta. Sem o Studio (HTML exportado,
+  // servidor multiusuário), mostra a última resposta gravada. Ver src/runtime/api-ui.js e src/api-client.js.
+  api(s, ctx) {
+    const A = globalThis.SagadeckApiCore;
+    const a = A.normalize(s);
+    const cfg = { ...a, key: A.key(s), title: s.title || "" };
+    const MODE = { sync: "Síncrono", polling: "Polling", stream: "Streaming", realtime: "Tempo real · WebSocket" };
+    const rt = a.realtime;
+    const bodyTxt = rt ? JSON.stringify(rt.open, null, 2) : a.request.form ? Object.entries(a.request.form).map(([k, v]) => `${k}: ${v === "@file" ? "@" + (a.file ? String(a.file).split(/[\\/]/).pop() : "arquivo") : v}`).join("\n")
+      : a.request.body == null ? "" : typeof a.request.body === "string" ? a.request.body : JSON.stringify(a.request.body, null, 2);
+    const hdrTxt = Object.entries(a.request.headers).map(([k, v]) => `${k}: ${v}`).join("\n");
+    const LBL = (c) => (rt && c === "curl" ? "wscat" : A.LANGS[c]);
+    const tabs = rt ? [["body", "Ao conectar"], ["log", "Mensagens"], ...a.code.filter((c) => A.LANGS[c]).map((c) => [c, LBL(c)])] : [...(a.similarity ? [["texts", "Frases"]] : []), ["body", "Corpo"], ...(a.fields ? [["fields", "Parâmetros"]] : []), ["headers", "Cabeçalhos"], ...a.code.filter((c) => A.LANGS[c]).map((c) => [c, A.LANGS[c]])];
+    const first = tabs.some(([k]) => k === s.tab) ? s.tab : a.similarity ? "texts" : "body";
+    const fieldsPane = a.fields ? `<div class="api-fields" data-pane="fields"${first === "fields" ? "" : " hidden"}><table><thead><tr><th>Campo</th><th>Valor</th><th>O que faz</th></tr></thead><tbody>${Object.entries(a.fields).map(([k, why]) => { const v = A.get(a.request.body, k); return `<tr data-field="${esc(k)}"><td class="f-mono">${esc(k.replace(/^\$\.?/, ""))}</td><td class="f-mono api-fv">${v === undefined ? "—" : esc(JSON.stringify(v))}</td><td>${esc(why)}</td></tr>`; }).join("")}</tbody></table></div>` : "";
+    const textsPane = a.similarity ? `<div class="api-texts" data-pane="texts"${first === "texts" ? "" : " hidden"}><label class="f-label">Frase de referência</label><input class="api-edit-line" data-api-ref value="${esc(a.similarity.reference)}" spellcheck="false"><label class="f-label">Compare com (uma por linha)</label><textarea class="api-edit f-mono" data-api-texts spellcheck="false">${esc(a.similarity.texts.join("\n"))}</textarea></div>` : "";
+    const codePane = (lang) => {
+      const { code: txt, comments } = A.code(a, lang, {});
+      const cm = new Set(comments);
+      return `<div class="api-code f-mono" data-pane="${lang}"${first === lang ? "" : " hidden"}>${txt.split("\n").map((l, i) => `<div class="cl${cm.has(i + 1) ? " cm" : ""}" data-ln="${i + 1}"><span class="cn">${i + 1}</span><span class="cc">${esc(l) || " "}</span></div>`).join("")}</div>`;
+    };
+    const ICON = {
+      run: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+      out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      pip: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1"/></svg>',
+      clip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5 12.6 19.9a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    };
+    const fileZone = A.usesFile(a) ? `<div class="api-file" data-api-file>${ICON.clip}<span class="api-file-name">${esc(a.file ? String(a.file).split(/[\\/]/).pop() : "nenhum arquivo")}</span><span class="api-file-hint">arraste um arquivo aqui</span>${a.mic ? '<button type="button" class="api-mic" data-api-mic><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Gravar</span></button><canvas class="api-level" width="160" height="36" hidden></canvas>' : ""}<button type="button" data-api-pick>Trocar arquivo</button><input type="file" hidden data-api-input></div>` : "";
+    return `<div class="L-api" data-api="${esc(JSON.stringify(cfg))}">${head(s)}
+      <div class="api-bar">
+        <button type="button" class="api-env" data-api-env title="Ambiente (clique para trocar)"><span class="api-env-dot"></span><span class="api-env-name">sem Studio</span></button>
+        <span class="api-mode f-label">${MODE[a.mode]}</span>
+        ${s.text ? text(s.text, "small", { class: "api-text", size: 26 }) : ""}
+        <span class="api-spacer"></span>
+        <button type="button" class="api-pip" data-api-pip title="Controle flutuante: fica por cima de qualquer janela (ex.: o portal em tela cheia)">${ICON.pip}<span>Controle flutuante</span></button>
+        ${a.portal ? `<a class="api-portal" href="${esc(a.portal)}" target="_blank" rel="noopener">Abrir no portal${ICON.out}</a>` : ""}
+        <button type="button" class="api-run" data-api-run>${ICON.run}<span>${rt ? "Conectar" : "Executar"}</span></button>
+      </div>
+      <div class="api-row">
+        <section class="api-req" aria-label="Requisição">
+          <div class="api-line"><span class="api-method m-${rt ? "WS" : esc(a.request.method)}">${rt ? "WS" : esc(a.request.method)}</span><input class="api-url f-mono" data-api-url value="${esc(rt ? rt.url : a.request.url)}" spellcheck="false" aria-label="Endereço"></div>
+          <div class="api-resolved f-mono" data-api-resolved></div>
+          <div class="api-tabs" role="tablist">${tabs.map(([k, label]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === first}">${esc(label)}</button>`).join("")}</div>
+          <div class="api-panes">
+            ${textsPane}${fieldsPane}${rt ? `<div class="api-log f-mono" data-pane="log" hidden></div>` : ""}
+            <textarea class="api-edit f-mono" data-pane="body" data-api-body spellcheck="false" aria-label="Corpo"${a.request.form ? " readonly title=\"Formulário (multipart): campo: valor\"" : ""}${first === "body" ? "" : " hidden"}>${esc(bodyTxt)}</textarea>
+            <textarea class="api-edit f-mono" data-pane="headers" data-api-headers spellcheck="false" aria-label="Cabeçalhos" placeholder="Nome: valor"${first === "headers" ? "" : " hidden"}>${esc(hdrTxt)}</textarea>
+            ${a.code.filter((c) => A.LANGS[c]).map(codePane).join("")}
+          </div>
+          ${fileZone}
+          ${a.request.auth ? `<div class="api-auth f-label">Authorization: Bearer ••••  <span>token do ambiente, automático</span></div>` : ""}
+        </section>
+        <section class="api-res" aria-label="Resposta" aria-live="polite">
+          <div class="api-status"><span class="api-hint">Clique em <b>${rt ? "Conectar" : "Executar"}</b></span></div>
+          <div class="api-out"></div>
+          ${rt ? `<div class="api-rt-ctl"><button type="button" class="api-mic" data-rt-mic disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Falar</span></button><canvas class="api-level" width="160" height="36" hidden></canvas><input class="api-rt-text" data-rt-text placeholder="ou digite e aperte Enter" disabled><button type="button" data-rt-send disabled>Enviar</button></div>` : ""}
+        </section>
+      </div>
+    </div>${src(s)}${add(s, ctx)}`;
   },
 
   // Posicionamento livre (x, y, w, h em px numa tela de 1920 × 1080)

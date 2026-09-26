@@ -264,3 +264,8 @@ test("API Python: studio escuta só nesta máquina por padrão e aceita a pasta 
   assert.match(sig, /library:/);
   assert.match(api, /--library=/);
 });
+
+test("a apresentação tem ícone próprio (sem pedir /favicon.ico, que dava 404)", () => {
+  const { html } = buildHTML({ title: "t", slides: [{ text: "oi" }] });
+  assert.ok(html.includes('<link rel="icon" href="data:image/svg+xml,'));
+});

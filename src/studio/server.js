@@ -15,6 +15,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { varietyReport } from "../ai/variety.js";
 import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
+import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { slideSnapshots } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -77,6 +78,35 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return workspaces.get(user);
   }
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
+
+  // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
+  const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile()); // LOOPBACK: definido abaixo, junto da trava de origem
+  const rtSessions = new Map(); // conversas em tempo real abertas: sid -> { conn, buffer, res }
+  // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
+  function apiContextFor(req, W) {
+    if (opts.multiuser) return null;
+    try {
+      const st = apiEnv.state();
+      const cur = st.envs.find((e) => e.name === st.current);
+      if (!cur) return null;
+      return { env: cur.name, live: !apiBlocked(req), vars: cur.vars, secrets: Object.keys(apiEnv.env().secrets || {}), saved: W.apiVars || {} };
+    } catch { return null; }
+  }
+
+  // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
+  function apiBlocked(req) {
+    if (opts.multiuser) return { code: 403, message: "No servidor (multiusuário) o slide API só mostra a última gravação; executar é no Studio local." };
+    if (opts.host && !LOOPBACK.has(opts.host)) return { code: 403, message: "O Studio está aberto para a rede (--host): executar pedidos fica desligado." };
+    const host = (() => { try { return new URL(`http://${req.headers.host || ""}`).hostname; } catch { return ""; } })();
+    if (!LOOPBACK.has(host)) return { code: 403, message: "Executar pedidos só pelo endereço desta máquina (127.0.0.1)." };
+    const origin = req.headers.origin;
+    if (origin) { // "null" (HTML aberto do disco) também é outra página
+      let oh = "";
+      try { oh = new URL(origin).host; } catch {}
+      if (oh !== req.headers.host) return { code: 403, message: "Pedido vindo de outra página: bloqueado." };
+    }
+    return null;
+  }
 
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
   function persist(W) {
@@ -586,7 +616,37 @@ export function createStudioServer(deckPath = null, opts = {}) {
                 onProgress: emit,
                 visuals,
                 renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
+                apiContext: apiContextFor(req, W),
               });
+              // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
+              // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
+              const convo = [...history, { role: "user", text: prompt }]
+              for (let round = 1; result.test?.length && round <= 3; round++) {
+                if (apiBlocked(req)) { result.actions.push("Testes de slides api só no Studio local."); break; }
+                const reports = [];
+                for (const i of result.test) {
+                  const slide = result.spec.slides[i];
+                  emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
+                  const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
+                  if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
+                  if (r.record) {
+                    const key = globalThis.SagadeckApiCore.key(slide);
+                    if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
+                    else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
+                  }
+                  reports.push({ slide: i + 1, ...r.report });
+                  result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
+                }
+                convo.push({ role: "assistant", text: result.reply });
+                const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
+                emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
+                const next = await editDeck({
+                  spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
+                  imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+                });
+                convo.push({ role: "user", text: instruction });
+                result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
+              }
               result.mode = "llm";
             } catch (e) {
               // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
@@ -605,6 +665,90 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // ── Biblioteca (tópicos e apresentações da área de trabalho) ──
+      // ---------- slide "api": executa pedidos HTTP (ver src/api-client.js) ----------
+      // Só no modo local, só pelo endereço desta máquina e só da própria página: nenhum outro site
+      // (nem outro computador da rede) usa a sua VPN e o seu token por aqui.
+      if (pathname.startsWith("/api/http/")) {
+        const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
+        const blocked = apiBlocked(req);
+        if (pathname === "/api/http/state" && req.method === "GET") {
+          let st;
+          try { st = apiEnv.state(); } catch (e) { st = { error: e.message, envs: [] }; }
+          const tokens = Object.fromEntries((st.envs || []).map((e) => [e.name, apiEnv.tokenInfo(e.name)]));
+          return reply(200, { live: !blocked, reason: blocked?.message || null, ...(blocked ? { envs: [], current: null } : st), tokens, recordings: { ...readRecordings(W.file), ...(W.apiRecordings || {}) } });
+        }
+        if (blocked) return reply(blocked.code, { error: blocked.message, live: false });
+        // conversa em tempo real: os eventos do serviço chegam ao navegador por aqui (SSE)
+        if (pathname === "/api/http/rt/events" && req.method === "GET") {
+          const s = rtSessions.get(url.searchParams.get("sid") || "");
+          if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+          res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
+          s.res = res;
+          for (const ev of s.buffer.splice(0)) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+          req.on("close", () => { if (s.res === res) { s.conn.close(); rtSessions.delete(s.sid); } });
+          return;
+        }
+        if (req.method !== "POST") return reply(405, { error: "use POST" });
+        if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
+        let body;
+        try { body = await readJSON(req); } catch (e) { return reply(400, { error: e.message }); }
+        // o arquivo do slide: o que foi arrastado na hora, ou o padrão (file:), só de dentro da pasta do deck
+        const fileOf = (b) => {
+          if (b.file && b.file.base64) return { name: String(b.file.name || "arquivo"), type: String(b.file.type || mimeOf(b.file.name)), data: Buffer.from(b.file.base64, "base64") };
+          if (!b.fileRef) return null;
+          const dir = W.file ? path.dirname(W.file) : null;
+          if (!dir) throw Object.assign(new Error("Salve o deck numa pasta para usar um arquivo padrão (file:)."), { kind: "config" });
+          const abs = path.resolve(dir, String(b.fileRef));
+          if (!abs.startsWith(dir + path.sep)) throw Object.assign(new Error("O arquivo precisa estar dentro da pasta do deck."), { kind: "config" });
+          if (!fs.existsSync(abs)) throw Object.assign(new Error(`Não achei ${b.fileRef} na pasta do deck (${dir}).`), { kind: "config" });
+          return { name: path.basename(abs), type: mimeOf(abs), data: fs.readFileSync(abs) };
+        };
+        try {
+          if (pathname === "/api/http/env") return reply(200, apiEnv.use(String(body.name || "")));
+          if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));
+          if (pathname === "/api/http/rt/open") {
+            const r = await apiEnv.openRealtime(body.realtime || {});
+            const sid = crypto.randomUUID();
+            const s = { sid, conn: r.conn, buffer: [], res: null };
+            const push = (ev) => { if (s.res) s.res.write(`data: ${JSON.stringify(ev)}\n\n`); else s.buffer.push(ev); };
+            r.conn.on("message", (m, isText) => push(isText ? { dir: "in", text: r.mask(m) } : { dir: "in", bin: m.toString("base64") }));
+            r.conn.on("close", (code, why) => { push({ type: "close", code, why: String(why || "") }); if (s.res) s.res.end(); rtSessions.delete(sid); });
+            rtSessions.set(sid, s);
+            for (const m of [].concat(body.open || [])) r.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { sid, url: r.url, env: r.env });
+          }
+          if (pathname === "/api/http/rt/send") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+            for (const m of [].concat(body.messages || [])) s.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { ok: true });
+          }
+          if (pathname === "/api/http/rt/close") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (s) { s.conn.close(); rtSessions.delete(s.sid); }
+            return reply(200, { ok: true });
+          }
+          if (pathname === "/api/http/record") {
+            if (!body.key || !body.record) return reply(400, { error: "faltou key/record" });
+            const f = W.file && !isBundledTemplate(W.file) ? writeRecording(W.file, String(body.key), body.record) : null;
+            if (!f) (W.apiRecordings = W.apiRecordings || {})[body.key] = { ...body.record, at: new Date().toISOString() };
+            return reply(200, { ok: true, file: f });
+          }
+          if (pathname === "/api/http/stream") {
+            const up = await apiEnv.open({ ...(body.request || {}), file: fileOf(body) });
+            res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache", "X-Api-Status": String(up.res.statusCode), "X-Api-Type": up.res.headers["content-type"] || "" });
+            up.res.on("data", (c) => res.write(up.mask(c.toString("utf8"))));
+            up.res.on("end", () => res.end());
+            up.res.on("error", () => res.end());
+            req.on("close", () => up.res.destroy());
+            return;
+          }
+        } catch (e) {
+          return reply(e.kind === "config" ? 400 : 502, { error: e.message, kind: e.kind || "error" });
+        }
+        return reply(404, { error: "não existe" });
+      }
+
       if (pathname.startsWith("/api/library")) {
         const L = W.library;
         const ok = (obj = {}) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, ...obj })); };

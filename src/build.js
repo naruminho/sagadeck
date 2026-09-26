@@ -9,6 +9,7 @@ import { LAYOUTS } from "./layouts.js";
 import { el } from "./elements.js";
 import { esc, notesHTML, plain, md } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
+import { readRecordings } from "./api-client.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
@@ -97,6 +98,11 @@ export function buildHTML(rawSpec, opts = {}) {
   let widgets = "";
   for (const w of [].concat(spec.widgets || [])) widgets += `\n/* ${w} */\n` + readCompanion(w, "widget") + "\n";
 
+  // Slide "api": o núcleo e a interface entram só se o deck tiver um; as respostas gravadas vão junto,
+  // para o HTML exportado (sem Studio) ainda mostrar o resultado.
+  const hasApi = slidesMeta.some((m) => m.layout === "api");
+  const apiScripts = hasApi ? `<script type="application/json" id="sagadeck-api-rec">${JSON.stringify(readRecordings(spec._file)).replace(/</g, "\\u003c")}</script>
+<script>${read("runtime/api-core.js")}</script>` : "";
   const data = { id, title: spec.title || "", author: spec.author || "", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
 
@@ -104,6 +110,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <html lang="${spec.lang || "pt-BR"}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="generator" content="sagadeck">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${read("runtime/base.css")}
 ${themeCSS(theme)}
@@ -135,6 +142,7 @@ ${html}
 <script>${widgets}</script>
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
+${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script>` : ""}
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };
 }
