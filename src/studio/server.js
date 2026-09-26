@@ -82,6 +82,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
   const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile());
   const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
+  function apiContextFor(req, W) {
+    if (opts.multiuser) return null;
+    try {
+      const st = apiEnv.state();
+      const cur = st.envs.find((e) => e.name === st.current);
+      if (!cur) return null;
+      return { env: cur.name, live: !apiBlocked(req), vars: cur.vars, secrets: Object.keys(apiEnv.env().secrets || {}), saved: W.apiVars || {} };
+    } catch { return null; }
+  }
+
   // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
   function apiBlocked(req) {
     if (opts.multiuser) return { code: 403, message: "No servidor (multiusuário) o slide API só mostra a última gravação; executar é no Studio local." };
@@ -573,7 +584,37 @@ export function createStudioServer(deckPath = null, opts = {}) {
                 onProgress: emit,
                 visuals,
                 renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
+                apiContext: apiContextFor(req, W),
               });
+              // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
+              // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
+              const convo = [...history, { role: "user", text: prompt }]
+              for (let round = 1; result.test?.length && round <= 3; round++) {
+                if (apiBlocked(req)) { result.actions.push("Testes de slides api só no Studio local."); break; }
+                const reports = [];
+                for (const i of result.test) {
+                  const slide = result.spec.slides[i];
+                  emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
+                  const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
+                  if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
+                  if (r.record) {
+                    const key = globalThis.SagadeckApiCore.key(slide);
+                    if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
+                    else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
+                  }
+                  reports.push({ slide: i + 1, ...r.report });
+                  result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
+                }
+                convo.push({ role: "assistant", text: result.reply });
+                const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
+                emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
+                const next = await editDeck({
+                  spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
+                  imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+                });
+                convo.push({ role: "user", text: instruction });
+                result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
+              }
               result.mode = "llm";
             } catch (e) {
               // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
