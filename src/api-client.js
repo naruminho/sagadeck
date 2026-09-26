@@ -112,15 +112,24 @@ export class ApiEnvironments {
     this.file = file;
     this.tokens = new Map(); // ambiente -> { value, expiresAt }
     this.selected = null;    // escolha feita na apresentação (vale até fechar o Studio)
+    this.builtin = {};       // ambientes que não moram no arquivo (o "ensaio" do Studio, contra a API de mentira)
   }
 
-  load() {
+  // só o arquivo da pessoa
+  loadFile() {
     if (!fs.existsSync(this.file)) return { current: null, environments: {} };
     let data;
     try { data = YAML.parse(fs.readFileSync(this.file, "utf8")) || {}; }
     catch (e) { throw new ApiError(`${this.file}: YAML inválido: ${e.message}`, "config"); }
     const envs = data.environments && typeof data.environments === "object" ? data.environments : {};
     return { current: data.current || null, environments: envs };
+  }
+
+  // o arquivo + os embutidos, que vêm depois (o do arquivo vence quando o nome é igual)
+  load() {
+    const data = this.loadFile();
+    const extra = Object.fromEntries(Object.entries(this.builtin).filter(([k]) => !(k in data.environments)));
+    return { current: data.current, environments: { ...data.environments, ...extra }, own: Object.keys(data.environments) };
   }
 
   currentName(data) {
@@ -133,12 +142,13 @@ export class ApiEnvironments {
 
   state() {
     let data, error = null;
-    try { data = this.load(); } catch (e) { data = { environments: {} }; error = e.message; }
+    try { data = this.load(); } catch (e) { data = { environments: { ...this.builtin }, own: [] }; error = e.message; }
     return {
       file: this.file, exists: fs.existsSync(this.file), error,
       current: this.currentName(data),
       envs: Object.entries(data.environments).map(([name, e]) => ({
         name, kind: C.envKind(name), vars: (e && e.vars) || {}, token: !!(e && e.token && e.token.url),
+        ...(data.own.includes(name) ? {} : { builtin: true }),
       })),
     };
   }
@@ -147,6 +157,7 @@ export class ApiEnvironments {
     const data = this.load();
     if (!data.environments[name]) throw new ApiError(`Ambiente "${name}" não existe em ${this.file}`, "config");
     this.selected = name;
+    if (!data.own.includes(name)) return this.state(); // embutido: não vai para o arquivo da pessoa
     // guarda a escolha no arquivo, sem perder os comentários de quem escreveu
     try {
       const doc = YAML.parseDocument(fs.readFileSync(this.file, "utf8"));

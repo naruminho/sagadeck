@@ -418,6 +418,24 @@ test("studio", async (t) => {
     assert.equal(await p.locator("#chat-attachments .chat-att").count(), 0);
   });
 
+  await t.test("sem LLM no ar, o assistente não mexe nos slides (nem numa pergunta)", { skip: LIVE && "com SAGADECK_LIVE=1 o LLM está no ar" }, async () => {
+    // bug: "o que é CTAP na figura do slide 2?" caía nas regras por palavra-chave, trocava o slide para
+    // split e enfiava "A clareza visual ajuda a audiência..." no corpo. Sem modelo, ninguém decide nada.
+    const before = saved();
+    for (const msg of ["o que é CTAP que tem na figura do slide 2?", "resuma o slide 2", "mude para o tema pop"]) {
+      await p.fill("#chat-input", msg);
+      await p.click("#chat-send");
+      await p.waitForTimeout(300);
+      await p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 30000 });
+      const txt = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .ai-msg")].pop().innerText);
+      assert.match(txt, /nada mudou/i, `"${msg}" → ${txt}`);
+      assert.match(txt, /IA (está )?desligada|nenhum LLM/i, "diz por que não fez nada");
+      assert.doesNotMatch(txt, /clareza visual|Alternei|Alterei|Transformei/);
+    }
+    assert.deepEqual(saved(), before, "o deck salvo ficou igual");
+    assert.doesNotMatch(fs.readFileSync(deckFile.file, "utf8"), /clareza visual/);
+  });
+
   await t.test("assistente responde (LLM real)", { skip: !LIVE && "defina SAGADECK_LIVE=1" }, async () => {
     await p.fill("#chat-input", "Quantos slides tem a apresentação? Só responda, não mude nada.");
     await p.click("#chat-send");
@@ -499,6 +517,101 @@ test("studio", async (t) => {
     // volta ao deck do teste
     await p.evaluate(async (f) => fetch("/api/open-file", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: f }) }), deckFile.file);
     await p.reload({ waitUntil: "networkidle" }); await settle(600);
+  });
+
+  // ------------------------------------------------------------ slides de API (dev)
+  await t.test("Inserir → Slide de API: exemplos prontos; o escolhido entra no deck salvo, e o do upload traz o arquivo", async () => {
+    const n = (await deck()).slides.length;
+    await tab("inserir");
+    await p.click("#btn-api-slide");
+    await p.waitForSelector("#api-examples-list .api-ex-item");
+    const labels = await p.$$eval("#api-examples-list .api-ex-item b", (els) => els.map((e) => e.textContent));
+    for (const want of ["LLM", "Workflow", "Streaming", "FileManager", "Tempo real"]) assert.ok(labels.includes(want), `falta o exemplo ${want}: ${labels}`);
+    await p.click('#api-examples-list .api-ex-item:has(b:text-is("LLM"))');
+    await settle();
+    let slides = saved().slides;
+    assert.equal(slides.length, n + 1);
+    const llm = slides.find((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/sync");
+    assert.ok(llm, "o slide LLM foi salvo no deck");
+    assert.equal(llm.id, undefined, "sem o id do exemplo: a gravação usa título + URL");
+    await p.click("#btn-api-slide");
+    await p.click('#api-examples-list .api-ex-item:has(b:text-is("FileManager"))');
+    await settle();
+    slides = saved().slides;
+    assert.equal(slides.length, n + 2);
+    assert.ok(slides.some((sl) => sl.layout === "api" && sl.file === "contrato.txt"));
+    assert.ok(fs.existsSync(path.join(deckFile.dir, "contrato.txt")), "o arquivo do upload foi criado ao lado do deck");
+  });
+
+  await t.test("formulário do slide api: corpo em JSON, token do ambiente marcado por padrão, modo tempo real troca os campos", async () => {
+    const i = await go((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/sync");
+    // os testes do chat deixaram o painel no Assistente: volta para Formatar
+    if (await p.isVisible("#tab-btn-props")) await p.click("#tab-btn-props");
+    else { await tab("exibir"); await p.click("#btn-pane-props"); }
+    await p.waitForSelector(form);
+    const field = (label) => `${form} .sf-field:has(> .sf-label:text-is("${label}"))`;
+    // auth ausente = manda o token (o padrão do slide); o formulário mostra isso
+    assert.equal(await p.isChecked(`${form} .sf-check:has-text("Enviar o token do ambiente") input`), true);
+    await p.fill(`${field("Corpo (JSON)")} textarea`, '{ "messages": [ { "role": "user", "content": "Oi, API" } ] }');
+    await settle();
+    assert.equal(saved().slides[i].request.body.messages[0].content, "Oi, API");
+    // JSON quebrado não estraga o que estava salvo
+    await p.fill(`${field("Corpo (JSON)")} textarea`, '{ "messages": [ ');
+    await settle();
+    assert.match(await p.innerText(field("Corpo (JSON)")), /JSON inválido/);
+    assert.equal(saved().slides[i].request.body.messages[0].content, "Oi, API");
+    await p.fill(`${field("Guardar para os próximos slides")} textarea`, '{ "resposta_id": "$.id" }');
+    await settle();
+    assert.deepEqual(saved().slides[i].save, { resposta_id: "$.id" });
+    await p.uncheck(`${form} .sf-check:has-text("Enviar o token do ambiente") input`);
+    await settle();
+    assert.equal(saved().slides[i].request.auth, false);
+    // tempo real: some a requisição HTTP, aparece a conexão do WebSocket
+    await p.selectOption(`${field("Modo")} select`, "realtime");
+    await p.waitForSelector(field("Conexão (WebSocket)"));
+    assert.equal(await p.isVisible(`${form} legend:text-is("Requisição")`), false);
+    await p.fill(`${field("Conexão (WebSocket)")} textarea`, '{ "url": "{{ws}}/realtime" }');
+    await settle();
+    assert.equal(saved().slides[i].mode, "realtime");
+    assert.equal(saved().slides[i].realtime.url, "{{ws}}/realtime");
+  });
+
+  await t.test("Ambientes: modelo comentado quando não existe; YAML errado é recusado; salvar grava o arquivo e escolher troca o ambiente", async () => {
+    const envFile = process.env.SAGADECK_AMBIENTES;
+    fs.rmSync(envFile, { force: true });
+    await tab("inserir");
+    await p.click("#btn-api-envs");
+    await p.waitForFunction(() => document.getElementById("api-envs-text").value.length > 50);
+    assert.match(await p.inputValue("#api-envs-text"), /environments:/);
+    assert.match(await p.innerText("#api-envs-status"), /ainda não existe/);
+    assert.match(await p.innerText("#api-envs-file"), /ambientes-de-teste\.yaml/);
+    assert.match(await p.innerText("#api-envs-list"), /ENSAIO/, "o ambiente embutido aparece");
+    // YAML quebrado: recusado, nada gravado
+    await p.fill("#api-envs-text", "environments:\n  dev: [\n");
+    await p.click("#btn-api-envs-save");
+    await p.waitForFunction(() => /YAML inválido/.test(document.getElementById("api-envs-status").textContent));
+    assert.equal(fs.existsSync(envFile), false);
+    // lista com traços no lugar de nomes: recusado com explicação
+    await p.fill("#api-envs-text", "environments:\n  - dev\n");
+    await p.click("#btn-api-envs-save");
+    await p.waitForFunction(() => /não uma lista com traços/.test(document.getElementById("api-envs-status").textContent));
+    // válido: grava o texto como está (comentários inclusive) e os ambientes aparecem para escolher
+    const text = '# meus ambientes\ncurrent: dev\nenvironments:\n  dev:\n    vars: { base: "https://api-dev.exemplo.com/v1" }\n  hom:\n    vars: { base: "https://api-hom.exemplo.com/v1" }\n';
+    await p.fill("#api-envs-text", text);
+    await p.click("#btn-api-envs-save");
+    await p.waitForFunction(() => /Salvo/.test(document.getElementById("api-envs-status").textContent));
+    assert.equal(fs.readFileSync(envFile, "utf8"), text);
+    assert.deepEqual(await p.$$eval("#api-envs-list .env-chip", (els) => els.map((e) => e.dataset.env)), ["dev", "hom", "ensaio"]);
+    assert.equal(await p.getAttribute('#api-envs-list .env-chip.active', "data-env"), "dev");
+    await p.click('#api-envs-list .env-chip[data-env="hom"]');
+    await p.waitForSelector('#api-envs-list .env-chip.active[data-env="hom"]');
+    assert.match(fs.readFileSync(envFile, "utf8"), /^current: hom/m, "a escolha fica no arquivo, com os comentários");
+    assert.match(fs.readFileSync(envFile, "utf8"), /# meus ambientes/);
+    await p.click('#api-envs-list .env-chip[data-env="ensaio"]');
+    await p.waitForSelector('#api-envs-list .env-chip.active[data-env="ensaio"]');
+    assert.match(fs.readFileSync(envFile, "utf8"), /^current: hom/m, "o embutido não vai para o arquivo");
+    await p.click("#btn-api-envs-cancel");
+    assert.equal(await p.isVisible("#modal-api-envs"), false);
   });
 
   await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
