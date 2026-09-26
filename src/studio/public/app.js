@@ -1695,6 +1695,7 @@
     if (!state.deck || !state.deck.slides) return;
     thumbObserver?.disconnect();
     thumbQueue.length = 0;
+    bindSlideListKeys();
     dom.thumbnailsList.innerHTML = "";
     dom.slideCount.textContent = state.deck.slides.length;
 
@@ -1743,7 +1744,7 @@
       });
       card.appendChild(actions);
 
-      card.addEventListener("click", () => selectSlide(idx));
+      card.addEventListener("click", () => { selectSlide(idx); dom.thumbnailsList.focus({ preventScroll: true }); });
       // arrastar para reordenar
       card.draggable = true;
       card.addEventListener("dragstart", (e) => {
@@ -2022,17 +2023,42 @@
     showToast(`Slide duplicado na posição ${at + 1}`);
   }
 
+  // Delete/Backspace com o foco na lista de slides (à esquerda) exclui o slide selecionado. Só ali: digitando
+  // num campo ou mexendo num elemento do slide, as teclas continuam fazendo o que já faziam.
+  function bindSlideListKeys() {
+    if (dom.thumbnailsList._keys) return;
+    dom.thumbnailsList._keys = true;
+    dom.thumbnailsList.tabIndex = 0;
+    dom.thumbnailsList.setAttribute("aria-label", "Slides (Delete exclui o selecionado)");
+    dom.thumbnailsList.addEventListener("keydown", (e) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+      e.preventDefault();
+      deleteCurrentSlide();
+      dom.thumbnailsList.focus({ preventScroll: true });
+    });
+  }
+
   function deleteCurrentSlide() {
     if (state.deck.slides.length <= 1) {
       showToast("Não é possível excluir o único slide da apresentação.");
       return;
     }
-    state.deck.slides.splice(state.currentSlideIndex, 1);
-    state.currentSlideIndex = Math.max(0, state.currentSlideIndex - 1);
+    const at = state.currentSlideIndex;
+    const [removed] = state.deck.slides.splice(at, 1);
+    state.currentSlideIndex = Math.max(0, at - 1);
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
-    showToast("Slide excluído.");
+    // sem desfazer geral no editor: o aviso devolve o slide no mesmo lugar
+    showToast(`Slide ${at + 1} excluído.`, 8000, { label: "Desfazer", fn: () => {
+      state.deck.slides.splice(Math.min(at, state.deck.slides.length), 0, removed);
+      state.currentSlideIndex = at;
+      syncDeckToServer();
+      renderThumbnails();
+      renderCurrentSlide();
+      showToast(`Slide ${at + 1} de volta.`);
+    } });
   }
 
   // ==========================================================================
@@ -2600,8 +2626,11 @@
     }
   }
 
-  function showToast(msg, duration = 3200) {
-    dom.toast.textContent = msg;
+  function showToast(msg, duration = 3200, action = null) {
+    if (action) {
+      dom.toast.innerHTML = `<span>${escHtml(msg)}</span><button type="button" class="toast-action" data-toast-undo>${escHtml(action.label)}</button>`;
+      dom.toast.querySelector("[data-toast-undo]").onclick = () => { dom.toast.classList.add("hidden"); action.fn(); };
+    } else dom.toast.textContent = msg;
     dom.toast.classList.remove("hidden");
     clearTimeout(dom.toast._timer);
     dom.toast._timer = setTimeout(() => {

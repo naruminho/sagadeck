@@ -806,3 +806,9 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 #api-envs-text { min-height: 260px; resize: vertical; white-space: pre; tab-size: 2; }
 .api-envs-status.err { color: var(--err); }
 .api-envs-status.ok { color: var(--ok, var(--text-2)); }
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast.hidden { display: none; }
+.toast-action { flex: none; padding: 4px 10px; border: 1px solid currentColor; border-radius: 5px; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.toast-action:hover { background: rgba(255, 255, 255, .12); }
+.thumb-list:focus { outline: none; }
+.thumb-list:focus-visible .thumb-card.active, .thumb-list:focus .thumb-card.active { box-shadow: 0 0 0 2px var(--brand); }
