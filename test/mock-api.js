@@ -83,6 +83,16 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
       if (content == null) return json(res, 400, { error: "mande path_id ou content (base64)" });
       return json(res, 200, { text: `lido: ${content}`, via: b.path_id ? "path_id" : "base64" });
     }
+    // "Embeddings": vetor de 64 números a partir das palavras (frases com palavras em comum ficam parecidas)
+    if (url.pathname === "/v1/embeddings" && req.method === "POST") {
+      const b = JSON.parse(raw || "{}");
+      const v = new Array(64).fill(0);
+      for (const w of String(b.input || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").match(/[a-z]+/g) || []) {
+        let h = 7; for (const ch of w) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+        v[h % 64] += 1; v[(h * 7) % 64] -= 0.3;
+      }
+      return json(res, 200, { object: "list", data: [{ embedding: v, index: 0 }], model: b.model || "emb-teste" });
+    }
     if (url.pathname === "/v1/headers") return json(res, 200, { recebidos: req.headers });
     if (url.pathname === "/v1/vaza") return json(res, 200, { debug: `seu token é ${auth}` });
     json(res, 404, { error: "não existe" });

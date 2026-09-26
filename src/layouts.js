@@ -274,8 +274,10 @@ export const LAYOUTS = {
     const bodyTxt = a.request.form ? Object.entries(a.request.form).map(([k, v]) => `${k}: ${v === "@file" ? "@" + (a.file ? String(a.file).split(/[\\/]/).pop() : "arquivo") : v}`).join("\n")
       : a.request.body == null ? "" : typeof a.request.body === "string" ? a.request.body : JSON.stringify(a.request.body, null, 2);
     const hdrTxt = Object.entries(a.request.headers).map(([k, v]) => `${k}: ${v}`).join("\n");
-    const tabs = [["body", "Corpo"], ["headers", "Cabeçalhos"], ...a.code.filter((c) => A.LANGS[c]).map((c) => [c, A.LANGS[c]])];
-    const first = tabs.some(([k]) => k === a.tab) ? a.tab : "body";
+    const tabs = [...(a.similarity ? [["texts", "Frases"]] : []), ["body", "Corpo"], ...(a.fields ? [["fields", "Parâmetros"]] : []), ["headers", "Cabeçalhos"], ...a.code.filter((c) => A.LANGS[c]).map((c) => [c, A.LANGS[c]])];
+    const first = tabs.some(([k]) => k === s.tab) ? s.tab : a.similarity ? "texts" : "body";
+    const fieldsPane = a.fields ? `<div class="api-fields" data-pane="fields"${first === "fields" ? "" : " hidden"}><table><thead><tr><th>Campo</th><th>Valor</th><th>O que faz</th></tr></thead><tbody>${Object.entries(a.fields).map(([k, why]) => { const v = A.get(a.request.body, k); return `<tr data-field="${esc(k)}"><td class="f-mono">${esc(k.replace(/^\$\.?/, ""))}</td><td class="f-mono api-fv">${v === undefined ? "—" : esc(JSON.stringify(v))}</td><td>${esc(why)}</td></tr>`; }).join("")}</tbody></table></div>` : "";
+    const textsPane = a.similarity ? `<div class="api-texts" data-pane="texts"${first === "texts" ? "" : " hidden"}><label class="f-label">Frase de referência</label><input class="api-edit-line" data-api-ref value="${esc(a.similarity.reference)}" spellcheck="false"><label class="f-label">Compare com (uma por linha)</label><textarea class="api-edit f-mono" data-api-texts spellcheck="false">${esc(a.similarity.texts.join("\n"))}</textarea></div>` : "";
     const codePane = (lang) => {
       const { code: txt, comments } = A.code(a, lang, {});
       const cm = new Set(comments);
@@ -302,6 +304,7 @@ export const LAYOUTS = {
           <div class="api-resolved f-mono" data-api-resolved></div>
           <div class="api-tabs" role="tablist">${tabs.map(([k, label]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === first}">${esc(label)}</button>`).join("")}</div>
           <div class="api-panes">
+            ${textsPane}${fieldsPane}
             <textarea class="api-edit f-mono" data-pane="body" data-api-body spellcheck="false" aria-label="Corpo"${a.request.form ? " readonly title=\"Formulário (multipart): campo: valor\"" : ""}${first === "body" ? "" : " hidden"}>${esc(bodyTxt)}</textarea>
             <textarea class="api-edit f-mono" data-pane="headers" data-api-headers spellcheck="false" aria-label="Cabeçalhos" placeholder="Nome: valor"${first === "headers" ? "" : " hidden"}>${esc(hdrTxt)}</textarea>
             ${a.code.filter((c) => A.LANGS[c]).map(codePane).join("")}

@@ -103,6 +103,14 @@
       answer: s.answer || null,
       save: s.save && typeof s.save === "object" ? s.save : {},
       tokenVar: s.tokenVar || "API_TOKEN",
+      // aba Parâmetros: { "caminho.no.corpo": "o que faz" } — a documentação que falta
+      fields: s.fields && typeof s.fields === "object" ? s.fields : null,
+      // embeddings: gera o vetor da referência e de cada frase e compara por cosseno
+      similarity: s.similarity ? {
+        vector: s.similarity.vector || "$.data[0].embedding",
+        reference: String(s.similarity.reference || ""),
+        texts: [].concat(s.similarity.texts || []).map(String),
+      } : null,
       code: [].concat(s.code || ["curl", "python", "python-comentado"]),
       tab: s.tab || "body",
       portal: s.portal || null,
@@ -292,15 +300,50 @@
     return L.out();
   }
 
+  // similaridade por cosseno: 1 = mesma direção (mesmo sentido), 0 = nada a ver
+  function cosine(a, b) {
+    let dot = 0, na = 0, nb = 0;
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+  }
+
+  // código da comparação de frases: uma função embedding(), o cosseno em Python puro e o laço
+  function pythonSimilarity(a, vars, explain) {
+    const L = Lines(explain);
+    const toPy = (v) => (v === "{{text}}" ? { __py: "texto" } : Array.isArray(v) ? v.map(toPy) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPy(x)])) : v);
+    const req = render({ ...a.request, body: toPy(a.request.body) }, vars);
+    L.add("import math\nimport os").blank().add("import requests", null, "requests faz as chamadas HTTP (pip install requests)").blank();
+    if (req.auth) L.add(`TOKEN = os.environ[${JSON.stringify(a.tokenVar)}]`, null, "o token de acesso vem de uma variável de ambiente").blank();
+    pyHeaders(L, a, req);
+    L.blank();
+    L.add("def embedding(texto):", "start", "transforma um texto num vetor de números (o embedding)");
+    L.add(pyCall("    r", req, ["timeout=60"], "    ").replace(/^    r = /, "    r = "), "start");
+    L.add("    r.raise_for_status()", "start");
+    L.add(`    return r.json()${pyPath(a.similarity.vector)}`, "start");
+    L.blank();
+    L.add("def cosseno(a, b):", null, "similaridade por cosseno: 1 = mesmo sentido, perto de 0 = nada a ver");
+    L.add("    produto = sum(x * y for x, y in zip(a, b))");
+    L.add("    return produto / (math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)))");
+    L.blank();
+    L.add(`referencia = embedding(${JSON.stringify(a.similarity.reference)})`, "start", "o vetor da frase de referência");
+    L.add(`print(len(referencia), "números")`, "start");
+    L.add(`for frase in ${pyLiteral(a.similarity.texts)}:`, "poll", "compara cada frase com a referência");
+    L.add('    print(f"{cosseno(referencia, embedding(frase)):.2f}  {frase}")', "poll");
+    return L.out();
+  }
+
   const LANGS = { curl: "curl", python: "Python", "python-comentado": "Python comentado" };
   function code(slide, lang, vars) {
     const a = slide && slide._normalized ? slide : normalize(slide);
+    if (a.similarity && lang !== "curl") return pythonSimilarity(a, vars || {}, lang === "python-comentado");
+    if (a.similarity && lang === "curl") return curl(a, Object.assign({}, vars, { text: a.similarity.reference }));
     if (lang === "curl") return curl(a, vars || {});
     return python(a, vars || {}, lang === "python-comentado");
   }
 
   // o slide mexe com arquivo? (upload @file ou {{file.…}})
   const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
-  const api = { usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
+  const api = { cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
   g.SagadeckApiCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

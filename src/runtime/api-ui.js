@@ -73,12 +73,17 @@
     let req;
     try { req = readReq(root); } catch { req = cfg.request; }
     const a = Object.assign({}, cfg, { request: req });
+    if (cfg.similarity) {
+      const ref = $("[data-api-ref]", root), txt = $("[data-api-texts]", root);
+      a.similarity = Object.assign({}, cfg.similarity, { reference: ref ? ref.value : cfg.similarity.reference, texts: txt ? txt.value.split("\n").map((t) => t.trim()).filter(Boolean) : cfg.similarity.texts });
+    }
     $$(".api-code", root).forEach((pane) => {
       const out = C.code(a, pane.dataset.pane, Object.assign(vars(), root._file ? { "file.name": root._file.name } : {}));
       const cm = new Set(out.comments);
       pane._marks = out.marks;
       pane.innerHTML = out.code.split("\n").map((l, i) => `<div class="cl${cm.has(i + 1) ? " cm" : ""}" data-ln="${i + 1}"><span class="cn">${i + 1}</span><span class="cc">${esc(l) || " "}</span></div>`).join("");
     });
+    $$("[data-field]", root).forEach((tr) => { const v = req.body === undefined ? undefined : C.get(req.body, tr.dataset.field); const td = $(".api-fv", tr); if (td) td.textContent = v === undefined ? "—" : JSON.stringify(v); });
     // o endereço de verdade, embaixo do que tem {{variáveis}}
     const res = $("[data-api-resolved]", root);
     if (res) {
@@ -313,6 +318,51 @@
     return { mode: "stream", env: STATE.current, stream: { status: up, text: text || raw, ms, pieces: n } };
   }
 
+  // ---------- embeddings: vetor e similaridade por cosseno ----------
+  const pct = (x) => Math.max(0, Math.min(100, x * 100)).toFixed(1) + "%";
+  const num = (x) => x.toFixed(2).replace(".", ",");
+  function vecHTML(preview, dims) {
+    const max = Math.max(1e-9, ...preview.map((v) => Math.abs(v)));
+    return `<div class="api-vec">${preview.map((v, k) => `<i style="--k:${k};background:hsl(${v < 0 ? 212 : 24} 85% ${Math.round(92 - (Math.abs(v) / max) * 46)}%)" title="${v}"></i>`).join("")}</div><div class="api-sim-l">vetor com ${Number(dims).toLocaleString("pt-BR")} números · os ${preview.length} primeiros (azul negativo, laranja positivo)</div>`;
+  }
+  function simBox(root, sim) {
+    let box = $(".api-sim", root);
+    if (!box) { box = document.createElement("div"); box.className = "api-sim"; out(root).appendChild(box); }
+    box.innerHTML = `<div class="api-sim-ref"><div class="f-label">referência</div><div class="api-sim-t">${esc(sim.reference)}</div>${sim.preview ? vecHTML(sim.preview, sim.dims) : ""}</div>` +
+      sim.items.map((it) => `<div class="api-sim-row" data-score="${it.score}"><div class="api-sim-t">${esc(it.text)}</div><div class="api-sim-bar"><i style="--w:0%"></i></div><b>${it.score == null ? "…" : num(it.score)}</b></div>`).join("");
+    const best = Math.max(...sim.items.map((it) => (it.score == null ? -Infinity : it.score)));
+    requestAnimationFrame(() => $$(".api-sim-row", box).forEach((row, i) => {
+      const sc = sim.items[i].score;
+      if (sc != null) { $("i", row).style.setProperty("--w", pct(sc)); row.classList.toggle("win", sim.items.length > 1 && sc === best && sim.done); }
+    }));
+  }
+  async function runSimilarity(root, req) {
+    const cfg = root._cfg;
+    const ref = ($("[data-api-ref]", root) || {}).value || cfg.similarity.reference;
+    const texts = (($("[data-api-texts]", root) || {}).value || cfg.similarity.texts.join("\n")).split("\n").map((t) => t.trim()).filter(Boolean);
+    if (!ref.trim() || !texts.length) throw new Error("Escreva a frase de referência e pelo menos uma para comparar (aba Frases).");
+    const embed = async (t) => {
+      const r = await call("api/http/send", payload(root, C.render(req, { text: t })));
+      if (!r.ok) { showResult(root, r); throw new Error(`O serviço respondeu ${r.status}.`); }
+      const v = C.get(r.body, cfg.similarity.vector);
+      if (!Array.isArray(v) || !v.length) throw new Error(`A resposta não tem o vetor em ${cfg.similarity.vector}.`);
+      return { v, r };
+    };
+    const t0 = performance.now();
+    light(root, "start");
+    const first = await embed(ref);
+    const sim = { reference: ref, dims: first.v.length, preview: first.v.slice(0, 48).map((x) => +Number(x).toFixed(4)), items: texts.map((t) => ({ text: t, score: null })) };
+    simBox(root, sim);
+    light(root, "poll");
+    for (const it of sim.items) { pulse(root); it.score = C.cosine(first.v, (await embed(it.text)).v); simBox(root, sim); }
+    sim.done = true;
+    sim.items.sort((a, b) => b.score - a.score);
+    simBox(root, sim);
+    light(root, "done");
+    status(root, statusBar(first.r, `<span class="api-meta">${texts.length + 1} embeddings · ${fmtMs(performance.now() - t0)}</span>`));
+    return { mode: "similarity", env: STATE.current, sim };
+  }
+
   function keep(root, rec) {
     const cfg = root._cfg;
     const body = rec.final ? rec.final.body : rec.result ? rec.result.body : null;
@@ -342,14 +392,14 @@
     }
     let req;
     try { req = C.render(readReq(root), vars()); } catch (e) { clearOut(root); return showError(root, e.message); }
-    const miss = C.missing(req, {}).filter((m) => !/^(file|secret)\./.test(m));
+    const miss = C.missing(req, {}).filter((m) => !/^(file|secret)\./.test(m) && !(cfg.similarity && m === "text"));
     if (miss.length) { clearOut(root); return showError(root, `Falta ${miss.map((m) => "{{" + m + "}}").join(", ")}: defina em vars do ambiente, ou execute antes o slide que guarda esse valor (save:).`); }
     root._running = true;
     btn.disabled = true; label(root, "Executando…");
     root.classList.add("running");
     clearOut(root);
     try {
-      const rec = cfg.mode === "polling" ? await runPolling(root, req) : cfg.mode === "stream" ? await runStream(root, req) : await runSync(root, req);
+      const rec = cfg.similarity ? await runSimilarity(root, req) : cfg.mode === "polling" ? await runPolling(root, req) : cfg.mode === "stream" ? await runStream(root, req) : await runSync(root, req);
       if (rec) {
         keep(root, rec);
         STATE.recordings[cfg.key] = Object.assign({ at: new Date().toISOString() }, rec);
@@ -370,6 +420,12 @@
     const badge = `<span class="api-rec">gravado ${esc(when(rec.at))}${rec.env ? " · " + esc(String(rec.env).toUpperCase()) : ""}</span>`;
     clearOut(root);
     const wait = (ms) => (animate ? sleep(Math.min(ms, 900)) : Promise.resolve());
+    if (rec.mode === "similarity" && rec.sim) {
+      light(root, "done");
+      simBox(root, Object.assign({}, rec.sim, { done: true }));
+      status(root, `<span class="api-meta">${rec.sim.items.length + 1} embeddings</span>${badge}`);
+      return;
+    }
     if (rec.mode === "polling" && rec.final) {
       light(root, "start");
       row(root, "início", `${rec.start ? rec.start.status : ""} · execução ${C.get(rec.start && rec.start.body, root._cfg.polling.id) ?? ""}`, "start");
@@ -401,7 +457,7 @@
     $$("[data-tab]", root).forEach((b) => { b.onclick = () => showTab(root, b.dataset.tab); });
     $("[data-api-run]", root).onclick = () => run(root);
     $("[data-api-env]", root).onclick = (e) => envMenu(root, e.currentTarget);
-    ["[data-api-url]", "[data-api-body]", "[data-api-headers]"].forEach((sel) => { const el = $(sel, root); if (el) el.addEventListener("input", () => paintCode(root)); });
+    ["[data-api-url]", "[data-api-body]", "[data-api-headers]", "[data-api-ref]", "[data-api-texts]"].forEach((sel) => { const el = $(sel, root); if (el) el.addEventListener("input", () => paintCode(root)); });
     // Enter/espaço num botão do slide não avançam a apresentação
     const zone = $("[data-api-file]", root);
     if (zone) {
