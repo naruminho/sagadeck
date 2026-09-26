@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from typing import Iterator, Sequence
 
 # comandos do motor que podem usar o LLM
-AI_COMMANDS = {"studio", "web", "new", "napkin", "visual", "imagens", "images"}
+AI_COMMANDS = {"studio", "web", "ensaio-api", "new", "napkin", "visual", "imagens", "images"}
 DEFAULT_PORT = 8765  # porta padrão do `modelrelay serve`, onde o motor procura primeiro
 
 
