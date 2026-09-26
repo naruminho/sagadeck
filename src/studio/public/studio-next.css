@@ -1,4 +1,41 @@
 /* Um estúdio silencioso em volta de um palco expressivo. */
+.shot-dialog{margin:auto;width:min(1200px,96vw);height:min(800px,94dvh);max-width:96vw;max-height:94dvh;border:1px solid var(--ui-line);border-radius:18px;padding:0;background:var(--chrome);color:var(--text);box-shadow:0 30px 100px #0005;font:13px var(--font-sans)}
+.shot-dialog[open]{display:flex;flex-direction:column}
+.shot-dialog::backdrop{background:#14101c99;backdrop-filter:blur(4px)}
+.shot-dialog header{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;border-bottom:1px solid var(--ui-line)}
+.shot-dialog header small{color:var(--brand);letter-spacing:.14em;font-size:10px;font-weight:700}
+.shot-dialog h2{font-size:25px;letter-spacing:-.035em;font-weight:600;margin-top:5px}
+.shot-dialog button{padding:9px 13px;border-radius:8px;border:1px solid var(--ui-line);background:var(--chrome);color:var(--text);cursor:pointer}
+.shot-dialog button:hover{background:var(--hover)}
+.shot-dialog button:disabled{opacity:.35;cursor:default}
+.shot-tools{display:flex;align-items:center;gap:8px;padding:12px 24px;flex-wrap:wrap}
+.shot-divider{height:25px;width:1px;background:var(--ui-line);margin:0 5px}
+.shot-tools [aria-pressed=true]{background:var(--selected);border-color:var(--brand);color:var(--brand)}
+.shot-hint{font-size:11px;color:var(--text-2);margin-left:auto}
+.shot-work{display:grid;grid-template-columns:minmax(0,1fr) 280px;flex:1;min-height:0;border-top:1px solid var(--ui-line)}
+.shot-stage{display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;background:var(--canvas-bg);background-image:radial-gradient(var(--ui-line-strong) .6px,transparent .6px);background-size:16px 16px}
+.shot-empty{display:flex;flex-direction:column;text-align:center;gap:12px;padding:24px;color:var(--text-2)}
+.shot-empty b{font-size:23px;color:var(--text);font-weight:500}.shot-empty small{font-size:11px}
+.shot-dialog [hidden]{display:none!important}
+.shot-image-wrap{position:relative;flex-shrink:0;touch-action:none;user-select:none;cursor:crosshair;box-shadow:0 12px 50px #0002}
+.shot-image-wrap img{width:100%;height:100%;display:block;pointer-events:none}
+.shot-marks{position:absolute;inset:0;pointer-events:none}
+.shot-dialog .shot-mark{position:absolute;pointer-events:auto;background:#7352c72a;border:2px solid #a78bfa;color:#fff;padding:0;text-shadow:0 1px 3px #000;font-weight:700;touch-action:none;cursor:move;min-width:0;border-radius:5px}
+.shot-dialog .shot-mark.point{transform:translate(-50%,-50%);border-radius:50%;background:#7352c7;box-shadow:0 0 0 5px #7352c740}
+.shot-dialog .shot-mark.active{outline:2px solid #fff;outline-offset:2px}
+.shot-work aside{padding:20px;overflow-y:auto;border-left:1px solid var(--ui-line)}
+.shot-dialog label{display:block;font-size:11px;color:var(--text-2);margin-bottom:13px}
+.shot-dialog input:not([type=file]),.shot-dialog textarea{display:block;width:100%;padding:9px 10px;margin-top:6px;border:1px solid var(--ui-line-strong);border-radius:7px;background:var(--chrome);color:var(--text);font:13px var(--font-sans)}
+.shot-dialog textarea{resize:vertical;max-height:180px}
+.shot-steps-head{display:flex;justify-content:space-between;margin:20px 0 9px;font-size:11px}
+.shot-dialog .shot-step{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;padding:10px;margin-bottom:5px;font-size:12px}
+.shot-dialog .shot-step.active{color:var(--brand);background:var(--selected);border-color:var(--brand)}
+.shot-fields{margin-top:16px}.shot-order{display:flex;gap:5px}.shot-order button{font-size:11px;padding:7px 10px}
+.shot-tip{font-size:11px;color:var(--text-3);line-height:1.6;margin-top:20px}
+.shot-dialog footer{display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:14px 24px;border-top:1px solid var(--ui-line)}
+.shot-status{flex:1;font-size:11px;color:var(--text-2)}
+.shot-dialog .shot-primary{background:var(--brand-fill);color:white;border-color:transparent}
+@media(max-width:760px){.shot-dialog header{padding:16px}.shot-dialog h2{font-size:20px}.shot-tools{padding:10px}.shot-hint{width:100%;margin:0}.shot-work{grid-template-columns:1fr;overflow-y:auto;display:block}.shot-stage{height:320px;min-height:260px}.shot-work aside{border-left:0;border-top:1px solid var(--ui-line);overflow:visible}.shot-dialog footer{padding:12px;flex-wrap:wrap}.shot-status{flex-basis:100%}.shot-dialog{height:94dvh}}
 :root {
   --chrome: #fffefa; --chrome-2: #f6f5f1; --canvas-bg: #eeede8;
   --text: #25242b; --text-2: #686670; --text-3: #77757e;

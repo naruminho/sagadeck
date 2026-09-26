@@ -1923,7 +1923,46 @@
       box.querySelector(".scene-render").style.transform = `scale(${box.clientWidth / 1920})`;
     });
   }
+  async function editScreenshot(existing = null, file) {
+    if (!state.deck || document.querySelector(".shot-dialog")) return;
+    const targetDeck = state.deck;
+    const at = state.currentSlideIndex;
+    const result = await window.ScreenshotEditor.open(existing || {}, file);
+    if (!result || state.deck !== targetDeck) return;
+    if (existing) {
+      const index = state.deck.slides.indexOf(existing);
+      if (index < 0) return;
+      state.deck.slides[index] = result;
+      state.currentSlideIndex = index;
+    } else {
+      state.deck.slides.splice(at + 1, 0, result);
+      state.currentSlideIndex = at + 1;
+    }
+    await syncDeckToServer();
+    renderThumbnails();
+    await renderCurrentSlide();
+    openPane("props");
+    showToast("Screenshot pronto. Use Apresentar para percorrer os destaques.");
+  }
   function setupCreativeTools() {
+    const shotButton = document.createElement("button");
+    shotButton.id = "btn-screenshot";
+    shotButton.className = "rbtn rbtn-lg";
+    shotButton.innerHTML = '<i class="ic" data-ic="image"></i><span>Screenshot</span>';
+    shotButton.title = "Cole uma imagem e marque onde olhar";
+    document.getElementById("btn-scenes").after(shotButton);
+    hydrateIcons(shotButton);
+    shotButton.onclick = () => editScreenshot();
+    document.addEventListener("paste", e => {
+      if (document.querySelector("dialog[open]") || e.target.closest("input, textarea, [contenteditable='true']")) return;
+      const item = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith("image/"));
+      if (item) { e.preventDefault(); editScreenshot(null, item.getAsFile()); }
+    });
+    dom.renderedSlideContainer.addEventListener("dragover", e => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
+    dom.renderedSlideContainer.addEventListener("drop", e => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file?.type.startsWith("image/")) { e.preventDefault(); e.stopPropagation(); editScreenshot(null, file); }
+    });
     document.getElementById("btn-scenes").onclick = openSceneLibrary;
     document.getElementById("scene-close").onclick = closeSceneLibrary;
     sceneModal().onclick = e => { if (e.target === sceneModal()) closeSceneLibrary(); };
@@ -2105,6 +2144,7 @@
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
       generateImage: (_el, btn) => generateSlideImages(btn),
+      editScreenshot: (slide) => editScreenshot(slide),
     });
     hydrateIcons(dom.slideFieldsForm);
     pane.scrollTop = scroll;
@@ -3325,6 +3365,8 @@
     // Drag & Drop de arquivo .yaml / .yml em qualquer lugar da tela
     let dragCounter = 0;
     window.addEventListener("dragenter", (e) => {
+      if (document.querySelector("dialog[open]")) return;
+      if ([...(e.dataTransfer?.items || [])].some(i => i.type.startsWith("image/"))) { e.preventDefault(); return; }
       e.preventDefault();
       dragCounter++;
       dom.dropOverlay.classList.remove("hidden");
@@ -3346,7 +3388,11 @@
       dom.dropOverlay.classList.add("hidden");
       const dt = e.dataTransfer;
       const images = [...(dt?.files || [])].filter((f) => f.type.startsWith("image/"));
-      if (images.length) { images.forEach(addChatImage); return; }
+      if (images.length) {
+        if (e.target.closest("#tab-panel-chat")) images.forEach(addChatImage);
+        else editScreenshot(null, images[0]);
+        return;
+      }
       if (dt && dt.files && dt.files.length > 0) {
         const file = dt.files[0];
         if (/\.(ya?ml|txt)$/i.test(file.name)) {
