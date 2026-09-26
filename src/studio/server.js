@@ -1,6 +1,7 @@
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import http from "node:http";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,8 @@ import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { varietyReport } from "../ai/variety.js";
 import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
+import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
+import { slideSnapshots } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -28,57 +31,77 @@ const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u0
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function createStudioServer(deckPath = null, opts = {}) {
-  let currentFile = deckPath ? path.resolve(deckPath) : null;
-  let currentSpec = null;
-
-  if (currentFile && fs.existsSync(currentFile)) {
-    try {
-      currentSpec = loadSpec(currentFile);
-    } catch (e) {
-      console.warn(`[Studio] Aviso ao carregar ${currentFile}: ${e.message}`);
-    }
-  }
-
-  if (!currentSpec) {
-    // Carregar deck padrão de exemplo se não foi passado nenhum arquivo
+  // Área de trabalho: o que cada pessoa tem aberto (deck, arquivo, última prévia) + a biblioteca dela.
+  // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou ~/sagadeck.
+  // Modo multiusuário (servidor atrás do BabsDeck): uma área por usuário, biblioteca <raiz>/usuarios/<usuário>.
+  const libraryRoot = path.resolve(opts.library || defaultLibraryRoot());
+  const workspaces = new Map();
+  function sampleSpec() {
     const samplePath = TEMPLATE_DIRS.map((d) => path.join(d, "exemplo.yaml")).find((f) => fs.existsSync(f)) || "";
-    if (fs.existsSync(samplePath)) {
-      currentSpec = loadSpec(samplePath);
-      currentFile = samplePath;
-    } else {
-      currentSpec = {
-        title: "Minha Apresentação",
-        theme: "sinal",
-        duration: 15,
+    if (samplePath) return { spec: loadSpec(samplePath), file: samplePath };
+    return {
+      file: null,
+      spec: {
+        title: "Minha Apresentação", theme: "sinal", duration: 15,
         slides: [
           { layout: "cover", title: "Título da Apresentação", subtitle: "Criado com SagaDeck", author: "Seu Nome" },
           { layout: "statement", kicker: "Destaque", text: "Uma ideia forte por slide muda tudo." },
         ],
-      };
+      },
+    };
+  }
+  function newWorkspace(user) {
+    const W = { user, library: openLibrary(user ? path.join(libraryRoot, "usuarios", safeName(user, "usuario")) : libraryRoot),
+      file: null, spec: null, lastPreview: { ok: true, error: null, warnings: [] } };
+    Object.assign(W, sampleSpec());
+    return W;
+  }
+  const localWs = newWorkspace(null);
+  if (deckPath) {
+    const f = path.resolve(deckPath);
+    if (fs.existsSync(f)) {
+      try { localWs.spec = loadSpec(f); localWs.file = f; }
+      catch (e) { console.warn(`[Studio] Aviso ao carregar ${f}: ${e.message}`); }
+    } else {
+      localWs.file = f; // arquivo novo: nasce do exemplo e é salvo aí
     }
   }
-
-  let lastPreview = { ok: true, error: null, warnings: [] }; // resultado do último /preview
+  workspaces.set("", localWs);
+  // quem é: no modo multiusuário, o cabeçalho que o proxy (nginx + BabsDeck) põe; senão, a área local
+  const USER_HEADER = String(opts.userHeader || "x-sagadeck-user").toLowerCase();
+  function workspaceOf(req) {
+    if (!opts.multiuser) return localWs;
+    const user = String(req.headers[USER_HEADER] || "").trim();
+    if (!user) return null;
+    if (!workspaces.has(user)) workspaces.set(user, newWorkspace(user));
+    return workspaces.get(user);
+  }
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
-  function persist() {
-    if (!currentFile || isBundledTemplate(currentFile)) return;
-    try { fs.writeFileSync(currentFile, toYaml(currentSpec), "utf8"); } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
+  function persist(W) {
+    if (!W.file || isBundledTemplate(W.file)) return;
+    try { fs.writeFileSync(W.file, toYaml(W.spec), "utf8"); } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
   }
 
   // Onde a IA grava imagens geradas: pasta "imagens" ao lado do deck (ou na pasta atual, se o deck é um exemplo).
-  function imageOptions(spec) {
-    const deckDir = currentFile && !isBundledTemplate(currentFile) ? path.dirname(currentFile) : process.cwd();
+  function imageOptions(W, spec) {
+    const deckDir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : process.cwd();
     return { baseDir: spec._dir || deckDir, assetsDir: path.join(deckDir, "imagens") };
   }
 
-  function withBase(spec) {
-    if (!spec._dir && currentFile) return { ...spec, _dir: path.dirname(currentFile), _file: currentFile };
+  function withBase(W, spec) {
+    if (!spec._dir && W.file) return { ...spec, _dir: path.dirname(W.file), _file: W.file };
     return spec;
   }
 
   const server = http.createServer(async (req, res) => {
+    const W = workspaceOf(req);
+    if (!W) { // multiusuário sem o cabeçalho do proxy: ninguém autenticado
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "sessão ausente: entre pelo portal" }));
+      return;
+    }
     // Headers completos para permitir embedding seguro em iframes no Arena e navegadores mobile
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, HEAD");
@@ -95,7 +118,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       return;
     }
 
-    if (req.method === "HEAD" && (pathname === "/" || pathname === "/index.html")) {
+    if (req.method === "HEAD" && (pathname === "/" || pathname === "/index.html" || pathname === "/editor" || pathname === "/biblioteca")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end();
       return;
@@ -129,8 +152,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
       }
 
-      if (pathname === "/" || pathname === "/index.html") {
-        const html = fs.readFileSync(path.join(PUBLIC_DIR, "index.html"), "utf8");
+      // "/" = biblioteca; com um deck passado na linha de comando ("sagadeck studio x.yaml"), "/" é o editor dele
+      const page = pathname === "/biblioteca" ? "library.html" : pathname === "/editor" || pathname === "/index.html" ? "index.html"
+        : pathname === "/" ? (deckPath ? "index.html" : "library.html") : null;
+      if (page) {
+        const html = fs.readFileSync(path.join(PUBLIC_DIR, page), "utf8");
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(html);
         return;
@@ -146,7 +172,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -157,15 +183,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/preview") {
         let out;
         try {
-          out = buildHTML(currentSpec);
+          out = buildHTML(W.spec);
         } catch (e) {
-          lastPreview = { ok: false, error: e.message, warnings: [] };
+          W.lastPreview = { ok: false, error: e.message, warnings: [] };
           res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
           res.end(`Não consegui montar a apresentação: ${e.message}`);
           return;
         }
         // avisos de montagem (ex.: CSS/widget ao lado do YAML que não foi achado) para o Studio mostrar
-        lastPreview = { ok: true, error: null, warnings: out.warnings.filter((w) => !/palavras \(limite/.test(w)) };
+        W.lastPreview = { ok: true, error: null, warnings: out.warnings.filter((w) => !/palavras \(limite/.test(w)) };
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(out.html);
         return;
@@ -173,18 +199,18 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/preview-status") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(lastPreview));
+        res.end(JSON.stringify(W.lastPreview));
         return;
       }
 
       // 3. API Endpoints
       if (pathname === "/api/deck" && req.method === "GET") {
-        const rawYaml = toYaml(currentSpec); // sem os campos internos (_dir, _file)
+        const rawYaml = toYaml(W.spec); // sem os campos internos (_dir, _file)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          spec: currentSpec,
+          spec: W.spec,
           yaml: rawYaml,
-          file: currentFile,
+          file: W.file,
           themes: Object.keys(THEMES),
           // para a galeria de temas: nome curto + cores de fundo, texto e destaque
           themeMeta: Object.fromEntries(Object.entries(THEMES).map(([k, t]) => [k, {
@@ -204,26 +230,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const parsed = YAML.parse(body.yaml);
             if (!parsed || !Array.isArray(parsed.slides)) throw new Error('falta a lista "slides:"');
             // o YAML editado não traz os campos internos: mantém a pasta do deck (imagens, CSS, widgets)
-            const keep = body.source === "browser-file" ? {} : Object.fromEntries(Object.entries(currentSpec || {}).filter(([k]) => k.startsWith("_")));
-            currentSpec = { ...parsed, ...keep };
+            const keep = body.source === "browser-file" ? {} : Object.fromEntries(Object.entries(W.spec || {}).filter(([k]) => k.startsWith("_")));
+            W.spec = { ...parsed, ...keep };
           } catch (e) {
             res.writeHead(400, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "YAML inválido: " + e.message }));
             return;
           }
         } else if (body.spec) {
-          currentSpec = body.spec;
+          W.spec = body.spec;
         }
         if (body.filepath) {
-          currentFile = path.resolve(body.filepath);
+          W.file = path.resolve(body.filepath);
         } else if (body.source === "browser-file") {
           // Deck aberto pelo navegador (seletor/arrastar): o servidor não sabe o caminho dele.
           // Esquece o arquivo anterior — senão as edições deste deck iam parar por cima daquele.
-          currentFile = null;
+          W.file = null;
         }
-        if (body.saveToFile !== false) persist();
+        if (body.saveToFile !== false) persist(W);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
+        res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file }));
         return;
       }
 
@@ -241,15 +267,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
           return;
         }
         try {
-          currentSpec = loadSpec(targetPath);
-          currentFile = targetPath;
-          const rawYaml = toYaml(currentSpec);
+          W.spec = loadSpec(targetPath);
+          W.file = targetPath;
+          const rawYaml = toYaml(W.spec);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
             ok: true,
-            spec: currentSpec,
+            spec: W.spec,
             yaml: rawYaml,
-            file: currentFile,
+            file: W.file,
           }));
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
@@ -263,14 +289,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/api/ai/slide-images" && req.method === "POST") {
         const body = await readJSON(req);
         const i = Number(body.index);
-        const slide = currentSpec?.slides?.[i];
+        const slide = W.spec?.slides?.[i];
         const send = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
         if (!slide) return send(404, { error: "slide não existe" });
         try {
-          const wrapper = { ...withBase(currentSpec), slides: [slide] };
-          const r = await materializeImages(wrapper, { ...imageOptions(wrapper), keepFailed: true });
-          persist();
-          send(r.done.length || !r.failed.length ? 200 : 502, { ok: !!r.done.length, done: r.done.length, failed: r.failed, error: r.failed[0]?.error, spec: currentSpec });
+          const wrapper = { ...withBase(W, W.spec), slides: [slide] };
+          const r = await materializeImages(wrapper, { ...imageOptions(W, wrapper), keepFailed: true });
+          persist(W);
+          send(r.done.length || !r.failed.length ? 200 : 502, { ok: !!r.done.length, done: r.done.length, failed: r.failed, error: r.failed[0]?.error, spec: W.spec });
         } catch (e) {
           send(500, { error: e.message });
         }
@@ -279,7 +305,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/slide-yaml" && req.method === "GET") {
         const i = Number(url.searchParams.get("i"));
-        const slide = currentSpec?.slides?.[i];
+        const slide = W.spec?.slides?.[i];
         res.writeHead(slide ? 200 : 404, { "Content-Type": "application/json" });
         res.end(JSON.stringify(slide ? { yaml: YAML.stringify(slide, { indent: 2 }) } : { error: "slide não existe" }));
         return;
@@ -293,26 +319,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (Array.isArray(raw)) raw = raw[0];
           if (!raw || typeof raw !== "object") throw new Error("o slide precisa ser um objeto (ex.: layout: statement)");
           slide = normalizeSpec({ slides: [raw] }).slides[0];
-          renderSlide(slide, i, currentSpec); // valida: layout existe, elementos reconhecidos
+          renderSlide(slide, i, W.spec); // valida: layout existe, elementos reconhecidos
         } catch (e) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
           return;
         }
-        currentSpec.slides[i] = slide;
-        persist();
+        W.spec.slides[i] = slide;
+        persist(W);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile }));
+        res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file }));
         return;
       }
 
       // Galeria de layouts: um exemplo de cada, desenhado no tema do deck (cache por tema)
       if (pathname === "/api/layout-previews") {
         const { LAYOUT_INFO, LAYOUT_SAMPLES } = await import("./layout-samples.js");
-        const theme = currentSpec?.theme || "sinal";
-        const key = `${theme}|${currentSpec?.markStyle || ""}`;
+        const theme = W.spec?.theme || "sinal";
+        const key = `${theme}|${W.spec?.markStyle || ""}`;
         if (!layoutPreviewCache.has(key)) {
-          const spec = { theme, markStyle: currentSpec?.markStyle, title: "", footer: false, slides: [] };
+          const spec = { theme, markStyle: W.spec?.markStyle, title: "", footer: false, slides: [] };
           const out = {};
           for (const [name, sample] of Object.entries(LAYOUT_SAMPLES)) {
             try { out[name] = renderSlide(sample, 0, spec).html; } catch (e) { out[name] = ""; }
@@ -327,7 +353,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/render-slide" && req.method === "POST") {
         const { slide, index, spec } = await readJSON(req);
-        const deckSpec = spec || currentSpec;
+        const deckSpec = spec || W.spec;
         const rendered = renderSlide(slide, index ?? 0, deckSpec);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(rendered));
@@ -355,7 +381,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/api/variety" && req.method === "POST") {
         const body = await readJSON(req);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(varietyReport(body.spec || currentSpec)));
+        res.end(JSON.stringify(varietyReport(body.spec || W.spec)));
         return;
       }
 
@@ -376,7 +402,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         let notice = "";
         if (body.mode !== "rules" && body.text && await llmAvailable()) {
           try {
-            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(withBase(currentSpec)) });
+            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(W, withBase(W, W.spec)) });
             mode = "llm";
           } catch (e) {
             notice = `A IA falhou (${e.message}); usei as regras locais.`;
@@ -401,21 +427,21 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/autofix" && req.method === "POST") {
         const { slideIndex, spec, issues } = await readJSON(req);
-        const targetSpec = spec || currentSpec;
+        const targetSpec = spec || W.spec;
         if (typeof slideIndex === "number" && targetSpec.slides[slideIndex]) {
           const resFix = autofixSlide(targetSpec.slides[slideIndex], targetSpec, issues || []);
           targetSpec.slides[slideIndex] = resFix.slide;
-          if (currentFile) {
-            try { fs.writeFileSync(currentFile, YAML.stringify(targetSpec, { indent: 2 })); } catch {}
+          if (W.file) {
+            try { fs.writeFileSync(W.file, YAML.stringify(targetSpec, { indent: 2 })); } catch {}
           }
-          currentSpec = targetSpec;
+          W.spec = targetSpec;
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, slide: resFix.slide, actions: resFix.actions, spec: targetSpec }));
         } else {
           const resDeck = autofixDeck(targetSpec, issues || []);
-          currentSpec = resDeck.spec;
-          if (currentFile) {
-            try { fs.writeFileSync(currentFile, YAML.stringify(currentSpec, { indent: 2 })); } catch {}
+          W.spec = resDeck.spec;
+          if (W.file) {
+            try { fs.writeFileSync(W.file, YAML.stringify(W.spec, { indent: 2 })); } catch {}
           }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, ...resDeck }));
@@ -464,7 +490,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           return;
         }
         // Arquivo novo na pasta do deck aberto (ou na pasta atual), sem sobrescrever nada.
-        const dir = currentFile && !isBundledTemplate(currentFile) ? path.dirname(currentFile) : process.cwd();
+        const dir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : process.cwd();
         await respond(res, body.stream, async (emit) => {
           const gen = await generateDeck(body.briefing, {
             theme: body.theme || undefined,
@@ -477,9 +503,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
           let target = path.join(dir, `${slugify(gen.spec.title)}.yaml`);
           for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${slugify(gen.spec.title)}-${n}.yaml`);
           fs.writeFileSync(target, toYaml(gen.spec), "utf8");
-          currentFile = target;
-          currentSpec = loadSpec(target);
-          return { ok: true, spec: currentSpec, file: currentFile, images: gen.images };
+          W.file = target;
+          W.spec = loadSpec(target);
+          return { ok: true, spec: W.spec, file: W.file, images: gen.images };
         });
         return;
       }
@@ -488,7 +514,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const body = await readJSON(req);
         const prompt = body.message || "";
         const slideIdx = typeof body.targetSlide === "number" ? body.targetSlide : 0;
-        const spec = body.spec || currentSpec;
+        const spec = body.spec || W.spec;
         const issues = body.issues || [];
 
         await respond(res, body.stream, async (emit) => {
@@ -497,17 +523,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (body.mode !== "rules" && await llmAvailable()) {
             try {
               const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
-              const visuals = await lookAt(withBase(spec), target, prompt, emit);
+              const visuals = await lookAt(withBase(W, spec), target, prompt, emit);
               for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
                 if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
               }
               result = await editDeck({
-                spec: withBase(spec),
+                spec: withBase(W, spec),
                 instruction: prompt,
                 targetSlide: target,
                 issues,
                 images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
-                imageOptions: imageOptions(withBase(spec)),
+                imageOptions: imageOptions(W, withBase(W, spec)),
                 history,
                 onProgress: emit,
                 visuals,
@@ -523,88 +549,125 @@ export function createStudioServer(deckPath = null, opts = {}) {
             result = handleAIChat({ prompt, slideIdx, spec, issues });
             result.mode = "rules";
           }
-          currentSpec = result.spec;
-          persist();
+          W.spec = result.spec;
+          persist(W);
           return result;
         });
         return;
       }
 
-      // Baixar a apresentação inteira: .sagadeck (YAML + imagens, CSS, widgets)
-      if (pathname === "/api/export/sagadeck") {
-        const spec = withBase(currentSpec);
-        const name = currentFile && !isBundledTemplate(currentFile) ? path.basename(currentFile).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
-        res.writeHead(200, {
-          "Content-Type": MIME,
-          "Content-Disposition": `attachment; filename="${slugify(name)}${EXTENSION}"; filename*=UTF-8''${encodeURIComponent(name + EXTENSION)}`,
-          "X-Sagadeck-Missing": encodeURIComponent(JSON.stringify(missing)),
-          "Access-Control-Expose-Headers": "X-Sagadeck-Missing",
-        });
-        res.end(zip);
-        return;
+      // ── Biblioteca (tópicos e apresentações da área de trabalho) ──
+      if (pathname.startsWith("/api/library")) {
+        const L = W.library;
+        const ok = (obj = {}) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, ...obj })); };
+        const fail = (e, code = 400) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: e.message || String(e) })); };
+        try {
+          if (pathname === "/api/library" && req.method === "GET") {
+            const openId = W.file && W.file.startsWith(L.root + path.sep) ? L.idOf(W.file) : null;
+            return ok({ ...L.list(), user: W.user, multiuser: !!opts.multiuser, open: openId });
+          }
+          if (pathname === "/api/library/cover" && req.method === "GET") {
+            const file = L.resolveId(url.searchParams.get("id"));
+            const st = fs.statSync(file);
+            const cacheDir = path.join(L.root, ".cache", "capas");
+            const cached = path.join(cacheDir, `${crypto.createHash("sha1").update(`${L.idOf(file)}|${st.mtimeMs}`).digest("hex")}.jpg`);
+            if (!fs.existsSync(cached)) {
+              const spec = loadSpec(file);
+              const [shot] = await slideSnapshots(spec, 0, { mode: "final", width: 480 });
+              fs.mkdirSync(cacheDir, { recursive: true });
+              fs.writeFileSync(cached, Buffer.from(shot.dataUrl.split(",")[1], "base64"));
+            }
+            res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=31536000" });
+            res.end(fs.readFileSync(cached));
+            return;
+          }
+          if (pathname === "/api/library/download" && req.method === "GET") {
+            const file = L.resolveId(url.searchParams.get("id"));
+            const kind = url.searchParams.get("kind") || "sagadeck";
+            if (!["sagadeck", "pptx", "pdf", "roteiro"].includes(kind)) throw new Error("formato inválido");
+            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""));
+            return;
+          }
+          if (pathname === "/api/library/import" && req.method === "POST") {
+            const id = await L.importPackage(await readBody(req), url.searchParams.get("topic") || "", url.searchParams.get("name") || "Importada");
+            return ok({ id });
+          }
+          if (req.method !== "POST") return fail(new Error("método não suportado"), 405);
+          const b = await readJSON(req);
+          switch (pathname) {
+            case "/api/library/topics": return ok({ id: L.createTopic(b.name, b.color) });
+            case "/api/library/topics/update": return ok({ id: L.updateTopic(b.id, b) });
+            case "/api/library/topics/delete": L.deleteTopic(b.id); return ok();
+            case "/api/library/decks": {
+              // nova: em branco (uma capa) — "com IA" usa /api/library/decks/ai
+              const title = String(b.title || "Nova apresentação").trim();
+              const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
+                slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              return ok({ id });
+            }
+            case "/api/library/decks/move": return ok({ id: L.moveDeck(b.id, b.topic || "") });
+            case "/api/library/decks/rename": {
+              const id = L.renameDeck(b.id, String(b.title || "").trim() || "Sem título");
+              if (W.file === L.resolveId(b.id)) { W.file = L.resolveId(id); W.spec = loadSpec(W.file); }
+              return ok({ id });
+            }
+            case "/api/library/decks/duplicate": return ok({ id: L.duplicateDeck(b.id) });
+            case "/api/library/decks/trash": return ok({ slot: L.trashDeck(b.id) });
+            case "/api/library/decks/restore": return ok({ id: L.restoreDeck(b.slot) });
+            case "/api/library/decks/purge": L.purgeDeck(b.slot); return ok();
+            case "/api/library/open": {
+              const file = L.resolveId(b.id);
+              W.spec = loadSpec(file);
+              W.file = file;
+              return ok({ spec: W.spec, file: W.file, id: b.id });
+            }
+            case "/api/library/decks/ai": {
+              // gera com IA direto numa pasta nova da biblioteca (as imagens ficam dentro dela)
+              if (!(await llmAvailable({ force: true }))) return fail(new Error(`Nenhum LLM respondendo em ${llmConfig().url}.`), 503);
+              const id = L.createDeck(b.topic || "", { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
+              const file = L.resolveId(id), dir = path.dirname(file);
+              await respond(res, b.stream, async (emit) => {
+                try {
+                  const gen = await generateDeck(b.briefing || "", { theme: b.theme || undefined, slides: Number(b.slides) || undefined,
+                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit });
+                  fs.writeFileSync(file, toYaml(gen.spec), "utf8");
+                  const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
+                  return { ok: true, id: finalId, images: gen.images };
+                } catch (e) {
+                  L.trashDeck(id);
+                  throw e;
+                }
+              });
+              return;
+            }
+          }
+          return fail(new Error("rota da biblioteca desconhecida"), 404);
+        } catch (e) {
+          return fail(e);
+        }
       }
 
-      // Baixar PowerPoint / PDF / roteiro: constrói o HTML do deck atual numa pasta temporária e exporta com o
-      // Chrome invisível (os mesmos exportadores de "sagadeck pptx | pdf | roteiro").
-      const exportKind = (pathname.match(/^\/api\/export\/(pptx|pdf|roteiro)$/) || [])[1];
+      // Baixar o deck aberto: .sagadeck (YAML + imagens, CSS, widgets), PowerPoint, PDF ou roteiro
+      const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro)$/) || [])[1];
       if (exportKind) {
-        const spec = withBase(currentSpec);
-        const name = currentFile && !isBundledTemplate(currentFile) ? path.basename(currentFile).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        const kinds = {
-          pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-          pdf: { file: `${name}.pdf`, mime: "application/pdf" },
-          roteiro: { file: `${name} - roteiro.pdf`, mime: "application/pdf" },
-        };
-        const k = kinds[exportKind];
-        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${exportKind}-`));
-        try {
-          const r = buildHTML(spec);
-          const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "saida");
-          fs.writeFileSync(htmlFile, r.html);
-          let errors = [];
-          if (exportKind === "pptx") {
-            const { exportPptx } = await import("../export/pptx.js");
-            ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } }));
-          } else if (exportKind === "pdf") {
-            const { pdf } = await import("../export/shots.js");
-            await pdf(htmlFile, out);
-          } else {
-            const { shots } = await import("../export/shots.js");
-            const { roteiroPDF } = await import("../export/roteiro.js");
-            const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
-            await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
-          }
-          res.writeHead(200, {
-            "Content-Type": k.mime,
-            "Content-Disposition": `attachment; filename="${slugify(k.file.replace(/\.\w+$/, ""))}${path.extname(k.file)}"; filename*=UTF-8''${encodeURIComponent(k.file)}`,
-            // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
-            "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
-          });
-          res.end(fs.readFileSync(out));
-        } catch (e) {
-          console.error(`[Studio] exportação ${exportKind} falhou:`, e.message);
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: e.message }));
-        } finally {
-          fs.rmSync(tmp, { recursive: true, force: true });
-        }
+        const spec = withBase(W, W.spec);
+        const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
+        await sendExport(res, exportKind, spec, name);
         return;
       }
 
       // Abrir um .sagadeck (ou .zip) vindo do navegador: extrai numa pasta de verdade e abre de lá
       // (assim as edições são salvas; o navegador não informa o caminho do arquivo original).
       if (pathname === "/api/open-package" && req.method === "POST") {
-        const name = (url.searchParams.get("name") || "apresentacao").replace(/\.(sagadeck|zip)$/i, "");
+        const name = url.searchParams.get("name") || "apresentacao";
         try {
-          const base = process.env.SAGADECK_PACKAGES_DIR || path.join(os.homedir(), "sagadeck");
-          let dest = path.join(base, slugify(name));
-          for (let n = 2; fs.existsSync(dest); n++) dest = path.join(base, `${slugify(name)}-${n}`);
-          const { file } = await unpackDeck(await readBody(req), dest);
-          currentSpec = loadSpec(file);
-          currentFile = file;
+          // entra na biblioteca (tópico "Importados", ou o tópico pedido) e abre de lá
+          const id = await W.library.importPackage(await readBody(req), url.searchParams.get("topic") || "", name);
+          const file = W.library.resolveId(id);
+          W.spec = loadSpec(file);
+          W.file = file;
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile, dir: dest }));
+          res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file, dir: path.dirname(file), id }));
         } catch (e) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
@@ -615,7 +678,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname.startsWith("/api/export/")) {
         const format = pathname.replace("/api/export/", "");
         if (format === "yaml") {
-          const y = toYaml(currentSpec); // sem campos internos (_dir, _file: caminhos desta máquina)
+          const y = toYaml(W.spec); // sem campos internos (_dir, _file: caminhos desta máquina)
           res.writeHead(200, {
             "Content-Type": "text/yaml; charset=utf-8",
             "Content-Disposition": 'attachment; filename="apresentacao.yaml"',
@@ -624,7 +687,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           return;
         }
         if (format === "html") {
-          const out = buildHTML(currentSpec);
+          const out = buildHTML(W.spec);
           res.writeHead(200, {
             "Content-Type": "text/html; charset=utf-8",
             "Content-Disposition": 'attachment; filename="apresentacao.html"',
@@ -696,6 +759,55 @@ async function lookAt(spec, index, prompt, emit) {
 
 // Resposta de uma tarefa de IA. Com stream, manda NDJSON: uma linha {type:"progress",…} por etapa/pedaço
 // de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
+// Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
+// exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
+async function sendExport(res, kind, spec, name) {
+  const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
+  if (kind === "sagadeck") {
+    const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
+    res.writeHead(200, { "Content-Type": MIME, "Content-Disposition": cd(name + EXTENSION), "X-Sagadeck-Missing": encodeURIComponent(JSON.stringify(missing)) });
+    res.end(zip);
+    return;
+  }
+  const kinds = {
+    pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+    pdf: { file: `${name}.pdf`, mime: "application/pdf" },
+    roteiro: { file: `${name} - roteiro.pdf`, mime: "application/pdf" },
+  };
+  const k = kinds[kind];
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${kind}-`));
+  try {
+    const r = buildHTML(spec);
+    const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "saida");
+    fs.writeFileSync(htmlFile, r.html);
+    let errors = [];
+    if (kind === "pptx") {
+      const { exportPptx } = await import("../export/pptx.js");
+      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } }));
+    } else if (kind === "pdf") {
+      const { pdf } = await import("../export/shots.js");
+      await pdf(htmlFile, out);
+    } else {
+      const { shots } = await import("../export/shots.js");
+      const { roteiroPDF } = await import("../export/roteiro.js");
+      const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
+      await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
+    }
+    res.writeHead(200, {
+      "Content-Type": k.mime, "Content-Disposition": cd(k.file),
+      // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
+      "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
+    });
+    res.end(fs.readFileSync(out));
+  } catch (e) {
+    console.error(`[Studio] exportação ${kind} falhou:`, e.message);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: e.message }));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 async function respond(res, stream, work) {
   if (!stream) {
     try {

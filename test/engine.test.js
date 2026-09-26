@@ -222,7 +222,7 @@ test("footer: false tira rodapé; capa não tem rodapé nem cabeçalho", () => {
 // ---------------------------------------------------------------- interface do Studio
 test("todo ícone usado na interface existe no pacote de ícones (scripts/vendor-ui-icons.mjs)", () => {
   const pub = path.join(ROOT, "src", "studio", "public");
-  const src = ["index.html", "app.js", "slide-form.js"].map((f) => fs.readFileSync(path.join(pub, f), "utf8")).join("\n");
+  const src = ["index.html", "app.js", "slide-form.js", "library.html", "library.js"].filter((f) => fs.existsSync(path.join(pub, f))).map((f) => fs.readFileSync(path.join(pub, f), "utf8")).join("\n");
   const have = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(pub, "ui-icons.js"), "utf8").match(/UI_ICONS = (\{.*\});/s)[1])));
   const used = new Set([...src.matchAll(/data-ic="([a-z0-9-]+)"/g)].map((m) => m[1]));
   used.delete("nome"); // exemplo num comentário
@@ -255,4 +255,12 @@ test("direções criativas: várias, e o sorteio cobre todas", () => {
   assert.ok(CREATIVE_DIRECTIONS.length >= 5);
   const seen = new Set(CREATIVE_DIRECTIONS.map((_, k) => pickDirection((k + 0.5) / CREATIVE_DIRECTIONS.length)));
   assert.equal(seen.size, CREATIVE_DIRECTIONS.length);
+});
+
+test("API Python: studio escuta só nesta máquina por padrão e aceita a pasta da biblioteca", () => {
+  const api = fs.readFileSync(new URL("../python/sagadeck/api.py", import.meta.url), "utf8");
+  const sig = api.match(/def studio\(([\s\S]*?)\) -> None:/)[1];
+  assert.match(sig, /host: str = "127\.0\.0\.1"/);
+  assert.match(sig, /library:/);
+  assert.match(api, /--library=/);
 });

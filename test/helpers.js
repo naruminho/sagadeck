@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Blindagem: qualquer código que caia na biblioteca padrão durante os testes usa uma pasta temporária,
+// nunca a ~/sagadeck de quem está rodando.
+process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-"));
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).
@@ -20,17 +24,18 @@ export function tempDeck(src = FIXTURE) {
 // Sem SAGADECK_LIVE=1 o LLM fica "desligado" (endereço sem ninguém): o Studio usa as regras locais e os testes
 // ficam rápidos e determinísticos.
 // Com { llmUrl }, usa esse LLM (ex.: o falso de test/mock-llm.js).
-export async function startStudio(deckFile, { llmUrl } = {}) {
+export async function startStudio(deckFile, { llmUrl, multiuser = false } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
-  // .sagadeck aberto pelo navegador é extraído aqui (não na pasta pessoal de quem roda os testes)
-  process.env.SAGADECK_PACKAGES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pacotes-"));
+  // biblioteca temporária: os testes nunca tocam a ~/sagadeck de quem roda
+  const library = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-biblioteca-"));
   const { createStudioServer } = await import("../src/studio/server.js");
-  const server = createStudioServer(deckFile, { host: "127.0.0.1" });
+  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const { port } = server.address();
   return {
     url: `http://127.0.0.1:${port}`,
+    library,
     close: async () => {
       server.closeAllConnections?.();
       await new Promise((r) => server.close(r));

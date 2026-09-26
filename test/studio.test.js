@@ -493,7 +493,7 @@ test("studio", async (t) => {
       if (opened.file && opened.file !== deckFile.file) break;
       await settle(150);
     }
-    assert.ok(opened.file.startsWith(process.env.SAGADECK_PACKAGES_DIR || ""), opened.file);
+    assert.ok(opened.file.startsWith(path.join(studio.library, "Importados")), `entra na biblioteca, em Importados: ${opened.file}`);
     assert.ok(opened.spec.slides.some((s) => s.title === "Com foto"));
     assert.ok(fs.existsSync(path.join(path.dirname(opened.file), "imagens", "foto.png")), "a imagem veio junto na pasta aberta");
     // volta ao deck do teste

@@ -232,7 +232,20 @@
     setupEventListeners();
     setupShell();
     buildLayoutPicker();
+    // vindo da biblioteca: /editor?deck=<id>[&present=1]
+    const params = new URLSearchParams(location.search);
+    if (params.get("deck")) {
+      try {
+        const r = await fetch("/api/library/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: params.get("deck") }) });
+        if (!r.ok) showToast("Não deu para abrir: " + ((await r.json().catch(() => ({}))).error || r.status), 6000);
+      } catch {}
+    }
     await loadDeck();
+    if (params.get("present") === "1") {
+      params.delete("present");
+      history.replaceState(null, "", `${location.pathname}?${params}`);
+      startPresentation();
+    }
     refreshAIStatus();
     setInterval(refreshAIStatus, 30000);
     updateCanvasScale();

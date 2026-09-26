@@ -53,7 +53,10 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
-  sagadeck studio [deck.yaml|x.sagadeck] [--port=3000]  abre o editor visual (um .sagadeck é extraído ao lado e aberto)
+  sagadeck studio [deck.yaml|x.sagadeck] [--port=3000] [--library=PASTA]  sem arquivo: abre a biblioteca
+                                   (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
+                                   --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
+                                   --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
   sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
@@ -312,11 +315,20 @@ async function main() {
         console.log(`  extraído em ${dest}`);
       }
       const port = Number(flags.port || process.env.PORT || 3000);
-      const host = flags.host || "0.0.0.0";
-      const server = createStudioServer(deckFile, { port, host });
+      // só esta máquina por padrão (no banco, 0.0.0.0 abriria a biblioteca para a rede); --host para mudar
+      const host = typeof flags.host === "string" ? flags.host : "127.0.0.1";
+      const multiuser = !!flags.multiuser;
+      if (multiuser && !["127.0.0.1", "localhost", "::1"].includes(host)) {
+        console.error("--multiuser confia no cabeçalho de usuário do proxy (nginx): só funciona escutando em 127.0.0.1.");
+        process.exit(1);
+      }
+      const { defaultLibraryRoot } = await import("../src/library.js");
+      const library = typeof flags.library === "string" ? path.resolve(flags.library) : defaultLibraryRoot();
+      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"] });
       server.listen(port, host, () => {
-        console.log(`✓ SagaDeck Studio rodando em http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
-        console.log(`  Visualizador & Editor PowerPoint + Chat Lateral com IA ativo.`);
+        const shown = host === "0.0.0.0" ? "localhost" : host;
+        console.log(`✓ SagaDeck Studio em http://${shown}:${port}${deckFile ? "" : "  (biblioteca)"}`);
+        console.log(multiuser ? `  multiusuário: bibliotecas em ${path.join(library, "usuarios")}` : `  biblioteca: ${library}`);
       });
       break;
     }

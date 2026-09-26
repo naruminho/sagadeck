@@ -72,9 +72,11 @@ def autofix(deck: str | os.PathLike, out=None) -> str:
     return run("autofix", str(deck), out=out, capture=True).stdout
 
 
-def studio(deck: str | os.PathLike | None = None, port: int = 3000, host: str = "0.0.0.0") -> None:
-    """Inicia o SagaDeck Studio (PowerPoint-like com chat IA) no navegador."""
-    extra = [f"--port={port}", f"--host={host}"]
+def studio(deck: str | os.PathLike | None = None, port: int = 3000, host: str = "127.0.0.1",
+           library: str | os.PathLike | None = None) -> None:
+    """Inicia o SagaDeck Studio. Sem deck, abre a biblioteca (padrão: SAGADECK_HOME ou ~/sagadeck).
+    host="127.0.0.1": só esta máquina; "0.0.0.0" abre para a rede."""
+    extra = [f"--port={port}", f"--host={host}"] + ([f"--library={library}"] if library else [])
     args = [str(deck)] if deck else []
     run("studio", *args, extra=extra, check=True)
 
