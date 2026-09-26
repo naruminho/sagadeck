@@ -22,7 +22,7 @@ test("experiências: cada cartão abre um deck completo, renderizável e com nar
     assert.deepEqual(varietyReport(spec).problems, [], `${item.id}: ritmo`);
     const built = buildHTML(YAML.parse(YAML.stringify(spec)));
     assert.equal(built.slidesMeta.length, item.slideCount, `${item.id}: round-trip YAML`);
-    assert.doesNotMatch(built.html, /fig-pending|Imagem não encontrada/);
+    assert.doesNotMatch(built.html, /class="[^"]*fig-pending|Imagem não encontrada/, `${item.id}: figura faltando`); // o CSS de .fig-pending existe em todo HTML
     assert.match(built.html, /data-layout=/);
     themes.add(spec.theme);
     sequences.add(spec.slides.map((slide) => slide.layout).join(","));
