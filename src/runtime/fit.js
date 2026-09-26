@@ -49,29 +49,50 @@
 
   function shrink(slide) {
     const safe = slide && slide.querySelector(":scope > .safe");
-    const box = safe && safe.firstElementChild;
-    if (!box) return 1;
+    if (!safe || !safe.firstElementChild) return 1;
     measuring(slide, true);
-    try { return shrinkNow(slide, safe, box); } finally { measuring(slide, false); }
+    try { return shrinkNow(slide, safe); } finally { measuring(slide, false); }
   }
 
-  function shrinkNow(slide, safe, box) {
-    box.style.zoom = "";
-    const sc = scaleOf(slide);
-    const leaking = () => {
-      // caixa (linha/coluna/cartão) com conteúdo maior que ela: o excesso cai por cima do vizinho
-      for (const e of box.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
-      const sr = safe.getBoundingClientRect();
-      for (const t of box.querySelectorAll(".t, .fig")) {
-        const r = t.getBoundingClientRect();
-        if ((r.bottom - sr.bottom) / sc > 6 || (r.right - sr.right) / sc > 6) return true;
+  // Regra geral (vale para qualquer layout): o conteúdo da área útil "vaza" se
+  //  - uma caixa tem mais conteúdo do que cabe nela (o excesso cai por cima do vizinho);
+  //  - um texto sai da área útil (por cima, por baixo ou pela direita);
+  //  - um texto fica por cima de outro texto ou de uma figura.
+  function leakingIn(safe, sc) {
+    const tol = 6 * sc, sr = safe.getBoundingClientRect();
+    for (const e of safe.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
+    const texts = [...safe.querySelectorAll(".t")].filter((t) => !t.querySelector(".t"));
+    const tr = texts.map((t) => t.getBoundingClientRect());
+    for (const r of tr) {
+      if (!r.width) continue;
+      if (r.bottom - sr.bottom > tol || sr.top - r.top > tol || r.right - sr.right > tol) return true;
+    }
+    for (const f of safe.querySelectorAll(".fig")) {
+      const r = f.getBoundingClientRect();
+      if (r.width && (r.bottom - sr.bottom > tol || r.right - sr.right > tol)) return true;
+    }
+    const hit = (r, q) => Math.min(r.right, q.right) - Math.max(r.left, q.left) > 4 * sc && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 4 * sc;
+    const figs = [...safe.querySelectorAll(".fig")].map((f) => [f, f.getBoundingClientRect()]);
+    for (let i = 0; i < texts.length; i++) {
+      if (!tr[i].width) continue;
+      for (let j = i + 1; j < texts.length; j++) {
+        if (tr[j].width && !texts[i].contains(texts[j]) && !texts[j].contains(texts[i]) && hit(tr[i], tr[j])) return true;
       }
-      return false;
-    };
+      for (const [f, fr] of figs) if (fr.width && !f.contains(texts[i]) && hit(tr[i], fr)) return true;
+    }
+    return false;
+  }
+
+  function shrinkNow(slide, safe) {
+    // o zoom vale para tudo que o layout pôs na área útil (conteúdo, fonte, "add"…)
+    const parts = [...safe.children];
+    const zoom = (z) => parts.forEach((e) => (e.style.zoom = z === 1 ? "" : String(z)));
+    zoom(1);
+    const sc = scaleOf(slide);
     let z = 1;
-    while (leaking() && z > MIN) {
+    while (leakingIn(safe, sc) && z > MIN) {
       z = +(z - 0.03).toFixed(2);
-      box.style.zoom = z;
+      zoom(z);
     }
     if (z < 1) slide.dataset.shrink = String(z);
     else delete slide.dataset.shrink;

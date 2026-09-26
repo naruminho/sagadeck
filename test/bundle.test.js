@@ -23,9 +23,17 @@ test("motor empacotado (pip)", { timeout: 240000 }, async (t) => {
     assert.match(html, /<section/);
   });
 
+  await t.test("CLI: pack e unpack (.sagadeck)", () => {
+    execFileSync(process.execPath, [engine, "pack", path.join(work, "deck.yaml")], { cwd: work, stdio: "pipe" });
+    assert.ok(fs.existsSync(path.join(work, "deck.sagadeck")));
+    execFileSync(process.execPath, [engine, "unpack", path.join(work, "deck.sagadeck"), path.join(work, "extraido")], { cwd: work, stdio: "pipe" });
+    assert.ok(fs.existsSync(path.join(work, "extraido", "deck.yaml")));
+    assert.ok(fs.existsSync(path.join(work, "extraido", "sagadeck.json")));
+  });
+
   await t.test("Studio: interface, estilos, scripts e API respondem", async () => {
     const port = 3600 + Math.floor(Math.random() * 300);
-    const proc = spawn(process.execPath, [engine, "studio", path.join(work, "deck.yaml"), `--port=${port}`, "--host=127.0.0.1"],
+    const proc = spawn(process.execPath, [engine, "studio", path.join(work, "deck.yaml"), `--port=${port}`, "--host=127.0.0.1", `--library=${path.join(work, "biblioteca")}`],
       { cwd: work, env: { ...process.env, SAGADECK_LLM_URL: "http://127.0.0.1:9/v1" }, stdio: "pipe" });
     let log = "";
     proc.stdout.on("data", (d) => (log += d));
@@ -35,7 +43,7 @@ test("motor empacotado (pip)", { timeout: 240000 }, async (t) => {
       for (let k = 0; k < 50; k++) {
         try { await fetch(`${url}/api/deck`); break; } catch { await new Promise((r) => setTimeout(r, 200)); }
       }
-      for (const p of ["/", "/app.js", "/style.css", "/slide-form.js", "/ui-icons.js", "/fit.js", "/api/deck", "/preview", "/api/layout-previews"]) {
+      for (const p of ["/", "/editor", "/biblioteca", "/library.js", "/app.js", "/style.css", "/slide-form.js", "/ui-icons.js", "/fit.js", "/api/deck", "/api/library", "/preview", "/api/layout-previews"]) {
         const r = await fetch(url + p);
         assert.equal(r.status, 200, `${p} -> ${r.status}\n${log.slice(-600)}`);
       }
@@ -46,7 +54,7 @@ test("motor empacotado (pip)", { timeout: 240000 }, async (t) => {
 
   await t.test("Studio sem deck abre o exemplo do pacote", async () => {
     const port = 3900 + Math.floor(Math.random() * 90);
-    const proc = spawn(process.execPath, [engine, "studio", `--port=${port}`, "--host=127.0.0.1"], { cwd: work, stdio: "ignore" });
+    const proc = spawn(process.execPath, [engine, "studio", `--port=${port}`, "--host=127.0.0.1", `--library=${path.join(work, "biblioteca")}`], { cwd: work, stdio: "ignore" });
     try {
       let data;
       for (let k = 0; k < 50 && !data; k++) {

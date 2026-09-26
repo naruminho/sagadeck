@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SagaDeck Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="style.css">
   <script>
     // Tema da interface antes do primeiro desenho (sem piscar branco no escuro).
     // Preferência: "system" (padrão), "light" ou "dark" — trocada em Exibir › Preferências.
@@ -22,7 +22,7 @@
        BARRA DE TÍTULO: documento, estado do salvamento, busca, Apresentar
        ====================================================================== -->
   <header id="titlebar" class="titlebar">
-    <div class="app-mark" aria-hidden="true"><i class="ic" data-ic="monitor-play"></i></div>
+    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações"><i class="ic" data-ic="library"></i></a>
     <input type="text" id="deck-title-input" class="doc-title" value="" placeholder="Apresentação sem título" aria-label="Título da apresentação">
     <span id="save-status" class="save-status" title=""></span>
 
@@ -40,7 +40,7 @@
       <div id="present-menu" class="menu" role="menu">
         <button class="menu-item" id="present-from-start"><i class="ic" data-ic="play"></i>Do início</button>
         <button class="menu-item" id="present-from-current"><i class="ic" data-ic="play"></i>Deste slide</button>
-        <a class="menu-item" href="/preview" target="_blank" rel="noopener"><i class="ic" data-ic="external-link"></i>Em uma nova aba</a>
+        <a class="menu-item" href="preview" target="_blank" rel="noopener"><i class="ic" data-ic="external-link"></i>Em uma nova aba</a>
       </div>
     </div>
   </header>
@@ -56,8 +56,11 @@
         <button class="menu-item" id="menu-open-server"><i class="ic" data-ic="folder-input"></i>Abrir por caminho…</button>
         <div class="menu-sep"></div>
         <button class="menu-item" id="action-save-yaml"><i class="ic" data-ic="save"></i>Salvar</button>
-        <button class="menu-item" id="export-yaml"><i class="ic" data-ic="download"></i>Baixar YAML</button>
-        <button class="menu-item" id="export-html"><i class="ic" data-ic="file-code"></i>Baixar HTML</button>
+        <button class="menu-item" id="export-sagadeck" title="A apresentação inteira num arquivo: YAML + imagens, CSS e widgets"><i class="ic" data-ic="download"></i>Baixar apresentação (.sagadeck)</button>
+        <button class="menu-item" id="export-pptx" data-export="pptx" title="PowerPoint editável: textos nativos, animações dos cliques e notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint (.pptx)</button>
+        <button class="menu-item" id="export-pdf" data-export="pdf" title="Um slide por página, como a plateia vê (tudo revelado)"><i class="ic" data-ic="file-text"></i>Baixar PDF</button>
+        <button class="menu-item" id="export-roteiro" data-export="roteiro" title="Para o apresentador: miniatura de cada slide com as notas e o tempo planejado"><i class="ic" data-ic="sticky-note"></i>Baixar roteiro (PDF)</button>
+        <button class="menu-item" id="export-html" title="Um arquivo só, com tudo embutido, para apresentar em qualquer navegador (não serve para editar)"><i class="ic" data-ic="file-code"></i>Baixar para apresentar (HTML)</button>
       </div>
     </div>
     <button class="ribbon-tab active" role="tab" data-tab="inicio" aria-selected="true">Início</button>
@@ -400,7 +403,7 @@
     </div>
   </div>
 
-  <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
+  <input type="file" id="file-input-yaml" accept=".sagadeck,.zip,.yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
 
   <!-- MODO APRESENTAÇÃO: a apresentação real (runtime completo) por cima do Studio -->
   <div id="presentation-modal" class="modal-fullscreen hidden">
@@ -584,9 +587,9 @@
 
   <div id="toast-notification" class="toast hidden" role="status"></div>
 
-  <script src="/fit.js"></script>
-  <script src="/ui-icons.js"></script>
-  <script src="/slide-form.js"></script>
-  <script src="/app.js"></script>
+  <script src="fit.js"></script>
+  <script src="ui-icons.js"></script>
+  <script src="slide-form.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

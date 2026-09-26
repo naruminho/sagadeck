@@ -2,7 +2,7 @@
 
 O motor fala com qualquer endpoint compatível com OpenAI (SAGADECK_LLM_URL). Se o usuário não
 definiu um e o `modelrelay` está instalado neste Python, sobe um `modelrelay serve` em segundo
-plano (porta livre, só em 127.0.0.1) enquanto o comando roda — a configuração do modelrelay
+plano (na porta 8765, ou outra livre; só em 127.0.0.1) enquanto o comando roda — a configuração do modelrelay
 (~/.modelrelay/config.toml) decide para onde as chamadas vão: OpenRouter, OpenAI, gateway do banco...
 """
 
@@ -40,8 +40,12 @@ def llm_env(command: str | None, env: dict | None = None) -> Iterator[dict]:
         yield env
         return
     try:
-        server = make_server(port=0)
-    except Exception as e:  # config ausente/inválida: segue sem LLM, mas avisa
+        # na porta padrão, se livre: a tela de configuração (http://127.0.0.1:8765/) fica sempre no mesmo endereço
+        try:
+            server = make_server(port=DEFAULT_PORT)
+        except OSError:
+            server = make_server(port=0)
+    except Exception as e:  # config inválida: segue sem LLM, mas avisa
         print(f"⚠ modelrelay instalado, mas não consegui iniciar: {e}", file=sys.stderr)
         yield env
         return

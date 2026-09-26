@@ -31,7 +31,7 @@ Comandos:
 
 ```
 sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
-sagadeck studio [deck.yaml] [--port=3000]    abre o estúdio web visual estilo PowerPoint com chat lateral IA
+sagadeck studio [deck.yaml] [--port=3000]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA
 sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
 sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
@@ -62,7 +62,8 @@ Se o código de uma ferramenta em Python quiser chamar o sagadeck diretamente (s
 ```python
 import sagadeck
 sagadeck.autofix("palestra.yaml")               # corrige sobreposições e margens automaticamente
-sagadeck.studio("palestra.yaml", port=3000)     # abre o estúdio PowerPoint interativo
+sagadeck.studio()                               # abre a biblioteca (~/sagadeck)
+sagadeck.studio("palestra.yaml", port=3000)     # abre direto o editor de um deck
 sagadeck.export("palestra.yaml", out="saida")   # {'html': …, 'pptx': …, 'pdf': …, 'roteiro': …}
 print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
 contexto = sagadeck.reference()                  # referência do YAML para colocar no prompt
@@ -76,10 +77,16 @@ O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completi
 
 ```bash
 pip install git+https://github.com/naruminho/modelrelay
-modelrelay init
 ```
 
-No `~/.modelrelay/config.toml`, defina os apelidos que o sagadeck usa:
+O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **IA** no alto da
+biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor
+(OpenRouter, OpenAI, Google, DeepSeek, o gateway da empresa…), cola a chave, testa e diz qual modelo faz
+**texto** e qual faz **imagem**. A tela grava o `~/.modelrelay/config.toml`, que também dá para editar à mão
+(`modelrelay init` cria um modelo comentado). O botão só aparece quando o modelrelay roda nesta máquina; no
+modo multiusuário, quem configura é o admin.
+
+À mão, no `~/.modelrelay/config.toml`, os apelidos que o sagadeck usa são:
 
 ```toml
 [models]
@@ -140,6 +147,58 @@ SAGADECK_LIVE=1 npm test  # inclui os testes que chamam o LLM de verdade (modelr
 **Toda funcionalidade nova entra com teste** em `test/` — é o que garante que um refactor não apague o que já funciona. Veja [CLAUDE.md](CLAUDE.md).
 
 Publicação: crie uma release `vX.Y.Z` no GitHub (o workflow `.github/workflows/publish.yml` publica no PyPI via *trusted publishing*). A versão fica em `package.json` e `python/sagadeck/__init__.py` (o bundle confere se são iguais).
+
+## Arquivo `.sagadeck` (a apresentação inteira)
+
+Uma apresentação é o YAML **mais** os arquivos que ele usa: imagens (inclusive as geradas pela IA em
+`imagens/`), CSS próprio (`css:`) e widgets (`widgets:`). Baixar só o YAML quebraria o deck em outra máquina.
+O `.sagadeck` junta tudo num arquivo só. Por dentro é um .zip, como `.pptx` e `.docx`:
+
+```text
+sagadeck.json        manifesto: formato, versão, YAML principal, título, data
+<nome>.yaml          a apresentação (sem caminhos da máquina de quem salvou)
+imagens/ widgets/ …  os arquivos, nos mesmos caminhos do YAML
+assets/              arquivos que estavam fora da pasta do deck (o YAML do pacote aponta para cá)
+FALTANDO.txt         o que o deck usa mas não existia ao salvar (se houver)
+```
+
+```bash
+sagadeck pack palestra.yaml                 # -> palestra.sagadeck
+sagadeck unpack palestra.sagadeck [pasta]   # extrai (nunca sobrescreve)
+sagadeck studio palestra.sagadeck           # extrai ao lado e abre no Studio
+```
+
+No Studio: **Arquivo › Baixar apresentação (.sagadeck)**. O **Abrir do computador** aceita `.sagadeck` e `.zip`;
+o arquivo entra na biblioteca, no tópico **Importados**, e as edições são salvas lá. Um arquivo salvo por uma versão mais nova do
+formato avisa para atualizar o sagadeck. Se um filtro de e-mail barrar a extensão, renomeie para `.zip`: abre igual.
+
+## Biblioteca
+
+`sagadeck studio` sem arquivo abre a biblioteca: suas apresentações organizadas em tópicos, com capa, busca,
+lixeira (30 dias) e o menu **⋯** de cada cartão (apresentar, renomear, duplicar, mover, baixar .sagadeck/PPTX/PDF).
+Arraste um cartão para um tópico para movê-lo. O ícone da biblioteca, no canto do editor, volta para ela.
+
+Não tem banco de dados: a biblioteca é uma pasta comum, que dá para abrir no Explorer e fazer backup.
+
+```text
+~/sagadeck/                  (ou SAGADECK_HOME, ou --library=PASTA)
+  Palestras/                 tópico = pasta (a cor fica em .topico.json)
+    Minha palestra/          apresentação = pasta com o YAML e os arquivos dela
+      Minha palestra.yaml
+      imagens/
+  solta.yaml                 YAML solto também aparece ("Sem tópico")
+  .lixeira/  .cache/         excluídas e capas geradas
+```
+
+O Studio escuta só em `127.0.0.1` por padrão; `--host=0.0.0.0` abre para a rede (a biblioteca inteira junto).
+
+**Vários usuários (servidor):** `sagadeck studio --multiuser --library=/srv/sagadeck` dá uma biblioteca por pessoa
+(`usuarios/<nome>/`), identificada pelo cabeçalho `X-Sagadeck-User` (ou `--user-header=...`) que o proxy de login
+(nginx) coloca. Sem o cabeçalho, nada é servido. Por confiar nesse cabeçalho, só roda escutando em `127.0.0.1`,
+atrás do proxy.
+
+**Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
+navegador, mas não para editar.
 
 ## Apresentando (HTML)
 

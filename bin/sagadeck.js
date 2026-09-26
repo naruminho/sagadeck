@@ -53,7 +53,12 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
-  sagadeck studio [deck.yaml] [--port=3000]    abre o editor visual estilo PowerPoint com chat lateral IA
+  sagadeck studio [deck.yaml|x.sagadeck] [--port=3000] [--library=PASTA]  sem arquivo: abre a biblioteca
+                                   (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
+                                   --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
+                                   --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
+  sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
+  sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
   sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
@@ -278,15 +283,52 @@ async function main() {
       let t; fs.watch(path.dirname(p.abs), () => { clearTimeout(t); t = setTimeout(() => { try { doBuild(p); } catch (e) { console.error("✗ " + e.message); } }, 150); });
       break;
     }
+    case "pack": {
+      const p = paths(args[0]);
+      const { packDeck, EXTENSION } = await import("../src/package.js");
+      const name = path.basename(p.abs).replace(/\.ya?ml$/i, "");
+      const out = path.resolve(args[1] || path.join(path.dirname(p.abs), name + EXTENSION));
+      const { zip, files, missing } = await packDeck(loadSpec(p.abs), { baseDir: path.dirname(p.abs), name, generator: "sagadeck cli" });
+      fs.writeFileSync(out, zip);
+      console.log(`✓ ${out} (${(zip.length / 1024).toFixed(0)} KB · ${files.length} arquivo(s) junto)`);
+      missing.forEach((m) => console.log(`  ✗ não encontrado (listado em FALTANDO.txt): ${m}`));
+      break;
+    }
+    case "unpack": {
+      const src = path.resolve(args[0] || "");
+      if (!fs.existsSync(src)) { console.error(`não achei ${src}`); process.exit(1); }
+      const { unpackDeck } = await import("../src/package.js");
+      let dest = path.resolve(args[1] || src.replace(/\.(sagadeck|zip)$/i, ""));
+      for (let n = 2; fs.existsSync(dest) && !args[1]; n++) dest = `${src.replace(/\.(sagadeck|zip)$/i, "")}-${n}`;
+      const { file } = await unpackDeck(fs.readFileSync(src), dest);
+      console.log(`✓ extraído em ${dest}\n  apresentação: ${file}`);
+      break;
+    }
     case "studio": case "web": {
       const { createStudioServer } = await import("../src/studio/server.js");
-      const deckFile = args[0] ? path.resolve(args[0]) : null;
+      let deckFile = args[0] ? path.resolve(args[0]) : null;
+      if (deckFile && /\.(sagadeck|zip)$/i.test(deckFile)) {
+        const { unpackDeck } = await import("../src/package.js");
+        let dest = deckFile.replace(/\.(sagadeck|zip)$/i, "");
+        for (let n = 2; fs.existsSync(dest); n++) dest = `${deckFile.replace(/\.(sagadeck|zip)$/i, "")}-${n}`;
+        deckFile = (await unpackDeck(fs.readFileSync(deckFile), dest)).file;
+        console.log(`  extraído em ${dest}`);
+      }
       const port = Number(flags.port || process.env.PORT || 3000);
-      const host = flags.host || "0.0.0.0";
-      const server = createStudioServer(deckFile, { port, host });
+      // só esta máquina por padrão (no banco, 0.0.0.0 abriria a biblioteca para a rede); --host para mudar
+      const host = typeof flags.host === "string" ? flags.host : "127.0.0.1";
+      const multiuser = !!flags.multiuser;
+      if (multiuser && !["127.0.0.1", "localhost", "::1"].includes(host)) {
+        console.error("--multiuser confia no cabeçalho de usuário do proxy (nginx): só funciona escutando em 127.0.0.1.");
+        process.exit(1);
+      }
+      const { defaultLibraryRoot } = await import("../src/library.js");
+      const library = typeof flags.library === "string" ? path.resolve(flags.library) : defaultLibraryRoot();
+      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"] });
       server.listen(port, host, () => {
-        console.log(`✓ SagaDeck Studio rodando em http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
-        console.log(`  Visualizador & Editor PowerPoint + Chat Lateral com IA ativo.`);
+        const shown = host === "0.0.0.0" ? "localhost" : host;
+        console.log(`✓ SagaDeck Studio em http://${shown}:${port}${deckFile ? "" : "  (biblioteca)"}`);
+        console.log(multiuser ? `  multiusuário: bibliotecas em ${path.join(library, "usuarios")}` : `  biblioteca: ${library}`);
       });
       break;
     }

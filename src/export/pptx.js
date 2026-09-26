@@ -170,6 +170,18 @@ function collectInPage([idx, nativeCharts]) {
       e.setAttribute("data-pid", String(++pid));
       items.push({ pid, kind: "shape", ...box(r), ...st, opacity: opac(e), shape, radius: rpx, fill: bg.a > 0.01 ? bg.hex : null, fillA: bg.a, line: hasBorder ? bc.hex : null, lineA: bc.a, lineW: hasBorder ? bw : 0 });
     }
+    // bordas diferentes por lado (divisor embaixo, barra à esquerda…): cada lado vira uma linha fina nativa
+    if (!sameBorder) {
+      for (const side of ["Top", "Right", "Bottom", "Left"]) {
+        const w = parseFloat(cs[`border${side}Width`]) || 0, c = rgba(cs[`border${side}Color`]);
+        if (w <= 0 || c.a <= 0.01 || cs[`border${side}Style`] === "none") continue;
+        const edge = side === "Top" ? { left: r.left, top: r.top, width: r.width, height: w }
+          : side === "Bottom" ? { left: r.left, top: r.bottom - w, width: r.width, height: w }
+          : side === "Left" ? { left: r.left, top: r.top, width: w, height: r.height }
+          : { left: r.right - w, top: r.top, width: w, height: r.height };
+        items.push({ pid: ++pid, kind: "shape", ...box(edge), ...st, opacity: opac(e), shape: "rect", radius: 0, fill: c.hex, fillA: c.a, line: null, lineA: 0, lineW: 0 });
+      }
+    }
     // texto
     if (isLeaf(e)) {
       const pl = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth || 0), pr = parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth || 0);
@@ -270,8 +282,30 @@ function timingXML(anims, ids) {
 }
 
 // ------------------------------------------------------------------ principal
+// Linhas e decorações feitas com ::before/::after (eixo da linha do tempo, conectores, marcadores) não
+// existem no DOM: viram <span> de verdade com o mesmo estilo calculado, e o coletor passa a enxergá-las.
+function materializePseudos() {
+  for (const e of document.querySelectorAll("#stage > .slide *")) {
+    for (const which of ["::before", "::after"]) {
+      const cs = getComputedStyle(e, which);
+      if (!cs || cs.display === "none" || !/^["']/.test(cs.content || "")) continue; // só content: "…" (desenho ou texto)
+      const span = document.createElement("span");
+      // copia o estilo calculado, menos o que depende de qual slide está na tela agora (visibilidade) e animações
+      for (const prop of cs) if (!/^(visibility|transition|animation)/.test(prop)) span.style.setProperty(prop, cs.getPropertyValue(prop));
+      const text = cs.content.slice(1, -1);
+      if (text) span.textContent = text;
+      span.dataset.pseudo = which;
+      if (which === "::before") e.prepend(span); else e.append(span);
+    }
+  }
+  const st = document.createElement("style");
+  st.textContent = "#stage > .slide *::before, #stage > .slide *::after { content: none !important; }";
+  document.head.append(st);
+}
+
 export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, log = () => {} } = {}) {
   const { browser, page, errors } = await openDeck(htmlFile, { scale: 2 });
+  await page.evaluate(materializePseudos);
   await page.addStyleTag({ content: `
     html.solo,html.solo body,html.solo #viewport,html.solo .slide{background:transparent!important}
     html.solo .slide::after,html.solo .slide::before{display:none!important}

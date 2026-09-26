@@ -158,6 +158,33 @@ test("runtime", async (t) => {
     assert.deepEqual(bad, []);
   });
 
+  await t.test("em nenhum slide um texto fica por cima de outro texto ou figura, nem sai da área útil", async () => {
+    const bad = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("#stage > .slide").forEach((s, i) => {
+        const safe = s.querySelector(":scope > .safe");
+        if (!safe) return; // página inteira / posições livres: sobreposição é intencional
+        const sc = s.getBoundingClientRect().width / 1920;
+        s.classList.add("sd-measure"); // sem as animações de entrada
+        const sr = safe.getBoundingClientRect();
+        const texts = [...safe.querySelectorAll(".t")].filter((t) => !t.querySelector(".t") && t.getBoundingClientRect().width);
+        const figs = [...safe.querySelectorAll(".fig")];
+        const hit = (a, b) => { const r = a.getBoundingClientRect(), q = b.getBoundingClientRect();
+          return Math.min(r.right, q.right) - Math.max(r.left, q.left) > 4 * sc && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 4 * sc; };
+        const name = (e) => `"${e.textContent.trim().slice(0, 25)}"`;
+        texts.forEach((t, k) => {
+          const r = t.getBoundingClientRect();
+          if ((r.bottom - sr.bottom) / sc > 6 || (sr.top - r.top) / sc > 6) out.push(`slide ${i + 1}: ${name(t)} sai da área útil`);
+          for (const u of texts.slice(k + 1)) if (!t.contains(u) && !u.contains(t) && hit(t, u)) out.push(`slide ${i + 1}: ${name(t)} por cima de ${name(u)}`);
+          for (const f of figs) if (!f.contains(t) && hit(t, f)) out.push(`slide ${i + 1}: ${name(t)} por cima de uma figura`);
+        });
+        s.classList.remove("sd-measure");
+      });
+      return out;
+    });
+    assert.deepEqual(bad, []);
+  });
+
   await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
 
   await browser.close();

@@ -3,8 +3,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Blindagem: qualquer código que caia na biblioteca padrão durante os testes usa uma pasta temporária,
+// nunca a ~/sagadeck de quem está rodando.
+process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-"));
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).
@@ -19,15 +24,18 @@ export function tempDeck(src = FIXTURE) {
 // Sem SAGADECK_LIVE=1 o LLM fica "desligado" (endereço sem ninguém): o Studio usa as regras locais e os testes
 // ficam rápidos e determinísticos.
 // Com { llmUrl }, usa esse LLM (ex.: o falso de test/mock-llm.js).
-export async function startStudio(deckFile, { llmUrl } = {}) {
+export async function startStudio(deckFile, { llmUrl, multiuser = false } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
+  // biblioteca temporária: os testes nunca tocam a ~/sagadeck de quem roda
+  const library = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-biblioteca-"));
   const { createStudioServer } = await import("../src/studio/server.js");
-  const server = createStudioServer(deckFile, { host: "127.0.0.1" });
+  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const { port } = server.address();
   return {
     url: `http://127.0.0.1:${port}`,
+    library,
     close: async () => {
       server.closeAllConnections?.();
       await new Promise((r) => server.close(r));
@@ -61,4 +69,18 @@ export async function newPage(browser, url, viewport = { width: 1440, height: 10
     await page.waitForTimeout(600);
   }
   return { page, errors };
+}
+
+// o que tem dentro de um .pptx: slides, textos e notas
+export async function readPptx(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const names = Object.keys(zip.files);
+  const slides = names.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)));
+  const notes = names.filter((n) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(n));
+  const text = async (n) => (await zip.file(n).async("string")).match(/<a:t>([^<]*)<\/a:t>/g)?.map((t) => t.slice(5, -6)).join(" ") || "";
+  return {
+    slides: await Promise.all(slides.map(text)),
+    notes: (await Promise.all(notes.map(text))).join(" "),
+    animations: (await Promise.all(slides.map((n) => zip.file(n).async("string")))).filter((x) => /<p:timing>/.test(x)).length,
+  };
 }
