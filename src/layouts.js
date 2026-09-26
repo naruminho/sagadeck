@@ -11,6 +11,12 @@ const src = (s) => (s.source ? `<div class="src t f-body">${md(s.source)}</div>`
 const add = (s, ctx) => (s.add ? el(s.add, ctx) : "");
 const fig = (f, ctx, w, h, cls = "") => (f ? `<div class="figbox ${cls}" style="${w ? `width:${w}px;` : ""}${h ? `height:${h}px;` : ""}">${typeof f === "object" ? el(f, ctx, w, h) : el({ image: f }, ctx)}</div>` : "");
 const build = (s, i, base = 1) => (s.build ? base + i : undefined);
+// As cenas de aula deixam todo o conteúdo no HTML: funcionam offline e têm resumo estático.
+const lessonSteps = (items, fallback) => Array.isArray(items) && items.length ? items.map((p) => typeof p === "string" ? { title: p } : (p || {})) : [fallback];
+const lessonControls = (items) => `<nav class="lesson-controls" aria-label="Etapas da explicação"><button type="button" data-lesson-prev aria-label="Etapa anterior" disabled>←</button><div class="lesson-dots">${items.map((p, i) => `<button type="button" data-lesson-go="${i}" aria-label="Etapa ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</div><button type="button" data-lesson-next aria-label="Próxima etapa" ${items.length === 1 ? "disabled" : ""}>→</button></nav>`;
+const lessonPanels = (items, output = false) => `<div class="lesson-panels" aria-live="polite" aria-atomic="true">${items.map((p, i) => `<article class="lesson-panel${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-highlight="${esc(JSON.stringify([].concat(p.highlight || []).filter(Number.isFinite)))}"><div class="lesson-counter f-label">${String(i + 1).padStart(2, "0")} / ${String(items.length).padStart(2, "0")}</div>${text(p.title || `Etapa ${i + 1}`, "h3", { class: "lesson-title", size: 48 })}${p.text ? text(p.text, "body", { class: "lesson-text", size: 32 }) : ""}${output && p.output != null ? `<div class="lesson-output"><div class="lesson-output-label f-label">Saída esperada · simulação</div><pre class="f-mono">${esc(p.output)}</pre></div>` : ""}</article>`).join("")}</div>`;
+const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i) => `<article><div class="f-label lesson-summary-number">${String(i + 1).padStart(2, "0")}</div><div><strong class="f-heading">${md(p.title || `Etapa ${i + 1}`)}</strong>${p.text ? `<p class="f-body">${md(p.text)}</p>` : ""}${p.output != null ? `<pre class="f-mono">${esc(p.output)}</pre>` : ""}</div></article>`).join("")}</div>`;
+const percent = (value, fallback, min = 0, max = 100) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
 
 export const LAYOUTS = {
   cover(s, ctx) {
@@ -164,6 +170,22 @@ export const LAYOUTS = {
   code(s, ctx) {
     return `<div class="L-code">${head(s)}<div class="cd-row">${code({ code: s.code, highlight: s.highlight, size: s.size, class: "e", style: "--d:2;" })}
       ${s.note ? `<div class="cd-note" ${s.noteStep ? `data-step="${s.noteStep}"` : ""}>${typeof s.note === "string" ? text(s.note, "lead") : el(s.note, ctx)}</div>` : ""}</div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  codewalk(s, ctx) {
+    const frames = lessonSteps(s.steps, { title: "Acompanhe o código", text: "Adicione etapas com linhas destacadas e a saída esperada." });
+    return `<div class="L-codewalk" data-lesson="codewalk" data-lesson-count="${frames.length}">${head(s)}<div class="lesson-row"><div class="codewalk-editor"><div class="codewalk-bar"><span class="codewalk-lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="f-mono">${esc(s.filename || "exemplo.js")}</span><span class="codewalk-language f-label">${esc(s.language || "Código")}</span></div>${code({ code: s.code || "// Cole seu código aqui", highlight: frames[0].highlight, size: s.size || 30 })}<div class="codewalk-footer f-label">LEIA · PREVEJA · REVELE</div></div><aside class="lesson-aside">${lessonPanels(frames, true)}${lessonSummary(frames)}${lessonControls(frames)}</aside></div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  spotlight(s, ctx) {
+    const spots = lessonSteps(s.hotspots, { title: "Olhe mais de perto", text: "Adicione regiões para guiar o olhar da audiência.", x: 20, y: 20, width: 60, height: 60 });
+    const regions = spots.map((p, i) => {
+      const x = percent(p.x, 10, 0, 96), y = percent(p.y, 10, 0, 96);
+      const w = percent(p.width, 28, 4, 100 - x), h = percent(p.height, 24, 4, 100 - y);
+      return `<button type="button" class="spotlight-region${i === 0 ? " active" : ""}" data-lesson-go="${i}" data-spotlight-region="${i}" aria-label="Detalhe ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><span>${i + 1}</span></button>`;
+    }).join("");
+    const visual = s.figure || (s.image ? { image: s.image, alt: s.caption || s.title || "Imagem em análise", fit: "contain" } : { diagram: "flow", steps: ["Entrada", "Processamento", "Resultado"] });
+    return `<div class="L-spotlight" data-lesson="spotlight" data-lesson-count="${spots.length}">${head(s)}<div class="lesson-row"><div class="spotlight-visual"><div class="spotlight-canvas"><div class="spotlight-image">${el(visual, ctx, 1100, 660)}</div><div class="spotlight-regions">${regions}</div></div>${s.caption ? text(s.caption, "small", { class: "spotlight-caption", size: 24 }) : ""}</div><aside class="lesson-aside">${lessonPanels(spots)}${lessonSummary(spots)}${lessonControls(spots)}</aside></div></div>${src(s)}${add(s, ctx)}`;
   },
 
   blocks(s, ctx) {

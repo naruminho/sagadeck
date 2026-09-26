@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import jsQR from "jsqr";
 import { buildHTML, loadSpec } from "../src/build.js";
 import { browserOrSkip, newPage, tempDeck } from "./helpers.js";
+import { LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
 
 test("runtime", async (t) => {
   const browser = await browserOrSkip(t);
@@ -189,4 +190,83 @@ test("runtime", async (t) => {
 
   await browser.close();
   deck.cleanup();
+});
+
+test("cenas de aula: controles, teclado, exportação e movimento reduzido", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(), file = path.join(deck.dir, "aula.html");
+  const portrait = "data:image/svg+xml;base64," + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800"><rect width="400" height="800" fill="#222"/></svg>').toString("base64");
+  fs.writeFileSync(file, buildHTML({ title: "Aula", theme: "terminal", motion: "none", slides: [
+    LAYOUT_SAMPLES.codewalk, LAYOUT_SAMPLES.spotlight,
+    { layout: "spotlight", title: "Screenshot vertical", image: portrait, hotspots: [{ title: "Metade", x: 0, y: 0, width: 50, height: 50 }] },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+  // Prova que as cenas funcionam offline, inclusive sem carregar a fonte remota do tema.
+  await page.route("https://**", (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    const state = () => page.evaluate(() => ({ slide: window.sagadeck.cur, step: window.sagadeck.step, lines: [...document.querySelectorAll(".slide.current .code .cl.hl .cn")].map((e) => +e.textContent) }));
+    await t.test("botões e setas percorrem o código e só depois passam de slide", async () => {
+      assert.equal(await page.evaluate(() => window.sagadeck.steps(0)), 2);
+      await page.locator('.L-codewalk [data-lesson-next]').click();
+      assert.deepEqual(await state(), { slide: 0, step: 1, lines: [3] });
+      assert.match(await page.locator('.L-codewalk .lesson-panel.active').innerText(), /Transforme a resposta/);
+      await page.keyboard.press("ArrowRight");
+      assert.deepEqual(await state(), { slide: 0, step: 2, lines: [5, 7] });
+      await page.keyboard.press("ArrowRight");
+      assert.equal((await state()).slide, 1);
+      await page.keyboard.press("ArrowLeft");
+      assert.deepEqual(await state(), { slide: 0, step: 2, lines: [5, 7] });
+    });
+    await t.test("Enter e Espaço no botão escolhem a etapa em vez de avançar duas vezes", async () => {
+      const first = page.locator('.L-codewalk .lesson-dots [data-lesson-go="0"]');
+      await first.focus(); await page.keyboard.press("Enter");
+      assert.equal((await state()).step, 0);
+      const last = page.locator('.L-codewalk .lesson-dots [data-lesson-go="2"]');
+      await last.focus(); await page.keyboard.press("Space");
+      assert.equal((await state()).step, 2);
+      await page.reload();
+      await page.waitForFunction(() => window.sagadeck?.step === 2);
+      assert.deepEqual((await state()).lines, [5, 7]);
+    });
+    await t.test("clicar no screenshot muda região e explicação juntas", async () => {
+      await page.evaluate(() => window.sagadeck.goto(1, 0));
+      await page.locator('[data-idx="1"] [data-spotlight-region="2"]').click();
+      assert.equal((await state()).step, 2);
+      assert.equal(await page.locator('[data-idx="1"] .spotlight-region.active').getAttribute("data-spotlight-region"), "2");
+      assert.match(await page.locator('[data-idx="1"] .lesson-panel.active').innerText(), /Os dados/);
+    });
+    await t.test("regiões respeitam a proporção real de screenshots verticais", async () => {
+      await page.evaluate(() => window.sagadeck.goto(2, 0));
+      const dimensions = await page.locator('[data-idx="2"] .spotlight-regions').evaluate((e) => ({ width: e.clientWidth, height: e.clientHeight, left: parseFloat(e.style.left) }));
+      assert.ok(Math.abs(dimensions.width / dimensions.height - .5) < .01);
+      assert.ok(dimensions.left > 100);
+    });
+    await t.test("todos os passos cabem e respeitam movimento reduzido", async () => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      for (let i = 0; i < 3; i++) {
+        const count = await page.evaluate((i) => window.sagadeck.steps(i), i);
+        for (let k = 0; k <= count; k++) {
+          await page.evaluate(([i, k]) => window.sagadeck.goto(i, k), [i, k]);
+          const overflow = await page.locator('.slide.current').evaluate((slide) => {
+            const safe = slide.querySelector('.safe').getBoundingClientRect();
+            return [...slide.querySelectorAll('.lesson-panel.active, .lesson-controls, .codewalk-editor, .spotlight-canvas')].some((el) => { const r = el.getBoundingClientRect(); return r.bottom > safe.bottom + 1 || r.right > safe.right + 1; });
+          });
+          assert.equal(overflow, false, `slide ${i}, etapa ${k} cabe`);
+        }
+      }
+      assert.equal(await page.locator('.slide.current .lesson-panel.active').evaluate((e) => getComputedStyle(e).transitionDuration), "0s");
+    });
+    await t.test("exportação mostra o resumo completo sem controles de interação", async () => {
+      await page.goto(pathToFileURL(file).href + "?export=1");
+      await page.waitForFunction(() => window.sagadeck?.cur >= 0);
+      await page.evaluate(() => window.sagadeck.goto(0, 0));
+      assert.equal(await page.locator('.L-codewalk .lesson-controls').isVisible(), false);
+      assert.equal(await page.locator('.L-codewalk .lesson-summary').isVisible(), true);
+      assert.match(await page.locator('.L-codewalk .lesson-summary').innerText(), /Faça a pergunta[\s\S]*Transforme a resposta[\s\S]*Escolha o que importa/);
+    });
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
 });

@@ -5,6 +5,9 @@
   const KEY = "sagadeck:" + DATA.id;
   const EXPORT = /[?&]export/.test(location.search) || location.hash === "#export";
   const PRESENTER = location.hash.startsWith("#presenter");
+  const MOTION = ["none", "subtle", "expressive"].includes(DATA.motion) ? DATA.motion : "subtle";
+  document.documentElement.dataset.motion = MOTION;
+  const reducedMotion = () => MOTION === "none" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const stage = $("#stage");
@@ -24,6 +27,7 @@
     let m = +s.dataset.steps || 0;
     $$("[data-step]", s).forEach((e) => { m = Math.max(m, +e.dataset.step); });
     $$("[data-exit]", s).forEach((e) => { m = Math.max(m, +e.dataset.exit); });
+    $$("[data-lesson]", s).forEach((e) => { m = Math.max(m, (+e.dataset.lessonCount || 1) - 1); });
     return m;
   }
   const STEPS = slides.map(stepsOf);
@@ -64,7 +68,7 @@
   function runCounter(c, instant) {
     const to = +c.dataset.to, from = +c.dataset.from, dec = +c.dataset.dec, cv = $(".cv", c);
     const pre = c.dataset.prefix, suf = c.dataset.suffix;
-    if (instant || EXPORT) { cv.textContent = pre + fmtNum(to, dec) + suf; return; }
+    if (instant || EXPORT || reducedMotion()) { cv.textContent = pre + fmtNum(to, dec) + suf; return; }
     const t0 = performance.now(), dur = 1700;
     const tick = (t) => {
       const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(2, -10 * p);
@@ -209,6 +213,67 @@
     $$(".pl, mark, .chart", node).forEach((e) => e.classList.add("play"));
     $$(".e", node).forEach((e) => (e.style.animation = "none"));
     $$(".counter", node).forEach((c) => { $(".cv", c).textContent = c.dataset.prefix + fmtNum(+c.dataset.to, +c.dataset.dec) + c.dataset.suffix; });
+    $$("[data-lesson]", node).forEach((root) => renderLesson(root, k));
+  }
+
+  // ---------- cenas de aula: o clique da apresentação também é a etapa da explicação ----------
+  function renderLesson(root, requested) {
+    const n = +root.dataset.lessonCount || 1, index = Math.max(0, Math.min(n - 1, +requested || 0));
+    root.dataset.lessonIndex = String(index);
+    $$("[data-lesson-panel]", root).forEach((panel, i) => {
+      panel.classList.toggle("active", i === index);
+      panel.setAttribute("aria-hidden", String(i !== index));
+    });
+    $$("[data-lesson-go]", root).forEach((button) => {
+      const active = +button.dataset.lessonGo === index;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-current", active ? "step" : "false");
+    });
+    const prev = $("[data-lesson-prev]", root), next = $("[data-lesson-next]", root);
+    if (prev) prev.disabled = index === 0;
+    if (next) next.disabled = index === n - 1;
+    const panel = $(".lesson-panel.active", root);
+    const highlight = new Set(JSON.parse(panel?.dataset.highlight || "[]"));
+    $$(".code .cl", root).forEach((line, i) => {
+      line.classList.toggle("hl", highlight.has(i + 1));
+      line.classList.toggle("dim", highlight.size > 0 && !highlight.has(i + 1));
+    });
+  }
+  function fitSpotlight(root) {
+    const canvas = $(".spotlight-canvas", root), img = $(".spotlight-image img", root), regions = $(".spotlight-regions", root);
+    if (!canvas || !img?.naturalWidth || !regions) return;
+    // As regiões seguem a imagem real, inclusive com barras laterais em um screenshot vertical.
+    const scale = Math.min(canvas.clientWidth / img.naturalWidth, canvas.clientHeight / img.naturalHeight);
+    const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
+    regions.style.cssText = `width:${width}px;height:${height}px;left:${(canvas.clientWidth - width) / 2}px;top:${(canvas.clientHeight - height) / 2}px;`;
+  }
+  function mountLessons() {
+    slides.forEach((slide, si) => $$("[data-lesson]", slide).forEach((root) => {
+      renderLesson(root, 0);
+      hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); });
+      root.addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button || !root.contains(button) || button.disabled) return;
+        const index = +root.dataset.lessonIndex || 0;
+        let target;
+        if (button.hasAttribute("data-lesson-go")) target = +button.dataset.lessonGo;
+        else if (button.hasAttribute("data-lesson-prev")) target = index - 1;
+        else if (button.hasAttribute("data-lesson-next")) target = index + 1;
+        if (target == null) return;
+        event.stopPropagation();
+        goto(si, target);
+      });
+      // Enter/Espaço em um botão deve acioná-lo; setas continuam a navegação da apresentação.
+      root.addEventListener("keydown", (event) => {
+        if (event.target.closest("button") && ["Enter", " "].includes(event.key)) event.stopPropagation();
+      });
+      root.addEventListener("touchstart", (event) => event.stopPropagation(), { passive: true });
+      root.addEventListener("touchend", (event) => event.stopPropagation(), { passive: true });
+      const img = $(".spotlight-image img", root);
+      if (img) img.addEventListener("load", () => fitSpotlight(root));
+      fitSpotlight(root);
+    }));
+    window.addEventListener("resize", () => $$("[data-lesson='spotlight']").forEach(fitSpotlight));
   }
 
   // ---------- caneta e anotações ao vivo (live drawing) ----------
@@ -530,6 +595,7 @@
     if (EXPORT) document.documentElement.classList.add("export");
     scale(); window.addEventListener("resize", scale);
     mountWidgets();
+    mountLessons();
     initDrawing();
     requestWakeLock();
     document.addEventListener("keydown", onKey);

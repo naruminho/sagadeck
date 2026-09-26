@@ -38,15 +38,42 @@ export function varietyReport(spec) {
 // Direções criativas: cada deck gerado sorteia um jeito de contar (e de se parecer), para dois decks sobre
 // assuntos parecidos não saírem iguais.
 export const CREATIVE_DIRECTIONS = [
-  "Keynote minimalista: poucas palavras por slide, manchetes enormes, muito respiro, um número grande por ideia.",
-  "Investigação jornalística: abra com um caso real, revele as pistas aos poucos (linha do tempo, antes × depois), feche com a conclusão.",
-  "Workshop mão na massa: perguntas para a plateia, enquetes, etapas práticas, checklists curtos.",
-  "Estudo de caso: contexto → problema → o que foi tentado → resultado em números → lições.",
-  "Contra-intuitivo: comece derrubando uma crença comum; use comparações e dados que surpreendem.",
-  "Visual primeiro: páginas inteiras com imagem ou figura, mosaicos (bento), diagramas — texto só como legenda.",
-  "Conversa com a diretoria: decisão pedida no começo, impacto em R$, riscos numa matriz, próximos passos.",
+  "Keynote minimalista: uma frase de abertura sem ilustração, grandes espaços vazios, composição central, um número por ideia. Considere prata; destaque em cor apenas na virada.",
+  "Investigação editorial: abra com uma cena concreta, revele pistas por enquadramentos e comparações, entregue a conclusão no final. Considere editorial; serifas, linhas finas, papel claro e um único contraste escuro.",
+  "Workshop geométrico: abra com uma escolha da plateia, alterne desafios curtos, diagramas e timer. Considere bauhaus ou pop; formas primárias, assimetria e revelação por clique.",
+  "Estudo de caso documental: contexto → problema → tentativa → resultado → lição. Considere jornal; manchetes, evidências visuais, cronologia e legendas curtas. Só use dados do briefing ou dados verificados.",
+  "Contraponto: abra com duas possibilidades em comparação, questione uma crença e mostre uma evidência decisiva. Considere sinal; contraste firme, pouco ornamento e uma frase final que retoma a abertura.",
+  "Atlas visual: conte a história com páginas inteiras, diagramas e detalhes ampliados; texto como legenda. Considere oceano; alterne escala, posição e composição, sem usar um mosaico em toda página.",
+  "Sala de decisão: peça a decisão no começo, mostre evidências, opções, riscos e o próximo marco. Considere noite; ouro discreto, tipografia leve, gráficos limpos e transições suaves.",
+  "Palco elétrico: abra com uma pergunta provocadora em tamanho gigante, crie expectativa, pause e revele. Considere aurora; tela escura, uma cor luminosa, números monumentais e participação real da plateia.",
+  "Caderno de descoberta: uma pergunta inicial, um mapa de hipóteses, uma tentativa e uma descoberta. Considere rabisco; desenhos, setas e anotações visuais, com espaço para a audiência pensar.",
+  "Laboratório vivo: prever → observar → explicar → experimentar. Considere terminal; use codewalk para ler código por etapas, spotlight para screenshots e uma pergunta antes da resposta. Saídas simuladas devem ser identificadas.",
+  "Lançamento de produto: primeiro o benefício, depois uma demonstração visual, um detalhe ampliado, prova e convite. Considere prata ou oceano; mostre o produto em escala, evitando uma sequência de cartões de funcionalidades.",
+  "Manifesto tipográfico: alterne frases muito curtas, uma pausa visual, contrastes de escala e uma conclusão coletiva. Considere editorial ou bauhaus; capa assimétrica sem ícone decorativo e cada ato com composição própria.",
 ];
 
 export function pickDirection(seed = Math.random()) {
   return CREATIVE_DIRECTIONS[Math.floor(seed * CREATIVE_DIRECTIONS.length) % CREATIVE_DIRECTIONS.length];
 }
+
+// Um baralho embaralhado distribui todas as direções antes de repetir. O estado tem tamanho fixo,
+// dura só nesta sessão do servidor e não armazena o conteúdo das apresentações.
+export function createDirectionPicker(random = Math.random) {
+  let remaining = [];
+  let previous;
+  return () => {
+    if (!remaining.length) {
+      remaining = [...CREATIVE_DIRECTIONS];
+      for (let i = remaining.length - 1; i > 0; i--) {
+        const j = Math.min(i, Math.max(0, Math.floor(random() * (i + 1)) || 0));
+        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+      }
+      // Também evita a repetição na fronteira entre dois baralhos.
+      if (remaining.at(-1) === previous) [remaining[0], remaining[remaining.length - 1]] = [remaining.at(-1), remaining[0]];
+    }
+    previous = remaining.pop();
+    return previous;
+  };
+}
+
+export const nextDirection = createDirectionPicker();

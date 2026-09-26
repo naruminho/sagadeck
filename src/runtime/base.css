@@ -524,6 +524,67 @@ body.presenter #viewport{display:none}
 .qr-box{padding:18px;background:#fff;border-radius:calc(var(--radius) * .6);box-shadow:0 6px 30px rgba(0,0,0,.12);line-height:0}
 .qr-box svg{width:100%;height:auto;display:block}
 .qr-label{text-align:center;color:var(--muted)}
+
+/* Cenas de aula: código e imagem ficam estáveis enquanto a explicação avança. */
+.L-codewalk,.L-spotlight{flex:1;display:flex;flex-direction:column;min-height:0;gap:24px}
+.L-codewalk .hd,.L-spotlight .hd{margin-bottom:0}
+.lesson-row{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:56px;align-items:stretch}
+.lesson-aside{display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:0;gap:32px;padding:16px 0}
+.lesson-panels{flex:1;display:flex;align-items:center;min-height:0}
+.lesson-panel{display:none;flex-direction:column;gap:26px;width:100%;min-width:0}
+.lesson-panel.active{display:flex;animation:lesson-reveal .35s var(--ease-out)}
+.lesson-counter{font-size:23px;letter-spacing:.12em;color:var(--em);font-variant-numeric:tabular-nums}
+.lesson-title{line-height:1.12}.lesson-text{line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+.lesson-output{margin-top:8px;padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
+.lesson-output-label{font-size:17px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.lesson-output pre{font-size:24px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;margin:18px 0 0;color:var(--fg)}
+.lesson-controls{display:flex;align-items:center;gap:12px;flex:none}
+.lesson-controls button{border:1px solid var(--line);border-radius:12px;min-width:56px;height:56px;background:transparent;color:var(--fg);font:600 23px var(--font-label,system-ui);cursor:pointer;transition:background .18s,border-color .18s}
+.lesson-controls button:hover:not(:disabled){background:var(--surface)}
+.lesson-controls button[aria-current="step"]{background:var(--hi);color:var(--on-hi);border-color:var(--hi)}
+.lesson-controls button:disabled{opacity:.3;cursor:default}
+.lesson-controls button:focus-visible,.spotlight-region:focus-visible{outline:4px solid var(--em);outline-offset:5px}
+.lesson-dots{display:flex;flex-wrap:wrap;gap:8px}
+.codewalk-editor{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-radius:18px;background:#101725;color:#e8edf5;border:1px solid color-mix(in srgb,var(--fg) 15%,transparent);box-shadow:0 24px 60px #00000012}
+.codewalk-bar{display:flex;align-items:center;gap:22px;padding:24px 28px;border-bottom:1px solid #ffffff13;font-size:23px;color:#d8e0f0}
+.codewalk-language{margin-left:auto;font-size:16px;text-transform:uppercase;letter-spacing:.08em;color:#8d9ab1}
+.codewalk-lights{display:flex;gap:8px}.codewalk-lights i{display:block;width:10px;height:10px;border-radius:50%;background:#667084}.codewalk-lights i:first-child{background:#f09282}.codewalk-lights i:nth-child(2){background:#e5bd76}.codewalk-lights i:last-child{background:#93c1a4}
+.codewalk-editor .code{background:transparent!important;border-radius:0;flex:1;padding:32px 0;line-height:1.6;overflow:auto;scrollbar-width:thin;scrollbar-color:#46536a transparent;color:#e8edf5}
+.codewalk-editor .cl{padding:0 28px;min-width:max-content;transition:background .25s,opacity .25s;min-height:1.6em}
+.codewalk-editor .cl.hl{background:#adc8ff17;box-shadow:inset 4px 0 0 var(--em);color:#fff}
+.codewalk-editor .cl.dim{opacity:.42}.codewalk-editor .cn{color:#78849a;user-select:none}
+.codewalk-footer{padding:18px 28px;border-top:1px solid #ffffff13;font-size:15px;letter-spacing:.18em;color:#8290a7}
+.spotlight-visual{display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:0;gap:18px}
+.spotlight-canvas{position:relative;width:100%;aspect-ratio:5/3;max-height:100%;border-radius:18px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 24px 60px #00000010}
+.spotlight-image,.spotlight-regions{position:absolute;inset:0}
+.spotlight-image>.fig,.spotlight-image img,.spotlight-image svg{width:100%;height:100%}
+.spotlight-regions{pointer-events:none;overflow:hidden}
+.spotlight-region{position:absolute;padding:0;background:transparent;border:2px solid #ffffff70;border-radius:10px;pointer-events:auto;cursor:pointer;transition:border-color .35s,box-shadow .4s;z-index:1}
+.spotlight-region.active{border:4px solid var(--em);box-shadow:0 0 0 2000px #08101d65;z-index:2}
+.spotlight-region span{position:absolute;top:8px;left:8px;display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:var(--fg);color:var(--bg);font:700 20px system-ui;box-shadow:0 2px 10px #0003}
+.spotlight-region.active span{background:var(--em);color:var(--bg)}
+.spotlight-caption{color:var(--muted);line-height:1.3}
+.lesson-summary{display:none;gap:22px}
+.lesson-summary article{display:grid;grid-template-columns:34px 1fr;gap:14px;break-inside:avoid}
+.lesson-summary-number{font-size:20px;color:var(--em);padding-top:4px}
+.lesson-summary strong{font-size:27px;line-height:1.2}.lesson-summary p{font-size:22px;line-height:1.35;margin:8px 0 0;color:var(--muted)}
+.lesson-summary pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:19px;margin:10px 0 0;line-height:1.4}
+@keyframes lesson-reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.export .lesson-controls,.export .lesson-panels{display:none}
+.export .lesson-summary{display:grid}
+.export .spotlight-region{border:3px solid var(--em);box-shadow:none;pointer-events:none}
+.export .codewalk-editor .cl.dim{opacity:1}
+@media print{.lesson-controls,.lesson-panels{display:none!important}.lesson-summary{display:grid!important}.spotlight-region{border:3px solid var(--em);box-shadow:none!important}.codewalk-editor .cl.dim{opacity:1}}
+
+/* Intensidade de movimento: uma mesma apresentação pode ir da diretoria ao palco. */
+html[data-motion="subtle"] .slide.current .e{animation-name:fi;animation-duration:.38s;animation-delay:calc(var(--d,0) * 35ms)}
+html[data-motion="subtle"] [data-step]{transition-duration:.25s}
+html[data-motion="subtle"] [data-step]:not(.in){transform:none;filter:none}
+html[data-motion="expressive"] .slide.current .e{animation-duration:1s;animation-delay:calc(var(--d,0) * 100ms + 100ms)}
+html[data-motion="expressive"] .lesson-panel.active{animation-duration:.55s}
+html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="none"] *::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;scroll-behavior:auto!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;scroll-behavior:auto!important}}
+
 /* ---------- slide "api": requisição ao vivo ---------- */
 .L-api{flex:1;display:flex;flex-direction:column;min-height:0;gap:18px}
 .L-api .hd{margin-bottom:0}

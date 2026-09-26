@@ -45,6 +45,30 @@ test("layouts criativos desenham a estrutura própria", () => {
   assert.match(html(LAYOUT_SAMPLES.agenda), /ag-/);
 });
 
+test("código guiado preserva código literal, destaques, etapas e resumo estático", () => {
+  const out = html({ layout: "codewalk", title: "Aula", code: "if (a < 2) {\n  return '<script>literal</script>';\n}", steps: [
+    { title: "Condição", text: "Compare o valor", highlight: [1], output: "<resultado>" },
+    { title: "Retorno", highlight: [2], output: "Final" },
+  ] });
+  assert.match(out, /data-lesson-count="2"/);
+  assert.match(out, /data-highlight="\[2\]"/);
+  assert.match(out, /a &lt; 2/);
+  assert.match(out, /&lt;script&gt;literal&lt;\/script&gt;/);
+  assert.doesNotMatch(out, /<script>literal/);
+  assert.match(out, /Saída esperada · simulação/);
+  assert.match(out, /lesson-summary/);
+  assert.match(out, /data-lesson-go="1"/);
+});
+
+test("foco guiado limita regiões à imagem e aceita figura sem dependência externa", () => {
+  const out = html({ layout: "spotlight", hotspots: [{ title: "Detalhe", x: -40, y: 98, width: 300, height: 90 }] });
+  assert.match(out, /left:0%;top:96%;width:100%;height:4%/);
+  assert.match(out, /<svg/);
+  assert.match(out, /data-spotlight-region="0"/);
+  assert.match(html({ layout: "spotlight", hotspots: [] }), /data-lesson-count="1"/);
+  assert.match(html({ layout: "codewalk", steps: [] }), /data-lesson-count="1"/);
+});
+
 test("página inteira: image_prompt sem imagem vira placeholder (não some)", () => {
   const out = html({ layout: "full", image_prompt: "uma sala de controle", title: "X" });
   assert.match(out, /fig-pending/);
