@@ -29,6 +29,7 @@ export function optimizeTriggerTitle(s) {
   if (sepMatch && !newKicker && sepMatch[1].trim().split(/\s+/).length <= 4) {
     newKicker = sepMatch[1].trim();
     title = sepMatch[2].trim();
+    title = title.charAt(0).toUpperCase() + title.slice(1);
     modified = true;
   }
 
@@ -48,31 +49,12 @@ export function optimizeTriggerTitle(s) {
     }
   }
 
-  // 3. Se ainda for longo (> 6 palavras ou > 48 caracteres), compactar para as primeiras 4-5 palavras-chave
-  const words = title.split(/\s+/);
-  if (words.length > 6 || title.length > 48) {
-    title = words.slice(0, 5).join(" ");
-    modified = true;
-  }
-
-  // 4. Se não tem destaque ==palavra==, destacar a palavra mais forte (substantivo)
-  if (!title.includes("==")) {
-    const wList = title.split(/\s+/);
-    for (let i = wList.length - 1; i >= 0; i--) {
-      const rawW = wList[i].replace(/[.,;:!?]/g, "");
-      if (rawW.length >= 4 && !/^(para|como|sobre|onde|mais|este|esta|esse|pelo|pela|com)$/i.test(rawW)) {
-        wList[i] = wList[i].replace(rawW, `==${rawW}==`);
-        modified = true;
-        break;
-      }
-    }
-    title = wList.join(" ");
-  }
+  // (Removidas: cortar o título nas 5 primeiras palavras e pintar uma palavra com ==marca-texto==.
+  //  Cortavam frases no meio e deixavam todos os títulos com o mesmo destaque. Ênfase é decisão de
+  //  quem escreve; título longo é tratado pelo ajuste de tamanho (fit).)
 
   if (modified) {
-    if (original !== title) {
-      s.notes = (s.notes ? s.notes + "\n\n" : "") + `> Mensagem/Tese original do slide:\n"${original}"`;
-    }
+    // o título original fica registrado em `auto` (antes), sem poluir as anotações
     s.title = title;
     if (newKicker && !s.kicker) s.kicker = newKicker;
     return `Título longo/spoiler encurtado para título-gatilho ("${title}"); tese completa preservada nas notas.`;
@@ -80,7 +62,32 @@ export function optimizeTriggerTitle(s) {
   return null;
 }
 
+// Toda mudança da auto-correção fica registrada no próprio slide, em `auto`:
+//   auto: [{ campo, antes, motivo, quando }]
+// Assim o Studio mostra (e desfaz) o que foi automático, e a IA sabe que não foi ela nem o usuário.
 export function autofixSlide(slide, spec = {}, issues = []) {
+  const res = autofixSlideCore(slide, spec, issues);
+  if (!res.modified) return res;
+  res.slide.auto = recordAuto(slide, res.slide, res.actions);
+  return res;
+}
+
+const AUTO_SKIP = new Set(["auto"]);
+export function recordAuto(before, after, actions, por = "auto-correção") {
+  const log = Array.isArray(before.auto) ? before.auto.map((e) => ({ ...e })) : [];
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const motivo = actions.join("; ");
+  for (const k of keys) {
+    if (AUTO_SKIP.has(k) || k.startsWith("_")) continue;
+    if (JSON.stringify(before[k]) === JSON.stringify(after[k])) continue;
+    const prev = log.find((e) => e.campo === k);
+    if (prev) { prev.motivo = `${prev.motivo}; ${motivo}`; continue; } // mantém o valor original mais antigo
+    log.push({ campo: k, antes: before[k] === undefined ? null : before[k], motivo, por, quando: new Date().toISOString().slice(0, 16).replace("T", " ") });
+  }
+  return log;
+}
+
+function autofixSlideCore(slide, spec = {}, issues = []) {
   const s = JSON.parse(JSON.stringify(slide));
   const actions = [];
   const layout = s.layout || "blocks";

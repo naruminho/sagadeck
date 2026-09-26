@@ -15,15 +15,21 @@
     "lucide-static": "^1.47.0",
     "playwright-core": "^1.63.0",
     "pptxgenjs": "^4.0.1",
+    "qrcode-generator": "^2.0.4",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "@material-symbols/svg-400": "^0.47.5",
+    "esbuild": "^0.28.2",
+    "jsqr": "^1.4.0"
   },
   "scripts": {
     "bundle": "node scripts/bundle.mjs",
     "build:py": "node scripts/bundle.mjs && python -m build",
-    "test:live": "node tools/test-live.mjs"
+    "test:live": "node tools/test-live.mjs",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "test:unit": "node --test test/engine.test.js",
+    "test:ui": "node --test --test-concurrency=1 test/runtime.test.js test/studio.test.js"
   },
   "repository": {
     "type": "git",

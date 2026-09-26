@@ -1,0 +1,17 @@
+# Roda a suíte (motor + runtime + Studio num Chrome headless) em todo push e pull request.
+name: test
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - run: npm ci
+      - run: npm test
+        env:
+          SAGADECK_BROWSER: /usr/bin/google-chrome

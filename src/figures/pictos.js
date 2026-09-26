@@ -1,4 +1,5 @@
-// Pictogramas geométricos (estilo sinalização/Otl Aicher), gerados na hora em SVG.
+// Pictogramas (estilo sinalização), gerados na hora em SVG. A pessoa (`human`, e dentro de crowd/scene)
+// usa glifos do Material Symbols (Apache-2.0) — veja material-pictos.js e scripts/vendor-pictos.mjs.
 // Cores seguem o tom do slide via variáveis CSS:
 //   --pc  cor da figura (padrão: --fg)      --po  cor dos objetos (padrão: --fg)
 //   classes: pc (fill figura), pcs (stroke figura), po/pos (objetos), ph (fill --hi),
@@ -12,54 +13,79 @@
 //   { picto: scene, name: console, screen: "START" }
 //   { picto: crowd, count: 20, highlight: 3 }
 
-const SW = 13; // espessura do traço dos membros
+import { MATERIAL_GLYPHS } from "./material-pictos.js";
 
-// Coordenadas num quadro 120 x 160 (cabeça h, pescoço n, quadril p,
-// braços [cotovelo, mão], pernas [joelho, pé]).
+// Poses de { picto: human }: cada uma é um glifo de pessoa do Material Symbols (material-pictos.js),
+// às vezes com um objeto do mesmo estilo (prop) — o set não tem pessoa falando ao celular, olhando,
+// pensando ou carimbando. prop: [glifo, x, y, lado] no espaço do glifo (viewBox 0 -960 960 960).
+// box: quadro da pose (padrão 120 x 160; "sleep" é deitado).
 export const POSES = {
-  stand:   { h: [60, 18], n: [60, 40], p: [60, 88], la: [[45, 64], [42, 90]], ra: [[75, 64], [78, 90]], ll: [[53, 120], [51, 150]], rl: [[67, 120], [69, 150]] },
-  walk:    { h: [64, 18], n: [61, 40], p: [57, 88], la: [[47, 62], [39, 82]], ra: [[73, 60], [83, 76]], ll: [[46, 118], [33, 148]], rl: [[70, 116], [80, 149]] },
-  run:     { h: [70, 20], n: [64, 40], p: [54, 84], la: [[46, 54], [34, 66]], ra: [[80, 56], [88, 42]], ll: [[36, 104], [22, 124]], rl: [[76, 106], [72, 144]] },
-  sit:     { h: [48, 30], n: [47, 52], p: [44, 100], la: [[58, 78], [78, 78]], ra: [[62, 76], [82, 74]], ll: [[78, 102], [78, 146]], rl: [[74, 104], [72, 146]] },
-  drive:   { h: [46, 30], n: [46, 52], p: [42, 100], la: [[62, 70], [84, 60]], ra: [[66, 72], [88, 64]], ll: [[76, 102], [82, 146]], rl: [[72, 104], [76, 146]] },
-  phone:   { h: [58, 40], n: [48, 58], p: [42, 102], la: [[58, 84], [68, 68]], ra: [[60, 86], [70, 70]], ll: [[76, 104], [78, 146]], rl: [[72, 106], [72, 146]], prop: "phone" },
-  watch:   { h: [60, 18], n: [60, 40], p: [60, 88], la: [[44, 60], [72, 56]], ra: [[76, 60], [48, 56]], ll: [[53, 120], [51, 150]], rl: [[67, 120], [69, 150]] },
-  point:   { h: [58, 18], n: [58, 40], p: [58, 88], la: [[44, 64], [41, 90]], ra: [[82, 46], [108, 38]], ll: [[51, 120], [49, 150]], rl: [[65, 120], [67, 150]] },
-  raise:   { h: [58, 22], n: [58, 44], p: [58, 90], la: [[44, 66], [41, 92]], ra: [[76, 30], [82, 6]], ll: [[51, 122], [49, 152]], rl: [[65, 122], [67, 152]] },
-  shrug:   { h: [60, 22], n: [60, 44], p: [60, 90], la: [[38, 62], [28, 44]], ra: [[82, 62], [92, 44]], ll: [[53, 122], [51, 152]], rl: [[67, 122], [69, 152]] },
-  think:   { h: [58, 18], n: [60, 40], p: [60, 88], la: [[44, 66], [66, 70]], ra: [[80, 62], [70, 34]], ll: [[53, 120], [51, 150]], rl: [[67, 120], [69, 150]] },
-  stamp:   { h: [52, 26], n: [52, 48], p: [52, 94], la: [[40, 70], [38, 94]], ra: [[72, 40], [84, 24]], ll: [[46, 124], [44, 152]], rl: [[60, 124], [62, 152]], prop: "stamp" },
-  cheer:   { h: [60, 22], n: [60, 44], p: [60, 90], la: [[42, 30], [34, 8]], ra: [[78, 30], [86, 8]], ll: [[52, 122], [46, 152]], rl: [[68, 122], [74, 152]] },
-  sleep:   { box: [0, 0, 180, 110], h: [22, 64], n: [44, 70], p: [98, 74], la: [[66, 84], [92, 86]], ra: [[70, 80], [96, 82]], ll: [[128, 74], [164, 76]], rl: [[128, 80], [164, 84]], prop: "zzz" },
+  stand: { glyph: "man" },
+  walk: { glyph: "directions_walk" },
+  run: { glyph: "directions_run" },
+  sit: { glyph: "airline_seat_recline_normal" },
+  drive: { glyph: "airline_seat_recline_extra" },
+  phone: { glyph: "man", prop: ["call", 590, -930, 230] },
+  watch: { glyph: "man", prop: ["visibility", 600, -1000, 270] },
+  point: { glyph: "follow_the_signs" },
+  raise: { glyph: "emoji_people" },
+  shrug: { glyph: "accessibility" },
+  think: { glyph: "man", prop: ["question_mark", 590, -1010, 260] },
+  stamp: { glyph: "emoji_people", prop: ["approval", 50, -975, 210] },
+  cheer: { glyph: "accessibility_new" },
+  sleep: { glyph: "hotel", box: [0, 0, 180, 110] },
 };
 
-function line(pts) {
-  return `<polyline points="${pts.map((p) => p.join(",")).join(" ")}"/>`;
+// Nomes alternativos (português e sinônimos) -> pose. Comparação sem acento, com hífens.
+const POSE_ALIASES = {
+  "em-pe": "stand", parado: "stand", "de-pe": "stand", standing: "stand",
+  andando: "walk", caminhando: "walk", walking: "walk",
+  correndo: "run", running: "run",
+  sentado: "sit", sentada: "sit", sitting: "sit", seated: "sit",
+  dirigindo: "drive", driving: "drive", motorista: "drive",
+  telefone: "phone", celular: "phone", ligando: "phone", "no-telefone": "phone", "no-celular": "phone", call: "phone",
+  olhando: "watch", observando: "watch", assistindo: "watch", vigiando: "watch", looking: "watch",
+  apontando: "point", pointing: "point",
+  "mao-levantada": "raise", "levantando-a-mao": "raise", acenando: "raise", wave: "raise", waving: "raise",
+  "dando-de-ombros": "shrug", "de-ombros": "shrug", "bracos-abertos": "shrug",
+  pensando: "think", duvida: "think", thinking: "think",
+  carimbando: "stamp", aprovando: "stamp", carimbo: "stamp",
+  comemorando: "cheer", celebrando: "cheer", vibrando: "cheer", celebrate: "cheer",
+  dormindo: "sleep", deitado: "sleep", sleeping: "sleep",
+};
+const warnedPoses = new Set();
+
+// Nome de pose como veio do YAML -> pose conhecida. Desconhecida vira "stand", com aviso (uma vez por nome).
+export function resolvePose(name) {
+  if (!name) return "stand";
+  if (POSES[name]) return name;
+  const key = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[\s_]+/g, "-");
+  if (POSES[key]) return key;
+  if (POSE_ALIASES[key]) return POSE_ALIASES[key];
+  if (!warnedPoses.has(name)) {
+    warnedPoses.add(name);
+    console.warn(`⚠ pose "${name}" não existe; usei "stand". Poses: ${Object.keys(POSES).join(", ")} (ou em português: sentado, andando, pensando…)`);
+  }
+  return "stand";
 }
 
-// Corpo humano. Retorna conteúdo <g> no espaço da pose.
+// Quadrado onde o glifo é desenhado, centralizado no quadro da pose.
+export function glyphSquare(poseName = "stand") {
+  const P = POSES[resolvePose(poseName)];
+  const [x, y, w, h] = P.box || [0, -8, 120, 168];
+  const side = Math.max(w, h) * (P.box ? 1 : 0.95);
+  return [x + (w - side) / 2, y + (h - side) / 2, side, side];
+}
+
 export function humanBody(poseName = "stand") {
-  const P = POSES[poseName] || POSES.stand;
-  const [hx, hy] = P.h;
-  const sh = [P.n[0] + (P.p[0] - P.n[0]) * 0.08, P.n[1] + (P.p[1] - P.n[1]) * 0.08];
-  let g = `<g class="pcs" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round" fill="none">`;
-  g += line([sh, ...P.la]) + line([P.p, ...P.ll]);
-  g += `<line x1="${P.n[0]}" y1="${P.n[1]}" x2="${P.p[0]}" y2="${P.p[1]}" stroke-width="${SW * 1.55}"/>`;
-  g += line([P.p, ...P.rl]) + line([sh, ...P.ra]);
-  g += `</g><circle class="pc" cx="${hx}" cy="${hy}" r="11.5"/>`;
-  if (P.prop === "phone") {
-    const [x, y] = P.ra[1];
-    g += `<rect class="po" x="${x - 2}" y="${y - 16}" width="11" height="19" rx="2.5" transform="rotate(-18 ${x} ${y})"/>`;
-    g += `<line class="pos" x1="${hx + 4}" y1="${hy + 8}" x2="${x + 2}" y2="${y - 6}" stroke-width="2" stroke-dasharray="3 4" opacity=".6"/>`;
+  const P = POSES[resolvePose(poseName)];
+  const [x, y, w, h] = glyphSquare(poseName);
+  let inner = `<path class="pc" d="${MATERIAL_GLYPHS[P.glyph]}"/>`;
+  if (P.prop) {
+    const [name, px, py, side] = P.prop;
+    inner += `<svg x="${px}" y="${py}" width="${side}" height="${side}" viewBox="0 -960 960 960" overflow="visible"><path class="po" d="${MATERIAL_GLYPHS[name]}"/></svg>`;
   }
-  if (P.prop === "stamp") {
-    const [x, y] = P.ra[1];
-    g += `<g transform="rotate(-20 ${x} ${y})"><rect class="po" x="${x - 5}" y="${y - 20}" width="10" height="16" rx="3"/><rect class="po" x="${x - 12}" y="${y - 6}" width="24" height="8" rx="2"/></g>`;
-  }
-  if (P.prop === "zzz") {
-    g += `<text class="pc f-display" x="30" y="30" font-size="26">Z</text><text class="pc f-display" x="52" y="16" font-size="18">z</text><text class="pc f-display" x="68" y="6" font-size="13">z</text>`;
-  }
-  return g;
+  return `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 -960 960 960" overflow="visible">${inner}</svg>`;
 }
 
 function signPlate(kind, box) {
@@ -99,8 +125,7 @@ export function colorStyle(o = {}) {
 }
 
 export function human(o = {}) {
-  const P = POSES[o.pose] || POSES.stand;
-  const box = P.box || [0, -8, 120, 168];
+  const box = glyphSquare(o.pose);
   let inner = "";
   if (o.sign) {
     inner += signPlate(o.sign, box);
@@ -150,8 +175,7 @@ const SCENES = {
       <rect class="${o.alarm ? "blink" : "pb"}" ${o.alarm ? 'style="fill:var(--c-alert)"' : ""} x="208" y="42" width="176" height="116" rx="4"/>
       ${scr ? `<text x="296" y="${108 + (o.screenSize || 30) / 3}" text-anchor="middle" class="f-display" font-size="${o.screenSize || 30}" style="letter-spacing:.06em;fill:${o.alarm ? "#fff" : "var(--pc)"}">${scr}</text>` : ""}
       <rect class="po" x="286" y="170" width="20" height="28"/>
-      <g transform="translate(40 52) scale(1)">${humanBody("sit")}</g>
-      <path class="pos" d="M34 150 L34 200 M26 150 L70 150" stroke-width="9" stroke-linecap="round" fill="none"/>`];
+      <g transform="translate(40 52) scale(1)">${humanBody("sit")}</g>`];
   },
   // Pessoa em uma mesa com papéis (analista)
   desk(o) {
@@ -160,8 +184,7 @@ const SCENES = {
       <rect class="po" x="130" y="162" width="10" height="92"/><rect class="po" x="270" y="162" width="10" height="92"/>
       <rect class="pm" x="${o.laptop === false ? 190 : 170}" y="118" width="80" height="30" rx="3" transform="skewX(-12)"/>
       ${o.papers ? `<rect class="pl" x="236" y="128" width="46" height="22" rx="2"/><rect class="pl" x="240" y="120" width="46" height="22" rx="2"/>` : ""}
-      <g transform="translate(40 18)">${humanBody("sit")}</g>
-      <path class="pos" d="M44 170 L44 250 M36 168 L84 168" stroke-width="9" stroke-linecap="round" fill="none"/>`];
+      <g transform="translate(40 18)">${humanBody("sit")}</g>`];
   },
   // Carro visto de cima. driver/passenger: human|human-watch|human-phone|machine|none ; back: sleep|human|none ; button: true
   "car-top"(o) {

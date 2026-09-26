@@ -1,4 +1,5 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
+import { barHTML } from "./chrome.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,12 +45,12 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
 
 export function wordCount(s) {
   const txt = [];
   const walk = (v, k) => {
-    if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone") return;
+    if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
     if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }
     else if (Array.isArray(v)) v.forEach((x) => walk(x));
     else if (v && typeof v === "object" && !v.svg && !v.chart && !v.html) for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
@@ -63,7 +64,6 @@ export function buildHTML(rawSpec, opts = {}) {
   const theme = resolveTheme(spec.theme);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
   const id = spec.id || slug(spec.title);
-  const footerText = spec.footer === false ? "" : spec.footer || spec.title || "";
   const warnings = [];
   const slidesMeta = [];
   let html = "";
@@ -76,15 +76,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
     try { inner = fn(s, ctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
-    const deco = s.deco ?? theme.deco;
-    const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
-    const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-    const area = layout === "canvas" ? "free" : "safe";
-    html += `<section class="slide tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
-    if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
-    html += `<div class="${area}">${inner}</div>`;
-    if (showFoot) html += `<div class="foot f-label"><span>${esc(plain(footerText))}</span><span class="fn">${String(i + 1).padStart(2, "0")}</span></div>`;
-    html += `</section>\n`;
+    html += slideShell({ s, i, spec, theme, ctx, layout, tone, inner }) + "\n";
 
     const words = wordCount({ ...raw, notes: undefined });
     const limit = s.maxWords || spec.maxWords || 40;
@@ -93,10 +85,17 @@ export function buildHTML(rawSpec, opts = {}) {
     slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", time: s.time || 0, layout, words });
   });
 
+  // CSS e widgets próprios ficam ao lado do YAML. Se faltar um (ex.: deck aberto pelo navegador no
+  // Studio, sem a pasta original), a apresentação sai sem ele e com aviso — não quebra inteira.
+  const readCompanion = (f, kind) => {
+    const file = path.resolve(ctx.baseDir, f);
+    try { return fs.readFileSync(file, "utf8"); }
+    catch { warnings.push(`${kind} "${f}" não encontrado em ${ctx.baseDir} — a apresentação saiu sem ele`); return ""; }
+  };
   let customCSS = "";
-  for (const c of [].concat(spec.css || [])) customCSS += fs.readFileSync(path.resolve(ctx.baseDir, c), "utf8") + "\n";
+  for (const c of [].concat(spec.css || [])) customCSS += readCompanion(c, "CSS") + "\n";
   let widgets = "";
-  for (const w of [].concat(spec.widgets || [])) widgets += `\n/* ${w} */\n` + fs.readFileSync(path.resolve(ctx.baseDir, w), "utf8") + "\n";
+  for (const w of [].concat(spec.widgets || [])) widgets += `\n/* ${w} */\n` + readCompanion(w, "widget") + "\n";
 
   const data = { id, title: spec.title || "", author: spec.author || "", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
@@ -134,6 +133,7 @@ ${html}
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
 <script>window.Sagadeck={_q:[],widget:function(n,d){this._q.push([n,d])}};</script>
 <script>${widgets}</script>
+<script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };
@@ -147,10 +147,27 @@ export function buildFile(file, outFile) {
   return { ...r, spec, outFile };
 }
 
+// <section> de um slide: tom, textura, estilo do destaque, fundo, área, cabeçalho e rodapé.
+// Única montagem para o Studio (renderSlide) e para a apresentação/exportação (buildHTML).
+function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = false }) {
+  const deco = s.deco ?? theme.deco;
+  const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
+  const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
+  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
+  // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
+  const markStyle = s.markStyle || spec.markStyle;
+  const total = spec.slides?.length || i + 1;
+  let html = `<section class="slide${current ? " current" : ""} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
+  if (bars && s.header !== false) html += barHTML("header", spec, i, total);
+  html += `<div class="${area}">${inner}</div>`;
+  if (bars) html += barHTML("footer", spec, i, total);
+  return html + `</section>`;
+}
+
 export function renderSlide(raw, i = 0, spec = {}) {
   const theme = resolveTheme(spec.theme);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
-  const footerText = spec.footer === false ? "" : spec.footer || spec.title || "";
   const s = { ...(spec.defaults || {}), ...raw };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
@@ -158,13 +175,6 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
-  const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
-  const showFoot = footerText && s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" ? "free" : "safe";
-  let html = `<section class="slide current tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${s.steps ? ` data-steps="${s.steps}"` : ""}${style ? ` style="${style}"` : ""}>`;
-  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
-  html += `<div class="${area}">${inner}</div>`;
-  if (showFoot) html += `<div class="foot f-label"><span>${esc(plain(footerText))}</span><span class="fn">${String(i + 1).padStart(2, "0")}</span></div>`;
-  html += `</section>`;
+  const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });
   return { html, layout, tone, deco, theme, inner, baseCSS: read("runtime/base.css"), themeCSS: themeCSS(theme) };
 }

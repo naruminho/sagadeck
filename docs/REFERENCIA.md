@@ -8,7 +8,15 @@ title: Nome da palestra          # obrigatório (vira rodapé e título da janel
 author: Seu Nome · Cargo
 theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | jornal  (ou tema customizado, ver fim)
 duration: 50                     # minutos — o modo apresentador mostra se você está adiantado/atrasado
-footer: texto do rodapé          # opcional; false desliga
+event: Summit de Dados 2026       # opcional — para {evento} no rodapé/cabeçalho
+department: Engenharia de Dados  # opcional — para {depto}
+date: 2026-03-07                 # opcional — para {data}; sem date, usa a data do dia
+footer: texto do rodapé          # opcional; false desliga; ou { left, center, right } com variáveis:
+#   footer: { left: "{autor} · {evento}", center: "{data:DD MMM AAAA}", right: "{n} / {total}" }
+#   header: { left: "{depto}", right: "Confidencial" }
+#   variáveis: {titulo} {autor} {evento} {depto} {data} {data:MÁSCARA} {pagina} (01) {n} (1) {total}
+#   máscara: DD MM AAAA AA MMM (jan) MMMM (janeiro). Capa, seção, encerramento e página inteira ficam sem.
+markStyle: marca-texto           # como o ==destaque== aparece: marca-texto | sublinhado | cor | negrito | nenhum
 tone: light                      # tom padrão dos slides (light | dark | accent | alert)
 maxWords: 40                     # alerta "anti-sono" quando um slide passa disso
 css: [estilo.css]                # CSS extra (opcional)
@@ -39,7 +47,7 @@ slides:
 
 ## Marcação inline (qualquer texto)
 
-`**negrito**` · `*itálico*` · `==marca-texto==` (animado) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
+`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
 
 ## Layouts
 
@@ -64,8 +72,14 @@ slides:
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
-| `end` | `title, subtitle, contacts, figure` | encerramento |
+| `end` | `title, subtitle, contacts, figure, qr, qrLabel` | encerramento; `qr: <link>` põe um QR code ao lado (ex.: LinkedIn) |
 | `references` | `title, items` | fontes (2 colunas) |
+| `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
+| `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
+| `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
+| `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
+| `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
+| `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 
@@ -81,6 +95,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | lista | `{ list: [...], numbered: true, build: true }` |
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
+| QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
 | forma | `{ shape: rect|rounded|circle|pill|line, fill: hi, stroke: fg, w, h }` |
 | selo | `{ badge: "NOVO" }` |
 | vídeo | `{ video: "https://…", label: "Assistir" }` |
@@ -90,10 +105,10 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 
 ## Figuras geradas na hora
 
-**Ícones** (2.100+ do Lucide — veja `sagadeck icons carro`): `{ icon: gavel, size: 200, stroke: 1.5, color: em }`
+**Ícones** (2.100+ do Lucide — veja `sagadeck icons carro`): `{ icon: gavel, size: 200, stroke: 1.5, color: em }` — nome oficial em inglês, mas aceita sinônimos comuns em português (`foguete`, `dinheiro`, `equipe`…) e erros de digitação leves; nome desconhecido vira `sparkles` com aviso no terminal.
 
 **Pictogramas** (estilo sinalização):
-- `{ picto: human, pose: walk, sign: circle }` — poses: `stand walk run sit drive phone watch point raise shrug think stamp cheer sleep`; `sign`: `circle | square | triangle` (placa atrás)
+- `{ picto: human, pose: walk, sign: circle }` — poses: `stand walk run sit drive phone watch point raise shrug think stamp cheer sleep` (também em português: `em pé`, `andando`, `correndo`, `sentado`, `dirigindo`, `no celular`, `olhando`, `apontando`, `mão levantada`, `dando de ombros`, `pensando`, `carimbando`, `comemorando`, `dormindo`); `sign`: `circle | square | triangle` (placa atrás)
 - `{ picto: machine }` — a "máquina"
 - `{ picto: crowd, count: 20, highlight: 3 }` — bonequinhos, os primeiros destacados
 - `{ picto: scene, name: … }` — cenas prontas:
@@ -116,6 +131,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML).
+**Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
 
 ## Notas / roteiro (`notes`)
 

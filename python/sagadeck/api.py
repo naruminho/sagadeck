@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Sequence
 
+from .llm import llm_env
+
 ENGINE = Path(__file__).resolve().parent / "engine"
 MIN_NODE = (18, 0)
 
@@ -46,7 +48,8 @@ def run(command: str, *args: str, out: str | os.PathLike | None = None, check: b
     cmd = [node_path(), str(engine_path()), command, *map(str, args), *extra]
     if out is not None:
         cmd.append(f"--out={out}")
-    proc = subprocess.run(cmd, capture_output=capture, text=True, encoding="utf-8" if capture else None)
+    with llm_env(command) as env:
+        proc = subprocess.run(cmd, capture_output=capture, text=True, encoding="utf-8" if capture else None, env=env)
     if check and proc.returncode != 0:
         raise SagadeckError(f"sagadeck {command} falhou (código {proc.returncode})" + (f":\n{proc.stderr}" if capture else ""))
     return proc

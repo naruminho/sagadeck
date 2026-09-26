@@ -32,6 +32,35 @@ const isHL = (o, d, i) => {
   const arr = Array.isArray(h) ? h : [h];
   return arr.includes(i) || arr.includes(d.label) || d.highlight;
 };
+// ---- rótulos que cabem (todo texto de gráfico tem uma largura para respeitar) ----
+// largura aproximada por caractere, em "em": texto comum ~0,62 (fontes largas como Century Gothic);
+// rótulos f-label são MAIÚSCULOS e espaçados, bem mais largos (~0,86). O fit.js mede de verdade depois.
+const EM = { text: 0.62, caps: 0.86 };
+const textW = (s, fs, k = EM.text) => String(s ?? "").length * fs * k;
+// reduz a fonte até `minFs`; se ainda não couber, quebra em 2 linhas (no espaço mais perto do meio)
+function fitLabel(label, maxW, fs, minFs = 22, k = EM.text) {
+  const s = String(label ?? "");
+  const one = Math.min(fs, maxW / Math.max(1, s.length * k));
+  if (one >= minFs || !/\s/.test(s)) return { fs: Math.max(12, Math.round(one)), lines: [s] };
+  const words = s.split(/\s+/);
+  let best = [s, ""], longest = Infinity;
+  for (let k = 1; k < words.length; k++) {
+    const a = words.slice(0, k).join(" "), b = words.slice(k).join(" ");
+    if (Math.max(a.length, b.length) < longest) { longest = Math.max(a.length, b.length); best = [a, b]; }
+  }
+  return { fs: Math.max(12, Math.round(Math.min(fs, maxW / (longest * k)))), lines: best };
+}
+// rótulos do mesmo eixo com o mesmo tamanho (o menor que coube): tamanhos diferentes parecem erro
+const sameSize = (lbls) => { const fs = Math.min(...lbls.map((l) => l.fs)); lbls.forEach((l) => (l.fs = fs)); return lbls; };
+// <text> com 1 ou 2 linhas; `y` é a linha de base da PRIMEIRA linha (2 linhas sobem meia linha)
+function labelSVG(lbl, x, y, attrs, center = true) {
+  const lh = lbl.fs * 1.12, y0 = center && lbl.lines.length > 1 ? y - lh / 2 : y;
+  const body = lbl.lines.length > 1
+    ? lbl.lines.map((l, i) => `<tspan x="${x}" y="${y0 + i * lh}">${esc(l)}</tspan>`).join("")
+    : esc(lbl.lines[0]);
+  return `<text x="${x}" y="${y0}" font-size="${lbl.fs}" ${attrs}>${body}</text>`;
+}
+
 const wrap = (w, h, inner, o, type) =>
   `<svg class="chart chart-${type}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" data-chart='${esc(JSON.stringify(nativeSpec(o, type)))}'>${inner}</svg>`;
 
@@ -49,16 +78,19 @@ function nativeSpec(o, type) {
 function bar(o, W, H) {
   const d = norm(o);
   const max = o.max ?? Math.max(...d.map((x) => x.value)) * 1.08;
-  const lw = o.labelWidth ?? Math.round(W * 0.3);
+  const fs0 = o.fontSize || 36;
+  const longest = Math.max(0, ...d.map((x) => textW(x.label, fs0)));
+  const lw = o.labelWidth ?? Math.round(Math.min(W * 0.45, Math.max(W * 0.22, longest + 40)));
   const vw = 150;
   const n = d.length, rowH = H / n, bh = Math.min(o.barHeight || 84, rowH * 0.64);
   let g = "";
+  const lbls = sameSize(d.map((x) => fitLabel(x.label, lw - 30, fs0)));
   d.forEach((x, i) => {
     const y = i * rowH + (rowH - bh) / 2;
     const bw = Math.max(4, ((W - lw - vw) * x.value) / max);
     const hl = isHL(o, x, i);
     const color = x.color ? cvar(x.color) : hl ? "var(--ca)" : "var(--cb)";
-    g += `<text x="${lw - 24}" y="${y + bh / 2 + 12}" text-anchor="end" class="f-heading" font-size="${o.fontSize || 36}" style="fill:var(--fg)">${esc(x.label)}</text>`;
+    g += labelSVG(lbls[i], lw - 24, y + bh / 2 + 12, `text-anchor="end" class="f-heading" style="fill:var(--fg)"`);
     g += `<rect class="gx" style="--i:${i};fill:${color}" x="${lw}" y="${y}" width="${bw}" height="${bh}" rx="${Math.min(8, bh / 4)}"/>`;
     g += `<text class="fade-in f-display" style="--i:${i};fill:var(--fg)" x="${lw + bw + 18}" y="${y + bh / 2 + 16}" font-size="${o.valueSize || 46}">${esc(fmt(x.value, o))}</text>`;
   });
@@ -71,6 +103,7 @@ function column(o, W, H) {
   const n = d.length, top = 80, bottom = 90, ch = H - top - bottom;
   const slot = W / n, bw = Math.min(o.barWidth || 220, slot * 0.62);
   let g = `<line x1="0" y1="${top + ch}" x2="${W}" y2="${top + ch}" style="stroke:var(--line)" stroke-width="3"/>`;
+  const lbls = sameSize(d.map((x) => fitLabel(x.label, slot * 0.94, o.fontSize || 32)));
   d.forEach((x, i) => {
     const bh = Math.max(4, (ch * x.value) / max);
     const X = i * slot + (slot - bw) / 2, Y = top + ch - bh;
@@ -78,7 +111,7 @@ function column(o, W, H) {
     const color = x.color ? cvar(x.color) : hl ? "var(--ca)" : "var(--cb)";
     g += `<rect class="gy" style="--i:${i};fill:${color}" x="${X}" y="${Y}" width="${bw}" height="${bh}" rx="6"/>`;
     g += `<text class="fade-in f-display" style="--i:${i};fill:var(--fg)" x="${X + bw / 2}" y="${Y - 18}" text-anchor="middle" font-size="${o.valueSize || 56}">${esc(fmt(x.value, o))}</text>`;
-    g += `<text class="f-heading" x="${X + bw / 2}" y="${top + ch + 52}" text-anchor="middle" font-size="${o.fontSize || 32}" style="fill:var(--fg)">${esc(x.label)}</text>`;
+    g += labelSVG(lbls[i], X + bw / 2, top + ch + 52, `text-anchor="middle" class="f-heading" style="fill:var(--fg)"`, false);
   });
   return wrap(W, H, g, o, "column");
 }
@@ -98,7 +131,21 @@ function line(o, W, H) {
     g += `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}" style="stroke:var(--line)" stroke-width="2"/>`;
     g += `<text x="${L - 16}" y="${Y(t) + 9}" text-anchor="end" class="f-label" font-size="22" style="fill:var(--muted)">${esc(fmt(t, o))}</text>`;
   });
-  labels.forEach((l, i) => { if (l) g += `<text x="${X(i)}" y="${H - 24}" text-anchor="middle" class="f-label" font-size="22" style="fill:var(--muted)">${esc(l)}</text>`; });
+  const gap = n > 1 ? cw / (n - 1) : cw;
+  const axis = labels.map((l, i) => {
+    if (!l) return null;
+    const edge = n > 1 && (i === 0 || i === n - 1);
+    const anchor = !edge ? "middle" : i === 0 ? "start" : "end";
+    // cada rótulo usa só a SUA metade do vão para o lado do vizinho; as pontas podem avançar na margem externa
+    const x = !edge ? X(i) : i === 0 ? Math.max(4, X(i) - (L - 14)) : Math.min(W - 4, X(i) + (R - 4));
+    const room = !edge ? gap * 0.9 : Math.abs(X(i) - x) + gap * 0.45;
+    return { anchor, x, lbl: fitLabel(l, room, 22, 15, EM.caps) };
+  });
+  sameSize(axis.filter(Boolean).map((a) => a.lbl));
+  axis.forEach((a) => {
+    if (!a) return;
+    g += labelSVG(a.lbl, a.x, H - 24 - (a.lbl.lines.length - 1) * a.lbl.fs * 1.12, `text-anchor="${a.anchor}" class="f-label" style="fill:var(--muted)"`, false);
+  });
   (o.bands || []).forEach((b) => {
     g += `<line x1="${X(b.at)}" x2="${X(b.at)}" y1="${T - 20}" y2="${T + ch}" style="stroke:var(--em)" stroke-width="3" stroke-dasharray="10 10"/>`;
     if (b.text) g += `<text x="${X(b.at) + 12}" y="${T - 4}" class="f-label" font-size="22" style="fill:var(--em)">${esc(b.text)}</text>`;
@@ -156,13 +203,32 @@ function donut(o, W, H) {
 function waffle(o, W, H) {
   const total = o.total || 100, cols = o.cols || 10, rows = Math.ceil(total / cols);
   const groups = o.groups || [{ count: o.value || 0, color: "ca" }];
-  const legendH = o.legend === false ? 0 : 70;
-  const cell = Math.min(W / cols, (H - legendH) / rows);
+  const colorOf = (gr, gi) => cvar(gr.color, gi === 0 ? "ca" : gi === 1 ? "cb" : `s${gi + 1}`);
+  // legenda: itens em linhas, quebrando quando não cabem na largura (e cada rótulo cabe sozinho)
+  const items = o.legend === false ? [] : groups.map((gr, gi) => ({ gr, gi, lbl: fitLabel(gr.label, W - 50, 30, 20) })).filter((x) => x.gr.label);
+  const place = (x0) => {
+    const lines = [[]];
+    let lx = x0;
+    for (const it of items) {
+      const iw = 40 + Math.max(...it.lbl.lines.map((l) => textW(l, it.lbl.fs)));  // f-heading
+      if (lines.at(-1).length && lx + iw > W) { lines.push([]); lx = x0; }
+      lines.at(-1).push({ ...it, x: lx });
+      lx += iw + 44;
+    }
+    return lines;
+  };
+  const lineH = (line) => Math.max(0, ...line.map((it) => it.lbl.lines.length * it.lbl.fs * 1.12)) + 14;
+  const legendH = (lines) => (items.length ? 30 + lines.reduce((h, l) => h + lineH(l), 0) : 0);
+  let lines = place(0);
+  let cell = Math.min(W / cols, (H - legendH(lines)) / rows);
+  let ox = (W - cols * cell) / 2;
+  lines = place(ox);
+  cell = Math.min(cell, (H - legendH(lines)) / rows);
+  ox = (W - cols * cell) / 2;
   const r = cell * 0.36;
   const colors = [];
-  groups.forEach((gr, gi) => { for (let k = 0; k < gr.count; k++) colors.push(cvar(gr.color, gi === 0 ? "ca" : gi === 1 ? "cb" : `s${gi + 1}`)); });
+  groups.forEach((gr, gi) => { for (let k = 0; k < gr.count; k++) colors.push(colorOf(gr, gi)); });
   let g = "";
-  const ox = (W - cols * cell) / 2;
   for (let i = 0; i < total; i++) {
     const x = ox + (i % cols) * cell + cell / 2, y = Math.floor(i / cols) * cell + cell / 2;
     const c = colors[i] || "var(--line)";
@@ -170,14 +236,14 @@ function waffle(o, W, H) {
       ? `<rect class="pop" style="--i:${i};fill:${c}" x="${x - r}" y="${y - r}" width="${2 * r}" height="${2 * r}" rx="${r * 0.2}"/>`
       : `<circle class="pop" style="--i:${i};fill:${c}" cx="${x}" cy="${y}" r="${r}"/>`;
   }
-  if (o.legend !== false) {
-    let lx = ox;
-    groups.forEach((gr, gi) => {
-      if (!gr.label) return;
-      const c = cvar(gr.color, gi === 0 ? "ca" : gi === 1 ? "cb" : `s${gi + 1}`);
-      g += `<circle cx="${lx + 14}" cy="${rows * cell + 44}" r="14" style="fill:${c}"/><text x="${lx + 40}" y="${rows * cell + 54}" class="f-heading" font-size="30" style="fill:var(--fg)">${esc(gr.label)}</text>`;
-      lx += 60 + gr.label.length * 17;
-    });
+  let ly = rows * cell + 30;
+  for (const line of place(ox)) {
+    for (const it of line) {
+      const base = ly + it.lbl.fs * 0.9;
+      g += `<circle cx="${it.x + 14}" cy="${base - it.lbl.fs * 0.33}" r="14" style="fill:${colorOf(it.gr, it.gi)}"/>`;
+      g += labelSVG(it.lbl, it.x + 40, base, `class="f-heading" style="fill:var(--fg)"`, false);
+    }
+    ly += lineH(line);
   }
   return wrap(W, H, g, o, "waffle");
 }

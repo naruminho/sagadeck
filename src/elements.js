@@ -1,6 +1,7 @@
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
 // anim (up|fade|pop|left|right|zoom|none), w, h, flex, align, class, style, card.
+import { qrSVG } from "./figures/qr.js";
 import fs from "node:fs";
 import path from "node:path";
 import { md, esc } from "./markup.js";
@@ -51,6 +52,11 @@ export function text(t, as = "body", el = {}) {
 }
 
 export function figureHTML(el, ctx, w, h) {
+  if (el.qr) {
+    const size = el.size || 360;
+    const svg = qrSVG(el.qr, { ec: el.ec, ink: el.ink || "#111", paper: el.paper || "#fff" });
+    return `<div${attrs(el, "fig fig-qr")}><div class="qr-box" style="width:${size}px;">${svg}</div>${el.label ? `<div class="qr-label f-label">${md(el.label)}</div>` : ""}</div>`;
+  }
   if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${colorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
@@ -68,13 +74,16 @@ function imageSrc(p, ctx) {
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image || el.qr);
 
 // Renderiza qualquer elemento
 export function el(e, ctx, w, h) {
   if (e == null) return "";
   if (typeof e === "string" || typeof e === "number") return text(String(e), "body");
   if (Array.isArray(e)) return e.map((x) => el(x, ctx, w, h)).join("");
+  if (e.image_prompt && !e.image && !isFigure(e)) {
+    return `<div${attrs(e, "fig fig-pending")}><div class="fp-in"><span class="fp-tag f-label">imagem a gerar</span><span class="fp-text f-body">${esc(String(e.image_prompt).slice(0, 180))}</span></div></div>`;
+  }
   if (isFigure(e)) return figureHTML(e, ctx, w, h);
   if (e.text != null) return text(e.text, e.as || "body", e);
   if (e.row) return `<div${attrs(e, "row", `gap:${px(e.gap ?? 48)};align-items:${e.valign || "stretch"};justify-content:${e.justify || "flex-start"};`)}>${e.row.map((x) => el(x, ctx)).join("")}</div>`;
