@@ -76,6 +76,17 @@ slides:
         flex: 1
       - { label: "Combinado: nas votações, reaja com 👍 = IN ❤️ = ON 😮 = OUT", align: center }
 
+  # título longo + tópicos longos: a coluna de texto transborda por cima da fonte (o motor precisa reduzir)
+  - layout: split
+    kicker: Reserva de mercado?
+    title: "2018: a FDA aprova a primeira IA que diagnostica sem médico para interpretar o exame."
+    bullets:
+      - Retinopatia diabética, a partir de uma foto do olho.
+      - Roda num posto de saúde, sem oftalmologista.
+      - Quando a lei exige a assinatura do especialista, ela protege o ==paciente== ou o ==diploma==?
+    figure: { icon: scan-eye, size: 420 }
+    source: "FDA, autorização De Novo do IDx-DR (2018)."
+
   - layout: end
     title: Obrigado.
     contacts: [equipe@exemplo.com]
