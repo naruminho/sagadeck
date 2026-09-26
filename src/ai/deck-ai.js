@@ -526,7 +526,7 @@ Antes de responder, verifique (e siga as Regras de edição):
       try { return checkMotifs(parsed, spec); } catch (e) { if (e.soft) motifObjected = true; throw e; }
     }, { onProgress });
   const actions = [];
-  if (imagesDropped) actions.push("⚠ O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, use um modelo com visão em [apps.sagadeck.models] do modelrelay.");
+  if (imagesDropped) actions.push("O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, use um modelo com visão em [apps.sagadeck.models] do modelrelay.");
   // conversa: nada muda (a resposta pode trazer opções clicáveis)
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
   // versões para escolher: nada muda até a pessoa escolher uma
@@ -548,7 +548,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (issues?.length && typeof targetSlide === "number" && edited.slides[targetSlide]) {
     const fix = autofixSlide(edited.slides[targetSlide], edited, issues);
     edited.slides[targetSlide] = fix.slide;
-    fix.actions.forEach((x) => actions.push(`⚙ Auto-correção (slide ${targetSlide + 1}): ${x}`));
+    fix.actions.forEach((x) => actions.push(`Auto-correção (slide ${targetSlide + 1}): ${x}`));
   }
   return {
     reply: prose || (test.length && !changed.length ? "Vou testar." : "Pronto, apliquei o pedido."),

@@ -688,7 +688,7 @@
         const actionMsg = data.actions && data.actions.length
           ? data.actions.join("; ")
           : "Layout otimizado e perfeitamente seguro!";
-        showToast(`🪄 Auto-Correção: ${actionMsg}`);
+        showToast(`Auto-correção: ${actionMsg}`);
       }
     } catch (err) {
       showToast("Erro ao auto-corrigir: " + err.message);
@@ -830,7 +830,7 @@
         msg.classList.add("bs");
         const tag = document.createElement("div");
         tag.className = "bs-tag";
-        tag.textContent = "💬 Conversa — nada mudou nos slides";
+        tag.innerHTML = '<i class="ic" data-ic="message-square-text"></i> Conversa — nada mudou nos slides'; hydrateIcons(tag);
         msg.querySelector(".ai-content").prepend(tag);
         renderChatOptions(msg, data.options);
         updateBrainstormApply();
@@ -875,7 +875,7 @@
     state.chatAttachments.forEach((url, i) => {
       const it = document.createElement("div");
       it.className = "chat-att";
-      it.innerHTML = `<img alt=""><button type="button" title="Remover">✕</button>`;
+      it.innerHTML = `<img alt=""><button type="button" title="Remover"><i class="ic" data-ic="x"></i></button>`; hydrateIcons(it);
       it.querySelector("img").src = url;
       it.querySelector("button").onclick = () => { state.chatAttachments.splice(i, 1); renderChatAttachments(); };
       box.appendChild(it);
@@ -917,7 +917,7 @@
 
     const avatar = document.createElement("div");
     avatar.className = sender === "user" ? "user-avatar" : "ai-avatar";
-    avatar.textContent = sender === "user" ? "EU" : "✦";
+    if (sender === "user") avatar.textContent = "EU"; else { avatar.innerHTML = '<i class="ic" data-ic="sparkles"></i>'; hydrateIcons(avatar); }
     msgDiv.appendChild(avatar);
 
     const content = document.createElement("div");
@@ -937,7 +937,7 @@
       actions.forEach((a) => {
         const pill = document.createElement("span");
         pill.className = "action-badge-pill";
-        pill.textContent = `✓ ${a}`;
+        pill.innerHTML = `<i class="ic" data-ic="${/falhou|falha|erro|não enxerga/i.test(a) ? "circle-alert" : "check"}"></i> ${escHtml(a)}`; hydrateIcons(pill);
         actionsContainer.appendChild(pill);
       });
       content.appendChild(actionsContainer);
@@ -1096,7 +1096,7 @@
     renderCurrentSlide();
     renderThumbnails();
     closeIconPicker();
-    showToast(`✓ Card com ícone "${state.selectedIcon.name}" adicionado!`);
+    showToast(`Card com ícone "${state.selectedIcon.name}" adicionado!`);
     playHaptic("pop");
   }
 
@@ -1121,7 +1121,7 @@
     renderCurrentSlide();
     renderThumbnails();
     closeIconPicker();
-    showToast(`✓ Ícone "${state.selectedIcon.name}" definido como figura principal!`);
+    showToast(`Ícone "${state.selectedIcon.name}" definido como figura principal!`);
     playHaptic("pop");
   }
 
@@ -1147,7 +1147,7 @@
     renderCurrentSlide();
     renderThumbnails();
     closeIconPicker();
-    showToast(`✓ Ícone "${state.selectedIcon.name}" adicionado ao canvas livre!`);
+    showToast(`Ícone "${state.selectedIcon.name}" adicionado ao canvas livre!`);
     playHaptic("pop");
   }
 
@@ -1194,7 +1194,7 @@
       .then((r) => r.json()).then((v) => {
         const ok = v.ok;
         dom.arcStatusBadge.className = `arc-badge ${ok ? "ok" : "warn"}`;
-        dom.arcStatusBadge.textContent = ok ? "Variado ✓" : "Repetitivo";
+        dom.arcStatusBadge.textContent = ok ? "Variado" : "Repetitivo";
         dom.arcRecommendation.textContent = `${v.distinct} layouts diferentes em ${v.slides} slides.`;
         const ul = document.getElementById("arc-problems");
         ul.innerHTML = "";
@@ -1218,7 +1218,7 @@
     dom.canvasViewport.classList.toggle("squint-mode", state.isSquint);
     dom.btnSquint.classList.toggle("active", state.isSquint);
     if (state.isSquint) {
-      showToast("👁️ Teste da Última Fileira: simula visualização distante ou em tela pequena");
+      showToast("Teste da Última Fileira: simula visualização distante ou em tela pequena");
       playHaptic("snap");
     }
   }
@@ -1228,7 +1228,7 @@
     dom.btnHeatmap.classList.toggle("active", state.isHeatmap);
     renderHeatmap();
     if (state.isHeatmap) {
-      showToast("🔥 Heatmap de Atenção: simulação de foco visual nos primeiros 2 segundos");
+      showToast("Heatmap de Atenção: simulação de foco visual nos primeiros 2 segundos");
       playHaptic("pop");
     }
   }
@@ -1275,7 +1275,7 @@
       dom.slideStage.style.transform = `scale(${state.zoomScale})`;
     }, 180);
     triggerAutofix();
-    showToast("✨ Arrumar a Casa: elementos alinhados e espaçamentos equilibrados!");
+    showToast("Arrumar a Casa: elementos alinhados e espaçamentos equilibrados!");
   }
 
   // ==========================================================================
@@ -1352,14 +1352,14 @@
     });
 
     actions.push({
-      label: "✦ Inserir Ícone",
+      label: "Inserir ícone",
       fn: () => {
         openIconPicker();
       }
     });
 
     actions.push({
-      label: "✨ ==Destaque==",
+      label: "==Destaque==",
       fn: () => {
         document.execCommand("insertText", false, `==${text}==`);
         playHaptic("snap");
@@ -1367,7 +1367,7 @@
     });
 
     actions.push({
-      label: "🪄 Auto-Ajustar",
+      label: "Auto-ajustar",
       fn: () => {
         triggerAutofix();
       }
@@ -1726,7 +1726,7 @@
       if (Array.isArray(slide.auto) && slide.auto.length) {
         const badge = document.createElement("span");
         badge.className = "thumb-auto";
-        badge.textContent = "⚙";
+        badge.innerHTML = '<i class="ic" data-ic="wand"></i>'; hydrateIcons(badge);
         badge.title = `${slide.auto.length} mudança(s) automática(s) — veja no painel Formatar`;
         card.appendChild(badge);
       }
@@ -2116,7 +2116,7 @@
     box.hidden = !log.length;
     if (!log.length) { box.innerHTML = ""; return; }
     const show = (v) => (v == null ? "(vazio)" : typeof v === "string" ? v : JSON.stringify(v));
-    box.innerHTML = `<h4><span>⚙</span> Mudanças automáticas neste slide</h4>
+    box.innerHTML = `<h4><i class="ic" data-ic="wand"></i> Mudanças automáticas neste slide</h4>
       <p class="hint">Feitas pela auto-correção, não por você nem pela IA. Desfaça o que não quiser.</p>
       ${log.map((e, i) => `<div class="auto-item">
         <span class="what">${escHtml(e.campo)}</span>
@@ -2124,6 +2124,7 @@
         <span class="why">${escHtml(e.motivo || "")}</span>
         <span class="was" title="${escAttr(show(e.antes))}">Antes: ${escHtml(show(e.antes).slice(0, 120))}</span>
       </div>`).join("")}`;
+    hydrateIcons(box);
     const done = () => { if (!slide.auto.length) delete slide.auto; renderThumbnails(); formCommit(true); };
     box.querySelectorAll("[data-undo]").forEach((b) => b.onclick = () => {
       const e = slide.auto[+b.dataset.undo];
@@ -2516,7 +2517,7 @@
       const z = +(root.querySelector(".slide")?.dataset.shrink || 1);
       if (z < 1) notes.push(`o motor reduziu automaticamente todo o conteúdo do slide para ${Math.round(z * 100)}% para caber (sem isso, uma parte ficaria por cima de outra)`);
       state.renderNotes = notes;
-      dom.statusFit.textContent = z < 1 ? `⚙ Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "⚙ Texto reduzido para caber" : "";
+      dom.statusFit.textContent = z < 1 ? `Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "Texto reduzido para caber" : "";
       dom.statusFit.title = notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "";
     };
     run();
@@ -2546,7 +2547,7 @@
   function openAiDeckModal() {
     dom.aiDeckTheme.innerHTML = '<option value="">IA escolhe</option>' +
       (state.themes || []).map((t) => `<option value="${t}">${t}</option>`).join("");
-    dom.aiDeckStatus.textContent = state.ai.available ? "" : '⚠ Nenhum LLM disponível — rode "modelrelay serve" antes de gerar.';
+    dom.aiDeckStatus.textContent = state.ai.available ? "" : 'Nenhum LLM disponível — rode "modelrelay serve" antes de gerar.';
     dom.modalAiDeck.classList.remove("hidden");
     dom.aiDeckBriefing.focus();
   }
@@ -2565,7 +2566,7 @@
     const started = Date.now();
     let phase = `Enviando para ${state.ai.textModel || "o LLM"}…`;
     const show = () => {
-      dom.aiDeckStatus.textContent = `⏳ ${phase} · ${Math.round((Date.now() - started) / 1000)}s`;
+      dom.aiDeckStatus.textContent = `${phase} · ${Math.round((Date.now() - started) / 1000)}s`;
     };
     const tick = setInterval(show, 500);
     show();
@@ -2590,9 +2591,9 @@
       selectSlide(0);
       closeAiDeckModal();
       const failed = data.images?.failed?.length ? ` · ${data.images.failed.length} imagem(ns) falharam` : "";
-      showToast(`✨ Deck gerado: ${state.deck.slides.length} slides, salvo em ${data.file}${failed}`);
+      showToast(`Deck gerado: ${state.deck.slides.length} slides, salvo em ${data.file}${failed}`);
     } catch (err) {
-      dom.aiDeckStatus.textContent = "✗ " + err.message;
+      dom.aiDeckStatus.textContent = err.message;
     } finally {
       clearInterval(tick);
       dom.btnRunAiDeck.disabled = false;
@@ -3263,7 +3264,7 @@
         state.currentSlideIndex = 0;
         renderThumbnails();
         selectSlide(0);
-        showToast(`✓ "${file.name}" aberto (${state.deck.slides.length} slides), com imagens e arquivos. As edições são salvas em ${data.dir}.`, 8000);
+        showToast(`"${file.name}" aberto (${state.deck.slides.length} slides), com imagens e arquivos. As edições são salvas em ${data.dir}.`, 8000);
       } catch (err) {
         showToast("Erro ao abrir: " + err.message, 7000);
       }
@@ -3292,7 +3293,7 @@
         renderThumbnails();
         selectSlide(0);
         // O navegador não informa o caminho do arquivo: as edições ficam só aqui até exportar.
-        showToast(`✓ "${file.name}" aberto (${state.deck.slides.length} slides). As edições não são salvas no arquivo: use Arquivo › YAML, ou abra por Arquivo › Abrir Caminho no Servidor para salvar direto.`, 9000);
+        showToast(`"${file.name}" aberto (${state.deck.slides.length} slides). As edições não são salvas no arquivo: use Arquivo › YAML, ou abra por Arquivo › Abrir Caminho no Servidor para salvar direto.`, 9000);
       } catch (err) {
         showToast("Erro ao abrir YAML: " + err.message);
       }
@@ -3318,7 +3319,7 @@
         state.currentSlideIndex = 0;
         renderThumbnails();
         selectSlide(0);
-        showToast(`✓ Deck carregado (${state.deck.slides.length} slides)!`);
+        showToast(`Deck carregado (${state.deck.slides.length} slides)!`);
       } catch (err) {
         showToast("Erro ao abrir arquivo: " + err.message);
       }

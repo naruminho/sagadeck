@@ -165,7 +165,7 @@
       const val = cfg.stepText ? C.get(st, cfg.stepText) : st;
       const txt = typeof val === "string" ? esc(val) : `<pre>${jsonHTML(val)}</pre>`;
       return `<div class="api-step" style="--i:${i}"><div class="api-step-n f-label">${String(i + 1).padStart(2, "0")}</div><div class="api-step-t">${esc(title)}</div><div class="api-step-x">${txt}</div></div>`;
-    }).join('<div class="api-step-arrow" aria-hidden="true">→</div>')}</div>`;
+    }).join('<div class="api-step-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>')}</div>`;
   }
 
   // ---------- áudio: tocar a resposta (TTS) com a onda desenhada ----------
@@ -473,8 +473,8 @@
     const obj = typeof msg === "string" ? (() => { try { return JSON.parse(msg); } catch { return msg; } })() : msg;
     const type = obj && typeof obj === "object" ? C.get(obj, root._cfg.realtime.receive.type) : null;
     const row = document.createElement("div");
-    row.className = dir === "↑" ? "up" : "dn";
-    row.innerHTML = `<b>${dir}</b><em>${esc(type || "")}</em><span>${esc(typeof obj === "string" ? obj : shortAudio(obj))}</span>`;
+    row.className = dir === "up" ? "up" : "dn";
+    row.innerHTML = `<b>${dir === "up" ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>' : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>'}</b><em>${esc(type || "")}</em><span>${esc(typeof obj === "string" ? obj : shortAudio(obj))}</span>`;
     // pedaços de áudio seguidos viram uma linha só, com contador
     const last = box.lastElementChild;
     if (last && last.dataset.type === String(type) && /audio/.test(String(type)) && last.className === row.className) { last.dataset.n = +(last.dataset.n || 1) + 1; last.querySelector("em").textContent = `${type} ×${last.dataset.n}`; return; }
@@ -515,9 +515,9 @@
   function onRt(root, ev) {
     const st = root._rt;
     if (!st) return;
-    if (ev.type === "close") { logRt(root, "↓", `(conexão fechada: ${ev.code}${ev.why ? " " + ev.why : ""})`); rtClosed(root); return; }
-    if (ev.bin) { logRt(root, "↓", `(binário, ${Math.round(ev.bin.length * 0.75)} bytes)`); return; }
-    logRt(root, "↓", ev.text);
+    if (ev.type === "close") { logRt(root, "dn", `(conexão fechada: ${ev.code}${ev.why ? " " + ev.why : ""})`); rtClosed(root); return; }
+    if (ev.bin) { logRt(root, "dn", `(binário, ${Math.round(ev.bin.length * 0.75)} bytes)`); return; }
+    logRt(root, "dn", ev.text);
     let m;
     try { m = JSON.parse(ev.text); } catch { return; }
     const R = root._cfg.realtime, T = R.receive.type;
@@ -535,7 +535,7 @@
   async function rtSend(root, msgs) {
     const st = root._rt;
     if (!st) return;
-    [].concat(msgs).forEach((m) => { if (!/input_audio_buffer\.append/.test(JSON.stringify(m).slice(0, 80))) logRt(root, "↑", m); else logRt(root, "↑", { type: C.get(m, root._cfg.realtime.receive.type) || "áudio" }); });
+    [].concat(msgs).forEach((m) => { if (!/input_audio_buffer\.append/.test(JSON.stringify(m).slice(0, 80))) logRt(root, "up", m); else logRt(root, "up", { type: C.get(m, root._cfg.realtime.receive.type) || "áudio" }); });
     await call("api/http/rt/send", { sid: st.sid, messages: [].concat(msgs) });
   }
   function rtControls(root, on) {
@@ -552,7 +552,7 @@
     label(root, "Conectando…");
     const r = await call("api/http/rt/open", { realtime: { url, auth: R.auth }, open: C.render([].concat(open), vars()) });
     root._rt = { sid: r.sid, log: [], t0: Date.now() };
-    [].concat(open).forEach((m) => logRt(root, "↑", m));
+    [].concat(open).forEach((m) => logRt(root, "up", m));
     const es = new EventSource("api/http/rt/events?sid=" + encodeURIComponent(r.sid));
     root._rt.es = es;
     es.onmessage = (e) => { try { onRt(root, JSON.parse(e.data)); } catch {} };
@@ -771,7 +771,7 @@
     const key = html + i;
     if (d.body._key !== key) {
       d.body._key = key;
-      d.body.innerHTML = `<div class="pip">${html}<div class="pip-nav"><button data-go="-1" title="Slide anterior">←</button><span>${i + 1} / ${n}</span><button data-go="1" title="Próximo slide">→</button></div></div>`;
+      d.body.innerHTML = `<div class="pip">${html}<div class="pip-nav"><button data-go="-1" title="Slide anterior"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button><span>${i + 1} / ${n}</span><button data-go="1" title="Próximo slide"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button></div></div>`;
     }
   }
   async function openPip(root) {

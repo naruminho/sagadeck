@@ -122,7 +122,7 @@
     api: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("text", "Explicação curta"),
       f.select("mode", "Modo", [["sync", "Síncrono (responde na hora)"], ["polling", "Polling (inicia e consulta até terminar)"], ["stream", "Streaming (chega aos poucos)"], ["realtime", "Tempo real (conversa por WebSocket)"]], { empty: "Síncrono (responde na hora)", structural: true }),
       f.obj("request", "Requisição", [f.select("method", "Método", [["GET", "GET"], ["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"], ["DELETE", "DELETE"]], { empty: "POST se tiver corpo" }),
-        f.text("url", "Endereço", { hint: "{{base}} e outras variáveis vêm do ambiente (Inserir → Ambientes). Segredo: {{secret.nome}}." }),
+        f.text("url", "Endereço", { hint: "{{base}} e outras variáveis vêm do ambiente (Inserir › Ambientes). Segredo: {{secret.nome}}." }),
         f.json("body", "Corpo (JSON)", { placeholder: '{ "messages": [ { "role": "user", "content": "Olá" } ] }', hint: "Também dá para editar direto no slide, na hora de apresentar." }),
         f.bool("auth", "Enviar o token do ambiente", { default: true }),
         f.more([f.json("headers", "Cabeçalhos (JSON)", { placeholder: '{ "X-Canal": "workshop" }' }), f.json("form", "Formulário multipart (JSON, no lugar do corpo)", { placeholder: '{ "file": "@file", "pasta": "workshop" }' })])],

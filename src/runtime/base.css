@@ -727,7 +727,7 @@ html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="
 .api-method.m-WS{color:#c9a7ff}
 .api-log{flex:1;min-height:0;overflow:auto;padding:10px 14px;font-size:15px;line-height:1.45}
 .api-log div{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #ffffff0a;white-space:nowrap}
-.api-log b{flex:none;width:18px}.api-log .up b{color:#ffd28a}.api-log .dn b{color:#9ce3c3}
+.api-log b{flex:none;width:18px;display:grid;place-items:center}.api-log .up b{color:#ffd28a}.api-log .dn b{color:#9ce3c3}
 .api-log span{overflow:hidden;text-overflow:ellipsis;color:#c9d4e8}.api-log em{flex:none;font-style:normal;color:#9fc3ff}
 .api-rt{display:flex;flex-direction:column;gap:12px}
 .api-bub{max-width:84%;padding:14px 18px;border-radius:18px;font:500 23px/1.4 system-ui,sans-serif;animation:api-in .3s ease-out;white-space:pre-wrap}
