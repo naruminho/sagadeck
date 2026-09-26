@@ -110,7 +110,7 @@ multiusuário), o slide mostra a **última resposta gravada** e o botão vira *R
 
 | Campo | O que faz |
 |---|---|
-| `mode` | `sync` (padrão), `polling` (inicia e consulta até terminar) ou `stream` (texto chega aos poucos, SSE) |
+| `mode` | `sync` (padrão), `polling` (inicia e consulta até terminar), `stream` (texto chega aos poucos, SSE) ou `realtime` (conversa por WebSocket, abaixo) |
 | `request` | `method, url, headers, body` (JSON) ou `form` (upload multipart), `auth` |
 | `answer` | caminho do campo em destaque (`$.a.b[0].c`) |
 | `save` | `{ nome: "$.caminho" }`: guarda valores da resposta para `{{nome}}` nos slides seguintes (ex.: o `path_id` do upload no OCR e no indexador) |
@@ -131,6 +131,42 @@ multiusuário), o slide mostra a **última resposta gravada** e o botão vira *R
 Na apresentação: a URL e o corpo são editáveis na hora (a execução usa o que está na tela); o código
 das abas acompanha. Com `polling`, as linhas do código acendem na fase que está rodando (início, laço de
 consulta, resultado) enquanto a linha do tempo mostra cada status.
+
+### Conversa em tempo real (`mode: realtime`, WebSocket)
+
+O Studio abre o WebSocket com o serviço (token no cabeçalho ou na URL, certificado da empresa) e faz a
+ponte com a apresentação. No slide: **Conectar**, **Falar** (microfone, com o volume), campo de texto, a
+conversa em balões (o que foi dito, transcrito, e a resposta enquanto o áudio toca) e a aba **Mensagens**
+com cada evento que passou, nos dois sentidos (o áudio aparece resumido).
+
+```yaml
+- layout: api
+  title: Conversa por voz
+  mode: realtime
+  realtime:
+    url: "{{ws}}/realtime?model=…"
+    auth: header                 # header (Authorization: Bearer) | query:<parâmetro> | none
+    open:                        # mensagens mandadas ao conectar
+      - { type: session.update, session: { voice: alloy } }
+    audio:                       # microfone → PCM16 mono nesta taxa, em pedaços de ~200 ms
+      rate: 24000
+      send: { type: input_audio_buffer.append, audio: "{{audio}}" }                 # {{audio}} = pedaço em base64
+      commit: [ { type: input_audio_buffer.commit }, { type: response.create } ]   # ao clicar em Parar
+    text:                        # ao digitar ({{text}})
+      - { type: conversation.item.create, item: { type: message, role: user, content: [ { type: input_text, text: "{{text}}" } ] } }
+      - { type: response.create }
+    receive:                     # como reconhecer o que chega
+      type: "$.type"
+      audio: { type: [response.audio.delta], data: "$.delta" }                 # PCM16 na mesma taxa
+      text:  { type: [response.audio_transcript.delta, response.text.delta], data: "$.delta" }
+      user:  { type: [conversation.item.input_audio_transcription.completed], data: "$.transcript" }
+      done:  [response.done]
+      error: { type: [error], data: "$.error.message" }
+```
+
+Só `url` é obrigatório: os padrões acima seguem o formato mais comum dessas APIs; troque o que o seu
+serviço fizer diferente. O código gerado é Python (`websockets`) e `wscat`. A conversa fica gravada (em
+texto) para o modo sem Studio.
 
 ### Ambientes: `~/.sagadeck/ambientes.yaml`
 

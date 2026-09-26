@@ -14,6 +14,7 @@
 //   GET  /v1/vaza          devolve o token no corpo (para conferir a máscara)
 // Tudo menos /token exige "Authorization: Bearer <token válido>".
 import http from "node:http";
+import { acceptWs } from "./ws.js";
 
 export async function startMockApi({ clientId = "id-teste", clientSecret = "segredo-teste-123", statuses = ["STARTED", "RUNNING", "RUNNING", "FINISHED"], ttlSeconds = 1800, format = "json" } = {}) {
   const state = { tokens: new Set(), tokensIssued: 0, polls: {}, lastHeaders: null, requests: [] };
@@ -128,7 +129,49 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
     if (url.pathname === "/v1/vaza") return json(res, 200, { debug: `seu token é ${auth}` });
     json(res, 404, { error: "não existe" });
   });
+  // "Conversa em tempo real" (WebSocket em /v1/realtime), no formato mais comum dessas APIs:
+  // session.update → session.updated; input_audio_buffer.append/commit → transcrição do que foi "falado";
+  // conversation.item.create (texto) + response.create → texto em pedaços + áudio em pedaços + response.done.
+  const sockets = new Set();
+  server.on("upgrade", (req, socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+    const u = new URL(req.url, "http://x");
+    const tok = (req.headers.authorization || "").replace(/^Bearer /, "") || u.searchParams.get("token") || "";
+    if (u.pathname !== "/v1/realtime") { socket.end("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"); return; }
+    if (!state.tokens.has(tok)) { socket.end("HTTP/1.1 401 Unauthorized\r\nContent-Length: 25\r\n\r\ntoken inválido ou vencido"); return; }
+    const ws = acceptWs(req, socket);
+    state.realtime = { sessions: (state.realtime?.sessions || 0) + 1, received: [] };
+    let audioBytes = 0, lastText = null;
+    const send = (o) => ws.send(JSON.stringify(o));
+    const tone = (ms, rate = 24000) => { const n = Math.floor((rate * ms) / 1000), b = Buffer.alloc(n * 2); for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 330 * i) / rate) * 6000), i * 2); return b.toString("base64"); };
+    ws.on("message", async (m) => {
+      let ev;
+      try { ev = JSON.parse(m); } catch { return send({ type: "error", error: { message: "mande JSON" } }); }
+      state.realtime.received.push(ev.type);
+      if (ev.type === "session.update") return send({ type: "session.updated", session: ev.session || {} });
+      if (ev.type === "input_audio_buffer.append") { audioBytes += Buffer.from(String(ev.audio || ""), "base64").length; return; }
+      if (ev.type === "input_audio_buffer.commit") {
+        const secs = (audioBytes / 2 / 24000).toFixed(1).replace(".", ",");
+        send({ type: "input_audio_buffer.committed" });
+        send({ type: "conversation.item.input_audio_transcription.completed", transcript: `(você falou por ${secs} s)` });
+        lastText = `ouvi ${secs} segundos de áudio`;
+        audioBytes = 0;
+        return;
+      }
+      if (ev.type === "conversation.item.create") { lastText = ev.item?.content?.[0]?.text || ""; return; }
+      if (ev.type === "response.create") {
+        const words = `Oi! Você disse: ${lastText || "nada"}.`.split(/(?<= )/);
+        for (const w of words) { send({ type: "response.audio_transcript.delta", delta: w }); await new Promise((r) => setTimeout(r, 25)); }
+        for (let i = 0; i < 4; i++) send({ type: "response.audio.delta", delta: tone(120) });
+        return send({ type: "response.done" });
+      }
+      send({ type: "error", error: { message: `tipo desconhecido: ${ev.type}` } });
+    });
+  });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const closeServer = server.close.bind(server);
+  server.close = (cb) => { sockets.forEach((s) => s.destroy()); return closeServer(cb); };
   const url = `http://127.0.0.1:${server.address().port}`;
   return {
     url, state, clientId, clientSecret,
@@ -141,7 +184,7 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
 // ambientes.yaml do ensaio: dois ambientes (dev e hom) na API de mentira, com o segredo do Identity em secrets:
 export function demoEnvFile(mock) {
   const env = (name) => `  ${name}:
-    vars: { base: "${mock.url}/v1", identity: "${mock.url}/identity", client_id: "${mock.clientId}", wf: "resumo" }
+    vars: { base: "${mock.url}/v1", ws: "${mock.url.replace("http", "ws")}/v1", identity: "${mock.url}/identity", client_id: "${mock.clientId}", wf: "resumo" }
     token: { url: "${mock.url}/token", client_id: "${mock.clientId}", client_secret: "${mock.clientSecret}", ttl_minutes: 30 }
     secrets: { client_secret: "${mock.clientSecret}" }
 `;
@@ -156,7 +199,7 @@ environments:
     vars: { base: "${mock.url}/v1" }
     token: { url: "${mock.url}/token", client_id: "${mock.clientId}", client_secret: "${mock.clientSecret}", ttl_minutes: 30 }
   hom:
-    vars: { base: "${mock.url}/v1", wf: "resumo" }
+    vars: { base: "${mock.url}/v1", ws: "${mock.url.replace("http", "ws")}/v1", wf: "resumo" }
     token: { url: "${mock.url}/token", client_id: "${mock.clientId}", client_secret: "${mock.clientSecret}" }
 ${extra}`;
 }

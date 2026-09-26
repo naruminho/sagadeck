@@ -655,3 +655,18 @@ body.presenter #viewport{display:none}
 .api-pip{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 16px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:600 19px system-ui,sans-serif;cursor:pointer}
 .api-pip svg{width:22px;height:22px;fill:currentColor}
 .api-pip:hover{border-color:var(--em)}
+.api-method.m-WS{color:#c9a7ff}
+.api-log{flex:1;min-height:0;overflow:auto;padding:10px 14px;font-size:15px;line-height:1.45}
+.api-log div{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #ffffff0a;white-space:nowrap}
+.api-log b{flex:none;width:18px}.api-log .up b{color:#ffd28a}.api-log .dn b{color:#9ce3c3}
+.api-log span{overflow:hidden;text-overflow:ellipsis;color:#c9d4e8}.api-log em{flex:none;font-style:normal;color:#9fc3ff}
+.api-rt{display:flex;flex-direction:column;gap:12px}
+.api-bub{max-width:84%;padding:14px 18px;border-radius:18px;font:500 23px/1.4 system-ui,sans-serif;animation:api-in .3s ease-out;white-space:pre-wrap}
+.api-bub.user{align-self:flex-end;background:#2a3446;color:#fff;border-bottom-right-radius:6px}
+.api-bub.bot{align-self:flex-start;background:#1d3a2c;color:#e8fff2;border-bottom-left-radius:6px}
+.api-bub.bot.live::after{content:"\258D";color:#9ce3c3;animation:api-blink 1s steps(1) infinite}
+.api-rt-ctl{display:flex;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid #ffffff14}
+.api-rt-ctl .api-mic{margin-left:0;height:48px;padding:0 18px;border:1px solid #ff9aa255;border-radius:12px;font:700 19px system-ui,sans-serif;cursor:pointer}
+.api-rt-ctl .api-mic:disabled,.api-rt-ctl button:disabled,.api-rt-text:disabled{opacity:.45;cursor:default}
+.api-rt-text{flex:1;min-width:0;height:46px;border:1px solid #ffffff1f;border-radius:12px;outline:0;padding:0 14px;background:#182234;color:#fff;font:500 20px system-ui,sans-serif}
+.api-rt-ctl [data-rt-send]{height:46px;padding:0 16px;border:1px solid #ffffff2a;border-radius:12px;background:none;color:#e8edf5;font:600 18px system-ui,sans-serif;cursor:pointer}

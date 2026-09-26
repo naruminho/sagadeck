@@ -116,6 +116,16 @@ slides:
     answer: "$.text"
     notes: "Clique em Gravar, fale, clique em Parar: ele envia sozinho."
 
+  - layout: api
+    id: tempo-real
+    kicker: Passo 11 · Tempo real
+    title: Conversa por ==voz==, ao vivo
+    mode: realtime
+    realtime:
+      url: "{{ws}}/realtime"
+      open: [ { type: session.update, session: { voice: alloy, instructions: "Responda em português, curto." } } ]
+    notes: "Conecte, clique em Falar, fale e clique em Parar. Mostre a aba Mensagens: cada evento do WebSocket, nos dois sentidos."
+
   - layout: end
     title: Obrigado.
     subtitle: Perguntas?

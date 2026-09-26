@@ -20,6 +20,7 @@ import http from "node:http";
 import https from "node:https";
 import YAML from "yaml";
 import "./runtime/api-core.js";
+import { connectWs } from "./ws.js";
 
 const C = globalThis.SagadeckApiCore;
 
@@ -310,6 +311,7 @@ export class ApiEnvironments {
     const short = (v, n = 1500) => { const s = typeof v === "string" ? v : JSON.stringify(v); return s && s.length > n ? s.slice(0, n) + "…" : s; };
     const report = { mode: a.similarity ? "similarity" : a.mode, env: this.currentName() };
     if (a.mic && !a.file) return { report: { ...report, skipped: "este slide grava do microfone: só dá para testar na apresentação" } };
+    if (a.realtime) return { report: { ...report, skipped: "conversa em tempo real (WebSocket): teste na apresentação, clicando em Conectar" } };
     let file = null;
     if (a.file) {
       if (!deckDir) return { report: { ...report, ok: false, erro: "salve o deck numa pasta para usar file:" } };
@@ -390,6 +392,30 @@ export class ApiEnvironments {
     } catch (e) {
       return { report: { ...report, ok: false, erro: e.message, ...(e.kind ? { tipo: e.kind } : {}) } };
     }
+  }
+
+  // Conversa em tempo real: abre o WebSocket com o serviço (token no cabeçalho ou na URL, certificado da
+  // empresa). Devolve a conexão; o Studio faz a ponte com o navegador.
+  async openRealtime(rt) {
+    const env = this.env();
+    const sv = this.secretVars(env);
+    let url = C.render(String(rt.url || ""), { ...(env.vars || {}), ...sv });
+    const t = env.token || {};
+    const headers = { ...(env.headers || {}) };
+    const auth = String(rt.auth || "header");
+    if (auth !== "none") {
+      const tok = await this.token(env);
+      if (tok && auth.startsWith("query:")) { const u = new URL(url); u.searchParams.set(auth.slice(6), tok); url = u.toString(); }
+      else if (tok) headers[t.header || "Authorization"] = (t.prefix ?? "Bearer ") + tok;
+    }
+    let conn;
+    try {
+      conn = await connectWs(url, { headers, ca: this.ca(env), insecure: !!env.insecure, timeout: (Number(env.timeout) || 60) * 1000 });
+    } catch (e) {
+      if (e.status) throw new ApiError(this.maskText(env, e.message), "http", { status: e.status });
+      throw e.kind ? e : explain(e, url.replace(/^ws/, "http"));
+    }
+    return { conn, env: env.name, url: this.maskText(env, url), mask: (s) => this.maskText(env, s) };
   }
 
   // Streaming: devolve a resposta do serviço aberta, para o Studio repassar pedaço a pedaço.

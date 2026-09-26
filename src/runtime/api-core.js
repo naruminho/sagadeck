@@ -72,7 +72,7 @@
   function normalize(s) {
     s = s || {};
     const req = s.request || {};
-    const mode = ["polling", "stream", "sync"].includes(s.mode) ? s.mode : "sync";
+    const mode = ["polling", "stream", "sync", "realtime"].includes(s.mode) ? s.mode : "sync";
     const p = s.polling || {};
     return {
       _normalized: true,
@@ -99,6 +99,7 @@
         timeout: Number(p.timeout) > 0 ? Number(p.timeout) : 120,
       },
       stream: mode !== "stream" ? null : { text: (s.stream && s.stream.text) || "$.choices[0].delta.content" },
+      realtime: mode !== "realtime" ? null : realtimeOf(s.realtime || {}, req),
       steps: s.steps || null,
       stepTitle: s.stepTitle || null,
       stepText: s.stepText || null,
@@ -118,6 +119,34 @@
       portal: s.portal || null,
     };
   }
+
+  // Conversa em tempo real (WebSocket): o que mandar ao conectar, como mandar áudio e texto, e como reconhecer
+  // o que chega. Os padrões seguem o formato mais comum dessas APIs; qualquer parte pode ser trocada no slide.
+  function realtimeOf(r, req) {
+    const rc = r.receive || {};
+    const one = (v, d) => (v === undefined ? d : v);
+    return {
+      url: String(r.url || req.url || ""),
+      auth: r.auth || "header", // header (Authorization: Bearer) | query:<parâmetro> | none
+      open: [].concat(r.open || []),
+      audio: {
+        rate: Number((r.audio && r.audio.rate) || 24000),
+        send: one(r.audio && r.audio.send, { type: "input_audio_buffer.append", audio: "{{audio}}" }),
+        commit: [].concat(one(r.audio && r.audio.commit, [{ type: "input_audio_buffer.commit" }, { type: "response.create" }])),
+      },
+      text: [].concat(one(r.text, [{ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: "{{text}}" }] } }, { type: "response.create" }])),
+      receive: {
+        type: rc.type || "$.type",
+        audio: rc.audio || { type: ["response.audio.delta", "response.output_audio.delta"], data: "$.delta" },
+        text: rc.text || { type: ["response.audio_transcript.delta", "response.text.delta", "response.output_text.delta", "response.output_audio_transcript.delta"], data: "$.delta" },
+        user: rc.user || { type: ["conversation.item.input_audio_transcription.completed"], data: "$.transcript" },
+        done: [].concat(rc.done || ["response.done"]),
+        error: rc.error || { type: ["error"], data: "$.error.message" },
+      },
+    };
+  }
+  // o evento que chegou é deste tipo? (tipo único ou lista)
+  const isType = (ev, rule, typePath) => { if (!rule) return false; const t = get(ev, typePath); return [].concat(rule.type || rule).map(String).includes(String(t)); };
 
   // chave estável de um slide para guardar a última resposta (modo gravado)
   function key(s) {
@@ -340,9 +369,46 @@
     return L.out();
   }
 
+  function pythonRealtime(a, vars, explain) {
+    const L = Lines(explain);
+    const R = a.realtime;
+    const url = render(R.url, vars);
+    L.add("import asyncio\nimport json\nimport os").blank().add("import websockets", null, "conversa em tempo real por WebSocket (pip install websockets)").blank();
+    const q = R.auth.startsWith("query:") ? R.auth.slice(6) : null;
+    L.add(q ? `URL = f${dq(url + (url.includes("?") ? "&" : "?") + q + "={os.environ['" + a.tokenVar + "']}")}` : `URL = ${dq(url)}`);
+    if (R.auth === "header") L.add(`HEADERS = {"Authorization": f"Bearer {os.environ['${a.tokenVar}']}"}`, null, "o token vai no cabeçalho da conexão"); // aspas simples: vale para Python < 3.12
+    L.blank();
+    const textMsgs = render(R.text, { ...vars, text: "Olá! Em uma frase: o que você faz?" });
+    const textTypes = [].concat(R.receive.text.type).map((t) => JSON.stringify(t)).join(", ");
+    L.add("async def main():", "start");
+    L.add(`    async with websockets.connect(URL${R.auth === "header" ? ", additional_headers=HEADERS" : ""}) as ws:`, "start", "    abre a conexão (fica aberta a conversa toda)");
+    for (const m of render(R.open, vars)) L.add(`        await ws.send(json.dumps(${pyLiteral(m, "        ")}))`, "start", "        configuração da sessão, mandada ao conectar");
+    textMsgs.forEach((m, i) => L.add(`        await ws.send(json.dumps(${pyLiteral(m, "        ")}))`, "start", i === 0 ? "        manda uma pergunta em texto (no slide, também dá para falar)" : ""));
+    L.add("        async for mensagem in ws:", "poll", "        cada evento chega como uma mensagem JSON");
+    L.add("            evento = json.loads(mensagem)", "poll");
+    L.add(`            if evento${pyPath(R.receive.type)} in (${textTypes}${[].concat(R.receive.text.type).length === 1 ? "," : ""}):`, "poll", "            pedaço do texto da resposta");
+    L.add(`                print(evento${pyPath(R.receive.text.data)}, end="", flush=True)`, "poll");
+    L.add(`            if evento${pyPath(R.receive.type)} in (${R.receive.done.map((d) => JSON.stringify(d)).join(", ")}${R.receive.done.length === 1 ? "," : ""}):`, "done", "            a resposta terminou");
+    L.add("                break", "done");
+    L.blank().add("asyncio.run(main())", "start");
+    return L.out();
+  }
+  function wscat(a, vars) {
+    const L = Lines(false);
+    const R = a.realtime;
+    const url = render(R.url, vars);
+    const q = R.auth.startsWith("query:") ? R.auth.slice(6) : null;
+    L.add("# curl não fala WebSocket; o wscat (npm i -g wscat) abre a conversa no terminal", "start");
+    L.add(`wscat -c ${dq(q ? url + (url.includes("?") ? "&" : "?") + q + "=$" + a.tokenVar : url)}${R.auth === "header" ? ` \\\n  -H "Authorization: Bearer $${a.tokenVar}"` : ""}`, "start");
+    L.add("# depois de conectar, cole uma mensagem por vez:", "poll");
+    for (const m of [...render(R.open, vars), ...render(R.text, { ...vars, text: "Olá!" })]) L.add(JSON.stringify(m), "poll");
+    return L.out();
+  }
+
   const LANGS = { curl: "curl", python: "Python", "python-comentado": "Python comentado" };
   function code(slide, lang, vars) {
     const a = slide && slide._normalized ? slide : normalize(slide);
+    if (a.realtime) return lang === "curl" ? wscat(a, vars || {}) : pythonRealtime(a, vars || {}, lang === "python-comentado");
     if (a.similarity && lang !== "curl") return pythonSimilarity(a, vars || {}, lang === "python-comentado");
     if (a.similarity && lang === "curl") return curl(a, Object.assign({}, vars, { text: a.similarity.reference }));
     if (lang === "curl") return curl(a, vars || {});
@@ -351,6 +417,6 @@
 
   // o slide mexe com arquivo? (upload @file ou {{file.…}})
   const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || a.mic || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
-  const api = { cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
+  const api = { isType, cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
   g.SagadeckApiCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

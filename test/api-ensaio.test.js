@@ -27,6 +27,7 @@ test("todos os slides do deck de ensaio funcionam contra a API de mentira, na or
     for (const s of deck.slides.filter((x) => x.layout === "api")) {
       const r = await api.runSlide(s, { vars, deckDir: dir });
       if (s.mic) { assert.match(r.report.skipped, /microfone/); continue; }
+      if (s.mode === "realtime") { assert.match(r.report.skipped, /tempo real/); continue; } // testado em api-realtime.test.js
       assert.equal(r.report.ok, true, `${s.id}: ${JSON.stringify(r.report).slice(0, 400)}`);
       vars = { ...vars, ...(r.saved || {}) };
     }

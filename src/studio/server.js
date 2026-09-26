@@ -82,6 +82,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
   const apiEnv = new ApiEnvironments(opts.apiEnvFile || defaultEnvFile());
   const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  const rtSessions = new Map(); // conversas em tempo real abertas: sid -> { conn, buffer, res }
   // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
   function apiContextFor(req, W) {
     if (opts.multiuser) return null;
@@ -646,6 +647,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
           return reply(200, { live: !blocked, reason: blocked?.message || null, ...(blocked ? { envs: [], current: null } : st), tokens, recordings: { ...readRecordings(W.file), ...(W.apiRecordings || {}) } });
         }
         if (blocked) return reply(blocked.code, { error: blocked.message, live: false });
+        // conversa em tempo real: os eventos do serviço chegam ao navegador por aqui (SSE)
+        if (pathname === "/api/http/rt/events" && req.method === "GET") {
+          const s = rtSessions.get(url.searchParams.get("sid") || "");
+          if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+          res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
+          s.res = res;
+          for (const ev of s.buffer.splice(0)) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+          req.on("close", () => { if (s.res === res) { s.conn.close(); rtSessions.delete(s.sid); } });
+          return;
+        }
         if (req.method !== "POST") return reply(405, { error: "use POST" });
         if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
         let body;
@@ -664,6 +675,28 @@ export function createStudioServer(deckPath = null, opts = {}) {
         try {
           if (pathname === "/api/http/env") return reply(200, apiEnv.use(String(body.name || "")));
           if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));
+          if (pathname === "/api/http/rt/open") {
+            const r = await apiEnv.openRealtime(body.realtime || {});
+            const sid = crypto.randomUUID();
+            const s = { sid, conn: r.conn, buffer: [], res: null };
+            const push = (ev) => { if (s.res) s.res.write(`data: ${JSON.stringify(ev)}\n\n`); else s.buffer.push(ev); };
+            r.conn.on("message", (m, isText) => push(isText ? { dir: "in", text: r.mask(m) } : { dir: "in", bin: m.toString("base64") }));
+            r.conn.on("close", (code, why) => { push({ type: "close", code, why: String(why || "") }); if (s.res) s.res.end(); rtSessions.delete(sid); });
+            rtSessions.set(sid, s);
+            for (const m of [].concat(body.open || [])) r.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { sid, url: r.url, env: r.env });
+          }
+          if (pathname === "/api/http/rt/send") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (!s) return reply(404, { error: "conversa não existe (já terminou?)" });
+            for (const m of [].concat(body.messages || [])) s.conn.send(typeof m === "string" ? m : JSON.stringify(m));
+            return reply(200, { ok: true });
+          }
+          if (pathname === "/api/http/rt/close") {
+            const s = rtSessions.get(String(body.sid || ""));
+            if (s) { s.conn.close(); rtSessions.delete(s.sid); }
+            return reply(200, { ok: true });
+          }
           if (pathname === "/api/http/record") {
             if (!body.key || !body.record) return reply(400, { error: "faltou key/record" });
             const f = W.file && !isBundledTemplate(W.file) ? writeRecording(W.file, String(body.key), body.record) : null;
