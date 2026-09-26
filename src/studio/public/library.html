@@ -3,164 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Apresentações · SagaDeck</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#f7f6f2">
+  <title>Seu estúdio · SagaDeck</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%229%22 fill=%22%23634ce9%22/%3E%3Cpath d=%22M9 8h14L9 24h14%22 stroke=%22white%22 stroke-width=%223%22 fill=%22none%22/%3E%3C/svg%3E">
   <script>
-    // mesmo tema do editor (claro/escuro/automático), antes do primeiro desenho
     (function () {
-      var pref = "system";
-      try { pref = JSON.parse(localStorage.getItem("sagadeck.appTheme")) || "system"; } catch (e) {}
+      var pref = "light";
+      try { pref = JSON.parse(localStorage.getItem("sagadeck.appTheme")) || "light"; } catch (e) {}
       var dark = pref === "dark" || (pref === "system" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
     })();
   </script>
-  <link rel="stylesheet" href="style.css">
-  <style>
-    body.lib { display: grid; grid-template-rows: 52px 1fr; height: 100vh; overflow: hidden; background: var(--canvas-bg); font-size: 14px; }
-    .lib .ic { width: 18px; height: 18px; }
-    .lib-top { display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--chrome); border-bottom: 1px solid var(--ui-line); }
-    .lib-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; min-width: 232px; }
-    .lib-logo { width: 28px; height: 28px; border-radius: 7px; background: #c43e1c; display: grid; place-items: center; color: #fff; }
-    .lib-logo svg { width: 16px; height: 16px; }
-    .lib-search { flex: 1; max-width: 560px; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 17px; background: var(--chrome-2); border: 1px solid var(--ui-line); color: var(--text-3); }
-    .lib-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: var(--text); }
-    .lib-top .spacer { flex: 1; }
-    .lib-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 6px; font-weight: 600; border: 0; cursor: pointer; font: inherit; font-weight: 600; }
-    .lib-btn.primary { background: var(--brand-fill); color: var(--on-brand); }
-    .lib-btn.primary:hover { background: var(--brand-fill-hover); }
-    .lib-btn.ghost { background: transparent; border: 1px solid var(--ui-line-strong); color: var(--text); font-weight: 500; height: 32px; }
-    .lib-btn.ghost:hover { background: var(--hover); }
-    a.lib-btn { text-decoration: none; color: var(--text); }
-    [hidden] { display: none !important; } /* as classes com display: flex não podem vencer o hidden */
-    .lib-btn.danger { color: var(--err); }
-    .lib-icon-btn { width: 34px; height: 34px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); background: none; border: 0; cursor: pointer; }
-    .lib-icon-btn:hover { background: var(--hover); }
-    .lib-user { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 18px; border: 1px solid var(--ui-line); font-size: 13px; }
-    .lib-avatar { width: 26px; height: 26px; border-radius: 50%; background: #8b5cf6; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; text-transform: uppercase; }
-
-    .lib-body { display: grid; grid-template-columns: 248px 1fr; min-height: 0; }
-    .lib-side { background: var(--chrome); border-right: 1px solid var(--ui-line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-    .nav { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 6px; color: var(--text-2); width: 100%; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; }
-    .nav:hover { background: var(--hover); }
-    .nav.active { background: var(--selected); color: var(--brand); font-weight: 600; }
-    .nav .count { margin-left: auto; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .nav.drop { outline: 2px dashed var(--brand); outline-offset: -2px; background: var(--selected); }
-    .nav .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-    .side-title { display: flex; align-items: center; justify-content: space-between; margin: 18px 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-3); }
-    .side-title button { color: var(--text-3); width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; background: none; border: 0; cursor: pointer; }
-    .side-title button:hover { background: var(--hover); color: var(--text); }
-    .lib-side .grow { flex: 1; }
-    .side-foot { border-top: 1px solid var(--ui-line); margin-top: 10px; padding-top: 10px; }
-    .where { font-size: 11.5px; color: var(--text-3); padding: 8px 10px 0; line-height: 1.4; word-break: break-all; }
-
-    .lib-main { overflow-y: auto; padding: 26px 34px 60px; }
-    .head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-    .head h1 { margin: 0; font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-    .head h1 .dot { width: 14px; height: 14px; border-radius: 4px; }
-    .head .sub { color: var(--text-3); margin-top: 4px; font-size: 13px; }
-    .head .spacer { flex: 1; }
-    .sort { height: 32px; border-radius: 6px; border: 1px solid var(--ui-line-strong); background: var(--chrome); color: var(--text); padding: 0 8px; font: inherit; }
-
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 22px 20px; }
-    .card { position: relative; border-radius: 10px; cursor: pointer; }
-    .thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--chrome); box-shadow: var(--shadow-1); transition: box-shadow .15s, transform .15s; }
-    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .thumb .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); font-size: 12px; }
-    .card:hover .thumb { box-shadow: var(--shadow-2); transform: translateY(-2px); }
-    .card.dragging { opacity: .4; }
-    .over { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 8px; opacity: 0; transition: opacity .15s; background: linear-gradient(transparent 55%, rgba(0,0,0,.35)); }
-    .card:hover .over, .card:focus-within .over { opacity: 1; }
-    .pill { height: 28px; padding: 0 10px; border-radius: 14px; background: rgba(255,255,255,.95); color: #1a1a1a; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; box-shadow: var(--shadow-1); border: 0; cursor: pointer; font-family: inherit; }
-    .pill .ic { width: 14px; height: 14px; }
-    .meta { display: flex; align-items: flex-start; gap: 6px; padding: 10px 2px 0; }
-    .meta .t { flex: 1; min-width: 0; }
-    .meta .name { font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .meta .info { color: var(--text-3); font-size: 12.5px; margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-2); }
-    .chip .dot { width: 8px; height: 8px; border-radius: 2px; }
-    .more { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: var(--text-3); background: none; border: 0; cursor: pointer; }
-    .more:hover { background: var(--hover); color: var(--text); }
-    .new-card .thumb { box-shadow: none; border: 2px dashed var(--ui-line-strong); background: transparent; display: grid; place-items: center; color: var(--text-2); }
-    .new-card:hover .thumb { border-color: var(--brand); color: var(--brand); background: var(--selected); }
-    .new-card .plus { display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 600; text-align: center; padding: 0 10px; }
-    .new-card .plus .ic { width: 28px; height: 28px; }
-
-    .empty { text-align: center; padding: 70px 20px; color: var(--text-2); }
-    .empty .big { width: 64px; height: 64px; border-radius: 16px; background: var(--chrome); box-shadow: var(--shadow-1); display: grid; place-items: center; margin: 0 auto 16px; color: var(--text-3); }
-    .empty .big .ic { width: 30px; height: 30px; }
-    .empty h2 { margin: 0 0 6px; font-size: 18px; color: var(--text); }
-    .empty p { margin: 0 0 18px; }
-    .empty .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-    .trash-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 8px; background: var(--chrome); box-shadow: var(--shadow-1); margin-bottom: 10px; flex-wrap: wrap; }
-    .trash-row .t { flex: 1; min-width: 180px; }
-    .trash-row .sub { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
-
-    .lmenu { position: fixed; z-index: 50; min-width: 230px; background: var(--chrome); border-radius: 8px; box-shadow: var(--shadow-3); padding: 6px; display: none; }
-    .lmenu.open { display: block; }
-    .mi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 0 10px; border-radius: 5px; text-align: left; background: none; border: 0; cursor: pointer; color: var(--text); font: inherit; }
-    .mi:hover { background: var(--hover); }
-    .mi small { margin-left: auto; color: var(--text-3); }
-    .mi.danger { color: var(--err); }
-    .mi .d { display: block; font-size: 12px; color: var(--text-3); }
-    .lmenu.tall .mi { padding: 8px 10px; align-items: flex-start; }
-    .sep { height: 1px; background: var(--ui-line); margin: 5px 4px; }
-
-    .ldlg-back { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; place-items: center; z-index: 60; }
-    .ldlg-back.open { display: grid; }
-    .ldlg { width: min(460px, calc(100vw - 32px)); background: var(--chrome); border-radius: 10px; box-shadow: var(--shadow-3); padding: 20px; }
-    .ldlg h3 { margin: 0 0 14px; font-size: 17px; }
-    .ldlg label { display: block; font-size: 12.5px; color: var(--text-2); margin: 10px 0 5px; }
-    .ldlg input[type=text], .ldlg textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--ui-line-strong); background: var(--chrome); color: var(--text); font: inherit; }
-    .ldlg textarea { min-height: 130px; resize: vertical; }
-    .ldlg .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-    .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-    .sw { width: 26px; height: 26px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; }
-    .sw.on { border-color: var(--text); }
-    .ldlg .status { font-size: 12.5px; color: var(--text-2); margin-top: 10px; min-height: 1.2em; }
-    .ltoast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow-3); font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 70; max-width: calc(100vw - 32px); }
-    .ltoast.show { opacity: 1; }
-
-    @media (max-width: 760px) {
-      .lib-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-      .lib-side { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--ui-line); padding: 8px; gap: 6px; }
-      .side-title, .lib-side .grow, .side-foot .where { display: none; }
-      .side-foot { border: 0; margin: 0; padding: 0; }
-      .nav { width: auto; white-space: nowrap; }
-      .lib-brand { min-width: 0; } .lib-brand span, .lib-user .uname, #btn-new .lbl, #btn-ai .lbl { display: none; }
-      .lib-top { gap: 8px; padding: 0 10px; } .lib-top .spacer { display: none; }
-      .lib-user { padding: 2px; border: 0; } #btn-new { padding: 0 9px; }
-      .lib-main { padding: 18px 16px 60px; }
-    }
-  </style>
+  <link rel="stylesheet" href="library.css">
 </head>
 <body class="lib">
+  <a href="#main" class="skip-link">Ir para o conteúdo</a>
+  <a class="lib-brand" href="biblioteca" aria-label="SagaDeck, início"><span class="lib-logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 8h14L9 24h14"/></svg></span><span>Saga<span class="brand-light">Deck</span><small>ESTÚDIO CRIATIVO</small></span></a>
   <header class="lib-top">
-    <div class="lib-brand"><div class="lib-logo"><svg viewBox="0 0 32 32"><path d="M12 9l12 7-12 7z" fill="currentColor"/></svg></div><span>Apresentações</span></div>
-    <label class="lib-search"><i class="ic" data-ic="search"></i><input id="q" placeholder="Buscar apresentações" autocomplete="off"></label>
+    <div class="breadcrumb">Seu estúdio <span>/</span> <b id="location-name">Visão geral</b></div>
     <div class="spacer"></div>
-    <button class="lib-btn primary" id="btn-new"><i class="ic" data-ic="plus"></i><span class="lbl">Nova</span></button>
-    <a class="lib-btn ghost" id="btn-ai" hidden target="_blank" rel="noopener" title="Provedores, chaves e modelos de IA"><i class="ic" data-ic="sliders-horizontal"></i><span class="lbl">modelrelay</span></a>
-    <button class="lib-icon-btn" id="btn-theme" title="Tema claro/escuro"><i class="ic" data-ic="moon"></i></button>
+    <label class="lib-search"><i class="ic" data-ic="search"></i><input id="q" aria-label="Buscar apresentações" placeholder="Buscar apresentações" autocomplete="off"><kbd>/</kbd></label>
+    <button class="lib-btn primary" id="btn-new"><i class="ic" data-ic="plus"></i><span class="lbl">Nova apresentação</span></button>
+    <button class="lib-icon-btn" id="btn-theme" title="Alternar tema claro e escuro" aria-label="Alternar tema claro e escuro"><i class="ic" data-ic="sun-moon"></i></button>
     <div class="lib-user" id="user" hidden><div class="lib-avatar" id="avatar"></div><span class="uname" id="uname"></span></div>
   </header>
   <div class="lib-body">
-    <nav class="lib-side" id="side" aria-label="Tópicos"></nav>
-    <main class="lib-main" id="main" aria-live="polite"></main>
+    <aside class="lib-side">
+      <nav id="side" aria-label="Biblioteca"></nav>
+      <a class="lib-btn ghost ai-settings" id="btn-ai" hidden target="_blank" rel="noopener" title="Provedores, chaves e modelos de IA"><i class="ic" data-ic="sliders-horizontal"></i><span>Configurar IA</span></a>
+    </aside>
+    <main class="lib-main" id="main" tabindex="-1" aria-live="polite"><div class="initial-loading"><span class="loading-orbit"></span>Preparando seu estúdio…</div></main>
   </div>
-
   <div class="lmenu" id="card-menu" role="menu"></div>
   <div class="lmenu tall" id="new-menu" role="menu">
-    <button class="mi" data-new="blank"><i class="ic" data-ic="file-plus"></i><span><b>Em branco</b><span class="d">Começa com uma capa</span></span></button>
-    <button class="mi" data-new="ai"><i class="ic" data-ic="sparkles"></i><span><b>Com IA</b><span class="d">Descreva o tema, o público e o tempo</span></span></button>
-    <button class="mi" data-new="import"><i class="ic" data-ic="upload"></i><span><b>Importar .sagadeck</b><span class="d">Ou um .zip com um .yaml dentro</span></span></button>
+    <span class="menu-label">COMO VAMOS COMEÇAR?</span>
+    <button class="mi" data-new="experience"><i class="ic" data-ic="palette"></i><span><b>Escolher um estilo</b><span class="d">Uma apresentação pronta para transformar</span></span></button>
+    <button class="mi" data-new="ai"><i class="ic" data-ic="sparkles"></i><span><b>Criar com IA</b><span class="d">Da sua ideia à primeira versão</span></span></button>
+    <button class="mi" data-new="blank"><i class="ic" data-ic="file-plus"></i><span><b>Em branco</b><span class="d">Uma tela livre para a sua ideia</span></span></button>
+    <div class="sep"></div>
+    <button class="mi" data-new="import"><i class="ic" data-ic="upload"></i><span><b>Importar apresentação</b><span class="d">Arquivo .sagadeck ou .zip</span></span></button>
   </div>
   <div class="lmenu" id="topic-menu" role="menu"></div>
   <input type="file" id="import-input" accept=".sagadeck,.zip" hidden>
-
-  <div class="ldlg-back" id="dlg"><div class="ldlg" role="dialog" aria-modal="true"></div></div>
-  <div class="ltoast" id="toast"></div>
-
+  <div class="ldlg-back" id="dlg"><div class="ldlg" role="dialog" aria-modal="true" aria-labelledby="dialog-heading"></div></div>
+  <div class="ltoast" id="toast" role="status"></div>
   <script src="ui-icons.js"></script>
   <script src="library.js"></script>
 </body>

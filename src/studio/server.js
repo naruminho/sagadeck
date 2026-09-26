@@ -13,6 +13,7 @@ import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { varietyReport } from "../ai/variety.js";
+import { EXPERIENCES, createExperienceDeck } from "../experiences.js";
 import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
@@ -180,8 +181,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(html);
         return;
       }
-      if (pathname === "/style.css") {
-        const css = fs.readFileSync(path.join(PUBLIC_DIR, "style.css"), "utf8");
+      if (["/style.css", "/library.css", "/studio-next.css"].includes(pathname)) {
+        const css = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
         res.end(css);
         return;
@@ -348,6 +349,20 @@ export function createStudioServer(deckPath = null, opts = {}) {
         persist(W);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file }));
+        return;
+      }
+
+      if (pathname === "/api/experiences" && req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ experiences: EXPERIENCES }));
+        return;
+      }
+      if (pathname === "/api/layout-sample" && req.method === "GET") {
+        const { LAYOUT_SAMPLES } = await import("./layout-samples.js");
+        const name = url.searchParams.get("layout");
+        const sample = Object.hasOwn(LAYOUT_SAMPLES, name) ? LAYOUT_SAMPLES[name] : null;
+        res.writeHead(sample ? 200 : 404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(sample ? { slide: sample } : { error: "Cena não encontrada" }));
         return;
       }
 
@@ -682,6 +697,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (req.method !== "POST") return fail(new Error("método não suportado"), 405);
           const b = await readJSON(req);
           switch (pathname) {
+            case "/api/library/experience": {
+              const spec = createExperienceDeck(b.experience, { title: b.title });
+              buildHTML(spec); // Valida antes de criar o arquivo na biblioteca.
+              return ok({ id: L.createDeck(b.topic || "", spec) });
+            }
             case "/api/library/topics": return ok({ id: L.createTopic(b.name, b.color) });
             case "/api/library/topics/update": return ok({ id: L.updateTopic(b.id, b) });
             case "/api/library/topics/delete": L.deleteTopic(b.id); return ok();

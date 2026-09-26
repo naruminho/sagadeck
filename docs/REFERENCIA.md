@@ -69,6 +69,8 @@ slides:
 | `poll` | `question, id, options, compare: outroId, hint` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete |
 | `video` | `title, url, label, figure, caption` | cartão que abre um vídeo |
 | `code` | `title, code, highlight: [linhas], note` | código com linhas destacadas |
+| `codewalk` | `title, filename, language, code, size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: cada etapa destaca linhas e explica uma saída simulada |
+| `spotlight` | `title, image` ou `figure`, `caption, hotspots: [{x, y, width, height, title, text}]` | foco guiado em regiões de screenshots, imagens ou diagramas |
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
@@ -80,6 +82,40 @@ slides:
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+
+### Cenas interativas para ensinar
+
+`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
+
+```yaml
+- layout: codewalk
+  title: Uma chamada à API
+  filename: exemplo.sh
+  language: cURL
+  code: |
+    curl https://api.exemplo.com/aulas \
+      -H "Accept: application/json"
+  steps:
+    - title: Escolha o recurso
+      text: A URL identifica a coleção de aulas.
+      highlight: [1]
+      output: "GET /aulas → 200 OK"
+    - title: Combine o formato
+      text: O cabeçalho declara o formato desejado.
+      highlight: [2]
+      output: '{ "aulas": [] }'
+- layout: spotlight
+  title: O que observar no screenshot
+  image: imagens/resposta.png
+  caption: Inspecionando uma resposta HTTP
+  hotspots:
+    - { x: 5, y: 10, width: 90, height: 20, title: Status, text: O servidor confirmou o pedido. }
+    - { x: 5, y: 35, width: 70, height: 55, title: Dados, text: Aqui está o corpo da resposta. }
+```
+
+No `spotlight`, `x` e `y` indicam o canto superior esquerdo da região; os quatro números são porcentagens da imagem. As regiões são limitadas à imagem, respeitam a proporção de screenshots verticais e podem ser clicadas diretamente. Também é possível usar `figure` com SVG ou diagrama no lugar de `image`. Prefira 2–4 etapas e explicações curtas para manter o slide legível. Em HTML sem JavaScript aparece a primeira etapa; PDF, impressão e exportação estática mostram um resumo de todas as etapas, sem controles. Imagens locais são embutidas no HTML para funcionar offline.
+
+O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 

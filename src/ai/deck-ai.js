@@ -12,7 +12,7 @@ import { LAYOUTS } from "../layouts.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { autofixDeck, autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
-import { varietyReport, pickDirection } from "./variety.js";
+import { varietyReport, nextDirection } from "./variety.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAX_ATTEMPTS = 3;
@@ -580,13 +580,14 @@ export async function generateDeck(briefing, { theme, slides, duration, directio
     slides ? `Cerca de ${slides} slides.` : "Entre 8 e 14 slides.",
     duration ? `Duração planejada: ${duration} minutos (campo duration).` : "",
   ].filter(Boolean).join(" ");
-  const dir = direction || pickDirection();
+  const dir = direction || nextDirection();
   const messages = [
     { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
     { role: "user", content: `Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
 Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
 
 Direção criativa deste deck: ${dir}
+Use a direção como ponto de partida: o tema escolhido, o público e o nível de sobriedade pedidos no briefing têm precedência. Varie também a abertura, a escala tipográfica, a composição e o papel das imagens; trocar só a cor não cria uma apresentação diferente.
 Ritmo visual (a plateia enjoa de slides iguais):
 - Nunca 3 slides seguidos com o mesmo layout; use pelo menos metade de layouts diferentes (manchete, número grande, página inteira, mosaico, funil, pirâmide, comparação, matriz, linha do tempo, pergunta, enquete…).
 - No máximo ~40% de listas/cartões; alterne com slides de impacto (headline, number, statement, full, quote, question).

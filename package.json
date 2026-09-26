@@ -24,6 +24,7 @@
     "jsqr": "^1.4.0"
   },
   "scripts": {
+    "dev": "node bin/sagadeck.js studio --port=3000",
     "bundle": "node scripts/bundle.mjs",
     "build:py": "node scripts/bundle.mjs && python -m build",
     "test:live": "node tools/test-live.mjs",

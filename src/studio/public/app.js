@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "question", "poll", "image", "code", "video",
+    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "video",
     "blocks", "canvas", "references", "end",
   ];
 
@@ -42,6 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
+    codewalk: "Código guiado", spotlight: "Foco guiado",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -231,6 +232,7 @@
     hydrateIcons();
     setupEventListeners();
     setupShell();
+    setupCreativeTools();
     buildLayoutPicker();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
     const params = new URLSearchParams(location.search);
@@ -296,6 +298,7 @@
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
     syncThemeGallery();
+    document.getElementById("motion-select").value = state.deck.motion || "subtle";
 
     try {
       const res = await fetch("api/render-slide", {
@@ -1852,6 +1855,101 @@
   // ==========================================================================
   // OPERAÇÕES DO DECK (ADICIONAR, DUPLICAR, EXCLUIR)
   // ==========================================================================
+  const SCENES = [
+    ["headline", "impact", "Uma ideia. Todo o palco.", "Tipografia monumental para a frase que fica."],
+    ["number", "impact", "O número que muda tudo", "Dê dimensão a um resultado, sem um mar de dados."],
+    ["quote", "impact", "Uma voz na história", "Uma citação com espaço para ressoar."],
+    ["full", "impact", "Visão panorâmica", "Uma imagem ocupa a cena. A ideia ganha escala."],
+    ["compare", "data", "Antes de ver, compare", "Dois caminhos, uma decisão mais clara."],
+    ["chart", "data", "Dados que contam", "Um gráfico que ajuda a enxergar o argumento."],
+    ["timeline", "data", "Conecte os acontecimentos", "Um percurso visual, no seu ritmo."],
+    ["bento", "data", "Um mosaico de ideias", "Contraste de tamanhos e respiros na composição."],
+    ["codewalk", "teach", "Código, um passo por vez", "Linhas em foco, explicação e saída simulada."],
+    ["spotlight", "teach", "Olhe bem aqui", "Guie a atenção por regiões de uma imagem."],
+    ["question", "teach", "O que você acha?", "Uma pergunta. A resposta aparece na hora certa."],
+    ["poll", "teach", "Traga a sala para a conversa", "Votação local para registrar as escolhas da turma."],
+  ];
+  let sceneReturnFocus;
+  const sceneModal = () => document.getElementById("scene-modal");
+  function closeSceneLibrary() {
+    sceneModal().classList.add("hidden");
+    sceneReturnFocus?.focus();
+  }
+  async function insertScene(layout) {
+    if (!state.deck || state.insertingScene) return;
+    state.insertingScene = true;
+    try {
+      const res = await fetch(`api/layout-sample?layout=${encodeURIComponent(layout)}`);
+      const data = await res.json();
+      if (!res.ok || !data.slide) throw new Error(data.error || "Não foi possível carregar a cena");
+      const slide = data.slide;
+      const at = state.currentSlideIndex + 1;
+      state.deck.slides.splice(at, 0, slide);
+      state.currentSlideIndex = at;
+      state.editorStep = "all";
+      await syncDeckToServer();
+      closeSceneLibrary();
+      renderThumbnails();
+      await renderCurrentSlide();
+      openPane("props");
+      showToast(`${layoutLabel(layout)} inserido. Personalize no painel ao lado.`);
+    } catch (err) { showToast(err.message); }
+    finally { state.insertingScene = false; }
+  }
+  async function openSceneLibrary() {
+    sceneReturnFocus = document.activeElement;
+    sceneModal().classList.remove("hidden");
+    document.getElementById("scene-close").focus();
+    const grid = document.getElementById("scene-grid");
+    grid.innerHTML = '<p class="scene-loading" role="status">Preparando as cenas no seu tema…</p>';
+    document.querySelectorAll("[data-scene-filter]").forEach(b => b.classList.toggle("active", b.dataset.sceneFilter === "all"));
+    try {
+      const res = await fetch("api/layout-previews");
+      if (!res.ok) throw new Error("Não foi possível carregar as cenas. Tente novamente.");
+      const data = await res.json();
+      ensureSlideStyles(data.baseCSS, data.themeCSS);
+      grid.innerHTML = SCENES.filter(([id]) => data.html[id]).map(([id,category,title,desc]) => `<div class="scene-card" role="button" tabindex="0" data-scene="${id}" data-category="${category}" aria-label="Inserir ${layoutLabel(id)}"><div class="scene-preview" aria-hidden="true"><div class="scene-render" inert>${data.html[id]}</div><span class="scene-insert">+ Inserir</span></div><div class="scene-card-copy"><b>${title}</b><span>${desc}</span><small>${layoutLabel(id)}</small></div></div>`).join("");
+      grid.querySelectorAll(".scene-card").forEach(b => {
+        b.onclick = () => insertScene(b.dataset.scene);
+        b.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); insertScene(b.dataset.scene); } };
+      });
+      scaleScenePreviews();
+    } catch (err) { grid.innerHTML = `<p class="scene-loading" role="alert">${escHtml(err.message)}</p>`; }
+  }
+  function scaleScenePreviews() {
+    document.querySelectorAll(".scene-preview").forEach(box => {
+      box.querySelector(".scene-render").style.transform = `scale(${box.clientWidth / 1920})`;
+    });
+  }
+  function setupCreativeTools() {
+    document.getElementById("btn-scenes").onclick = openSceneLibrary;
+    document.getElementById("scene-close").onclick = closeSceneLibrary;
+    sceneModal().onclick = e => { if (e.target === sceneModal()) closeSceneLibrary(); };
+    document.querySelectorAll("[data-add-scene]").forEach(b => b.onclick = () => insertScene(b.dataset.addScene));
+    document.querySelectorAll("[data-scene-filter]").forEach(b => b.onclick = () => {
+      document.querySelectorAll("[data-scene-filter]").forEach(x => x.classList.toggle("active", x === b));
+      document.querySelectorAll(".scene-card").forEach(x => { x.hidden = b.dataset.sceneFilter !== "all" && x.dataset.category !== b.dataset.sceneFilter; });
+      scaleScenePreviews();
+    });
+    document.getElementById("motion-select").onchange = async e => {
+      if (!state.deck) return;
+      state.deck.motion = e.target.value;
+      await syncDeckToServer();
+      showToast({ none: "Movimento essencial: entradas imediatas, cliques preservados.", subtle: "Movimento equilibrado: transições suaves.", expressive: "Modo palco: movimento e entradas expressivas." }[state.deck.motion]);
+    };
+    window.addEventListener("resize", scaleScenePreviews);
+    document.addEventListener("keydown", e => {
+      if (sceneModal().classList.contains("hidden")) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeSceneLibrary(); }
+      if (e.key === "Tab") {
+        const list = [...sceneModal().querySelectorAll("button, [tabindex='0']")].filter(b => b.getClientRects().length && !b.disabled && !b.closest("[inert]"));
+        const first = list[0], last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }, true);
+  }
+
   function addNewSlide() {
     const newSlide = {
       layout: "statement",

@@ -6,6 +6,7 @@
   <title>SagaDeck Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="studio-next.css">
   <script>
     // Tema da interface antes do primeiro desenho (sem piscar branco no escuro).
     // Preferência: "system" (padrão), "light" ou "dark" — trocada em Exibir › Preferências.
@@ -17,12 +18,12 @@
     })();
   </script>
 </head>
-<body>
+<body class="studio-next">
   <!-- ======================================================================
        BARRA DE TÍTULO: documento, estado do salvamento, busca, Apresentar
        ====================================================================== -->
   <header id="titlebar" class="titlebar">
-    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações"><i class="ic" data-ic="library"></i></a>
+    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações" aria-label="SagaDeck · Voltar à biblioteca"><i class="ic" data-ic="layers"></i></a>
     <input type="text" id="deck-title-input" class="doc-title" value="" placeholder="Apresentação sem título" aria-label="Título da apresentação">
     <span id="save-status" class="save-status" title=""></span>
 
@@ -32,6 +33,7 @@
       <kbd>Ctrl K</kbd>
     </button>
 
+    <label class="motion-control" title="Intensidade do movimento na apresentação inteira"><i class="ic" data-ic="sparkles"></i><select id="motion-select" aria-label="Movimento da apresentação"><option value="none">Essencial</option><option value="subtle" selected>Equilibrado</option><option value="expressive">Palco</option></select></label>
     <div class="split-button" id="present-split">
       <button id="btn-present" class="btn btn-primary" title="Apresentar a partir deste slide (F5)">
         <i class="ic" data-ic="play"></i><span class="lbl">Apresentar</span>
@@ -77,6 +79,7 @@
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-add-slide" class="rbtn rbtn-lg" title="Novo slide depois deste"><i class="ic" data-ic="plus"></i><span>Novo slide</span></button>
+          <button id="btn-scenes" class="rbtn rbtn-lg scene-launch" title="Inserir uma cena pronta e editável"><i class="ic" data-ic="clapperboard"></i><span>Cenas</span><span class="new-dot" aria-label="Novo"></span></button>
           <div class="rstack">
             <button id="btn-dup-slide" class="rbtn" title="Duplicar este slide"><i class="ic" data-ic="copy"></i><span>Duplicar</span></button>
             <button id="btn-del-slide" class="rbtn" title="Excluir este slide"><i class="ic" data-ic="trash-2"></i><span>Excluir</span></button>
@@ -137,6 +140,12 @@
 
     <!-- INSERIR -->
     <div class="ribbon-panel" data-panel="inserir">
+      <div class="rgroup"><div class="rgroup-body">
+        <button class="rbtn rbtn-lg" data-add-scene="codewalk"><i class="ic" data-ic="terminal"></i><span>Código guiado</span></button>
+        <button class="rbtn rbtn-lg" data-add-scene="spotlight"><i class="ic" data-ic="scan-eye"></i><span>Foco guiado</span></button>
+        <button class="rbtn rbtn-lg" data-add-scene="image"><i class="ic" data-ic="image"></i><span>Imagem</span></button>
+        <button class="rbtn rbtn-lg" data-add-scene="question"><i class="ic" data-ic="circle-help"></i><span>Quiz</span></button>
+      </div><div class="rgroup-label">Cenas interativas</div></div>
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-insert-icon" class="rbtn rbtn-lg" title="Biblioteca com 2.100+ ícones"><i class="ic" data-ic="shapes"></i><span>Ícone</span></button>
@@ -335,7 +344,7 @@
         <div id="chat-messages" class="chat-history">
           <div id="chat-empty" class="chat-empty">
             <i class="ic" data-ic="bot"></i>
-            <p>Peça uma mudança no slide ou só converse: pergunte o que acho, peça ideias, conte o que quer apresentar. Eu só mexo nos slides quando você pedir.</p>
+            <p>Sua próxima ideia começa aqui.<br>Peça uma mudança ou explore possibilidades.</p>
             <div class="chat-suggestions">
               <button class="chip-prompt" data-prompt="Reduzir o texto deste slide e deixá-lo mais visual">Menos texto</button>
               <button class="chip-prompt" data-prompt="Converter este slide em etapas de um processo">Converter em etapas</button>
@@ -412,6 +421,14 @@
   </div>
 
   <!-- BUSCA DE COMANDOS -->
+  <div id="scene-modal" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box scene-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-title">
+      <div class="modal-dialog-header"><div><span class="scene-eyebrow">BIBLIOTECA DE CENAS</span><h3 id="scene-title">Qual é o próximo momento?</h3></div><button id="scene-close" class="icon-btn" aria-label="Fechar biblioteca de cenas"><i class="ic" data-ic="x"></i></button></div>
+      <div class="scene-tools"><div class="scene-filters" role="group" aria-label="Filtrar cenas"><button data-scene-filter="all" class="active">Todas</button><button data-scene-filter="impact">Impacto</button><button data-scene-filter="data">Dados e ideias</button><button data-scene-filter="teach">Ensinar e interagir</button></div><span>Prontas para editar. Feitas para surpreender.</span></div>
+      <div id="scene-grid" class="scene-grid"></div>
+      <div class="scene-footer"><i class="ic" data-ic="plus"></i> A cena entra depois do slide atual.</div>
+    </div>
+  </div>
   <div id="command-palette-modal" class="palette-overlay hidden">
     <div class="palette-box">
       <div class="palette-input-wrap">
