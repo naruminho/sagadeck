@@ -126,23 +126,55 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return spec;
   }
 
+  // Só a própria página usa o Studio. Ele roda na máquina da pessoa (no banco, dentro da VPN): sem isto,
+  // qualquer site aberto no navegador faria fetch para 127.0.0.1 e leria a biblioteca, apagaria decks, gastaria a IA.
+  // Por isso não há CORS: nenhum Access-Control-Allow-*, e pedido de outra origem para /api/* leva 403.
+  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+  const hostnameOf = (h) => { try { return new URL(`http://${h}`).hostname; } catch { return ""; } };
+  // Escutando só nesta máquina, o Host tem que ser desta máquina: barra o DNS rebinding
+  // (malicioso.exemplo resolvendo para 127.0.0.1 tem Origin igual ao Host, mas não é a página do Studio).
+  const loopbackOnly = !opts.multiuser && LOOPBACK.has(opts.host);
+  function wrongHost(req) {
+    if (!loopbackOnly) return false;
+    const h = hostnameOf(req.headers.host || "");
+    return !(LOOPBACK.has(h) || h.endsWith(".localhost"));
+  }
+  // Pedido feito por outra página? O navegador manda Origin em todo POST e em todo pedido de outra origem;
+  // a própria página, no GET, não manda. "null" (HTML aberto do disco) também é outra página.
+  function foreignOrigin(req) {
+    const origin = req.headers.origin;
+    if (!origin) return false;
+    let oh = "";
+    try { oh = new URL(origin).host.toLowerCase(); } catch { return true; }
+    const own = [req.headers.host];
+    // atrás do proxy (BabsDeck) o Host pode ser o do Studio (127.0.0.1:porta); o endereço do portal vem em X-Forwarded-Host
+    if (opts.multiuser && req.headers["x-forwarded-host"]) own.push(String(req.headers["x-forwarded-host"]).split(",")[0].trim());
+    return !own.some((h) => h && String(h).toLowerCase() === oh);
+  }
+
   const server = http.createServer(async (req, res) => {
+    // Iframe só na própria origem: a apresentação dentro do editor (#pres-frame carrega "preview").
+    // Nenhum outro site embute o Studio (clickjacking); CORP same-origin: outro site não carrega nem as capas.
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const pathname = url.pathname;
+
+    if (wrongHost(req) || (pathname.startsWith("/api/") && foreignOrigin(req))) {
+      res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "Pedido vindo de outra página: bloqueado." }));
+      return;
+    }
+
     const W = workspaceOf(req);
     if (!W) { // multiusuário sem o cabeçalho do proxy: ninguém autenticado
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "sessão ausente: entre pelo portal" }));
       return;
     }
-    // Headers completos para permitir embedding seguro em iframes no Arena e navegadores mobile
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, HEAD");
-    res.setHeader("Access-Control-Allow-Headers", "*");
-    res.setHeader("Content-Security-Policy", "frame-ancestors *;");
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-    const pathname = url.pathname;
-
+    // sem CORS: o preflight responde, mas não libera nada (o navegador barra o pedido de outra origem)
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
