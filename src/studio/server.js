@@ -591,71 +591,74 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         const prompt = body.message || "";
-        const slideIdx = typeof body.targetSlide === "number" ? body.targetSlide : 0;
         const spec = body.spec || W.spec;
         const issues = body.issues || [];
 
         await respond(res, body.stream, async (emit) => {
           let result;
           const history = Array.isArray(body.history) ? body.history : [];
-          if (body.mode !== "rules" && await llmAvailable()) {
-            try {
-              const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
-              const visuals = await lookAt(withBase(W, spec), target, prompt, emit);
-              for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
-                if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
-              }
-              result = await editDeck({
-                spec: withBase(W, spec),
-                instruction: prompt,
-                targetSlide: target,
-                issues,
-                images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
-                imageOptions: imageOptions(W, withBase(W, spec)),
-                history,
-                onProgress: emit,
-                visuals,
-                renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
-                apiContext: apiContextFor(req, W),
-              });
-              // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
-              // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
-              const convo = [...history, { role: "user", text: prompt }]
-              for (let round = 1; result.test?.length && round <= 3; round++) {
-                if (apiBlocked(req)) { result.actions.push("Testes de slides api só no Studio local."); break; }
-                const reports = [];
-                for (const i of result.test) {
-                  const slide = result.spec.slides[i];
-                  emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
-                  const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
-                  if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
-                  if (r.record) {
-                    const key = globalThis.SagadeckApiCore.key(slide);
-                    if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
-                    else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
-                  }
-                  reports.push({ slide: i + 1, ...r.report });
-                  result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
-                }
-                convo.push({ role: "assistant", text: result.reply });
-                const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
-                emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
-                const next = await editDeck({
-                  spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
-                  imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
-                });
-                convo.push({ role: "user", text: instruction });
-                result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
-              }
-              result.mode = "llm";
-            } catch (e) {
-              // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
-              console.error("[Studio] IA falhou:", e.message);
-              return { reply: `⚠ A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
+          // o cache pode ter guardado uma queda de segundos do relay: confere de novo antes de desistir
+          if (!(await llmAvailable()) && !(await llmAvailable({ force: true }))) {
+            // Sem modelo, ninguém decide nada: nem "o que é X?" nem "resuma" viram edição por palavra-chave
+            // (as regras antigas trocavam o layout e enfiavam texto genérico no slide). O deck fica como está.
+            return {
+              reply: `A IA está desligada (nenhum LLM respondendo em ${llmConfig().url}), então não mexi em nada. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL e mande de novo.`,
+              spec, actions: [], targetSlide: body.targetSlide, talk: true, mode: "off",
+            };
+          }
+          try {
+            const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
+            const visuals = await lookAt(withBase(W, spec), target, prompt, emit);
+            for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
+              if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
             }
-          } else {
-            result = handleAIChat({ prompt, slideIdx, spec, issues });
-            result.mode = "rules";
+            result = await editDeck({
+              spec: withBase(W, spec),
+              instruction: prompt,
+              targetSlide: target,
+              issues,
+              images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
+              imageOptions: imageOptions(W, withBase(W, spec)),
+              history,
+              onProgress: emit,
+              visuals,
+              renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
+              apiContext: apiContextFor(req, W),
+            });
+            // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
+            // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
+            const convo = [...history, { role: "user", text: prompt }]
+            for (let round = 1; result.test?.length && round <= 3; round++) {
+              if (apiBlocked(req)) { result.actions.push("Testes de slides api só no Studio local."); break; }
+              const reports = [];
+              for (const i of result.test) {
+                const slide = result.spec.slides[i];
+                emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
+                const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
+                if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
+                if (r.record) {
+                  const key = globalThis.SagadeckApiCore.key(slide);
+                  if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
+                  else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
+                }
+                reports.push({ slide: i + 1, ...r.report });
+                result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
+              }
+              convo.push({ role: "assistant", text: result.reply });
+              const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
+              emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
+              const next = await editDeck({
+                spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
+                imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+              });
+              convo.push({ role: "user", text: instruction });
+              result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
+            }
+            result.mode = "llm";
+          } catch (e) {
+            // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
+            console.error("[Studio] IA falhou:", e.message);
+            return { reply: `⚠ A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
           }
           W.spec = result.spec;
           persist(W);
@@ -1050,271 +1053,4 @@ function readJSON(req) {
     });
     req.on("error", reject);
   });
-}
-
-// Motor Inteligente do Chat com IA (Regras determinísticas avançadas + auto-correção geométrica)
-function handleAIChat({ prompt, slideIdx, spec, issues }) {
-  const p = prompt.toLowerCase().trim();
-  const newSpec = JSON.parse(JSON.stringify(spec));
-  const actions = [];
-  let reply = "";
-  let targetIdx = slideIdx;
-
-  // 1. Identificar se o usuário especificou outro slide no prompt (ex: "no slide 3", "mude o slide 2")
-  const slideNumMatch = p.match(/slide\s*(\d+)/i);
-  if (slideNumMatch) {
-    const num = parseInt(slideNumMatch[1], 10);
-    if (num >= 1 && num <= newSpec.slides.length) {
-      targetIdx = num - 1;
-    }
-  }
-
-  const s = newSpec.slides[targetIdx] || newSpec.slides[0];
-
-  // 2. Intenção: Auto-correção / Resolver sobreposições e margens
-  if (p.includes("corrig") || p.includes("sobrepos") || p.includes("margem") || p.includes("ajust") || p.includes("arrum") || p.includes("fiscal") || p.includes("fix")) {
-    const fixResult = autofixSlide(s, newSpec, issues);
-    newSpec.slides[targetIdx] = fixResult.slide;
-    const count = fixResult.actions.length;
-    actions.push(...fixResult.actions);
-    if (count > 0) {
-      reply = `Enxerguei a geometria do slide ${targetIdx + 1} e apliquei ${count} correção(ões):\n` +
-        fixResult.actions.map((a) => `• ${a}`).join("\n") +
-        `\n\nAgora os elementos estão distribuídos sem sobreposição e respeitando as margens seguras (120px).`;
-    } else {
-      reply = `Analisei o slide ${targetIdx + 1}: ele já está perfeitamente alinhado, sem sobreposições ou quebra de margens!`;
-    }
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 3. Intenção: Troca de Tema
-  const themeMatch = p.match(/tema\s+(sinal|prata|rabisco|oceano|pop|aurora|editorial|noite|bauhaus|terminal|jornal)/i);
-  const knownThemes = ["sinal", "prata", "rabisco", "oceano", "pop", "aurora", "editorial", "noite", "bauhaus", "terminal", "jornal"];
-  let chosenTheme = null;
-
-  if (themeMatch) {
-    chosenTheme = themeMatch[1].toLowerCase();
-  } else if (p.includes("prata") || p.includes("apple") || p.includes("keynote") || (p.includes("cinza") && p.includes("prata")) || p.includes("titanio") || (p.includes("jovem") && p.includes("sério")) || (p.includes("clean") && p.includes("respiro"))) {
-    chosenTheme = "prata";
-  } else if (p.includes("rabisco") || p.includes("pintado") || p.includes("desenhado") || p.includes("caderno") || p.includes("artesanal") || p.includes("lousa") || p.includes("bonitinho")) {
-    chosenTheme = "rabisco";
-  } else if (p.includes("oceano") || (p.includes("azul") && (p.includes("vivo") || p.includes("eletrico") || p.includes("elétrico") || p.includes("vibrante")))) {
-    chosenTheme = "oceano";
-  } else if (p.includes("pop") || p.includes("alegre") || p.includes("chiclete") || p.includes("colorid")) {
-    chosenTheme = "pop";
-  } else if (p.includes("aurora") || p.includes("neon") || p.includes("gradiente")) {
-    chosenTheme = "aurora";
-  } else if (p.includes("tema")) {
-    for (const t of knownThemes) {
-      if (p.includes(t)) { chosenTheme = t; break; }
-    }
-  }
-
-  if (chosenTheme) {
-    newSpec.theme = chosenTheme;
-    actions.push(`Tema da apresentação alterado para "${newSpec.theme}"`);
-    let desc = "";
-    if (chosenTheme === "prata") desc = "estilo Keynote da Apple: cinza prata acetinado (#F5F5F7), respiro clean, tipografia SF/Inter nítida e cartelas sofisticadas";
-    else if (chosenTheme === "rabisco") desc = "fontes manuscritas ('Caveat'/'Patrick Hand'), bordas orgânicas desenhadas à mão, post-its e traços de caderno";
-    else if (chosenTheme === "oceano") desc = "azul royal elétrico vibrante, ciano neon, visual dinâmico e luminoso";
-    else if (chosenTheme === "pop") desc = "paleta super alegre e animada (roxo, rosa chiclete, menta, sol) com cantos ultra-arredondados";
-    else if (chosenTheme === "aurora") desc = "fundo escuro espacial com luzes e gradientes neon (ciano, violeta, magenta)";
-    else desc = `estilo ${chosenTheme}`;
-    reply = `Alterei o tema visual da apresentação para **${newSpec.theme}** (${desc})!`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 4. Intenção: Troca de Tom do Slide
-  if (p.includes("tom") || p.includes("fundo") || p.includes("escuro") || p.includes("claro") || p.includes("destaque")) {
-    let newTone = "light";
-    if (p.includes("escuro") || p.includes("dark") || p.includes("noite")) newTone = "dark";
-    else if (p.includes("destaque") || p.includes("accent") || p.includes("colorido")) newTone = "accent";
-    else if (p.includes("alerta") || p.includes("alert")) newTone = "alert";
-    s.tone = newTone;
-    actions.push(`Tom do slide ${targetIdx + 1} alterado para "${newTone}"`);
-    reply = `Mudei o tom do slide ${targetIdx + 1} para **${newTone}**.`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 5. Intenção: Transformar em Stats / KPIs visuais (menos texto, mais impacto)
-  if (p.includes("stat") || p.includes("kpi") || p.includes("métrica") || p.includes("metricas") || (p.includes("menos texto") && (p.includes("numero") || p.includes("número")))) {
-    s.layout = "stats";
-    s.title = s.title || "Nossas Métricas de Impacto";
-    s.stats = [
-      { value: "99.4%", label: "Disponibilidade Global", trend: "+2.1%", trendUp: true, icon: "shield-check", text: "Acima do benchmark da indústria" },
-      { value: "4.5x", label: "Mais Produtividade", trend: "recorde", trendUp: true, icon: "zap", text: "Redução drástica no ciclo operacional" },
-      { value: "12M+", label: "Usuários Impactados", trend: "+38% a/a", trendUp: true, icon: "users", text: "Presença em mais de 65 países" },
-    ];
-    actions.push(`Slide ${targetIdx + 1} transformado em layout de KPIs visuais ("stats")`);
-    reply = `Transformei o slide ${targetIdx + 1} no layout visual de **KPIs / Stats**. O textão foi substituído por grandes números com ícones, badges de tendência (+2.1%, recorde) e títulos concisos!`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 6. Intenção: Transformar em Processo / Passos (Steps)
-  if (p.includes("passo") || p.includes("processo") || p.includes("fluxo") || p.includes("step") || p.includes("etapa") || p.includes("pipeline")) {
-    s.layout = "steps";
-    s.title = s.title || "Jornada em 3 Etapas Simples";
-    s.steps = [
-      { stepNum: 1, title: "Diagnóstico", text: "Mapeamento rápido de necessidades.", icon: "search", tag: "Dia 1" },
-      { stepNum: 2, title: "Configuração", text: "Integração sem código com o SagaDeck.", icon: "cpu", tag: "Automático" },
-      { stepNum: 3, title: "Lançamento", text: "Apresentação visual com alto engajamento.", icon: "rocket", tag: "Resultado" },
-    ];
-    actions.push(`Slide ${targetIdx + 1} transformado em fluxo de etapas visuais ("steps")`);
-    reply = `Transformei o slide ${targetIdx + 1} em um fluxo visual de **Etapas / Processo (steps)**. As frases longas viraram cartões conectados por setas, com números destacados, ícones e tags!`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 7. Intenção: Trocar Layout para Cards
-  if (p.includes("card") || p.includes("cartao") || p.includes("cartões")) {
-    s.layout = "cards";
-    if (!Array.isArray(s.items) || s.items.length === 0) {
-      s.items = [
-        { title: "Diagnóstico Rápido", text: "Visão clara do problema em segundos.", icon: "zap", badge: "Rápido" },
-        { title: "Ação Imediata", text: "Passos práticos sem sobrecarregar a equipe.", icon: "target", progress: 80 },
-        { title: "Métrica Concreta", text: "Resultados mensuráveis no final do ciclo.", icon: "trending-up", tags: ["Visual", "Direto"] },
-      ];
-    }
-    s.cols = Math.min(4, s.items.length);
-    actions.push(`Layout do slide ${targetIdx + 1} transformado em cards (${s.items.length} cards, ${s.cols} colunas)`);
-    reply = `Transformei o slide ${targetIdx + 1} em layout **cards** com ícones, badges e estrutura balanceada.`;
-    // Roda auto-correção
-    const auto = autofixSlide(s, newSpec);
-    newSpec.slides[targetIdx] = auto.slide;
-    return { reply, actions: [...actions, ...auto.actions], spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 6. Intenção: Trocar Layout para Number (Estatística)
-  if (p.includes("numero") || p.includes("número") || p.includes("estatistica") || p.includes("estatística") || p.includes("métrica") || p.includes("contador")) {
-    s.layout = "number";
-    s.value = 87;
-    s.suffix = "%";
-    s.label = "de eficiência atingida na primeira iteração";
-    s.side = { chart: "donut", value: 87, center: "87%", w: 500, h: 500 };
-    actions.push(`Layout do slide ${targetIdx + 1} alterado para "number" com donut chart`);
-    reply = `Configurei o slide ${targetIdx + 1} com layout **number**, destacando um valor com gráfico circular integrado.`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 7. Intenção: Trocar Layout para Split (Texto + Figura)
-  if (p.includes("split") || p.includes("dividir") || p.includes("figura") || p.includes("diagrama")) {
-    s.layout = "split";
-    s.figure = { picto: "scene", name: "desk", papers: true };
-    s.body = s.body || "A clareza visual ajuda a audiência a reter a mensagem sem esforço.";
-    actions.push(`Layout do slide ${targetIdx + 1} alterado para "split" com figura`);
-    reply = `Alternei o slide ${targetIdx + 1} para o layout **split**, combinando texto objetivo com ilustração visual.`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 8. Intenção: Trocar Layout para Statement (Frase de impacto)
-  if (p.includes("statement") || p.includes("frase") || p.includes("impacto") || p.includes("manchete")) {
-    s.layout = "statement";
-    s.text = s.title || "Menos texto, mais significado e impacto real.";
-    s.center = true;
-    actions.push(`Layout do slide ${targetIdx + 1} alterado para "statement" centralizado`);
-    reply = `Defini o slide ${targetIdx + 1} como **statement** de alto impacto visual.`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 9. Intenção: Adicionar Novo Slide
-  if (p.includes("novo slide") || p.includes("adicionar slide") || p.includes("criar slide") || p.includes("inserir slide")) {
-    const isConclusion = p.includes("conclus") || p.includes("final") || p.includes("encerramento");
-    const newSlide = isConclusion
-      ? {
-          layout: "end",
-          title: "Próximos Passos",
-          subtitle: "Obrigado pela atenção.",
-          contacts: ["contato@empresa.com", "sagadeck.org"],
-          notes: "> Agradeça e abra para perguntas.",
-        }
-      : {
-          layout: "statement",
-          kicker: "Conceito Chave",
-          text: "Um ponto crucial para a nossa jornada.",
-          tone: "accent",
-          notes: "> Detalhe este ponto verbalmente.",
-        };
-
-    newSpec.slides.splice(targetIdx + 1, 0, newSlide);
-    const addedIndex = targetIdx + 1;
-    actions.push(`Novo slide inserido na posição ${addedIndex + 1} (layout: ${newSlide.layout})`);
-    reply = `Criei um novo slide na posição **${addedIndex + 1}** (${newSlide.layout}). Você já pode editá-lo!`;
-    return { reply, actions, spec: newSpec, targetSlide: addedIndex };
-  }
-
-  // 10. Intenção: Excluir Slide
-  if (p.includes("excluir") || p.includes("remover") || p.includes("deletar") || p.includes("apagar")) {
-    if (newSpec.slides.length <= 1) {
-      reply = "A apresentação não pode ficar sem nenhum slide!";
-      return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-    }
-    newSpec.slides.splice(targetIdx, 1);
-    const newTarget = Math.max(0, targetIdx - 1);
-    actions.push(`Slide ${targetIdx + 1} removido com sucesso`);
-    reply = `Removi o slide ${targetIdx + 1}. Agora você está no slide ${newTarget + 1}.`;
-    return { reply, actions, spec: newSpec, targetSlide: newTarget };
-  }
-
-  // 11. Intenção: Duplicar Slide
-  if (p.includes("duplicar") || p.includes("copiar")) {
-    const clone = JSON.parse(JSON.stringify(s));
-    newSpec.slides.splice(targetIdx + 1, 0, clone);
-    actions.push(`Slide ${targetIdx + 1} duplicado na posição ${targetIdx + 2}`);
-    reply = `Dupliquei o slide atual na posição ${targetIdx + 2}.`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx + 1 };
-  }
-
-  // 12. Intenção: Resumir / Deixar Conciso / Menos Texto / Mais Visual (Anti-sono)
-  if (p.includes("resum") || p.includes("concis") || p.includes("diminuir texto") || p.includes("menos texto") || p.includes("muito texto") || p.includes("mais visual") || p.includes("anti-sono") || p.includes("textao") || p.includes("textão")) {
-    // Se o slide tiver texto longo e estiver em split ou blocks, transformar em cards visuais com widgets
-    if ((s.body && s.body.length > 70) || (s.bullets && s.bullets.length > 2)) {
-      s.layout = "cards";
-      s.items = [
-        { title: "Diagnóstico Rápido", text: "Identificação imediata da oportunidade.", icon: "zap", badge: "Essencial" },
-        { title: "Progresso da Meta", text: "Execução orientada por entregáveis visuais.", icon: "target", progress: 85, progressLabel: "Meta" },
-        { title: "Impacto no Negócio", text: "Crescimento sustentável sem burocracia.", icon: "trending-up", tags: ["Visual", "Direto"] }
-      ];
-      delete s.body;
-      delete s.bullets;
-      actions.push(`Slide ${targetIdx + 1} transformado em cards visuais com badges, progresso e tags`);
-      reply = `Substituí o excesso de texto do slide ${targetIdx + 1} por **cards visuais estruturados**, com ícones, barra de progresso e tags, eliminando o visual cansativo!`;
-      const fix = autofixSlide(s, newSpec);
-      newSpec.slides[targetIdx] = fix.slide;
-      return { reply, actions: [...actions, ...fix.actions], spec: newSpec, targetSlide: targetIdx };
-    }
-
-    if (s.body && typeof s.body === "string") {
-      const parts = s.body.split(/(?<=[.?!])\s+/);
-      s.body = parts[0];
-      s.notes = (s.notes ? s.notes + "\n\n" : "") + "> Roteiro transferido:\n" + parts.slice(1).join(" ");
-    }
-    if (s.title && s.title.length > 50) {
-      s.titleSize = 72;
-    }
-    actions.push(`Texto do slide ${targetIdx + 1} condensado e narrativa movida para as notas`);
-    reply = `Otimizei o texto do slide ${targetIdx + 1} para o padrão anti-sono (~40 palavras visíveis). O excedente foi colocado no roteiro do apresentador (notas).`;
-    return { reply, actions, spec: newSpec, targetSlide: targetIdx };
-  }
-
-  // 13. Intenção Genérica / Edição de Título / Conteúdo
-  if (p.includes("título") || p.includes("titulo")) {
-    const newTitle = prompt.replace(/^.*?(mude|troque|altere|coloque|para|o título|título)\s*(para|:)?\s*/i, "").trim();
-    if (newTitle) {
-      s.title = newTitle;
-      actions.push(`Título do slide ${targetIdx + 1} alterado para "${newTitle}"`);
-      reply = `Atualizei o título do slide ${targetIdx + 1} para: **"${newTitle}"**.`;
-      // Checar se precisa auto-correção geométrica
-      const fix = autofixSlide(s, newSpec);
-      newSpec.slides[targetIdx] = fix.slide;
-      return { reply, actions: [...actions, ...fix.actions], spec: newSpec, targetSlide: targetIdx };
-    }
-  }
-
-  // Fallback Inteligente: auto-inspeção e auto-cura
-  const fix = autofixSlide(s, newSpec, issues);
-  newSpec.slides[targetIdx] = fix.slide;
-  actions.push(...fix.actions);
-  reply = `Entendi seu pedido. Revisei a estrutura do slide ${targetIdx + 1}, garantindo proporções seguras, fontes legíveis e zero colisões.\n` +
-    (fix.actions.length ? `Correções aplicadas:\n${fix.actions.map((a) => `• ${a}`).join("\n")}` : "Nenhum problema de layout foi detectado.");
-
-  return { reply, actions, spec: newSpec, targetSlide: targetIdx };
 }
