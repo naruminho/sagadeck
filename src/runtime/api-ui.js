@@ -538,11 +538,79 @@
     }
   }
 
+  // ---------- controle flutuante (Document Picture-in-Picture) ----------
+  // Uma janelinha sempre por cima (o portal pode ficar em tela cheia): ambiente, Executar, status e o
+  // resumo da resposta do slide atual, espelhados daqui; ← → passam os slides.
+  const PIP_CSS = `body{margin:0;background:#0d1320;color:#e8edf5;font:15px system-ui,sans-serif}
+    .pip{display:flex;flex-direction:column;height:100vh;box-sizing:border-box;padding:12px;gap:10px}
+    .pip-top{display:flex;align-items:center;gap:8px;min-height:28px}
+    .pip-top b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+    .pip-env{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:12px;border:1px solid #ffffff2a;font:700 12px system-ui;letter-spacing:.08em}
+    .pip-env i{width:9px;height:9px;border-radius:50%;background:#8a8f98}
+    .pip-env[data-kind=dev] i{background:#2fb96b}.pip-env[data-kind=hom] i{background:#f0a020}.pip-env[data-kind=prod] i{background:#e5484d}
+    .pip-run{height:44px;border:0;border-radius:10px;background:#ffd21f;color:#1a1a1a;font:800 17px system-ui;cursor:pointer}
+    .pip-run:disabled{opacity:.6}
+    .pip-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:22px;font-size:13px}
+    .pip-status .api-pill{font-size:13px;padding:3px 9px}.pip-status .api-meta{color:#8d9ab1}.pip-status .api-rec{margin-left:0;font-size:11px}
+    .pip-body{flex:1;min-height:0;overflow:auto;border-radius:10px;background:#101725}
+    .pip-out{zoom:.5;padding:16px}
+    .pip-nav{display:flex;align-items:center;gap:8px}
+    .pip-nav button{width:40px;height:32px;border:1px solid #ffffff2a;border-radius:8px;background:none;color:#e8edf5;font:700 16px system-ui;cursor:pointer}
+    .pip-nav span{flex:1;text-align:center;color:#8d9ab1;font-size:13px}
+    .pip-empty{padding:16px;color:#8d9ab1}`;
+  let pipWin = null;
+  const currentRoot = () => { const i = window.sagadeck ? window.sagadeck.cur : 0; const sl = document.querySelectorAll(".slide")[i]; return sl ? $(".L-api[data-api]", sl) : null; };
+  function renderPip() {
+    if (!pipWin || pipWin.closed) return;
+    const d = pipWin.document, root = currentRoot();
+    const i = window.sagadeck ? window.sagadeck.cur : 0, n = window.sagadeck ? window.sagadeck.n : 1;
+    const env = root ? $("[data-api-env]", root) : null;
+    const html = root
+      ? `<div class="pip-top"><span class="pip-env" data-kind="${esc(env.dataset.kind || "")}"><i></i>${esc($(".api-env-name", env).textContent)}</span><b>${esc(root._cfg.title || "Requisição")}</b></div>
+        <button class="pip-run" ${root._running ? "disabled" : ""}>${root._running ? "Executando…" : esc($("[data-api-run] span", root).textContent)}</button>
+        <div class="pip-status">${$(".api-status", root).innerHTML}</div>
+        <div class="pip-body"><div class="pip-out">${$(".api-out", root).innerHTML}</div></div>`
+      : `<div class="pip-top"><b>Slide ${i + 1}</b></div><div class="pip-body"><div class="pip-empty">Este slide não tem requisição.</div></div>`;
+    const key = html + i;
+    if (d.body._key !== key) {
+      d.body._key = key;
+      d.body.innerHTML = `<div class="pip">${html}<div class="pip-nav"><button data-go="-1" title="Slide anterior">←</button><span>${i + 1} / ${n}</span><button data-go="1" title="Próximo slide">→</button></div></div>`;
+    }
+  }
+  async function openPip(root) {
+    if (!("documentPictureInPicture" in window)) { clearOut(root); showError(root, "Este navegador não tem o controle flutuante (use o Chrome ou o Edge atualizados)."); return; }
+    if (window.top !== window) { // dentro do Studio (quadro): o Chrome só abre a janelinha em janela própria
+      window.open(location.href.split("#")[0] + "#" + ((window.sagadeck ? window.sagadeck.cur : 0) + 1), "_blank");
+      return;
+    }
+    if (pipWin && !pipWin.closed) { pipWin.focus(); return; }
+    pipWin = await window.documentPictureInPicture.requestWindow({ width: 420, height: 560 });
+    const css = pipWin.document.createElement("style");
+    css.textContent = Array.from(document.querySelectorAll("style")).map((s) => s.textContent).join("\n") + PIP_CSS;
+    pipWin.document.head.appendChild(css);
+    pipWin.document.title = "Controle · " + (document.title || "SagaDeck");
+    pipWin.document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-go]");
+      if (b && window.sagadeck) window.sagadeck.goto(Math.max(0, Math.min(window.sagadeck.n - 1, window.sagadeck.cur + Number(b.dataset.go))), 0);
+      if (e.target.closest(".pip-run")) { const r = currentRoot(); if (r) run(r); }
+    });
+    pipWin.document.addEventListener("keydown", (e) => {
+      if (!window.sagadeck) return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") window.sagadeck.goto(Math.min(window.sagadeck.n - 1, window.sagadeck.cur + 1), 0);
+      if (e.key === "ArrowLeft" || e.key === "PageUp") window.sagadeck.goto(Math.max(0, window.sagadeck.cur - 1), 0);
+    });
+    const iv = setInterval(() => { if (!pipWin || pipWin.closed) { clearInterval(iv); pipWin = null; return; } renderPip(); }, 300);
+    renderPip();
+    window.sagadeckApi.pip = pipWin;
+  }
+
   function mount(root) {
     try { root._cfg = JSON.parse(root.dataset.api); } catch { return; }
     $$("[data-tab]", root).forEach((b) => { b.onclick = () => showTab(root, b.dataset.tab); });
     $("[data-api-run]", root).onclick = () => run(root);
     $("[data-api-env]", root).onclick = (e) => envMenu(root, e.currentTarget);
+    const pipBtn = $("[data-api-pip]", root);
+    if (pipBtn) pipBtn.onclick = () => openPip(root).catch((e) => { clearOut(root); showError(root, "Não abriu o controle flutuante: " + e.message); });
     ["[data-api-url]", "[data-api-body]", "[data-api-headers]", "[data-api-ref]", "[data-api-texts]"].forEach((sel) => { const el = $(sel, root); if (el) el.addEventListener("input", () => paintCode(root)); });
     // Enter/espaço num botão do slide não avançam a apresentação
     const zone = $("[data-api-file]", root);

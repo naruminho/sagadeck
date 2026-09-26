@@ -286,6 +286,7 @@ export const LAYOUTS = {
     const ICON = {
       run: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
       out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      pip: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1"/></svg>',
       clip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5 12.6 19.9a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
     const fileZone = A.usesFile(a) ? `<div class="api-file" data-api-file>${ICON.clip}<span class="api-file-name">${esc(a.file ? String(a.file).split(/[\\/]/).pop() : "nenhum arquivo")}</span><span class="api-file-hint">arraste um arquivo aqui</span>${a.mic ? '<button type="button" class="api-mic" data-api-mic><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Gravar</span></button><canvas class="api-level" width="160" height="36" hidden></canvas>' : ""}<button type="button" data-api-pick>Trocar arquivo</button><input type="file" hidden data-api-input></div>` : "";
@@ -295,6 +296,7 @@ export const LAYOUTS = {
         <span class="api-mode f-label">${MODE[a.mode]}</span>
         ${s.text ? text(s.text, "small", { class: "api-text", size: 26 }) : ""}
         <span class="api-spacer"></span>
+        <button type="button" class="api-pip" data-api-pip title="Controle flutuante: fica por cima de qualquer janela (ex.: o portal em tela cheia)">${ICON.pip}<span>Controle flutuante</span></button>
         ${a.portal ? `<a class="api-portal" href="${esc(a.portal)}" target="_blank" rel="noopener">Abrir no portal${ICON.out}</a>` : ""}
         <button type="button" class="api-run" data-api-run>${ICON.run}<span>Executar</span></button>
       </div>

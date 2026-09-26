@@ -244,3 +244,41 @@ test("segurança: só a própria página, só nesta máquina, nada no multiusuá
     await mock.close();
   }
 });
+
+test("controle flutuante: janelinha por cima com ambiente, Executar e o resultado; ← → passam os slides", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const mock = await startMockApi();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pip-"));
+  const deckFile = path.join(dir, "pip.yaml");
+  fs.writeFileSync(process.env.SAGADECK_AMBIENTES, envFileFor(mock));
+  fs.writeFileSync(deckFile, YAML.stringify({ title: "PiP", slides: [
+    { layout: "api", title: "LLM", request: { method: "POST", url: "{{base}}/sync", body: { messages: [{ role: "user", content: "oi" }] } }, answer: "$.choices[0].message.content" },
+    { layout: "statement", text: "Sem requisição aqui" },
+  ] }));
+  const studio = await startStudio(deckFile);
+  try {
+    const { page: p, errors } = await newPage(browser, `${studio.url}/preview`, { width: 1920, height: 1080 });
+    await p.waitForFunction(() => window.sagadeckApi && window.sagadeckApi.state.live);
+    const hasPip = await p.evaluate(() => "documentPictureInPicture" in window);
+    if (!hasPip) return t.skip("este Chrome não tem Document Picture-in-Picture");
+    await p.click('.slide[data-idx="0"] [data-api-pip]');
+    await p.waitForFunction(() => window.sagadeckApi.pip && window.sagadeckApi.pip.document.querySelector(".pip-run"));
+    const pip = (sel) => p.evaluate((s) => { const e = window.sagadeckApi.pip.document.querySelector(s); return e ? e.textContent : null; }, sel);
+    assert.equal((await pip(".pip-env")).trim(), "HOM");
+    assert.equal((await pip(".pip-top b")).trim(), "LLM");
+    await p.evaluate(() => window.sagadeckApi.pip.document.querySelector(".pip-run").click());
+    await p.waitForFunction(() => /eco: oi/.test(window.sagadeckApi.pip.document.querySelector(".pip-out")?.textContent || ""), null, { timeout: 10000 });
+    assert.match(await p.innerText('.slide[data-idx="0"] .api-answer'), /eco: oi/, "executou no slide de verdade");
+    assert.match(await pip(".pip-status"), /200/);
+    await p.evaluate(() => window.sagadeckApi.pip.document.querySelector('[data-go="1"]').click());
+    await p.waitForFunction(() => window.sagadeck.cur === 1);
+    await p.waitForFunction(() => /não tem requisição/.test(window.sagadeckApi.pip.document.body.textContent));
+    assert.match(await pip(".pip-nav span"), /2 \/ 2/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+    await mock.close();
+  }
+});
