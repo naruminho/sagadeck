@@ -62,7 +62,10 @@
       // caixa (linha/coluna/cartão) com conteúdo maior que ela: o excesso cai por cima do vizinho
       for (const e of box.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
       const sr = safe.getBoundingClientRect();
-      for (const t of box.querySelectorAll(".t, .fig")) if ((t.getBoundingClientRect().bottom - sr.bottom) / sc > 6) return true;
+      for (const t of box.querySelectorAll(".t, .fig")) {
+        const r = t.getBoundingClientRect();
+        if ((r.bottom - sr.bottom) / sc > 6 || (r.right - sr.right) / sc > 6) return true;
+      }
       return false;
     };
     let z = 1;
@@ -75,5 +78,40 @@
     return z;
   }
 
-  g.SagadeckFit = { fitText, shrink };
+  // Texto de gráfico (SVG) que passa da borda do gráfico: fonte menor até caber (os gráficos já calculam os
+  // rótulos para caber; isto pega o que a estimativa errou — fonte mais larga, rótulo inesperado).
+  function fitChartText(root) {
+    root.querySelectorAll("svg.chart").forEach((svg) => {
+      const box = svg.getBoundingClientRect();
+      if (!box.width) return;
+      svg.querySelectorAll("text").forEach((t) => {
+        if (!t.dataset.fs0) t.dataset.fs0 = parseFloat(t.getAttribute("font-size")) || parseFloat(getComputedStyle(t).fontSize);
+        let fs = +t.dataset.fs0;
+        t.setAttribute("font-size", fs);
+        const out = () => { const r = t.getBoundingClientRect(); return r.width && (r.right > box.right + 1 || r.left < box.left - 1); };
+        let guard = 0;
+        while (out() && fs > +t.dataset.fs0 * 0.5 && guard++ < 30) { fs *= 0.94; t.setAttribute("font-size", fs.toFixed(1)); }
+      });
+      // rótulos um por cima do outro: os dois diminuem juntos
+      const texts = [...svg.querySelectorAll("text")];
+      const hit = (a, b) => { const r = a.getBoundingClientRect(), q = b.getBoundingClientRect();
+        return r.width && q.width && r.left < q.right - 1 && q.left < r.right - 1 && r.top < q.bottom - 1 && q.top < r.bottom - 1; };
+      for (let guard = 0; guard < 20; guard++) {
+        const pairs = [];
+        for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) if (hit(texts[i], texts[j])) pairs.push(texts[i], texts[j]);
+        if (!pairs.length) break;
+        for (const t of new Set(pairs)) {
+          const fs = parseFloat(t.getAttribute("font-size"));
+          if (fs > +t.dataset.fs0 * 0.5) t.setAttribute("font-size", (fs * 0.94).toFixed(1));
+        }
+      }
+    });
+  }
+
+  function fitAllIn(root) {
+    fitChartText(root);
+    fitText(root);
+  }
+
+  g.SagadeckFit = { fitText: fitAllIn, fitChartText, shrink };
 })(typeof window !== "undefined" ? window : globalThis);
