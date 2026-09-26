@@ -119,7 +119,6 @@
     btnCloseOpenModal: document.getElementById("btn-close-open-modal"),
     dropOverlay: document.getElementById("drop-overlay"),
     exportSagadeck: document.getElementById("export-sagadeck"),
-    exportPptx: document.getElementById("export-pptx"),
     exportHtml: document.getElementById("export-html"),
     actionSaveYaml: document.getElementById("action-save-yaml"),
     chatForm: document.getElementById("chat-form"),
@@ -1545,7 +1544,9 @@
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
     { title: "Baixar apresentação (.sagadeck)", cat: "Arquivo", ic: "download", fn: () => dom.exportSagadeck.click() },
-    { title: "Baixar PowerPoint (.pptx)", cat: "Arquivo", ic: "file-text", fn: () => dom.exportPptx.click() },
+    { title: "Baixar PowerPoint (.pptx)", cat: "Arquivo", ic: "file-text", fn: () => document.getElementById("export-pptx").click() },
+    { title: "Baixar PDF", cat: "Arquivo", ic: "file-text", fn: () => document.getElementById("export-pdf").click() },
+    { title: "Baixar roteiro (PDF)", cat: "Arquivo", ic: "sticky-note", fn: () => document.getElementById("export-roteiro").click() },
     { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
@@ -3171,22 +3172,30 @@
       return { res, name };
     }
 
-    // PowerPoint editável: leva alguns segundos (o Chrome invisível mede cada slide)
-    dom.exportPptx.onclick = async (e) => {
-      e.preventDefault();
-      if (dom.exportPptx.disabled) return;
-      dom.exportPptx.disabled = true;
-      showToast(`Gerando o PowerPoint (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
-      try {
-        const { res, name } = await downloadFrom("/api/export/pptx", "apresentacao.pptx");
-        const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
-        showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: PowerPoint editável, com animações e notas.`, warns.length ? 9000 : 4000);
-      } catch (err) {
-        showToast("Não deu para gerar o PowerPoint: " + err.message, 8000);
-      } finally {
-        dom.exportPptx.disabled = false;
-      }
+    // PowerPoint / PDF / roteiro: levam alguns segundos (o Chrome invisível desenha cada slide)
+    const EXPORTS = {
+      pptx: { label: "o PowerPoint", done: "PowerPoint editável, com animações e notas." },
+      pdf: { label: "o PDF", done: "PDF com um slide por página." },
+      roteiro: { label: "o roteiro", done: "roteiro com miniaturas, notas e tempos." },
     };
+    document.querySelectorAll("[data-export]").forEach((btn) => {
+      btn.onclick = async (e) => {
+        e.preventDefault();
+        if (btn.disabled) return;
+        const kind = btn.dataset.export, x = EXPORTS[kind];
+        btn.disabled = true;
+        showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
+        try {
+          const { res, name } = await downloadFrom(`/api/export/${kind}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
+          const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
+          showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
+        } catch (err) {
+          showToast(`Não deu para gerar ${x.label}: ${err.message}`, 8000);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
 
     // .sagadeck: a apresentação inteira (YAML + imagens, CSS, widgets) num arquivo
     dom.exportSagadeck.onclick = async (e) => {

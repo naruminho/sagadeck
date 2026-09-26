@@ -450,6 +450,17 @@ test("studio", async (t) => {
     assert.equal(pp.slides.length, n);
   });
 
+  await t.test("Baixar PDF e roteiro pelo menu", { timeout: 240000 }, async () => {
+    for (const [id, re] of [["#export-pdf", /\.pdf$/], ["#export-roteiro", / - roteiro\.pdf$/]]) {
+      await p.click("#btn-export-menu");
+      const [download] = await Promise.all([p.waitForEvent("download", { timeout: 170000 }), p.click(id)]);
+      assert.match(download.suggestedFilename(), re);
+      const file = path.join(deckFile.dir, "baixado-" + id.slice(8) + ".pdf");
+      await download.saveAs(file);
+      assert.equal(fs.readFileSync(file).subarray(0, 4).toString(), "%PDF");
+    }
+  });
+
   // ------------------------------------------------------------ arquivo .sagadeck
   await t.test("Baixar apresentação (.sagadeck): leva o YAML e as imagens; abrir o arquivo restaura tudo e salva numa pasta", async () => {
     // uma imagem local no deck (o fixture não tem)

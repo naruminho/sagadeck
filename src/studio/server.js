@@ -545,27 +545,45 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      // Baixar PowerPoint editável (textos nativos, animações dos cliques, notas do apresentador).
-      // Gera numa pasta temporária: constrói o HTML do deck atual e exporta com o Chrome invisível.
-      if (pathname === "/api/export/pptx") {
+      // Baixar PowerPoint / PDF / roteiro: constrói o HTML do deck atual numa pasta temporária e exporta com o
+      // Chrome invisível (os mesmos exportadores de "sagadeck pptx | pdf | roteiro").
+      const exportKind = (pathname.match(/^\/api\/export\/(pptx|pdf|roteiro)$/) || [])[1];
+      if (exportKind) {
         const spec = withBase(currentSpec);
         const name = currentFile && !isBundledTemplate(currentFile) ? path.basename(currentFile).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pptx-"));
+        const kinds = {
+          pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+          pdf: { file: `${name}.pdf`, mime: "application/pdf" },
+          roteiro: { file: `${name} - roteiro.pdf`, mime: "application/pdf" },
+        };
+        const k = kinds[exportKind];
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${exportKind}-`));
         try {
           const r = buildHTML(spec);
-          const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "deck.pptx");
+          const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "saida");
           fs.writeFileSync(htmlFile, r.html);
-          const { exportPptx } = await import("../export/pptx.js");
-          const { errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } });
+          let errors = [];
+          if (exportKind === "pptx") {
+            const { exportPptx } = await import("../export/pptx.js");
+            ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } }));
+          } else if (exportKind === "pdf") {
+            const { pdf } = await import("../export/shots.js");
+            await pdf(htmlFile, out);
+          } else {
+            const { shots } = await import("../export/shots.js");
+            const { roteiroPDF } = await import("../export/roteiro.js");
+            const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
+            await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
+          }
           res.writeHead(200, {
-            "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "Content-Disposition": `attachment; filename="${slugify(name)}.pptx"; filename*=UTF-8''${encodeURIComponent(name + ".pptx")}`,
+            "Content-Type": k.mime,
+            "Content-Disposition": `attachment; filename="${slugify(k.file.replace(/\.\w+$/, ""))}${path.extname(k.file)}"; filename*=UTF-8''${encodeURIComponent(k.file)}`,
             // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
             "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
           });
           res.end(fs.readFileSync(out));
         } catch (e) {
-          console.error("[Studio] PPTX falhou:", e.message);
+          console.error(`[Studio] exportação ${exportKind} falhou:`, e.message);
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
         } finally {
