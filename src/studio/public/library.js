@@ -36,7 +36,7 @@
     return j;
   }
   async function load() {
-    data = await api("/api/library");
+    data = await api("api/library");
     if (data.user) {
       $("#user").hidden = false;
       $("#avatar").textContent = String(data.user).slice(0, 1);
@@ -46,8 +46,8 @@
     render();
   }
   // botão IA: a tela de configuração do modelrelay local, quando existe
-  api("/api/ai/setup").then(({ url }) => { if (url) { $("#btn-ai").href = url; $("#btn-ai").hidden = false; } }).catch(() => {});
-  const openEditor = (id, present) => { location.href = `/editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
+  api("api/ai/setup").then(({ url }) => { if (url) { $("#btn-ai").href = url; $("#btn-ai").hidden = false; } }).catch(() => {});
+  const openEditor = (id, present) => { location.href = `editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
 
   // ---------------------------------------------------------------- barra lateral
   function renderSide() {
@@ -74,7 +74,7 @@
         const id = e.dataTransfer.getData("application/x-sagadeck-deck");
         const deck = data.decks.find((d) => d.id === id);
         if (!deck || deck.topic === b.dataset.topic) return;
-        await act(() => api("/api/library/decks/move", { id, topic: b.dataset.topic }), `"${deck.title}" movida para ${(topicOf(b.dataset.topic) || NO_TOPIC).name}`);
+        await act(() => api("api/library/decks/move", { id, topic: b.dataset.topic }), `"${deck.title}" movida para ${(topicOf(b.dataset.topic) || NO_TOPIC).name}`);
       };
       b.oncontextmenu = (e) => { if (b.dataset.topic) { e.preventDefault(); openTopicMenu(b, b.dataset.topic); } };
     });
@@ -85,7 +85,7 @@
     const t = topicOf(d.topic) || NO_TOPIC;
     return `<div class="card" draggable="true" data-id="${esc(d.id)}" tabindex="0">
       <div class="thumb"><div class="loading">${esc(d.slides)} slides</div>
-        <img loading="lazy" alt="" src="/api/library/cover?id=${encodeURIComponent(d.id)}&v=${Math.round(d.edited)}" onerror="this.remove()">
+        <img loading="lazy" alt="" src="api/library/cover?id=${encodeURIComponent(d.id)}&v=${Math.round(d.edited)}" onerror="this.remove()">
         <div class="over"><button class="pill" data-present>${ic("play")}Apresentar</button><button class="pill" data-edit>${ic("pencil")}Editar</button></div></div>
       <div class="meta"><div class="t"><div class="name">${esc(d.title)}</div>
         <div class="info">${withTopic ? `<span class="chip"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span>·` : ""}<span>${d.slides} slides</span>·<span>${ago(d.edited)}</span></div></div>
@@ -145,8 +145,8 @@
       };
       c.onkeydown = (e) => { if (e.key === "Enter") openEditor(id); };
     });
-    main.querySelectorAll("[data-restore]").forEach((b) => b.onclick = () => act(() => api("/api/library/decks/restore", { slot: b.dataset.restore }), "Restaurada"));
-    main.querySelectorAll("[data-purge]").forEach((b) => b.onclick = () => { if (confirm("Apagar de vez? Não dá para desfazer.")) act(() => api("/api/library/decks/purge", { slot: b.dataset.purge }), "Apagada de vez"); });
+    main.querySelectorAll("[data-restore]").forEach((b) => b.onclick = () => act(() => api("api/library/decks/restore", { slot: b.dataset.restore }), "Restaurada"));
+    main.querySelectorAll("[data-purge]").forEach((b) => b.onclick = () => { if (confirm("Apagar de vez? Não dá para desfazer.")) act(() => api("api/library/decks/purge", { slot: b.dataset.purge }), "Apagada de vez"); });
     main.querySelectorAll("[data-empty-new], #card-new").forEach((b) => b.onclick = () => openNewMenu(b));
     main.querySelectorAll("[data-empty-topic]").forEach((b) => b.onclick = () => topicDialog());
   }
@@ -190,15 +190,15 @@
       closeMenus();
       const a = b.dataset.a;
       if (a === "open" || a === "present") return openEditor(id, a === "present");
-      if (a === "rename") return nameDialog("Renomear apresentação", d.title, (title) => act(() => api("/api/library/decks/rename", { id, title }), "Renomeada"));
-      if (a === "dup") return act(() => api("/api/library/decks/duplicate", { id }), "Cópia criada");
-      if (a === "trash") return act(() => api("/api/library/decks/trash", { id }), "Na lixeira — dá para restaurar por 30 dias");
+      if (a === "rename") return nameDialog("Renomear apresentação", d.title, (title) => act(() => api("api/library/decks/rename", { id, title }), "Renomeada"));
+      if (a === "dup") return act(() => api("api/library/decks/duplicate", { id }), "Cópia criada");
+      if (a === "trash") return act(() => api("api/library/decks/trash", { id }), "Na lixeira — dá para restaurar por 30 dias");
     });
-    m.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => { closeMenus(); act(() => api("/api/library/decks/move", { id, topic: b.dataset.move }), `Movida para ${topicOf(b.dataset.move).name}`); });
+    m.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => { closeMenus(); act(() => api("api/library/decks/move", { id, topic: b.dataset.move }), `Movida para ${topicOf(b.dataset.move).name}`); });
     m.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => {
       closeMenus();
       if (b.dataset.dl !== "sagadeck") toast("Gerando… o download começa em alguns segundos.", 6000);
-      location.href = `/api/library/download?id=${encodeURIComponent(id)}&kind=${b.dataset.dl}`;
+      location.href = `api/library/download?id=${encodeURIComponent(id)}&kind=${b.dataset.dl}`;
     });
   }
 
@@ -209,7 +209,7 @@
     hydrate(m);
     place(m, anchor);
     m.querySelector('[data-t="edit"]').onclick = () => { closeMenus(); topicDialog(t); };
-    m.querySelector('[data-t="del"]').onclick = () => { closeMenus(); act(async () => { await api("/api/library/topics/delete", { id }); view = "recentes"; }, "Tópico excluído"); };
+    m.querySelector('[data-t="del"]').onclick = () => { closeMenus(); act(async () => { await api("api/library/topics/delete", { id }); view = "recentes"; }, "Tópico excluído"); };
   }
 
   function openNewMenu(anchor) {
@@ -219,7 +219,7 @@
     m.querySelectorAll("[data-new]").forEach((b) => b.onclick = () => {
       closeMenus();
       if (b.dataset.new === "blank") return nameDialog("Nova apresentação", "", async (title) => {
-        try { const { id } = await api("/api/library/decks", { topic, title }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
+        try { const { id } = await api("api/library/decks", { topic, title }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
       }, "Título");
       if (b.dataset.new === "ai") return aiDialog(topic);
       $("#import-input").dataset.topic = topic;
@@ -258,7 +258,7 @@
         if (!name) return;
         close();
         await act(async () => {
-          const r = t ? await api("/api/library/topics/update", { id: t.id, name, color }) : await api("/api/library/topics", { name, color });
+          const r = t ? await api("api/library/topics/update", { id: t.id, name, color }) : await api("api/library/topics", { name, color });
           view = r.id; store.set("libView", view);
         }, t ? "Tópico atualizado" : `Tópico "${name}" criado`);
       };
@@ -278,7 +278,7 @@
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";
         try {
-          const res = await fetch("/api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic, briefing, stream: true }) });
+          const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic, briefing, stream: true }) });
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
           const reader = res.body.getReader(), dec = new TextDecoder();
           let buf = "", result = null;
@@ -313,7 +313,7 @@
     e.target.value = "";
     if (!f) return;
     try {
-      const r = await fetch(`/api/library/import?topic=${encodeURIComponent(e.target.dataset.topic || "")}&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+      const r = await fetch(`api/library/import?topic=${encodeURIComponent(e.target.dataset.topic || "")}&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
       toast(`"${f.name}" importada`);

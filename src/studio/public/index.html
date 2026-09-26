@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SagaDeck Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="style.css">
   <script>
     // Tema da interface antes do primeiro desenho (sem piscar branco no escuro).
     // Preferência: "system" (padrão), "light" ou "dark" — trocada em Exibir › Preferências.
@@ -22,7 +22,7 @@
        BARRA DE TÍTULO: documento, estado do salvamento, busca, Apresentar
        ====================================================================== -->
   <header id="titlebar" class="titlebar">
-    <a href="/biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações"><i class="ic" data-ic="library"></i></a>
+    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações"><i class="ic" data-ic="library"></i></a>
     <input type="text" id="deck-title-input" class="doc-title" value="" placeholder="Apresentação sem título" aria-label="Título da apresentação">
     <span id="save-status" class="save-status" title=""></span>
 
@@ -40,7 +40,7 @@
       <div id="present-menu" class="menu" role="menu">
         <button class="menu-item" id="present-from-start"><i class="ic" data-ic="play"></i>Do início</button>
         <button class="menu-item" id="present-from-current"><i class="ic" data-ic="play"></i>Deste slide</button>
-        <a class="menu-item" href="/preview" target="_blank" rel="noopener"><i class="ic" data-ic="external-link"></i>Em uma nova aba</a>
+        <a class="menu-item" href="preview" target="_blank" rel="noopener"><i class="ic" data-ic="external-link"></i>Em uma nova aba</a>
       </div>
     </div>
   </header>
@@ -587,9 +587,9 @@
 
   <div id="toast-notification" class="toast hidden" role="status"></div>
 
-  <script src="/fit.js"></script>
-  <script src="/ui-icons.js"></script>
-  <script src="/slide-form.js"></script>
-  <script src="/app.js"></script>
+  <script src="fit.js"></script>
+  <script src="ui-icons.js"></script>
+  <script src="slide-form.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

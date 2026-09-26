@@ -236,7 +236,7 @@
     const params = new URLSearchParams(location.search);
     if (params.get("deck")) {
       try {
-        const r = await fetch("/api/library/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: params.get("deck") }) });
+        const r = await fetch("api/library/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: params.get("deck") }) });
         if (!r.ok) showToast("Não deu para abrir: " + ((await r.json().catch(() => ({}))).error || r.status), 6000);
       } catch {}
     }
@@ -257,7 +257,7 @@
   // Carregar Deck Inicial do Servidor
   async function loadDeck() {
     try {
-      const res = await fetch("/api/deck");
+      const res = await fetch("api/deck");
       const data = await res.json();
       state.deck = data.spec;
       state.themes = data.themes || [];
@@ -298,7 +298,7 @@
     syncThemeGallery();
 
     try {
-      const res = await fetch("/api/render-slide", {
+      const res = await fetch("api/render-slide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide, index: idx, spec: state.deck }),
@@ -668,7 +668,7 @@
   async function triggerAutofix() {
     try {
       const idx = state.currentSlideIndex;
-      const res = await fetch("/api/autofix", {
+      const res = await fetch("api/autofix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -758,7 +758,7 @@
       };
       box.append(card);
       try {
-        const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
+        const r = await (await fetch("api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slide: v.slide, index: variants.index }) })).json();
         const prev = card.querySelector(".variant-prev");
         prev.querySelector(".thumb-render").innerHTML = r.html;
@@ -800,7 +800,7 @@
     clearChatAttachments();
 
     try {
-      const data = await streamAI("/api/ai/chat", {
+      const data = await streamAI("api/ai/chat", {
         message,
         targetSlide: targetIdx,
         spec: state.deck,
@@ -1003,7 +1003,7 @@
   async function loadIcons(query = "") {
     dom.iconSearchCount.textContent = "Buscando...";
     try {
-      const res = await fetch(`/api/icons?q=${encodeURIComponent(query)}&limit=90`);
+      const res = await fetch(`api/icons?q=${encodeURIComponent(query)}&limit=90`);
       const list = await res.json();
       dom.iconsGridContainer.innerHTML = "";
       dom.iconSearchCount.textContent = `${list.length} ícones`;
@@ -1185,7 +1185,7 @@
     dom.storyArcDot.setAttribute("cy", currentPt.y);
 
     // variedade medida no servidor (src/ai/variety.js — a mesma régua da geração com IA)
-    fetch("/api/variety", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: state.deck }) })
+    fetch("api/variety", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: state.deck }) })
       .then((r) => r.json()).then((v) => {
         const ok = v.ok;
         dom.arcStatusBadge.className = `arc-badge ${ok ? "ok" : "warn"}`;
@@ -1438,11 +1438,11 @@
     if (!force && document.activeElement === dom.yamlLiveEditor) return;
     try {
       if (state.yamlMode === "slide") {
-        const r = await (await fetch(`/api/slide-yaml?i=${state.currentSlideIndex}`)).json();
+        const r = await (await fetch(`api/slide-yaml?i=${state.currentSlideIndex}`)).json();
         setYamlText(r.yaml || "");
         dom.yamlLiveEditor.scrollTop = 0;
       } else {
-        const r = await (await fetch("/api/deck")).json();
+        const r = await (await fetch("api/deck")).json();
         setYamlText(withSlideSeparators(r.yaml));
         // rola até o separador do slide atual
         const lineNo = dom.yamlLiveEditor.value.split("\n").findIndex((l) => l.includes(`# ─────────── slide ${state.currentSlideIndex + 1}`));
@@ -1494,7 +1494,7 @@
     yamlDebounce = setTimeout(async () => {
       try {
         const slideMode = state.yamlMode === "slide";
-        const res = await fetch(slideMode ? "/api/slide-yaml" : "/api/deck", {
+        const res = await fetch(slideMode ? "api/slide-yaml" : "api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(slideMode ? { index: state.currentSlideIndex, yaml: dom.yamlLiveEditor.value } : { yaml: dom.yamlLiveEditor.value }),
@@ -1792,7 +1792,7 @@
       const slide = state.deck.slides[idx];
       if (!slide) continue;
       thumbActive++;
-      fetch("/api/render-slide", {
+      fetch("api/render-slide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide, index: idx, spec: state.deck }),
@@ -1924,7 +1924,7 @@
     dom.layoutPickerGrid.querySelectorAll(".layout-card").forEach((c) => c.classList.toggle("active", c.dataset.layout === cur));
     if (key === layoutPreviewKey) return;
     try {
-      const data = await (await fetch("/api/layout-previews")).json();
+      const data = await (await fetch("api/layout-previews")).json();
       ensureSlideStyles(data.baseCSS, data.themeCSS);
       dom.layoutPickerGrid.querySelectorAll(".layout-card").forEach((c) => {
         const n = c.dataset.layout;
@@ -2015,7 +2015,7 @@
     await syncDeckToServer(); // o prompt que acabou de ser digitado precisa estar no servidor
     if (btn) { btn.disabled = true; btn.textContent = "Gerando imagem…"; }
     try {
-      const res = await fetch("/api/ai/slide-images", {
+      const res = await fetch("api/ai/slide-images", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ index: state.currentSlideIndex }),
       });
@@ -2075,12 +2075,12 @@
     await syncDeckToServer(); // a prévia é montada a partir do deck do servidor
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
-    dom.presFrame.src = `/preview?t=${Date.now()}#${start}`;
+    dom.presFrame.src = `preview?t=${Date.now()}#${start}`;
     document.documentElement.requestFullscreen?.().catch(() => {});
     dom.presFrame.onload = async () => {
       const win = dom.presFrame.contentWindow;
       if (dom.presModal.classList.contains("hidden") || win.location.href === "about:blank") return;
-      const status = await fetch("/api/preview-status").then((r) => r.json()).catch(() => ({ ok: true, warnings: [] }));
+      const status = await fetch("api/preview-status").then((r) => r.json()).catch(() => ({ ok: true, warnings: [] }));
       if (!status.ok || !win.sagadeck) {
         closePresentation();
         showToast(`Não consegui abrir a apresentação: ${status.error || "erro ao montar o HTML"}`, 9000);
@@ -2148,7 +2148,7 @@
       types.append(b);
     }
     const ex = document.getElementById("napkin-examples");
-    fetch("/api/napkin-examples").then((r) => r.json()).then((examples) => {
+    fetch("api/napkin-examples").then((r) => r.json()).then((examples) => {
       for (const [key, { label, text }] of Object.entries(examples)) {
         const b = document.createElement("button");
         b.type = "button";
@@ -2164,7 +2164,7 @@
     }).catch(() => {});
     hydrateIcons(dom.modalNapkin);
     // prévias dos formatos: as mesmas da galeria de layouts
-    fetch("/api/layout-previews").then((r) => r.json()).then((data) => {
+    fetch("api/layout-previews").then((r) => r.json()).then((data) => {
       ensureSlideStyles(data.baseCSS, data.themeCSS);
       types.querySelectorAll(".napkin-type").forEach((b) => {
         const r = b.querySelector(".thumb-render");
@@ -2190,7 +2190,7 @@
   async function renderNapkinStage(slide) {
     const stage = document.getElementById("napkin-stage");
     try {
-      const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
+      const r = await (await fetch("api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide, index: state.currentSlideIndex }) })).json();
       stage.innerHTML = `<div class="thumb-render">${r.html}</div>`;
       requestAnimationFrame(() => fitRendered(stage));
@@ -2210,7 +2210,7 @@
     dom.btnRunNapkin.textContent = "Gerando…";
     document.getElementById("napkin-stage").classList.add("loading");
     try {
-      const res = await fetch("/api/napkin", {
+      const res = await fetch("api/napkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, layout: napkinType === "auto" ? undefined : napkinType, theme: state.deck.theme || "sinal", images: true }),
@@ -2265,7 +2265,7 @@
   async function syncDeckToServer() {
     updateSaveStatus("saving");
     try {
-      const res = await fetch("/api/deck", {
+      const res = await fetch("api/deck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spec: state.deck }),
@@ -2389,7 +2389,7 @@
   // ==========================================================================
   async function refreshAIStatus(force = false) {
     try {
-      const res = await fetch("/api/ai/status" + (force ? "?refresh=1" : ""));
+      const res = await fetch("api/ai/status" + (force ? "?refresh=1" : ""));
       state.ai = await res.json();
     } catch {
       state.ai = { available: false };
@@ -2430,7 +2430,7 @@
     const tick = setInterval(show, 500);
     show();
     try {
-      const data = await streamAI("/api/ai/generate", {
+      const data = await streamAI("api/ai/generate", {
         briefing,
         theme: dom.aiDeckTheme.value,
         slides: Number(dom.aiDeckSlides.value) || undefined,
@@ -2720,7 +2720,7 @@
     const NO_BARS = ["cover", "section", "end", "image", "canvas", "full", "headline"];
     if (NO_BARS.includes(spec.slides[i]?.layout)) i = Math.max(0, spec.slides.findIndex((s) => !NO_BARS.includes(s.layout)));
     try {
-      const r = await (await fetch("/api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
+      const r = await (await fetch("api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slide: spec.slides[i], index: i, spec }) })).json();
       stage.innerHTML = `<div class="thumb-render">${r.html}</div>`;
       requestAnimationFrame(() => fitRendered(stage));
@@ -3005,7 +3005,7 @@
     // .sagadeck / .zip: o servidor extrai numa pasta e abre de lá (edições salvas nessa pasta)
     async function loadPackageFile(file) {
       try {
-        const res = await fetch(`/api/open-package?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+        const res = await fetch(`api/open-package?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         state.deck = data.spec;
@@ -3027,7 +3027,7 @@
       if (/\.(sagadeck|zip)$/i.test(file.name)) return loadPackageFile(file);
       try {
         const text = await file.text();
-        const res = await fetch("/api/deck", {
+        const res = await fetch("api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ yaml: text, saveToFile: false, source: "browser-file" }),
@@ -3054,7 +3054,7 @@
     async function loadServerPath(pathStr) {
       if (!pathStr) return;
       try {
-        const res = await fetch("/api/open-file", {
+        const res = await fetch("api/open-file", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path: pathStr }),
@@ -3199,7 +3199,7 @@
         btn.disabled = true;
         showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`/api/export/${kind}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
+          const { res, name } = await downloadFrom(`api/export/${kind}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
           const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
           showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
         } catch (err) {
@@ -3214,7 +3214,7 @@
     dom.exportSagadeck.onclick = async (e) => {
       e.preventDefault();
       try {
-        const { res, name } = await downloadFrom("/api/export/sagadeck", "apresentacao.sagadeck");
+        const { res, name } = await downloadFrom("api/export/sagadeck", "apresentacao.sagadeck");
         const missing = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Missing") || "%5B%5D"));
         showToast(missing.length
           ? `"${name}" baixado, mas ${missing.length} arquivo(s) usado(s) pelo deck não existe(m): ${missing.join(", ")} (listados em FALTANDO.txt dentro do arquivo)`
@@ -3225,7 +3225,7 @@
     };
     dom.exportHtml.onclick = (e) => {
       e.preventDefault();
-      window.location.href = "/api/export/html";
+      window.location.href = "api/export/html";
     };
     dom.actionSaveYaml.onclick = (e) => {
       e.preventDefault();

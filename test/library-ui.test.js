@@ -185,3 +185,40 @@ test("botão IA: abre a tela de configuração do modelrelay local; some quando 
     relay.close(); old.close();
   }
 });
+
+// No BabsDeck o Studio fica em https://portal/apresentacoes/ (o nginx tira o prefixo). Tudo tem que
+// funcionar sob um prefixo: nenhum endereço absoluto ("/api/...") no front.
+test("atrás de um proxy com prefixo (/apresentacoes/): biblioteca e editor sem nenhum pedido quebrado", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const http = await import("node:http");
+  const studio = await startStudio(null, { multiuser: true });
+  const target = new URL(studio.url);
+  const proxy = http.createServer((req, res) => {
+    if (!req.url.startsWith("/apresentacoes/")) { res.writeHead(404); return res.end("fora do prefixo: " + req.url); }
+    const up = http.request({ host: target.hostname, port: target.port, method: req.method, path: req.url.slice("/apresentacoes".length),
+      headers: { ...req.headers, "x-sagadeck-user": "ana" } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+    req.pipe(up);
+  });
+  await new Promise((r) => proxy.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${proxy.address().port}/apresentacoes/`;
+  try {
+    const { page: p, errors } = await newPage(browser, base);
+    const bad = [];
+    p.on("response", (r) => { if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`); });
+    p.on("requestfailed", (r) => bad.push(`falhou ${r.url()}`));
+    await p.waitForSelector("[data-empty-new]");
+    await p.click("[data-empty-new]");
+    await p.click('[data-new="blank"]');
+    await Promise.all([p.waitForURL(/\/apresentacoes\/editor\?deck=/), (async () => { await p.fill("#dlg-name", "Sob prefixo"); await p.click("#dlg-ok"); })()]);
+    await p.waitForSelector("#rendered-slide-container .slide");
+    await Promise.all([p.waitForURL((u) => u.pathname === "/apresentacoes/biblioteca"), p.click("#btn-library")]);
+    await p.waitForFunction(() => { const i = document.querySelector(".card[data-id] img"); return i && i.complete && i.naturalWidth > 100; }, null, { timeout: 30000 });
+    assert.deepEqual(bad, []);
+    assert.deepEqual(errors, []);
+  } finally {
+    proxy.close();
+    await browser.close();
+    await studio.close();
+  }
+});
