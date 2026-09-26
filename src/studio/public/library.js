@@ -45,6 +45,8 @@
     if (view !== "recentes" && view !== "todas" && view !== "lixeira" && !topicOf(view)) view = "recentes";
     render();
   }
+  // botão IA: a tela de configuração do modelrelay local, quando existe
+  api("/api/ai/setup").then(({ url }) => { if (url) { $("#btn-ai").href = url; $("#btn-ai").hidden = false; } }).catch(() => {});
   const openEditor = (id, present) => { location.href = `/editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
 
   // ---------------------------------------------------------------- barra lateral

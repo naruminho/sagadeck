@@ -77,10 +77,16 @@ O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completi
 
 ```bash
 pip install git+https://github.com/naruminho/modelrelay
-modelrelay init
 ```
 
-No `~/.modelrelay/config.toml`, defina os apelidos que o sagadeck usa:
+O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **IA** no alto da
+biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor
+(OpenRouter, OpenAI, Google, DeepSeek, o gateway da empresa…), cola a chave, testa e diz qual modelo faz
+**texto** e qual faz **imagem**. A tela grava o `~/.modelrelay/config.toml`, que também dá para editar à mão
+(`modelrelay init` cria um modelo comentado). O botão só aparece quando o modelrelay roda nesta máquina; no
+modo multiusuário, quem configura é o admin.
+
+À mão, no `~/.modelrelay/config.toml`, os apelidos que o sagadeck usa são:
 
 ```toml
 [models]

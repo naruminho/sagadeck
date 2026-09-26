@@ -30,6 +30,8 @@
     .lib-btn.primary:hover { background: var(--brand-fill-hover); }
     .lib-btn.ghost { background: transparent; border: 1px solid var(--ui-line-strong); color: var(--text); font-weight: 500; height: 32px; }
     .lib-btn.ghost:hover { background: var(--hover); }
+    a.lib-btn { text-decoration: none; color: var(--text); }
+    .lib-btn[hidden] { display: none; }
     .lib-btn.danger { color: var(--err); }
     .lib-icon-btn { width: 34px; height: 34px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); background: none; border: 0; cursor: pointer; }
     .lib-icon-btn:hover { background: var(--hover); }
@@ -125,7 +127,7 @@
       .side-title, .lib-side .grow, .side-foot .where { display: none; }
       .side-foot { border: 0; margin: 0; padding: 0; }
       .nav { width: auto; white-space: nowrap; }
-      .lib-brand { min-width: 0; } .lib-brand span, .lib-user .uname, #btn-new .lbl { display: none; }
+      .lib-brand { min-width: 0; } .lib-brand span, .lib-user .uname, #btn-new .lbl, #btn-ai .lbl { display: none; }
       .lib-top { gap: 8px; padding: 0 10px; } .lib-top .spacer { display: none; }
       .lib-user { padding: 2px; border: 0; } #btn-new { padding: 0 9px; }
       .lib-main { padding: 18px 16px 60px; }
@@ -138,6 +140,7 @@
     <label class="lib-search"><i class="ic" data-ic="search"></i><input id="q" placeholder="Buscar apresentações" autocomplete="off"></label>
     <div class="spacer"></div>
     <button class="lib-btn primary" id="btn-new"><i class="ic" data-ic="plus"></i><span class="lbl">Nova</span></button>
+    <a class="lib-btn ghost" id="btn-ai" hidden target="_blank" rel="noopener" title="Provedores, chaves e modelos da IA (modelrelay)"><i class="ic" data-ic="sliders-horizontal"></i><span class="lbl">IA</span></a>
     <button class="lib-icon-btn" id="btn-theme" title="Tema claro/escuro"><i class="ic" data-ic="moon"></i></button>
     <div class="lib-user" id="user" hidden><div class="lib-avatar" id="avatar"></div><span class="uname" id="uname"></span></div>
   </header>

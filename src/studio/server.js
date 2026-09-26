@@ -469,6 +469,22 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Tela de configuração da IA: é do modelrelay (vale para todos os apps). Só aparece quando ele
+      // roda nesta máquina e tem a tela; no multiusuário quem configura é o admin, pelo portal.
+      if (pathname === "/api/ai/setup" && req.method === "GET") {
+        let setup = null;
+        const base = llmConfig().url.replace(/\/v1$/, "");
+        if (!opts.multiuser && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(base)) {
+          try {
+            const r = await fetch(base + "/api/console/config", { signal: AbortSignal.timeout(1500) });
+            if (r.ok) setup = base + "/";
+          } catch {}
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ url: setup }));
+        return;
+      }
+
       if (pathname === "/api/ai/status" && req.method === "GET") {
         const cfg = llmConfig();
         const available = await llmAvailable({ force: url.searchParams.has("refresh") });

@@ -141,3 +141,47 @@ test("multiusuário: cada usuário vê só a sua biblioteca; sem o cabeçalho do
     await studio.close();
   }
 });
+
+// Um modelrelay local com a tela de configuração (só o que o Studio consulta).
+async function fakeRelay({ console = true } = {}) {
+  const http = await import("node:http");
+  const server = http.createServer((req, res) => {
+    if (console && req.url === "/api/console/config") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("{}"); }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  return { url: `http://127.0.0.1:${server.address().port}`, close: () => server.close() };
+}
+
+test("botão IA: abre a tela de configuração do modelrelay local; some quando não há tela ou no multiusuário", { timeout: 60000 }, async (t) => {
+  const relay = await fakeRelay(), old = await fakeRelay({ console: false });
+  try {
+    const setup = async (llmUrl, opts = {}) => {
+      const studio = await startStudio(null, { llmUrl, ...opts });
+      try {
+        const r = await fetch(studio.url + "/api/ai/setup", { headers: opts.multiuser ? { "X-Sagadeck-User": "ana" } : {} });
+        return (await r.json()).url;
+      } finally { await studio.close(); }
+    };
+    assert.equal(await setup(relay.url + "/v1"), relay.url + "/");
+    assert.equal(await setup(old.url + "/v1"), null, "modelrelay antigo, sem tela");
+    assert.equal(await setup("http://127.0.0.1:9/v1"), null, "fora do ar");
+    assert.equal(await setup(relay.url + "/v1", { multiuser: true }), null, "no servidor, a configuração é do admin");
+
+    const browser = await browserOrSkip(t);
+    if (!browser) return;
+    const studio = await startStudio(null, { llmUrl: relay.url + "/v1" });
+    try {
+      const { page: p, errors } = await newPage(browser, studio.url);
+      await p.waitForSelector("#btn-ai:not([hidden])");
+      assert.equal(await p.getAttribute("#btn-ai", "href"), relay.url + "/");
+      assert.equal(await p.getAttribute("#btn-ai", "target"), "_blank");
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser.close();
+      await studio.close();
+    }
+  } finally {
+    relay.close(); old.close();
+  }
+});
