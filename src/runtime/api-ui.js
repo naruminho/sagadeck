@@ -168,9 +168,45 @@
     }).join('<div class="api-step-arrow" aria-hidden="true">→</div>')}</div>`;
   }
 
+  // ---------- áudio: tocar a resposta (TTS) com a onda desenhada ----------
+  function playAudio(root, box, audio) {
+    const cv = $("canvas", box), ctx = cv.getContext("2d");
+    const el = $("audio", box);
+    const draw = (data) => {
+      const w = (cv.width = cv.clientWidth * 2), h = (cv.height = cv.clientHeight * 2);
+      ctx.clearRect(0, 0, w, h);
+      const n = 64, bw = w / n;
+      for (let i = 0; i < n; i++) {
+        const v = data ? data[Math.floor((i / n) * data.length)] / 255 : 0.08;
+        const bh = Math.max(4, v * h * 0.9);
+        ctx.fillStyle = "#9fc3ff";
+        ctx.fillRect(i * bw + 2, (h - bh) / 2, bw - 4, bh);
+      }
+    };
+    draw(null);
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ac = root._ac || (root._ac = new AC());
+      const src = ac.createMediaElementSource(el), an = ac.createAnalyser();
+      an.fftSize = 256;
+      src.connect(an); an.connect(ac.destination);
+      const data = new Uint8Array(an.frequencyBinCount);
+      const tick = () => { an.getByteFrequencyData(data); draw(data); if (!el.paused) requestAnimationFrame(tick); else draw(null); };
+      el.addEventListener("play", () => { ac.resume(); requestAnimationFrame(tick); });
+    } catch {}
+    el.play().catch(() => {});
+  }
+
   function showResult(root, r, badge) {
     const cfg = root._cfg;
     status(root, statusBar(r, badge));
+    if (r.body && r.body._audio) {
+      let box = $(".api-result", root);
+      if (!box) { box = document.createElement("div"); box.className = "api-result"; out(root).appendChild(box); }
+      box.innerHTML = `<div class="api-audio"><canvas></canvas><audio controls src="data:${esc(r.body.type)};base64,${r.body.base64}"></audio></div>`;
+      playAudio(root, $(".api-audio", box));
+      return;
+    }
     const ans = cfg.answer && r.body && typeof r.body === "object" ? C.get(r.body, cfg.answer) : undefined;
     const html = (ans != null ? `<div class="api-answer"><div class="f-label">${esc(cfg.answer.replace(/^\$\.?/, ""))}</div><div class="api-answer-t">${esc(typeof ans === "string" ? ans : JSON.stringify(ans))}</div></div>` : "") +
       stepCards(cfg, r.body) +
@@ -208,6 +244,54 @@
       paintCode(root);
     };
     rd.readAsDataURL(f);
+  }
+
+  // ---------- microfone (STT): grava, mostra o nível e envia ao parar ----------
+  async function toggleMic(root) {
+    const btn = $("[data-api-mic]", root), cv = $(".api-level", root);
+    if (root._rec) { root._rec.stop(); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { clearOut(root); showError(root, "Não consegui usar o microfone: " + (e.message || e.name) + ". (Só funciona pelo Studio, em 127.0.0.1, com permissão do navegador.)"); return; }
+    const chunks = [];
+    const rec = new MediaRecorder(stream);
+    root._rec = rec;
+    btn.classList.add("rec"); $("span", btn).textContent = "Parar";
+    cv.hidden = false;
+    let raf;
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ac.createAnalyser(); an.fftSize = 256;
+      ac.createMediaStreamSource(stream).connect(an);
+      const data = new Uint8Array(an.frequencyBinCount), g = cv.getContext("2d");
+      const tick = () => {
+        an.getByteTimeDomainData(data);
+        let peak = 0; for (const v of data) peak = Math.max(peak, Math.abs(v - 128) / 128);
+        g.clearRect(0, 0, cv.width, cv.height);
+        const bars = 16;
+        for (let i = 0; i < bars; i++) { g.fillStyle = i / bars < peak * 1.6 ? "#ff9aa2" : "#2a3446"; g.fillRect(i * 10, 6, 7, 24); }
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+      rec.addEventListener("stop", () => { cancelAnimationFrame(raf); ac.close(); });
+    } catch {}
+    rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      root._rec = null;
+      btn.classList.remove("rec"); $("span", btn).textContent = "Gravar"; cv.hidden = true;
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      const rd = new FileReader();
+      rd.onload = () => {
+        const ext = /ogg/.test(blob.type) ? "ogg" : /mp4/.test(blob.type) ? "m4a" : "webm";
+        root._file = { name: "gravacao." + ext, type: blob.type.split(";")[0], base64: String(rd.result).split(",")[1] || "" };
+        const n = $(".api-file-name", root); if (n) n.textContent = root._file.name;
+        paintCode(root);
+        run(root); // parou de falar: já envia
+      };
+      rd.readAsDataURL(blob);
+    };
+    rec.start();
   }
 
   function showError(root, msg, kind) {
@@ -402,8 +486,10 @@
       const rec = cfg.similarity ? await runSimilarity(root, req) : cfg.mode === "polling" ? await runPolling(root, req) : cfg.mode === "stream" ? await runStream(root, req) : await runSync(root, req);
       if (rec) {
         keep(root, rec);
-        STATE.recordings[cfg.key] = Object.assign({ at: new Date().toISOString() }, rec);
-        call("api/http/record", { key: cfg.key, record: rec }).catch(() => {});
+        const big = rec.result && rec.result.body && rec.result.body._audio && rec.result.body.base64.length > 1500000;
+        const saved = big ? Object.assign({}, rec, { result: Object.assign({}, rec.result, { body: { nota: "áudio grande demais para gravar" } }) }) : rec;
+        STATE.recordings[cfg.key] = Object.assign({ at: new Date().toISOString() }, saved);
+        call("api/http/record", { key: cfg.key, record: saved }).catch(() => {});
       }
     } catch (e) {
       showError(root, e.message, e.kind);
@@ -463,6 +549,8 @@
     if (zone) {
       const inp = $("[data-api-input]", zone);
       $("[data-api-pick]", zone).onclick = () => inp.click();
+      const mic = $("[data-api-mic]", zone);
+      if (mic) mic.onclick = () => toggleMic(root);
       inp.onchange = () => pickFile(root, inp.files[0]);
       const req = $(".api-req", root);
       req.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("drag"); });

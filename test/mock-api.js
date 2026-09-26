@@ -93,6 +93,22 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
       }
       return json(res, 200, { object: "list", data: [{ embedding: v, index: 0 }], model: b.model || "emb-teste" });
     }
+    // "TTS": devolve um WAV de verdade (um tom de 0,4 s); "STT": recebe o áudio (multipart) e "transcreve"
+    if (url.pathname === "/v1/tts" && req.method === "POST") {
+      const rate = 8000, n = Math.floor(rate * 0.4), data = Buffer.alloc(n * 2);
+      for (let i = 0; i < n; i++) data.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / rate) * 8000), i * 2);
+      const h = Buffer.alloc(44);
+      h.write("RIFF", 0); h.writeUInt32LE(36 + data.length, 4); h.write("WAVE", 8); h.write("fmt ", 12); h.writeUInt32LE(16, 16);
+      h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+      h.write("data", 36); h.writeUInt32LE(data.length, 40);
+      res.writeHead(200, { "Content-Type": "audio/wav" });
+      return res.end(Buffer.concat([h, data]));
+    }
+    if (url.pathname === "/v1/stt" && req.method === "POST") {
+      const m3 = raw.match(/filename="([^"]+)"\r\nContent-Type: ([^\r]+)/);
+      if (!m3) return json(res, 400, { error: "esperava o áudio num multipart" });
+      return json(res, 200, { text: `transcrição de ${m3[1]} (${m3[2]})` });
+    }
     if (url.pathname === "/v1/headers") return json(res, 200, { recebidos: req.headers });
     if (url.pathname === "/v1/vaza") return json(res, 200, { debug: `seu token é ${auth}` });
     json(res, 404, { error: "não existe" });

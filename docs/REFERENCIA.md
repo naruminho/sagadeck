@@ -69,6 +69,7 @@ slides:
 | `poll` | `question, id, options, compare: outroId, hint` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete |
 | `video` | `title, url, label, figure, caption` | cartão que abre um vídeo |
 | `code` | `title, code, highlight: [linhas], note` | código com linhas destacadas |
+| `api` | `title, request: {method, url, body/form, headers, auth}, mode, answer, save, token, polling, steps, file, mic, audio, similarity, fields` | requisição ao vivo (tipo Postman) com código curl/Python; ver [Slide api](#slide-api-requisição-ao-vivo) |
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
@@ -80,6 +81,94 @@ slides:
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+
+## Slide `api`: requisição ao vivo
+
+Um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente (curl, Python e
+Python comentado), e o botão **Executar** roda o pedido de verdade e mostra a resposta. Serve para aula
+de API: a plateia vê o código, o status mudando e o resultado.
+
+Os pedidos saem do **Studio** (Node, na sua máquina), nunca do navegador: sem problema de CORS, com o
+certificado da empresa e com o token fora da página. Sem o Studio (HTML exportado, PDF, servidor
+multiusuário), o slide mostra a **última resposta gravada** e o botão vira *Reproduzir gravação*.
+
+```yaml
+- layout: api
+  kicker: Ao vivo
+  title: Pergunte ao ==modelo==
+  request:
+    method: POST                     # padrão: POST se tiver corpo, senão GET
+    url: "{{base}}/chat"             # {{variáveis}} vêm do ambiente e dos slides anteriores
+    body: { messages: [ { role: user, content: "Explique RAG em uma frase" } ] }
+    headers: { X-Canal: workshop }   # opcional
+    auth: true                       # manda o token do ambiente (padrão)
+  answer: "$.choices[0].message.content"   # o campo em destaque na resposta
+  save: { resposta_id: "$.id" }            # guarda para os próximos slides: {{resposta_id}}
+  portal: "https://…"                      # botão "Abrir no portal"
+  notes: …
+```
+
+| Campo | O que faz |
+|---|---|
+| `mode` | `sync` (padrão), `polling` (inicia e consulta até terminar) ou `stream` (texto chega aos poucos, SSE) |
+| `request` | `method, url, headers, body` (JSON) ou `form` (upload multipart), `auth` |
+| `answer` | caminho do campo em destaque (`$.a.b[0].c`) |
+| `save` | `{ nome: "$.caminho" }`: guarda valores da resposta para `{{nome}}` nos slides seguintes (ex.: o `path_id` do upload no OCR e no indexador) |
+| `token` | este slide gera o token (ex.: Identity): `token: "$.access_token"`. O token passa a ser o do ambiente; a tela mostra o JWT decodificado e a contagem até expirar, nunca o token |
+| `polling` | `id` (código da execução no início), `check: { method, url }` (use `{{id}}`), `status`, `done: [..]`, `failed: [..]`, `interval` (s), `timeout` (s) |
+| `steps`, `stepTitle`, `stepText` | lista de etapas na resposta final: vira um cartão por etapa (ex.: OCR → LLM) |
+| `stream` | `{ text: "$.choices[0].delta.content" }`: onde está o texto de cada pedaço |
+| `file` | arquivo padrão, ao lado do deck. No corpo: `{{file.base64}}`, `{{file.name}}`, `{{file.type}}`; no `form`: `"@file"`. Dá para trocar arrastando outro arquivo no slide |
+| `mic` | `true`: botão **Gravar** (microfone). Ao parar, envia a gravação como o arquivo do slide (STT) |
+| `audio` | a resposta é áudio (TTS): toca no slide, com a onda; no código, salva em `audio: fala.mp3` |
+| `similarity` | embeddings: `{ reference, texts: [..], vector: "$.data[0].embedding" }`; o corpo usa `{{text}}`. Mostra o vetor e a similaridade por cosseno de cada frase |
+| `fields` | aba **Parâmetros**: `{ "$.campo": "o que faz" }`, com o valor atual de cada campo |
+| `code` | abas de código: `[curl, python, python-comentado]` (padrão: as três) |
+| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `python`, `python-comentado` |
+| `tokenVar` | nome da variável de ambiente do token no código gerado (padrão `API_TOKEN`) |
+| `id` | chave da gravação (padrão: título + URL) |
+
+Na apresentação: a URL e o corpo são editáveis na hora (a execução usa o que está na tela); o código
+das abas acompanha. Com `polling`, as linhas do código acendem na fase que está rodando (início, laço de
+consulta, resultado) enquanto a linha do tempo mostra cada status.
+
+### Ambientes: `~/.sagadeck/ambientes.yaml`
+
+Endereços, credenciais e segredos ficam **na máquina**, nunca no deck (o deck pode ir para o GitHub).
+Outro lugar: variável `SAGADECK_AMBIENTES`. O selo no slide (DEV, HOM…) troca o ambiente.
+
+```yaml
+current: hom
+environments:
+  dev:
+    vars: { base: "https://api-dev.exemplo.com/v1", wf: "resumo" }   # {{base}}, {{wf}} nos slides
+    token:                                # opcional: token que expira (client credentials)
+      url: "https://identidade-dev.exemplo.com/token"
+      client_id: "meu-id"
+      client_secret_env: MINHA_SECRET     # ou client_secret: "…"
+      field: "$.access_token"             # onde está o token na resposta
+      ttl_minutes: 30                     # renovado 2 min antes de vencer
+      # format: form | json (padrão), id_field, secret_field, extra: {…}, header, prefix
+    secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
+    ca: "C:/certs/empresa.pem"            # certificado da empresa (inspeção TLS); ou NODE_EXTRA_CA_CERTS
+    timeout: 60
+  hom:
+    vars: { base: "https://api-hom.exemplo.com/v1" }
+    token: { url: "…", client_id: "…", client_secret_env: MINHA_SECRET }
+```
+
+- `vars` vão para a tela (URLs, nomes); **segredo nunca vai em `vars`**. Segredos ficam em `secrets:` e
+  entram no slide como `{{secret.nome}}`: quem troca pelo valor é o Studio, na hora de enviar. No código
+  gerado aparecem como `$NOME` (curl) e `os.environ["NOME"]` (Python).
+- Tokens, segredos e cabeçalhos do ambiente saem **mascarados** (`••••x9Qa`) em tudo o que aparece: pedido
+  enviado, resposta, gravação.
+- A última resposta boa de cada slide fica em `<deck>.respostas.json`, ao lado do deck (sem tokens).
+
+### Segurança
+
+Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pela própria página
+(outros sites e HTML aberto do disco são recusados), só com JSON. No modo multiusuário (servidor) e com
+`--host` aberto para a rede, o slide só mostra gravações.
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 

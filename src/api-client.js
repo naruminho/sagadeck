@@ -291,7 +291,9 @@ export class ApiEnvironments {
       this.tokens.set(p.env.name, { value, expiresAt: Date.now() + ttl, renewAt: Date.now() + ttl - Math.min(120000, ttl / 2), fromSlide: true });
       jwt = decodeJwt(value);
     }
-    const body = parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
+    // áudio (TTS): vai inteiro, em base64, para o slide tocar
+    const body = /^audio\//i.test(type) ? { _audio: true, type: type.split(";")[0], base64: r.buf.toString("base64") }
+      : parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
     return {
       ok: r.res.statusCode < 400, status: r.res.statusCode, statusText: r.res.statusMessage || "", ms: r.ms, size: r.buf.length,
       type, body, sent: p.sent(r.headers), env: p.env.name, token: this.tokenInfo(p.env.name), ...(jwt ? { jwt } : {}),

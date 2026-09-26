@@ -85,6 +85,8 @@
         form: req.form && typeof req.form === "object" ? req.form : null, // multipart: { campo: "@file" | texto }
         auth: req.auth !== false,
       },
+      audio: s.audio ? String(s.audio === true ? "fala.mp3" : s.audio) : null, // TTS: a resposta é áudio (nome do arquivo no código)
+      mic: !!s.mic, // STT: gravar do microfone no próprio slide
       token: s.token || null, // este slide gera o token (ex.: Identity): caminho do token na resposta
       file: s.file || null,   // arquivo padrão, ao lado do deck (upload @file ou {{file.base64}})
       polling: mode !== "polling" ? null : {
@@ -199,7 +201,7 @@
     } else if (a.mode === "stream") {
       L.add(curlCmd(req, a.tokenVar, "N", name), "start");
     } else {
-      L.add(curlCmd(req, a.tokenVar, "", name), "start");
+      L.add(curlCmd(req, a.tokenVar, "", name) + (a.audio ? ` \\\n  --output ${dq(a.audio)}` : ""), "start");
     }
     const o = L.out();
     // dentro de '…' o shell não expande $: fecha a aspa, põe "$NOME" e reabre
@@ -289,6 +291,11 @@
     } else {
       L.add(pyCall("resposta", req, ["timeout=60"]), "start", "a chamada: espera a resposta completa");
       L.add("resposta.raise_for_status()", "start", "para aqui se deu erro (4xx/5xx)");
+      if (a.audio) {
+        L.add(`open(${dq(a.audio)}, "wb").write(resposta.content)`, "done", "a resposta é o áudio: salva num arquivo");
+        L.add(`print("áudio salvo em", ${dq(a.audio)})`, "done");
+        return L.out();
+      }
       L.add("dados = resposta.json()", "done");
       if (a.steps) {
         L.add(`for etapa in dados${pyPath(a.steps)}:`, "done", "o resultado de cada etapa");
@@ -343,7 +350,7 @@
   }
 
   // o slide mexe com arquivo? (upload @file ou {{file.…}})
-  const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
+  const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || a.mic || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
   const api = { cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
   g.SagadeckApiCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
