@@ -224,3 +224,24 @@ test("atrás de um proxy com prefixo (/apresentacoes/): biblioteca e editor sem 
     await studio.close();
   }
 });
+
+test("sem tópico: a pasta 'Sem tópico' e os .yaml soltos na raiz não aparecem com o mesmo nome; soltar ali não mexe na estrutura", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const post = (p, b) => fetch(studio.url + "/" + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+    await post("api/library/decks", { topic: "", title: "Sem tópico escolhido" });
+    fs.writeFileSync(path.join(studio.library, "solta.yaml"), "title: Solta\nslides:\n  - layout: statement\n    text: oi\n");
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector(".nav[data-view='Sem tópico']");
+    const names = await p.$$eval("#side .nav .name", (els) => els.map((e) => e.textContent));
+    assert.equal(names.filter((n) => n === "Sem tópico").length, 1, `nomes: ${names}`);
+    assert.ok(names.includes("Soltas na pasta"), `nomes: ${names}`);
+    assert.equal(await p.$(".nav[data-view=''][data-topic]"), null, "a entrada dos soltos não recebe cartões arrastados");
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});

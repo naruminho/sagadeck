@@ -167,7 +167,9 @@ export function openLibrary(root) {
 
   function moveDeck(id, topic) {
     const { file, unit } = unitOf(id);
-    const dest = topic ? topicDir(topic) : root;
+    if (!topic && path.dirname(unit) === root) return id; // .yaml solto na raiz: já está sem tópico
+    // sem tópico = a pasta "Sem tópico": na raiz só ficam tópicos, nunca a pasta de uma apresentação
+    const dest = topicDir(topic || ensureTopic("Sem tópico"));
     if (path.dirname(unit) === dest) return id;
     const ext = unit === file ? path.extname(file) : "";
     const to = uniquePath(dest, path.basename(unit, ext), ext);
