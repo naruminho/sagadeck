@@ -31,7 +31,7 @@
     .lib-btn.ghost { background: transparent; border: 1px solid var(--ui-line-strong); color: var(--text); font-weight: 500; height: 32px; }
     .lib-btn.ghost:hover { background: var(--hover); }
     a.lib-btn { text-decoration: none; color: var(--text); }
-    .lib-btn[hidden] { display: none; }
+    [hidden] { display: none !important; } /* as classes com display: flex não podem vencer o hidden */
     .lib-btn.danger { color: var(--err); }
     .lib-icon-btn { width: 34px; height: 34px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); background: none; border: 0; cursor: pointer; }
     .lib-icon-btn:hover { background: var(--hover); }

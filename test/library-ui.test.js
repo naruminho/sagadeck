@@ -19,6 +19,7 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     await t.test("biblioteca vazia explica o que fazer e mostra onde fica a pasta", async () => {
       assert.match(await p.innerText("#main"), /Sua biblioteca está vazia/);
       assert.match(await p.innerText("#side"), new RegExp(path.basename(studio.library)));
+      assert.equal(await p.isVisible("#user"), false, "sem multiusuário, sem o chip de usuário");
     });
 
     await t.test("criar tópico (nome + cor) vira uma pasta de verdade", async () => {
