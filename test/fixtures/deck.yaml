@@ -15,6 +15,7 @@ slides:
   - layout: cards
     kicker: Pilares
     title: Três pilares
+    notes: "> Roteiro do slide dos pilares: falar de segurança primeiro."
     items:
       - { icon: shield, title: Seguro, text: Criptografia de ponta a ponta }
       - { icon: zap, title: Rápido, text: "**Carrega** num instante" }

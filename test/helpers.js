@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
@@ -63,4 +64,18 @@ export async function newPage(browser, url, viewport = { width: 1440, height: 10
     await page.waitForTimeout(600);
   }
   return { page, errors };
+}
+
+// o que tem dentro de um .pptx: slides, textos e notas
+export async function readPptx(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const names = Object.keys(zip.files);
+  const slides = names.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)));
+  const notes = names.filter((n) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(n));
+  const text = async (n) => (await zip.file(n).async("string")).match(/<a:t>([^<]*)<\/a:t>/g)?.map((t) => t.slice(5, -6)).join(" ") || "";
+  return {
+    slides: await Promise.all(slides.map(text)),
+    notes: (await Promise.all(notes.map(text))).join(" "),
+    animations: (await Promise.all(slides.map((n) => zip.file(n).async("string")))).filter((x) => /<p:timing>/.test(x)).length,
+  };
 }

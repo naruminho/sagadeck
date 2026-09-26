@@ -545,6 +545,35 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Baixar PowerPoint editável (textos nativos, animações dos cliques, notas do apresentador).
+      // Gera numa pasta temporária: constrói o HTML do deck atual e exporta com o Chrome invisível.
+      if (pathname === "/api/export/pptx") {
+        const spec = withBase(currentSpec);
+        const name = currentFile && !isBundledTemplate(currentFile) ? path.basename(currentFile).replace(/\.ya?ml$/i, "") : slugify(spec.title);
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pptx-"));
+        try {
+          const r = buildHTML(spec);
+          const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "deck.pptx");
+          fs.writeFileSync(htmlFile, r.html);
+          const { exportPptx } = await import("../export/pptx.js");
+          const { errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } });
+          res.writeHead(200, {
+            "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "Content-Disposition": `attachment; filename="${slugify(name)}.pptx"; filename*=UTF-8''${encodeURIComponent(name + ".pptx")}`,
+            // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
+            "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
+          });
+          res.end(fs.readFileSync(out));
+        } catch (e) {
+          console.error("[Studio] PPTX falhou:", e.message);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        } finally {
+          fs.rmSync(tmp, { recursive: true, force: true });
+        }
+        return;
+      }
+
       // Abrir um .sagadeck (ou .zip) vindo do navegador: extrai numa pasta de verdade e abre de lá
       // (assim as edições são salvas; o navegador não informa o caminho do arquivo original).
       if (pathname === "/api/open-package" && req.method === "POST") {

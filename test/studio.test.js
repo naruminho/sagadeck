@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { unpackDeck } from "../src/package.js";
-import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, tempDeck, readPptx } from "./helpers.js";
 
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -436,6 +436,18 @@ test("studio", async (t) => {
     assert.equal(n, (await deck()).slides.length);
     await fr.press("body", "Escape"); await settle(500);
     assert.ok(!(await p.isVisible("#presentation-modal")));
+  });
+
+  // ------------------------------------------------------------ PowerPoint
+  await t.test("Baixar PowerPoint (.pptx): baixa um pptx com todos os slides", { timeout: 180000 }, async () => {
+    const n = (await deck()).slides.length;
+    await p.click("#btn-export-menu");
+    const [download] = await Promise.all([p.waitForEvent("download", { timeout: 170000 }), p.click("#export-pptx")]);
+    assert.match(download.suggestedFilename(), /\.pptx$/);
+    const file = path.join(deckFile.dir, "baixado.pptx");
+    await download.saveAs(file);
+    const pp = await readPptx(fs.readFileSync(file));
+    assert.equal(pp.slides.length, n);
   });
 
   // ------------------------------------------------------------ arquivo .sagadeck

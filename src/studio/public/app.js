@@ -119,6 +119,7 @@
     btnCloseOpenModal: document.getElementById("btn-close-open-modal"),
     dropOverlay: document.getElementById("drop-overlay"),
     exportSagadeck: document.getElementById("export-sagadeck"),
+    exportPptx: document.getElementById("export-pptx"),
     exportHtml: document.getElementById("export-html"),
     actionSaveYaml: document.getElementById("action-save-yaml"),
     chatForm: document.getElementById("chat-form"),
@@ -1544,6 +1545,7 @@
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
     { title: "Baixar apresentação (.sagadeck)", cat: "Arquivo", ic: "download", fn: () => dom.exportSagadeck.click() },
+    { title: "Baixar PowerPoint (.pptx)", cat: "Arquivo", ic: "file-text", fn: () => dom.exportPptx.click() },
     { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
@@ -3147,23 +3149,50 @@
     };
     dom.exportDropdown.addEventListener("click", () => dom.exportDropdown.parentElement.classList.remove("show"));
 
+    // baixa o que o servidor gerou, com o nome que ele mandou; devolve a resposta (para ler os avisos)
+    async function downloadFrom(url, fallbackName) {
+      await syncDeckToServer();
+      const res = await fetch(url);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { msg = (await res.json()).error || msg; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") || "";
+      const name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/) || [])[1] || fallbackName);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      return { res, name };
+    }
+
+    // PowerPoint editável: leva alguns segundos (o Chrome invisível mede cada slide)
+    dom.exportPptx.onclick = async (e) => {
+      e.preventDefault();
+      if (dom.exportPptx.disabled) return;
+      dom.exportPptx.disabled = true;
+      showToast(`Gerando o PowerPoint (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
+      try {
+        const { res, name } = await downloadFrom("/api/export/pptx", "apresentacao.pptx");
+        const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
+        showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: PowerPoint editável, com animações e notas.`, warns.length ? 9000 : 4000);
+      } catch (err) {
+        showToast("Não deu para gerar o PowerPoint: " + err.message, 8000);
+      } finally {
+        dom.exportPptx.disabled = false;
+      }
+    };
+
     // .sagadeck: a apresentação inteira (YAML + imagens, CSS, widgets) num arquivo
     dom.exportSagadeck.onclick = async (e) => {
       e.preventDefault();
       try {
-        await syncDeckToServer();
-        const res = await fetch("/api/export/sagadeck");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        const cd = res.headers.get("Content-Disposition") || "";
-        const name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/) || [])[1] || "apresentacao.sagadeck");
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = name;
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        const { res, name } = await downloadFrom("/api/export/sagadeck", "apresentacao.sagadeck");
         const missing = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Missing") || "%5B%5D"));
         showToast(missing.length
           ? `"${name}" baixado, mas ${missing.length} arquivo(s) usado(s) pelo deck não existe(m): ${missing.join(", ")} (listados em FALTANDO.txt dentro do arquivo)`
