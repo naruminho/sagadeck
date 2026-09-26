@@ -7,6 +7,7 @@ import YAML from "yaml";
 import { resolveTheme, themeCSS } from "./themes.js";
 import { LAYOUTS } from "./layouts.js";
 import { el } from "./elements.js";
+import { iconSVG } from "./figures/icons.js";
 import { esc, notesHTML, plain, md } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
 import { readRecordings } from "./api-client.js";
@@ -25,6 +26,7 @@ export function loadSpec(file) {
   return spec;
 }
 
+const drawIcon = (name, size = 20) => iconSVG(name, { size, stroke: 2 }).replace(/\s+/g, " ");
 const slug = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function inferLayout(s) {
@@ -121,8 +123,8 @@ ${html}
 <canvas id="draw-canvas" width="1920" height="1080"></canvas>
 </div></div>
 <div id="draw-toolbar" class="draw-toolbar" style="display:none">
-  <button id="draw-btn-pen" class="draw-btn active" title="Caneta (D)">✏️</button>
-  <button id="draw-btn-highlighter" class="draw-btn" title="Marca-texto (M)">🖍️</button>
+  <button id="draw-btn-pen" class="draw-btn active" title="Caneta (D)">${drawIcon("pencil")}</button>
+  <button id="draw-btn-highlighter" class="draw-btn" title="Marca-texto (M)">${drawIcon("highlighter")}</button>
   <div class="draw-separator"></div>
   <button class="draw-color active" data-color="#ef4444" style="background:#ef4444" title="Vermelho"></button>
   <button class="draw-color" data-color="#f59e0b" style="background:#f59e0b" title="Amarelo"></button>
@@ -130,11 +132,11 @@ ${html}
   <button class="draw-color" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
   <button class="draw-color" data-color="#ffffff" style="background:#ffffff" title="Branco"></button>
   <div class="draw-separator"></div>
-  <button id="draw-btn-undo" class="draw-btn" title="Desfazer (Ctrl+Z ou Z)">↩️</button>
-  <button id="draw-btn-clear" class="draw-btn" title="Limpar anotações (C)">🗑️</button>
-  <button id="draw-btn-close" class="draw-btn" title="Fechar modo desenho (Esc ou D)">✕</button>
+  <button id="draw-btn-undo" class="draw-btn" title="Desfazer (Ctrl+Z ou Z)">${drawIcon("undo-2")}</button>
+  <button id="draw-btn-clear" class="draw-btn" title="Limpar anotações (C)">${drawIcon("trash-2")}</button>
+  <button id="draw-btn-close" class="draw-btn" title="Fechar modo desenho (Esc ou D)">${drawIcon("x")}</button>
 </div>
-<button id="draw-fab" class="draw-fab" title="Ativar Caneta de Anotações (D)">✏️</button>
+<button id="draw-fab" class="draw-fab" title="Ativar Caneta de Anotações (D)">${drawIcon("pencil", 24)}</button>
 <div id="hud"><div class="bar"></div></div><div id="laser"></div><div id="blank"></div><div id="overview"></div><div id="toast"></div>
 <div id="help"><b>Atalhos</b><br><kbd>→</kbd><kbd>espaço</kbd> avança · <kbd>←</kbd> volta<br><kbd>D</kbd> caneta ao vivo · <kbd>M</kbd> marca-texto · <kbd>C</kbd> limpa tela<br><kbd>P</kbd> janela do apresentador (notas + cronômetro)<br><kbd>F</kbd> tela cheia · <kbd>G</kbd> visão geral<br><kbd>B</kbd> tela preta · <kbd>W</kbd> tela branca<br><kbd>L</kbd> apontador laser · <kbd>R</kbd> zera timer<br><kbd>5</kbd><kbd>Enter</kbd> vai ao slide 5 · <kbd>H</kbd> esta ajuda</div>
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>

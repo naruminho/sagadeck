@@ -265,7 +265,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -712,7 +712,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
                   else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
                 }
                 reports.push({ slide: i + 1, ...r.report });
-                result.actions.push(`${r.report.ok ? "✓" : "✗"} Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
+                result.actions.push(`Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : "falhou, " + String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
               }
               convo.push({ role: "assistant", text: result.reply });
               const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
@@ -728,7 +728,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           } catch (e) {
             // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
             console.error("[Studio] IA falhou:", e.message);
-            return { reply: `⚠ A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
+            return { reply: `A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
           }
           W.spec = result.spec;
           persist(W);

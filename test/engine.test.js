@@ -293,3 +293,24 @@ test("a apresentação tem ícone próprio (sem pedir /favicon.ico, que dava 404
   const { html } = buildHTML({ title: "t", slides: [{ text: "oi" }] });
   assert.ok(html.includes('<link rel="icon" href="data:image/svg+xml,'));
 });
+
+test("interface sem emoji nem símbolo unicode fazendo papel de ícone (use ícone desenhado)", () => {
+  // setas, símbolos técnicos, formas geométricas, símbolos diversos, dingbats (✕ ✓ ✨ ✏), emoji
+  const GLYPH = /[←-⇿⌀-⏿■-◿☀-➿⬀-⯿\u{1F300}-\u{1FAFF}️]/gu;
+  const pub = path.join(ROOT, "src", "studio", "public");
+  const files = [
+    ...fs.readdirSync(pub).filter((f) => /\.(js|html|css)$/.test(f) && f !== "ui-icons.js").map((f) => path.join(pub, f)),
+    ...["runtime/runtime.js", "runtime/api-ui.js", "runtime/base.css", "build.js", "chrome.js", "studio/server.js"].map((f) => path.join(ROOT, "src", f)),
+  ];
+  const found = [];
+  for (const file of files) {
+    fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+      const t = line.trim();
+      if (/^(\/\/|\/?\*)/.test(t)) return; // comentário
+      const clean = line.replace(/<kbd>[^<]*<\/kbd>/g, ""); // nome de tecla (→ ←) pode
+      const m = clean.match(GLYPH);
+      if (m) found.push(`${path.relative(ROOT, file)}:${i + 1} ${[...new Set(m)].join(" ")}`);
+    });
+  }
+  assert.deepEqual(found, [], "troque por <i class=\"ic\" data-ic=\"…\"> (Studio) ou SVG inline (apresentação)");
+});

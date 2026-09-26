@@ -24,4 +24,5 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 ## Outras convenções
 
 - Textos da interface e comentários em português.
+- **Nada de emoji ou símbolo unicode como ícone** (✕ ✓ ✨ 🪄 ▶ ↗ ◎ ● ▸ ←→ …): no Studio, `<i class="ic" data-ic="nome">` (Lucide; novos nomes em `scripts/vendor-ui-icons.mjs` e rode o script); na apresentação, SVG inline (`iconSVG` de `src/figures/icons.js`). Em aviso de texto, sem enfeite. Nome de tecla dentro de `<kbd>` pode. `engine.test.js` falha se aparecer.
 - `npm run bundle` depois de mudar o motor ou o Studio: o pacote Python usa a cópia em `python/sagadeck/engine`.

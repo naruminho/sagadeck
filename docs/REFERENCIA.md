@@ -118,6 +118,28 @@ No `spotlight`, `x` e `y` indicam o canto superior esquerdo da região; os quatr
 
 O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
 
+## Screenshots com destaques no Studio
+
+Em **Início → Screenshot**, cole (Ctrl+V), arraste ou escolha uma imagem PNG, JPEG ou WebP de até 8 MB.
+Também é possível colar uma imagem fora dos campos de texto ou soltá-la no canvas para abrir esse editor.
+Imagens coladas no chat continuam sendo anexos para o assistente.
+
+- **Ponto**: clique onde a audiência deve olhar. O marcador numerado pulsa quando está ativo.
+- **Área**: arraste sobre o detalhe que deve ser contornado.
+- Selecione um marcador para escrever a explicação, arrastá-lo ou ajustá-lo com as setas do teclado.
+- Clique num ponto ou área e pressione **Delete** ou **Backspace** para removê-lo. Dentro dos campos de texto, essas teclas continuam editando o texto.
+- Use ↑ / ↓ na lista para ordenar a narrativa. Cada cena aceita até oito destaques.
+- **Usar screenshot** salva; **Cancelar** descarta a edição. Sem destaques, a imagem entra estática e inteira.
+- Para voltar, selecione a cena e clique em **Editar imagem e destaques** no painel Formatar.
+
+O arquivo da imagem fica embutido no deck. Na apresentação, os destaques são percorridos pelos controles
+ou pelas setas; em PDF/exportação estática, aparecem numerados junto do resumo das explicações.
+Movimento reduzido e modo Essencial desativam a pulsação. Recorte, ocultação de dados sensíveis e
+paginação automática de apostila ainda não fazem parte deste editor.
+
+No YAML, um ponto usa `kind: point`, `x` e `y` em porcentagens. Áreas usam `kind: area` (ou omitem `kind`)
+e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hotspots` do layout `spotlight`.
+
 ## Slide `api`: requisição ao vivo
 
 Um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente (curl, Python e

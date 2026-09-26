@@ -42,8 +42,8 @@ test("IA gera o slide api, testa, vê o caminho errado na resposta real, corrige
     assert.match(data.reply, /Funcionou/);
     const tests = data.actions.filter((a) => /Teste do slide/.test(a));
     assert.equal(tests.length, 2);
-    assert.match(tests[0], /^✓ Teste do slide 2/, "a chamada em si funcionou (200)…");
-    assert.match(tests[1], /^✓/);
+    assert.match(tests[0], /^Teste do slide 2: funcionou/, "a chamada em si funcionou (200)…");
+    assert.match(tests[1], /: funcionou/);
     // o que a IA recebe: regras e ambiente, com nomes de segredos mas nunca o valor
     const first = llm.requests[0];
     assert.match(first.system, /Slides "api"/);

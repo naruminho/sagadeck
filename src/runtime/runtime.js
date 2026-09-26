@@ -297,7 +297,7 @@
     if (fab) fab.style.display = isDrawingMode ? "none" : "";
     if (isDrawingMode) {
       updateDrawUI();
-      toast(drawTool === "highlighter" ? "🖍️ Marca-texto ativo (D: caneta, C: limpar)" : "✏️ Caneta ativa (M: marca-texto, C: limpar)");
+      toast(drawTool === "highlighter" ? "Marca-texto ativo (D: caneta, C: limpar)" : "Caneta ativa (M: marca-texto, C: limpar)");
     }
   }
 
@@ -524,7 +524,7 @@
   function presenterUI() {
     document.body.classList.add("presenter");
     const root = document.createElement("div"); root.id = "pv";
-    root.innerHTML = `<div class="pv-top"><span class="pv-clock">00:00</span><span class="pv-el">⏱ <b class="pv-elv">00:00</b> / ${DATA.duration || "?"}:00</span><span class="pv-pace">no ritmo</span><span class="pv-pace" style="background:#1e293b;color:#38bdf8;border:1px solid rgba(56,189,248,0.3);" title="Anti-Bloqueio corporativo ativo: a tela não será bloqueada por inatividade do Windows">🛡️ Anti-Bloqueio</span>
+    root.innerHTML = `<div class="pv-top"><span class="pv-clock">00:00</span><span class="pv-el">decorrido <b class="pv-elv">00:00</b> / ${DATA.duration || "?"}:00</span><span class="pv-pace">no ritmo</span><span class="pv-pace" style="background:#1e293b;color:#38bdf8;border:1px solid rgba(56,189,248,0.3);" title="Anti-Bloqueio corporativo ativo: a tela não será bloqueada por inatividade do Windows">Anti-bloqueio</span>
       <button class="pv-start">Iniciar</button><button class="pv-reset">Zerar</button><button class="pv-black">Tela preta (B)</button><span class="pv-title"></span></div>
       <div><div class="pv-lbl">Agora</div><div class="pv-cur pv-box" style="aspect-ratio:16/9"><div class="pv-scale"></div></div></div>
       <div class="pv-side"><div><div class="pv-lbl pv-nextlbl">Próximo</div><div class="pv-next pv-box"><div class="pv-scale"></div></div></div><div class="pv-lbl">Notas / roteiro</div><div class="pv-notes"></div></div>`;
