@@ -508,3 +508,94 @@ test("studio", async (t) => {
     deckFile.cleanup();
   }
 });
+
+// ------------------------------------------------------------ outras páginas não usam o Studio
+// O Studio roda na máquina da pessoa (no banco, dentro da VPN). Qualquer site aberto no navegador
+// consegue mandar fetch para http://127.0.0.1:<porta>; sem estas travas ele leria a biblioteca e os decks,
+// apagaria apresentações e gastaria a IA. Pedido cru (node:http) para controlar Origin e Host.
+async function raw(url, { method = "GET", headers = {}, body } = {}) {
+  const http = await import("node:http");
+  const u = new URL(url);
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method, headers }, (res) => {
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", (c) => (data += c));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
+test("outra origem não lê nem altera nada: 403 nas rotas /api, sem Access-Control-Allow-Origin", async () => {
+  const deckFile = tempDeck();
+  const studio = await startStudio(deckFile.file);
+  const host = new URL(studio.url).host;
+  const evil = "https://malicioso.exemplo";
+  const json = { "Content-Type": "application/json" };
+  try {
+    // ler a biblioteca / o deck
+    for (const p of ["/api/library", "/api/deck", "/api/ai/status"]) {
+      const r = await raw(studio.url + p, { headers: { Origin: evil } });
+      assert.equal(r.status, 403, `${p}: ${r.status}`);
+      assert.equal(r.headers["access-control-allow-origin"], undefined, p);
+      assert.ok(!r.body.includes("slides"), `${p} vazou o deck`);
+    }
+    // alterar o deck (POST "simples", sem preflight: o navegador manda mesmo sem CORS)
+    const before = fs.readFileSync(deckFile.file, "utf8");
+    const w = await raw(studio.url + "/api/deck", { method: "POST", headers: { Origin: evil, "Content-Type": "text/plain" },
+      body: JSON.stringify({ spec: { title: "invadido", slides: [] } }) });
+    assert.equal(w.status, 403);
+    assert.equal(fs.readFileSync(deckFile.file, "utf8"), before, "o deck salvo não muda");
+    // HTML aberto do disco manda Origin: null; também é outra página
+    assert.equal((await raw(studio.url + "/api/library", { headers: { Origin: "null" } })).status, 403);
+    // preflight de outra origem não libera nada
+    const pre = await raw(studio.url + "/api/library/delete", { method: "OPTIONS",
+      headers: { Origin: evil, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" } });
+    assert.equal(pre.status, 403);
+    for (const h of ["access-control-allow-origin", "access-control-allow-methods", "access-control-allow-headers"]) {
+      assert.equal(pre.headers[h], undefined, h);
+    }
+    // DNS rebinding: malicioso.exemplo apontando para 127.0.0.1 tem Origin igual ao Host, mas não é esta máquina
+    const rb = await raw(studio.url + "/api/library", { headers: { Host: "malicioso.exemplo:" + new URL(studio.url).port, Origin: "http://malicioso.exemplo:" + new URL(studio.url).port } });
+    assert.equal(rb.status, 403);
+
+    // a própria página continua funcionando: sem Origin (GET) e com Origin igual ao Host (POST)
+    const own = await raw(studio.url + "/api/deck");
+    assert.equal(own.status, 200);
+    assert.equal(own.headers["access-control-allow-origin"], undefined, "nada de CORS genérico");
+    const spec = JSON.parse(own.body).spec;
+    const ok = await raw(studio.url + "/api/deck", { method: "POST", headers: { ...json, Origin: `http://${host}` }, body: JSON.stringify({ spec }) });
+    assert.equal(ok.status, 200, ok.body);
+    assert.equal((await raw(studio.url + "/api/library", { headers: { Origin: `http://localhost:${new URL(studio.url).port}`, Host: `localhost:${new URL(studio.url).port}` } })).status, 200);
+
+    // iframe: só a própria origem (a apresentação dentro do editor); nenhum site embute o Studio
+    for (const p of ["/", "/editor", "/preview"]) {
+      const r = await raw(studio.url + p);
+      assert.match(r.headers["content-security-policy"] || "", /frame-ancestors 'self'/, p);
+      assert.doesNotMatch(r.headers["content-security-policy"] || "", /frame-ancestors \*/, p);
+      assert.notEqual(r.headers["cross-origin-resource-policy"], "cross-origin", p);
+    }
+  } finally {
+    await studio.close();
+    deckFile.cleanup();
+  }
+});
+
+// No BabsDeck o nginx pode trocar o Host pelo do Studio (127.0.0.1:porta, o padrão do proxy_pass) e
+// mandar o endereço do portal em X-Forwarded-Host. A página do portal tem que continuar funcionando.
+test("multiusuário atrás do proxy: a origem do portal (X-Forwarded-Host) vale; outra origem não", async () => {
+  const studio = await startStudio(null, { multiuser: true });
+  const host = new URL(studio.url).host;
+  const proxied = { Host: host, "X-Forwarded-Host": "portal.exemplo", "X-Forwarded-Proto": "https", "X-Sagadeck-User": "ana" };
+  try {
+    const own = await raw(studio.url + "/api/library", { headers: { ...proxied, Origin: "https://portal.exemplo" } });
+    assert.equal(own.status, 200, own.body);
+    const evil = await raw(studio.url + "/api/library", { headers: { ...proxied, Origin: "https://malicioso.exemplo" } });
+    assert.equal(evil.status, 403);
+    assert.equal(evil.headers["access-control-allow-origin"], undefined);
+  } finally {
+    await studio.close();
+  }
+});
