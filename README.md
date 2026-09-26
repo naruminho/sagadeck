@@ -191,11 +191,14 @@ Não tem banco de dados: a biblioteca é uma pasta comum, que dá para abrir no 
 ```
 
 O Studio escuta só em `127.0.0.1` por padrão; `--host=0.0.0.0` abre para a rede (a biblioteca inteira junto).
+Só a própria página usa o Studio: sem CORS, pedidos de outro site para `/api/*` levam 403, e ele não pode ser
+embutido em iframe de outra origem.
 
 **Vários usuários (servidor):** `sagadeck studio --multiuser --library=/srv/sagadeck` dá uma biblioteca por pessoa
 (`usuarios/<nome>/`), identificada pelo cabeçalho `X-Sagadeck-User` (ou `--user-header=...`) que o proxy de login
 (nginx) coloca. Sem o cabeçalho, nada é servido. Por confiar nesse cabeçalho, só roda escutando em `127.0.0.1`,
-atrás do proxy.
+atrás do proxy. Se o nginx troca o `Host`, mande o endereço do portal em `X-Forwarded-Host` (`proxy_set_header
+X-Forwarded-Host $host;`): é com ele que o Studio reconhece a própria página.
 
 **Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
 navegador, mas não para editar.
