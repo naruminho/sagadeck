@@ -25,7 +25,9 @@
   const ago = (t) => { const d = Date.now() - t; return d < H ? "agora há pouco" : d < D ? `há ${Math.round(d / H)} h` : d < 2 * D ? "ontem" : d < 60 * D ? `há ${Math.round(d / D)} dias` : new Date(t).toLocaleDateString("pt-BR"); };
   const plural = (n) => `${n} apresentaç${n === 1 ? "ão" : "ões"}`;
   const topicOf = (id) => data.topics.find((t) => t.id === id);
-  const NO_TOPIC = { id: "", name: "Sem tópico", color: "#8a8a8a" };
+  // .yaml deixados direto na pasta da biblioteca (pelo Explorer): não estão em tópico nenhum. Não confundir
+  // com o tópico "Sem tópico", que é uma pasta de verdade, para onde vai o que é criado sem escolher tópico.
+  const NO_TOPIC = { id: "", name: "Soltas na pasta", color: "#8a8a8a" };
 
   function toast(msg, ms = 2800) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms); }
 
@@ -57,7 +59,7 @@
       <button class="nav ${view === "todas" ? "active" : ""}" data-view="todas">${ic("layout-grid")}<span class="name">Todas</span><span class="count">${data.decks.length || ""}</span></button>
       <div class="side-title">TÓPICOS<button title="Novo tópico" id="new-topic" aria-label="Novo tópico">${ic("plus")}</button></div>
       ${data.topics.map((t) => `<button class="nav ${view === t.id ? "active" : ""}" data-view="${esc(t.id)}" data-topic="${esc(t.id)}"><span class="dot" style="background:${esc(t.color)}"></span><span class="name">${esc(t.name)}</span><span class="count">${t.count || ""}</span></button>`).join("")}
-      ${loose ? `<button class="nav ${view === "" ? "active" : ""}" data-view="" data-topic=""><span class="dot" style="background:${NO_TOPIC.color}"></span><span class="name">${NO_TOPIC.name}</span><span class="count">${loose}</span></button>` : ""}
+      ${loose ? `<button class="nav ${view === "" ? "active" : ""}" data-view="" title="Arquivos .yaml deixados direto na pasta da biblioteca"><span class="dot" style="background:${NO_TOPIC.color}"></span><span class="name">${NO_TOPIC.name}</span><span class="count">${loose}</span></button>` : ""}
       <div class="grow"></div>
       <div class="side-foot">
         <button class="nav ${view === "lixeira" ? "active" : ""}" data-view="lixeira">${ic("trash-2")}<span class="name">Lixeira</span><span class="count">${data.trash.length || ""}</span></button>

@@ -136,3 +136,18 @@ test("pasta da biblioteca apagada por fora (Explorer, limpeza): volta a existir 
   L.createTopic("Palestras");
   assert.deepEqual(L.list().topics.map((t) => t.name), ["Palestras"]);
 });
+
+test("mover para 'sem tópico' vai para a pasta Sem tópico: na raiz só tópicos, nunca a pasta de uma apresentação", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Palestras");
+  const id = lib.createDeck("Palestras", deck("Piloto IA"));
+  const moved = lib.moveDeck(id, "");
+  assert.equal(moved, "Sem tópico/Piloto IA/Piloto IA.yaml");
+  const l = lib.list();
+  assert.deepEqual(l.topics.map((t) => t.name).sort(), ["Palestras", "Sem tópico"]);
+  assert.ok(!l.topics.some((t) => t.name === "Piloto IA"), "a pasta da apresentação não virou tópico");
+  // um .yaml solto na raiz (deixado pelo Explorer) continua onde está, sem tópico
+  fs.writeFileSync(path.join(lib.root, "solta.yaml"), YAML.stringify(deck("Solta")));
+  assert.equal(byTitle(lib, "Solta").topic, "");
+  assert.equal(lib.moveDeck("solta.yaml", ""), "solta.yaml", "já está sem tópico: não mexe");
+});
