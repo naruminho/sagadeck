@@ -791,7 +791,7 @@
     // Indicador de progresso ao vivo (etapa, segundos, texto chegando)
     const work = createProgressBubble(state.ai.available
       ? `Enviando para o LLM (${state.ai.textModel})…`
-      : "Analisando estrutura, geometria dos slides e aplicando correções…");
+      : "Verificando se a IA está no ar…");
     dom.chatSend.disabled = true;
     dom.chatInput.disabled = true;
     const history = state.chatHistory.slice(-16);
@@ -819,8 +819,9 @@
         return;
       }
       if (data.talk) {
-        // conversa: nada muda nos slides
-        state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
+        // conversa: nada muda nos slides (com a IA desligada o aviso não entra na conversa com o modelo)
+        if (data.mode === "off") state.chatHistory.pop();
+        else state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
         work.done();
         const msg = appendChatMessage("ai", data.reply, data.actions);
         msg.classList.add("bs");
@@ -830,6 +831,7 @@
         msg.querySelector(".ai-content").prepend(tag);
         renderChatOptions(msg, data.options);
         updateBrainstormApply();
+        if (data.mode === "off") refreshAIStatus(); // o selo "IA ligada/desligada" acompanha
         return;
       }
       state.chatHistory.push({ role: "assistant", text: data.reply });

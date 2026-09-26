@@ -418,6 +418,24 @@ test("studio", async (t) => {
     assert.equal(await p.locator("#chat-attachments .chat-att").count(), 0);
   });
 
+  await t.test("sem LLM no ar, o assistente não mexe nos slides (nem numa pergunta)", { skip: LIVE && "com SAGADECK_LIVE=1 o LLM está no ar" }, async () => {
+    // bug: "o que é CTAP na figura do slide 2?" caía nas regras por palavra-chave, trocava o slide para
+    // split e enfiava "A clareza visual ajuda a audiência..." no corpo. Sem modelo, ninguém decide nada.
+    const before = saved();
+    for (const msg of ["o que é CTAP que tem na figura do slide 2?", "resuma o slide 2", "mude para o tema pop"]) {
+      await p.fill("#chat-input", msg);
+      await p.click("#chat-send");
+      await p.waitForTimeout(300);
+      await p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 30000 });
+      const txt = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .ai-msg")].pop().innerText);
+      assert.match(txt, /nada mudou/i, `"${msg}" → ${txt}`);
+      assert.match(txt, /IA (está )?desligada|nenhum LLM/i, "diz por que não fez nada");
+      assert.doesNotMatch(txt, /clareza visual|Alternei|Alterei|Transformei/);
+    }
+    assert.deepEqual(saved(), before, "o deck salvo ficou igual");
+    assert.doesNotMatch(fs.readFileSync(deckFile.file, "utf8"), /clareza visual/);
+  });
+
   await t.test("assistente responde (LLM real)", { skip: !LIVE && "defina SAGADECK_LIVE=1" }, async () => {
     await p.fill("#chat-input", "Quantos slides tem a apresentação? Só responda, não mude nada.");
     await p.click("#chat-send");
