@@ -53,7 +53,9 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
-  sagadeck studio [deck.yaml] [--port=3000]    abre o editor visual estilo PowerPoint com chat lateral IA
+  sagadeck studio [deck.yaml|x.sagadeck] [--port=3000]  abre o editor visual (um .sagadeck é extraído ao lado e aberto)
+  sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
+  sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
   sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
@@ -278,9 +280,37 @@ async function main() {
       let t; fs.watch(path.dirname(p.abs), () => { clearTimeout(t); t = setTimeout(() => { try { doBuild(p); } catch (e) { console.error("✗ " + e.message); } }, 150); });
       break;
     }
+    case "pack": {
+      const p = paths(args[0]);
+      const { packDeck, EXTENSION } = await import("../src/package.js");
+      const name = path.basename(p.abs).replace(/\.ya?ml$/i, "");
+      const out = path.resolve(args[1] || path.join(path.dirname(p.abs), name + EXTENSION));
+      const { zip, files, missing } = await packDeck(loadSpec(p.abs), { baseDir: path.dirname(p.abs), name, generator: "sagadeck cli" });
+      fs.writeFileSync(out, zip);
+      console.log(`✓ ${out} (${(zip.length / 1024).toFixed(0)} KB · ${files.length} arquivo(s) junto)`);
+      missing.forEach((m) => console.log(`  ✗ não encontrado (listado em FALTANDO.txt): ${m}`));
+      break;
+    }
+    case "unpack": {
+      const src = path.resolve(args[0] || "");
+      if (!fs.existsSync(src)) { console.error(`não achei ${src}`); process.exit(1); }
+      const { unpackDeck } = await import("../src/package.js");
+      let dest = path.resolve(args[1] || src.replace(/\.(sagadeck|zip)$/i, ""));
+      for (let n = 2; fs.existsSync(dest) && !args[1]; n++) dest = `${src.replace(/\.(sagadeck|zip)$/i, "")}-${n}`;
+      const { file } = await unpackDeck(fs.readFileSync(src), dest);
+      console.log(`✓ extraído em ${dest}\n  apresentação: ${file}`);
+      break;
+    }
     case "studio": case "web": {
       const { createStudioServer } = await import("../src/studio/server.js");
-      const deckFile = args[0] ? path.resolve(args[0]) : null;
+      let deckFile = args[0] ? path.resolve(args[0]) : null;
+      if (deckFile && /\.(sagadeck|zip)$/i.test(deckFile)) {
+        const { unpackDeck } = await import("../src/package.js");
+        let dest = deckFile.replace(/\.(sagadeck|zip)$/i, "");
+        for (let n = 2; fs.existsSync(dest); n++) dest = `${deckFile.replace(/\.(sagadeck|zip)$/i, "")}-${n}`;
+        deckFile = (await unpackDeck(fs.readFileSync(deckFile), dest)).file;
+        console.log(`  extraído em ${dest}`);
+      }
       const port = Number(flags.port || process.env.PORT || 3000);
       const host = flags.host || "0.0.0.0";
       const server = createStudioServer(deckFile, { port, host });

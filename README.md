@@ -141,6 +141,33 @@ SAGADECK_LIVE=1 npm test  # inclui os testes que chamam o LLM de verdade (modelr
 
 Publicação: crie uma release `vX.Y.Z` no GitHub (o workflow `.github/workflows/publish.yml` publica no PyPI via *trusted publishing*). A versão fica em `package.json` e `python/sagadeck/__init__.py` (o bundle confere se são iguais).
 
+## Arquivo `.sagadeck` (a apresentação inteira)
+
+Uma apresentação é o YAML **mais** os arquivos que ele usa: imagens (inclusive as geradas pela IA em
+`imagens/`), CSS próprio (`css:`) e widgets (`widgets:`). Baixar só o YAML quebraria o deck em outra máquina.
+O `.sagadeck` junta tudo num arquivo só. Por dentro é um .zip, como `.pptx` e `.docx`:
+
+```text
+sagadeck.json        manifesto: formato, versão, YAML principal, título, data
+<nome>.yaml          a apresentação (sem caminhos da máquina de quem salvou)
+imagens/ widgets/ …  os arquivos, nos mesmos caminhos do YAML
+assets/              arquivos que estavam fora da pasta do deck (o YAML do pacote aponta para cá)
+FALTANDO.txt         o que o deck usa mas não existia ao salvar (se houver)
+```
+
+```bash
+sagadeck pack palestra.yaml                 # -> palestra.sagadeck
+sagadeck unpack palestra.sagadeck [pasta]   # extrai (nunca sobrescreve)
+sagadeck studio palestra.sagadeck           # extrai ao lado e abre no Studio
+```
+
+No Studio: **Arquivo › Baixar apresentação (.sagadeck)**. O **Abrir do computador** aceita `.sagadeck` e `.zip`;
+o arquivo é extraído em `~/sagadeck/<nome>/` e as edições são salvas lá. Um arquivo salvo por uma versão mais nova do
+formato avisa para atualizar o sagadeck. Se um filtro de e-mail barrar a extensão, renomeie para `.zip`: abre igual.
+
+**Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
+navegador, mas não para editar.
+
 ## Apresentando (HTML)
 
 | tecla | ação |

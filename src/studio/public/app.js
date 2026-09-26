@@ -118,7 +118,7 @@
     btnCancelOpenServer: document.getElementById("btn-cancel-open-server"),
     btnCloseOpenModal: document.getElementById("btn-close-open-modal"),
     dropOverlay: document.getElementById("drop-overlay"),
-    exportYaml: document.getElementById("export-yaml"),
+    exportSagadeck: document.getElementById("export-sagadeck"),
     exportHtml: document.getElementById("export-html"),
     actionSaveYaml: document.getElementById("action-save-yaml"),
     chatForm: document.getElementById("chat-form"),
@@ -1543,7 +1543,7 @@
     { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => startPresentation({ pen: true }) },
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
-    { title: "Baixar YAML", cat: "Arquivo", ic: "download", fn: () => dom.exportYaml.click() },
+    { title: "Baixar apresentação (.sagadeck)", cat: "Arquivo", ic: "download", fn: () => dom.exportSagadeck.click() },
     { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
@@ -2986,8 +2986,29 @@
     // ==========================================================================
     // ABRIR ARQUIVO .YML / .YAML
     // ==========================================================================
+    // .sagadeck / .zip: o servidor extrai numa pasta e abre de lá (edições salvas nessa pasta)
+    async function loadPackageFile(file) {
+      try {
+        const res = await fetch(`/api/open-package?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        state.deck = data.spec;
+        state.file = data.file;
+        updateSaveStatus();
+        dom.deckTitle.value = state.deck.title || file.name;
+        if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+        state.currentSlideIndex = 0;
+        renderThumbnails();
+        selectSlide(0);
+        showToast(`✓ "${file.name}" aberto (${state.deck.slides.length} slides), com imagens e arquivos. As edições são salvas em ${data.dir}.`, 8000);
+      } catch (err) {
+        showToast("Erro ao abrir: " + err.message, 7000);
+      }
+    }
+
     async function loadYamlFile(file) {
       if (!file) return;
+      if (/\.(sagadeck|zip)$/i.test(file.name)) return loadPackageFile(file);
       try {
         const text = await file.text();
         const res = await fetch("/api/deck", {
@@ -3126,9 +3147,30 @@
     };
     dom.exportDropdown.addEventListener("click", () => dom.exportDropdown.parentElement.classList.remove("show"));
 
-    dom.exportYaml.onclick = (e) => {
+    // .sagadeck: a apresentação inteira (YAML + imagens, CSS, widgets) num arquivo
+    dom.exportSagadeck.onclick = async (e) => {
       e.preventDefault();
-      window.location.href = "/api/export/yaml";
+      try {
+        await syncDeckToServer();
+        const res = await fetch("/api/export/sagadeck");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const cd = res.headers.get("Content-Disposition") || "";
+        const name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/) || [])[1] || "apresentacao.sagadeck");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        const missing = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Missing") || "%5B%5D"));
+        showToast(missing.length
+          ? `"${name}" baixado, mas ${missing.length} arquivo(s) usado(s) pelo deck não existe(m): ${missing.join(", ")} (listados em FALTANDO.txt dentro do arquivo)`
+          : `"${name}" baixado: a apresentação inteira, com imagens, CSS e widgets.`, missing.length ? 9000 : 3500);
+      } catch (err) {
+        showToast("Não deu para baixar: " + err.message);
+      }
     };
     dom.exportHtml.onclick = (e) => {
       e.preventDefault();

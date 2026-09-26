@@ -22,6 +22,8 @@ export function tempDeck(src = FIXTURE) {
 export async function startStudio(deckFile, { llmUrl } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
+  // .sagadeck aberto pelo navegador é extraído aqui (não na pasta pessoal de quem roda os testes)
+  process.env.SAGADECK_PACKAGES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-pacotes-"));
   const { createStudioServer } = await import("../src/studio/server.js");
   const server = createStudioServer(deckFile, { host: "127.0.0.1" });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));

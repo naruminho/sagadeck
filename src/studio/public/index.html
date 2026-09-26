@@ -56,8 +56,8 @@
         <button class="menu-item" id="menu-open-server"><i class="ic" data-ic="folder-input"></i>Abrir por caminho…</button>
         <div class="menu-sep"></div>
         <button class="menu-item" id="action-save-yaml"><i class="ic" data-ic="save"></i>Salvar</button>
-        <button class="menu-item" id="export-yaml"><i class="ic" data-ic="download"></i>Baixar YAML</button>
-        <button class="menu-item" id="export-html"><i class="ic" data-ic="file-code"></i>Baixar HTML</button>
+        <button class="menu-item" id="export-sagadeck" title="A apresentação inteira num arquivo: YAML + imagens, CSS e widgets"><i class="ic" data-ic="download"></i>Baixar apresentação (.sagadeck)</button>
+        <button class="menu-item" id="export-html" title="Um arquivo só, com tudo embutido, para apresentar em qualquer navegador (não serve para editar)"><i class="ic" data-ic="file-code"></i>Baixar para apresentar (HTML)</button>
       </div>
     </div>
     <button class="ribbon-tab active" role="tab" data-tab="inicio" aria-selected="true">Início</button>
@@ -400,7 +400,7 @@
     </div>
   </div>
 
-  <input type="file" id="file-input-yaml" accept=".yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
+  <input type="file" id="file-input-yaml" accept=".sagadeck,.zip,.yaml,.yml,text/yaml,text/x-yaml,application/x-yaml,.txt" hidden>
 
   <!-- MODO APRESENTAÇÃO: a apresentação real (runtime completo) por cima do Studio -->
   <div id="presentation-modal" class="modal-fullscreen hidden">

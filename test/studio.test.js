@@ -4,7 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import YAML from "yaml";
+import { unpackDeck } from "../src/package.js";
 import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
 
 const LIVE = process.env.SAGADECK_LIVE === "1";
@@ -434,6 +436,46 @@ test("studio", async (t) => {
     assert.equal(n, (await deck()).slides.length);
     await fr.press("body", "Escape"); await settle(500);
     assert.ok(!(await p.isVisible("#presentation-modal")));
+  });
+
+  // ------------------------------------------------------------ arquivo .sagadeck
+  await t.test("Baixar apresentação (.sagadeck): leva o YAML e as imagens; abrir o arquivo restaura tudo e salva numa pasta", async () => {
+    // uma imagem local no deck (o fixture não tem)
+    const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    fs.mkdirSync(path.join(deckFile.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(deckFile.dir, "imagens", "foto.png"), PNG);
+    await p.evaluate(async () => {
+      const d = (await (await fetch("/api/deck")).json()).spec;
+      d.slides.push({ layout: "split", title: "Com foto", figure: { image: "imagens/foto.png" } });
+      await fetch("/api/deck", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: d }) });
+    });
+    await p.reload({ waitUntil: "networkidle" }); await settle(600);
+    await p.click("#btn-export-menu");
+    assert.equal(await p.locator("#export-yaml").count(), 0, "sem o antigo 'Baixar YAML'");
+    const [download] = await Promise.all([p.waitForEvent("download"), p.click("#export-sagadeck")]);
+    assert.match(download.suggestedFilename(), /\.sagadeck$/);
+    const file = path.join(deckFile.dir, "baixado.sagadeck");
+    await download.saveAs(file);
+    const out = fs.mkdtempSync(path.join(path.dirname(deckFile.dir), "sd-check-"));
+    const { manifest, file: yamlFile } = await unpackDeck(fs.readFileSync(file), out);
+    assert.equal(manifest.format, "sagadeck");
+    assert.ok(fs.existsSync(path.join(out, "imagens", "foto.png")), "a imagem foi junto");
+    assert.doesNotMatch(fs.readFileSync(yamlFile, "utf8"), /_dir|_file/);
+
+    // abrir o .sagadeck pelo "Abrir do computador"
+    await p.setInputFiles("#file-input-yaml", file);
+    let opened;
+    for (let k = 0; k < 40; k++) {
+      opened = await p.evaluate(async () => (await (await fetch("/api/deck")).json()));
+      if (opened.file && opened.file !== deckFile.file) break;
+      await settle(150);
+    }
+    assert.ok(opened.file.startsWith(process.env.SAGADECK_PACKAGES_DIR || ""), opened.file);
+    assert.ok(opened.spec.slides.some((s) => s.title === "Com foto"));
+    assert.ok(fs.existsSync(path.join(path.dirname(opened.file), "imagens", "foto.png")), "a imagem veio junto na pasta aberta");
+    // volta ao deck do teste
+    await p.evaluate(async (f) => fetch("/api/open-file", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: f }) }), deckFile.file);
+    await p.reload({ waitUntil: "networkidle" }); await settle(600);
   });
 
   await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

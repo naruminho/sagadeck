@@ -23,6 +23,14 @@ test("motor empacotado (pip)", { timeout: 240000 }, async (t) => {
     assert.match(html, /<section/);
   });
 
+  await t.test("CLI: pack e unpack (.sagadeck)", () => {
+    execFileSync(process.execPath, [engine, "pack", path.join(work, "deck.yaml")], { cwd: work, stdio: "pipe" });
+    assert.ok(fs.existsSync(path.join(work, "deck.sagadeck")));
+    execFileSync(process.execPath, [engine, "unpack", path.join(work, "deck.sagadeck"), path.join(work, "extraido")], { cwd: work, stdio: "pipe" });
+    assert.ok(fs.existsSync(path.join(work, "extraido", "deck.yaml")));
+    assert.ok(fs.existsSync(path.join(work, "extraido", "sagadeck.json")));
+  });
+
   await t.test("Studio: interface, estilos, scripts e API respondem", async () => {
     const port = 3600 + Math.floor(Math.random() * 300);
     const proc = spawn(process.execPath, [engine, "studio", path.join(work, "deck.yaml"), `--port=${port}`, "--host=127.0.0.1"],

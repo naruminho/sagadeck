@@ -1,6 +1,7 @@
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
@@ -11,6 +12,7 @@ import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { varietyReport } from "../ai/variety.js";
+import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -528,10 +530,45 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Baixar a apresentação inteira: .sagadeck (YAML + imagens, CSS, widgets)
+      if (pathname === "/api/export/sagadeck") {
+        const spec = withBase(currentSpec);
+        const name = currentFile && !isBundledTemplate(currentFile) ? path.basename(currentFile).replace(/\.ya?ml$/i, "") : slugify(spec.title);
+        const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
+        res.writeHead(200, {
+          "Content-Type": MIME,
+          "Content-Disposition": `attachment; filename="${slugify(name)}${EXTENSION}"; filename*=UTF-8''${encodeURIComponent(name + EXTENSION)}`,
+          "X-Sagadeck-Missing": encodeURIComponent(JSON.stringify(missing)),
+          "Access-Control-Expose-Headers": "X-Sagadeck-Missing",
+        });
+        res.end(zip);
+        return;
+      }
+
+      // Abrir um .sagadeck (ou .zip) vindo do navegador: extrai numa pasta de verdade e abre de lá
+      // (assim as edições são salvas; o navegador não informa o caminho do arquivo original).
+      if (pathname === "/api/open-package" && req.method === "POST") {
+        const name = (url.searchParams.get("name") || "apresentacao").replace(/\.(sagadeck|zip)$/i, "");
+        try {
+          const base = process.env.SAGADECK_PACKAGES_DIR || path.join(os.homedir(), "sagadeck");
+          let dest = path.join(base, slugify(name));
+          for (let n = 2; fs.existsSync(dest); n++) dest = path.join(base, `${slugify(name)}-${n}`);
+          const { file } = await unpackDeck(await readBody(req), dest);
+          currentSpec = loadSpec(file);
+          currentFile = file;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, spec: currentSpec, file: currentFile, dir: dest }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
       if (pathname.startsWith("/api/export/")) {
         const format = pathname.replace("/api/export/", "");
         if (format === "yaml") {
-          const y = YAML.stringify(currentSpec, { indent: 2 });
+          const y = toYaml(currentSpec); // sem campos internos (_dir, _file: caminhos desta máquina)
           res.writeHead(200, {
             "Content-Type": "text/yaml; charset=utf-8",
             "Content-Disposition": 'attachment; filename="apresentacao.yaml"',
@@ -638,6 +675,15 @@ async function respond(res, stream, work) {
     clearInterval(heartbeat);
     res.end();
   }
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
 }
 
 function readJSON(req) {
