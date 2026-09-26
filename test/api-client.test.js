@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ApiEnvironments, readRecordings, writeRecording, recordingsFile } from "../src/api-client.js";
-import { startMockApi, envFileFor } from "./mock-api.js";
+import { startMockApi, envFileFor, demoEnv } from "./mock-api.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-api-"));
 
@@ -37,6 +37,40 @@ test("ambientes do arquivo: dev e hom com cores; escolher um guarda no arquivo s
     assert.match(txt, /^current: dev/m);
     assert.match(txt, /comentário que tem que sobreviver/);
     assert.throws(() => api.use("prod"), /não existe/);
+  } finally { await mock.close(); }
+});
+
+test("ambiente embutido (o ENSAIO do Studio): aparece sem arquivo, vem depois dos da pessoa e nunca é gravado no arquivo", async () => {
+  const mock = await startMockApi();
+  try {
+    // sem arquivo: o embutido é o único, e já funciona
+    const api = new ApiEnvironments(path.join(tmp(), "nao-existe.yaml"));
+    api.builtin.ensaio = demoEnv(mock);
+    let st = api.state();
+    assert.equal(st.current, "ensaio");
+    assert.deepEqual(st.envs.map((e) => [e.name, e.builtin]), [["ensaio", true]]);
+    // o token vem do próprio ambiente embutido (client credentials na API de mentira)
+    const r = await api.send({ method: "POST", url: `${api.state().envs[0].vars.base}/sync`, body: { q: "oi" } });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.choices[0].message.content, "eco: oi");
+    api.use("ensaio");
+    assert.equal(fs.existsSync(api.file), false, "escolher o embutido não cria o arquivo da pessoa");
+
+    // com arquivo: os da pessoa primeiro (e o current dela vale); escolher o embutido não mexe no arquivo
+    const { file, api: api2, mock: m2 } = await setup();
+    try {
+      api2.builtin.ensaio = demoEnv(mock);
+      st = api2.state();
+      assert.deepEqual(st.envs.map((e) => e.name), ["dev", "hom", "ensaio"]);
+      assert.equal(st.current, "hom");
+      assert.equal(st.envs.find((e) => e.name === "hom").builtin, undefined);
+      const before = fs.readFileSync(file, "utf8");
+      assert.equal(api2.use("ensaio").current, "ensaio");
+      assert.equal(fs.readFileSync(file, "utf8"), before);
+      // mesmo nome no arquivo: o da pessoa vence
+      api2.builtin.hom = { vars: { base: "http://embutido.invalid" } };
+      assert.equal(api2.state().envs.find((e) => e.name === "hom").vars.base, `${m2.url}/v1`);
+    } finally { await m2.close(); }
   } finally { await mock.close(); }
 });
 

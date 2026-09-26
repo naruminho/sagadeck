@@ -92,6 +92,11 @@ Os pedidos saem do **Studio** (Node, na sua máquina), nunca do navegador: sem p
 certificado da empresa e com o token fora da página. Sem o Studio (HTML exportado, PDF, servidor
 multiusuário), o slide mostra a **última resposta gravada** e o botão vira *Reproduzir gravação*.
 
+No Studio: **Biblioteca → Nova → Exemplo: aula de APIs ao vivo** cria um deck com um slide de cada tipo;
+no editor, **Inserir → Slide de API** insere um deles e **Inserir → Ambientes** edita os ambientes. Os
+exemplos rodam no ambiente embutido **ENSAIO**, uma API de mentira que o Studio local sobe sozinho (não vai
+para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, vence).
+
 ```yaml
 - layout: api
   kicker: Ao vivo
@@ -171,7 +176,9 @@ texto) para o modo sem Studio.
 ### Ambientes: `~/.sagadeck/ambientes.yaml`
 
 Endereços, credenciais e segredos ficam **na máquina**, nunca no deck (o deck pode ir para o GitHub).
-Outro lugar: variável `SAGADECK_AMBIENTES`. O selo no slide (DEV, HOM…) troca o ambiente.
+Outro lugar: variável `SAGADECK_AMBIENTES`. O selo no slide (DEV, HOM…) troca o ambiente. No Studio,
+**Inserir → Ambientes** mostra o arquivo (ou um modelo comentado, se ele ainda não existe), confere o YAML
+antes de gravar e troca o ambiente em uso.
 
 ```yaml
 current: hom

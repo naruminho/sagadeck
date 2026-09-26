@@ -336,7 +336,7 @@ async function main() {
     // Ensaio do slide "api": API de mentira + ambientes temporários + o deck de exemplo, no Studio.
     // Nada disso toca no seu ~/.sagadeck/ambientes.yaml.
     case "ensaio-api": {
-      const { startMockApi, demoEnvFile } = await import("../src/api-demo.js");
+      const { startMockApi, demoEnvFile, DEMO_FILES } = await import("../src/api-demo.js");
       const { createStudioServer } = await import("../src/studio/server.js");
       const { defaultLibraryRoot } = await import("../src/library.js");
       const mock = await startMockApi({ statuses: ["STARTED", "RUNNING", "RUNNING", "FINISHED"] });
@@ -345,9 +345,10 @@ async function main() {
       fs.writeFileSync(envFile, demoEnvFile(mock));
       const deckFile = path.join(dir, "ensaio-api.yaml");
       fs.copyFileSync(path.join(TEMPLATES, "ensaio-api.yaml"), deckFile);
-      fs.writeFileSync(path.join(dir, "contrato.txt"), "Cláusula 1: prazo de 30 dias.\nCláusula 2: multa de 2%.\n");
+      for (const [name, text] of Object.entries(DEMO_FILES)) fs.writeFileSync(path.join(dir, name), text);
       const port = Number(flags.port || process.env.PORT || 3000);
-      const server = createStudioServer(deckFile, { port, host: "127.0.0.1", library: defaultLibraryRoot(), apiEnvFile: envFile });
+      // ensaio: false — os ambientes do ensaio já estão no arquivo (dev e hom), sem o embutido repetido
+      const server = createStudioServer(deckFile, { port, host: "127.0.0.1", library: defaultLibraryRoot(), apiEnvFile: envFile, ensaio: false });
       server.listen(port, "127.0.0.1", () => {
         console.log(`✓ Ensaio no Studio: http://127.0.0.1:${port}/editor`);
         console.log(`  API de mentira em ${mock.url} · ambientes do ensaio em ${envFile}`);
