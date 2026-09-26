@@ -144,6 +144,19 @@
         </div>
         <div class="rgroup-label">Figuras</div>
       </div>
+      <div class="rgroup">
+        <div class="rgroup-body">
+          <div class="popover-wrap">
+            <button id="btn-api-slide" class="rbtn rbtn-lg" aria-haspopup="true" title="Slide que executa uma requisição de verdade (tipo Postman), com o código curl e Python ao lado"><i class="ic" data-ic="plug-zap"></i><span>Slide de API <i class="ic caret" data-ic="chevron-down"></i></span></button>
+            <div id="api-examples-popover" class="popover api-examples-popover">
+              <div class="popover-title">Exemplos prontos: rodam no ambiente ENSAIO (uma API de mentira), sem configurar nada</div>
+              <div id="api-examples-list" class="api-examples-list"></div>
+            </div>
+          </div>
+          <button id="btn-api-envs" class="rbtn rbtn-lg" title="Endereços, tokens e segredos dos slides de API (ficam na sua máquina, nunca no deck)"><i class="ic" data-ic="server-cog"></i><span>Ambientes</span></button>
+        </div>
+        <div class="rgroup-label">API ao vivo</div>
+      </div>
     </div>
 
     <!-- DESIGN -->
@@ -521,6 +534,30 @@
         <span class="spacer"></span>
         <button id="btn-hf-cancel" class="btn btn-secondary">Cancelar</button>
         <button id="btn-hf-apply" class="btn btn-primary">Aplicar em todos os slides</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMBIENTES DOS SLIDES DE API (~/.sagadeck/ambientes.yaml) -->
+  <div id="modal-api-envs" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box modal-lg" role="dialog" aria-labelledby="api-envs-title">
+      <div class="modal-dialog-header">
+        <h3 id="api-envs-title">Ambientes dos slides de API</h3>
+        <button id="btn-close-api-envs" class="icon-btn" title="Fechar"><i class="ic" data-ic="x"></i></button>
+      </div>
+      <div class="modal-dialog-body api-envs-body">
+        <p class="muted api-envs-intro">Endereços, tokens e segredos ficam na sua máquina, nunca no deck (o deck pode ir para o GitHub).
+          Nos slides, <code>{{base}}</code> vira o <code>vars.base</code> do ambiente em uso; segredos entram como <code>{{secret.nome}}</code>.</p>
+        <div class="napkin-label">Ambiente em uso <span class="muted">— o selo no slide também troca</span></div>
+        <div id="api-envs-list" class="api-envs-list"></div>
+        <div class="napkin-label">Arquivo <code id="api-envs-file" class="muted"></code></div>
+        <textarea id="api-envs-text" class="form-control mono" rows="16" spellcheck="false" aria-label="Conteúdo do ambientes.yaml"></textarea>
+        <div id="api-envs-status" class="sf-hint api-envs-status"></div>
+      </div>
+      <div class="modal-dialog-footer">
+        <span class="spacer"></span>
+        <button id="btn-api-envs-cancel" class="btn btn-secondary">Fechar</button>
+        <button id="btn-api-envs-save" class="btn btn-primary">Salvar</button>
       </div>
     </div>
   </div>

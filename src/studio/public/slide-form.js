@@ -45,6 +45,7 @@
     el: (k, label, o = {}) => ({ k, label, type: "element", ...o }),
     els: (k, label, o = {}) => ({ k, label, type: "elements", ...o }),
     chart: (k, label, o = {}) => ({ k, label, type: "chart", ...o }),
+    json: (k, label, o = {}) => ({ k, label, type: "json", ...o }),        // objeto editado como JSON validado
     more: (fields) => ({ type: "more", fields }),
     action: (label, run, o = {}) => ({ type: "action", label, run, ...o }),
   };
@@ -117,15 +118,23 @@
     image: [f.text("image", "Imagem (arquivo ou link)"), f.select("fit", "Enquadramento", [["cover", "Preencher"], ["contain", "Caber inteira"]], { empty: "Preencher" }),
       f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("caption", "Legenda"), f.more([f.el("figure", "Figura no lugar da imagem")])],
     api: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("text", "Explicação curta"),
-      f.select("mode", "Modo", [["sync", "Síncrono (responde na hora)"], ["polling", "Polling (inicia e consulta até terminar)"], ["stream", "Streaming (chega aos poucos)"]], { empty: "Síncrono (responde na hora)" }),
+      f.select("mode", "Modo", [["sync", "Síncrono (responde na hora)"], ["polling", "Polling (inicia e consulta até terminar)"], ["stream", "Streaming (chega aos poucos)"], ["realtime", "Tempo real (conversa por WebSocket)"]], { empty: "Síncrono (responde na hora)", structural: true }),
       f.obj("request", "Requisição", [f.select("method", "Método", [["GET", "GET"], ["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"], ["DELETE", "DELETE"]], { empty: "POST se tiver corpo" }),
-        f.text("url", "Endereço", { hint: "{{base}} e outras variáveis vêm do ambiente (~/.sagadeck/ambientes.yaml). O corpo se edita no YAML ou direto no slide." }),
-        f.bool("auth", "Enviar o token do ambiente")]),
-      f.text("answer", "Campo da resposta em destaque", { hint: "ex.: $.choices[0].message.content" }),
+        f.text("url", "Endereço", { hint: "{{base}} e outras variáveis vêm do ambiente (Inserir → Ambientes). Segredo: {{secret.nome}}." }),
+        f.json("body", "Corpo (JSON)", { placeholder: '{ "messages": [ { "role": "user", "content": "Olá" } ] }', hint: "Também dá para editar direto no slide, na hora de apresentar." }),
+        f.bool("auth", "Enviar o token do ambiente", { default: true }),
+        f.more([f.json("headers", "Cabeçalhos (JSON)", { placeholder: '{ "X-Canal": "workshop" }' }), f.json("form", "Formulário multipart (JSON, no lugar do corpo)", { placeholder: '{ "file": "@file", "pasta": "workshop" }' })])],
+        { when: (s) => s.mode !== "realtime" }),
+      f.json("realtime", "Conexão (WebSocket)", { when: (s) => s.mode === "realtime", placeholder: '{ "url": "{{ws}}/realtime" }', hint: "Só url é obrigatório; os outros campos seguem o formato mais comum (veja a referência)." }),
+      f.json("polling", "Polling", { when: (s) => s.mode === "polling", placeholder: '{ "id": "$.executionId", "check": { "url": "{{base}}/status/{{id}}" }, "status": "$.status", "done": ["FINISHED"] }' }),
+      f.text("answer", "Campo da resposta em destaque", { hint: "ex.: $.choices[0].message.content", when: (s) => s.mode !== "realtime" }),
+      f.json("save", "Guardar para os próximos slides", { placeholder: '{ "path_id": "$.path_id" }', hint: "Viram {{nome}} nos slides seguintes", rows: 2 }),
       f.text("file", "Arquivo padrão (ao lado do deck)", { hint: "para upload (@file) ou {{file.base64}}" }),
       f.text("portal", "Link \"Abrir no portal\""),
       f.more([f.text("token", "Este slide gera o token (caminho na resposta)", { hint: "ex.: $.access_token — os slides seguintes usam esse token" }),
         f.text("steps", "Lista de etapas na resposta", { hint: "ex.: $.responses" }), f.text("stepText", "Texto de cada etapa", { hint: "ex.: $.output" }),
+        f.bool("mic", "Botão Gravar (microfone, para STT)"), f.text("audio", "A resposta é áudio (TTS): nome do arquivo", { placeholder: "fala.mp3" }),
+        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
         f.text("id", "Identificador (para guardar a gravação)")])],
     code: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.area("code", "Código", { mono: true, rows: 8 }), f.nums("highlight", "Linhas destacadas"), f.el("note", "Nota ao lado", { stringAs: "text" }),
       f.more([f.num("size", "Tamanho (px)"), f.num("noteStep", "Nota no clique")])],
@@ -342,6 +351,7 @@
       case "element": return elementField(o, spec, path);
       case "elements": return elementsField(o, spec, path);
       case "chart": return chartField(o, spec, path);
+      case "json": return jsonField(o, spec);
       case "more": return moreGroup(o, spec.fields, path + ".more");
       case "action": {
         const b = h("button", { class: "btn btn-secondary sf-action", type: "button" }, spec.label);
@@ -367,6 +377,23 @@
     input.addEventListener("input", () => { setKey(o, spec.k, input.value); commitSoon(); });
     input.addEventListener("change", commitNow);
     return fieldWrap(spec, h("div", { class: "sf-ctl" }, input, listId ? h("datalist", { id: listId }, spec.datalist.map((d) => h("option", { value: d }))) : null));
+  }
+
+  // estrutura (corpo de requisição, polling…) como JSON: só aplica quando é JSON válido; vazio apaga o campo
+  function jsonField(o, spec) {
+    const text = o[spec.k] == null ? "" : JSON.stringify(o[spec.k], null, 2);
+    const ta = h("textarea", { class: "form-control mono", rows: spec.rows || Math.min(10, Math.max(3, text.split("\n").length)), placeholder: spec.placeholder, spellcheck: "false" });
+    ta.value = text;
+    const err = h("div", { class: "sf-hint sf-error" });
+    ta.addEventListener("input", () => {
+      const v = ta.value.trim();
+      try {
+        setKey(o, spec.k, v ? JSON.parse(v) : null);
+        ta.classList.remove("invalid"); err.textContent = ""; commitSoon();
+      } catch { ta.classList.add("invalid"); err.textContent = "JSON inválido — não aplicado"; }
+    });
+    ta.addEventListener("change", () => { if (!ta.classList.contains("invalid")) commitNow(); });
+    return fieldWrap(spec, h("div", { class: "sf-ctl" }, ta, err));
   }
 
   function numberField(o, spec) {
@@ -397,7 +424,8 @@
       sel.append(h("option", { value: String(cur), text: String(cur) }));
       sel.value = String(cur);
     }
-    sel.addEventListener("change", () => { setKey(o, spec.k, spec.parse ? spec.parse(sel.value) : sel.value); commitNow(); });
+    // structural: outros campos dependem deste (when), então o formulário se refaz
+    sel.addEventListener("change", () => { setKey(o, spec.k, spec.parse ? spec.parse(sel.value) : sel.value); (spec.structural ? commitStructure : commitNow)(); });
     return fieldWrap(spec, sel);
   }
 

@@ -103,6 +103,7 @@
     .mi small { margin-left: auto; color: var(--text-3); }
     .mi.danger { color: var(--err); }
     .mi .d { display: block; font-size: 12px; color: var(--text-3); }
+    .lmenu.tall { max-width: 340px; }
     .lmenu.tall .mi { padding: 8px 10px; align-items: flex-start; }
     .sep { height: 1px; background: var(--ui-line); margin: 5px 4px; }
 
@@ -153,6 +154,7 @@
   <div class="lmenu tall" id="new-menu" role="menu">
     <button class="mi" data-new="blank"><i class="ic" data-ic="file-plus"></i><span><b>Em branco</b><span class="d">Começa com uma capa</span></span></button>
     <button class="mi" data-new="ai"><i class="ic" data-ic="sparkles"></i><span><b>Com IA</b><span class="d">Descreva o tema, o público e o tempo</span></span></button>
+    <button class="mi" data-new="example-api"><i class="ic" data-ic="plug-zap"></i><span><b>Exemplo: aula de APIs ao vivo</b><span class="d">Slides que executam requisições (token, LLM, polling, streaming, upload, voz). Roda sem configurar nada</span></span></button>
     <button class="mi" data-new="import"><i class="ic" data-ic="upload"></i><span><b>Importar .sagadeck</b><span class="d">Ou um .zip com um .yaml dentro</span></span></button>
   </div>
   <div class="lmenu" id="topic-menu" role="menu"></div>

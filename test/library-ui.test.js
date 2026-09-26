@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import YAML from "yaml";
 import { browserOrSkip, newPage, startStudio } from "./helpers.js";
 import { packDeck } from "../src/package.js";
 
@@ -239,6 +240,58 @@ test("sem tópico: a pasta 'Sem tópico' e os .yaml soltos na raiz não aparecem
     assert.equal(names.filter((n) => n === "Sem tópico").length, 1, `nomes: ${names}`);
     assert.ok(names.includes("Soltas na pasta"), `nomes: ${names}`);
     assert.equal(await p.$(".nav[data-view=''][data-topic]"), null, "a entrada dos soltos não recebe cartões arrastados");
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});
+
+// Quem nunca viu um slide api precisa de um exemplo que funcione sem configurar nada: o deck de ensaio,
+// executando na API de mentira do ambiente embutido ENSAIO (sem ~/.sagadeck/ambientes.yaml, sem VPN).
+test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do upload) e ele executa no ambiente ENSAIO", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  fs.rmSync(process.env.SAGADECK_AMBIENTES, { force: true }); // ninguém configurou ambiente nenhum
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#btn-new");
+    assert.match(await p.innerText("#new-menu"), /Exemplo: aula de APIs ao vivo/);
+    await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click('[data-new="example-api"]')]);
+    await p.waitForSelector("#rendered-slide-container .slide");
+
+    // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
+    const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
+    assert.equal(yamls.length, 1, yamls.join(", "));
+    const file = path.join(studio.library, yamls[0]);
+    const saved = YAML.parse(fs.readFileSync(file, "utf8"));
+    assert.ok(saved.slides.filter((s) => s.layout === "api").length >= 10);
+    assert.ok(fs.existsSync(path.join(path.dirname(file), "contrato.txt")));
+    assert.equal(fs.existsSync(process.env.SAGADECK_AMBIENTES), false, "o ENSAIO não grava nada no arquivo de ambientes");
+
+    // apresentando: ENSAIO no selo, e o Executar funciona de verdade (token → LLM → upload → OCR)
+    const { page: pv, errors: pvErrors } = await newPage(browser, `${studio.url}/preview`, { width: 1920, height: 1080 });
+    await pv.waitForFunction(() => window.sagadeckApi && window.sagadeckApi.state.live);
+    const idx = (id) => saved.slides.findIndex((s) => s.id === id);
+    const run = async (id) => {
+      const s = `.slide[data-idx="${idx(id)}"]`;
+      await pv.evaluate((n) => window.sagadeck.goto(n, 0), idx(id));
+      await pv.click(`${s} [data-api-run]`);
+      await pv.waitForFunction((sel) => !document.querySelector(`${sel} .L-api`).classList.contains("running"), s, { timeout: 20000 });
+      return s;
+    };
+    let s = await run("identity");
+    assert.equal((await pv.innerText(`${s} .api-env-name`)).trim(), "ENSAIO");
+    assert.match(await pv.innerText(`${s} .api-res`), /token JWT gerado/i);
+    s = await run("llm");
+    assert.match(await pv.innerText(`${s} .api-answer`), /eco: O que é RAG, em uma frase\?/);
+    s = await run("upload");
+    assert.match(await pv.innerText(`${s} .api-saved`), /\{\{path_id\}\} = store\/contrato\.txt/);
+    s = await run("ocr");
+    assert.match(await pv.innerText(`${s} .api-answer`), /Cláusula 1: prazo de 30 dias/);
+    assert.ok(fs.existsSync(file.replace(/\.yaml$/, ".respostas.json")), "a gravação fica ao lado do deck");
+    assert.deepEqual(pvErrors, []);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

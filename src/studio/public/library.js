@@ -224,6 +224,9 @@
         try { const { id } = await api("api/library/decks", { topic, title }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
       }, "Título");
       if (b.dataset.new === "ai") return aiDialog(topic);
+      if (b.dataset.new === "example-api") return (async () => {
+        try { const { id } = await api("api/library/decks/example", { topic }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
+      })();
       $("#import-input").dataset.topic = topic;
       $("#import-input").click();
     });
