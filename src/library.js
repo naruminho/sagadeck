@@ -87,6 +87,8 @@ export function openLibrary(root) {
   }
 
   function list() {
+    // a pasta pode ter sido apagada por fora (Explorer, limpeza) com o servidor no ar: recria
+    fs.mkdirSync(root, { recursive: true });
     purgeOld();
     const topics = [], decks = [];
     for (const e of fs.readdirSync(root, { withFileTypes: true })) {
@@ -118,7 +120,7 @@ export function openLibrary(root) {
   function createTopic(name, color) {
     const n = safeName(name, "Novo tópico");
     const dir = uniquePath(root, n);
-    fs.mkdirSync(dir);
+    fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, TOPIC_META), JSON.stringify({ color: color || COLORS[list().topics.length % COLORS.length], created: Date.now() }));
     return path.basename(dir);
   }

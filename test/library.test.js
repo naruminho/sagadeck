@@ -124,3 +124,15 @@ test("pasta padrão: SAGADECK_HOME, senão ~/sagadeck", () => {
   assert.equal(defaultLibraryRoot({ SAGADECK_HOME: "D:/decks" }), path.resolve("D:/decks"));
   assert.equal(defaultLibraryRoot({}), path.join(os.homedir(), "sagadeck"));
 });
+
+test("pasta da biblioteca apagada por fora (Explorer, limpeza): volta a existir em vez de quebrar", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-lib-sumiu-"));
+  const L = openLibrary(path.join(root, "usuarios", "ana"));   // já aberta, como no servidor
+  fs.rmSync(root, { recursive: true, force: true });
+  assert.deepEqual(L.list().decks, []);                        // antes: ENOENT scandir
+  L.createTopic("Aulas");
+  assert.deepEqual(L.list().topics.map((t) => t.name), ["Aulas"]);
+  fs.rmSync(root, { recursive: true, force: true });           // e criar direto, sem listar antes
+  L.createTopic("Palestras");
+  assert.deepEqual(L.list().topics.map((t) => t.name), ["Palestras"]);
+});
