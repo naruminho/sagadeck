@@ -1123,3 +1123,10 @@ html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="
 /* estrelas da avaliação: desenhadas (cheia x vazia) */
 .rating-stars{display:inline-flex;gap:4px}.rating-stars .star-on{fill:currentColor}.rating-stars .star-off{opacity:.45}
 .st-trend svg,.check-pill svg,.step-connector svg{vertical-align:-.15em}
+
+/* slide api: painel Variáveis (ambiente, token, o que os slides guardaram) */
+.api-bar{position:relative}.api-vars{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 16px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:600 19px system-ui,sans-serif;cursor:pointer}.api-vars svg{width:22px;height:22px}
+.api-vars-panel{position:absolute;left:0;top:70px;z-index:6;width:760px;max-height:620px;overflow:auto;display:flex;flex-direction:column;gap:16px;padding:20px 24px;border-radius:14px;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 20px 50px #0003;font:18px/1.35 system-ui,sans-serif}
+.api-vars-panel .av-sec{display:flex;flex-direction:column;gap:6px}.api-vars-panel .av-sec>b{font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.api-vars-panel .av-row{display:flex;align-items:baseline;gap:12px}.api-vars-panel code{font:600 18px "Cascadia Mono",Consolas,monospace;color:var(--em)}.api-vars-panel .av-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.api-vars-panel small{color:var(--muted)}.api-vars-panel .av-empty{color:var(--muted);font-style:italic}
+.api-vars-panel .av-clear{align-self:flex-start;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--fg);font:inherit;font-size:16px;cursor:pointer}

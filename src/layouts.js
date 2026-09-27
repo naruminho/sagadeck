@@ -387,6 +387,7 @@ export const LAYOUTS = {
       return `<div class="api-code f-mono" data-pane="${lang}"${first === lang ? "" : " hidden"}>${txt.split("\n").map((l, i) => `<div class="cl${cm.has(i + 1) ? " cm" : ""}" data-ln="${i + 1}"><span class="cn">${i + 1}</span><span class="cc">${esc(l) || " "}</span></div>`).join("")}</div>`;
     };
     const ICON = {
+      vars: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       run: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
       out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       pip: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1"/></svg>',
@@ -396,6 +397,7 @@ export const LAYOUTS = {
     return `<div class="L-api" data-api="${esc(JSON.stringify(cfg))}">${head(s)}
       <div class="api-bar">
         <button type="button" class="api-env" data-api-env title="Ambiente (clique para trocar)"><span class="api-env-dot"></span><span class="api-env-name">sem Studio</span></button>
+        <button type="button" class="api-vars" data-api-vars title="Variáveis: o que está valendo agora (ambiente, token e o que os slides guardaram)">${ICON.vars}<span>Variáveis</span></button>
         <span class="api-mode f-label">${MODE[a.mode]}</span>
         ${s.text ? text(s.text, "small", { class: "api-text", size: 26 }) : ""}
         <span class="api-spacer"></span>
