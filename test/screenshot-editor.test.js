@@ -45,6 +45,9 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
     await page.click("[data-cancel]");
     assert.equal(saved().slides[1].title, "Configure o workflow");
     await page.getByRole("button", { name: "Editar imagem e destaques", exact: true }).click();
+    // o destaque só aparece quando a imagem termina de carregar (antes a área fica escondida e o foco não pega;
+    // o focus() não espera ficar visível, e no CI a imagem demora mais)
+    await page.locator('.shot-mark.point').waitFor({ state: "visible" });
     await page.locator('.shot-mark.point').focus();
     await page.keyboard.press("ArrowRight");
     await page.click("[data-apply]");
