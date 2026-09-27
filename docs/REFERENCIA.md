@@ -94,6 +94,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+| `infographic` | `kicker, title, shape, center: {title, text, icon}, items: [{title, text, icon, steps}], build, caption` | infográfico desenhado: arco, ramos, lados, trilhas ou metrô; ver [Infográficos](#infográficos-infographic) |
 | `diagram` | `kicker, title, mermaid, caption, autoDirection` | diagrama desenhado (fluxograma, sequência, estados, UML, ER, jornada, mapa mental, linha do tempo, blocos) nas cores do tema; ver [Diagramas](#diagramas-diagram) |
 
 ### Ajustes finos de campos
@@ -478,6 +479,34 @@ Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem execut
   plot:
     preset: surface
 ```
+
+## Infográficos (`infographic`)
+
+As formas clássicas de slide de consultoria, desenhadas na hora para a quantidade de itens que vier (o desenho se reorganiza; o texto encolhe para caber). Uma cor por item, tirada do tema (numa paleta de família, os parentes dela); o texto é editável no PowerPoint. `build: true` revela um item por clique.
+
+| `shape` | para quê | itens |
+|---|---|---|
+| `arco` | lista de desafios, pilares, etapas numeradas em volta de um tema (pílulas coloridas ao longo de um arco, centro com anel colorido) | 2 a 8 |
+| `ramos` | 2 a 6 opções/estratégias com uma frase de explicação cada (cartões contornados com número colorido) | 2 a 6 |
+| `lados` | frentes, áreas ou pilares com ícone (metade à esquerda, metade à direita da peça central) | 2 a 8 |
+| `trilhas` | objetivo e linhas de etapas encadeadas: cada item é o começo de uma linha e `steps` são as etapas seguintes (estratégia, tática, tática…); uma cor por coluna | 1 a 4 linhas, até 4 etapas cada |
+| `metro` | caminhos que partem de um mesmo ponto (linhas de metrô até cada item, com ícone e legenda) | 2 a 7 |
+
+`center`: o que fica no meio (`title`, `text`, `icon`; ou só um texto). Itens: `title` curto (1 a 3 palavras), `text` de uma frase, `icon` (nome do Lucide). Mais itens que a forma aceita: os demais ficam de fora com aviso; divida em dois slides.
+
+```yaml
+- layout: infographic
+  shape: metro
+  title: Os caminhos de um projeto na Bridge
+  center: { title: Bridge, text: Um pedido, vários caminhos }
+  items:
+    - { title: Lote, text: Databricks chama a Bridge de madrugada, icon: moon }
+    - { title: Teams, text: Copilot Studio + Power Automate, icon: message-square }
+    - { title: App próprio, text: Wave, arquitetura, infra e rede, icon: app-window }
+    - { title: SaaS externo, text: Túnel mTLS e serviço extra, icon: globe }
+```
+
+Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
 
 ## Diagramas (`diagram`)
 

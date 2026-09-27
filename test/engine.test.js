@@ -493,3 +493,26 @@ test("identidade: fontes da empresa por papel, respeitando o tema; paleta dela q
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Infográficos: qualquer quantidade de itens (até o máximo da forma), cores do tema com letra clara legível.
+test("infographic: todas as formas desenham de 2 ao máximo de itens; excesso vira aviso; cores do tema com contraste", async () => {
+  const { INFOGRAPHIC_SHAPES, itemColors } = await import("../src/infographic.js");
+  const { resolveTheme } = await import("../src/themes.js");
+  const item = (i) => ({ title: `Item ${i + 1}`, text: "Uma frase curta.", icon: "star", steps: [{ title: "Etapa" }] });
+  for (const [shape, { max }] of Object.entries(INFOGRAPHIC_SHAPES)) {
+    for (const n of [shape === "trilhas" ? 1 : 2, max]) {
+      const r = buildHTML({ slides: [{ layout: "infographic", shape, title: "x", center: { title: "Centro" }, items: Array.from({ length: n }, (_, i) => item(i)) }] });
+      assert.deepEqual(r.warnings.filter((w) => /infográfico/.test(w)), [], `${shape} ${n}`);
+      assert.match(r.html, new RegExp(`ig-${shape}`));
+    }
+    const muitos = buildHTML({ slides: [{ layout: "infographic", shape, items: Array.from({ length: max + 2 }, (_, i) => item(i)) }] });
+    assert.ok(muitos.warnings.some((w) => new RegExp(`infográfico ${shape}: ${max + 2} itens, cabem até ${max}`).test(w)), shape);
+  }
+  const lum = (h) => { const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  for (const [theme, palette] of [["sinal"], ["prata"], ["noite"], ["prata", "rubi"], ["prata", "tangerina"], ["rabisco", "esmeralda"]]) {
+    const t = resolveTheme(theme, palette), cols = itemColors(t, 6);
+    for (const c of cols) assert.ok(ratio(c, t.colors.paper) >= 3, `${theme}/${palette}: #${c} com letra clara (${ratio(c, t.colors.paper).toFixed(2)})`);
+    assert.ok(new Set(cols).size >= 4, `${theme}/${palette}: cores diferentes para os itens (${cols})`);
+  }
+});

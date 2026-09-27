@@ -297,6 +297,25 @@ test("studio", async (t) => {
     await p.click("#btn-del-slide"); await settle(500);
   });
 
+  await t.test("Inserir → Infográfico: desenha; trocar a forma e adicionar item pelo formulário salva no deck", async () => {
+    await tab("inserir");
+    await p.click("#btn-add-infographic"); await settle(1200);
+    const i = (await deck()).slides.findIndex((s) => s.layout === "infographic");
+    assert.ok(i >= 0, "slide inserido");
+    assert.ok(saved().slides[i].items.length >= 2, "salvo com os itens de exemplo");
+    await p.waitForSelector("#rendered-slide-container .ig-stage.ig-arco .ig-box");
+    await p.selectOption(`${form} select.form-control >> nth=0`, "metro"); await settle(1200);
+    await p.waitForSelector("#rendered-slide-container .ig-stage.ig-metro");
+    assert.equal(saved().slides[i].shape, "metro");
+    const n = saved().slides[i].items.length;
+    await p.click(`${form} button:has-text("Adicionar item")`); await settle(1200);
+    assert.equal(saved().slides[i].items.length, n + 1, "item novo no deck");
+    assert.equal(await p.locator("#rendered-slide-container .ig-layer").count(), n + 1, "e no desenho");
+    await tab("inicio");
+    await go((s) => s.layout === "infographic");
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
   await t.test("lista: adicionar, reordenar e remover cartões", async () => {
     const i = await go("cards");
     const [a, b] = (await deck()).slides[i].items.map((c) => c.title);

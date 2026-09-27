@@ -2,6 +2,7 @@
 export const LAYOUT_INFO = {
   decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
   science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
+  infographic: ["Infográfico", "Arco, ramos, lados, trilhas ou metrô: de 2 a 8 itens coloridos em volta de um centro"],
   diagram: ["Diagrama", "Fluxograma, sequência, estados, UML, jornada, mapa mental (Mermaid) nas cores do tema"],
   scenography: ["Texto no cenário", "13 composições (palco, terminal, café, embarque, pregão, cinema, revista…), sem animação"],
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
@@ -41,6 +42,7 @@ export const LAYOUT_INFO = {
 
 export const LAYOUT_SAMPLES = {
   decisionlab: {layout:"decisionlab", title:"A revisão melhora o resultado?", lab:{volume:10000,errorRate:2,reviewRate:100,catchRate:60,introducedRate:0.2,seconds:30}},
+  infographic: { layout: "infographic", shape: "arco", title: "Os ==desafios== do projeto", center: { title: "Desafios" }, items: [{ title: "Acesso", text: "Pedido pela Bridge" }, { title: "Dados", text: "Mockados no experimento" }, { title: "Segurança", text: "Chaves no Key Vault" }, { title: "Infra", text: "Namespace e firewall" }] },
   diagram: { layout: "diagram", kicker: "Processo", title: "Da ideia à ==produção==", mermaid: "flowchart LR\n  A([:lightbulb: Ideia]):::hi --> B{Vale testar?}\n  B -->|sim| C[:flask-conical: Experimento]\n  B -.->|não| X[Arquivar]:::vazado\n  C ==> D[:rocket: Produção]:::em" },
   science: {layout:"science", title:"Uma onda, muitas perspectivas", equations:[{label:"A função",latex:"f(x) = \\sin(x)"},{label:"A derivada",latex:"f\\prime(x) = \\cos(x)"}], plot:{preset:"wave"}},
   scenography: {layout:"scenography", scene:"stage", title:"ALÉM DO\nÓBVIO", kicker:"UMA NOVA PERSPECTIVA", subtitle:"Ideias que ocupam espaço.", tone:"dark", deco:"none"},
