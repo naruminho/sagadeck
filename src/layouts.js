@@ -445,7 +445,7 @@ export const LAYOUTS = {
       try { icons[name] = iconSVG(name, { size: 40, stroke: 2 }); } catch { return m; }
       return `<i class=dgi-${name}></i>`; // sem aspas: não briga com as aspas do Mermaid
     });
-    return `<div class="L-diagram${s.caption ? " has-caption" : ""}">${head(s)}<div class="dg-box e" style="--d:2;" data-dg-icons="${esc(JSON.stringify(icons))}"><pre class="dg-src" hidden>${esc(code)}</pre></div>${s.caption ? text(s.caption, "small", { class: "dg-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-diagram${s.caption ? " has-caption" : ""}">${head(s)}<div class="dg-box e" style="--d:2;"${s.autoDirection === false ? " data-dg-auto=\"0\"" : ""} data-dg-icons="${esc(JSON.stringify(icons))}"><pre class="dg-src" hidden>${esc(code)}</pre></div>${s.caption ? text(s.caption, "small", { class: "dg-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   science(s, ctx) {

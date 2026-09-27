@@ -41,31 +41,39 @@ async function montar(browser, theme, slides, palette) {
   return { p, errors };
 }
 
-test("desenhado com a paleta, compacto e com ênfase só onde pediu", { timeout: 120000 }, async (t) => {
+// matiz (0-360), saturação e luminosidade de "rgb(r, g, b)"
+const HSL = `(c) => { const [r, g, b] = c.match(/[\\d.]+/g).slice(0, 3).map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+  const h = !d ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: d ? d / (1 - Math.abs(2 * l - 1)) : 0, l }; }`;
+const perto = (a, b, tol = 14) => { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d) <= tol; };
+
+test("desenhado com a paleta: família do destaque, ênfase num tom mais forte, compacto", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
   try {
     const { p, errors } = await montar(browser, "sinal", [{ layout: "diagram", title: "Fluxo", mermaid: FLUXO }]);
-    const r = await p.evaluate(() => {
-      const slide = document.querySelector(".slide"), box = slide.querySelector(".dg-box"), svg = box.querySelector("svg");
+    const r = await p.evaluate((HSL) => {
+      const hsl = eval(HSL);
+      const slide = document.querySelector(".slide"), box = slide.querySelector(".dg-box"), svg = box.querySelector(":scope > svg");
       const cs = getComputedStyle(slide), b = box.getBoundingClientRect(), s = svg.getBoundingClientRect();
       const probe = document.createElement("i"); slide.append(probe);
       const rgb = (c) => { probe.style.color = c; return getComputedStyle(probe).color; };
       const shapeOf = (id) => svg.querySelector(`[id*="flowchart-${id}-"]`)?.querySelector("rect,polygon,path,circle");
-      const fill = (id) => getComputedStyle(shapeOf(id)).fill;
+      const st = (id) => getComputedStyle(shapeOf(id));
       return {
-        hi: rgb(cs.getPropertyValue("--hi")), em: rgb(cs.getPropertyValue("--em")),
-        fillA: fill("A"), fillF: fill("F"), fillC: fill("C"), strokeC: getComputedStyle(shapeOf("C")).stroke,
-        font: getComputedStyle(svg.querySelector(".nodeLabel, .label")).fontFamily, slideFont: getComputedStyle(slide.querySelector(".f-body") || slide).fontFamily,
+        hi: hsl(rgb(cs.getPropertyValue("--hi"))), em: hsl(rgb(cs.getPropertyValue("--em"))),
+        A: hsl(st("A").fill), F: hsl(st("F").fill), C: hsl(st("C").fill), strokeC: hsl(st("C").stroke),
+        font: getComputedStyle(svg.querySelector(".nodeLabel, .label")).fontFamily,
         ocupa: Math.max(s.width / b.width, s.height / b.height), dentro: s.left >= b.left - 1 && s.right <= b.right + 1 && s.top >= b.top - 1 && s.bottom <= b.bottom + 1,
         icone: !!svg.querySelector(".dgi svg"), erro: !!slide.querySelector(".dg-error"),
       };
-    });
+    }, HSL);
     assert.equal(r.erro, false);
-    assert.equal(r.fillA, r.hi, "nó :::hi preenchido com o destaque do tema");
-    assert.equal(r.fillF, r.em, "nó :::em preenchido com a cor de ênfase");
-    assert.notEqual(r.fillC, r.hi, "os outros não ficam todos preenchidos");
-    assert.equal(r.strokeC, r.hi, "contorno na cor do tema, não o roxo padrão do Mermaid");
+    assert.ok(perto(r.C.h, r.hi.h) && perto(r.strokeC.h, r.hi.h), `nós na família do destaque do tema (${JSON.stringify([r.hi, r.C, r.strokeC])})`);
+    assert.ok(r.C.l > 0.8, "preenchimento claro, não um bloco chapado");
+    assert.ok(r.strokeC.l < r.C.l - 0.25, "contorno da mesma cor, mais escuro");
+    assert.ok(perto(r.A.h, r.hi.h) && r.A.l < r.C.l - 0.05, "ênfase :::hi: o mesmo matiz num tom mais forte");
+    assert.ok(perto(r.F.h, r.em.h, 20), "ênfase :::em: o matiz da cor de ênfase do tema");
     assert.doesNotMatch(r.font, /trebuchet/i, "fonte do tema, não a do Mermaid");
     assert.ok(r.ocupa > 0.85, `compacto: o desenho ocupa a área (${r.ocupa.toFixed(2)})`);
     assert.ok(r.dentro, "e cabe nela");
@@ -74,9 +82,59 @@ test("desenhado com a paleta, compacto e com ênfase só onde pediu", { timeout:
     await p.close();
     // outra paleta: outras cores
     const b2 = await montar(browser, "sinal", [{ layout: "diagram", mermaid: FLUXO }], "floresta");
-    const fillA2 = await b2.p.evaluate(() => getComputedStyle(document.querySelector('.dg-box [id*="flowchart-A-"]').querySelector("rect,polygon,path")).fill);
-    assert.notEqual(fillA2, r.fillA);
+    const C2 = await b2.p.evaluate((HSL) => eval(HSL)(getComputedStyle(document.querySelector('.dg-box [id*="flowchart-C-"]').querySelector("rect,polygon,path")).fill), HSL);
+    assert.ok(!perto(C2.h, r.C.h), "outra paleta, outro matiz");
     await b2.p.close();
+  } finally { await browser.close(); }
+});
+
+test("grupos: cada subgraph ganha uma família (fundo claro, título e nós no mesmo matiz); nada de preto puro", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const mermaid = "flowchart LR\n  U([Usuário]):::suave\n  subgraph FE[Front-end]\n    T[Teams]\n    W[App]\n  end\n  subgraph BR[Bridge]\n    API[Gateway] --> M[Modelos]:::em\n  end\n  U --> T & W\n  T --> API\n  W --> API";
+    for (const theme of ["sinal", "noite"]) {
+      const { p, errors } = await montar(browser, theme, [{ layout: "diagram", mermaid }]);
+      const r = await p.evaluate((HSL) => {
+        const hsl = eval(HSL);
+        const svg = document.querySelector(".dg-box > svg");
+        const node = (id) => getComputedStyle(svg.querySelector(`[id*="flowchart-${id}-"]`).querySelector("rect,polygon,path"));
+        const cl = [...svg.querySelectorAll("g.cluster")].map((g) => ({ fill: hsl(getComputedStyle(g.querySelector("rect")).fill), title: hsl(getComputedStyle(g.querySelector(".cluster-label span, .cluster-label p, .cluster-label .nodeLabel")).color) }));
+        // nenhum texto ou traço em preto puro (nem branco puro no tema escuro)
+        const probe = document.createElement("i"); document.querySelector(".slide").append(probe);
+        probe.style.color = "var(--fg)"; const fg = getComputedStyle(probe).color;
+        const puros = [...new Set([...svg.querySelectorAll("text, span, p, path, line, rect")].flatMap((e) => { const c = getComputedStyle(e); return /^(span|p)$/i.test(e.tagName) ? [c.color] : [c.fill, c.stroke]; })
+          .filter((c) => c === fg || /^rgb\((0, 0, 0|255, 255, 255)\)$/.test(c)))];
+        return { T: hsl(node("T").fill), W: hsl(node("W").fill), API: hsl(node("API").fill), M: hsl(node("M").fill), U: hsl(node("U").fill), cl, puros };
+      }, HSL);
+      assert.equal(r.cl.length, 2);
+      assert.ok(perto(r.T.h, r.W.h, 2), "nós do mesmo grupo, mesma família");
+      assert.ok(!perto(r.T.h, r.API.h, 25), `grupos diferentes, famílias diferentes (${theme}: ${r.T.h} × ${r.API.h})`);
+      const dele = (c, n) => perto(c.fill.h, n.h, 8) && perto(c.title.h, n.h, 8);
+      assert.ok(r.cl.some((c) => dele(c, r.T)) && r.cl.some((c) => dele(c, r.API)), `fundo e título de cada grupo no matiz dos nós dele (${theme}: ${JSON.stringify(r)})`);
+      assert.ok(r.U.s < 0.2, ":::suave é cinza neutro");
+      assert.ok(!perto(r.M.h, r.API.h, 25), `a ênfase se destaca do grupo em que está (${theme}: ${r.M.h} × ${r.API.h})`);
+      assert.deepEqual(r.puros, [], `${theme}: nada de preto (ou branco) puro, nem a cor cheia do texto do tema`);
+      assert.deepEqual(errors, []);
+      await p.close();
+    }
+  } finally { await browser.close(); }
+});
+
+test("direção automática: um fluxo comprido escrito em pé deita para caber maior; autoDirection: false respeita o código", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const trem = "flowchart TB\n  " + Array.from({ length: 6 }, (_, i) => `N${i}[Etapa ${i + 1}]`).join(" --> ");
+    const { p, errors } = await montar(browser, "sinal", [{ layout: "diagram", mermaid: trem }, { layout: "diagram", mermaid: trem, autoDirection: false }]);
+    const r = await p.evaluate(() => [...document.querySelectorAll(".dg-box > svg")].map((svg) => {
+      const a = svg.querySelector('[id*="flowchart-N0-"]').getBoundingClientRect(), b = svg.querySelector('[id*="flowchart-N5-"]').getBoundingClientRect();
+      return { deitado: Math.abs(b.left - a.left) > Math.abs(b.top - a.top), k: +svg.parentElement.dataset.dgScale };
+    }));
+    assert.equal(r[0].deitado, true, "deitou (o slide é largo)");
+    assert.equal(r[1].deitado, false, "autoDirection: false fica em pé");
+    assert.ok(r[0].k > r[1].k, "e a letra ficou maior");
+    assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
 
