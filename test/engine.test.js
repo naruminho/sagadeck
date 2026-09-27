@@ -120,6 +120,24 @@ test("tipografia cinética normaliza batidas, limita opções e inclui resumo es
   assert.match(single, /data-kinetic-toggle[^>]*disabled/);
 });
 
+test("tipografia cinética usa título e ocupa a área inteira sem duplicar a frase", () => {
+  const out = renderSlide({ layout: "kinetic", kicker: "Uma seção", title: "Uma ideia clara", figure: { icon: "rocket" } }, 0, spec);
+  assert.match(out.html, /class="free"/);
+  assert.match(out.html, /Uma ideia clara/);
+  assert.match(out.html, /Uma seção/);
+  assert.match(out.html, /kinetic-scene/);
+  assert.doesNotMatch(out.html, /kinetic-echo|Sua frase entra em cena/);
+  const story = html({ layout: "kinetic", title: "Impulsionando a Eficiência do ==Desenvolvimento==", subtitle: "Proposta de Piloto para Assistente de Código" });
+  assert.match(story, /data-lesson-count="4"/);
+  assert.match(story, /Impulsionando a Eficiência/);
+  assert.match(story, /do <mark>Desenvolvimento<\/mark>/);
+  assert.match(story, /data-kinetic-autoplay="true"/);
+  assert.match(story, /data-style="editorial"/);
+  assert.match(story, /data-position="left"/);
+  assert.match(story, /data-size="medium"/);
+  assert.doesNotMatch(story, /data-style="outline"/);
+});
+
 test("página inteira: image_prompt sem imagem vira placeholder (não some)", () => {
   const out = html({ layout: "full", image_prompt: "uma sala de controle", title: "X" });
   assert.match(out, /fig-pending/);

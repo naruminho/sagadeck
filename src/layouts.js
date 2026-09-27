@@ -14,6 +14,18 @@ const fig = (f, ctx, w, h, cls = "") => (f ? `<div class="figbox ${cls}" style="
 const build = (s, i, base = 1) => (s.build ? base + i : undefined);
 // As cenas de aula deixam todo o conteúdo no HTML: funcionam offline e têm resumo estático.
 const lessonSteps = (items, fallback) => Array.isArray(items) && items.length ? items.map((p) => typeof p === "string" ? { title: p } : (p || {})) : [fallback];
+const kineticPhrases = (value) => {
+  const words = String(value || "").match(/==[^=]+==|\*\*.*?\*\*|\*[^*]+\*|~~.*?~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\S+/g) || [];
+  const connectors = new Set(["a", "as", "de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas", "para", "por", "com", "o", "os"]);
+  const phrases = [];
+  while (words.length) {
+    let take = Math.ceil(words.length / Math.ceil(words.length / 4));
+    const last = words[take - 1]?.replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, "").toLowerCase();
+    if (take > 1 && connectors.has(last)) take--;
+    phrases.push(words.splice(0, take).join(" "));
+  }
+  return phrases;
+};
 const lessonControls = (items) => `<nav class="lesson-controls" aria-label="Etapas da explicação"><button type="button" data-lesson-prev aria-label="Etapa anterior" disabled>←</button><div class="lesson-dots">${items.map((p, i) => `<button type="button" data-lesson-go="${i}" aria-label="Etapa ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</div><button type="button" data-lesson-next aria-label="Próxima etapa" ${items.length === 1 ? "disabled" : ""}>→</button></nav>`;
 const lessonPanels = (items, output = false) => `<div class="lesson-panels" aria-live="polite" aria-atomic="true">${items.map((p, i) => `<article class="lesson-panel${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-highlight="${esc(JSON.stringify([].concat(p.highlight || []).filter(Number.isFinite)))}"><div class="lesson-counter f-label">${String(i + 1).padStart(2, "0")} / ${String(items.length).padStart(2, "0")}</div>${text(p.title || `Etapa ${i + 1}`, "h3", { class: "lesson-title", size: 48 })}${p.text ? text(p.text, "body", { class: "lesson-text", size: 32 }) : ""}${output && p.output != null ? `<div class="lesson-output"><div class="lesson-output-label f-label">Saída esperada · simulação</div><pre class="f-mono">${esc(p.output)}</pre></div>` : ""}</article>`).join("")}</div>`;
 const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i) => `<article><div class="f-label lesson-summary-number">${String(i + 1).padStart(2, "0")}</div><div><strong class="f-heading">${md(p.title || `Etapa ${i + 1}`)}</strong>${p.text ? `<p class="f-body">${md(p.text)}</p>` : ""}${p.output != null ? `<pre class="f-mono">${esc(p.output)}</pre>` : ""}</div></article>`).join("")}</div>`;
@@ -196,14 +208,20 @@ export const LAYOUTS = {
   kinetic(s, ctx) {
     const beats = Array.isArray(s.beats) && s.beats.length
       ? s.beats.map((beat) => typeof beat === "string" ? { text: beat } : beat || {})
-      : [{ text: "Sua frase entra em cena.", style: "poster", position: "center", color: "white", size: "large" }];
+      : [
+          ...kineticPhrases(s.title || s.text),
+          ...kineticPhrases(s.subtitle),
+        ].map((text, i) => ({
+          text, style: "editorial", position: "left", size: "medium",
+          ...(i === 0 && s.kicker ? { tag: s.kicker } : {}),
+        }));
+    if (!beats.length) beats.push({ text: "Uma ideia em movimento", style: "poster", position: "left", color: "white", size: "large" });
     const frames = beats.map((beat, i) => {
-      const style = ["poster", "neon", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : ["poster", "neon", "editorial", "outline", "marker"][i % 5];
-      const position = ["left", "center", "right", "top", "bottom"].includes(beat.position) ? beat.position : ["left", "center", "right", "bottom"][i % 4];
+      const style = ["poster", "neon", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : "editorial";
+      const position = ["left", "center", "right", "top", "bottom"].includes(beat.position) ? beat.position : "left";
       const color = ["white", "gold", "pink", "cyan"].includes(beat.color) ? beat.color : "white";
-      const size = ["small", "medium", "large"].includes(beat.size) ? beat.size : "large";
+      const size = ["small", "medium", "large"].includes(beat.size) ? beat.size : "medium";
       return `<article class="kinetic-frame${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-position="${position}" data-style="${style}" data-color="${color}" data-size="${size}" aria-hidden="${i !== 0}">
-        <div class="kinetic-echo" aria-hidden="true">${md(beat.text || "")}</div>
         <div class="kinetic-word" data-fit>${md(beat.text || "")}</div>
         ${beat.tag ? `<div class="kinetic-tag">${md(beat.tag)}</div>` : ""}
       </article>`;

@@ -319,7 +319,7 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
   if (!browser) return;
   const deck = tempDeck(), file = path.join(deck.dir, "kinetic.html");
   fs.writeFileSync(file, buildHTML({ title: "Tipografia", theme: "bauhaus", motion: "expressive", slides: [
-    { layout: "kinetic", autoplay: true, interval: 450, beats: ["Primeira frase", "Segunda frase", "Terceira frase"] },
+    { layout: "kinetic", autoplay: true, interval: 450, figure: { icon: "rocket", size: 200 }, beats: ["Primeira frase", "Segunda frase", "Terceira frase"] },
     { layout: "section", title: "Próximo slide" },
   ] }).html);
   const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
@@ -332,9 +332,12 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
     await t.test("ocupa o palco todo, percorre frases e pausa automaticamente no fim", async () => {
       const bounds = await page.locator(".L-kinetic").boundingBox();
       assert.deepEqual({ x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) }, { x: 0, y: 0, width: 1280, height: 720 });
-      assert.match(await frame(0).innerText(), /Primeira frase/);
+      assert.equal(await page.locator(".slide.current").getAttribute("data-shrink"), null, "composição full-bleed não deve ser reduzida");
+      const iconWidth = await page.locator(".L-kinetic .fig-icon svg").evaluate((icon) => icon.getBoundingClientRect().width);
+      assert.ok(iconWidth < bounds.width * 0.6, "ícone de fundo mantém proporção e não ocupa o slide inteiro");
+      assert.match(await frame(0).innerText(), /Primeira frase/i);
       await waitForStep(1);
-      assert.match(await frame(1).innerText(), /Segunda frase/);
+      assert.match(await frame(1).innerText(), /Segunda frase/i);
       await waitForStep(2);
       assert.equal(await page.locator(".L-kinetic [data-kinetic-toggle]").textContent(), "Reproduzir");
     });
@@ -364,7 +367,7 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
       assert.equal(await page.locator(".L-kinetic .kinetic-controls").isVisible(), false);
       assert.equal(await page.locator(".L-kinetic .kinetic-sequence").isVisible(), false);
       assert.equal(await page.locator(".L-kinetic .kinetic-summary").isVisible(), true);
-      assert.match(await page.locator(".L-kinetic .kinetic-summary").innerText(), /Primeira frase[\s\S]*Segunda frase[\s\S]*Terceira frase/);
+      assert.match(await page.locator(".L-kinetic .kinetic-summary").innerText(), /Primeira frase[\s\S]*Segunda frase[\s\S]*Terceira frase/i);
     });
 
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));

@@ -163,7 +163,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" || layout === "kinetic" ? "free" : "safe";
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   const total = spec.slides?.length || i + 1;

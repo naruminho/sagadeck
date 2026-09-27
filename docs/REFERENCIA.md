@@ -147,10 +147,15 @@ e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hots
 
 O layout `kinetic` combina uma figura de fundo com frases curtas que entram em sequência, podendo variar
 estilo, posição, cor e escala em cada batida. No Studio, adicione a cena e edite cada frase; a sequência
-avança pelos botões ou automaticamente. `autoplay` é `true` por padrão e `interval` define o tempo em
-milissegundos (450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou
-ao chegar à última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite
-iniciar manualmente. Para uma frase estática, use `autoplay: false`.
+interativa roda em **Apresentar** e avança pelos botões ou automaticamente. A prévia no editor mostra
+apenas o primeiro quadro. Ao trocar outro layout para `kinetic`, o SagaDeck reaproveita o título ou os
+itens existentes como frases e mantém a figura do slide. Sem título, frase ou itens, começa com
+“Uma ideia em movimento”.
+
+`autoplay` é `true` por padrão para duas ou mais frases e `interval` define o tempo em milissegundos
+(450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou ao chegar à
+última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite iniciar
+manualmente. Para uma frase estática, use `autoplay: false`.
 
 Os estilos disponíveis são `poster`, `neon`, `editorial`, `outline` e `marker`; posições: `left`, `center`,
 `right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.

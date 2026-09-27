@@ -118,6 +118,30 @@ test("studio", async (t) => {
     assert.equal((await deck()).slides[i].layout, "statement");
   });
 
+  await t.test("trocar uma capa para tipografia cinética leva o título e a figura", async () => {
+    const i = await go("cover");
+    const before = (await deck()).slides[i];
+    let changed = false;
+    try {
+      await p.click("#btn-layout-gallery");
+      await p.click('.layout-card[data-layout="kinetic"]'); changed = true; await settle();
+      const kinetic = saved().slides[i];
+      assert.equal(kinetic.layout, "kinetic");
+      assert.deepEqual(kinetic.beats, [
+        { text: "Título da ==capa==", tag: "Suíte de testes" },
+        { text: "Subtítulo" },
+      ]);
+      assert.deepEqual(kinetic.figure, before.figure);
+      assert.match(await p.locator("#rendered-slide-container").innerText(), /Título da capa/i);
+      assert.match(await p.textContent(form), /Frases da sequência/);
+    } finally {
+      if (changed) {
+        await p.click("#btn-layout-gallery");
+        await p.click('.layout-card[data-layout="cover"]'); await settle();
+      }
+    }
+  });
+
   await t.test("codewalk infere linguagem do arquivo e permite uma escolha manual", async () => {
     const i = await go("statement");
     await p.click("#btn-layout-gallery");

@@ -2108,11 +2108,36 @@
 
   // Ao trocar de layout, o conteúdo em lista (cartões, etapas, eventos, níveis…) vai junto
   const LIST_KEY = { cards: "items", bento: "tiles", stats: "stats", steps: "steps", funnel: "stages", pyramid: "levels", list: "items",
-    agenda: "items", timeline: "events", matrix: "cells", question: "options", poll: "options", split: "bullets", statement: "lines", references: "items", end: "contacts" };
+    agenda: "items", timeline: "events", matrix: "cells", question: "options", poll: "options", split: "bullets", statement: "lines", references: "items", end: "contacts", kinetic: "beats" };
   const SOURCE_KEYS = ["items", "tiles", "stats", "kpis", "steps", "process", "flow", "stages", "levels", "events", "cells", "options", "bullets", "lines", "contacts"];
+  function kineticPhrases(value) {
+    const words = String(value || "").match(/==[^=]+==|\*\*.*?\*\*|\*[^*]+\*|~~.*?~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\S+/g) || [];
+    const connectors = new Set(["a", "as", "de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas", "para", "por", "com", "o", "os"]);
+    const phrases = [];
+    while (words.length) {
+      let take = Math.ceil(words.length / Math.ceil(words.length / 4));
+      const last = words[take - 1]?.replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, "").toLowerCase();
+      if (take > 1 && connectors.has(last)) take--;
+      phrases.push(words.splice(0, take).join(" "));
+    }
+    return phrases;
+  }
   function carryContent(slide, to) {
     const target = LIST_KEY[to];
     if (!target || (Array.isArray(slide[target]) && slide[target].length)) return;
+    if (to === "kinetic") {
+      const source = SOURCE_KEYS.find((key) => Array.isArray(slide[key]) && slide[key].length);
+      if (source) {
+        slide.beats = slide[source].map((item) => {
+          if (typeof item !== "object" || item == null) return { text: String(item ?? "") };
+          return { text: item.title ?? item.label ?? item.text ?? item.name ?? "", ...(item.text && item.title ? { tag: item.text } : {}) };
+        });
+      } else {
+        const phrases = [...kineticPhrases(slide.title || slide.text), ...kineticPhrases(slide.subtitle)];
+        if (phrases.length) slide.beats = phrases.map((text, i) => ({ text, ...(i === 0 && slide.kicker ? { tag: slide.kicker } : {}) }));
+      }
+      return;
+    }
     const srcKey = SOURCE_KEYS.find((k) => Array.isArray(slide[k]) && slide[k].length);
     if (!srcKey) return;
     const entries = slide[srcKey].map((x) => {
