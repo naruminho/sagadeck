@@ -224,32 +224,77 @@
     $(".api-explore-json", box).onclick = () => exploreJSON(r.body);
     if (r.jwt && r.jwt.exp) countdown(root, r.jwt.exp);
     if (r.jwt && r.jwt.last4) { meta.token = { last4: r.jwt.last4, exp: r.jwt.exp || null, slide: slideNo(root) }; persist(); }
+    LAST = { body: r.body, slide: slideNo(root) };
   }
 
-  // ---------- painel Variáveis: tudo o que está valendo agora, num lugar só ----------
-  // Ambiente (vars e o NOME dos segredos), o token (nunca o valor: •••• + 4 finais + validade) e o que cada slide
-  // guardou com save:, dizendo de qual slide veio. "Limpar" zera o que os slides guardaram.
+  // ---------- painel Variáveis: tudo o que está valendo agora, num lugar só (como o inspect/watch de um depurador) ----------
+  // Ambiente: variáveis (editáveis) e protegidas (só o nome e ••••; o olhinho mostra por alguns segundos). Token: nunca o
+  // valor (•••• + 4 finais + validade). Guardadas pelos slides (save:), dizendo de qual slide veio; clique para inspecionar.
+  // Observar: expressões que ficam à vista ({{nome}} ou $.caminho na última resposta). Rodapé: onde o arquivo está salvo.
+  const WKEY = "sagadeck-api-watch:" + deckId;
+  const watches = (() => { try { return JSON.parse(localStorage.getItem(WKEY) || "[]"); } catch { return []; } })();
+  const saveWatches = () => { try { localStorage.setItem(WKEY, JSON.stringify(watches)); } catch {} };
+  const EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+  const DEL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  let LAST = null; // última resposta (para $.caminho em Observar)
+  function watchValue(expr) {
+    const m = /^\{\{\s*([\w.]+)\s*\}\}$/.exec(expr);
+    if (m) { const v = vars()[m[1]]; return v == null ? "(não existe)" : v; }
+    if (/^\$/.test(expr)) { if (!LAST) return "(nenhuma resposta ainda)"; const v = C.get(LAST.body, expr); return v == null ? `(não existe na resposta do slide ${LAST.slide})` : v; }
+    return "(use {{nome}} ou $.caminho)";
+  }
   function varsPanel(root) {
     const old = $(".api-vars-panel", root);
     if (old) { clearInterval(old._tick); old.remove(); return; }
     const p = document.createElement("div");
     p.className = "api-vars-panel";
-    const row = (k, v, from) => `<div class="av-row"><code>{{${esc(k)}}}</code><span class="av-v">${esc(String(typeof v === "object" ? JSON.stringify(v) : v).slice(0, 80))}</span>${from ? `<small>slide ${esc(from)}</small>` : ""}</div>`;
+    const shown = {}; // protegidas reveladas agora: nome -> valor (some sozinho)
+    const fmt = (v) => esc(String(v != null && typeof v === "object" ? JSON.stringify(v) : v).slice(0, 90));
+    const row = (k, v, extra = "") => `<div class="av-row"><code>{{${esc(k)}}}</code><span class="av-v">${fmt(v)}</span>${extra}</div>`;
+    const msg = (t) => { const e = $(".av-msg", p); if (e) e.textContent = t || ""; };
+    const act = async (path, body) => {
+      try { msg(path.endsWith("set") && body.protected ? "Cifrando e salvando…" : ""); const st = await call(path, body); STATE = Object.assign({}, STATE, st); roots.forEach(paintCode); paint(); }
+      catch (e) { msg(e.message); }
+    };
     const paint = () => {
       const env = (STATE.envs || []).find((e) => e.name === STATE.current) || {};
-      const envRows = Object.entries(env.vars || {}).map(([k, v]) => row(k, v)).join("") + (env.secrets || []).map((k) => row(`secret.${k}`, "•••• (segredo: fica na sua máquina)")).join("");
+      const own = !env.builtin;
+      const del = (k) => own ? `<button type="button" class="av-ic" data-var-del="${esc(k)}" title="Apagar">${DEL}</button>` : "";
+      const envRows = Object.entries(env.vars || {}).map(([k, v]) => row(k, v, del(k))).join("")
+        + (env.secrets || []).map((k) => row(`secret.${k}`, k in shown ? shown[k] : "•••• protegida",
+          `<button type="button" class="av-ic" data-var-eye="${esc(k)}" title="Mostrar por 15 segundos">${EYE}</button>${del(k)}`)).join("");
       const t = meta.token, left = t && t.exp ? Math.max(0, Math.round(t.exp - Date.now() / 1000)) : null;
       const tok = t ? `<div class="av-row"><code>token</code><span class="av-v">••••${esc(t.last4)} ${left == null ? "" : left ? `expira em ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` : "expirou"}</span>${t.slide ? `<small>slide ${esc(t.slide)}</small>` : ""}</div>`
         : `<div class="av-row av-empty">${env.token ? "pedido sozinho ao executar (token do ambiente)" : "nenhum token ainda"}</div>`;
       const mine = Object.keys(saved);
-      p.innerHTML = `<div class="av-sec"><b>Ambiente ${esc(String(STATE.current || "").toUpperCase())}</b>${envRows || '<div class="av-row av-empty">sem variáveis</div>'}</div>`
+      const form = own ? `<div class="av-form"><input data-var-name placeholder="nome (ex.: modelo)" aria-label="Nome da variável"><input data-var-value placeholder="valor" aria-label="Valor"><label title="Protegida: não aparece na tela (só pelo olhinho) e é gravada cifrada"><input type="checkbox" data-var-protected> protegida</label><button type="button" data-var-add>Adicionar</button></div>`
+        : `<div class="av-row av-empty">${esc(String(STATE.current || "").toUpperCase())} é um ambiente de exemplo: para guardar variáveis, crie um ambiente seu em Ambientes.</div>`;
+      p.innerHTML = `<div class="av-sec"><b>Ambiente ${esc(String(STATE.current || "").toUpperCase())}</b>${envRows || '<div class="av-row av-empty">sem variáveis</div>'}${form}</div>`
         + `<div class="av-sec"><b>Token</b>${tok}</div>`
-        + `<div class="av-sec"><b>Guardadas pelos slides</b>${mine.length ? mine.map((k) => row(k, saved[k], meta.from[k])).join("") : '<div class="av-row av-empty">nenhuma ainda (use save: num slide)</div>'}</div>`
-        + `<button type="button" class="av-clear" data-vars-clear>Limpar o que os slides guardaram</button>`;
-      $("[data-vars-clear]", p).onclick = () => { Object.keys(saved).forEach((k) => delete saved[k]); meta.from = {}; delete meta.token; persist(); roots.forEach(paintCode); paint(); };
+        + `<div class="av-sec"><b>Guardadas pelos slides</b>${mine.length ? mine.map((k) => row(k, saved[k], `${meta.from[k] ? `<small>slide ${esc(meta.from[k])}</small>` : ""}<button type="button" class="av-ic" data-var-inspect="${esc(k)}" title="Inspecionar">{ }</button>`)).join("") : '<div class="av-row av-empty">nenhuma ainda (use save: num slide)</div>'}`
+        + (mine.length ? `<button type="button" class="av-clear" data-vars-clear>Limpar o que os slides guardaram</button>` : "") + `</div>`
+        + `<div class="av-sec av-watch"><b>Observar</b>${watches.map((w, i) => `<div class="av-row"><code>${esc(w)}</code><span class="av-v">${fmt(watchValue(w))}</span><button type="button" class="av-ic" data-watch-del="${i}" title="Parar de observar">${DEL}</button></div>`).join("")}`
+        + `<div class="av-form"><input data-watch-expr placeholder="{{nome}} ou $.caminho da última resposta" aria-label="Expressão para observar"><button type="button" data-watch-add>Observar</button></div></div>`
+        + `<div class="av-foot"><span>Salvo em <code>${esc(STATE.file || "~/.sagadeck/ambientes.yaml")}</code>${STATE.protection === "dpapi" ? " (protegidas cifradas: só o seu usuário do Windows lê)" : ""}</span><button type="button" data-vars-folder>Abrir a pasta</button></div>`
+        + `<div class="av-msg" role="status"></div>`;
+      const on = (sel, fn) => $$(sel, p).forEach((b) => { b.onclick = () => fn(b); });
+      on("[data-var-add]", () => { const name = $("[data-var-name]", p).value.trim(), value = $("[data-var-value]", p).value; if (!name) return msg("Dê um nome para a variável."); act("api/http/vars/set", { name, value, protected: $("[data-var-protected]", p).checked }); });
+      on("[data-var-del]", (b) => act("api/http/vars/delete", { name: b.dataset.varDel }));
+      on("[data-var-eye]", async (b) => {
+        const k = b.dataset.varEye;
+        if (k in shown) { delete shown[k]; return paint(); }
+        try { shown[k] = (await call("api/http/vars/reveal", { name: k })).value; paint(); setTimeout(() => { delete shown[k]; if (p.isConnected) paint(); }, 15000); } catch (e) { msg(e.message); }
+      });
+      on("[data-var-inspect]", (b) => exploreJSON(saved[b.dataset.varInspect]));
+      on("[data-vars-clear]", () => { Object.keys(saved).forEach((k) => delete saved[k]); meta.from = {}; delete meta.token; persist(); roots.forEach(paintCode); paint(); });
+      on("[data-watch-add]", () => { const e = $("[data-watch-expr]", p).value.trim(); if (e && !watches.includes(e)) { watches.push(e); saveWatches(); } paint(); });
+      on("[data-watch-del]", (b) => { watches.splice(Number(b.dataset.watchDel), 1); saveWatches(); paint(); });
+      on("[data-vars-folder]", async () => { try { const r = await call("api/http/vars/folder", {}); msg(`Pasta: ${r.dir}`); } catch (e) { msg(e.message); } });
+      // digitar nos campos não avança a apresentação
+      $$("input", p).forEach((i) => i.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") ($("[data-var-add]", i.closest(".av-form")) || $("[data-watch-add]", i.closest(".av-form")))?.click(); }));
     };
     paint();
-    p._tick = setInterval(() => { if (!p.isConnected) clearInterval(p._tick); else if (meta.token && meta.token.exp) paint(); }, 1000);
+    p._tick = setInterval(() => { if (!p.isConnected) return clearInterval(p._tick); if (meta.token && meta.token.exp && !p.contains(document.activeElement)) paint(); }, 1000);
     $(".api-bar", root).appendChild(p);
   }
 

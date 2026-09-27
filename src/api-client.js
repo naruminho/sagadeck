@@ -21,11 +21,15 @@ import https from "node:https";
 import YAML from "yaml";
 import "./runtime/api-core.js";
 import { connectWs } from "./ws.js";
+import { protect, unprotect, unprotectAll, PROTECTION } from "./protect.js";
 
 const C = globalThis.SagadeckApiCore;
 
-export function defaultEnvFile(env = process.env) {
-  return env.SAGADECK_AMBIENTES || path.join(os.homedir(), ".sagadeck", "ambientes.yaml");
+// As variáveis e segredos dos slides de API moram FORA das apresentações: ~/.sagadeck/ambientes.yaml (no Windows,
+// C:\Users\<você>\.sagadeck\ambientes.yaml) ou SAGADECK_AMBIENTES. Mandar um deck para alguém nunca leva segredo
+// junto; as variáveis protegidas ainda vão cifradas (src/protect.js). O painel Variáveis mostra esse caminho.
+export function defaultEnvFile(env = process.env, home = os.homedir()) {
+  return env.SAGADECK_AMBIENTES || path.join(home, ".sagadeck", "ambientes.yaml");
 }
 
 const MIME = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", tif: "image/tiff", tiff: "image/tiff",
@@ -122,6 +126,9 @@ export class ApiEnvironments {
     try { data = YAML.parse(fs.readFileSync(this.file, "utf8")) || {}; }
     catch (e) { throw new ApiError(`${this.file}: YAML inválido: ${e.message}`, "config"); }
     const envs = data.environments && typeof data.environments === "object" ? data.environments : {};
+    // segredos cifrados (dpapi:…): decifra todos de uma vez (um PowerShell só)
+    try { unprotectAll(Object.values(envs).flatMap((e) => Object.values((e && e.secrets) || {}))); }
+    catch (e) { throw new ApiError(`${this.file}: ${e.message}`, "config"); }
     return { current: data.current || null, environments: envs };
   }
 
@@ -144,11 +151,11 @@ export class ApiEnvironments {
     let data, error = null;
     try { data = this.load(); } catch (e) { data = { environments: { ...this.builtin }, own: [] }; error = e.message; }
     return {
-      file: this.file, exists: fs.existsSync(this.file), error,
+      file: this.file, exists: fs.existsSync(this.file), error, protection: PROTECTION,
       current: this.currentName(data),
       envs: Object.entries(data.environments).map(([name, e]) => ({
         name, kind: C.envKind(name), vars: (e && e.vars) || {}, token: !!(e && e.token && e.token.url),
-        secrets: Object.keys((e && e.secrets) || {}), // só os nomes; o valor nunca sai do Node
+        secrets: Object.keys((e && e.secrets) || {}), // só os nomes; o valor nunca sai do Node (a não ser pelo olhinho: reveal)
         ...(data.own.includes(name) ? {} : { builtin: true, builtinLabel: e.label || "ambiente local" }),
       })),
     };
@@ -168,6 +175,55 @@ export class ApiEnvironments {
     return this.state();
   }
 
+  // ---- variáveis pelo painel: criar/editar (normal ou protegida), revelar (olhinho) e apagar ----
+  // O arquivo é editado como documento YAML (comentários da pessoa ficam) e gravado de forma atômica.
+  editFile(fn) {
+    let doc;
+    if (fs.existsSync(this.file)) {
+      doc = YAML.parseDocument(fs.readFileSync(this.file, "utf8"));
+      if (doc.errors.length) throw new ApiError(`${this.file}: YAML inválido: ${doc.errors[0].message}`, "config");
+    } else doc = new YAML.Document({ current: null, environments: {} });
+    fn(doc);
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.tmp-${process.pid}`;
+    fs.writeFileSync(tmp, String(doc), { encoding: "utf8", mode: 0o600 });
+    fs.renameSync(tmp, this.file);
+  }
+
+  targetEnv(envName) {
+    const data = this.load();
+    const n = envName || this.currentName(data) || "dev";
+    if (data.environments[n] && !data.own.includes(n)) throw new ApiError(`O ambiente ${n.toUpperCase()} é de exemplo (embutido) e não é gravado. Crie um ambiente seu (ex.: dev) para guardar variáveis.`, "config");
+    return n;
+  }
+
+  setVar(name, value, { protected: prot = false, env: envName } = {}) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(name || ""))) throw new ApiError(`Nome de variável inválido: "${name}". Use letras, números e _ (ex.: path_id).`, "config");
+    const n = this.targetEnv(envName);
+    this.editFile((doc) => {
+      if (!doc.get("current")) doc.set("current", n);
+      doc.setIn(["environments", n, prot ? "secrets" : "vars", name], prot ? protect(String(value)) : value);
+      if (doc.hasIn(["environments", n, prot ? "vars" : "secrets", name])) doc.deleteIn(["environments", n, prot ? "vars" : "secrets", name]);
+    });
+    return this.state();
+  }
+
+  reveal(name, envName) {
+    const e = this.env(envName);
+    if (e.vars && name in e.vars) return String(e.vars[name]);
+    const v = this.secretVars(e)["secret." + name];
+    if (v == null) throw new ApiError(`A variável "${name}" não existe no ambiente ${e.name}.`, "config");
+    return v;
+  }
+
+  deleteVar(name, envName) {
+    const n = this.targetEnv(envName);
+    this.editFile((doc) => {
+      for (const k of ["vars", "secrets"]) if (doc.hasIn(["environments", n, k, name])) doc.deleteIn(["environments", n, k, name]);
+    });
+    return this.state();
+  }
+
   env(name) {
     const data = this.load();
     const n = name || this.currentName(data);
@@ -181,7 +237,7 @@ export class ApiEnvironments {
   secretVars(env) {
     const out = {};
     for (const [k, v] of Object.entries(env.secrets || {})) {
-      const val = v && typeof v === "object" ? process.env[v.env] : v;
+      const val = v && typeof v === "object" ? process.env[v.env] : unprotect(v);
       if (val != null) out["secret." + k] = String(val);
     }
     return out;
