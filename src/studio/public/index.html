@@ -17,6 +17,7 @@
       document.documentElement.dataset.theme = dark ? "dark" : "light";
     })();
   </script>
+  <link rel="stylesheet" href="katex.css">
 </head>
 <body class="studio-next">
   <!-- ======================================================================
@@ -79,7 +80,7 @@
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-add-slide" class="rbtn rbtn-lg" title="Novo slide depois deste"><i class="ic" data-ic="plus"></i><span>Novo slide</span></button>
-          <button id="btn-scenes" class="rbtn rbtn-lg scene-launch" title="Inserir uma cena pronta e editável"><i class="ic" data-ic="clapperboard"></i><span>Cenas</span><span class="new-dot" aria-label="Novo"></span></button>
+          <button id="btn-scenes" class="rbtn rbtn-lg scene-launch" title="Adicionar um novo slide a partir de um exemplo pronto"><i class="ic" data-ic="clapperboard"></i><span>Modelos</span><span class="new-dot" aria-label="Novo"></span></button>
           <div class="rstack">
             <button id="btn-dup-slide" class="rbtn" title="Duplicar este slide"><i class="ic" data-ic="copy"></i><span>Duplicar</span></button>
             <button id="btn-del-slide" class="rbtn" title="Excluir este slide"><i class="ic" data-ic="trash-2"></i><span>Excluir</span></button>
@@ -92,7 +93,7 @@
           <div class="popover-wrap">
             <button id="btn-layout-gallery" class="rbtn rbtn-lg" aria-haspopup="true" title="Trocar o layout deste slide"><i class="ic" data-ic="layout-template"></i><span>Layout <i class="ic caret" data-ic="chevron-down"></i></span></button>
             <div id="layout-popover" class="popover layout-popover">
-              <div class="popover-title">Layout do slide</div>
+              <div class="popover-title">Alterar o slide atual</div><p class="layout-help">Miniaturas ilustram o formato. Seu conteúdo é reaproveitado.</p>
               <div id="layout-picker-grid" class="layout-grid"></div>
             </div>
           </div>
@@ -145,7 +146,7 @@
         <button class="rbtn rbtn-lg" data-add-scene="spotlight"><i class="ic" data-ic="scan-eye"></i><span>Foco guiado</span></button>
         <button class="rbtn rbtn-lg" data-add-scene="image"><i class="ic" data-ic="image"></i><span>Imagem</span></button>
         <button class="rbtn rbtn-lg" data-add-scene="question"><i class="ic" data-ic="circle-help"></i><span>Quiz</span></button>
-      </div><div class="rgroup-label">Cenas interativas</div></div>
+      <button id="btn-add-science" class="rbtn rbtn-lg"><i class="ic" data-ic="chart-column"></i><span>Equações e gráficos</span></button><button id="btn-add-scenography" class="rbtn rbtn-lg"><i class="ic" data-ic="image"></i><span>Texto no cenário</span></button></div><div class="rgroup-label">Adicionar novo slide</div></div>
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-insert-icon" class="rbtn rbtn-lg" title="Biblioteca com 2.100+ ícones"><i class="ic" data-ic="shapes"></i><span>Ícone</span></button>
@@ -217,6 +218,7 @@
           <button id="btn-autofix" class="rbtn rbtn-lg" title="Corrigir sobreposições e margens deste slide">
             <i class="ic" data-ic="wand"></i><span>Corrigir layout</span><b id="fiscal-badge" class="fiscal-badge clean">0</b>
           </button>
+          <button id="btn-ai-review" class="rbtn rbtn-lg" title="A IA recebe uma imagem do slide, avalia a composição e aplica melhorias. Usa tokens."><i class="ic" data-ic="scan-eye"></i><span>Revisar com IA</span></button>
           <button id="btn-smart-tidy" class="rbtn rbtn-lg" title="Alinhar e redistribuir os elementos"><i class="ic" data-ic="layout-dashboard"></i><span>Arrumar</span></button>
         </div>
         <div class="rgroup-label">Layout</div>
@@ -436,10 +438,10 @@
   <!-- BUSCA DE COMANDOS -->
   <div id="scene-modal" class="modal-dialog-overlay hidden">
     <div class="modal-dialog-box scene-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-title">
-      <div class="modal-dialog-header"><div><span class="scene-eyebrow">BIBLIOTECA DE CENAS</span><h3 id="scene-title">Qual é o próximo momento?</h3></div><button id="scene-close" class="icon-btn" aria-label="Fechar biblioteca de cenas"><i class="ic" data-ic="x"></i></button></div>
-      <div class="scene-tools"><div class="scene-filters" role="group" aria-label="Filtrar cenas"><button data-scene-filter="all" class="active">Todas</button><button data-scene-filter="impact">Impacto</button><button data-scene-filter="data">Dados e ideias</button><button data-scene-filter="teach">Ensinar e interagir</button></div><span>Prontas para editar. Feitas para surpreender.</span></div>
+      <div class="modal-dialog-header"><div><span class="scene-eyebrow">EXEMPLOS DO SAGADECK</span><h3 id="scene-title">Adicionar slide a partir de um modelo</h3></div><button id="scene-close" class="icon-btn" aria-label="Fechar modelos"><i class="ic" data-ic="x"></i></button></div>
+      <div class="scene-tools"><div class="scene-filters" role="group" aria-label="Filtrar cenas"><button data-scene-filter="all" class="active">Todas</button><button data-scene-filter="impact">Impacto</button><button data-scene-filter="data">Dados e ideias</button><button data-scene-filter="teach">Ensinar e interagir</button></div><span>Exemplos prontos: substitua os textos e imagens pelos seus.</span></div>
       <div id="scene-grid" class="scene-grid"></div>
-      <div class="scene-footer"><i class="ic" data-ic="plus"></i> A cena entra depois do slide atual.</div>
+      <div class="scene-footer"><i class="ic" data-ic="plus"></i> Adiciona um novo slide depois do atual. Não altera o slide selecionado.</div>
     </div>
   </div>
   <div id="command-palette-modal" class="palette-overlay hidden">
@@ -641,10 +643,14 @@
 
   <div id="toast-notification" class="toast hidden" role="status"></div>
 
+  <div id="visual-tools" class="visual-tools" aria-label="Edição de objetos"></div>
   <script src="fit.js"></script>
   <script src="ui-icons.js"></script>
   <script src="slide-form.js"></script>
   <script src="screenshot-editor.js"></script>
+  <script src="science.js"></script>
+  <script src="decision-lab.js"></script>
+  <script src="visual-editor.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

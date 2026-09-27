@@ -10,6 +10,8 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
   try {
     const { page, errors } = await newPage(browser, studio.url);
     const saved = () => YAML.parse(fs.readFileSync(temp.file, "utf8"));
+    // a gravação é assíncrona (no CI, lenta): espera o arquivo chegar lá em vez de um tempo fixo
+    const until = async (ok) => { for (let i = 0; i < 50 && !ok(); i++) await page.waitForTimeout(100); return ok(); };
     const n = saved().slides.length;
     const fixture = await browser.newPage({ viewport: { width: 960, height: 600 } });
     await fixture.setContent('<body style="background:#eef2f7;font:24px Arial;padding:50px"><h1>Portal de demonstração</h1><p>Selecione o workflow</p><button style="background:#7352c7;color:white;padding:20px">Executar</button></body>');
@@ -29,7 +31,7 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
     await page.click("[data-up]");
     await page.click("[data-apply]");
     await page.waitForFunction(() => !document.querySelector(".shot-dialog"));
-    await page.waitForTimeout(500);
+    await until(() => saved().slides.length === n + 1 && saved().slides[1].hotspots?.length === 2);
     let slide = saved().slides[1];
     assert.equal(saved().slides.length, n + 1);
     assert.equal(slide.layout, "spotlight");
@@ -46,8 +48,7 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
     await page.locator('.shot-mark.point').focus();
     await page.keyboard.press("ArrowRight");
     await page.click("[data-apply]");
-    await page.waitForTimeout(500);
-    assert.ok(saved().slides[1].hotspots[1].x > slide.hotspots[1].x);
+    assert.ok(await until(() => saved().slides[1].hotspots[1].x > slide.hotspots[1].x));
     const preview = await browser.newPage();
     await preview.goto(studio.url + "/preview?export=1");
     await preview.waitForFunction(() => window.sagadeck);
@@ -70,7 +71,7 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
     assert.equal(await page.locator('.shot-mark').count(), 0, 'Backspace remove a área clicada');
     await page.keyboard.press('Delete');
     await page.click('[data-apply]');
-    await page.waitForTimeout(400);
+    await until(() => !saved().slides[1].hotspots?.length);
     assert.equal(saved().slides[1].hotspots.length, 0, 'exclusão persiste no arquivo');
     assert.equal(saved().slides[1].layout, 'image');
     const base64 = png.toString("base64");
@@ -89,7 +90,7 @@ test("screenshot: criar destaques visualmente, editar, cancelar e distribuir", a
     await page.locator(".shot-dialog [data-input]").setInputFiles({ name: "estatica.png", mimeType: "image/png", buffer: png });
     await page.waitForFunction(() => document.querySelector('.shot-image-wrap img')?.naturalWidth === 960);
     await page.click("[data-apply]");
-    await page.waitForTimeout(400);
+    await until(() => saved().slides[2]?.layout === "image");
     assert.equal(saved().slides[2].layout, "image", "imagem sem destaques continua estática");
     assert.equal(saved().slides[2].fit, "contain", "não corta o screenshot");
     await page.setViewportSize({ width: 390, height: 844 });

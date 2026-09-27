@@ -20,17 +20,19 @@ Requer **Node.js 18+** e **Chrome ou Edge** instalados (o motor é JavaScript e 
 
 ## Como usar
 
+Toda apresentação mora na **biblioteca**: `SAGADECK_HOME`, ou `~/sagadeck` (no Windows, `C:Users<você>sagadeck`). Uma pasta por tópico, uma por apresentação.
+
 ```bash
-sagadeck new minha-palestra.yaml --theme=editorial
+sagadeck new "Minha palestra" --topic=Palestras --theme=editorial
 ```
 ```bash
-sagadeck all minha-palestra.yaml
+sagadeck all "~/sagadeck/Palestras/Minha palestra/Minha palestra.yaml"
 ```
 
 Comandos:
 
 ```
-sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
+sagadeck new <nome> [--topic=T] [--theme=x]  cria um deck de exemplo na biblioteca
 sagadeck studio [deck.yaml] [--port=3000]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA
 sagadeck ensaio-api [--port=3000]            exemplo de slides de API rodando contra uma API de mentira
 sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
@@ -112,7 +114,7 @@ e não insiste nesse modelo até reiniciar. Tudo funciona, só que a IA não vê
 Pronto: com o modelrelay instalado no mesmo Python, `sagadeck studio`, `new`, `napkin` e `imagens` sobem um `modelrelay serve` sozinhos enquanto rodam. Rodando o motor Node direto (`node bin/sagadeck.js`), deixe um `modelrelay serve` aberto em outro terminal.
 
 ```bash
-sagadeck new palestra.yaml --prompt "Palestra de 15 min para gerentes sobre IA com segurança. Ilustre onde fizer sentido." --slides=10
+sagadeck new palestra --prompt "Palestra de 15 min para gerentes sobre IA com segurança. Ilustre onde fizer sentido." --slides=10
 sagadeck napkin "1) cliente abre chamado 2) triagem por IA 3) analista revisa"   # --rules força as regras
 sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no YAML
 ```
@@ -216,7 +218,11 @@ Para ver funcionando sem configurar nada:
 
 - **Biblioteca → Nova → Exemplo: aula de APIs ao vivo.** Cria um deck com um slide de cada tipo, que roda no
   ambiente **ENSAIO**: uma API de mentira que o Studio sobe sozinho (sem VPN, sem chave). Apresente e clique
-  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.)
+  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.) O deck também traz um slide
+  **OpenRouter (real)** com `nvidia/nemotron-3-super-120b-a12b:free`. Para usá-lo, defina `OPENROUTER_API_KEY` no
+  processo que inicia o Studio e escolha o ambiente **OPENROUTER** no selo do slide. A chave fica fora do
+  deck; no PowerShell, por exemplo, defina `$env:OPENROUTER_API_KEY = "sua-chave"` antes de iniciar o
+  Studio e reinicie-o depois de definir a variável.
 - **No editor, Inserir → Slide de API:** os mesmos exemplos, um de cada vez, entram depois do slide atual.
   O painel **Formatar** edita o endereço, o corpo em JSON, o modo (síncrono, polling, streaming, tempo real)
   e o que guardar para os próximos slides.

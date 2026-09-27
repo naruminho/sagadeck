@@ -46,6 +46,7 @@ environments:
     #   client_secret_env: MINHA_SECRET    # nome da variável de ambiente com o segredo
     #   field: "$.access_token"
     # secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
+    # OpenRouter: o ambiente OPENROUTER embutido usa OPENROUTER_API_KEY para o exemplo gratuito NVIDIA Nemotron.
     # ca: "C:/certs/empresa.pem"           # certificado da empresa (inspeção TLS)
   hom:
     vars: { base: "https://api-hom.exemplo.com/v1" }
@@ -107,10 +108,28 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Ambiente embutido "ensaio": a API de mentira (src/api-demo.js), para o deck de exemplo rodar sem VPN e
   // sem configurar nada. Só no Studio local; sobe na primeira vez que um slide api precisa e fecha com o Studio.
   let ensaio = null;
+  function ensureOpenRouter() {
+    apiEnv.builtin.openrouter ??= {
+      label: "OpenRouter · chamada real",
+      vars: { base: "https://openrouter.ai/api/v1" },
+      secrets: { openrouter_api_key: { env: "OPENROUTER_API_KEY" } },
+    };
+  }
   function ensureEnsaio() {
-    if (opts.multiuser || opts.ensaio === false) return Promise.resolve(null);
-    ensaio ??= startMockApi().then((mock) => { apiEnv.builtin.ensaio = demoEnv(mock); return mock; })
-      .catch((e) => { console.error("[Studio] API de ensaio não subiu:", e.message); return null; });
+    if (opts.multiuser) return Promise.resolve(null);
+    if (opts.ensaio === false) {
+      ensureOpenRouter();
+      return Promise.resolve(null);
+    }
+    ensaio ??= startMockApi().then((mock) => {
+      apiEnv.builtin.ensaio = { ...demoEnv(mock), label: "API de mentira" };
+      ensureOpenRouter();
+      return mock;
+    }).catch((e) => {
+      ensureOpenRouter();
+      console.error("[Studio] API de ensaio não subiu:", e.message);
+      return null;
+    });
     return ensaio;
   }
   // O que a IA sabe do ambiente dos slides api: nome, variáveis (endereços), nomes dos segredos. Nunca valores de segredo.
@@ -260,12 +279,25 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(css);
         return;
       }
+      if (pathname === "/katex.css") {
+        res.writeHead(200, {"Content-Type":"text/css; charset=utf-8"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR,"vendor/katex.css")));return;
+      }
+      if (pathname === "/decision-lab.js") {
+        res.writeHead(200, {"Content-Type":"application/javascript"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR,"decision-lab.js"))); return;
+      }
+      if (["/science.js", "/plotly.min.js"].includes(pathname)) {
+        res.writeHead(200, {"Content-Type":"application/javascript; charset=utf-8"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/science.js" ? "science.js" : "vendor/plotly.min.js")));
+        return;
+      }
       if (pathname === "/fit.js") { // o mesmo ajuste da apresentação (src/runtime/fit.js)
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);

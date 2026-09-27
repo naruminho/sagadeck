@@ -37,6 +37,7 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
     // ?export: sem animações de entrada e sem HUD — a foto mostra o estado final de cada clique
     await page.goto(`${pathToFileURL(file).href}?export#${index + 1}`, { waitUntil: "load" });
     await page.waitForFunction(() => window.sagadeck && typeof window.sagadeck.goto === "function", null, { timeout: 10000 });
+    await page.evaluate(() => window.SagaScienceReady);
     await page.evaluate(() => document.fonts?.ready);
     const steps = await page.evaluate((i) => window.sagadeck.steps(i) || 0, index);
     const frames = [];

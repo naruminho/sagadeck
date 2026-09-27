@@ -1,0 +1,47 @@
+title: Texto no cenário e matemática
+id: cenario-e-ciencia
+theme: aurora
+motion: none
+slides:
+  - layout: scenography
+    scene: stage
+    kicker: IDEIAS QUE OCUPAM ESPAÇO
+    title: "ALÉM DO\nÓBVIO"
+    subtitle: O texto também faz parte da história.
+    caption: SAGADECK / ESTUDO 01
+    deco: none
+  - layout: scenography
+    scene: floor
+    kicker: UMA NOVA PERSPECTIVA
+    title: "NOVOS\nCAMINHOS"
+    caption: SAGADECK / ESTUDO 02
+    deco: none
+  - layout: scenography
+    scene: signs
+    kicker: PRÓXIMA PARADA
+    title: "IDEIAS\nEM CENA"
+    subtitle: Mensagens que pertencem ao lugar.
+    caption: SAGADECK / ESTUDO 03
+    deco: none
+  - layout: science
+    title: A onda e sua derivada
+    equations:
+      - label: Função
+        latex: 'f(x)=\sin(x)'
+      - label: Derivada
+        latex: 'f\prime(x)=\cos(x)'
+      - label: Identidade
+        latex: '\sin^2(x)+\cos^2(x)=1'
+    plot:
+      preset: wave
+    notes: Arraste uma área do gráfico para dar zoom. Passe o mouse para consultar os valores.
+  - layout: science
+    title: Matemática que você pode explorar
+    equations:
+      - label: Raio
+        latex: 'r=\sqrt{x^2+y^2}'
+      - label: Superfície
+        latex: 'z=\sin(r)'
+    plot:
+      preset: surface
+    notes: Arraste para girar. Use a roda do mouse para aproximar.

@@ -17,6 +17,11 @@ test("runtime", async (t) => {
   const loaded = loadSpec(deck.file);
   const cmpIdx = loaded.slides.length;
   loaded.slides.push({ layout: "compare", title: "A × B", build: true, left: { label: "Antes", value: "Herói" }, right: { label: "Depois", value: "Ré", hl: true } });
+  const splitIdx = loaded.slides.length;
+  loaded.slides.push({ layout: "split", title: "Impacto em três frentes", ratio: "1:1.5", figure: { col: [
+    { icon: "code", size: 80, color: "hi" }, { body: "Desenvolvimento lento e repetitivo.", as: "h3", size: 24, color: "fg" },
+    { icon: "bug", size: 80, color: "hi" }, { body: "Alto custo com correção de erros.", as: "h3", size: 24, color: "fg" },
+  ] } });
   const LONG = "um rótulo bem comprido que não cabe fácil";
   const side = "Numa meta-análise de **136 estudos**, previsões mecânicas foram, em média, **~10% mais precisas**.";
   const CHARTS = [
@@ -38,6 +43,44 @@ test("runtime", async (t) => {
   const slides = loadSpec(deck.file).slides;
   const idx = (layout) => slides.findIndex((s) => s.layout === layout);
   const shown = (i) => page.evaluate((i) => document.querySelectorAll(`section[data-idx="${i}"] [data-step].in`).length, i);
+
+  await t.test("títulos equilibram linhas sem hifenização automática", async () => {
+    const style = await page.evaluate(() => {
+      const title = document.querySelector("#stage > .slide .ttl");
+      const css = getComputedStyle(title);
+      return { lang: document.documentElement.lang, wordBreak: css.wordBreak, overflowWrap: css.overflowWrap, hyphens: css.hyphens, textWrap: css.textWrap };
+    });
+    assert.equal(style.lang, "pt-BR");
+    assert.equal(style.wordBreak, "normal");
+    assert.equal(style.overflowWrap, "normal");
+    assert.equal(style.hyphens, "none");
+    assert.equal(style.textWrap, "balance");
+  });
+
+  await t.test("a coluna vertical do split fica centralizada e usa as cores do tema", async () => {
+    await page.evaluate((i) => window.sagadeck.goto(i, 0, true), splitIdx);
+    const style = await page.evaluate((i) => {
+      const slide = document.querySelector(`section[data-idx="${i}"]`);
+      const panel = slide.querySelector(".sp-fig > .col");
+      const icon = panel.querySelector(".fig-icon");
+      const text = panel.querySelector(".t");
+      const p = panel.getBoundingClientRect();
+      const area = slide.querySelector(".safe").getBoundingClientRect();
+      return {
+        justify: getComputedStyle(panel).justifyContent,
+        background: getComputedStyle(panel).backgroundImage,
+        iconColor: getComputedStyle(icon).color,
+        textColor: getComputedStyle(text).color,
+        centered: Math.abs((p.top + p.bottom) / 2 - (area.top + area.bottom) / 2) < 3,
+        fontSize: parseFloat(getComputedStyle(text).fontSize),
+      };
+    }, splitIdx);
+    assert.equal(style.justify, "center");
+    assert.notEqual(style.background, "none");
+    assert.notEqual(style.iconColor, style.textColor);
+    assert.equal(style.centered, true);
+    assert.ok(style.fontSize >= 32);
+  });
 
   await t.test("build: cada clique revela exatamente um item a mais (regressão: tudo, 1º, tudo, último)", async () => {
     const i = idx("timeline");
@@ -267,6 +310,66 @@ test("cenas de aula: controles, teclado, exportação e movimento reduzido", asy
       assert.equal(await page.locator('.L-codewalk .lesson-summary').isVisible(), true);
       assert.match(await page.locator('.L-codewalk .lesson-summary').innerText(), /Faça a pergunta[\s\S]*Transforme a resposta[\s\S]*Escolha o que importa/);
     });
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
+});
+
+test("tipografia cinética: avanço manual e automático, pausa, saída e exportação", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(), file = path.join(deck.dir, "kinetic.html");
+  fs.writeFileSync(file, buildHTML({ title: "Tipografia", theme: "bauhaus", motion: "expressive", slides: [
+    { layout: "kinetic", autoplay: true, interval: 450, figure: { icon: "rocket", size: 200 }, beats: ["Primeira frase", "Segunda frase", "Terceira frase"] },
+    { layout: "section", title: "Próximo slide" },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    const frame = (i) => page.locator(`.L-kinetic [data-lesson-panel="${i}"]`);
+    const waitForStep = async (index) => page.waitForFunction((index) => document.querySelector(".L-kinetic")?.dataset.lessonIndex === String(index), index);
+
+    await t.test("ocupa o palco todo, percorre frases e pausa automaticamente no fim", async () => {
+      const bounds = await page.locator(".L-kinetic").boundingBox();
+      assert.deepEqual({ x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) }, { x: 0, y: 0, width: 1280, height: 720 });
+      assert.equal(await page.locator(".slide.current").getAttribute("data-shrink"), null, "composição full-bleed não deve ser reduzida");
+      const iconWidth = await page.locator(".L-kinetic .fig-icon svg").evaluate((icon) => icon.getBoundingClientRect().width);
+      assert.ok(iconWidth < bounds.width * 0.6, "ícone de fundo mantém proporção e não ocupa o slide inteiro");
+      assert.match(await frame(0).innerText(), /Primeira frase/i);
+      await waitForStep(1);
+      assert.match(await frame(1).innerText(), /Segunda frase/i);
+      await waitForStep(2);
+      assert.equal(await page.locator(".L-kinetic [data-kinetic-toggle]").textContent(), "Reproduzir");
+    });
+
+    await t.test("reproduzir recomeça no início; botão pausa e avanço manual funcionam", async () => {
+      const toggle = page.locator(".L-kinetic [data-kinetic-toggle]");
+      await toggle.click();
+      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), "0");
+      await toggle.click();
+      assert.equal(await toggle.textContent(), "Reproduzir");
+      await page.locator(".L-kinetic [data-lesson-next]").click();
+      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), "1");
+    });
+
+    await t.test("sair do slide limpa o avanço automático", async () => {
+      const index = await page.locator(".L-kinetic").getAttribute("data-lesson-index");
+      await page.locator(".L-kinetic [data-kinetic-toggle]").click();
+      await page.evaluate(() => window.sagadeck.goto(1, 0));
+      await page.waitForTimeout(650);
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 1);
+      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), index);
+    });
+
+    await t.test("exportação substitui a sequência interativa pelo resumo", async () => {
+      await page.goto(pathToFileURL(file).href + "?export=1");
+      await page.waitForFunction(() => window.sagadeck?.cur >= 0);
+      assert.equal(await page.locator(".L-kinetic .kinetic-controls").isVisible(), false);
+      assert.equal(await page.locator(".L-kinetic .kinetic-sequence").isVisible(), false);
+      assert.equal(await page.locator(".L-kinetic .kinetic-summary").isVisible(), true);
+      assert.match(await page.locator(".L-kinetic .kinetic-summary").innerText(), /Primeira frase[\s\S]*Segunda frase[\s\S]*Terceira frase/i);
+    });
+
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
   } finally { await browser.close(); deck.cleanup(); }
 });

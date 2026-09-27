@@ -80,6 +80,17 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       assert.match(await txt(`${s} .api-saved`), /\{\{resposta_id\}\} = r1/);
     });
 
+    await t.test("explorador abre o JSON completo e encontra um campo", async () => {
+      const s = await go(1);
+      await p.click(`${s} .api-explore-json`);
+      await p.waitForSelector('.api-json-dialog[open]');
+      await p.fill('.api-json-dialog input', '$.choices.0.message.content');
+      assert.match(await p.innerText('.api-json-tree'), /eco: o que é RAG/);
+      await p.click('.api-json-dialog [data-close]');
+      // fechar pode levar um instante (no CI, lento): espera sumir em vez de conferir na hora
+      await p.waitForSelector('.api-json-dialog', { state: "detached", timeout: 5000 });
+    });
+
     await t.test("polling: linha do tempo STARTED → RUNNING → FINISHED, cartões das etapas e o código acendendo", async () => {
       const s = await go(2);
       const seenRun = p.waitForFunction((sel) => !!document.querySelector(`${sel} [data-pane="python"] .cl.run`) && /while True/.test(document.querySelector(`${sel} [data-pane="python"] .cl.run`).textContent), s, { timeout: 15000 });

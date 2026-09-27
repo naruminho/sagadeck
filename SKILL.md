@@ -112,7 +112,7 @@ sagadeck.studio("palestra.yaml", port=3000)
 ## Decisão de Arquitetura: Mesmo Repositório vs. Repositório Separado
 
 ### Por que o Estúdio deve ficar no **mesmo repositório** (`sagadeck`):
-1. **Fonte Única da Verdade**: Os 23 layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` estilo Keynote Apple, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
+1. **Fonte Única da Verdade**: Os layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` estilo Keynote Apple, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
 2. **Zero Descompasso de Versões**: Em repositórios separados, quando o formato YAML ou os temas do SagaDeck evoluem, a interface visual quebra ou fica desatualizada até que alguém publique e atualize dependências externas.
 3. **Experiência de Uso (DX) Imediata**: O desenvolvedor ou agente clona o repositório ou roda `pip install sagadeck` / `npm install` e tem **tudo num só lugar**: linha de comando (`sagadeck build`), estúdio visual (`sagadeck studio`), servidor de agentes (`sagadeck mcp`) e fiscal (`sagadeck check`).
 4. **Leve e Modular**: A interface web foi construída com tecnologias nativas leves (Vanilla JS, CSS moderno e servidor HTTP embutido do Node.js sem frameworks pesados). Isso mantém o pacote pequeno (~1.1 MB empacotado) sem impactar o desempenho do compilador.
@@ -139,4 +139,10 @@ Para apresentações de alto impacto sem "muralhas de texto":
 - **Controle Flexível de Fontes**:
   - **Quando o usuário pedir fontes citadas**: Inclua `source: "Fonte: Nome do Relatório, Ano"` nos slides com métricas (`stats`, `number`, `chart`, `split`) e a URL completa no roteiro do apresentador (`notes:`).
   - **Quando o usuário pedir sem fontes (ou estilo clean/Apple)**: Omita o campo `source:`, mantendo o slide limpo e desobstruído.
-- **Garantia para Modelos Econômicos**: Qualquer modelo (inclusive os menores como Haiku, Flash ou GPT-4o-mini) deve sempre finalizar com o comando `sagadeck autofix <deck.yaml>`. Isso garante que o layout final fique geometricamente perfeito, sem quebra de margens e com alinhamento profissional.
+- **Garantia para Modelos Econômicos**: Qualquer modelo (inclusive os menores como Haiku, Flash ou GPT-4o-mini) deve sempre finalizar com o comando `sagadeck autofix <deck.yaml>`. Isso corrige problemas cobertos pelas regras; depois confira a renderização, porque não garante perfeição geométrica ou visual.
+
+## Recursos recentes para autoria por IA
+
+Consulte `docs/REFERENCIA.md` para os contratos atuais de `science` (KaTeX, até cinco equações, Plotly 2D/3D), `scenography` (texto integrado ao cenário, estático), `spotlight`, `codewalk` e `api`. Para criar apresentações autonomamente, a IA precisa desta referência, do briefing, do material autorizado e das imagens; acesso ao banco por si só não transmite o formato do SagaDeck. Use apenas endpoints/status reais fornecidos pela documentação interna, sem inventar detalhes. Configure credenciais no ambiente local; nunca dentro dos slides.
+
+O Studio permite inserir e arrastar elementos e revisar uma imagem do slide com IA. Ajustes manuais `visualEdits` são específicos da estrutura renderizada: remova-os ao reconstruir um slide. Sempre confira o resultado renderizado; regras geométricas não garantem qualidade visual.

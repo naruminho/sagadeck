@@ -33,6 +33,7 @@ function script(req) {
       "    items: [{ title: A }, { title: B }]", "  3:", "    layout: timeline", "    title: Linha ajustada",
       '    events: [{ when: "2020", title: X }, { when: "2024", title: Y }]', "```"].join("\n");
   }
+  if (/Analise visualmente/.test(p)) return "Revisei a imagem.\n```yaml\nslides:\n  1: {layout: cover, title: Capa revisada visualmente}\n```";
   if (/versões/.test(p)) return "Duas versões da capa.\n```yaml\nvariants:\n  slide: 1\n  options:\n    - label: Manchete\n      slide: { layout: headline, text: \"Fraude custa ==3 mi==\" }\n    - label: Número\n      slide: { layout: number, value: 3, suffix: \" mi\", label: em fraudes }\n```";
   if (/kicker novo/.test(p)) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
@@ -57,6 +58,15 @@ test("studio + IA (LLM falso)", async (t) => {
 
     await p.click('.thumb-card[data-idx="0"]');
     await p.click("#tab-btn-chat");
+
+    await t.test("botão Revisar com IA envia a imagem e salva a melhoria", async () => {
+      await p.click('[data-tab="revisar"]');
+      await p.click('#btn-ai-review');
+      await p.waitForTimeout(300); await waitAI();
+      const req = lastReq(/Analise visualmente/);
+      assert.ok(req?.hasImages, "imagem renderizada vai para o modelo");
+      assert.equal(saved().slides[0].title, "Capa revisada visualmente");
+    });
 
     await t.test("sem seletor de alcance nem 'Criar imagens': quem diz é a pessoa", async () => {
       assert.equal(await p.locator("#ai-scope-select, #ai-images-toggle").count(), 0);

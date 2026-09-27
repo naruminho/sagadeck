@@ -1,5 +1,8 @@
 // Conteúdo de exemplo de cada layout — usado na galeria de layouts do Studio (prévia no tema do deck).
 export const LAYOUT_INFO = {
+  decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
+  science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
+  scenography: ["Texto no cenário", "Palco, placas e chão em perspectiva, sem animação"],
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
   section: ["Seção", "Abre um novo ato ou capítulo"],
   statement: ["Frase de impacto", "Uma ideia em letras grandes"],
@@ -27,6 +30,7 @@ export const LAYOUT_INFO = {
   codewalk: ["Código guiado", "Explique uma linha por vez, com destaques e saída simulada"],
   api: ["API ao vivo", "Requisição que executa na hora (tipo Postman): síncrono, polling ou streaming, com código curl/Python"],
   spotlight: ["Foco guiado", "Conduza o olhar por detalhes de uma imagem ou diagrama"],
+  kinetic: ["Tipografia cinética", "Frases em sequência viram parte da cena com ritmo e estilos tipográficos que mudam"],
   video: ["Vídeo", "Cartão que abre um vídeo"],
   blocks: ["Livre (blocos)", "Monte com blocos em linhas e colunas"],
   canvas: ["Livre (posições)", "Posicione cada elemento à mão"],
@@ -35,6 +39,9 @@ export const LAYOUT_INFO = {
 };
 
 export const LAYOUT_SAMPLES = {
+  decisionlab: {layout:"decisionlab", title:"A revisão melhora o resultado?", lab:{volume:10000,errorRate:2,reviewRate:100,catchRate:60,introducedRate:0.2,seconds:30}},
+  science: {layout:"science", title:"Uma onda, muitas perspectivas", equations:[{label:"A função",latex:"f(x) = \\sin(x)"},{label:"A derivada",latex:"f\\prime(x) = \\cos(x)"}], plot:{preset:"wave"}},
+  scenography: {layout:"scenography", scene:"stage", title:"ALÉM DO\nÓBVIO", kicker:"UMA NOVA PERSPECTIVA", subtitle:"Ideias que ocupam espaço.", tone:"dark", deco:"none"},
   cover: { layout: "cover", kicker: "Evento 2026", title: "Título da ==apresentação==", subtitle: "Um subtítulo curto", author: "Seu nome", figure: { icon: "rocket", size: 320 } },
   section: { layout: "section", number: 2, kicker: "Parte dois", title: "O problema" },
   statement: { layout: "statement", kicker: "A ideia", text: "Uma frase que ==muda tudo==." },
@@ -69,6 +76,11 @@ export const LAYOUT_SAMPLES = {
     hotspots: [{ x: 4, y: 18, width: 92, height: 15, title: "O pedido", text: "O verbo GET consulta o recurso. A rota identifica a coleção de aulas." },
       { x: 4, y: 38, width: 92, height: 10, title: "A confirmação", text: "200 OK confirma o sucesso. O tempo ajuda a investigar a experiência do usuário." },
       { x: 5, y: 52, width: 78, height: 39, title: "Os dados", text: "A estrutura JSON é o contrato que o front-end precisa entender." }] },
+  kinetic: { layout: "kinetic", figure: { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080"><defs><linearGradient id="stage" x2="0" y2="1"><stop stop-color="#170e38"/><stop offset=".55" stop-color="#5a1b72"/><stop offset="1" stop-color="#f26e75"/></linearGradient><radialGradient id="spot"><stop stop-color="#ffd978" stop-opacity=".95"/><stop offset="1" stop-color="#ff7b71" stop-opacity="0"/></radialGradient></defs><path fill="url(#stage)" d="M0 0h1920v1080H0z"/><path fill="#37d9e8" opacity=".35" d="M0 0h160v1080H0zM1760 0h160v1080h-160z"/><path fill="url(#spot)" d="M500 160h920v920H500z"/><path fill="#100d24" d="M0 860h1920v220H0z"/><path fill="#111020" d="M900 430c-24-48-10-97 38-105 48-8 70 43 42 96l42 64-24 243 95 228H850l83-230-18-229 36-67z"/><circle cx="960" cy="288" r="45" fill="#161225"/><path fill="#fd5ca7" opacity=".75" d="M96 160h12v580H96zM1800 120h12v490h-12z"/></svg>' }, autoplay: true, interval: 1100,
+    beats: [{ text: "A IDEIA", style: "poster", position: "top", color: "white", size: "medium", tag: "COMEÇA PEQUENA" },
+      { text: "ACENDE", style: "neon", position: "right", color: "cyan", size: "large" },
+      { text: "E MUDA", style: "editorial", position: "bottom", color: "gold", size: "medium" },
+      { text: "O CENÁRIO", style: "outline", position: "center", color: "pink", size: "large" }] },
   api: { layout: "api", kicker: "Ao vivo", title: "Pergunte ao ==modelo==", request: { method: "POST", url: "{{base}}/chat", body: { messages: [{ role: "user", content: "Explique RAG em uma frase" }] } }, answer: "$.choices[0].message.content" },
   video: { layout: "video", title: "Assista", url: "https://example.com", label: "Assistir" },
   blocks: { layout: "blocks", title: "Blocos livres", content: [{ row: [{ lead: "Esquerda" }, { lead: "Direita" }] }] },

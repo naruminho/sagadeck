@@ -9,6 +9,8 @@ import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
 import { chart } from "./figures/charts.js";
+import { highlightCode } from "./code-highlight.js";
+import { resolveCodeLanguage } from "./code-language.js";
 
 export const SIZES = { hero: 210, number: 250, title: 128, h2: 92, h3: 56, quote: 72, lead: 46, body: 36, small: 29, label: 24, mono: 30, tiny: 22 };
 const FACE = { hero: "display", number: "display", title: "display", h2: "display", h3: "heading", quote: "quote", lead: "body", body: "body", small: "body", label: "label", mono: "mono", tiny: "label" };
@@ -62,14 +64,21 @@ export function figureHTML(el, ctx, w, h) {
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
   if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(el, el.cw || w || 1200, el.ch || h || 620)}</div>`;
   if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
-  if (el.image) return `<div${attrs(el, "fig fig-img")}><img src="${imageSrc(el.image, ctx)}" alt="${esc(el.alt || "")}" style="object-fit:${el.fit || "cover"};${el.radius ? `border-radius:${el.radius}px;` : ""}"></div>`;
+  if (el.image) {
+    const src = imageSrc(el.image, ctx);
+    if (!src) return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="Imagem não encontrada: ${esc(el.image)}"><div class="fp-in"><span class="fp-tag f-label">imagem não encontrada</span><span class="fp-text f-body">${esc(el.image)}</span></div></div>`;
+    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${el.fit || "cover"};${el.radius ? `border-radius:${el.radius}px;` : ""}"></div>`;
+  }
   return "";
 }
 
 function imageSrc(p, ctx) {
   if (/^(https?:|data:)/.test(p)) return p;
   const f = path.resolve(ctx.baseDir, p);
-  if (!fs.existsSync(f)) throw new Error(`Imagem não encontrada: ${f}`);
+  if (!fs.existsSync(f)) {
+    ctx.warnings?.push(`Imagem "${p}" não encontrada em ${ctx.baseDir}`);
+    return null;
+  }
   const ext = path.extname(f).slice(1).toLowerCase().replace("jpg", "jpeg").replace("svg", "svg+xml");
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
@@ -275,10 +284,12 @@ export function rating(e) {
 }
 
 export function code(e) {
-  const lines = String(e.code).replace(/\s+$/, "").split("\n");
+  const source = String(e.code).replace(/\s+$/, "");
+  const language = resolveCodeLanguage(e.language, e.filename);
+  const lines = language ? highlightCode(source, language) : source.split("\n").map(esc);
   const hl = new Set([].concat(e.highlight || []));
-  const body = lines.map((l, i) => `<div class="cl${hl.has(i + 1) ? " hl" : ""}"><span class="cn">${i + 1}</span><span class="cc">${esc(l) || " "}</span></div>`).join("");
-  return `<div${attrs(e, "code f-mono", `font-size:${e.size || 34}px;`)}>${body}</div>`;
+  const body = lines.map((l, i) => `<div class="cl${hl.has(i + 1) ? " hl" : ""}"><span class="cn">${i + 1}</span><span class="cc">${l || " "}</span></div>`).join("");
+  return `<div${attrs(e, "code f-mono", `font-size:${e.size || 34}px;`)}${language ? ` data-language="${esc(language)}"` : ""}>${body}</div>`;
 }
 
 export function shape(e) {

@@ -24,10 +24,16 @@ test("todos os slides do deck de ensaio funcionam contra a API de mentira, na or
   let vars = {};
   try {
     const deck = YAML.parse(fs.readFileSync(path.join(ROOT, "templates", "ensaio-api.yaml"), "utf8"));
+    const openrouter = deck.slides.find((s) => s.id === "openrouter-nemotron");
+    const inkling = openrouter;
+    assert.equal(openrouter.request.url, "{{base}}/chat/completions");
+    assert.equal(inkling.request.headers.Authorization, "Bearer {{secret.openrouter_api_key}}");
+    assert.equal(openrouter.request.body.model, "nvidia/nemotron-3-super-120b-a12b:free");
     for (const s of deck.slides.filter((x) => x.layout === "api")) {
       const r = await api.runSlide(s, { vars, deckDir: dir });
       if (s.mic) { assert.match(r.report.skipped, /microfone/); continue; }
       if (s.mode === "realtime") { assert.match(r.report.skipped, /tempo real/); continue; } // testado em api-realtime.test.js
+      if (s.id === "openrouter-nemotron") { assert.equal(s.request.body.model, "nvidia/nemotron-3-super-120b-a12b:free"); continue; } // requer chave e acesso externo
       assert.equal(r.report.ok, true, `${s.id}: ${JSON.stringify(r.report).slice(0, 400)}`);
       vars = { ...vars, ...(r.saved || {}) };
     }
@@ -52,13 +58,42 @@ test("o comando ensaio-api abre o Studio já com o deck e os ambientes do ensaio
     });
     const st = await (await fetch(`http://127.0.0.1:${port}/api/http/state`)).json();
     assert.equal(st.live, true);
-    assert.deepEqual(st.envs.map((e) => e.name), ["dev", "hom"]);
+    assert.deepEqual(st.envs.map((e) => e.name), ["dev", "hom", "openrouter"]);
+    assert.equal(st.envs.find((e) => e.name === "openrouter").builtinLabel, "OpenRouter · chamada real");
     assert.doesNotMatch(st.file, /\.sagadeck[\\/]ambientes\.yaml$/, "não usa o ambientes.yaml da pessoa");
     const deck = await (await fetch(`http://127.0.0.1:${port}/api/deck`)).json();
     assert.equal(deck.spec.title, "Ensaio: APIs de IA ao vivo");
     const r = await (await fetch(`http://127.0.0.1:${port}/api/http/send`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request: { method: "POST", url: st.envs[1].vars.base + "/sync", body: { messages: [{ role: "user", content: "oi" }] } } }) })).json();
     assert.equal(r.body.choices[0].message.content, "eco: oi");
+    // o deck fica na biblioteca (não numa pasta temporária), com o arquivo de exemplo ao lado
+    const lib = path.join(process.env.SAGADECK_HOME, "Sem tópico", "Ensaio APIs de IA ao vivo");
+    assert.ok(fs.existsSync(path.join(lib, "Ensaio APIs de IA ao vivo.yaml")), "deck do ensaio na biblioteca");
+    assert.ok(fs.existsSync(path.join(lib, "contrato.txt")));
+  } finally {
+    proc.kill();
+  }
+});
+
+test("ensaio-api reabre o deck do ensaio que já está na biblioteca, sem sobrescrever nem duplicar", { timeout: 30000 }, async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-ensaio-"));
+  const dir = path.join(home, "Sem tópico", "Ensaio APIs de IA ao vivo");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "Ensaio APIs de IA ao vivo.yaml"), YAML.stringify({ title: "Meu ensaio editado", slides: [{ layout: "cover", title: "Meu ensaio editado" }] }));
+  fs.writeFileSync(path.join(dir, "contrato.txt"), "meu contrato");
+  const port = await freePort();
+  const proc = spawn(process.execPath, [path.join(ROOT, "bin", "sagadeck.js"), "ensaio-api", `--port=${port}`], { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, SAGADECK_HOME: home } });
+  try {
+    let out = "";
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("não subiu: " + out)), 20000);
+      proc.stdout.on("data", (c) => { out += c; if (/Ensaio no Studio/.test(out)) { clearTimeout(t); resolve(); } });
+      proc.on("exit", (c) => reject(new Error(`saiu com ${c}: ${out}`)));
+    });
+    const deck = await (await fetch(`http://127.0.0.1:${port}/api/deck`)).json();
+    assert.equal(deck.spec.title, "Meu ensaio editado");
+    assert.equal(fs.readFileSync(path.join(dir, "contrato.txt"), "utf8"), "meu contrato");
+    assert.deepEqual(fs.readdirSync(path.join(home, "Sem tópico")), ["Ensaio APIs de IA ao vivo"]);
   } finally {
     proc.kill();
   }

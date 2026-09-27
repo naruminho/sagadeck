@@ -28,6 +28,32 @@ export function defaultLibraryRoot(env = process.env) {
   return path.resolve(env.SAGADECK_HOME || path.join(os.homedir(), "sagadeck"));
 }
 
+// Onde uma apresentação NOVA é gravada: sempre na biblioteca. Um caminho dentro dela é respeitado; qualquer
+// outro (pasta atual, pasta temporária, cópia do repositório) vira só o nome, em <biblioteca>/<tópico>/<nome>/<nome>.yaml.
+// Decks espalhados por fora foram o que fez .js e imagens "sumirem". unique: não sobrescreve, usa "nome (2)".
+export function newDeckPath(wanted, { root = defaultLibraryRoot(), topic = "Sem tópico", title, unique = false } = {}) {
+  root = path.resolve(root);
+  const abs = wanted ? path.resolve(root, String(wanted)) : "";
+  const rel = abs && path.relative(root, abs);
+  let dir, name, file;
+  if (rel && !rel.startsWith("..") && !path.isAbsolute(rel) && /[\\/]/.test(String(wanted))) {
+    if (/\.ya?ml$/i.test(abs)) file = abs;
+    else { dir = abs; name = path.basename(abs); }
+  } else {
+    name = safeName(wanted ? path.basename(String(wanted)).replace(/\.ya?ml$/i, "") : title || "Nova apresentação");
+    dir = path.join(root, safeName(topic, "Sem tópico"), name);
+  }
+  file ||= path.join(dir, name + ".yaml");
+  if (!unique || !fs.existsSync(file)) return file;
+  // pasta própria (<nome>/<nome>.yaml): numera a pasta e o arquivo; .yaml solto: só o arquivo
+  const own = path.basename(path.dirname(file)) === path.basename(file, path.extname(file));
+  const ext = path.extname(file), base = path.basename(file, ext);
+  for (let n = 2; ; n++) {
+    const f = own ? path.join(path.dirname(path.dirname(file)), `${base} (${n})`, `${base} (${n})${ext}`) : path.join(path.dirname(file), `${base} (${n})${ext}`);
+    if (!fs.existsSync(f)) return f;
+  }
+}
+
 const posix = (p) => p.split(path.sep).join("/");
 const hidden = (name) => name.startsWith(".") || name.startsWith("~$");
 const isYaml = (name) => /\.ya?ml$/i.test(name) && !hidden(name);

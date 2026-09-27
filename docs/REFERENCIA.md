@@ -45,6 +45,8 @@ slides:
 | `transition` | `fade` (padrão) ou `cut` |
 | `footer: false` | esconde o rodapé neste slide |
 
+Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`).
+
 ## Marcação inline (qualquer texto)
 
 `**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
@@ -79,6 +81,7 @@ slides:
 | `references` | `title, items` | fontes (2 colunas) |
 | `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
 | `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
+| `kinetic` | `figure, beats: [{text, style, position, color, size, tag}], autoplay, interval` | frases curtas em sequência sobre uma cena; avanço manual ou automático |
 | `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
@@ -86,7 +89,7 @@ slides:
 
 ### Cenas interativas para ensinar
 
-`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
+`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. No Studio, a linguagem é inferida pela extensão do arquivo e pode ser escolhida no menu: Python (`.py`), Java (`.java`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`) ou C# (`.cs`). Node.js é um runtime de JavaScript, não uma linguagem separada; arquivos Node usam a opção JavaScript. A apresentação aplica realce sintático a essas cinco linguagens sem depender de serviços externos. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
 
 ```yaml
 - layout: codewalk
@@ -139,6 +142,36 @@ paginação automática de apostila ainda não fazem parte deste editor.
 
 No YAML, um ponto usa `kind: point`, `x` e `y` em porcentagens. Áreas usam `kind: area` (ou omitem `kind`)
 e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hotspots` do layout `spotlight`.
+
+## Slide `kinetic`: tipografia em cena
+
+O layout `kinetic` combina uma figura de fundo com frases curtas que entram em sequência, podendo variar
+estilo, posição, cor e escala em cada batida. No Studio, adicione a cena e edite cada frase; a sequência
+interativa roda em **Apresentar** e avança pelos botões ou automaticamente. A prévia no editor mostra
+apenas o primeiro quadro. Ao trocar outro layout para `kinetic`, o SagaDeck reaproveita o título ou os
+itens existentes como frases e mantém a figura do slide. Sem título, frase ou itens, começa com
+“Uma ideia em movimento”.
+
+`autoplay` é `true` por padrão para duas ou mais frases e `interval` define o tempo em milissegundos
+(450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou ao chegar à
+última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite iniciar
+manualmente. Para uma frase estática, use `autoplay: false`.
+
+Os estilos disponíveis são `poster`, `neon`, `editorial`, `outline` e `marker`; posições: `left`, `center`,
+`right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.
+Campos omitidos variam com a batida para criar ritmo visual. Em impressão/exportação estática, os controles
+e a animação são substituídos por uma lista das frases.
+
+```yaml
+- layout: kinetic
+  figure: { image: palco.jpg }
+  autoplay: true
+  interval: 1100
+  beats:
+    - { text: "A IDEIA", style: poster, position: left, color: white, size: large, tag: "COMEÇA PEQUENA" }
+    - { text: "ACENDE", style: neon, position: right, color: cyan, size: large }
+    - { text: "E MUDA", style: editorial, position: bottom, color: gold, size: medium }
+```
 
 ## Slide `api`: requisição ao vivo
 
@@ -265,6 +298,16 @@ environments:
   enviado, resposta, gravação.
 - A última resposta boa de cada slide fica em `<deck>.respostas.json`, ao lado do deck (sem tokens).
 
+### Teste real com OpenRouter
+
+O exemplo de API inclui uma chamada real ao modelo gratuito NVIDIA Nemotron 3 Super
+(`nvidia/nemotron-3-super-120b-a12b:free`), compatível com Chat Completions. O modelo gratuito Thinking Machines Inkling
+(`thinkingmachines/inkling:free`) retorna HTTP 403 nessa rota, pois o OpenRouter o limita a agent harnesses.
+No slide, escolha o ambiente **OPENROUTER** e clique em **Executar**.
+Defina `OPENROUTER_API_KEY` no processo que inicia o Studio (no PowerShell: `$env:OPENROUTER_API_KEY = "sua-chave"`)
+e reinicie o Studio. O Studio envia a chave ao OpenRouter no cabeçalho `Authorization`; ela não é gravada
+no deck nem exibida na página. Os demais exemplos continuam usando o ambiente local **ENSAIO** sem chave.
+
 ### Segurança
 
 Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pela própria página
@@ -367,3 +410,50 @@ Sagadeck.widget("contador", {
 });
 ```
 No YAML: `widgets: [widgets/contador.js]` e `{ widget: contador, rotulo: "Votos" }`. No PowerPoint o widget vira uma imagem do estado final.
+
+## Texto no cenário (`scenography`)
+
+Composição estática: o texto permanece editável, integrado a planos, luz e profundidade. `scene: stage` usa letras monumentais atrás de uma escultura; `floor` projeta o texto no chão; `signs` constrói uma placa em perspectiva. Campos: `title` (frase curta, quebra de linha permitida), `kicker`, `subtitle`, `caption`, `titleSize`, `image` (fundo opcional), `foreground` (recorte PNG transparente colocado à frente das letras). Um fundo arbitrário não é segmentado automaticamente: para oclusão de uma pessoa, forneça o recorte em `foreground`.
+
+```yaml
+- layout: scenography
+  scene: floor
+  title: "NOVOS\nCAMINHOS"
+  kicker: APRENDER PARA TRANSFORMAR
+  caption: WORKSHOP / BRIDGE
+  deco: none
+```
+
+## Equações e gráficos (`science`)
+
+Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem executar comandos confiáveis). `plot.preset`: `wave`, `parabola` ou `surface`. `plot.data` substitui o exemplo por um array de traces Plotly; `plot.layout` configura títulos, eixos e intervalos. `plot: false` deixa apenas equações. HTML inclui fontes e Plotly: zoom, hover numérico, arraste e rotação 3D funcionam offline. PDF e PPTX são estáticos. Fórmulas longas podem exigir reduzir conteúdo ou dividir o slide.
+
+```yaml
+- layout: science
+  title: Superfície de uma onda
+  equations:
+    - label: Distância à origem
+      latex: 'r = \sqrt{x^2 + y^2}'
+    - label: Altura
+      latex: 'z = \sin(r)'
+  plot:
+    preset: surface
+```
+
+## Ajustes diretos no Studio
+
+Na barra de objetos: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Selecionar objetos permite arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
+
+`Corrigir layout` continua local e baseado em regras. `Revisar com IA` envia a imagem renderizada do slide ao modelo configurado e solicita melhorias; usa tokens. O status de IA abre a configuração do modelrelay. Um modelo sem visão é identificado na resposta; conectividade com `/models` não comprova que uma geração será aceita pelo provedor.
+
+## Densidade técnica e payloads extensos
+
+Slides `code`, `codewalk` e `api` aceitam `density: comfortable | compact | dense`. O controle **Densidade técnica** no painel Formatar reduz margens, espaçamentos e fontes; o código continua completo, com rolagem. `size` continua disponível para o código no modo confortável. Nos resultados de API, **Explorar resposta completa** abre uma árvore recolhível, carregada em lotes, com consulta por caminho (`$.responses.0.output`) e download do JSON completo. Payloads acima de 12 mil caracteres têm uma prévia explicitamente identificada no slide; a resposta completa continua no explorador e na gravação. O HTML distribuído carrega a gravação existente; não é necessário acessar a API para consultá-la. PDFs não podem conter a interação nem garantir que um payload inteiro caiba numa página.
+
+## Laboratório de decisões
+
+Layout `decisionlab`: controles interativos offline para comparar erros esperados da automação com revisão. Em Modelos, escolha **Laboratório de decisões**. Edite as premissas no formulário; alterações feitas nos controles durante a apresentação são temporárias. Restaurar premissas volta aos valores salvos. O HTML exportado mantém a interação; PDF/PPTX usam o resultado inicial estático.
+
+`lab`: volume (10000), errorRate (2%), reviewRate (100%), catchRate (60% dos erros revisados), introducedRate (0.2% dos acertos revisados), seconds (30 por revisão).
+
+Modelo: erros finais = N*p*(1-r*c) + N*(1-p)*r*a. Percentuais convertidos para proporções. Revisão aleatória, taxas homogêneas constantes, erros com peso igual. Não é evidência empírica, modelo de filas ou recomendação de automação. Use dados medidos por segmento para decisões reais.

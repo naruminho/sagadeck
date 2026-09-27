@@ -238,6 +238,7 @@
       line.classList.toggle("hl", highlight.has(i + 1));
       line.classList.toggle("dim", highlight.size > 0 && !highlight.has(i + 1));
     });
+    if (root.dataset.lesson === "kinetic") window.SagadeckFit.fitText(root);
   }
   function fitSpotlight(root) {
     const canvas = $(".spotlight-canvas", root), img = $(".spotlight-image img", root), regions = $(".spotlight-regions", root);
@@ -251,6 +252,44 @@
     slides.forEach((slide, si) => $$("[data-lesson]", slide).forEach((root) => {
       renderLesson(root, 0);
       hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); });
+      if (root.dataset.lesson === "kinetic") {
+        let timer = null;
+        let enabled = root.dataset.kineticAutoplay === "true" && !reducedMotion() && +root.dataset.lessonCount > 1;
+        const toggle = $("[data-kinetic-toggle]", root);
+        const stop = () => { clearInterval(timer); timer = null; };
+        const updateToggle = () => {
+          if (!toggle) return;
+          toggle.textContent = enabled ? "Pausar" : "Reproduzir";
+          toggle.setAttribute("aria-label", enabled ? "Pausar sequência" : "Reproduzir sequência");
+          toggle.setAttribute("aria-pressed", String(enabled));
+        };
+        const start = () => {
+          if (!enabled || EXPORT || timer || +root.dataset.lessonIndex >= +root.dataset.lessonCount - 1) return;
+          const interval = Math.max(450, Math.min(5000, +root.dataset.kineticInterval || 1000));
+          timer = setInterval(() => {
+            const index = +root.dataset.lessonIndex || 0;
+            if (index >= +root.dataset.lessonCount - 1) { stop(); return; }
+            goto(si, index + 1);
+          }, interval);
+        };
+        toggle?.addEventListener("click", (event) => {
+          event.stopPropagation();
+          enabled = !enabled;
+          if (enabled && +root.dataset.lessonIndex >= +root.dataset.lessonCount - 1) goto(si, 0);
+          updateToggle();
+          if (enabled) start(); else stop();
+        });
+        hooks[si].enter.push(start);
+        hooks[si].leave.push(stop);
+        hooks[si].step.push((index) => {
+          if (index >= +root.dataset.lessonCount - 1 && enabled) {
+            stop();
+            enabled = false;
+            updateToggle();
+          }
+        });
+        updateToggle();
+      }
       root.addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (!button || !root.contains(button) || button.disabled) return;

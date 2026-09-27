@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS } from "./themes.js";
 import { LAYOUTS } from "./layouts.js";
+import { applyVisualEdits } from "./visual-edits.js";
 import { el } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
 import { esc, notesHTML, plain, md } from "./markup.js";
@@ -48,7 +49,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "kinetic", "scenography"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -65,9 +66,9 @@ export function wordCount(s) {
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
   const theme = resolveTheme(spec.theme);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
-  const id = spec.id || slug(spec.title);
   const warnings = [];
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings };
+  const id = spec.id || slug(spec.title);
   const slidesMeta = [];
   let html = "";
 
@@ -115,6 +116,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${read("runtime/base.css")}
+${spec.slides.some(s => s.layout === "science") ? read("runtime/vendor/katex.css") : ""}
 ${themeCSS(theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">
@@ -144,6 +146,8 @@ ${html}
 <script>${widgets}</script>
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
+${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script>` : ""}
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };
@@ -163,21 +167,21 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" || layout === "kinetic" || layout === "scenography" ? "free" : "safe";
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   const total = spec.slides?.length || i + 1;
-  let html = `<section class="slide${current ? " current" : ""} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  let html = `<section class="slide${current ? " current" : ""} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
-  html += `<div class="${area}">${inner}</div>`;
+  html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits)}</div>`;
   if (bars) html += barHTML("footer", spec, i, total);
   return html + `</section>`;
 }
 
 export function renderSlide(raw, i = 0, spec = {}) {
   const theme = resolveTheme(spec.theme);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };
   const s = { ...(spec.defaults || {}), ...raw };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
