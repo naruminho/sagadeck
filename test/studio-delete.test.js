@@ -74,3 +74,49 @@ test("Delete na lista de slides exclui o selecionado, com Desfazer", { timeout: 
     deckFile.cleanup();
   }
 });
+
+test("setas ↑/↓ na lista de slides trocam de slide sem rolar a visualização", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deckFile = tempDeck();
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, `${studio.url}/editor`, { width: 1280, height: 640 });
+    await p.waitForSelector('.thumb-card[data-idx="1"]');
+    const n = await p.locator(".thumb-card").count();
+    // tudo o que rola na página, menos a própria lista de slides
+    // quanto cada elemento fora da lista de slides está rolado (as miniaturas vão sendo desenhadas aos poucos,
+    // então compara elemento a elemento: o que aparecer depois tem que estar no topo)
+    const scrolls = () => p.evaluate(() => {
+      const list = document.getElementById("thumbnails-list");
+      const moved = [...document.querySelectorAll("*")].filter((e) => !list.contains(e) && e.scrollTop !== Number(e.dataset.sdTop || 0)).map((e) => `${e.tagName}#${e.id}.${e.className}`);
+      document.querySelectorAll("*").forEach((e) => { e.dataset.sdTop = e.scrollTop; });
+      return { page: window.scrollY, moved };
+    });
+    const active = () => p.locator(".thumb-card.active").getAttribute("data-idx");
+    await p.click('.thumb-card[data-idx="0"]');
+    const before = await scrolls();
+    await p.keyboard.press("ArrowDown");
+    assert.equal(await active(), "1");
+    await p.keyboard.press("ArrowDown");
+    assert.equal(await active(), "2");
+    await p.keyboard.press("ArrowUp");
+    assert.equal(await active(), "1");
+    await p.keyboard.press("End");
+    assert.equal(await active(), String(n - 1));
+    await p.keyboard.press("ArrowDown"); // já no último: fica
+    assert.equal(await active(), String(n - 1));
+    await p.keyboard.press("Home");
+    assert.equal(await active(), "0");
+    assert.deepEqual(await scrolls(), { page: before.page, moved: [] }, "a visualização não rolou");
+    // o slide selecionado fica visível na lista
+    await p.keyboard.press("End");
+    const visible = await p.evaluate(() => { const l = document.getElementById("thumbnails-list").getBoundingClientRect(), c = document.querySelector(".thumb-card.active").getBoundingClientRect(); return c.top >= l.top - 1 && c.bottom <= l.bottom + 1; });
+    assert.equal(visible, true, "o slide ativo fica à vista na lista");
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+    deckFile.cleanup();
+  }
+});

@@ -2049,8 +2049,24 @@
     dom.thumbnailsList.tabIndex = 0;
     dom.thumbnailsList.setAttribute("aria-label", "Slides (Delete exclui o selecionado)");
     dom.thumbnailsList.addEventListener("keydown", (e) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
       if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+      // ↑/↓ (e Home/End) trocam de slide, como no PowerPoint; nunca rolam a visualização
+      const go = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+      if (go || e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        const last = state.deck.slides.length - 1;
+        const to = e.key === "Home" ? 0 : e.key === "End" ? last : Math.max(0, Math.min(last, state.currentSlideIndex + go));
+        if (to !== state.currentSlideIndex) selectSlide(to);
+        // rola só a lista (scrollIntoView rolaria também a tela em volta)
+        const card = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${to}"]`), list = dom.thumbnailsList;
+        if (card) {
+          const c = card.getBoundingClientRect(), l = list.getBoundingClientRect();
+          if (c.top < l.top) list.scrollTop -= l.top - c.top + 8;
+          else if (c.bottom > l.bottom) list.scrollTop += c.bottom - l.bottom + 8;
+        }
+        return;
+      }
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
       e.preventDefault();
       deleteCurrentSlide();
       dom.thumbnailsList.focus({ preventScroll: true });
