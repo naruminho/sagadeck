@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 import YAML from "yaml";
 import { buildHTML, renderSlide, loadSpec, inferLayout } from "../build.js";
 import { THEMES, PALETTES } from "../themes.js";
@@ -842,6 +843,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
         };
         try {
           if (pathname === "/api/http/env") return reply(200, apiEnv.use(String(body.name || "")));
+          // painel Variáveis: criar/editar (normal ou protegida), revelar pelo olhinho, apagar, abrir a pasta do arquivo
+          if (pathname === "/api/http/vars/set") return reply(200, apiEnv.setVar(String(body.name || ""), body.value ?? "", { protected: !!body.protected }));
+          if (pathname === "/api/http/vars/reveal") return reply(200, { value: apiEnv.reveal(String(body.name || "")) });
+          if (pathname === "/api/http/vars/delete") return reply(200, apiEnv.deleteVar(String(body.name || "")));
+          if (pathname === "/api/http/vars/folder") {
+            const dir = path.dirname(apiEnv.file);
+            fs.mkdirSync(dir, { recursive: true });
+            if (process.platform === "win32") spawn("explorer.exe", [dir], { detached: true, stdio: "ignore" }).unref();
+            return reply(200, { dir });
+          }
           if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));
           if (pathname === "/api/http/rt/open") {
             const r = await apiEnv.openRealtime(body.realtime || {});

@@ -144,6 +144,42 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       const up = await go(4); await run(up);
     });
 
+    await t.test("painel: criar variável normal e protegida (olhinho), observar expressões, apagar; mostra onde está salvo", async () => {
+      const s = await go(5), panel = `${s} .api-vars-panel`;
+      await p.click(`${s} [data-api-vars]`);
+      await p.waitForSelector(panel);
+      assert.match(await p.innerText(panel), /Salvo em[\s\S]*ambientes/, "diz onde fica o arquivo");
+      // normal
+      await p.fill(`${panel} [data-var-name]`, "modelo");
+      await p.fill(`${panel} [data-var-value]`, "gpt-mini");
+      await p.click(`${panel} [data-var-add]`);
+      await p.waitForFunction((sel) => /\{\{modelo\}\}[\s\S]*gpt-mini/.test(document.querySelector(sel)?.innerText || ""), panel);
+      // protegida: só o nome e ••••; o olhinho mostra
+      await p.fill(`${panel} [data-var-name]`, "chave_teste");
+      await p.fill(`${panel} [data-var-value]`, "abc-SEGREDO-987");
+      await p.check(`${panel} [data-var-protected]`);
+      await p.click(`${panel} [data-var-add]`);
+      await p.waitForFunction((sel) => /secret\.chave_teste/.test(document.querySelector(sel)?.innerText || ""), panel, { timeout: 15000 });
+      assert.doesNotMatch(await p.content(), /abc-SEGREDO-987/, "protegida não aparece na tela");
+      assert.doesNotMatch(fs.readFileSync(process.env.SAGADECK_AMBIENTES, "utf8"), process.platform === "win32" ? /abc-SEGREDO-987/ : /(?!)/, "no Windows, cifrada no arquivo");
+      await p.click(`${panel} [data-var-eye="chave_teste"]`);
+      await p.waitForFunction((sel) => /abc-SEGREDO-987/.test(document.querySelector(sel)?.innerText || ""), panel);
+      // observar: variável e caminho na última resposta
+      await p.fill(`${panel} [data-watch-expr]`, "{{path_id}}");
+      await p.click(`${panel} [data-watch-add]`);
+      await p.fill(`${panel} [data-watch-expr]`, "$.path_id");
+      await p.click(`${panel} [data-watch-add]`);
+      const w = await p.innerText(`${panel} .av-watch`);
+      assert.match(w, /\{\{path_id\}\}[\s\S]*store\/contrato\.txt/);
+      assert.match(w, /\$\.path_id/);
+      // apagar
+      await p.click(`${panel} [data-var-del="modelo"]`);
+      await p.waitForFunction((sel) => !/gpt-mini/.test(document.querySelector(sel)?.innerText || ""), panel);
+      await p.click(`${panel} [data-var-del="chave_teste"]`);
+      await p.waitForFunction((sel) => !/secret\.chave_teste/.test(document.querySelector(sel)?.innerText || ""), panel, { timeout: 15000 });
+      await p.click(`${s} [data-api-vars]`);
+    });
+
     await t.test("arquivo trocado na hora (arrastado/escolhido) vai no lugar do padrão", async () => {
       const s = await go(4);
       const other = path.join(dir, "outro.txt");
