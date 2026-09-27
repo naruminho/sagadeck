@@ -29,6 +29,14 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - No código: apresentação nova passa por `newDeckPath` (`src/library.js`) ou pela biblioteca (`openLibrary(...).createDeck`). `test/storage.test.js` garante isso no `new`, `scaffold`, `ensaio-api` e nas ferramentas MCP.
 - Terminou uma mudança: teste, commit, PR e merge na hora, sem perguntar.
 
+## Escrita do deck (IA e código)
+
+- **Deck existente só se grava com `writeDeckFile`** (`src/deck-file.js`): troca só os nós que mudaram (comentários e formatação do resto ficam), confere relendo e grava de forma atômica. Nada de `fs.writeFileSync(arquivo, YAML.stringify(...))` num deck que já existe (`test/deck-file.test.js` falha).
+- A IA nunca edita o arquivo como texto: devolve um patch (`edit:` só com os campos que mudam, o preferido; `slides:` para trocar o slide inteiro; `insert`/`delete`). O código aplica (`applyPatch`), valida (renderiza) e passa pela trava contra lixo (`sanitizeCheck`); o que falha volta para a IA corrigir. Notas, tempo e ajustes do Studio não se perdem quando ela troca um slide inteiro.
+- O que a pessoa mexe enquanto a IA pensa não se perde: junção a três (`src/studio/public/merge-decks.js`), no servidor e no Studio.
+- A conversa do chat é por apresentação (`<deck>.conversa.json`), vai inteira para o servidor e o modelo recebe as mensagens antigas da pessoa compactadas (`conversationFor`).
+- Caminhos de arquivo no deck são relativos à pasta dele (o deck é portátil); ao gravar, absoluto para dentro da pasta vira relativo.
+
 ## Outras convenções
 
 - Textos da interface e comentários em português.

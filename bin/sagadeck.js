@@ -236,7 +236,7 @@ async function main() {
       if (!n) { console.log("Nenhum `image_prompt:` no deck; nada a gerar."); break; }
       console.log(`Gerando ${n} imagem(ns)…`);
       const { done, failed } = await materializeImages(spec, { baseDir: spec._dir, keepFailed: true, onProgress: (m) => console.log(`  … ${m}`) });
-      fs.writeFileSync(p.abs, toYaml(spec));
+      (await import("../src/deck-file.js")).writeDeckFile(p.abs, spec);
       done.forEach((d) => console.log(`  🖼 ${path.relative(process.cwd(), d.file)}`));
       failed.forEach((f) => console.log(`  ✗ "${f.prompt.slice(0, 50)}": ${f.error}`));
       console.log(`✓ ${done.length} gerada(s), YAML atualizado: ${p.abs}`);
@@ -378,7 +378,7 @@ async function main() {
       console.log(`… analisando e auto-corrigindo ${p.abs}`);
       const res = autofixDeck(spec);
       const outYaml = flags.out ? path.resolve(flags.out) : p.abs;
-      fs.writeFileSync(outYaml, YAML.stringify(res.spec, { indent: 2 }), "utf8");
+      (await import("../src/deck-file.js")).writeDeckFile(outYaml, res.spec);
       console.log(`✓ Auto-correção concluída! Salvo em: ${outYaml}`);
       if (res.actions.length === 0) {
         console.log("  Nenhum problema de sobreposição ou margem encontrado.");

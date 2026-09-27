@@ -3,7 +3,10 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startMockLLM } from "./mock-llm.js";
-import { editDeck, textToSlide, parseOptions, generateDeck } from "../src/ai/deck-ai.js";
+import { editDeck, textToSlide, parseOptions, generateDeck, applyPatch, sanitizeCheck, conversationFor } from "../src/ai/deck-ai.js";
+import fs from "node:fs";
+import path from "node:path";
+import { ROOT } from "./helpers.js";
 import YAML from "yaml";
 
 const base = () => ({
@@ -50,6 +53,9 @@ test("o modelo decide o que fazer: regras de conversa, ação e versões estão 
   assert.match(sys, /Na dúvida entre conversar e mexer, CONVERSE/);
   assert.match(sys, /VERSÕES/);
   assert.match(sys, /variants:/);
+  // escrita segura: edit (só os campos) é o preferido; slides só para trocar o slide inteiro
+  assert.match(sys, /edit:\s+# PREFIRA ESTE/);
+  assert.match(sys, /não reescreva o\s+slide inteiro/);
 });
 
 test("rodadas de refinamento: a conversa anterior vai junto", async () => {
@@ -229,4 +235,86 @@ test("o que a pessoa responde vira context: no deck", async () => {
   reply = () => "Anotei: presencial, para umas 30 pessoas.\n```yaml\ndeck:\n  context: { formato: presencial, pessoas: 30 }\n```";
   const r = await editDeck({ spec: base(), instruction: "presencial, umas 30 pessoas", targetSlide: 0 });
   assert.deepEqual(r.spec.context, { formato: "presencial", pessoas: 30 });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Escrita segura: a IA muda só o que precisa, sem reescrever (e estragar) o resto, e sem deixar lixo no deck.
+// ---------------------------------------------------------------------------------------------
+
+const rico = () => ({
+  title: "Deck", theme: "bauhaus",
+  slides: [
+    { layout: "cover", title: "Capa", notes: "roteiro da capa", time: 2 },
+    { layout: "cards", title: "Três pilares", kicker: "Pilares", notes: "falar devagar", time: 3, visualEdits: { "t-0": { dx: 10 } },
+      items: [{ icon: "shield", title: "Seguro", text: "Criptografia" }, { icon: "zap", title: "Rápido", text: "Latência baixa" }] },
+    { layout: "end", title: "Obrigado" },
+  ],
+});
+
+test("edit: muda só os campos pedidos (merge patch); null remove; o resto do slide fica idêntico", () => {
+  const base = rico();
+  const { spec, changed } = applyPatch(base, { edit: { 2: { title: "Dois pilares", kicker: null } } });
+  const s = spec.slides[1];
+  assert.equal(s.title, "Dois pilares");
+  assert.equal("kicker" in s, false);
+  assert.deepEqual({ ...s, title: base.slides[1].title, kicker: base.slides[1].kicker }, base.slides[1], "nada mais mudou");
+  assert.deepEqual(changed, [1]);
+  assert.deepEqual(spec.slides[0], base.slides[0]);
+  // objetos entram mesclando (arrays são trocados inteiros)
+  const r = applyPatch(base, { edit: { 2: { visualEdits: { "t-1": { dy: 5 } } } } });
+  assert.deepEqual(r.spec.slides[1].visualEdits, { "t-0": { dx: 10 }, "t-1": { dy: 5 } });
+  assert.throws(() => applyPatch(base, { edit: { 9: { title: "x" } } }), /slide 9 não existe/);
+  assert.throws(() => applyPatch(base, { edit: { 2: { title: "x" } }, slides: { 2: { layout: "statement", text: "y" } } }), /edit e slides/);
+});
+
+test("slides: (troca inteira) não perde notas, tempo e ajustes que a IA esqueceu de copiar", () => {
+  const base = rico();
+  const { spec } = applyPatch(base, { slides: { 2: { layout: "list", title: "Pilares", items: ["Seguro", "Rápido"] } } });
+  const s = spec.slides[1];
+  assert.equal(s.layout, "list");
+  assert.equal(s.notes, "falar devagar");
+  assert.equal(s.time, 3);
+  // se a IA quis tirar as notas, ela diz (edit com null)
+  const r = applyPatch(base, { edit: { 2: { notes: null } } });
+  assert.equal("notes" in r.spec.slides[1], false);
+});
+
+test("trava contra lixo: cerca de código, pedaço do patch ou campo inventado dentro do slide voltam para a IA corrigir", () => {
+  const ok = (s) => sanitizeCheck({ slides: [s] }, [0]);
+  ok({ layout: "cover", title: "Capa normal", notes: "Use `code` e **negrito** à vontade" });
+  assert.throws(() => ok({ layout: "cover", title: "```yaml\nslides:" }), /cerca|bloco/);
+  assert.throws(() => ok({ layout: "cover", title: "Capa", subtitle: "Pronto!\nslides:\n  2:\n    layout: cover" }), /patch|resposta/);
+  assert.throws(() => ok({ layout: "cover", titel: "Capa" }), /titel.*não existe/);
+  assert.throws(() => ok({ layout: "cover", title: "Capa", slides: {} }), /slides.*não existe|patch/);
+  // os decks que vêm com o sagadeck passam na trava (sem falso positivo)
+  for (const f of ["exemplo.yaml", "exemplo-keynote.yaml", "exemplo-alegre.yaml", "ensaio-api.yaml", "cenario/Texto no cenário.yaml", "cenario-e-ciencia.yaml"]) {
+    const spec = YAML.parse(fs.readFileSync(path.join(ROOT, "templates", f), "utf8"));
+    sanitizeCheck(spec, spec.slides.map((_, i) => i));
+  }
+  const fx = YAML.parse(fs.readFileSync(path.join(ROOT, "test", "fixtures", "deck.yaml"), "utf8"));
+  sanitizeCheck(fx, fx.slides.map((_, i) => i));
+});
+
+test("resposta com lixo no slide: o modelo recebe o erro e corrige; o deck só muda com a versão limpa", async () => {
+  let n = 0;
+  reply = () => (++n === 1
+    ? "Mudei.\n```yaml\nedit:\n  2:\n    text: \"Uma ideia\n```yaml\nslides:\"\n```"
+    : "Mudei.\n```yaml\nedit:\n  2:\n    text: Uma ideia limpa\n```");
+  const r = await editDeck({ spec: base(), instruction: "melhore o slide 2", targetSlide: 1 });
+  assert.equal(r.spec.slides[1].text, "Uma ideia limpa");
+  assert.equal(n, 2);
+});
+
+test("memória do chat: o que a pessoa disse lá no começo continua chegando ao modelo depois de muitas trocas", async () => {
+  const history = [{ role: "user", text: "Importante: o público é a DIRETORIA-DO-BANCO, nada de gírias." }];
+  for (let i = 0; i < 40; i++) history.push({ role: i % 2 ? "user" : "assistant", text: `mensagem ${i} `.repeat(30) });
+  reply = () => "ok";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "e agora?", targetSlide: 0, history });
+  assert.match(JSON.stringify(llm.requests[n]), /DIRETORIA-DO-BANCO/);
+  // e o tamanho fica sob controle (mensagens antigas da IA saem; as da pessoa ficam, compactadas)
+  const conv = conversationFor(history);
+  assert.ok(conv.memory.includes("DIRETORIA-DO-BANCO"));
+  assert.ok(conv.recent.length <= 16);
+  assert.ok(conv.memory.length < 12000);
 });

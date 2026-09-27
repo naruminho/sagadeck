@@ -333,9 +333,15 @@ const PATCH_FORMAT = `Formato da resposta:
 1. Uma ou duas frases curtas dizendo o que você mudou e em quais slides (ou só a sua pergunta, se for perguntar).
 2. Se mudou algo, UM bloco \`\`\`yaml só com as mudanças, neste formato (todas as chaves são opcionais):
 \`\`\`yaml
-deck:              # campos do deck que mudaram (title, theme, duration…)
+deck:              # campos do deck que mudaram (title, theme, duration, context…)
   theme: prata
-slides:            # só os slides alterados, pelo NÚMERO atual (1 = primeiro), cada um COMPLETO
+edit:              # PREFIRA ESTE: só os CAMPOS que mudam, pelo NÚMERO atual do slide (1 = primeiro)
+  3:
+    title: Novo título      # o resto do slide 3 fica exatamente como está
+    kicker: null            # null remove o campo
+    items:                  # lista: mande a lista inteira nova (listas são trocadas, não mescladas)
+      - …
+slides:            # só para TROCAR o slide inteiro (mudar o layout ou a estrutura): o slide COMPLETO
   2:
     layout: split
     title: …
@@ -344,7 +350,13 @@ insert:            # slides novos; after = número do slide depois do qual entra
     slide: { layout: statement, text: … }
 delete: [7]        # números (atuais) dos slides a remover
 test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
-\`\`\``;
+\`\`\`
+Cuidado com a escrita (o deck é da pessoa):
+- Mude SÓ o que foi pedido. Para ajustar um texto, um campo ou uma lista, use \`edit\` com apenas esses campos: não reescreva o
+  slide inteiro (reescrever cria erro de digitação e estraga o que estava bom). \`slides\` só para trocar layout/estrutura.
+- Copie textos existentes exatamente como estão; não "melhore" o que ninguém pediu.
+- Nada de texto seu dentro dos campos do slide (explicação, "pronto!", \`\`\`, pedaços do patch): a explicação vai fora do bloco yaml.
+- Use só campos que existem na referência. Um bloco yaml por resposta.`;
 
 // Slides "api": montar a partir da documentação colada e testar de verdade (loop gerar → testar → corrigir).
 const API_RULES = `Slides "api" (requisições ao vivo; ver a seção do slide api na referência):
@@ -354,7 +366,24 @@ const API_RULES = `Slides "api" (requisições ao vivo; ver a seção do slide a
 - Com o resultado do teste: se falhou ou algum caminho NÃO EXISTE, corrija os slides com base na resposta REAL e peça test de novo. Se funcionou, confirme em uma frase, sem yaml. Se o erro for do ambiente (sem VPN, credencial, segredo faltando), não mexa no slide: explique o que a pessoa precisa fazer.
 - Teste quando criar ou corrigir slides api e a pessoa quiser que funcionem (ex.: "gera e testa", "o slide 5 está dando erro"). Teste em ordem: quem gera valores com save: (ex.: upload → path_id) vem antes de quem usa.`;
 
-// Aplica um patch {deck, slides, insert, delete} ao deck; devolve { spec, changed: [índices no deck novo] }.
+// JSON Merge Patch (RFC 7386): objetos mesclam recursivamente, arrays e valores trocam, null remove.
+function mergePatch(target, patch) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return patch;
+  const out = target && typeof target === "object" && !Array.isArray(target) ? { ...target } : {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete out[k];
+    else out[k] = mergePatch(out[k], v);
+  }
+  return out;
+}
+
+// Campos que a IA costuma esquecer ao reescrever um slide inteiro e que não são dela: o roteiro, o tempo, os
+// ajustes feitos à mão no Studio, o histórico da auto-correção. Para tirar, ela usa edit com null.
+const KEEP_ON_REPLACE = ["notes", "time", "id", "visualEdits", "auto"];
+
+// Aplica um patch {deck, edit, slides, insert, delete} ao deck; devolve { spec, changed: [índices no deck novo] }.
+//   edit:   { N: { campo: valor | null } }  só os campos que mudam (merge patch); o resto do slide fica idêntico
+//   slides: { N: slide completo }          troca o slide inteiro (mudança de layout/estrutura)
 export function applyPatch(base, patch) {
   const spec = JSON.parse(JSON.stringify(base));
   const n = spec.slides.length;
@@ -369,7 +398,16 @@ export function applyPatch(base, patch) {
   const replaced = new Map();
   for (const [k, s] of Object.entries(patch.slides || {})) {
     if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error(`slides.${k} precisa ser um slide completo (objeto com layout e campos).`);
-    replaced.set(num(k, "slides"), normalizeSpec({ slides: [s] }).slides[0]);
+    const i = num(k, "slides"), old = spec.slides[i];
+    const full = { ...s };
+    for (const f of KEEP_ON_REPLACE) if (!(f in full) && old && f in old) full[f] = old[f];
+    replaced.set(i, normalizeSpec({ slides: [full] }).slides[0]);
+  }
+  for (const [k, e] of Object.entries(patch.edit || {})) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) throw new Error(`edit.${k} precisa ser um objeto só com os campos que mudam (null remove um campo).`);
+    const i = num(k, "edit");
+    if (replaced.has(i)) throw new Error(`O slide ${k} está em edit e slides ao mesmo tempo: use um dos dois.`);
+    replaced.set(i, normalizeSpec({ slides: [mergePatch(spec.slides[i], e)] }).slides[0]);
   }
   const deleted = new Set([].concat(patch.delete || []).map((k) => num(k, "delete")));
   const inserts = new Map();
@@ -394,6 +432,66 @@ export function applyPatch(base, patch) {
   if (!out.length) throw new Error("O patch removeria todos os slides.");
   spec.slides = out;
   return { spec, changed, deletedCount: deleted.size };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Trava contra lixo: o que a IA escreveu num slide não pode trazer pedaço da resposta (cerca ```, o próprio
+// patch colado dentro de um texto) nem campo inventado (typo como "titel", ou "slides:" dentro do slide).
+// Os campos válidos são os que a referência documenta (a mesma que vai no prompt) mais os do Studio.
+// Campos de código/dados (code, request, svg…) podem conter qualquer coisa.
+// ---------------------------------------------------------------------------------------------
+const STUDIO_KEYS = ["layout", "notes", "time", "id", "visualEdits", "auto", "image_prompt", "density", "deco", "theme", "palette", "tone",
+  "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
+const FREE_TEXT_KEYS = new Set(["code", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
+const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);
+let knownKeysCache = null;
+function knownSlideKeys() {
+  if (knownKeysCache) return knownKeysCache;
+  const keys = new Set(STUDIO_KEYS);
+  for (const m of reference().matchAll(/`([^`\n]+)`/g)) for (const w of m[1].matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) keys.add(w[0]);
+  for (const m of reference().matchAll(/^\s*-?\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/gm)) keys.add(m[1]); // exemplos em yaml
+  for (const w of PATCH_WORDS) if (w !== "steps") keys.delete(w);
+  knownKeysCache = keys;
+  return keys;
+}
+const DUMPED_PATCH = /(^|\n)\s*(slides|insert|delete|edit|deck|variants)\s*:\s*(\n|$)|(^|\n)\s*-?\s*layout\s*:\s*[a-z]+\s*(\n|$)/;
+export function sanitizeCheck(spec, indices) {
+  const known = knownSlideKeys(), problems = [];
+  const scan = (v, where, key) => {
+    if (FREE_TEXT_KEYS.has(key)) return;
+    if (typeof v === "string") {
+      if (v.includes("```")) problems.push(`${where}: o texto traz uma cerca de bloco (\`\`\`), pedaço da resposta colado no slide`);
+      else if (DUMPED_PATCH.test(v)) problems.push(`${where}: o texto parece um pedaço do patch/resposta (slides:, layout:…), não conteúdo`);
+    } else if (Array.isArray(v)) v.forEach((x, i) => scan(x, `${where}[${i}]`, key));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) scan(x, `${where}.${k}`, k);
+  };
+  for (const i of indices) {
+    const s = spec.slides[i];
+    if (!s || typeof s !== "object") continue;
+    for (const [k, v] of Object.entries(s)) {
+      if (PATCH_WORDS.has(k) && k !== "steps") problems.push(`slide ${i + 1}: "${k}" não existe dentro de um slide (é palavra do patch; o slide ficou com um pedaço da resposta)`);
+      else if (!known.has(k)) problems.push(`slide ${i + 1}: o campo "${k}" não existe (veja os campos do layout ${s.layout || "?"} na referência)`);
+      scan(v, `slide ${i + 1}.${k}`, k);
+    }
+  }
+  if (problems.length) throw new Error(`Lixo no deck, corrija só isso e mande o patch de novo:\n- ${[...new Set(problems)].slice(0, 8).join("\n- ")}`);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Memória da conversa: as últimas trocas vão inteiras; das mais antigas, o que a PESSOA disse fica (compactado,
+// em ordem), para o modelo não esquecer o que foi pedido lá no começo. As respostas antigas da IA saem: o que ela
+// fez está no próprio deck. A conversa é de um deck só (o Studio guarda uma por apresentação).
+// ---------------------------------------------------------------------------------------------
+const RECENT_TURNS = 16, OLD_MSG_CHARS = 700, MEMORY_CHARS = 9000;
+export function conversationFor(history = []) {
+  const list = (Array.isArray(history) ? history : []).filter((m) => m && m.text);
+  const recent = list.slice(-RECENT_TURNS).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text).slice(0, 2000) }));
+  const old = list.slice(0, -RECENT_TURNS).filter((m) => m.role === "user").map((m) => String(m.text).replace(/\s+/g, " ").trim().slice(0, OLD_MSG_CHARS));
+  let lines = old.map((t, i) => `${i + 1}. ${t}`);
+  // passou do orçamento: guarda as primeiras (o pedido original costuma estar lá) e as mais recentes
+  while (lines.join("\n").length > MEMORY_CHARS && lines.length > 2) lines.splice(Math.floor(lines.length / 2), 1);
+  const memory = lines.length ? `O que a pessoa já disse antes nesta conversa (mensagens antigas, em ordem; continuam valendo, a menos que ela tenha mudado de ideia depois):\n${lines.join("\n")}` : "";
+  return { recent, memory };
 }
 
 // Pictos (desenhados pelo motor) que aparecem num slide, como "human", "scene:pair", "crowd".
@@ -449,6 +547,7 @@ function parseVariants(v, base, prose) {
     return { label: String(o.label || `Versão ${k + 1}`).slice(0, 60), slide: normalizeSpec({ slides: [o.slide] }).slides[0] };
   });
   validateSlides({ ...base, slides: options.map((o) => o.slide) });
+  sanitizeCheck({ slides: options.map((o) => o.slide) }, options.map((_, k) => k));
   return { spec: base, prose, changed: [], variants: { index: insert ? at : at - 1, insert, options } };
 }
 
@@ -456,7 +555,7 @@ function parseEditText(text, base) {
   const { text: body, options } = parseOptions(text);
   text = body;
   // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete"/"variants:", é YAML.
-  const bare = /^(slides|deck|insert|delete|variants|test)\s*:/m.exec(text);
+  const bare = /^(slides|edit|deck|insert|delete|variants|test)\s*:/m.exec(text);
   if (!/```/.test(text) && bare) text = `${text.slice(0, bare.index)}\n\`\`\`yaml\n${text.slice(bare.index)}\n\`\`\``;
   const hasYaml = /```/.test(text);
   if (!hasYaml) {
@@ -471,11 +570,13 @@ function parseEditText(text, base) {
   if (Array.isArray(raw.slides)) { // devolveu o deck inteiro: aceita, valida tudo
     const { spec } = parseDeckText(text, base);
     const changed = spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(base.slides[i]) ? i : -1)).filter((i) => i >= 0);
+    sanitizeCheck(spec, changed);
     return { spec, prose, changed };
   }
   const { spec, changed } = applyPatch(base, raw);
   if (spec.theme && !THEMES[spec.theme]) throw new Error(`Tema "${spec.theme}" não existe. Use um de: ${Object.keys(THEMES).join(", ")}.`);
   validateSlides({ ...spec, slides: changed.map((i) => spec.slides[i]) });
+  sanitizeCheck(spec, changed);
   // test: [n] → slides api que o Studio vai executar (números no deck depois das mudanças)
   const test = [].concat(raw.test || []).map(Number);
   for (const n of test) {
@@ -524,10 +625,12 @@ Antes de responder, verifique (e siga as Regras de edição):
   const userContent = visuals.length
     ? [{ type: "text", text }, ...visuals.flatMap((v) => [{ type: "text", text: `Imagem: ${v.label}` }, { type: "image_url", image_url: { url: v.dataUrl } }])]
     : text;
+  const convo = conversationFor(history);
   const messages = [
     { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}` },
-    // últimas trocas do chat, para o LLM entender respostas curtas ("sim", "pode fazer")
-    ...history.slice(-16).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: String(m.text || "").slice(0, 2000) })),
+    // a conversa deste deck: o que a pessoa disse lá atrás (compactado) + as últimas trocas inteiras
+    ...(convo.memory ? [{ role: "user", content: convo.memory }, { role: "assistant", content: "Certo, levo isso em conta." }] : []),
+    ...convo.recent,
     { role: "user", content: userContent },
   ];
   let motifObjected = false;

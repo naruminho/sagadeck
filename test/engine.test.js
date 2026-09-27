@@ -426,6 +426,11 @@ test("a IA conhece tudo: todo layout, composição, tema e paleta aparece na ref
   ];
   assert.deepEqual(missing, []);
   assert.match(ref, /context:/, "o campo de contexto da apresentação");
+  // e todo campo que os layouts leem (s.campo) está documentado
+  const src = fs.readFileSync(path.join(ROOT, "src", "layouts.js"), "utf8");
+  const doc = new Set([...ref.matchAll(/`([^`\n]+)`/g)].flatMap((m) => [...m[1].matchAll(/[A-Za-z_]\w*/g)].map((w) => w[0])));
+  const lidos = [...new Set([...src.matchAll(/\bs\.([A-Za-z_]\w*)/g)].map((m) => m[1]))].filter((k) => !/^(length|map|slice|join|filter|some|forEach|concat|find|includes|trim|split|replace)$/.test(k));
+  assert.deepEqual(lidos.filter((k) => !doc.has(k)), [], "campos que o código lê e a IA não conhece");
 });
 
 // A regra "sem unicode como ícone" vale para o que o sagadeck desenha (interface, setas, selos). O conteúdo da pessoa

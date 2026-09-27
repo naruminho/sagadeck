@@ -95,6 +95,12 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
 
+### Ajustes finos de campos
+
+- Em qual clique uma parte aparece: `byStep` (statement), `chartStep` e `sideStep` (chart, number), `contextStep` (number), `figureStep` (split), `noteStep` (cards). Valor = número do clique.
+- Tamanhos e papéis: `bodyAs` (split: papel tipográfico do `body`, padrão `lead`), `bulletSize` (split: tamanho dos bullets), `labelSize` (number: tamanho do rótulo, padrão 52), `timerLabel` (question: texto do cronômetro).
+- Nomes alternativos aceitos: `kpis` = `stats`; `process` e `flow` = `steps`.
+
 ### Cenas interativas para ensinar
 
 `codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. No Studio, a linguagem é inferida pela extensão do arquivo e pode ser escolhida no menu: Python (`.py`), Java (`.java`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`) ou C# (`.cs`). Node.js é um runtime de JavaScript, não uma linguagem separada; arquivos Node usam a opção JavaScript. A apresentação aplica realce sintático a essas cinco linguagens sem depender de serviços externos. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
