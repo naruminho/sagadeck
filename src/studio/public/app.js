@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
+    "chart", "compare", "matrix", "diagram", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
     "blocks", "canvas", "references", "end",
   ];
 
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -244,6 +244,7 @@
     };
     document.getElementById("btn-add-science").onclick = () => insertScene("science");
     document.getElementById("btn-add-scenography").onclick = () => insertScene("scenography");
+    document.getElementById("btn-add-diagram").onclick = () => insertScene("diagram");
     buildLayoutPicker();
     bindLookMenu();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
@@ -330,6 +331,7 @@
       window.SagaScience?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
+      window.SagaDiagrams?.mount(dom.renderedSlideContainer);
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
       applyEditorStep(idx);
       fitSlideText(dom.renderedSlideContainer);
@@ -1982,6 +1984,7 @@
     if (!screen) return;
     screen.innerHTML = `<div class="thumb-render">${html}</div>`;
     requestAnimationFrame(() => fitRendered(screen));
+    window.SagaDiagrams?.mount(screen); // miniatura de diagrama também é desenhada
   }
 
   function markActiveThumb() {
@@ -2023,6 +2026,7 @@
   const SCENES = [
     ["scenography", "impact", "Texto no cenário", "Letras que ocupam o palco, o chão ou uma placa."],
     ["science", "teach", "Equações e gráficos", "Explore uma curva ou gire uma superfície em 3D."],
+    ["diagram", "teach", "Um processo que se explica", "Fluxo, sequência, UML ou mapa mental, nas cores do tema."],
     ["headline", "impact", "Uma ideia. Todo o palco.", "Tipografia monumental para a frase que fica."],
     ["number", "impact", "O número que muda tudo", "Dê dimensão a um resultado, sem um mar de dados."],
     ["quote", "impact", "Uma voz na história", "Uma citação com espaço para ressoar."],

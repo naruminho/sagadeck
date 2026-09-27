@@ -2,6 +2,7 @@
 export const LAYOUT_INFO = {
   decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
   science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
+  diagram: ["Diagrama", "Fluxograma, sequência, estados, UML, jornada, mapa mental (Mermaid) nas cores do tema"],
   scenography: ["Texto no cenário", "13 composições (palco, terminal, café, embarque, pregão, cinema, revista…), sem animação"],
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
   section: ["Seção", "Abre um novo ato ou capítulo"],
@@ -40,6 +41,7 @@ export const LAYOUT_INFO = {
 
 export const LAYOUT_SAMPLES = {
   decisionlab: {layout:"decisionlab", title:"A revisão melhora o resultado?", lab:{volume:10000,errorRate:2,reviewRate:100,catchRate:60,introducedRate:0.2,seconds:30}},
+  diagram: { layout: "diagram", kicker: "Processo", title: "Da ideia à ==produção==", mermaid: "flowchart LR\n  A([:lightbulb: Ideia]):::hi --> B{Vale testar?}\n  B -->|sim| C[:flask-conical: Experimento]\n  B -.->|não| X[Arquivar]:::vazado\n  C ==> D[:rocket: Produção]:::em" },
   science: {layout:"science", title:"Uma onda, muitas perspectivas", equations:[{label:"A função",latex:"f(x) = \\sin(x)"},{label:"A derivada",latex:"f\\prime(x) = \\cos(x)"}], plot:{preset:"wave"}},
   scenography: {layout:"scenography", scene:"stage", title:"ALÉM DO\nÓBVIO", kicker:"UMA NOVA PERSPECTIVA", subtitle:"Ideias que ocupam espaço.", tone:"dark", deco:"none"},
   cover: { layout: "cover", kicker: "Evento 2026", title: "Título da ==apresentação==", subtitle: "Um subtítulo curto", author: "Seu nome", figure: { icon: "rocket", size: 320 } },
