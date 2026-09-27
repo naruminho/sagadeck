@@ -148,7 +148,7 @@ export class ApiEnvironments {
       current: this.currentName(data),
       envs: Object.entries(data.environments).map(([name, e]) => ({
         name, kind: C.envKind(name), vars: (e && e.vars) || {}, token: !!(e && e.token && e.token.url),
-        ...(data.own.includes(name) ? {} : { builtin: true }),
+        ...(data.own.includes(name) ? {} : { builtin: true, builtinLabel: e.label || "ambiente local" }),
       })),
     };
   }
@@ -242,7 +242,14 @@ export class ApiEnvironments {
     // {{secret.nome}}: trocado aqui, no último momento; o navegador só vê o marcador
     const sv = this.secretVars(env);
     const missingSecret = C.missing({ u: req.url, h: req.headers, b: req.body }, sv).filter((m) => m.startsWith("secret."));
-    if (missingSecret.length) throw new ApiError(`Ambiente "${env.name}" não tem ${missingSecret.map((m) => m.slice(7)).join(", ")} em secrets:`, "config");
+    if (missingSecret.length) {
+      const names = missingSecret.map((m) => {
+        const name = m.slice(7);
+        const binding = env.secrets && env.secrets[name];
+        return binding && typeof binding === "object" && binding.env ? `${name} (defina ${binding.env})` : name;
+      });
+      throw new ApiError(`Ambiente "${env.name}" não tem ${names.join(", ")} configurado em secrets:`, "config");
+    }
     req = { ...req, url: C.render(req.url, sv), headers: C.render(req.headers || {}, sv), body: C.render(req.body, sv) };
     const headers = { Accept: "application/json, text/event-stream, */*", ...(env.headers || {}), ...(req.headers || {}) };
     let body = req.body;

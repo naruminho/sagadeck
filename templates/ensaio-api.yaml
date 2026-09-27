@@ -43,6 +43,31 @@ slides:
     notes: Edite a pergunta na hora (aba Corpo) e execute de novo. Mostre as abas curl e Python.
 
   - layout: api
+    id: openrouter-nemotron
+    kicker: OpenRouter (real)
+    title: Pergunte ao ==Nemotron==
+    text: Chamada real ao modelo gratuito NVIDIA Nemotron pelo OpenRouter
+    request:
+      method: POST
+      url: "{{base}}/chat/completions"
+      auth: false
+      headers:
+        Authorization: "Bearer {{secret.openrouter_api_key}}"
+        X-Title: SagaDeck
+      body:
+        model: nvidia/nemotron-3-super-120b-a12b:free
+        max_tokens: 350
+        messages:
+          - role: user
+            content: "Explique o que é uma API em uma frase, em português."
+    answer: "$.choices[0].message.content"
+    notes: |
+      Esta chamada acessa o OpenRouter de verdade com um modelo gratuito compatível com Chat Completions.
+      No selo de ambiente, escolha OPENROUTER.
+      A chave não fica no deck: defina OPENROUTER_API_KEY no processo que inicia o Studio e reinicie-o.
+      Edite a pergunta na aba Corpo e execute novamente para testar o comportamento do modelo.
+
+  - layout: api
     id: workflow
     kicker: Passo 3 · Workflow
     title: Inicia e ==acompanha== até terminar

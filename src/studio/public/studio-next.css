@@ -59,6 +59,7 @@
 .studio-next .save-status:not(.unsaved)::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #76a385; margin-right: 6px; vertical-align: middle; }
 .studio-next .search-box { background: var(--chrome-2); border-color: transparent; border-radius: 8px; }
 .studio-next #btn-present { height: 36px; padding: 0 18px; }
+.studio-next .split-button .btn-caret { height: 36px; }
 .studio-next .ribbon-tabs { height: 40px; padding: 0 20px; gap: 5px; }
 .studio-next .ribbon-tab { height: 35px; padding: 0 14px; font-size: 12px; }
 .studio-next .ribbon-tab.active::after { height: 2px; }

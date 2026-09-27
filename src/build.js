@@ -48,7 +48,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "kinetic"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -65,9 +65,9 @@ export function wordCount(s) {
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
   const theme = resolveTheme(spec.theme);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
-  const id = spec.id || slug(spec.title);
   const warnings = [];
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings };
+  const id = spec.id || slug(spec.title);
   const slidesMeta = [];
   let html = "";
 
@@ -177,7 +177,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
 
 export function renderSlide(raw, i = 0, spec = {}) {
   const theme = resolveTheme(spec.theme);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec };
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };
   const s = { ...(spec.defaults || {}), ...raw };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];

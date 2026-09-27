@@ -45,6 +45,8 @@ slides:
 | `transition` | `fade` (padrão) ou `cut` |
 | `footer: false` | esconde o rodapé neste slide |
 
+Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`).
+
 ## Marcação inline (qualquer texto)
 
 `**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
@@ -79,6 +81,7 @@ slides:
 | `references` | `title, items` | fontes (2 colunas) |
 | `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
 | `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
+| `kinetic` | `figure, beats: [{text, style, position, color, size, tag}], autoplay, interval` | frases curtas em sequência sobre uma cena; avanço manual ou automático |
 | `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
@@ -86,7 +89,7 @@ slides:
 
 ### Cenas interativas para ensinar
 
-`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
+`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. No Studio, a linguagem é inferida pela extensão do arquivo e pode ser escolhida no menu: Python (`.py`), Java (`.java`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`) ou C# (`.cs`). Node.js é um runtime de JavaScript, não uma linguagem separada; arquivos Node usam a opção JavaScript. A apresentação aplica realce sintático a essas cinco linguagens sem depender de serviços externos. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
 
 ```yaml
 - layout: codewalk
@@ -139,6 +142,31 @@ paginação automática de apostila ainda não fazem parte deste editor.
 
 No YAML, um ponto usa `kind: point`, `x` e `y` em porcentagens. Áreas usam `kind: area` (ou omitem `kind`)
 e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hotspots` do layout `spotlight`.
+
+## Slide `kinetic`: tipografia em cena
+
+O layout `kinetic` combina uma figura de fundo com frases curtas que entram em sequência, podendo variar
+estilo, posição, cor e escala em cada batida. No Studio, adicione a cena e edite cada frase; a sequência
+avança pelos botões ou automaticamente. `autoplay` é `true` por padrão e `interval` define o tempo em
+milissegundos (450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou
+ao chegar à última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite
+iniciar manualmente. Para uma frase estática, use `autoplay: false`.
+
+Os estilos disponíveis são `poster`, `neon`, `editorial`, `outline` e `marker`; posições: `left`, `center`,
+`right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.
+Campos omitidos variam com a batida para criar ritmo visual. Em impressão/exportação estática, os controles
+e a animação são substituídos por uma lista das frases.
+
+```yaml
+- layout: kinetic
+  figure: { image: palco.jpg }
+  autoplay: true
+  interval: 1100
+  beats:
+    - { text: "A IDEIA", style: poster, position: left, color: white, size: large, tag: "COMEÇA PEQUENA" }
+    - { text: "ACENDE", style: neon, position: right, color: cyan, size: large }
+    - { text: "E MUDA", style: editorial, position: bottom, color: gold, size: medium }
+```
 
 ## Slide `api`: requisição ao vivo
 
@@ -264,6 +292,16 @@ environments:
 - Tokens, segredos e cabeçalhos do ambiente saem **mascarados** (`••••x9Qa`) em tudo o que aparece: pedido
   enviado, resposta, gravação.
 - A última resposta boa de cada slide fica em `<deck>.respostas.json`, ao lado do deck (sem tokens).
+
+### Teste real com OpenRouter
+
+O exemplo de API inclui uma chamada real ao modelo gratuito NVIDIA Nemotron 3 Super
+(`nvidia/nemotron-3-super-120b-a12b:free`), compatível com Chat Completions. O modelo gratuito Thinking Machines Inkling
+(`thinkingmachines/inkling:free`) retorna HTTP 403 nessa rota, pois o OpenRouter o limita a agent harnesses.
+No slide, escolha o ambiente **OPENROUTER** e clique em **Executar**.
+Defina `OPENROUTER_API_KEY` no processo que inicia o Studio (no PowerShell: `$env:OPENROUTER_API_KEY = "sua-chave"`)
+e reinicie o Studio. O Studio envia a chave ao OpenRouter no cabeçalho `Authorization`; ela não é gravada
+no deck nem exibida na página. Os demais exemplos continuam usando o ambiente local **ENSAIO** sem chave.
 
 ### Segurança
 

@@ -24,10 +24,16 @@ test("todos os slides do deck de ensaio funcionam contra a API de mentira, na or
   let vars = {};
   try {
     const deck = YAML.parse(fs.readFileSync(path.join(ROOT, "templates", "ensaio-api.yaml"), "utf8"));
+    const openrouter = deck.slides.find((s) => s.id === "openrouter-nemotron");
+    const inkling = openrouter;
+    assert.equal(openrouter.request.url, "{{base}}/chat/completions");
+    assert.equal(inkling.request.headers.Authorization, "Bearer {{secret.openrouter_api_key}}");
+    assert.equal(openrouter.request.body.model, "nvidia/nemotron-3-super-120b-a12b:free");
     for (const s of deck.slides.filter((x) => x.layout === "api")) {
       const r = await api.runSlide(s, { vars, deckDir: dir });
       if (s.mic) { assert.match(r.report.skipped, /microfone/); continue; }
       if (s.mode === "realtime") { assert.match(r.report.skipped, /tempo real/); continue; } // testado em api-realtime.test.js
+      if (s.id === "openrouter-nemotron") { assert.equal(s.request.body.model, "nvidia/nemotron-3-super-120b-a12b:free"); continue; } // requer chave e acesso externo
       assert.equal(r.report.ok, true, `${s.id}: ${JSON.stringify(r.report).slice(0, 400)}`);
       vars = { ...vars, ...(r.saved || {}) };
     }
@@ -52,7 +58,8 @@ test("o comando ensaio-api abre o Studio já com o deck e os ambientes do ensaio
     });
     const st = await (await fetch(`http://127.0.0.1:${port}/api/http/state`)).json();
     assert.equal(st.live, true);
-    assert.deepEqual(st.envs.map((e) => e.name), ["dev", "hom"]);
+    assert.deepEqual(st.envs.map((e) => e.name), ["dev", "hom", "openrouter"]);
+    assert.equal(st.envs.find((e) => e.name === "openrouter").builtinLabel, "OpenRouter · chamada real");
     assert.doesNotMatch(st.file, /\.sagadeck[\\/]ambientes\.yaml$/, "não usa o ambientes.yaml da pessoa");
     const deck = await (await fetch(`http://127.0.0.1:${port}/api/deck`)).json();
     assert.equal(deck.spec.title, "Ensaio: APIs de IA ao vivo");

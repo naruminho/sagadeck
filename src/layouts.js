@@ -2,6 +2,7 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { md, esc } from "./markup.js";
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
+import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
@@ -174,7 +175,10 @@ export const LAYOUTS = {
 
   codewalk(s, ctx) {
     const frames = lessonSteps(s.steps, { title: "Acompanhe o código", text: "Adicione etapas com linhas destacadas e a saída esperada." });
-    return `<div class="L-codewalk" data-lesson="codewalk" data-lesson-count="${frames.length}">${head(s)}<div class="lesson-row"><div class="codewalk-editor"><div class="codewalk-bar"><span class="codewalk-lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="f-mono">${esc(s.filename || "exemplo.js")}</span><span class="codewalk-language f-label">${esc(s.language || "Código")}</span></div>${code({ code: s.code || "// Cole seu código aqui", highlight: frames[0].highlight, size: s.size || 30 })}<div class="codewalk-footer f-label">LEIA · PREVEJA · REVELE</div></div><aside class="lesson-aside">${lessonPanels(frames, true)}${lessonSummary(frames)}${lessonControls(frames)}</aside></div></div>${src(s)}${add(s, ctx)}`;
+    const filename = s.filename || "exemplo.js";
+    const language = resolveCodeLanguage(s.language, filename);
+    const languageLabel = displayCodeLanguage(s.language, filename);
+    return `<div class="L-codewalk" data-lesson="codewalk" data-lesson-count="${frames.length}">${head(s)}<div class="lesson-row"><div class="codewalk-editor"><div class="codewalk-bar"><span class="codewalk-lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="f-mono">${esc(filename)}</span><span class="codewalk-language f-label">${esc(languageLabel || "Código")}</span></div>${code({ code: s.code || "// Cole seu código aqui", language, highlight: frames[0].highlight, size: s.size || 30 })}<div class="codewalk-footer f-label">LEIA · PREVEJA · REVELE</div></div><aside class="lesson-aside">${lessonPanels(frames, true)}${lessonSummary(frames)}${lessonControls(frames)}</aside></div></div>${src(s)}${add(s, ctx)}`;
   },
 
   spotlight(s, ctx) {
@@ -187,6 +191,36 @@ export const LAYOUTS = {
     }).join("");
     const visual = s.figure || (s.image ? { image: s.image, alt: s.caption || s.title || "Imagem em análise", fit: "contain" } : { diagram: "flow", steps: ["Entrada", "Processamento", "Resultado"] });
     return `<div class="L-spotlight" data-lesson="spotlight" data-lesson-count="${spots.length}">${head(s)}<div class="lesson-row"><div class="spotlight-visual"><div class="spotlight-canvas"><div class="spotlight-image">${el(visual, ctx, 1100, 660)}</div><div class="spotlight-regions">${regions}</div></div>${s.caption ? text(s.caption, "small", { class: "spotlight-caption", size: 24 }) : ""}</div><aside class="lesson-aside">${lessonPanels(spots)}${lessonSummary(spots)}${lessonControls(spots)}</aside></div></div>${src(s)}${add(s, ctx)}`;
+  },
+
+  kinetic(s, ctx) {
+    const beats = Array.isArray(s.beats) && s.beats.length
+      ? s.beats.map((beat) => typeof beat === "string" ? { text: beat } : beat || {})
+      : [{ text: "Sua frase entra em cena.", style: "poster", position: "center", color: "white", size: "large" }];
+    const frames = beats.map((beat, i) => {
+      const style = ["poster", "neon", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : ["poster", "neon", "editorial", "outline", "marker"][i % 5];
+      const position = ["left", "center", "right", "top", "bottom"].includes(beat.position) ? beat.position : ["left", "center", "right", "bottom"][i % 4];
+      const color = ["white", "gold", "pink", "cyan"].includes(beat.color) ? beat.color : "white";
+      const size = ["small", "medium", "large"].includes(beat.size) ? beat.size : "large";
+      return `<article class="kinetic-frame${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-position="${position}" data-style="${style}" data-color="${color}" data-size="${size}" aria-hidden="${i !== 0}">
+        <div class="kinetic-echo" aria-hidden="true">${md(beat.text || "")}</div>
+        <div class="kinetic-word" data-fit>${md(beat.text || "")}</div>
+        ${beat.tag ? `<div class="kinetic-tag">${md(beat.tag)}</div>` : ""}
+      </article>`;
+    }).join("");
+    const scene = s.figure ? el(s.figure, ctx, 1920, 1080) : "";
+    const interval = Math.max(450, Math.min(5000, Number(s.interval) || 1000));
+    const autoplay = s.autoplay !== false && beats.length > 1;
+    const summary = `<div class="kinetic-summary" aria-label="Frases da sequência">${beats.map((beat) => `<span>${md(beat.text || "")}</span>`).join("")}</div>`;
+    return `<div class="L-kinetic" data-lesson="kinetic" data-lesson-count="${beats.length}" data-kinetic-interval="${interval}" data-kinetic-autoplay="${autoplay}">
+      <div class="kinetic-scene" aria-hidden="true">${scene}</div><div class="kinetic-shade" aria-hidden="true"></div>
+      <div class="kinetic-grain" aria-hidden="true"></div>
+      <div class="kinetic-sequence" aria-live="polite" aria-atomic="true">${frames}</div>
+      <div class="kinetic-controls"><button type="button" class="kinetic-toggle" data-kinetic-toggle aria-pressed="${autoplay}" aria-label="${autoplay ? "Pausar" : "Reproduzir"} sequência"${beats.length < 2 ? " disabled" : ""}>${autoplay ? "Pausar" : "Reproduzir"}</button>
+        <nav class="kinetic-dots" aria-label="Frases da sequência">${beats.map((beat, i) => `<button type="button" data-lesson-go="${i}" aria-label="Frase ${i + 1}: ${esc(beat.text || "")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</nav>
+        <button type="button" class="kinetic-next" data-lesson-next aria-label="Próxima frase">→</button>
+      </div>${summary}
+    </div>${add(s, ctx)}`;
   },
 
   blocks(s, ctx) {

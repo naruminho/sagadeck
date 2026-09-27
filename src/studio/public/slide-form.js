@@ -36,6 +36,7 @@
     num: (k, label, o = {}) => ({ k, label, type: "number", ...o }),
     bool: (k, label, o = {}) => ({ k, label, type: "bool", ...o }),
     select: (k, label, options, o = {}) => ({ k, label, type: "select", options, ...o }),
+    codeLanguage: (k, label, filenameKey) => ({ k, label, type: "codeLanguage", filenameKey }),
     color: (k, label, o = {}) => ({ k, label, type: "color", ...o }),
     icon: (k, label, o = {}) => ({ k, label, type: "icon", ...o }),
     nums: (k, label, o = {}) => ({ k, label, type: "nums", ...o }),         // "2, 3" <-> [2, 3]
@@ -138,7 +139,7 @@
         f.bool("mic", "Botão Gravar (microfone, para STT)"), f.text("audio", "A resposta é áudio (TTS): nome do arquivo", { placeholder: "fala.mp3" }),
         f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
         f.text("id", "Identificador (para guardar a gravação)")])],
-    codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("filename", "Nome do arquivo"), f.text("language", "Linguagem"),
+    codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("filename", "Nome do arquivo", { placeholder: "exemplo.js" }), f.codeLanguage("language", "Linguagem", "filename"),
       f.area("code", "Código", { mono: true, rows: 10, hint: "O código é exibido, sem execução. Na apresentação, as setas percorrem as etapas." }),
       f.list("steps", "Etapas da explicação", obj([f.text("title", "Título da etapa"), f.area("text", "Explicação"), f.nums("highlight", "Linhas destacadas (a partir de 1)"), f.area("output", "Saída esperada (simulação)", { mono: true, rows: 3 })]),
         { addLabel: "Adicionar etapa", newItem: () => ({ title: "Próximo passo", text: "", highlight: [1] }) }),
@@ -149,6 +150,15 @@
         f.num("width", "Largura (%)", { min: 4, max: 100 }), f.num("height", "Altura (%)", { min: 4, max: 100 })]),
         { addLabel: "Adicionar detalhe", newItem: () => ({ title: "Novo detalhe", text: "", x: 10, y: 10, width: 30, height: 25 }) })]),
       f.more([f.el("figure", "Figura no lugar da imagem")])],
+    kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
+      f.area("text", "Frase", { rows: 2 }),
+      f.select("style", "Estilo tipográfico", [["poster", "Pôster"], ["neon", "Neon"], ["editorial", "Editorial"], ["outline", "Contorno"], ["marker", "Marca-texto"]], { empty: "Variar automaticamente" }),
+      f.select("position", "Posição", [["left", "Esquerda"], ["center", "Centro"], ["right", "Direita"], ["top", "Alto"], ["bottom", "Baixo"]], { empty: "Variar automaticamente" }),
+      f.select("color", "Cor", [["white", "Branco"], ["gold", "Dourado"], ["pink", "Rosa"], ["cyan", "Ciano"]], { empty: "Branco" }),
+      f.select("size", "Escala", [["small", "Pequena"], ["medium", "Média"], ["large", "Grande"]], { empty: "Grande" }),
+      f.text("tag", "Microlegenda (opcional)"),
+    ]), { addLabel: "Adicionar frase", newItem: () => ({ text: "Nova frase" }) }),
+      f.more([f.num("interval", "Tempo por frase (ms)", { min: 450, max: 5000, placeholder: "1000" }), f.bool("autoplay", "Reproduzir automaticamente", { default: true })])],
     blocks: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.els("content", "Blocos"), f.more([f.select("titleAs", "Estilo do título", TEXT_ROLES, { empty: "Título" })])],
     end: [f.text("kicker", "Chapéu"), f.area("title", "Título", { placeholder: "Obrigado." }), f.text("subtitle", "Subtítulo"), f.list("contacts", "Contatos", T, { addLabel: "Adicionar contato" }),
       f.text("qr", "QR code (link)", { hint: "Ex.: seu LinkedIn. Aparece ao lado, pronto para a câmera do celular." }), f.text("qrLabel", "Legenda do QR code"),
@@ -346,13 +356,18 @@
       spec.hint ? h("div", { class: "sf-hint", text: spec.hint }) : null);
   }
 
-  function renderField(o, spec, path) {
+  function renderField(o, spec, path, controls) {
     if (spec.when && !spec.when(o)) return null;
     switch (spec.type) {
-      case "text": case "textarea": return textField(o, spec);
+      case "text": case "textarea": {
+        const node = textField(o, spec);
+        if (spec.k) controls?.set(spec.k, node);
+        return node;
+      }
       case "number": return numberField(o, spec);
       case "bool": return boolField(o, spec);
       case "select": return selectField(o, spec);
+      case "codeLanguage": return codeLanguageField(o, spec, controls?.get(spec.filenameKey));
       case "color": return textField(o, { ...spec, datalist: COLOR_ROLES, placeholder: spec.placeholder || "fg, hi, em… ou #hex" });
       case "icon": return iconField(o, spec);
       case "nums": return numsField(o, spec);
@@ -438,6 +453,54 @@
     // structural: outros campos dependem deste (when), então o formulário se refaz
     sel.addEventListener("change", () => { setKey(o, spec.k, spec.parse ? spec.parse(sel.value) : sel.value); (spec.structural ? commitStructure : commitNow)(); });
     return fieldWrap(spec, sel);
+  }
+
+  function inferCodeLanguage(filename) {
+    const basename = String(filename || "").trim().split(/[\\/]/).pop() || "";
+    const dot = basename.lastIndexOf(".");
+    if (dot <= 0) return "";
+    const extension = basename.slice(dot).toLowerCase();
+    return ({ ".py": "Python", ".pyw": "Python", ".java": "Java", ".js": "JavaScript", ".jsx": "JavaScript",
+      ".mjs": "JavaScript", ".cjs": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript", ".mts": "TypeScript",
+      ".cts": "TypeScript", ".cs": "C#" })[extension] || "";
+  }
+
+  function normalizeCodeLanguage(language) {
+    const key = String(language || "").trim().toLowerCase().replace(/[\s._-]/g, "");
+    return ({ python: "Python", py: "Python", java: "Java", javascript: "JavaScript", js: "JavaScript",
+      node: "JavaScript", nodejs: "JavaScript", typescript: "TypeScript", ts: "TypeScript",
+      "c#": "C#", csharp: "C#", cs: "C#" })[key] || "";
+  }
+
+  function codeLanguageField(o, spec, filenameField) {
+    const options = ["Python", "Java", "JavaScript", "TypeScript", "C#"];
+    const autoOption = h("option", { value: "", text: "Inferir pela extensão" });
+    const select = h("select", { class: "form-control" }, autoOption, options.map((language) => h("option", { value: language, text: language })));
+    const detect = () => inferCodeLanguage(o[spec.filenameKey]);
+    const initialLanguage = normalizeCodeLanguage(o[spec.k]);
+    let automatic = !initialLanguage || initialLanguage === detect();
+    select.value = automatic ? detect() : initialLanguage;
+    const updateAutoLabel = () => {
+      const language = detect();
+      autoOption.textContent = language ? `Inferir pela extensão · ${language}` : "Inferir pela extensão";
+    };
+    updateAutoLabel();
+
+    const filenameInput = filenameField?.querySelector("input, textarea");
+    filenameInput?.addEventListener("input", () => {
+      if (!automatic) return;
+      const language = inferCodeLanguage(filenameInput.value);
+      select.value = language;
+      setKey(o, spec.k, language || null);
+      updateAutoLabel();
+    });
+    select.addEventListener("change", () => {
+      automatic = !select.value;
+      setKey(o, spec.k, select.value || null);
+      updateAutoLabel();
+      (spec.structural ? commitStructure : commitNow)();
+    });
+    return fieldWrap({ ...spec, hint: "Detectada pela extensão do arquivo; você pode escolher outra linguagem." }, select);
   }
 
   function iconField(o, spec) {
@@ -730,9 +793,11 @@
   // ---- montagem ----
   function renderFields(o, fields, path, onAnyChange) {
     const frag = document.createDocumentFragment();
+    const controls = new Map();
     for (const spec of fields) {
-      const node = renderField(o, spec, path);
+      const node = renderField(o, spec, path, controls);
       if (!node) continue;
+      if (spec.k) controls.set(spec.k, node);
       if (onAnyChange) { node.addEventListener("input", onAnyChange); node.addEventListener("change", onAnyChange); }
       frag.append(node);
     }

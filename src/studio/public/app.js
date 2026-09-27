@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "video",
+    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "kinetic", "video",
     "blocks", "canvas", "references", "end",
   ];
 
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    codewalk: "Código guiado", spotlight: "Foco guiado",
+    codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -2079,9 +2079,15 @@
         changeCurrentLayout(name);
       };
       dom.layoutPickerGrid.appendChild(card);
+      layoutPreviewObserver.observe(card.querySelector(".lc-prev"));
     });
   }
 
+  const layoutPreviewObserver = new ResizeObserver((entries) => {
+    entries.forEach(({ target }) => {
+      if (target.clientWidth) target.style.setProperty("--thumb-scale", String(target.clientWidth / 1920));
+    });
+  });
   let layoutPreviewKey = "";
   async function loadLayoutPreviews() {
     const key = `${state.deck?.theme}|${state.deck?.markStyle || ""}`;
@@ -2962,7 +2968,11 @@
       b.className = `env-chip${e.name === st.current ? " active" : ""}`;
       b.dataset.env = e.name;
       b.textContent = e.name.toUpperCase();
-      if (e.builtin) b.insertAdjacentHTML("beforeend", " <small>embutido · API de mentira</small>");
+      if (e.builtin) {
+        const small = document.createElement("small");
+        small.textContent = `embutido · ${e.builtinLabel || "ambiente local"}`;
+        b.append(" ", small);
+      }
       b.title = Object.entries(e.vars || {}).map(([k, v]) => `{{${k}}} = ${v}`).join("\n");
       b.onclick = async () => {
         const r = await fetch("api/http/env", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: e.name }) });

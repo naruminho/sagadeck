@@ -69,14 +69,24 @@ test("studio", async (t) => {
     await p.waitForFunction(() => document.querySelector('.layout-card[data-layout="bento"] .thumb-render')?.innerHTML.length > 50);
     const r = await p.evaluate(() => {
       const cards = [...document.querySelectorAll(".layout-card")];
+      const grid = document.querySelector(".layout-grid");
       return { n: cards.length, empty: cards.filter((c) => c.querySelector(".thumb-render").innerHTML.length < 50).map((c) => c.dataset.layout),
         noDesc: cards.filter((c) => !c.querySelector(".lc-desc").textContent).map((c) => c.dataset.layout),
-        active: document.querySelector(".layout-card.active")?.dataset.layout };
+        active: document.querySelector(".layout-card.active")?.dataset.layout,
+        kinetic: cards.some((c) => c.dataset.layout === "kinetic"),
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+        cardWidth: cards[0].getBoundingClientRect().width,
+        previewWidth: cards[0].querySelector(".lc-prev").clientWidth,
+        previewScale: parseFloat(getComputedStyle(cards[0].querySelector(".lc-prev")).getPropertyValue("--thumb-scale")) };
     });
     assert.ok(r.n >= 29, `${r.n} layouts`);
     assert.deepEqual(r.empty, [], "layouts sem prévia");
     assert.deepEqual(r.noDesc, [], "layouts sem descrição");
     assert.equal(r.active, "cards");
+    assert.equal(r.kinetic, true, "galeria inclui tipografia cinética");
+    assert.equal(r.columns, 3, "galeria mostra três cartões por linha");
+    assert.ok(r.cardWidth > 260, `cartão ampliado: ${r.cardWidth}px`);
+    assert.ok(Math.abs(r.previewScale * 1920 - r.previewWidth) < 2, "prévia ocupa o retângulo sem corte");
     await p.keyboard.press("Escape");
   });
 
@@ -96,15 +106,41 @@ test("studio", async (t) => {
 
   await t.test("editor visual tem formulário para os layouts novos", async () => {
     const i = await go("statement");
-    const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/ };
+    const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/, kinetic: /Cena de fundo/ };
     for (const [layout, label] of Object.entries(expect)) {
       await p.click("#btn-layout-gallery");
       await p.click(`.layout-card[data-layout="${layout}"]`); await settle(600);
       assert.match(await p.textContent(form), label, layout);
     }
+    assert.match(await p.textContent(form), /Frases da sequência/);
     await p.click("#btn-layout-gallery");
     await p.click('.layout-card[data-layout="statement"]'); await settle();
     assert.equal((await deck()).slides[i].layout, "statement");
+  });
+
+  await t.test("codewalk infere linguagem do arquivo e permite uma escolha manual", async () => {
+    const i = await go("statement");
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="codewalk"]'); await settle();
+    const filename = `${form} input[placeholder="exemplo.js"]`;
+    const language = p.locator(`${form} select`).first();
+    const options = await language.locator("option").evaluateAll((items) => items.map((item) => item.textContent.trim()));
+    assert.deepEqual(options.slice(1), ["Python", "Java", "JavaScript", "TypeScript", "C#"]);
+
+    await p.fill(filename, "hello.py"); await settle();
+    assert.equal(await language.inputValue(), "Python");
+    assert.equal((await deck()).slides[i].language, "Python");
+
+    await language.selectOption("Java"); await settle();
+    await p.fill(filename, "hello.ts"); await settle();
+    assert.equal(await language.inputValue(), "Java", "a escolha manual prevalece sobre a extensão");
+
+    await language.selectOption(""); await settle();
+    await p.fill(filename, "hello.cs"); await settle();
+    assert.equal(await language.inputValue(), "C#", "voltar à inferência acompanha a extensão nova");
+    assert.equal((await deck()).slides[i].language, "C#");
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="statement"]'); await settle();
   });
 
   await t.test("imagem a gerar: placeholder no slide e botão Gerar imagem agora", async () => {
@@ -526,7 +562,7 @@ test("studio", async (t) => {
     await p.click("#btn-api-slide");
     await p.waitForSelector("#api-examples-list .api-ex-item");
     const labels = await p.$$eval("#api-examples-list .api-ex-item b", (els) => els.map((e) => e.textContent));
-    for (const want of ["LLM", "Workflow", "Streaming", "FileManager", "Tempo real"]) assert.ok(labels.includes(want), `falta o exemplo ${want}: ${labels}`);
+    for (const want of ["LLM", "OpenRouter (real)", "Workflow", "Streaming", "FileManager", "Tempo real"]) assert.ok(labels.includes(want), `falta o exemplo ${want}: ${labels}`);
     await p.click('#api-examples-list .api-ex-item:has(b:text-is("LLM"))');
     await settle();
     let slides = saved().slides;
@@ -586,6 +622,7 @@ test("studio", async (t) => {
     assert.match(await p.innerText("#api-envs-status"), /ainda não existe/);
     assert.match(await p.innerText("#api-envs-file"), /ambientes-de-teste\.yaml/);
     assert.match(await p.innerText("#api-envs-list"), /ENSAIO/, "o ambiente embutido aparece");
+    assert.match(await p.innerText("#api-envs-list"), /OPENROUTER/, "o ambiente OpenRouter aparece");
     // YAML quebrado: recusado, nada gravado
     await p.fill("#api-envs-text", "environments:\n  dev: [\n");
     await p.click("#btn-api-envs-save");
@@ -601,7 +638,7 @@ test("studio", async (t) => {
     await p.click("#btn-api-envs-save");
     await p.waitForFunction(() => /Salvo/.test(document.getElementById("api-envs-status").textContent));
     assert.equal(fs.readFileSync(envFile, "utf8"), text);
-    assert.deepEqual(await p.$$eval("#api-envs-list .env-chip", (els) => els.map((e) => e.dataset.env)), ["dev", "hom", "ensaio"]);
+    assert.deepEqual(await p.$$eval("#api-envs-list .env-chip", (els) => els.map((e) => e.dataset.env)), ["dev", "hom", "ensaio", "openrouter"]);
     assert.equal(await p.getAttribute('#api-envs-list .env-chip.active', "data-env"), "dev");
     await p.click('#api-envs-list .env-chip[data-env="hom"]');
     await p.waitForSelector('#api-envs-list .env-chip.active[data-env="hom"]');

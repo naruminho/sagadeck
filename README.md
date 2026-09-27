@@ -216,7 +216,11 @@ Para ver funcionando sem configurar nada:
 
 - **Biblioteca → Nova → Exemplo: aula de APIs ao vivo.** Cria um deck com um slide de cada tipo, que roda no
   ambiente **ENSAIO**: uma API de mentira que o Studio sobe sozinho (sem VPN, sem chave). Apresente e clique
-  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.)
+  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.) O deck também traz um slide
+  **OpenRouter (real)** com `nvidia/nemotron-3-super-120b-a12b:free`. Para usá-lo, defina `OPENROUTER_API_KEY` no
+  processo que inicia o Studio e escolha o ambiente **OPENROUTER** no selo do slide. A chave fica fora do
+  deck; no PowerShell, por exemplo, defina `$env:OPENROUTER_API_KEY = "sua-chave"` antes de iniciar o
+  Studio e reinicie-o depois de definir a variável.
 - **No editor, Inserir → Slide de API:** os mesmos exemplos, um de cada vez, entram depois do slide atual.
   O painel **Formatar** edita o endereço, o corpo em JSON, o modo (síncrono, polling, streaming, tempo real)
   e o que guardar para os próximos slides.

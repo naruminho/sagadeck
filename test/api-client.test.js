@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { ApiEnvironments, readRecordings, writeRecording, recordingsFile } from "../src/api-client.js";
@@ -72,6 +73,49 @@ test("ambiente embutido (o ENSAIO do Studio): aparece sem arquivo, vem depois do
       assert.equal(api2.state().envs.find((e) => e.name === "hom").vars.base, `${m2.url}/v1`);
     } finally { await m2.close(); }
   } finally { await mock.close(); }
+});
+
+test("OpenRouter: chave local é exigida, enviada como Bearer e mascarada na resposta do Studio", async () => {
+  let receivedAuthorization;
+  let receivedBody;
+  const server = http.createServer(async (req, res) => {
+    receivedAuthorization = req.headers.authorization;
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    receivedBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: "Uma API conecta sistemas." } }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const api = new ApiEnvironments(path.join(tmp(), "nao-existe.yaml"));
+  api.builtin.openrouter = {
+    label: "OpenRouter · chamada real",
+    secrets: { openrouter_api_key: { env: "SAGADECK_TEST_OPENROUTER_API_KEY" } },
+  };
+  const oldKey = process.env.SAGADECK_TEST_OPENROUTER_API_KEY;
+  delete process.env.SAGADECK_TEST_OPENROUTER_API_KEY;
+  const request = {
+    method: "POST",
+    url: `http://127.0.0.1:${server.address().port}/chat/completions`,
+    auth: false,
+    headers: { Authorization: "Bearer {{secret.openrouter_api_key}}" },
+    body: { model: "nvidia/nemotron-3-super-120b-a12b:free", messages: [{ role: "user", content: "oi" }] },
+  };
+  try {
+    await assert.rejects(api.send(request), /defina SAGADECK_TEST_OPENROUTER_API_KEY/);
+    process.env.SAGADECK_TEST_OPENROUTER_API_KEY = "or-test-secret-1234";
+    const result = await api.send(request);
+    assert.equal(result.status, 200);
+    assert.equal(receivedAuthorization, "Bearer or-test-secret-1234");
+    assert.equal(receivedBody.model, "nvidia/nemotron-3-super-120b-a12b:free");
+    assert.equal(result.body.choices[0].message.content, "Uma API conecta sistemas.");
+    assert.doesNotMatch(JSON.stringify(result), /or-test-secret-1234/);
+    assert.match(result.sent.headers.Authorization, /1234$/);
+  } finally {
+    if (oldKey === undefined) delete process.env.SAGADECK_TEST_OPENROUTER_API_KEY;
+    else process.env.SAGADECK_TEST_OPENROUTER_API_KEY = oldKey;
+    await new Promise((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
+  }
 });
 
 test("pedido síncrono: token obtido sozinho e reaproveitado; JSON de volta; token nunca exposto", async () => {
@@ -188,6 +232,6 @@ test("{{secret.x}}: o Studio troca pelo valor na hora de enviar; nada volta para
     const got = mock.state.requests.find((x) => x.path === "/identity");
     assert.equal(got.headers["x-extra"], "valor-da-variavel-777");
     assert.doesNotMatch(JSON.stringify(r), /segredo-teste-123|valor-da-variavel-777/);
-    await assert.rejects(api.send({ url: `${mock.url}/v1/sync`, body: { k: "{{secret.nao_tem}}" } }), /não tem nao_tem em secrets/);
+    await assert.rejects(api.send({ url: `${mock.url}/v1/sync`, body: { k: "{{secret.nao_tem}}" } }), /não tem nao_tem configurado em secrets/);
   } finally { delete process.env.SAGADECK_TESTE_SEGREDO; await mock.close(); }
 });

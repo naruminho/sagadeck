@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { LAYOUTS } from "../src/layouts.js";
 import { renderSlide, buildHTML, wordCount, loadSpec } from "../src/build.js";
@@ -11,6 +12,7 @@ import { autofixSlide, recordAuto } from "../src/fiscal/autofix.js";
 import { applyPatch, toYaml, countImagePrompts, extractYaml } from "../src/ai/deck-ai.js";
 import { THEMES } from "../src/themes.js";
 import { LAYOUT_INFO, LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
+import { displayCodeLanguage, inferCodeLanguage, normalizeCodeLanguage, resolveCodeLanguage } from "../src/code-language.js";
 import { textToVisualSlide } from "../src/diagram/napkin.js";
 import { NAPKIN_EXAMPLES } from "../src/diagram/napkin-examples.js";
 import { fillTokens, formatDate } from "../src/chrome.js";
@@ -52,12 +54,41 @@ test("código guiado preserva código literal, destaques, etapas e resumo estát
   ] });
   assert.match(out, /data-lesson-count="2"/);
   assert.match(out, /data-highlight="\[2\]"/);
-  assert.match(out, /a &lt; 2/);
+  assert.match(out, /a <span class="tok tok-operator">&lt;<\/span> <span class="tok tok-number">2/);
   assert.match(out, /&lt;script&gt;literal&lt;\/script&gt;/);
   assert.doesNotMatch(out, /<script>literal/);
   assert.match(out, /Saída esperada · simulação/);
   assert.match(out, /lesson-summary/);
   assert.match(out, /data-lesson-go="1"/);
+});
+
+test("linguagens de código são inferidas pela extensão e aceitam aliases comuns", () => {
+  assert.equal(inferCodeLanguage("src/exemplo.py"), "Python");
+  assert.equal(inferCodeLanguage("C:\\aulas\\Main.java"), "Java");
+  assert.equal(inferCodeLanguage("api.mjs"), "JavaScript");
+  assert.equal(inferCodeLanguage("types.d.ts"), "TypeScript");
+  assert.equal(inferCodeLanguage("Program.cs"), "C#");
+  assert.equal(inferCodeLanguage("sem-extensao"), "");
+  assert.equal(normalizeCodeLanguage("Node.js"), "JavaScript");
+  assert.equal(resolveCodeLanguage("C#", "main.py"), "C#");
+  assert.equal(resolveCodeLanguage("", "main.py"), "Python");
+  assert.equal(resolveCodeLanguage("cURL", "main.py"), "");
+  assert.equal(displayCodeLanguage("cURL", "main.py"), "cURL");
+});
+
+test("codewalk infere a linguagem, destaca sintaxe e escapa conteúdo do código", () => {
+  const out = html({ layout: "codewalk", filename: "main.py", code: "def greet(name):\n    # saudação\n    return f'<{name}>'" });
+  assert.match(out, /class="codewalk-language f-label">Python/);
+  assert.match(out, /data-language="Python"/);
+  assert.match(out, /tok-keyword">def</);
+  assert.match(out, /tok-function">greet</);
+  assert.match(out, /tok-comment"># saudação</);
+  assert.match(out, /tok-string">f'&lt;\{name\}&gt;'/);
+  assert.doesNotMatch(out, /<\{name\}/);
+
+  const curl = html({ layout: "codewalk", filename: "request.sh", language: "cURL", code: "curl -X GET" });
+  assert.match(curl, /class="codewalk-language f-label">cURL/);
+  assert.doesNotMatch(curl, /class="tok tok-/);
 });
 
 test("foco guiado limita regiões à imagem e aceita figura sem dependência externa", () => {
@@ -69,9 +100,55 @@ test("foco guiado limita regiões à imagem e aceita figura sem dependência ext
   assert.match(html({ layout: "codewalk", steps: [] }), /data-lesson-count="1"/);
 });
 
+test("tipografia cinética normaliza batidas, limita opções e inclui resumo estático", () => {
+  const out = html({ layout: "kinetic", autoplay: false, interval: 9000, beats: [
+    "Uma frase",
+    { text: "Próxima", style: "neon", position: "right", color: "cyan", size: "medium", tag: "Agora" },
+    { text: "<script>alert(1)</script>", style: "desconhecido", position: "fora", color: "red", size: "gigante" },
+  ] });
+  assert.match(out, /data-lesson-count="3"/);
+  assert.match(out, /data-kinetic-interval="5000"/);
+  assert.match(out, /data-kinetic-autoplay="false"/);
+  assert.match(out, /data-style="neon" data-color="cyan" data-size="medium"/);
+  assert.match(out, /data-position="right"/);
+  assert.match(out, /Agora/);
+  assert.match(out, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(out, /<script>alert/);
+  assert.match(out, /kinetic-summary/);
+  const single = html({ layout: "kinetic", beats: ["Uma frase"] });
+  assert.match(single, /data-kinetic-autoplay="false"/);
+  assert.match(single, /data-kinetic-toggle[^>]*disabled/);
+});
+
 test("página inteira: image_prompt sem imagem vira placeholder (não some)", () => {
   const out = html({ layout: "full", image_prompt: "uma sala de controle", title: "X" });
   assert.match(out, /fig-pending/);
+});
+
+test("imagem local ausente não impede abrir a apresentação e fica explícita no slide/avisos", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-imagem-ausente-"));
+  try {
+    const built = buildHTML({
+      _dir: dir,
+      title: "Aula",
+      slides: [{ layout: "cover", title: "Revolucionando o Código", figure: { image: "images/ia-011c8dc4.png" } }],
+    });
+    assert.match(built.html, /class="fig fig-pending fig-missing"/);
+    assert.match(built.html, /aria-label="Imagem não encontrada: images\/ia-011c8dc4\.png"/);
+    assert.ok(built.warnings.some((warning) => warning.includes('Imagem "images/ia-011c8dc4.png" não encontrada')));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("títulos preservam palavras inteiras sem hifenização automática", () => {
+  const out = buildHTML({
+    title: "Português",
+    lang: "pt-BR",
+    slides: [{ layout: "cover", title: "Revolucionando o Código" }],
+  }).html;
+  assert.match(out, /<html lang="pt-BR">/);
+  assert.match(out, /\.ttl\{[^}]*word-break:normal;overflow-wrap:normal;hyphens:none;text-wrap:balance/);
 });
 
 test("página inteira: figura desenhada com texto à esquerda não fica por baixo do texto", () => {
