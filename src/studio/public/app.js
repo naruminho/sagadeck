@@ -31,9 +31,9 @@
   // ordem da galeria: abertura, frase, números, listas/estruturas, dados, interação, mídia, livres, fim
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
-    "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
-    "blocks", "canvas", "references", "end",
+    "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
+    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
+    "blocks", "dossier", "canvas", "references", "end",
   ];
 
   // Nome que a pessoa vê para cada layout (o YAML continua com o nome em inglês).
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    diagram: "Diagrama", infographic: "Infográfico", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -895,7 +895,8 @@
         history,
         attachments,
         renderNotes: state.renderNotes || [],
-      }, (ev) => work.update(ev));
+        autoRun: !!state.autoRunCommands, // a pessoa liberou os comandos desta conversa (só enquanto a página está aberta)
+      }, (ev) => { if (!commandEvent(ev)) work.update(ev); });
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       if (data.variants) {
         state.chatHistory.push({ role: "assistant", text: `${data.reply}\n(versões: ${data.variants.options.map((o) => o.label).join(" | ")})`, talk: true });
@@ -957,7 +958,66 @@
   function saveChatHistory() {
     fetch("api/chat/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: state.chatHistory }) }).catch(() => {});
   }
+  // ---- comandos da IA: nada roda sem a pessoa ver o código e clicar (a liberação vale só nesta página e neste deck) ----
+  state.autoRunCommands = false;
+  function commandCard(cmd) {
+    const msg = appendChatMessage("ai", "");
+    msg.classList.add("cmd-msg");
+    const box = msg.querySelector(".ai-content");
+    box.innerHTML = `<div class="cmd-head"><i class="ic" data-ic="terminal"></i><b></b></div><div class="cmd-why"></div><pre class="cmd-code"></pre><div class="cmd-actions"></div>`;
+    box.querySelector("b").textContent = `A IA quer rodar um comando (${cmd.language})`;
+    box.querySelector(".cmd-why").textContent = cmd.why || "";
+    box.querySelector(".cmd-code").textContent = cmd.code;
+    hydrateIcons(box);
+    dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+    return box;
+  }
+  function commandEvent(ev) {
+    if (ev.type !== "progress") return false;
+    if (ev.phase === "approve" && ev.command) {
+      const box = commandCard(ev.command), acts = box.querySelector(".cmd-actions");
+      acts.innerHTML = `<button type="button" class="btn btn-primary" data-d="run"><i class="ic" data-ic="play"></i> Executar</button><button type="button" class="btn" data-d="always">Executar e liberar os próximos</button><button type="button" class="btn" data-d="deny"><i class="ic" data-ic="x"></i> Não executar</button>`;
+      hydrateIcons(acts);
+      acts.querySelectorAll("[data-d]").forEach((b) => b.onclick = async () => {
+        const decision = b.dataset.d;
+        if (decision === "always") state.autoRunCommands = true;
+        acts.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+        try { await fetch("api/ai/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ev.id, decision }) }); } catch {}
+        acts.innerHTML = `<span class="cmd-state">${decision === "deny" ? "Não executado" : decision === "always" ? "Executando (próximos liberados nesta conversa)" : "Executando…"}</span>`;
+        if (decision !== "deny") box.dataset.waiting = "1"; // o resultado vem para este cartão
+      });
+      return false; // a linha de progresso também mostra "Esperando você autorizar"
+    }
+    if (ev.phase === "command" && ev.command) {
+      // aprovado agora: o cartão já está na tela; liberado antes: aparece um cartão novo, já rodando
+      if (!document.querySelector(".cmd-msg [data-waiting]")) {
+        const box = commandCard(ev.command);
+        box.dataset.waiting = "1";
+        box.querySelector(".cmd-actions").innerHTML = `<span class="cmd-state">Executando (liberado nesta conversa)…</span>`;
+      }
+      return false;
+    }
+    if (ev.phase === "command-result") {
+      const box = document.querySelector(".cmd-msg [data-waiting]");
+      if (box) {
+        delete box.dataset.waiting;
+        const r = ev.result || {}, ok = r.exitCode === 0 && !r.timedOut;
+        const st = box.querySelector(".cmd-state") || box.querySelector(".cmd-actions");
+        st.textContent = r.timedOut ? "Tempo esgotado" : ok ? "Rodou (saída 0)" : `Rodou com erro (saída ${r.exitCode ?? "?"})`;
+        st.classList.toggle("cmd-bad", !ok);
+        const out = document.createElement("details");
+        out.className = "cmd-out";
+        out.innerHTML = "<summary>Ver a saída</summary><pre></pre>";
+        out.querySelector("pre").textContent = [r.stdout, r.stderr].filter(Boolean).join("\n").slice(0, 6000) || "(sem saída)";
+        box.appendChild(out);
+      }
+      return false;
+    }
+    return false;
+  }
+
   async function loadChatHistory() {
+    state.autoRunCommands = false; // outra apresentação: nada fica liberado
     try {
       const { history } = await (await fetch("api/chat/history")).json();
       state.chatHistory = Array.isArray(history) ? history : [];

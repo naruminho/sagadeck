@@ -12,6 +12,36 @@ import { browserOrSkip, newPage, startStudio, tempDeck, readPptx } from "./helpe
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
+test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=>{
+  const browser=await browserOrSkip(t);if(!browser)return;
+  const studio=await startStudio(null);
+  try{const {page:p,errors}=await newPage(browser,studio.url+'/biblioteca');
+    await t.test('menu de modelos cabe em janela baixa',async()=>{
+      await p.setViewportSize({width:1100,height:650});await p.click('#btn-new');
+      const bounds=await p.locator('.lmenu.open').boundingBox();assert.ok(bounds.y+bounds.height<=650,'menu sai da janela');
+      await p.keyboard.press('Escape');
+    });
+    await t.test('modelo lavanda cria arquivo completo na biblioteca',async()=>{
+      await p.click('#btn-new');await p.click('[data-new="model-lavanda"]');
+      await p.waitForSelector('.thumb-card[data-idx="1"]');
+      await p.click('.thumb-card[data-idx="1"]');await p.waitForSelector('#rendered-slide-container .adaptive');
+      assert.equal(await p.locator('#rendered-slide-container .adaptive-item').count(),5);
+      const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.ok(data.file.startsWith(studio.library));assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].layout,'mosaic');
+    });
+    await t.test('alterar item pelo formulário salva no YAML',async()=>{
+      await p.click('#tab-btn-props');
+      const toggles=p.locator('#slide-fields-form .sf-item-toggle');
+      await toggles.first().click();
+      const input=p.locator('#slide-fields-form .sf-field').filter({has:p.locator('.sf-label', {hasText:/^Título$/})}).locator('input').nth(1);
+      await input.fill('Ideia revisada');await input.blur();await p.waitForTimeout(800);
+      const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].items[0].title,'Ideia revisada');
+    });
+    assert.deepEqual(errors,[]);
+  }finally{await studio.close();await browser.close();}
+});
+
 test("studio", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
@@ -858,5 +888,55 @@ test("multiusuário atrás do proxy: a origem do portal (X-Forwarded-Host) vale;
     assert.equal(evil.headers["access-control-allow-origin"], undefined);
   } finally {
     await studio.close();
+  }
+});
+
+// Comandos da IA no servidor multiusuário: só quem está em --agentes (o comando roda na máquina do servidor). Os
+// outros conversam e editam normalmente, e a IA deles nem sabe que comandos existem. Ninguém aprova o de outro.
+test("multiusuário: comandos só para quem está em --agentes; ninguém responde pelo comando de outra pessoa", async () => {
+  const { startMockLLM } = await import("./mock-llm.js");
+  const RUN = "Vou testar.\n```yaml\nrun:\n  language: javascript\n  why: testar\n  code: console.log(1)\n```";
+  const llm = await startMockLLM(({ lastUser }) => (/NÃO autorizou/.test(lastUser) ? "Tudo bem, não rodei." : RUN));
+  const studio = await startStudio(null, { multiuser: true, agentUsers: ["naru", "ana"], llmUrl: llm.url });
+  const as = (user) => ({ Host: new URL(studio.url).host, "X-Sagadeck-User": user, "Content-Type": "application/json" });
+  const post = (user, p, body) => raw(studio.url + p, { method: "POST", headers: as(user), body: JSON.stringify(body) });
+  const openDeck = async (user) => { const { id } = JSON.parse((await post(user, "/api/library/decks", { topic: "", title: "Deck" })).body); await post(user, "/api/library/open", { id }); };
+  // o chat ao vivo (NDJSON): devolve os eventos conforme chegam e deixa responder no meio
+  const chat = (user, onEvent) => new Promise(async (resolve, reject) => {
+    const http = await import("node:http");
+    const u = new URL(studio.url + "/api/ai/chat");
+    const rq = http.request({ host: u.hostname, port: u.port, path: u.pathname, method: "POST", headers: as(user) }, (res) => {
+      let buf = "", events = [];
+      res.setEncoding("utf8");
+      res.on("data", (c) => { buf += c; let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) { const ev = JSON.parse(line); events.push(ev); onEvent?.(ev); } } });
+      res.on("end", () => resolve(events));
+    });
+    rq.on("error", reject);
+    rq.end(JSON.stringify({ message: "teste a API", stream: true, targetSlide: 0 }));
+  });
+  try {
+    // Mary (fora da lista): a IA dela não tem comandos e nada pede aprovação
+    await openDeck("mary");
+    const n = llm.requests.length;
+    const evMary = await chat("mary");
+    assert.ok(!evMary.some((e) => e.phase === "approve"), "nenhum pedido de aprovação para quem não está na lista");
+    assert.match(llm.requests[n].system, /Comandos: indisponíveis aqui/);
+    assert.doesNotMatch(llm.requests[n].system, /COMANDOS \(Studio local\)/);
+    assert.equal((await post("mary", "/api/ai/approve", { id: "x", decision: "run" })).status, 403);
+    // Naru (na lista): o pedido chega; a Mary não consegue responder por ele; ele responde
+    await openDeck("naru");
+    const tentativas = [];
+    const evNaru = await chat("naru", async (ev) => {
+      if (ev.phase !== "approve") return;
+      tentativas.push((await post("mary", "/api/ai/approve", { id: ev.id, decision: "run" })).status);
+      tentativas.push((await post("ana", "/api/ai/approve", { id: ev.id, decision: "run" })).status); // na lista, mas o pedido não é dela
+      tentativas.push((await post("naru", "/api/ai/approve", { id: ev.id, decision: "deny" })).status);
+    });
+    assert.ok(evNaru.some((e) => e.phase === "approve"), "quem está na lista recebe o pedido de aprovação");
+    assert.deepEqual(tentativas, [403, 404, 200], "nem a Mary (fora da lista) nem a Ana (outra pessoa) aprovam o comando do Naru; ele sim");
+    assert.match(JSON.stringify(evNaru.at(-1)), /não rodei/);
+  } finally {
+    await studio.close();
+    await llm.close();
   }
 });

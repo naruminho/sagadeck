@@ -197,6 +197,8 @@ O Studio escuta só em `127.0.0.1` por padrão; `--host=0.0.0.0` abre para a red
 Só a própria página usa o Studio: sem CORS, pedidos de outro site para `/api/*` levam 403, e ele não pode ser
 embutido em iframe de outra origem.
 
+**Comandos da IA (para testar APIs de verdade):** no chat do Studio, a IA pode pedir para rodar um trecho de JavaScript, Python, PowerShell ou shell — por exemplo, testar a API cuja documentação você colou, ajustar o contrato e só então montar o slide. Nada roda sem você ver o código e clicar em **Executar** (ou em *Executar e liberar os próximos*, que vale até recarregar o Studio ou trocar de apresentação). O comando roda na pasta da apresentação e recebe as variáveis do ambiente ativo (`SAGA_VAR_*`, `SAGA_SECRET_*`, `SAGA_TOKEN`); a IA só vê os nomes, e a saída volta para ela com os segredos mascarados. No servidor multiusuário, só quem estiver em `--agentes=usuario1,usuario2` (ou `SAGADECK_AGENTES`) tem comandos, e eles rodam **na máquina do servidor**; os demais usam o resto normalmente.
+
 **Vários usuários (servidor):** `sagadeck studio --multiuser --library=/srv/sagadeck` dá uma biblioteca por pessoa
 (`usuarios/<nome>/`), identificada pelo cabeçalho `X-Sagadeck-User` (ou `--user-header=...`) que o proxy de login
 (nginx) coloca. Sem o cabeçalho, nada é servido. Por confiar nesse cabeçalho, só roda escutando em `127.0.0.1`,

@@ -834,3 +834,16 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .fix-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--ui-line-strong); background: var(--panel, #fff); color: var(--text); font: inherit; cursor: pointer; }
 .fix-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 .fix-btn .ic { width: 14px; height: 14px; }
+
+/* comandos da IA no chat: o código aparece antes de rodar */
+.cmd-msg .ai-content { max-width: 100%; }
+.cmd-head { display: flex; align-items: center; gap: 6px; }
+.cmd-head .ic svg { width: 15px; height: 15px; }
+.cmd-why { margin: 4px 0 6px; color: var(--text-2); }
+.cmd-code, .cmd-out pre { margin: 0; max-height: 220px; overflow: auto; padding: 8px 10px; border-radius: 6px; background: var(--chrome-3, rgba(0,0,0,.06)); font: 12px/1.45 "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; }
+.cmd-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cmd-actions .btn { font-size: 12px; padding: 4px 10px; }
+.cmd-state { font-size: 12px; color: var(--text-2); }
+.cmd-state.cmd-bad { color: var(--danger); }
+.cmd-out { margin-top: 6px; font-size: 12px; }
+.cmd-out summary { cursor: pointer; color: var(--text-2); }

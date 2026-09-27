@@ -94,6 +94,9 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+| `mosaic` | `kicker, title, items: [{title, text, value, icon, code, foot}], build` | grade adaptável de 1 a 12 itens; ver [Grades adaptáveis](#grades-adaptáveis-mosaic-ribbon-dossier) |
+| `ribbon` | `kicker, title, items, build` | os mesmos itens em cápsulas arredondadas |
+| `dossier` | `kicker, title, items, build` | página de consulta compacta, com blocos de código |
 | `infographic` | `kicker, title, shape, center: {title, text, icon}, items: [{title, text, icon, steps}], build, caption` | infográfico desenhado: arco, ramos, lados, trilhas ou metrô; ver [Infográficos](#infográficos-infographic) |
 | `diagram` | `kicker, title, mermaid, caption, autoDirection` | diagrama desenhado (fluxograma, sequência, estados, UML, ER, jornada, mapa mental, linha do tempo, blocos) nas cores do tema; ver [Diagramas](#diagramas-diagram) |
 
@@ -191,8 +194,8 @@ e a animação são substituídos por uma lista das frases.
 
 ## Slide `api`: requisição ao vivo
 
-Um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente (curl, Python e
-Python comentado), e o botão **Executar** roda o pedido de verdade e mostra a resposta. Serve para aula
+Um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente (curl, JavaScript,
+Python e Python comentado), e o botão **Executar** roda o pedido de verdade e mostra a resposta. Serve para aula
 de API: a plateia vê o código, o status mudando e o resultado.
 
 Os pedidos saem do **Studio** (Node, na sua máquina), nunca do navegador: sem problema de CORS, com o
@@ -235,8 +238,8 @@ para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, ve
 | `audio` | a resposta é áudio (TTS): toca no slide, com a onda; no código, salva em `audio: fala.mp3` |
 | `similarity` | embeddings: `{ reference, texts: [..], vector: "$.data[0].embedding" }`; o corpo usa `{{text}}`. Mostra o vetor e a similaridade por cosseno de cada frase |
 | `fields` | aba **Parâmetros**: `{ "$.campo": "o que faz" }`, com o valor atual de cada campo |
-| `code` | abas de código: `[curl, python, python-comentado]` (padrão: as três) |
-| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `python`, `python-comentado` |
+| `code` | abas de código: `[curl, javascript, javascript-comentado, python, python-comentado]` (padrão: curl, javascript, python, python-comentado; sem javascript em tempo real e similaridade). O JavaScript é para Node 18+ (fetch nativo), sem dependências |
+| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `javascript`, `javascript-comentado`, `python`, `python-comentado` |
 | `tokenVar` | nome da variável de ambiente do token no código gerado (padrão `API_TOKEN`) |
 | `id` | chave da gravação (padrão: título + URL) |
 
@@ -479,6 +482,14 @@ Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem execut
   plot:
     preset: surface
 ```
+
+## Grades adaptáveis (`mosaic`, `ribbon`, `dossier`)
+
+Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, foot}]` (1 a 12 itens) e `build: true` (um item por clique). As colunas (1 a 4) saem da quantidade de itens e do tamanho dos textos.
+
+- `mosaic`: grade editorial; com item sobrando na última linha, o primeiro ocupa duas colunas, em destaque.
+- `ribbon`: os mesmos campos em cápsulas arredondadas, centralizadas. Para serviços, etapas ou pilares.
+- `dossier`: página de consulta, compacta: letra menor e blocos de código (`code`) com quebra de linha. Para material de referência (documentação, payloads, instruções); não imponha a ela o limite de palavras de uma palestra quando a pessoa pede material denso.
 
 ## Infográficos (`infographic`)
 

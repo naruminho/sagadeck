@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import YAML from "yaml";
 import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
 import { startMockLLM } from "./mock-llm.js";
@@ -17,9 +18,14 @@ const NEW_DECK = ["```yaml", "title: Deck gerado", "theme: bauhaus", "duration: 
   "  - { layout: number, value: 3, label: milhões, tone: dark, time: 1 }", "  - { layout: question, question: E aí?, options: [Sim, Não], time: 1 }",
   "  - { layout: end, title: Obrigado, time: 1 }", "```"].join("\n");
 
+// comandos: pede para rodar, recebe o resultado (ou a recusa) e só então edita
+const RUN_CONTA = "Vou conferir antes.\n```yaml\nrun:\n  language: javascript\n  why: conferir a conta de 6 x 7\n  code: |\n    import fs from 'node:fs';\n    fs.writeFileSync('rodou.txt', 'sim');\n    console.log(6 * 7);\n```";
 function script(req) {
   if (/Crie uma apresentação completa/.test(req.lastUser)) return NEW_DECK;
+  if (/Resultado do comando 1/.test(req.lastUser)) return `Conferi.\n\`\`\`yaml\nedit:\n  1:\n    kicker: "Conta ${/\b42\b/.test(req.lastUser) ? "42" : "?"}"\n\`\`\``;
+  if (/NÃO autorizou/.test(req.lastUser)) return "Tudo bem, não rodei nada.";
   const p = pedido(req);
+  if (/rode a conta/.test(p)) return RUN_CONTA;
   if (/sem visão/.test(p) && req.hasImages) return { status: 404, error: "No endpoints found that support image input" };
   if (/sem visão/.test(p)) return ["Respondi sem ver o slide.", "```opcoes", "Ok", "Outra coisa", "```"].join("\n");
   if (/o que você acha/.test(p)) return "Gosto do tema. Quem é o público?\n```opcoes\nO público é a diretoria\nO público é técnico\n```";
@@ -177,6 +183,35 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.match(req.lastUser, /Você decide onde ilustrar/);
       assert.match(req.system, /Você PODE pedir ilustrações/);
       assert.equal((await deck()).title, "Deck gerado");
+    });
+
+    await t.test("comando da IA: aparece o código, só roda com o clique, o resultado volta e o deck salvo muda", async () => {
+      // (o teste anterior abriu outro deck: vale o que está aberto agora)
+      const aberto = await p.evaluate(async () => (await (await fetch("/api/deck")).json()).file);
+      const lido = () => YAML.parse(fs.readFileSync(aberto, "utf8"));
+      const marca = path.join(path.dirname(aberto), "rodou.txt");
+      // Não executar: nada roda, nada muda
+      await p.fill("#chat-input", "rode a conta e ponha no chapéu");
+      await p.click("#chat-send");
+      await p.waitForSelector(".cmd-msg .cmd-actions [data-d=deny]", { timeout: 30000 });
+      assert.match(await p.textContent(".cmd-msg .cmd-code"), /fs\.writeFileSync\('rodou\.txt'/, "o código aparece antes de rodar");
+      assert.match(await p.textContent(".cmd-msg .cmd-why"), /conferir a conta/);
+      const antes = lido().slides[0].kicker;
+      await p.click(".cmd-msg .cmd-actions [data-d=deny]");
+      await waitAI();
+      assert.equal(fs.existsSync(marca), false, "recusado: não rodou");
+      assert.equal(lido().slides[0].kicker, antes);
+      assert.match(await lastAI(), /não rodei/);
+      // Executar: roda na pasta da apresentação, o resultado volta à IA e o patch entra no deck salvo
+      await p.fill("#chat-input", "rode a conta e ponha no chapéu");
+      await p.click("#chat-send");
+      await p.waitForSelector(".cmd-msg:last-of-type .cmd-actions [data-d=run], .cmd-msg .cmd-actions [data-d=run]:not([disabled])", { timeout: 30000 });
+      await p.locator(".cmd-actions [data-d=run]:not([disabled])").last().click();
+      await waitAI();
+      assert.equal(fs.readFileSync(marca, "utf8"), "sim", "rodou na pasta da apresentação");
+      assert.equal(lido().slides[0].kicker, "Conta 42", "a IA recebeu o resultado real");
+      assert.match(await p.locator(".cmd-msg .cmd-state").last().textContent(), /Rodou \(saída 0\)/);
+      fs.rmSync(marca);
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

@@ -70,7 +70,10 @@
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".
+  // grades adaptáveis (src/adaptive-layouts.js): os mesmos campos nas três
+  const ADAPTIVE = [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", obj([f.text("title", "Título"), f.area("text", "Texto"), f.text("value", "Valor"), f.icon("icon", "Ícone"), f.area("code", "Código (opcional)", { mono: true, rows: 4 }), f.text("foot", "Nota")]), { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }), max: 12 }), f.bool("build", "Revelar por clique")];
   const LAYOUTS = {
+    mosaic: ADAPTIVE, ribbon: ADAPTIVE, dossier: ADAPTIVE,
     cover: [f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.text("author", "Autor"), f.text("role", "Cargo do autor"),
       f.el("figure", "Figura"), f.more([f.num("titleSize", "Tamanho do título (px)")])],
     section: [f.text("number", "Número"), f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.el("figure", "Figura"),
@@ -137,7 +140,7 @@
       f.more([f.text("token", "Este slide gera o token (caminho na resposta)", { hint: "ex.: $.access_token — os slides seguintes usam esse token" }),
         f.text("steps", "Lista de etapas na resposta", { hint: "ex.: $.responses" }), f.text("stepText", "Texto de cada etapa", { hint: "ex.: $.output" }),
         f.bool("mic", "Botão Gravar (microfone, para STT)"), f.text("audio", "A resposta é áudio (TTS): nome do arquivo", { placeholder: "fala.mp3" }),
-        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
+        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["javascript", "JavaScript"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
         f.text("id", "Identificador (para guardar a gravação)")])],
     codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("filename", "Nome do arquivo", { placeholder: "exemplo.js" }), f.codeLanguage("language", "Linguagem", "filename"),
       f.area("code", "Código", { mono: true, rows: 10, hint: "O código é exibido, sem execução. Na apresentação, as setas percorrem as etapas." }),

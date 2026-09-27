@@ -516,3 +516,15 @@ test("infographic: todas as formas desenham de 2 ao máximo de itens; excesso vi
     assert.ok(new Set(cols).size >= 4, `${theme}/${palette}: cores diferentes para os itens (${cols})`);
   }
 });
+
+// Layout que o motor conhece mas o Studio não lista fica escondido da pessoa (só a IA consegue usar).
+test("todo layout do motor aparece na galeria do Studio (LAYOUT_NAMES) com nome em português", async () => {
+  const { LAYOUTS } = await import("../src/layouts.js");
+  const app = fs.readFileSync(path.join(ROOT, "src", "studio", "public", "app.js"), "utf8");
+  const names = JSON.parse(app.match(/const LAYOUT_NAMES = (\[[\s\S]*?\]);/)[1].replace(/,\s*\]/, "]"));
+  const labels = app.match(/const LAYOUT_LABELS = \{([\s\S]*?)\};/)[1];
+  const fora = Object.keys(LAYOUTS).filter((k) => !names.includes(k) && !["api", "auto"].includes(k));
+  assert.deepEqual(fora, [], "faltam na galeria");
+  const semNome = names.filter((k) => !new RegExp(`\\b${k}:\\s*"`).test(labels));
+  assert.deepEqual(semNome, [], "sem nome na galeria");
+});

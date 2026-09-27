@@ -22,6 +22,8 @@ import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
+import { runCommand, envName } from "../ai/commands.js";
+import { demoDeck } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -144,6 +146,51 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (!cur) return null;
       return { env: cur.name, live: !apiBlocked(req), vars: cur.vars, secrets: Object.keys(apiEnv.env().secrets || {}), saved: W.apiVars || {} };
     } catch { return null; }
+  }
+
+  // Comandos da IA (src/ai/commands.js): só no Studio local, com a resposta ao vivo (stream: é por ela que se pergunta),
+  // com a apresentação salva na biblioteca (a pasta dela é a pasta de trabalho) e só com a aprovação da pessoa: o
+  // pedido vai como {phase: "approve", id, command} e a resposta chega em /api/ai/approve. body.autoRun: ela liberou
+  // os próximos desta conversa (o Studio só guarda isso enquanto a página está aberta). Sem resposta em 10 min: recusado.
+  // Quem pode: no Studio local, a pessoa da máquina (mesmas travas do slide api: endereço local, própria página). No
+  // servidor multiusuário, só quem está em --agentes / SAGADECK_AGENTES (o comando roda NA MÁQUINA DO SERVIDOR); os
+  // outros usam tudo (gerar slides, conversar, imagens), só sem comandos, e a IA deles nem sabe que existem.
+  const AGENTS = new Set([].concat(opts.agentUsers ?? String(process.env.SAGADECK_AGENTES || "").split(",")).map((u) => String(u).trim()).filter(Boolean));
+  function commandsAllowed(req, W) {
+    if (!W) return false;
+    return opts.multiuser ? !!W.user && AGENTS.has(W.user) : !apiBlocked(req);
+  }
+  const approvals = new Map(); // id -> { user, answer }
+  function commandRunner(req, emit, body, W) {
+    if (!body.stream || !commandsAllowed(req, W) || !W.file || isBundledTemplate(W.file)) return null;
+    const cwd = path.dirname(W.file);
+    return async (command) => {
+      if (!body.autoRun) {
+        const id = crypto.randomUUID();
+        const decision = await new Promise((resolve) => {
+          const timer = setTimeout(() => { approvals.delete(id); resolve("deny"); }, 10 * 60 * 1000);
+          approvals.set(id, { user: W.user || "", answer: (d) => { clearTimeout(timer); approvals.delete(id); resolve(d); } });
+          emit({ phase: "approve", id, command, text: "Esperando você autorizar o comando…" });
+        });
+        if (decision === "deny") return { denied: true };
+        if (decision === "always") body.autoRun = true;
+      }
+      emit({ phase: "command", command, text: `Rodando: ${command.why || command.language}…` });
+      const { env, mask } = await commandEnv(W);
+      const result = await runCommand(command, { cwd, env, mask });
+      emit({ phase: "command-result", command, result, text: "Analisando o resultado…" });
+      return result;
+    };
+  }
+  // variáveis, segredos e token do ambiente ativo para o comando (a IA só conhece os nomes; a saída volta mascarada)
+  async function commandEnv(W) {
+    try {
+      const e = apiEnv.env(), env = {};
+      for (const [k, v] of Object.entries({ ...(W.apiVars || {}), ...(e.vars || {}) })) if (v != null && typeof v !== "object") env[`SAGA_VAR_${envName(k)}`] = String(v);
+      for (const [k, v] of Object.entries(apiEnv.secretVars(e))) env[`SAGA_SECRET_${envName(k.replace(/^secret\./, ""))}`] = v;
+      try { const t = await apiEnv.token(e); if (t) env.SAGA_TOKEN = String(t); } catch {}
+      return { env, mask: (s) => apiEnv.maskText(e, s) };
+    } catch { return { env: {}, mask: (s) => s }; }
   }
 
   // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
@@ -723,6 +770,19 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
       }
 
+      // A pessoa responde a um pedido de comando da IA (ver commandRunner): run | always | deny
+      if (pathname === "/api/ai/approve" && req.method === "POST") {
+        const body = await readJSON(req);
+        const allowed = commandsAllowed(req, W);
+        // só quem fez o pedido responde (no servidor, outra pessoa não aprova o comando de ninguém)
+        const pending = allowed && approvals.get(String(body.id || ""));
+        const mine = pending && pending.user === (W.user || "");
+        res.writeHead(!allowed ? 403 : mine ? 200 : 404, { "Content-Type": "application/json" });
+        if (mine) pending.answer(["run", "always"].includes(body.decision) ? body.decision : "deny");
+        res.end(JSON.stringify(!allowed ? { error: "Comandos não estão liberados para você aqui." } : { ok: !!mine }));
+        return;
+      }
+
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         const prompt = body.message || "";
@@ -762,6 +822,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
               apiContext: apiContextFor(req, W),
               drawCheck: diagramCheck,
+              runCommand: commandRunner(req, emit, body, W),
             });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
@@ -788,7 +849,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const next = await editDeck({
                 spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
                 imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
-                drawCheck: diagramCheck,
+                drawCheck: diagramCheck, runCommand: commandRunner(req, emit, body, W),
               });
               convo.push({ role: "user", text: instruction });
               result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
@@ -977,6 +1038,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const title = String(b.title || "Nova apresentação").trim();
               const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
                 slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              return ok({ id });
+            }
+            case "/api/library/decks/model": {
+              // modelos de fábrica (src/studio/demo-decks.js): viram uma apresentação nova na biblioteca
+              const id = L.createDeck(b.topic || "Modelos", demoDeck(b.kind));
+              if (b.kind === "lavanda") {
+                const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
+                fs.mkdirSync(dest, { recursive: true });
+                fs.copyFileSync(path.join(firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets")), "lavanda-cover.jpg"), path.join(dest, "lavanda-cover.jpg"));
+              }
               return ok({ id });
             }
             case "/api/library/decks/example-cenario": {
