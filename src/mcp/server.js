@@ -12,6 +12,7 @@ import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { createStudioServer } from "../studio/server.js";
 import { newDeckPath } from "../library.js";
+import { writeDeckFile } from "../deck-file.js";
 
 const TOOLS = [
   {
@@ -258,7 +259,7 @@ async function handleToolCall(name, args) {
       const spec = loadSpec(targetPath);
       const fixResult = autofixDeck(spec);
       const outPath = args.out ? path.resolve(args.out) : targetPath;
-      fs.writeFileSync(outPath, YAML.stringify(fixResult.spec, { indent: 2 }), "utf8");
+      writeDeckFile(outPath, fixResult.spec);
       return {
         ok: true,
         savedTo: outPath,

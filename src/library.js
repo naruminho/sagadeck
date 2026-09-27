@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
 import { unpackDeck } from "./package.js";
+import { writeDeckFile } from "./deck-file.js";
 
 export const TRASH_DAYS = 30;
 const TRASH = ".lixeira";
@@ -207,7 +208,7 @@ export function openLibrary(root) {
     const { file, unit } = unitOf(id);
     const spec = YAML.parse(fs.readFileSync(file, "utf8")) || {};
     spec.title = title;
-    fs.writeFileSync(file, YAML.stringify(spec, { indent: 2, lineWidth: 0 }));
+    writeDeckFile(file, spec); // só o título muda no arquivo
     if (unit === file) return id; // .yaml solto: só o título
     const to = uniquePath(path.dirname(unit), safeName(title));
     if (path.basename(to) === path.basename(unit)) return id;
@@ -236,7 +237,7 @@ export function openLibrary(root) {
     }
     const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {};
     spec.title = title;
-    fs.writeFileSync(yaml, YAML.stringify(spec, { indent: 2, lineWidth: 0 }));
+    writeDeckFile(yaml, spec);
     return idOf(yaml);
   }
 

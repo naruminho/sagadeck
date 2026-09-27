@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { buildHTML, renderSlide, loadSpec, inferLayout } from "../build.js";
 import { THEMES, PALETTES } from "../themes.js";
+import { writeDeckFile } from "../deck-file.js";
+import "./public/merge-decks.js"; // globalThis.SagadeckMerge (o mesmo que o Studio usa no navegador)
 import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
@@ -159,9 +161,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
   }
 
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
-  function persist(W) {
+  // Grava o deck (src/deck-file.js): só o que mudou, preservando comentários e formatação, de forma atômica.
+  // text: o YAML que a pessoa escreveu na gaveta vai para o arquivo exatamente como ela escreveu.
+  function persist(W, text = null) {
     if (!W.file || isBundledTemplate(W.file)) return;
-    try { fs.writeFileSync(W.file, toYaml(W.spec), "utf8"); } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
+    try {
+      if (text != null) { const tmp = W.file + ".tmp-" + process.pid; fs.writeFileSync(tmp, text, "utf8"); fs.renameSync(tmp, W.file); }
+      else writeDeckFile(W.file, W.spec);
+    } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
   }
 
   // Onde a IA grava imagens geradas: pasta "imagens" ao lado do deck (ou na pasta atual, se o deck é um exemplo).
@@ -297,7 +304,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/merge-decks.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -359,6 +366,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             // o YAML editado não traz os campos internos: mantém a pasta do deck (imagens, CSS, widgets)
             const keep = body.source === "browser-file" ? {} : Object.fromEntries(Object.entries(W.spec || {}).filter(([k]) => k.startsWith("_")));
             W.spec = { ...parsed, ...keep };
+            W.yamlText = body.yaml;
           } catch (e) {
             res.writeHead(400, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "YAML inválido: " + e.message }));
@@ -374,7 +382,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
           // Esquece o arquivo anterior — senão as edições deste deck iam parar por cima daquele.
           W.file = null;
         }
-        if (body.saveToFile !== false) persist(W);
+        if (body.saveToFile !== false) persist(W, body.yaml && body.source !== "browser-file" ? W.yamlText : null);
+        W.yamlText = null;
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file }));
         return;
@@ -572,18 +581,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
         if (typeof slideIndex === "number" && targetSpec.slides[slideIndex]) {
           const resFix = autofixSlide(targetSpec.slides[slideIndex], targetSpec, issues || []);
           targetSpec.slides[slideIndex] = resFix.slide;
-          if (W.file) {
-            try { fs.writeFileSync(W.file, YAML.stringify(targetSpec, { indent: 2 })); } catch {}
-          }
           W.spec = targetSpec;
+          persist(W);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, slide: resFix.slide, actions: resFix.actions, spec: targetSpec }));
         } else {
           const resDeck = autofixDeck(targetSpec, issues || []);
           W.spec = resDeck.spec;
-          if (W.file) {
-            try { fs.writeFileSync(W.file, YAML.stringify(W.spec, { indent: 2 })); } catch {}
-          }
+          persist(W);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, ...resDeck }));
         }
@@ -667,6 +672,29 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Conversa do chat: uma por apresentação, num arquivo ao lado do deck (<deck>.conversa.json). Deck sem arquivo
+      // (aberto pelo navegador, exemplo embutido): só na memória desta sessão.
+      if (pathname === "/api/chat/history") {
+        const file = W.file && !isBundledTemplate(W.file) ? W.file.replace(/\.ya?ml$/i, ".conversa.json") : null;
+        if (req.method === "GET") {
+          let history = W.chatHistory || [];
+          if (file) try { history = JSON.parse(fs.readFileSync(file, "utf8")).history || []; } catch { history = []; }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ history }));
+          return;
+        }
+        if (req.method === "POST") {
+          const body = await readJSON(req);
+          const history = (Array.isArray(body.history) ? body.history : []).filter((m) => m && typeof m.text === "string")
+            .slice(-400).map((m) => ({ role: m.role === "user" ? "user" : "assistant", text: m.text.slice(0, 8000), ...(m.talk ? { talk: true } : {}) }));
+          W.chatHistory = history;
+          if (file) try { const tmp = `${file}.tmp-${process.pid}`; fs.writeFileSync(tmp, JSON.stringify({ history }, null, 1)); fs.renameSync(tmp, file); } catch (e) { console.error("[Studio] conversa:", e.message); }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+      }
+
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         const prompt = body.message || "";
@@ -741,9 +769,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
             console.error("[Studio] IA falhou:", e.message);
             return { reply: `A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
           }
-          W.spec = result.spec;
+          // o que a pessoa salvou enquanto a IA pensava não some: junção a três (base = o que foi para a IA)
+          const merged = globalThis.SagadeckMerge.mergeDecks(spec, W.spec || spec, result.spec);
+          W.spec = merged.deck;
           persist(W);
-          return result;
+          return { ...result, spec: W.spec, conflicts: merged.conflicts, kept: merged.kept };
         });
         return;
       }

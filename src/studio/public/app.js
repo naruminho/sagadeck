@@ -287,6 +287,7 @@
 
       renderThumbnails();
       selectSlide(0);
+      loadChatHistory();
     } catch (err) {
       showToast("Erro ao carregar apresentação: " + err.message);
     }
@@ -831,6 +832,7 @@
         box.querySelectorAll("button").forEach((b) => (b.disabled = true));
         btn.textContent = "Escolhida";
         state.chatHistory.push({ role: "user", text: `Escolhi a versão "${v.label}" (já apliquei no slide ${variants.index + 1}).` });
+        saveChatHistory();
         syncDeckToServer();
         renderThumbnails();
         renderCurrentSlide();
@@ -874,7 +876,9 @@
       : "Verificando se a IA está no ar…");
     dom.chatSend.disabled = true;
     dom.chatInput.disabled = true;
-    const history = state.chatHistory.slice(-16);
+    // a conversa inteira deste deck (o servidor compacta as mensagens antigas; nada é esquecido)
+    const history = state.chatHistory.slice();
+    const baseDeck = JSON.parse(JSON.stringify(state.deck));
     state.chatHistory.push({ role: "user", text: message });
     const attachments = state.chatAttachments.slice();
     clearChatAttachments();
@@ -916,8 +920,14 @@
       }
       state.chatHistory.push({ role: "assistant", text: data.reply });
 
-      // Atualizar o deck com as modificações feitas pela IA
-      state.deck = data.spec;
+      // Atualizar o deck com as modificações da IA sem perder o que a pessoa mexeu enquanto ela pensava
+      // (junção a três: base = o deck quando o pedido saiu; ver merge-decks.js)
+      const merged = window.SagadeckMerge.mergeDecks(baseDeck, state.deck, data.spec);
+      state.deck = merged.deck;
+      if (JSON.stringify(merged.deck) !== JSON.stringify(data.spec)) syncDeckToServer();
+      const conflicts = [...(data.conflicts || []), ...merged.conflicts];
+      if (merged.kept || data.kept) showToast("Você reorganizou os slides enquanto a IA trabalhava: mantive a sua versão. Peça de novo se quiser a mudança dela.", 7000);
+      else if (conflicts.length) showToast(`O slide ${[...new Set(conflicts)].map((i) => i + 1).join(", ")} mudou dos dois lados enquanto a IA trabalhava: ficou a sua versão.`, 7000);
       if (typeof data.targetSlide === "number" && data.targetSlide < state.deck.slides.length) {
         state.currentSlideIndex = data.targetSlide;
       }
@@ -936,7 +946,21 @@
       dom.chatSend.disabled = false;
       dom.chatInput.disabled = false;
       dom.chatInput.focus();
+      saveChatHistory();
     }
+  }
+
+  // A conversa é desta apresentação e fica ao lado dela (<deck>.conversa.json): volta ao reabrir o deck.
+  function saveChatHistory() {
+    fetch("api/chat/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: state.chatHistory }) }).catch(() => {});
+  }
+  async function loadChatHistory() {
+    try {
+      const { history } = await (await fetch("api/chat/history")).json();
+      state.chatHistory = Array.isArray(history) ? history : [];
+      // o que ficou entre parênteses no fim ("opções: …") é para o modelo; na tela, só a mensagem
+      for (const m of state.chatHistory) appendChatMessage(m.role === "user" ? "user" : "ai", String(m.text).replace(/\n\((opções|versões): [^\n]*\)$/, ""));
+    } catch { state.chatHistory = []; }
   }
 
   // ---- anexos do chat (colar/arrastar/escolher imagem) ----
