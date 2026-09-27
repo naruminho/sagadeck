@@ -933,7 +933,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const file = L.resolveId(url.searchParams.get("id"));
             const kind = url.searchParams.get("kind") || "sagadeck";
             if (!["sagadeck", "pptx", "pdf", "roteiro"].includes(kind)) throw new Error("formato inválido");
-            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""));
+            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { notes: url.searchParams.get("notas") !== "0" });
             return;
           }
           if (pathname === "/api/library/import" && req.method === "POST") {
@@ -1023,7 +1023,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (exportKind) {
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        await sendExport(res, exportKind, spec, name);
+        await sendExport(res, exportKind, spec, name, { notes: url.searchParams.get("notas") !== "0" });
         return;
       }
 
@@ -1133,7 +1133,7 @@ async function lookAt(spec, index, prompt, emit) {
 // de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-async function sendExport(res, kind, spec, name) {
+async function sendExport(res, kind, spec, name, { notes = true } = {}) {
   const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
   if (kind === "sagadeck") {
     const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
@@ -1155,7 +1155,7 @@ async function sendExport(res, kind, spec, name) {
     let errors = [];
     if (kind === "pptx") {
       const { exportPptx } = await import("../export/pptx.js");
-      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } }));
+      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes }));
     } else if (kind === "pdf") {
       const { pdf } = await import("../export/shots.js");
       await pdf(htmlFile, out);

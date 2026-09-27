@@ -5,7 +5,7 @@ Você (ou uma IA) escreve um arquivo `.yaml` com o conteúdo. O sagadeck gera:
 | saída | pra quê |
 |---|---|
 | **`.html`** | a apresentação "de verdade": animada, com cliques, enquetes, timers, jogos, modo apresentador. Um arquivo só, funciona offline, abre com duplo clique. |
-| **`.pptx`** | PowerPoint **editável** e fiel ao HTML: texto em caixas nativas com as mesmas fontes, formas nativas, figuras em PNG nítido, animações de clique e transições, notas do apresentador. |
+| **`.pptx`** | PowerPoint **editável** e fiel ao HTML: texto em caixas nativas com as mesmas fontes, formas nativas, figuras em PNG nítido, animações de clique e transições, notas do apresentador (ou sem elas, para mandar a alguém). |
 | **`.pdf`** | um slide por página, para mandar depois da palestra |
 | **`- roteiro.pdf`** | roteiro do apresentador: miniatura de cada slide + fala + interações + relógio planejado |
 
@@ -40,7 +40,7 @@ sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
 sagadeck check <deck.yaml>                   fiscal: estouro de texto, sobreposição, contraste, excesso de texto
 sagadeck shots <deck.yaml> [--steps]         PNG de cada slide + folhas de contato (para revisar)
-sagadeck pptx <deck.yaml> [--native-charts]  PowerPoint editável
+sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas]  PowerPoint editável (--sem-notas: para mandar sem a sua cola)
 sagadeck pdf <deck.yaml>                     PDF
 sagadeck roteiro <deck.yaml>                 roteiro do apresentador em PDF
 sagadeck all <deck.yaml>                     tudo acima

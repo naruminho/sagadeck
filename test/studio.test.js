@@ -566,6 +566,20 @@ test("studio", async (t) => {
     await download.saveAs(file);
     const pp = await readPptx(fs.readFileSync(file));
     assert.equal(pp.slides.length, n);
+    assert.match(pp.notes, /falar de segurança primeiro/, "com as notas do apresentador");
+  });
+
+  await t.test("Baixar PowerPoint sem as notas: mesma apresentação, sem a cola do apresentador", { timeout: 180000 }, async () => {
+    const n = (await deck()).slides.length;
+    await p.click("#btn-export-menu");
+    const [download] = await Promise.all([p.waitForEvent("download", { timeout: 170000 }), p.click("#export-pptx-clean")]);
+    assert.match(download.suggestedFilename(), /\.pptx$/);
+    const file = path.join(deckFile.dir, "sem-notas.pptx");
+    await download.saveAs(file);
+    const pp = await readPptx(fs.readFileSync(file));
+    assert.equal(pp.slides.length, n);
+    assert.doesNotMatch(pp.notes, /falar de segurança/, "sem as notas");
+    assert.match(saved().slides.find((x) => x.notes)?.notes || "", /falar de segurança/, "as notas continuam no deck");
   });
 
   await t.test("Baixar PDF e roteiro pelo menu", { timeout: 240000 }, async () => {

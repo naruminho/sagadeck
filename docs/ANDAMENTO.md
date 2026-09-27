@@ -72,7 +72,7 @@ Ideias que ficaram para depois (não bloqueiam):
 
 ### Fila combinada (próximas etapas, nesta ordem)
 
-1. **PowerPoint sem as notas do apresentador** (opção ao baixar: mandar a apresentação sem a "cola").
+1. ~~PowerPoint sem as notas do apresentador~~ FEITO: menu Arquivo e cartão da biblioteca ("Baixar PowerPoint sem as notas", `?notas=0`), CLI `--sem-notas`, `exportPptx({ notes: false })`. As notas continuam no deck.
 2. **Identidade (fontes da empresa)**: arquivo local `~/.sagadeck/identidades.yaml` (fica na máquina do
    trabalho, nunca no repositório), com fontes por papel (título, corpo, compacta) em ordem de preferência e a
    paleta preferida. Opcional e por deck (`identidade: nome`; Studio: Design → Identidade). Corpo e rótulos sempre

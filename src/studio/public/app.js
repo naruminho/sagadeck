@@ -3721,11 +3721,12 @@
       btn.onclick = async (e) => {
         e.preventDefault();
         if (btn.disabled) return;
-        const kind = btn.dataset.export, x = EXPORTS[kind];
+        const kind = btn.dataset.export, clean = btn.dataset.notas === "0";
+        const x = clean ? { label: "o PowerPoint sem as notas", done: "PowerPoint sem as notas do apresentador, pronto para mandar." } : EXPORTS[kind];
         btn.disabled = true;
         showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`api/export/${kind}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
+          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
           const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
           showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
         } catch (err) {
