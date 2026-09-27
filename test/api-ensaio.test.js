@@ -66,6 +66,34 @@ test("o comando ensaio-api abre o Studio já com o deck e os ambientes do ensaio
     const r = await (await fetch(`http://127.0.0.1:${port}/api/http/send`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request: { method: "POST", url: st.envs[1].vars.base + "/sync", body: { messages: [{ role: "user", content: "oi" }] } } }) })).json();
     assert.equal(r.body.choices[0].message.content, "eco: oi");
+    // o deck fica na biblioteca (não numa pasta temporária), com o arquivo de exemplo ao lado
+    const lib = path.join(process.env.SAGADECK_HOME, "Sem tópico", "Ensaio APIs de IA ao vivo");
+    assert.ok(fs.existsSync(path.join(lib, "Ensaio APIs de IA ao vivo.yaml")), "deck do ensaio na biblioteca");
+    assert.ok(fs.existsSync(path.join(lib, "contrato.txt")));
+  } finally {
+    proc.kill();
+  }
+});
+
+test("ensaio-api reabre o deck do ensaio que já está na biblioteca, sem sobrescrever nem duplicar", { timeout: 30000 }, async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-ensaio-"));
+  const dir = path.join(home, "Sem tópico", "Ensaio APIs de IA ao vivo");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "Ensaio APIs de IA ao vivo.yaml"), YAML.stringify({ title: "Meu ensaio editado", slides: [{ layout: "cover", title: "Meu ensaio editado" }] }));
+  fs.writeFileSync(path.join(dir, "contrato.txt"), "meu contrato");
+  const port = await freePort();
+  const proc = spawn(process.execPath, [path.join(ROOT, "bin", "sagadeck.js"), "ensaio-api", `--port=${port}`], { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, SAGADECK_HOME: home } });
+  try {
+    let out = "";
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("não subiu: " + out)), 20000);
+      proc.stdout.on("data", (c) => { out += c; if (/Ensaio no Studio/.test(out)) { clearTimeout(t); resolve(); } });
+      proc.on("exit", (c) => reject(new Error(`saiu com ${c}: ${out}`)));
+    });
+    const deck = await (await fetch(`http://127.0.0.1:${port}/api/deck`)).json();
+    assert.equal(deck.spec.title, "Meu ensaio editado");
+    assert.equal(fs.readFileSync(path.join(dir, "contrato.txt"), "utf8"), "meu contrato");
+    assert.deepEqual(fs.readdirSync(path.join(home, "Sem tópico")), ["Ensaio APIs de IA ao vivo"]);
   } finally {
     proc.kill();
   }

@@ -11,6 +11,7 @@ import { autofixDeck } from "../fiscal/autofix.js";
 import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { createStudioServer } from "../studio/server.js";
+import { newDeckPath } from "../library.js";
 
 const TOOLS = [
   {
@@ -80,7 +81,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Caminho do arquivo .yaml a ser criado" },
+        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME/~/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
         title: { type: "string", description: "Título provisório da apresentação" },
         theme: {
           type: "string",
@@ -103,7 +104,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Caminho onde salvar o .yaml" },
+        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME/~/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
         title: { type: "string", description: "Título da apresentação" },
         theme: {
           type: "string",
@@ -298,7 +299,8 @@ async function handleToolCall(name, args) {
     }
 
     case "sagadeck_scaffold_deck": {
-      const targetPath = path.resolve(args.path);
+      // sempre na biblioteca, sem sobrescrever (ver newDeckPath)
+      const targetPath = newDeckPath(args.path, { title: args.title, unique: true });
       const { generateScaffold } = await import("../templates/scaffold.js");
       const YAML = (await import("yaml")).default;
       const spec = generateScaffold({
@@ -319,7 +321,7 @@ async function handleToolCall(name, args) {
     }
 
     case "sagadeck_create_deck": {
-      const targetPath = path.resolve(args.path);
+      const targetPath = newDeckPath(args.path, { title: args.title, unique: true });
       const content = {
         title: args.title || "Nova Apresentação",
         theme: args.theme || "sinal",

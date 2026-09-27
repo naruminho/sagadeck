@@ -40,12 +40,12 @@ for (let i = 0; i < rawRest.length; i++) {
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
-  sagadeck new <deck.yaml> --prompt "briefing" [--slides=10] [--theme=x]  deck inteiro escrito pelo LLM
+  sagadeck new <nome> --prompt "briefing" [--slides=10] [--theme=x]  deck inteiro escrito pelo LLM
                                    (imagens: peça no briefing; --images = "você decide onde ilustrar", --no-images = nenhuma)
   sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
   sagadeck imagens <deck.yaml>                 gera as imagens pedidas com image_prompt: no YAML (modelo de imagem)
-  sagadeck scaffold <deck.yaml> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
-  sagadeck new <deck.yaml> [--theme=sinal]     cria um deck de exemplo
+  sagadeck scaffold <nome> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
+  sagadeck new <nome> [--topic=T] [--theme=x]  cria um deck de exemplo NA BIBLIOTECA (<biblioteca>/<tópico>/<nome>/)
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
   sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
   sagadeck shots <deck.yaml> [--steps] [--only=3,5]  PNG de cada slide + folhas de contato (para revisar)
@@ -58,6 +58,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
   sagadeck ensaio-api [--port=3000]            ensaio do slide "api": deck de exemplo contra uma API de mentira (sem VPN)
+                                   o deck fica na biblioteca (Sem tópico/Ensaio APIs de IA ao vivo); se já existir, reabre
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
   sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
@@ -168,7 +169,9 @@ async function main() {
       break;
     }
     case "scaffold": {
-      const target = path.resolve(args[0] || "apresentacao.yaml");
+      // sempre na biblioteca (ver newDeckPath)
+      const { newDeckPath } = await import("../src/library.js");
+      const target = newDeckPath(args[0], { topic: typeof flags.topic === "string" ? flags.topic : undefined, title: typeof flags.title === "string" ? flags.title : undefined });
       if (fs.existsSync(target) && !flags.force) {
         console.error(`Erro: o arquivo ${target} já existe. Use --force para sobrescrever.`);
         process.exit(1);
@@ -188,7 +191,9 @@ async function main() {
       break;
     }
     case "new": {
-      const target = path.resolve(args[0] || "deck.yaml");
+      // sempre na biblioteca (ver newDeckPath): "sagadeck new Minha palestra" -> <biblioteca>/Sem tópico/Minha palestra/
+      const { newDeckPath } = await import("../src/library.js");
+      const target = newDeckPath(args[0], { topic: typeof flags.topic === "string" ? flags.topic : undefined, title: typeof flags.title === "string" ? flags.title : undefined });
       if (fs.existsSync(target)) { console.error(`${target} já existe`); process.exit(1); }
       if (flags.prompt || flags.briefing) {
         // Deck inteiro escrito pelo LLM a partir de um briefing
@@ -216,6 +221,7 @@ async function main() {
       }
       let t = fs.readFileSync(path.join(TEMPLATES, "exemplo.yaml"), "utf8");
       if (flags.theme) t = t.replace(/^theme: .*/m, `theme: ${flags.theme}`);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, t);
       console.log(`✓ criado ${target}\n  próximo passo: sagadeck build "${target}"`);
       break;
@@ -339,18 +345,26 @@ async function main() {
       const { startMockApi, demoEnvFile, DEMO_FILES } = await import("../src/api-demo.js");
       const { createStudioServer } = await import("../src/studio/server.js");
       const { defaultLibraryRoot } = await import("../src/library.js");
+      const { newDeckPath } = await import("../src/library.js");
+      const YAML = (await import("yaml")).default;
       const mock = await startMockApi({ statuses: ["STARTED", "RUNNING", "RUNNING", "FINISHED"] });
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-ensaio-"));
-      const envFile = path.join(dir, "ambientes.yaml");
+      // só os ambientes (apontam para a porta desta API de mentira) ficam no temporário; o deck mora na biblioteca
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-ensaio-"));
+      const envFile = path.join(tmp, "ambientes.yaml");
       fs.writeFileSync(envFile, demoEnvFile(mock));
-      const deckFile = path.join(dir, "ensaio-api.yaml");
-      fs.copyFileSync(path.join(TEMPLATES, "ensaio-api.yaml"), deckFile);
-      for (const [name, text] of Object.entries(DEMO_FILES)) fs.writeFileSync(path.join(dir, name), text);
+      const tpl = path.join(TEMPLATES, "ensaio-api.yaml");
+      const deckFile = newDeckPath(null, { title: YAML.parse(fs.readFileSync(tpl, "utf8")).title });
+      const dir = path.dirname(deckFile);
+      fs.mkdirSync(dir, { recursive: true });
+      // já existe (de outra vez, talvez editado): reabre como está; nada é sobrescrito
+      if (!fs.existsSync(deckFile)) fs.copyFileSync(tpl, deckFile);
+      for (const [name, text] of Object.entries(DEMO_FILES)) if (!fs.existsSync(path.join(dir, name))) fs.writeFileSync(path.join(dir, name), text);
       const port = Number(flags.port || process.env.PORT || 3000);
       // ensaio: false — os ambientes do ensaio já estão no arquivo (dev e hom), sem o embutido repetido
       const server = createStudioServer(deckFile, { port, host: "127.0.0.1", library: defaultLibraryRoot(), apiEnvFile: envFile, ensaio: false });
       server.listen(port, "127.0.0.1", () => {
         console.log(`✓ Ensaio no Studio: http://127.0.0.1:${port}/editor`);
+        console.log(`  deck: ${deckFile}`);
         console.log(`  API de mentira em ${mock.url} · ambientes do ensaio em ${envFile}`);
         console.log("  Apresente (F5 / Apresentar) e clique em Executar em cada slide. Ctrl+C encerra.");
       });
