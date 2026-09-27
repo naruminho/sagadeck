@@ -1,0 +1,8 @@
+/* Editorial (revista): fio duplo no alto, chapéu entre fios, capa e fim centralizados; seção com o número à direita */
+.th-editorial .orn i:nth-child(1){display:block;left:120px;right:120px;top:58px;border-top:2px solid var(--fg)}
+.th-editorial .orn i:nth-child(2){display:block;left:120px;right:120px;top:66px;border-top:1px solid var(--fg)}
+.th-editorial .kicker{align-self:flex-start;border-top:1px solid currentColor;border-bottom:1px solid currentColor;padding:8px 0;text-transform:uppercase;letter-spacing:.3em}
+.th-editorial .L-cover:not(:has(.cv-fig)) .cv-main,.th-editorial .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center}
+.th-editorial .L-cover .kicker,.th-editorial .L-end .kicker{align-self:center}
+.th-editorial .L-section:not(:has(.sc-fig)){flex-direction:row-reverse}
+.th-editorial .sc-num{font-style:italic;border-left:2px solid var(--fg);padding-left:50px}

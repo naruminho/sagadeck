@@ -1,0 +1,11 @@
+/* Pop: adesivos (selo serrilhado e bloco torto), chapéu em etiqueta inclinada, capa e seção centralizadas com sombra chapada */
+.th-pop .orn i:nth-child(1){display:block;top:40px;right:60px;width:80px;height:80px;border-radius:50%;background:var(--hi);border:5px dashed var(--bg);outline:5px solid var(--hi);transform:rotate(12deg)}
+.th-pop:is(.L-cover-slide,.L-section-slide,.L-end-slide) .orn i:nth-child(1){width:150px;height:150px;top:50px;right:70px}
+.th-pop .orn i:nth-child(2){display:block;left:60px;bottom:50px;width:70px;height:70px;background:var(--em);border-radius:20px;transform:rotate(-14deg)}
+.th-pop .kicker{align-self:flex-start;background:var(--em);color:var(--bg);padding:6px 18px;border-radius:12px;transform:rotate(-3deg);text-transform:uppercase}
+.th-pop .L-cover:not(:has(.cv-fig)) .cv-main,.th-pop .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center}
+.th-pop :is(.L-cover,.L-end,.L-section) .kicker{align-self:center}
+.th-pop :is(.L-cover,.L-section) .ttl{text-shadow:6px 6px 0 var(--hi)}
+.th-pop .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;text-align:center;gap:0}
+.th-pop .L-section .sc-num{font-size:180px}
+.th-pop .sc-text{align-items:center}

@@ -190,8 +190,20 @@
           <div id="theme-gallery" class="theme-gallery" role="listbox" aria-label="Temas"></div>
           <select id="theme-select" class="visually-hidden" tabindex="-1" aria-hidden="true"></select>
         </div>
-        <div class="rgroup-label">Temas</div>
+        <div class="rgroup-label">Temas (botão direito: só neste slide)</div>
       </div>
+      <div class="rgroup">
+        <div class="rgroup-body">
+          <div id="palette-gallery" class="theme-gallery palette-gallery" role="listbox" aria-label="Paletas"></div>
+        </div>
+        <div class="rgroup-label">Paletas</div>
+      </div>
+    </div>
+    <!-- botão direito num tema ou paleta: onde aplicar -->
+    <div id="look-menu" class="look-menu hidden" role="menu">
+      <button type="button" role="menuitem" data-scope="all"><i class="ic" data-ic="layers"></i><span>Aplicar a todos os slides</span></button>
+      <button type="button" role="menuitem" data-scope="slide"><i class="ic" data-ic="square"></i><span>Só neste slide</span></button>
+      <button type="button" role="menuitem" data-scope="reset"><i class="ic" data-ic="rotate-ccw"></i><span>Este slide volta ao da apresentação</span></button>
     </div>
 
     <!-- IA -->

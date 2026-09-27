@@ -806,3 +806,15 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .toast-action:hover { background: rgba(255, 255, 255, .12); }
 .thumb-list:focus { outline: none; }
 .thumb-list:focus-visible .thumb-card.active, .thumb-list:focus .thumb-card.active { box-shadow: 0 0 0 2px var(--brand); }
+
+/* paletas (só cores) e o menu do botão direito em temas/paletas */
+.palette-card { background: var(--surface-2, #f3f3f3); }
+.palette-card .pc-sw { position: absolute; left: 8px; right: 8px; top: 8px; height: 26px; display: flex; border-radius: 4px; overflow: hidden; }
+.palette-card .pc-sw i { flex: 1; }
+.palette-card .pc-sw .ic { flex: none; width: 22px; height: 22px; color: var(--text-2); }
+.theme-card.slide-only::after { content: ""; position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px #fff; }
+.look-menu { position: fixed; z-index: 1000; min-width: 250px; padding: 4px; background: var(--panel, #fff); border: 1px solid var(--ui-line-strong); border-radius: 8px; box-shadow: var(--shadow-2, 0 8px 24px rgba(0,0,0,.18)); display: flex; flex-direction: column; }
+.look-menu.hidden { display: none; }
+.look-menu button { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 5px; text-align: left; color: var(--text); background: none; border: 0; font: inherit; cursor: pointer; }
+.look-menu button:hover, .look-menu button:focus-visible { background: var(--hover); outline: none; }
+.look-menu .ic { width: 16px; height: 16px; }

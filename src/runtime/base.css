@@ -1116,3 +1116,6 @@ html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="
 .scene-gallery .scene-eyebrow{color:var(--muted);letter-spacing:10px}
 .scene-gallery .scene-subtitle{color:var(--muted);font-family:Georgia,serif;font-style:italic}
 .scene-gallery .scene-caption{left:170px;bottom:70px;color:color-mix(in srgb,var(--bg) 70%,#fff)}
+
+/* Ornamentos da pele do tema (runtime/skins/<tema>.css liga e desenha os que usa); atrás do conteúdo */
+.orn{position:absolute;inset:0;pointer-events:none;overflow:hidden}.orn i{position:absolute;display:none}

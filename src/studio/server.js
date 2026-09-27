@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { buildHTML, renderSlide, loadSpec, inferLayout } from "../build.js";
-import { THEMES } from "../themes.js";
+import { THEMES, PALETTES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
 import { autofixSlide, autofixDeck } from "../fiscal/autofix.js";
@@ -343,6 +343,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
             desc: String(t.label || "").split(/\s+[—–-]\s+/)[1] || "",
             paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
           }])),
+          // paletas (só cores, valem em qualquer tema): para a galeria de paletas
+          palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert].map((c) => `#${c}`) }])),
           layouts: Object.keys(LAYOUTS),
         }));
         return;

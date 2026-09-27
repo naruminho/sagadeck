@@ -1,0 +1,8 @@
+/* Noite (sala de decisão): moldura fina na cor de destaque, chapéu entre traços, tudo centralizado e sóbrio */
+.th-noite .orn i:nth-child(1){display:block;inset:34px;border:1.5px solid color-mix(in srgb,var(--hi) 70%,transparent)}
+.th-noite .kicker{display:flex;align-items:center;gap:22px;letter-spacing:.35em;text-transform:uppercase;color:var(--hi)}
+.th-noite .kicker::before,.th-noite .kicker::after{content:"";width:60px;height:1px;background:currentColor}
+.th-noite .L-cover:not(:has(.cv-fig)) .cv-main,.th-noite .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center}
+.th-noite .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;gap:10px;text-align:center}
+.th-noite .L-section .sc-num{font-size:150px;color:var(--hi)}
+.th-noite .sc-text{align-items:center}

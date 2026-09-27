@@ -1,0 +1,6 @@
+/* Sinal (sinalização): faixa zebrada de aviso no pé, losango de atenção, selo no chapéu; capa e fim ancorados embaixo */
+.th-sinal .orn i:nth-child(1){display:block;left:0;right:0;bottom:0;height:22px;background:repeating-linear-gradient(-45deg,var(--fg) 0 26px,transparent 26px 52px) var(--hi)}
+.th-sinal .orn i:nth-child(2){display:block;top:40px;right:48px;width:40px;height:40px;border:6px solid var(--hi);transform:rotate(45deg)}
+.th-sinal .kicker{align-self:flex-start;background:var(--fg);color:var(--bg);padding:8px 16px;text-transform:uppercase;letter-spacing:.12em}
+.th-sinal .L-cover .cv-main,.th-sinal .L-end .en-main{justify-content:flex-end}
+.th-sinal .sc-num{font-size:300px;border:14px solid currentColor;padding:10px 40px 0;border-radius:var(--radius)}

@@ -6,7 +6,8 @@ Tudo que é texto aceita a **marcação inline** (abaixo). Qualquer slide aceita
 ```yaml
 title: Nome da palestra          # obrigatório (vira rodapé e título da janela)
 author: Seu Nome · Cargo
-theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | jornal  (ou tema customizado, ver fim)
+theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | jornal | rabisco | oceano | pop | aurora | prata (ou customizado, ver fim)
+palette: floresta                # opcional: só as cores, vale em qualquer tema (ver "Temas e paletas"); sem ela, as cores do tema
 duration: 50                     # minutos — o modo apresentador mostra se você está adiantado/atrasado
 event: Summit de Dados 2026       # opcional — para {evento} no rodapé/cabeçalho
 department: Engenharia de Dados  # opcional — para {depto}
@@ -32,6 +33,7 @@ slides:
 |---|---|
 | `layout` | um dos layouts abaixo (se omitido, o sagadeck adivinha pelo conteúdo) |
 | `tone` | `light` (padrão), `dark`, `accent` (cor forte do tema), `alert` |
+| `theme` / `palette` | tema e/ou paleta só deste slide (o resto da apresentação não muda); `palette: tema` volta às cores do tema |
 | `kicker` | linha pequena acima do título (rótulo) |
 | `title` / `titleSize` / `titleAs` | título; tamanho em px; papel tipográfico (`title`, `h2`, `h3`) |
 | `source` | fonte/nota de rodapé do slide |
@@ -380,6 +382,15 @@ notes: |
   - item de lista
 ```
 Linhas que começam com PALAVRAS EM MAIÚSCULAS seguidas de `:` viram etiquetas coloridas.
+
+## Temas e paletas
+
+Como no PowerPoint, são duas escolhas independentes:
+
+- **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado).
+- **Paleta** (`palette`): só as cores, em qualquer tema. `tinta`, `floresta`, `mar`, `entardecer`, `lavanda`, `grafite`, `neon`, `areia`, `cereja`, `corporativo`, ou as suas: `palette: { paper: "F4F1EA", ink: "161616", accent: "D7263D", alert: "1B998B" }`. Os quatro tons saem dessas quatro cores, com contraste garantido.
+
+Os dois valem no deck todo ou num slide só (`theme:`/`palette:` no slide). No Studio, aba Design: clique aplica em todos os slides; botão direito, "Só neste slide".
 
 ## Tema customizado
 

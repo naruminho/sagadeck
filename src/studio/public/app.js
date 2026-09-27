@@ -245,6 +245,7 @@
     document.getElementById("btn-add-science").onclick = () => insertScene("science");
     document.getElementById("btn-add-scenography").onclick = () => insertScene("scenography");
     buildLayoutPicker();
+    bindLookMenu();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
     const params = new URLSearchParams(location.search);
     if (params.get("deck")) {
@@ -275,6 +276,7 @@
       state.deck = data.spec;
       state.themes = data.themes || [];
       state.themeMeta = data.themeMeta || {};
+      state.palettes = data.palettes || {};
       state.layouts = data.layouts || LAYOUT_NAMES;
       state.file = data.file || null;
 
@@ -539,9 +541,13 @@
   // ==========================================================================
   // O FISCAL GEOMÉTRICO: INSPEÇÃO EM TEMPO REAL ("se enxergar sozinho")
   // ==========================================================================
-  function inspectGeometry() {
-    const slideEl = dom.renderedSlideContainer.querySelector(".slide");
+  async function inspectGeometry() {
+    let slideEl = dom.renderedSlideContainer.querySelector(".slide");
     if (!slideEl) return;
+    // mede o slide parado: no meio da animação de entrada os elementos ainda estão deslocados (34px para baixo)
+    // e o fiscal acusaria "fora da margem" (e a auto-correção encolheria o título) sem motivo
+    await Promise.all(slideEl.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {})));
+    if (!slideEl.isConnected) return;
 
     dom.inspectorOverlay.innerHTML = "";
     state.issues = [];
@@ -1638,14 +1644,68 @@
     });
   }
 
-  function changeTheme(themeName) {
-    state.deck.theme = themeName;
-    dom.themeSelect.value = themeName;
+  // Tema (fonte, arranjo, ornamentos) e paleta (cores) são duas escolhas, como no PowerPoint. Clique = a
+  // apresentação toda (e desfaz o que era só de um slide); botão direito = menu com "Só neste slide".
+  const lookLabel = (kind, name) => kind === "theme" ? (state.themeMeta?.[name]?.label || name) : name === "tema" ? "Do tema" : (state.palettes?.[name]?.label || name);
+  function applyLook(kind, name, scope = "all") {
+    const key = kind === "theme" ? "theme" : "palette";
+    const slide = state.deck.slides[state.currentSlideIndex];
+    if (scope === "all") {
+      if (key === "palette" && name === "tema") delete state.deck.palette; else state.deck[key] = name;
+      state.deck.slides.forEach((s) => delete s[key]);
+      if (key === "theme") dom.themeSelect.value = name;
+    } else if (scope === "slide" && slide) {
+      // paleta "tema" num slide só precisa ficar escrita se o deck tiver outra paleta
+      if (key === "palette" && name === "tema" && !state.deck.palette) delete slide.palette; else slide[key] = name;
+    } else if (scope === "reset" && slide) delete slide[key];
     syncDeckToServer();
     renderCurrentSlide();
     renderThumbnails();
-    showToast(`Tema: ${state.themeMeta?.[themeName]?.label || themeName}`);
+    const what = kind === "theme" ? "Tema" : "Paleta";
+    showToast(scope === "reset" ? `${what}: o slide ${state.currentSlideIndex + 1} voltou ao da apresentação` : `${what}: ${lookLabel(kind, name)}${scope === "slide" ? ` só no slide ${state.currentSlideIndex + 1}` : ""}`);
     playHaptic("snap");
+  }
+  const changeTheme = (themeName) => applyLook("theme", themeName);
+
+  function openLookMenu(e, kind, name) {
+    e.preventDefault();
+    const menu = document.getElementById("look-menu");
+    menu.dataset.kind = kind;
+    menu.dataset.name = name;
+    menu.classList.remove("hidden");
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.min(e.clientX, innerWidth - r.width - 8)}px`;
+    menu.style.top = `${Math.min(e.clientY, innerHeight - r.height - 8)}px`;
+    menu.querySelector('[data-scope="slide"]').focus();
+  }
+  function bindLookMenu() {
+    const menu = document.getElementById("look-menu");
+    const close = () => menu.classList.add("hidden");
+    menu.querySelectorAll("[data-scope]").forEach((b) => b.onclick = () => { close(); applyLook(menu.dataset.kind, menu.dataset.name, b.dataset.scope); });
+    document.addEventListener("pointerdown", (e) => { if (!menu.contains(e.target)) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  }
+
+  function buildPaletteGallery() {
+    const gal = document.getElementById("palette-gallery");
+    if (!gal) return;
+    gal.innerHTML = "";
+    const entries = [["tema", { label: "Do tema", colors: [] }], ...Object.entries(state.palettes || {})];
+    for (const [n, m] of entries) {
+      const card = document.createElement("button");
+      card.className = "theme-card palette-card";
+      card.dataset.palette = n;
+      card.title = `${m.label}. Clique: todos os slides. Botão direito: só neste slide.`;
+      card.innerHTML = `<span class="pc-sw"></span><span class="tc-name"></span>`;
+      const sw = card.querySelector(".pc-sw");
+      if (m.colors.length) m.colors.forEach((c) => { const i = document.createElement("i"); i.style.background = c; sw.append(i); });
+      else sw.innerHTML = '<i class="ic" data-ic="palette"></i>';
+      card.querySelector(".tc-name").textContent = m.label;
+      card.onclick = () => applyLook("palette", n);
+      card.oncontextmenu = (e) => openLookMenu(e, "palette", n);
+      gal.appendChild(card);
+    }
+    hydrateIcons(gal);
   }
 
   // Galeria de temas da aba Design: cartão com as cores do tema; o <select> escondido segue valendo.
@@ -1663,16 +1723,23 @@
       card.innerHTML = `<span class="tc-aa" style="color:${m.ink}">Aa</span><span class="tc-bar" style="background:${m.accent}"></span><span class="tc-name"></span>`;
       card.querySelector(".tc-name").textContent = m.label;
       card.onclick = () => changeTheme(n);
+      card.oncontextmenu = (e) => openLookMenu(e, "theme", n);
+      card.title += ". Clique: todos os slides. Botão direito: só neste slide.";
       dom.themeGallery.appendChild(card);
     });
+    buildPaletteGallery();
     syncThemeGallery();
   }
 
+  // cartão ativo = o que vale no slide aberto; "só este slide" ganha uma marca
   function syncThemeGallery() {
     const ms = document.getElementById("mark-style-select");
     if (ms) ms.value = state.deck?.markStyle || "marca-texto";
-    const cur = state.deck?.theme || "sinal";
-    dom.themeGallery.querySelectorAll(".theme-card").forEach((c) => c.classList.toggle("active", c.dataset.theme === cur));
+    const slide = state.deck?.slides?.[state.currentSlideIndex] || {};
+    const theme = slide.theme || state.deck?.theme || "sinal";
+    const pal = slide.palette || state.deck?.palette || "tema";
+    dom.themeGallery.querySelectorAll(".theme-card").forEach((c) => { c.classList.toggle("active", c.dataset.theme === theme); c.classList.toggle("slide-only", !!slide.theme && c.dataset.theme === theme); });
+    document.querySelectorAll("#palette-gallery .palette-card").forEach((c) => { c.classList.toggle("active", c.dataset.palette === pal); c.classList.toggle("slide-only", !!slide.palette && c.dataset.palette === pal); });
   }
 
   function changeTone(toneName) {
@@ -1696,7 +1763,7 @@
   // tudo do deck que muda o desenho de um slide (tema, destaque, cabeçalho/rodapé e o que eles mostram)
   const deckLook = () => {
     const d = state.deck || {};
-    return JSON.stringify([d.theme, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
+    return JSON.stringify([d.theme, d.palette, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
   };
   const thumbKey = (idx, slide) => `${deckLook()}|${idx}|${JSON.stringify(slide)}`;
   let thumbObserver = null;

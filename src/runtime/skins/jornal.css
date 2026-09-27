@@ -1,0 +1,7 @@
+/* Jornal: cabeçalho com fio grosso e fino, fio no pé, chapéu com fio duplo, manchete no alto sublinhada, seção com fio de coluna */
+.th-jornal .orn i:nth-child(1){display:block;left:80px;right:80px;top:56px;height:8px;border-top:3px solid var(--fg);border-bottom:1px solid var(--fg)}
+.th-jornal .orn i:nth-child(2){display:block;left:80px;right:80px;bottom:76px;border-top:1px solid var(--fg)}
+.th-jornal .kicker{align-self:flex-start;border-top:4px double currentColor;padding-top:10px;text-transform:uppercase;letter-spacing:.18em}
+.th-jornal .L-cover .cv-main,.th-jornal .L-end .en-main{justify-content:flex-start}
+.th-jornal .L-cover .ttl{border-bottom:2px solid var(--fg);padding-bottom:14px}
+.th-jornal .sc-num{font-size:220px;border-right:2px solid var(--fg);padding-right:60px}
