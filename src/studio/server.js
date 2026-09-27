@@ -279,12 +279,25 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(css);
         return;
       }
+      if (pathname === "/katex.css") {
+        res.writeHead(200, {"Content-Type":"text/css; charset=utf-8"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR,"vendor/katex.css")));return;
+      }
+      if (pathname === "/decision-lab.js") {
+        res.writeHead(200, {"Content-Type":"application/javascript"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR,"decision-lab.js"))); return;
+      }
+      if (["/science.js", "/plotly.min.js"].includes(pathname)) {
+        res.writeHead(200, {"Content-Type":"application/javascript; charset=utf-8"});
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/science.js" ? "science.js" : "vendor/plotly.min.js")));
+        return;
+      }
       if (pathname === "/fit.js") { // o mesmo ajuste da apresentação (src/runtime/fit.js)
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);

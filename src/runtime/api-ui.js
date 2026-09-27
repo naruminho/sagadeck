@@ -208,13 +208,34 @@
       return;
     }
     const ans = cfg.answer && r.body && typeof r.body === "object" ? C.get(r.body, cfg.answer) : undefined;
+    const jsonText = typeof r.body === 'string' ? r.body : JSON.stringify(r.body, null, 2);
+    const large = jsonText && jsonText.length > 12000;
     const html = (ans != null ? `<div class="api-answer"><div class="f-label">${esc(cfg.answer.replace(/^\$\.?/, ""))}</div><div class="api-answer-t">${esc(typeof ans === "string" ? ans : JSON.stringify(ans))}</div></div>` : "") +
       stepCards(cfg, r.body) +
-      `<pre class="api-json f-mono">${jsonHTML(r.body)}</pre>`;
+      (large ? '<p class="api-hint">Prévia do payload. Abra o explorador para acessar a resposta completa.</p>' : '') +
+      `<pre class="api-json f-mono">${large ? esc(jsonText.slice(0,12000)) : jsonHTML(r.body)}</pre>`;
     let box = $(".api-result", root);
     if (!box) { box = document.createElement("div"); box.className = "api-result"; out(root).appendChild(box); }
-    box.innerHTML = (r.jwt ? jwtHTML(r.jwt) : "") + html;
+    box.innerHTML = (r.jwt ? jwtHTML(r.jwt) : "") + '<button type="button" class="api-explore-json">Explorar resposta completa</button>' + html;
+    $(".api-explore-json", box).onclick = () => exploreJSON(r.body);
     if (r.jwt && r.jwt.exp) countdown(root, r.jwt.exp);
+  }
+
+  // Árvore preguiçosa: payloads grandes não precisam de milhares de nós DOM logo na abertura.
+  function exploreJSON(value) {
+    const dialog = document.createElement('dialog'); dialog.className = 'api-json-dialog';
+    dialog.innerHTML = '<header><b>Resposta completa</b><button type="button" data-download>Baixar JSON</button><button type="button" data-close>Fechar</button></header><label>Campo da resposta <input placeholder="$.responses.0.output" aria-label="Caminho no JSON"></label><div class="api-json-tree"></div>';
+    const tree = dialog.querySelector('.api-json-tree');
+    function node(key,v) {
+      if (v === null || typeof v !== 'object') { const p=document.createElement('pre');p.textContent=key+': '+JSON.stringify(v);return p; }
+      const d=document.createElement('details'), summary=document.createElement('summary');summary.textContent=key+' · '+Object.keys(v).length+(Array.isArray(v)?' itens':' campos');d.append(summary);
+      d.ontoggle=()=>{if(!d.open || d.dataset.loaded)return;d.dataset.loaded='true';const keys=Object.keys(v);let offset=0;const more=document.createElement('button');more.textContent='Carregar mais 100 itens';more.type='button';const next=()=>{keys.slice(offset,offset+100).forEach(k=>d.insertBefore(node(k,v[k]),more));offset+=100;more.hidden=offset>=keys.length;};more.onclick=next;d.append(more);next();};return d;
+    }
+    function show(v) {tree.replaceChildren(node('$',v));const details=tree.querySelector('details');if(details)details.open=true;}
+    dialog.querySelector('input').oninput=e=>{const path=e.target.value.trim();const found=path?C.get(value,path):value;if(found===undefined)tree.textContent='Campo não encontrado.';else show(found);};
+    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+    dialog.querySelector('[data-download]').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='resposta.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+    dialog.addEventListener('keydown',e=>e.stopPropagation());dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);show(value);dialog.showModal();
   }
 
   function jwtHTML(j) {

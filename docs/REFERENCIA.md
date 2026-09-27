@@ -410,3 +410,50 @@ Sagadeck.widget("contador", {
 });
 ```
 No YAML: `widgets: [widgets/contador.js]` e `{ widget: contador, rotulo: "Votos" }`. No PowerPoint o widget vira uma imagem do estado final.
+
+## Texto no cenário (`scenography`)
+
+Composição estática: o texto permanece editável, integrado a planos, luz e profundidade. `scene: stage` usa letras monumentais atrás de uma escultura; `floor` projeta o texto no chão; `signs` constrói uma placa em perspectiva. Campos: `title` (frase curta, quebra de linha permitida), `kicker`, `subtitle`, `caption`, `titleSize`, `image` (fundo opcional), `foreground` (recorte PNG transparente colocado à frente das letras). Um fundo arbitrário não é segmentado automaticamente: para oclusão de uma pessoa, forneça o recorte em `foreground`.
+
+```yaml
+- layout: scenography
+  scene: floor
+  title: "NOVOS\nCAMINHOS"
+  kicker: APRENDER PARA TRANSFORMAR
+  caption: WORKSHOP / BRIDGE
+  deco: none
+```
+
+## Equações e gráficos (`science`)
+
+Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem executar comandos confiáveis). `plot.preset`: `wave`, `parabola` ou `surface`. `plot.data` substitui o exemplo por um array de traces Plotly; `plot.layout` configura títulos, eixos e intervalos. `plot: false` deixa apenas equações. HTML inclui fontes e Plotly: zoom, hover numérico, arraste e rotação 3D funcionam offline. PDF e PPTX são estáticos. Fórmulas longas podem exigir reduzir conteúdo ou dividir o slide.
+
+```yaml
+- layout: science
+  title: Superfície de uma onda
+  equations:
+    - label: Distância à origem
+      latex: 'r = \sqrt{x^2 + y^2}'
+    - label: Altura
+      latex: 'z = \sin(r)'
+  plot:
+    preset: surface
+```
+
+## Ajustes diretos no Studio
+
+Na barra de objetos: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Selecionar objetos permite arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
+
+`Corrigir layout` continua local e baseado em regras. `Revisar com IA` envia a imagem renderizada do slide ao modelo configurado e solicita melhorias; usa tokens. O status de IA abre a configuração do modelrelay. Um modelo sem visão é identificado na resposta; conectividade com `/models` não comprova que uma geração será aceita pelo provedor.
+
+## Densidade técnica e payloads extensos
+
+Slides `code`, `codewalk` e `api` aceitam `density: comfortable | compact | dense`. O controle **Densidade técnica** no painel Formatar reduz margens, espaçamentos e fontes; o código continua completo, com rolagem. `size` continua disponível para o código no modo confortável. Nos resultados de API, **Explorar resposta completa** abre uma árvore recolhível, carregada em lotes, com consulta por caminho (`$.responses.0.output`) e download do JSON completo. Payloads acima de 12 mil caracteres têm uma prévia explicitamente identificada no slide; a resposta completa continua no explorador e na gravação. O HTML distribuído carrega a gravação existente; não é necessário acessar a API para consultá-la. PDFs não podem conter a interação nem garantir que um payload inteiro caiba numa página.
+
+## Laboratório de decisões
+
+Layout `decisionlab`: controles interativos offline para comparar erros esperados da automação com revisão. Em Modelos, escolha **Laboratório de decisões**. Edite as premissas no formulário; alterações feitas nos controles durante a apresentação são temporárias. Restaurar premissas volta aos valores salvos. O HTML exportado mantém a interação; PDF/PPTX usam o resultado inicial estático.
+
+`lab`: volume (10000), errorRate (2%), reviewRate (100%), catchRate (60% dos erros revisados), introducedRate (0.2% dos acertos revisados), seconds (30 por revisão).
+
+Modelo: erros finais = N*p*(1-r*c) + N*(1-p)*r*a. Percentuais convertidos para proporções. Revisão aleatória, taxas homogêneas constantes, erros com peso igual. Não é evidência empírica, modelo de filas ou recomendação de automação. Use dados medidos por segmento para decisões reais.

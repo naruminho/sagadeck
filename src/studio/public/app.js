@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "kinetic", "video",
+    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
     "blocks", "canvas", "references", "end",
   ];
 
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -233,6 +233,17 @@
     setupEventListeners();
     setupShell();
     setupCreativeTools();
+    window.SagaVisual?.setup(document.getElementById("visual-tools"));
+    document.getElementById("btn-ai-review").onclick = async () => {
+      if (dom.chatSend.disabled) return;
+      await refreshAIStatus(true);
+      if (!state.ai.available) { openAISettings(); return; }
+      openPane("chat");
+      dom.chatInput.value = `Analise visualmente a imagem renderizada do slide ${state.currentSlideIndex + 1}. Avalie hierarquia, legibilidade, espaço, alinhamento, composição e intenção narrativa. Aplique melhorias somente neste slide, preservando conteúdo e significado. Explique brevemente o que mudou. Se não tiver recebido a imagem ou não conseguir enxergá-la, diga isso explicitamente e não finja uma revisão visual.`;
+      handleChatSubmit();
+    };
+    document.getElementById("btn-add-science").onclick = () => insertScene("science");
+    document.getElementById("btn-add-scenography").onclick = () => insertScene("scenography");
     buildLayoutPicker();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
     const params = new URLSearchParams(location.search);
@@ -313,7 +324,10 @@
       ensureSlideStyles(data.baseCSS, data.themeCSS);
 
       // Renderizar HTML no palco
+      window.SagaScience?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
+      window.SagaScience?.mount(dom.renderedSlideContainer);
+      window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
       applyEditorStep(idx);
       fitSlideText(dom.renderedSlideContainer);
       // a miniatura deste slide usa o mesmo HTML (acompanha cada edição)
@@ -321,6 +335,7 @@
 
       // Habilitar edição WYSIWYG inline
       enableInlineEditing();
+      window.SagaVisual?.mount(dom.renderedSlideContainer, slide, () => { syncDeckToServer(); renderCurrentSlide(); });
 
       // Atualizar contagem de palavras anti-sono
       updateWordCount(slide);
@@ -1859,6 +1874,8 @@
   // OPERAÇÕES DO DECK (ADICIONAR, DUPLICAR, EXCLUIR)
   // ==========================================================================
   const SCENES = [
+    ["scenography", "impact", "Texto no cenário", "Letras que ocupam o palco, o chão ou uma placa."],
+    ["science", "teach", "Equações e gráficos", "Explore uma curva ou gire uma superfície em 3D."],
     ["headline", "impact", "Uma ideia. Todo o palco.", "Tipografia monumental para a frase que fica."],
     ["number", "impact", "O número que muda tudo", "Dê dimensão a um resultado, sem um mar de dados."],
     ["quote", "impact", "Uma voz na história", "Uma citação com espaço para ressoar."],
@@ -1880,6 +1897,7 @@
   }
   async function insertScene(layout) {
     if (!state.deck || state.insertingScene) return;
+    if (!state.layouts.includes(layout)) { showToast("Este servidor ainda usa uma versão antiga do motor. Abra a instância atualizada do SagaDeck.", 9000); return; }
     state.insertingScene = true;
     try {
       const res = await fetch(`api/layout-sample?layout=${encodeURIComponent(layout)}`);
@@ -2124,7 +2142,9 @@
   }
   function carryContent(slide, to) {
     const target = LIST_KEY[to];
-    if (!target || (Array.isArray(slide[target]) && slide[target].length)) return;
+    if (!target) return;
+    const activeKey = LIST_KEY[slide.layout];
+    if (activeKey === target && Array.isArray(slide[target]) && slide[target].length) return;
     if (to === "kinetic") {
       const source = SOURCE_KEYS.find((key) => Array.isArray(slide[key]) && slide[key].length);
       if (source) {
@@ -2138,7 +2158,7 @@
       }
       return;
     }
-    const srcKey = SOURCE_KEYS.find((k) => Array.isArray(slide[k]) && slide[k].length);
+    const srcKey = [activeKey, ...SOURCE_KEYS].find((k) => k && Array.isArray(slide[k]) && slide[k].length);
     if (!srcKey) return;
     const entries = slide[srcKey].map((x) => {
       if (typeof x !== "object" || x == null) return { title: String(x ?? "") };
@@ -2155,13 +2175,32 @@
 
   function changeCurrentLayout(layoutName) {
     const slide = state.deck.slides[state.currentSlideIndex];
-    if (!slide) return;
+    if (!slide || slide.layout === layoutName) return;
+    const before = JSON.parse(JSON.stringify(slide));
+    const currentKey = LIST_KEY[slide.layout];
+    const entries = (Array.isArray(slide[currentKey]) ? slide[currentKey] : []).map(v => typeof v === "object" ? [v.title || v.label || v.text || v.name, v.title ? v.text : null].filter(Boolean).join(" — ") : String(v));
+    const primary = (["statement", "headline"].includes(slide.layout) ? slide.text || entries.join("\n") : slide.layout === "quote" ? slide.quote : ["question", "poll"].includes(slide.layout) ? slide.question : slide.title) || slide.title || slide.text || "";
     carryContent(slide, layoutName);
-    if ((layoutName === "statement" || layoutName === "headline") && !slide.text && slide.title) slide.text = slide.title;
+    if (!slide.title && primary) slide.title = primary;
+    if (["headline", "statement"].includes(layoutName)) {
+      slide.text = primary;
+      if (layoutName === "statement") { if (entries.length) slide.lines = entries; else delete slide.lines; }
+    }
+    if (layoutName === "quote") slide.quote = primary;
+    if (["question", "poll"].includes(layoutName)) slide.question = primary;
+    if (LIST_KEY[layoutName] && !slide[LIST_KEY[layoutName]]?.length && !["kinetic", "statement"].includes(layoutName)) {
+      const content = [slide.subtitle, slide.body, primary].find(v => typeof v === "string" && v.trim());
+      if (content) slide[LIST_KEY[layoutName]] = content.split(/\n+/).filter(Boolean).map(text => ["list", "split", "question", "poll", "references", "end"].includes(layoutName) ? text : {title:text});
+    }
+    if (layoutName === "blocks" && !slide.content?.length) slide.content = (entries.length ? entries : [slide.subtitle || slide.body || primary]).filter(Boolean).map(text=>({text}));
+    if (layoutName === "canvas" && !slide.elements?.length) {
+      slide.elements = [primary && {text:primary,as:"title",x:120,y:100,w:1600,h:180}, ...entries.map((text,i)=>({text,x:120,y:320+i*90,w:1100,h:80,size:36})), slide.figure && {...slide.figure,x:1300,y:350,w:450,h:450}].filter(Boolean);
+    }
+    if (layoutName === "science" && !slide.equations) {slide.equations=[];slide.plot=false;}
+    delete slide.visualEdits;
     slide.layout = layoutName;
-    syncDeckToServer();
-    renderCurrentSlide();
-    showToast(`Layout: ${layoutLabel(layoutName)}`);
+    syncDeckToServer(); renderCurrentSlide(); openPane("props");
+    showToast(`Slide atual alterado para ${layoutLabel(layoutName)}. Revise os campos no painel.`, 9000, {label:"Desfazer",fn:()=>{Object.keys(slide).forEach(k=>delete slide[k]);Object.assign(slide,before);syncDeckToServer();renderCurrentSlide();}});
   }
 
   // Painel Formatar: formulário completo do layout (slide-form.js). Cada mudança atualiza o slide
@@ -2585,6 +2624,28 @@
   // ==========================================================================
   // LLM: STATUS E GERAÇÃO DE DECK
   // ==========================================================================
+  async function openAISettings() {
+    // O console protege-se com frame-ancestors self: abrir numa aba, nunca dentro de iframe.
+    const setupWindow = window.open("about:blank", "sagadeck-ai-setup");
+    let dialog = document.getElementById("ai-settings-dialog");
+    if (!dialog) {
+      dialog = document.createElement("dialog"); dialog.id = "ai-settings-dialog"; dialog.className = "ai-settings-dialog";
+      dialog.innerHTML = '<div class="ai-settings-head"><h2>Configurar IA</h2><button type="button" data-close>Fechar</button></div><p data-ai-info>Verificando a conexão...</p><a data-ai-link target="_blank" rel="noopener" hidden>Abrir configuração do modelrelay</a><button type="button" data-ai-refresh>Verificar conexão</button>';
+      document.body.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+      dialog.addEventListener('close',()=>refreshAIStatus(true));
+      dialog.querySelector('[data-ai-refresh]').onclick=()=>openAISettings();
+    }
+    if (!dialog.open) dialog.showModal();
+    await refreshAIStatus(true);
+    const info=dialog.querySelector('[data-ai-info]'), link=dialog.querySelector('[data-ai-link]');
+    try {
+      const setup=await (await fetch('api/ai/setup')).json();
+      info.textContent=state.ai.available ? `Conectada · modelo de texto: ${state.ai.textModel}. A configuração abre em uma aba própria.` : 'O serviço de IA não está respondendo. Inicie modelrelay serve neste computador e clique em Verificar conexão.';
+      if(setup.url){link.href=setup.url;link.hidden=false;if(setupWindow){setupWindow.opener=null;setupWindow.location.href=setup.url;dialog.close();}}
+      else {setupWindow?.close();link.hidden=true;}
+    } catch { setupWindow?.close();info.textContent='Não foi possível consultar a configuração. Verifique a conexão e tente novamente.'; }
+  }
+
   async function refreshAIStatus(force = false) {
     try {
       const res = await fetch("api/ai/status" + (force ? "?refresh=1" : ""));
@@ -2596,7 +2657,7 @@
     dom.aiStatus.textContent = on ? "IA ligada" : "IA desligada";
     dom.aiStatus.title = on
       ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
-      : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para verificar de novo.`;
+      : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para configurar a IA.`;
     dom.aiStatus.classList.toggle("on", on);
     dom.aiStatus.classList.toggle("off", !on);
   }
@@ -3601,7 +3662,7 @@
     dom.btnCloseAiDeck.onclick = closeAiDeckModal;
     dom.btnCancelAiDeck.onclick = closeAiDeckModal;
     dom.btnRunAiDeck.onclick = runAiDeckGeneration;
-    dom.aiStatus.onclick = () => refreshAIStatus(true);
+    dom.aiStatus.onclick = openAISettings;
 
     // Napkin AI (Texto -> Diagrama Visual)
     dom.btnNapkin.onclick = openNapkinModal;

@@ -12,8 +12,10 @@
   "license": "MIT",
   "dependencies": {
     "jszip": "^3.10.2",
+    "katex": "^0.18.9",
     "lucide-static": "^1.47.0",
     "playwright-core": "^1.63.0",
+    "plotly.js-dist-min": "^4.1.1",
     "pptxgenjs": "^4.0.1",
     "qrcode-generator": "^2.0.4",
     "yaml": "^2.9.1"

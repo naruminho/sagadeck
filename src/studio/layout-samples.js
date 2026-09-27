@@ -1,5 +1,8 @@
 // Conteúdo de exemplo de cada layout — usado na galeria de layouts do Studio (prévia no tema do deck).
 export const LAYOUT_INFO = {
+  decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
+  science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
+  scenography: ["Texto no cenário", "Palco, placas e chão em perspectiva, sem animação"],
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
   section: ["Seção", "Abre um novo ato ou capítulo"],
   statement: ["Frase de impacto", "Uma ideia em letras grandes"],
@@ -36,6 +39,9 @@ export const LAYOUT_INFO = {
 };
 
 export const LAYOUT_SAMPLES = {
+  decisionlab: {layout:"decisionlab", title:"A revisão melhora o resultado?", lab:{volume:10000,errorRate:2,reviewRate:100,catchRate:60,introducedRate:0.2,seconds:30}},
+  science: {layout:"science", title:"Uma onda, muitas perspectivas", equations:[{label:"A função",latex:"f(x) = \\sin(x)"},{label:"A derivada",latex:"f\\prime(x) = \\cos(x)"}], plot:{preset:"wave"}},
+  scenography: {layout:"scenography", scene:"stage", title:"ALÉM DO\nÓBVIO", kicker:"UMA NOVA PERSPECTIVA", subtitle:"Ideias que ocupam espaço.", tone:"dark", deco:"none"},
   cover: { layout: "cover", kicker: "Evento 2026", title: "Título da ==apresentação==", subtitle: "Um subtítulo curto", author: "Seu nome", figure: { icon: "rocket", size: 320 } },
   section: { layout: "section", number: 2, kicker: "Parte dois", title: "O problema" },
   statement: { layout: "statement", kicker: "A ideia", text: "Uma frase que ==muda tudo==." },

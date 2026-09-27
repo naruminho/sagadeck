@@ -150,6 +150,9 @@
         f.num("width", "Largura (%)", { min: 4, max: 100 }), f.num("height", "Altura (%)", { min: 4, max: 100 })]),
         { addLabel: "Adicionar detalhe", newItem: () => ({ title: "Novo detalhe", text: "", x: 10, y: 10, width: 30, height: 25 }) })]),
       f.more([f.el("figure", "Figura no lugar da imagem")])],
+    decisionlab: [f.text("title", "Título"), f.obj("lab", "Premissas iniciais", [f.num("volume", "Número de decisões"), f.num("errorRate", "Erros da automação (%)"), f.num("reviewRate", "Casos revisados (%)"), f.num("catchRate", "Erros corrigidos (%)"), f.num("introducedRate", "Acertos estragados (%)"), f.num("seconds", "Segundos por revisão")])],
+    science: [f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={preset:"wave"};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.obj("plot", "Gráfico interativo", [f.select("preset", "Exemplo", [["wave","Onda 2D"],["parabola","Parábola 2D"],["surface","Superfície 3D"]]), f.json("data", "Dados Plotly (opcional)", {hint:"Array de traces Plotly. Deixe vazio para usar o exemplo."}), f.json("layout", "Eixos e aparência (opcional)")], {when:s=>s.plot!==false}), f.text("caption", "Nota")],
+    scenography: [f.select("scene", "Composição", [["stage","Palco e profundidade"],["floor","Chão em perspectiva"],["signs","Placas na cidade"]]), f.area("title", "Texto no cenário", {rows:2}), f.text("kicker", "Texto menor"), f.text("subtitle", "Subtítulo"), f.text("caption", "Assinatura"), f.text("image", "Imagem de fundo (arquivo ou link)"), f.text("foreground", "Recorte em primeiro plano (PNG transparente)"), f.num("titleSize", "Tamanho do texto (px)")],
     kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
       f.area("text", "Frase", { rows: 2 }),
       f.select("style", "Estilo tipográfico", [["poster", "Pôster"], ["neon", "Neon"], ["editorial", "Editorial"], ["outline", "Contorno"], ["marker", "Marca-texto"]], { empty: "Variar automaticamente" }),
@@ -186,7 +189,7 @@
         f.more([f.el("figure", "Figura (no lugar do ícone)")])]), { addLabel: "Adicionar bloco", newItem: () => ({ title: "Bloco", icon: "star" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
   };
-  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto"]);
+  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto", "density", "visualEdits"]);
 
   // ---------------------------------------------------------------------------------------------
   // Elementos (src/elements.js): tipos, como reconhecer e campos
@@ -443,8 +446,8 @@
   }
 
   function selectField(o, spec) {
-    const sel = h("select", { class: "form-control" }, h("option", { value: "", text: spec.empty || "—" }), spec.options.map(([v, l]) => h("option", { value: v, text: l })));
-    const cur = o[spec.k];
+    const sel = h("select", { class: "form-control" }, ...(spec.empty === false ? [] : [h("option", { value: "", text: spec.empty || "—" })]), spec.options.map(([v, l]) => h("option", { value: v, text: l })));
+    const cur = o[spec.k] ?? spec.default;
     sel.value = cur == null ? "" : String(cur);
     if (cur != null && sel.value !== String(cur)) { // valor fora da lista: mostra mesmo assim
       sel.append(h("option", { value: String(cur), text: String(cur) }));
@@ -819,6 +822,7 @@
     const layout = slide.layout || "blocks";
     const fields = LAYOUTS[layout] || LAYOUTS.blocks;
     container.append(renderFields(slide, fields.filter((s) => s.type !== "more"), "slide"));
+    if (["code", "codewalk", "api"].includes(layout)) container.append(renderFields(slide, [f.select("density", "Densidade técnica", [["comfortable","Confortável"],["compact","Compacta"],["dense","Mais conteúdo"]], {empty:false, default:"comfortable"})], "slide.density"));
     const own = fields.find((s) => s.type === "more")?.fields || [];
     const ownKeys = schemaKeys(own);
     container.append(moreGroup(slide, [...own, ...COMMON_MORE.filter((s) => !ownKeys.has(s.k))], "slide.more"));

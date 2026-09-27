@@ -62,6 +62,20 @@ test("studio", async (t) => {
     assert.deepEqual((await deck()).slides.map((s) => s.layout), before);
   });
 
+  await t.test("densidade técnica salva a escolha sem cortar o código", async () => {
+    const index = await go("statement");
+    await p.click('#btn-layout-gallery'); await p.click('.layout-card[data-layout="code"]'); await settle();
+    const before = saved().slides.find(s => s.layout === "code").code;
+    await p.click('#tab-btn-props');
+    const select = p.locator('#slide-fields-form select').filter({has:p.locator('option[value="dense"]')});
+    await select.selectOption('dense'); await settle();
+    const after = saved().slides.find(s => s.layout === "code");
+    assert.equal(after.density, 'dense'); assert.equal(after.code, before);
+    assert.equal(await p.locator('#rendered-slide-container .density-dense').count(), 1);
+    assert.equal(await select.locator('option').filter({hasText:'Confortável'}).count(),1);
+    await p.click('#btn-layout-gallery'); await p.click('.layout-card[data-layout="statement"]'); await settle();
+  });
+
   // ------------------------------------------------------------ layout
   await t.test("galeria de layouts mostra prévia e descrição de cada layout", async () => {
     await go("cards");

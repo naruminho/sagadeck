@@ -1,8 +1,10 @@
 // Layouts: cada um recebe o objeto do slide (YAML) e devolve o HTML da área útil.
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
+import { decisionLabHTML } from "./decision-lab.js";
 import { md, esc } from "./markup.js";
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
+import { mathHTML, plotHTML } from "./science.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
@@ -32,6 +34,7 @@ const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i)
 const percent = (value, fallback, min = 0, max = 100) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
 
 export const LAYOUTS = {
+  decisionlab(s) { return `${head(s)}${decisionLabHTML(s.lab)}${src(s)}`; },
   cover(s, ctx) {
     return `<div class="L-cover">
       <div class="cv-main">${kicker(s)}${text(s.title, "hero", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize })}
@@ -403,5 +406,12 @@ export const LAYOUTS = {
   // Posicionamento livre (x, y, w, h em px numa tela de 1920 × 1080)
   canvas(s, ctx) {
     return (s.elements || []).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");
+  },
+  science(s, ctx) {
+    return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {})}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
+  },
+  scenography(s, ctx) {
+    const scene = ['stage','floor','signs'].includes(s.scene) ? s.scene : 'stage';
+    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image">${el({image:s.image},ctx,1920,1080)}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || 230})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
   },
 };
