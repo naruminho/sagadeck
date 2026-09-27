@@ -594,31 +594,23 @@ test("studio", async (t) => {
   });
 
   // ------------------------------------------------------------ slides de API (dev)
-  await t.test("Inserir → Slide de API: exemplos prontos; o escolhido entra no deck salvo, e o do upload traz o arquivo", async () => {
+  await t.test("Inserir → Slide de API: um slide genérico, de qualquer serviço (os exemplos ficam no deck de exemplo)", async () => {
     const n = (await deck()).slides.length;
     await tab("inserir");
     await p.click("#btn-api-slide");
-    await p.waitForSelector("#api-examples-list .api-ex-item");
-    const labels = await p.$$eval("#api-examples-list .api-ex-item b", (els) => els.map((e) => e.textContent));
-    for (const want of ["LLM", "OpenRouter (real)", "Workflow", "Streaming", "FileManager", "Tempo real"]) assert.ok(labels.includes(want), `falta o exemplo ${want}: ${labels}`);
-    await p.click('#api-examples-list .api-ex-item:has(b:text-is("LLM"))');
     await settle();
-    let slides = saved().slides;
+    const slides = saved().slides;
     assert.equal(slides.length, n + 1);
-    const llm = slides.find((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/sync");
-    assert.ok(llm, "o slide LLM foi salvo no deck");
-    assert.equal(llm.id, undefined, "sem o id do exemplo: a gravação usa título + URL");
-    await p.click("#btn-api-slide");
-    await p.click('#api-examples-list .api-ex-item:has(b:text-is("FileManager"))');
-    await settle();
-    slides = saved().slides;
-    assert.equal(slides.length, n + 2);
-    assert.ok(slides.some((sl) => sl.layout === "api" && sl.file === "contrato.txt"));
-    assert.ok(fs.existsSync(path.join(deckFile.dir, "contrato.txt")), "o arquivo do upload foi criado ao lado do deck");
+    const api = slides.find((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/echo");
+    assert.ok(api, "o slide genérico foi salvo no deck");
+    // nada de um serviço em particular: sem token de Identity, sem arquivo, sem caminhos de OCR/indexador
+    assert.doesNotMatch(JSON.stringify(api), /identity|client_secret|path_id|ocr|index|file/i);
+    assert.equal(await p.locator("#api-examples-popover").count(), 0, "sem a lista de exemplos no botão");
+    assert.ok(await p.isVisible(form), "abre o formulário para preencher");
   });
 
   await t.test("formulário do slide api: corpo em JSON, token do ambiente marcado por padrão, modo tempo real troca os campos", async () => {
-    const i = await go((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/sync");
+    const i = await go((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/echo");
     // os testes do chat deixaram o painel no Assistente: volta para Formatar
     if (await p.isVisible("#tab-btn-props")) await p.click("#tab-btn-props");
     else { await tab("exibir"); await p.click("#btn-pane-props"); }

@@ -33,6 +33,28 @@ const lessonPanels = (items, output = false) => `<div class="lesson-panels" aria
 const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i) => `<article><div class="f-label lesson-summary-number">${String(i + 1).padStart(2, "0")}</div><div><strong class="f-heading">${md(p.title || `Etapa ${i + 1}`)}</strong>${p.text ? `<p class="f-body">${md(p.text)}</p>` : ""}${p.output != null ? `<pre class="f-mono">${esc(p.output)}</pre>` : ""}</div></article>`).join("")}</div>`;
 const percent = (value, fallback, min = 0, max = 100) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
 
+// Texto no cenário: as composições. label = nome no formulário; size = tamanho padrão do título (titleSize vence);
+// props = cenografia extra (só texto e caixas; os desenhos são CSS em base.css, nada de símbolo unicode).
+const candles = () => Array.from({ length: 30 }, (_, i) => {
+  const y = 120 + Math.round(Math.sin(i * 0.55) * 90 + i * 11), h = 40 + ((i * 37) % 90), up = (i * 7) % 3 !== 0;
+  return `<i class="candle ${up ? 'up' : 'down'}" style="--x:${i * 64}px;--y:${y}px;--h:${h}px"></i>`;
+}).join('');
+export const SCENES = {
+  stage: { label: 'Palco e profundidade', size: 230 },
+  floor: { label: 'Chão em perspectiva', size: 230 },
+  signs: { label: 'Placas na cidade', size: 230 },
+  terminal: { label: 'Terminal hacker', size: 150, props: () => `<pre class="scene-code">${Array.from({ length: 34 }, (_, i) => `${(0x7f3a00 + i * 16).toString(16)}  ${Array.from({ length: 12 }, (_, j) => ((i * 31 + j * 17) % 256).toString(16).padStart(2, '0')).join(' ')}  ${['ssh saga@deck','sudo apresentar --ao-vivo','git push origin ideia','cat segredo.txt | grep plano','nmap -sV palco.local','tail -f plateia.log'][i % 6]}`).join('\n')}</pre><div class="scene-scan"></div>` },
+  cafe: { label: 'Lousa de café', size: 170, props: () => `<div class="scene-neon">aberto</div><ul class="scene-menu"><li><span>espresso</span><span>7</span></li><li><span>coado do dia</span><span>9</span></li><li><span>pão de queijo</span><span>6</span></li><li><span>ideia nova</span><span>grátis</span></li></ul>` },
+  travel: { label: 'Cartão de embarque', size: 140, props: () => `<div class="scene-pass"><div class="scene-pass-top">CARTÃO DE EMBARQUE</div><dl><div><dt>DE</dt><dd>GRU</dd></div><div><dt>PARA</dt><dd>LIS</dd></div><div><dt>VOO</dt><dd>SG 2026</dd></div><div><dt>PORTÃO</dt><dd>12</dd></div><div><dt>ASSENTO</dt><dd>7A</dd></div><div><dt>EMBARQUE</dt><dd>09:40</dd></div></dl><div class="scene-barcode"></div></div>` },
+  ticker: { label: 'Pregão financeiro', size: 190, props: () => `<div class="scene-tape"><span>IBOV 128.430 <b class="up">+1,24%</b></span><span>USD/BRL 5,02 <b class="down">-0,31%</b></span><span>SAGA3 42,10 <b class="up">+8,90%</b></span><span>IDEIA11 99,00 <b class="up">+12,5%</b></span><span>BTC 312.004 <b class="down">-2,05%</b></span><span>SELIC 10,50%</span><span>IBOV 128.430 <b class="up">+1,24%</b></span></div><div class="scene-candles">${candles()}</div>` },
+  marquee: { label: 'Letreiro de cinema', size: 150, props: () => `<div class="scene-curtain left"></div><div class="scene-curtain right"></div><div class="scene-ticket">SESSÃO 20H</div>` },
+  blueprint: { label: 'Planta técnica', size: 170, props: () => `<div class="scene-dim h"><span>1920</span></div><div class="scene-dim v"><span>1080</span></div><table class="scene-stamp"><tr><td>PROJETO</td><td>SAGADECK</td></tr><tr><td>FOLHA</td><td>01 / 13</td></tr><tr><td>ESCALA</td><td>1:1</td></tr><tr><td>REVISÃO</td><td>A</td></tr></table>` },
+  magazine: { label: 'Capa de revista', size: 210, props: () => `<div class="scene-masthead">SAGA</div><div class="scene-issue">EDIÇÃO 13 <i></i> SETEMBRO 2026 <i></i> R$ 24,90</div><ul class="scene-lines"><li><b>+10</b> ideias que mudam o jogo</li><li><b>Exclusivo</b> os bastidores do palco</li><li><b>Guia</b> como contar uma história</li></ul><div class="scene-barcode"></div>` },
+  orbit: { label: 'Órbita', size: 170, props: () => `<div class="scene-stars"></div><div class="scene-stars far"></div><div class="scene-hud"><span>LAT -23.55</span><span>LON -46.63</span><span>ALT 408 KM</span><span>V 7,66 KM/S</span></div>` },
+  synthwave: { label: 'Neon anos 80', size: 190, props: () => `<div class="scene-sun"></div><div class="scene-grid"></div><div class="scene-mountains"></div>` },
+  gallery: { label: 'Parede de galeria', size: 170, props: () => `<div class="scene-spot"></div><div class="scene-plaque"><b>Sem título</b><span>2026. Texto sobre parede.</span><span>Coleção particular</span></div><div class="scene-baseboard"></div>` },
+};
+
 export const LAYOUTS = {
   decisionlab(s) { return `${head(s)}${decisionLabHTML(s.lab)}${src(s)}`; },
   cover(s, ctx) {
@@ -411,7 +433,9 @@ export const LAYOUTS = {
     return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {})}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
   },
   scenography(s, ctx) {
-    const scene = ['stage','floor','signs'].includes(s.scene) ? s.scene : 'stage';
-    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image">${el({image:s.image},ctx,1920,1080)}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || 230})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
+    const scene = Object.hasOwn(SCENES, s.scene) ? s.scene : 'stage';
+    const op = s.imageOpacity == null || s.imageOpacity === '' ? 0.85 : Math.max(0, Math.min(1, Number(s.imageOpacity) || 0));
+    const props = SCENES[scene].props?.() || '';
+    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image" style="opacity:${op}">${el({image:s.image},ctx,1920,1080)}</div>` : ''}${props ? `<div class="scene-props" aria-hidden="true">${props}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || SCENES[scene].size})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
   },
 };

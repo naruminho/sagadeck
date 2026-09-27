@@ -1,0 +1,171 @@
+# Demonstração do "Texto no cenário" (layout scenography): todas as composições e tudo o que dá para ajustar.
+# Biblioteca: Nova, "Exemplo: texto no cenário". As imagens de exemplo estão em imagens/ (troque pelas suas).
+title: Texto no cenário
+theme: aurora
+motion: none
+author: Seu nome
+duration: 15
+slides:
+  - layout: scenography
+    scene: stage
+    kicker: DEMONSTRAÇÃO
+    title: "TEXTO NO\nCENÁRIO"
+    subtitle: Treze composições e tudo o que dá para ajustar.
+    caption: SAGADECK / TEXTO NO CENÁRIO
+    notes: Cada slide deste deck mostra uma composição (campo scene) ou uma opção. Abra o painel Formatar para ver os campos.
+
+  - layout: section
+    title: As composições
+    subtitle: Campo "Composição" (scene). O texto continua editável em todas.
+
+  - layout: scenography
+    scene: stage
+    kicker: "scene: stage"
+    title: "ALÉM DO\nÓBVIO"
+    subtitle: Palco e profundidade. Letras monumentais atrás de uma escultura.
+    caption: PALCO E PROFUNDIDADE
+
+  - layout: scenography
+    scene: floor
+    kicker: "scene: floor"
+    title: "NOVOS\nCAMINHOS"
+    caption: CHÃO EM PERSPECTIVA
+
+  - layout: scenography
+    scene: signs
+    kicker: "scene: signs"
+    title: "IDEIAS\nEM CENA"
+    subtitle: Uma placa na cidade.
+    caption: PLACAS NA CIDADE
+
+  - layout: scenography
+    scene: terminal
+    kicker: ./acesso --scene terminal
+    title: "acesso\nconcedido"
+    subtitle: Segurança começa pela curiosidade.
+    caption: TERMINAL HACKER
+
+  - layout: scenography
+    scene: cafe
+    kicker: "Hoje no cardápio (scene: cafe)"
+    title: "Ideias coadas\nna hora"
+    subtitle: Com calma, açúcar a gosto.
+    caption: LOUSA DE CAFÉ
+
+  - layout: scenography
+    scene: travel
+    kicker: "EMBARQUE IMEDIATO / scene: travel"
+    title: "PRÓXIMO\nDESTINO"
+    subtitle: O plano para os próximos 12 meses.
+    caption: CARTÃO DE EMBARQUE
+
+  - layout: scenography
+    scene: ticker
+    kicker: "Q3 2026 / scene: ticker"
+    title: "RESULTADO\nRECORDE"
+    subtitle: Receita 38% acima do ano passado.
+    caption: PREGÃO FINANCEIRO
+
+  - layout: scenography
+    scene: marquee
+    kicker: "EM CARTAZ / scene: marquee"
+    title: "HOJE:\nA ESTREIA"
+    subtitle: Sessão única, entrada franca.
+    caption: LETREIRO DE CINEMA
+
+  - layout: scenography
+    scene: blueprint
+    kicker: "scene: blueprint"
+    title: "PROJETO\nDO FUTURO"
+    subtitle: medidas em ideias, escala 1:1
+    caption: PLANTA TÉCNICA
+
+  - layout: scenography
+    scene: magazine
+    kicker: "CAPA / scene: magazine"
+    title: "O ANO DA\nVIRADA"
+    subtitle: Como uma equipe pequena mudou o jogo.
+    caption: CAPA DE REVISTA
+
+  - layout: scenography
+    scene: orbit
+    kicker: "scene: orbit"
+    title: "MISSÃO\nCUMPRIDA"
+    subtitle: Da ideia à órbita em seis meses.
+    caption: ÓRBITA
+
+  - layout: scenography
+    scene: synthwave
+    kicker: "scene: synthwave"
+    title: "DE VOLTA\nAO FUTURO"
+    subtitle: As ideias que voltaram com tudo.
+    caption: NEON ANOS 80
+
+  - layout: scenography
+    scene: gallery
+    kicker: "scene: gallery"
+    title: "Menos\né mais"
+    subtitle: Uma ideia por parede.
+    caption: PAREDE DE GALERIA
+
+  - layout: section
+    title: E dá para ajustar
+    subtitle: Imagem de fundo, transparência, recorte na frente das letras e tamanho do texto.
+
+  - layout: scenography
+    scene: stage
+    image: imagens/cidade.svg
+    imageOpacity: 1
+    kicker: "image: imagens/cidade.svg"
+    title: "IMAGEM DE\nFUNDO"
+    subtitle: "Imagem de fundo (image), sem transparência: imageOpacity: 1"
+    caption: IMAGEM DE FUNDO
+    notes: Troque imagens/cidade.svg por uma foto sua (arquivo ao lado do deck ou link).
+
+  - layout: scenography
+    scene: stage
+    image: imagens/cidade.svg
+    imageOpacity: 0.3
+    kicker: "imageOpacity: 0.3"
+    title: "MAIS\nTRANSPARENTE"
+    subtitle: De 0 (some) a 1 (inteira). Sem o campo, fica em 0.85.
+    caption: TRANSPARÊNCIA DO FUNDO
+
+  - layout: scenography
+    scene: floor
+    foreground: imagens/pessoa.svg
+    kicker: "foreground: imagens/pessoa.svg"
+    title: "NA FRENTE\nDAS LETRAS"
+    caption: RECORTE EM PRIMEIRO PLANO
+    notes: O recorte (PNG ou SVG com fundo transparente, do tamanho do slide) fica por cima do texto. O fundo não é recortado sozinho; recorte a pessoa num editor.
+
+  - layout: scenography
+    scene: gallery
+    foreground: imagens/pessoa.svg
+    kicker: "foreground + gallery"
+    title: "Olhe de\nperto"
+    subtitle: Alguém parado diante da parede.
+    caption: RECORTE NA GALERIA
+
+  - layout: scenography
+    scene: stage
+    image: imagens/cidade.svg
+    imageOpacity: 0.6
+    foreground: imagens/pessoa.svg
+    titleSize: 300
+    kicker: "titleSize: 300"
+    title: "TUDO\nJUNTO"
+    subtitle: Fundo, transparência, recorte e texto maior.
+    caption: TUDO JUNTO
+
+  - layout: scenography
+    scene: orbit
+    titleSize: 110
+    kicker: "titleSize: 110"
+    title: "Texto menor, mais respiro"
+    subtitle: Sem titleSize, cada composição usa o seu tamanho padrão.
+    caption: TAMANHO DO TEXTO
+
+  - layout: end
+    title: Agora é com você
+    subtitle: Inserir, Texto no cenário. Depois é só escolher a composição.

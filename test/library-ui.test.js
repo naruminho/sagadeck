@@ -298,3 +298,25 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     await studio.close();
   }
 });
+
+test("Nova → Exemplo: texto no cenário cria o deck com as imagens de exemplo ao lado", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#btn-new");
+    assert.match(await p.innerText("#new-menu"), /Exemplo: texto no cenário/);
+    await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click('[data-new="example-cenario"]')]);
+    await p.waitForSelector("#rendered-slide-container .L-scenography");
+    const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
+    const file = path.join(studio.library, yamls.find((f) => /cen[aá]rio/i.test(f)));
+    const saved = YAML.parse(fs.readFileSync(file, "utf8"));
+    assert.ok(saved.slides.filter((s) => s.layout === "scenography").length >= 13);
+    for (const img of ["cidade.svg", "pessoa.svg"]) assert.ok(fs.existsSync(path.join(path.dirname(file), "imagens", img)), img);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});
