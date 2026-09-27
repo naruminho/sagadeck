@@ -653,9 +653,53 @@
       dom.statusIssues.classList.add("warn");
     }
 
+    renderFixPanel();
+
     // Desenhar caixas no overlay se ativado
     if (state.showInspectorOverlay) {
       renderInspectorBoxes();
+    }
+  }
+
+  // Painel do fiscal: em vez de só um número vermelho, o que está errado e o que dá para fazer
+  const ISSUE_LABEL = { "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", sobreposicao: () => "Elementos um em cima do outro" };
+  const fixKey = () => `${state.currentSlideIndex}:${JSON.stringify(state.deck?.slides?.[state.currentSlideIndex] || {})}`;
+  state.ignoredFixes = state.ignoredFixes || new Set();
+  function renderFixPanel() {
+    const panel = document.getElementById("fix-panel");
+    if (!panel) return;
+    const slide = state.deck?.slides?.[state.currentSlideIndex];
+    if (!state.issues.length || !slide || state.ignoredFixes.has(fixKey())) { panel.classList.add("hidden"); panel.innerHTML = ""; return; }
+    const kinds = [...new Set(state.issues.map((i) => i.kind))];
+    const lines = [...new Map(state.issues.map((i) => [i.kind + i.text, i])).values()].slice(0, 3)
+      .map((i) => `<li>${escHtml((ISSUE_LABEL[i.kind] || (() => i.kind))(i))}${i.text ? `: <em>${escHtml(i.text)}</em>` : ""}</li>`).join("");
+    const overflow = kinds.some((k) => k !== "sobreposicao");
+    const buttons = [
+      ["auto", "wand", "Ajustar sozinho", "Diminui o texto ou reorganiza até caber"],
+      overflow && slide.density !== "compact" && slide.density !== "dense" ? ["compact", "minimize-2", "Modo compacto", "Menos espaço entre os elementos deste slide"] : null,
+      state.ai?.available ? ["ai", "sparkles", "Pedir para a IA", "A IA arruma sem perder conteúdo (ou divide em dois slides)"] : null,
+      ["ignore", "x", "Deixar assim", "Esconde o aviso até o slide mudar"],
+    ].filter(Boolean);
+    panel.innerHTML = `<div class="fix-head"><i class="ic" data-ic="circle-alert"></i><b>${state.issues.length === 1 ? "1 problema de layout" : `${state.issues.length} problemas de layout`} neste slide</b></div><ul>${lines}</ul><div class="fix-actions">${buttons.map(([k, ic, label, title]) => `<button type="button" class="fix-btn${k === "auto" ? " primary" : ""}" data-fix="${k}" title="${title}"><i class="ic" data-ic="${ic}"></i><span>${label}</span></button>`).join("")}</div>`;
+    panel.classList.remove("hidden");
+    hydrateIcons(panel);
+    panel.querySelectorAll("[data-fix]").forEach((b) => b.onclick = () => applyFix(b.dataset.fix));
+  }
+  async function applyFix(kind) {
+    const idx = state.currentSlideIndex, slide = state.deck.slides[idx];
+    if (kind === "ignore") { state.ignoredFixes.add(fixKey()); renderFixPanel(); return; }
+    if (kind === "auto") return triggerAutofix();
+    if (kind === "compact") {
+      slide.density = "compact";
+      syncDeckToServer(); await renderCurrentSlide(); renderThumbnails();
+      showToast(`Slide ${idx + 1} em modo compacto`);
+      return;
+    }
+    if (kind === "ai") {
+      const what = [...new Set(state.issues.map((i) => (ISSUE_LABEL[i.kind] || (() => i.kind))(i)))].join("; ");
+      openPane("chat");
+      dom.chatInput.value = `O slide ${idx + 1} tem problema de layout (${what}). Arrume sem perder conteúdo; se não couber mesmo, divida em dois slides.`;
+      handleChatSubmit();
     }
   }
 
