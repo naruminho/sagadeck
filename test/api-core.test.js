@@ -169,3 +169,52 @@ test("tempo real: padrões no formato mais comum, trocáveis no slide; código P
   assert.match(w, /wscat -c "wss:\/\/x\/rt" \\\n {2}-H "Authorization: Bearer \$API_TOKEN"/);
   assert.match(w, /\{"type":"session\.update"/);
 });
+
+// A aba JavaScript não é enfeite: o código gerado roda de verdade (Node 18+, sem dependências). Uma API de mentira
+// local responde a cada modo, e o exemplo gerado é executado com o node.
+test("código JavaScript gerado roda de verdade: simples, polling, streaming, upload, base64 e áudio", async () => {
+  const http = await import("node:http"), fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
+  // (assíncrono: a API de mentira roda neste mesmo processo e precisa responder enquanto o exemplo roda)
+  const { execFile } = await import("node:child_process");
+  let polls = 0;
+  const server = http.createServer(async (req, res) => {
+    let body = Buffer.alloc(0);
+    for await (const c of req) body = Buffer.concat([body, c]);
+    const auth = req.headers.authorization === "Bearer tok-123";
+    if (req.url === "/ola") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ answer: auth ? "olá" : "sem token", eco: JSON.parse(body.toString() || "{}") })); }
+    if (req.url === "/start") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ id: 42 })); }
+    if (req.url === "/task/42") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ status: ++polls > 1 ? "finished" : "running", result: "pronto" })); }
+    if (req.url === "/stream") { res.setHeader("Content-Type", "text/event-stream"); for (const t of ["Oi, ", "tudo ", "bem?"]) res.write(`data: ${JSON.stringify({ delta: t })}\n\n`); res.write("data: [DONE]\n\n"); return res.end(); }
+    if (req.url === "/upload") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ recebeu: body.includes(Buffer.from("conteudo-do-arquivo")), campo: body.includes(Buffer.from("pt-BR")) })); }
+    if (req.url === "/b64") { const j = JSON.parse(body.toString()); res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ ok: Buffer.from(j.arquivo, "base64").toString() === "conteudo-do-arquivo" })); }
+    if (req.url === "/tts") { res.setHeader("Content-Type", "audio/mpeg"); return res.end(Buffer.from("ID3-audio")); }
+    res.statusCode = 404; res.end("{}");
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "saga-js-"));
+  fs.writeFileSync(path.join(cwd, "entrada.txt"), "conteudo-do-arquivo");
+  const run = (slide, lang = "javascript") => new Promise((resolve, reject) => {
+    const { code } = C.code(slide, lang, {});
+    execFile(process.execPath, ["--input-type=module", "-e", code], { cwd, encoding: "utf8", timeout: 20000, env: { ...process.env, API_TOKEN: "tok-123", CHAVE: "segredo" } },
+      (err, stdout, stderr) => (err ? reject(new Error(`${stderr}\n--- código:\n${code}`)) : resolve(stdout)));
+  });
+  try {
+    assert.match(await run({ request: { method: "POST", url: base + "/ola", body: { pergunta: "oi", chave: "{{secret.chave}}" } }, answer: "$.answer" }), /olá/, "token do ambiente e corpo JSON");
+    assert.match(await run({ request: { method: "POST", url: base + "/ola", body: { chave: "{{secret.chave}}" } }, answer: "$.eco.chave" }), /segredo/, "segredo vem do ambiente, não do código");
+    assert.match(await run({ request: { method: "POST", url: base + "/start" }, mode: "polling", polling: { id: "$.id", check: { url: base + "/task/{{id}}" }, status: "$.status", done: ["finished"], interval: 0.01 }, answer: "$.result" }, "javascript-comentado"), /running[\s\S]*finished[\s\S]*pronto/);
+    assert.equal(await run({ request: { method: "POST", url: base + "/stream", body: { q: 1 } }, mode: "stream", stream: { text: "$.delta" } }), "Oi, tudo bem?");
+    assert.match(await run({ request: { method: "POST", url: base + "/upload", form: { arquivo: "@file", idioma: "pt-BR" } }, file: "entrada.txt" }), /recebeu: true[\s\S]*campo: true|"recebeu":true/);
+    assert.match(await run({ request: { method: "POST", url: base + "/b64", body: { arquivo: "{{file.base64}}" } }, file: "entrada.txt", answer: "$.ok" }), /true/);
+    await run({ request: { method: "POST", url: base + "/tts", body: { texto: "oi" } }, audio: "fala.mp3" });
+    assert.equal(fs.readFileSync(path.join(cwd, "fala.mp3"), "utf8"), "ID3-audio");
+    // o segredo nunca aparece escrito no código
+    assert.doesNotMatch(C.code({ request: { url: base, headers: { "X-Key": "{{secret.chave}}" } } }, "javascript", {}).code, /segredo/);
+    // tempo real e similaridade: sem aba JavaScript (e o aviso, se pedirem)
+    assert.ok(!C.normalize({ realtime: { url: "wss://x" }, request: { url: "wss://x" } }).code.includes("javascript"));
+    assert.ok(C.normalize({ request: { url: base } }).code.includes("javascript"));
+  } finally {
+    await new Promise((r) => server.close(r));
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});

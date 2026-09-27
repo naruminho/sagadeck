@@ -235,8 +235,8 @@ para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, ve
 | `audio` | a resposta é áudio (TTS): toca no slide, com a onda; no código, salva em `audio: fala.mp3` |
 | `similarity` | embeddings: `{ reference, texts: [..], vector: "$.data[0].embedding" }`; o corpo usa `{{text}}`. Mostra o vetor e a similaridade por cosseno de cada frase |
 | `fields` | aba **Parâmetros**: `{ "$.campo": "o que faz" }`, com o valor atual de cada campo |
-| `code` | abas de código: `[curl, python, python-comentado]` (padrão: as três) |
-| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `python`, `python-comentado` |
+| `code` | abas de código: `[curl, javascript, javascript-comentado, python, python-comentado]` (padrão: curl, javascript, python, python-comentado; sem javascript em tempo real e similaridade). O JavaScript é para Node 18+ (fetch nativo), sem dependências |
+| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `javascript`, `javascript-comentado`, `python`, `python-comentado` |
 | `tokenVar` | nome da variável de ambiente do token no código gerado (padrão `API_TOKEN`) |
 | `id` | chave da gravação (padrão: título + URL) |
 

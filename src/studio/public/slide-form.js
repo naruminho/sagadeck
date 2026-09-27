@@ -137,7 +137,7 @@
       f.more([f.text("token", "Este slide gera o token (caminho na resposta)", { hint: "ex.: $.access_token — os slides seguintes usam esse token" }),
         f.text("steps", "Lista de etapas na resposta", { hint: "ex.: $.responses" }), f.text("stepText", "Texto de cada etapa", { hint: "ex.: $.output" }),
         f.bool("mic", "Botão Gravar (microfone, para STT)"), f.text("audio", "A resposta é áudio (TTS): nome do arquivo", { placeholder: "fala.mp3" }),
-        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
+        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["javascript", "JavaScript"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
         f.text("id", "Identificador (para guardar a gravação)")])],
     codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("filename", "Nome do arquivo", { placeholder: "exemplo.js" }), f.codeLanguage("language", "Linguagem", "filename"),
       f.area("code", "Código", { mono: true, rows: 10, hint: "O código é exibido, sem execução. Na apresentação, as setas percorrem as etapas." }),

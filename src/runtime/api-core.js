@@ -114,7 +114,8 @@
         reference: String(s.similarity.reference || ""),
         texts: [].concat(s.similarity.texts || []).map(String),
       } : null,
-      code: [].concat(s.code || ["curl", "python", "python-comentado"]),
+      // JavaScript (Node 18+, fetch nativo) só onde ele cobre: sem tempo real (WebSocket) nem similaridade
+      code: [].concat(s.code || ["curl", ...(s.realtime || s.similarity ? [] : ["javascript"]), "python", "python-comentado"]),
       tab: s.tab || "body",
       portal: s.portal || null,
     };
@@ -182,11 +183,11 @@
 
   // Um texto de código com marcas: cada linha pode pertencer a "start", "poll" ou "done",
   // e a apresentação acende essas linhas enquanto a etapa correspondente roda.
-  function Lines(explain) {
-    const lines = [], marks = {};
+  function Lines(explain, comment) {
+    const lines = [], marks = {}, cm = comment || "# ";
     return {
       add(text, tag, why) {
-        if (why && explain) String(why).split("\n").forEach((w) => { const m = w.match(/^(\s*)(.*)$/); this.push(m[1] + "# " + m[2], tag, true); });
+        if (why && explain) String(why).split("\n").forEach((w) => { const m = w.match(/^(\s*)(.*)$/); this.push(m[1] + cm + m[2], tag, true); });
         String(text).split("\n").forEach((t) => this.push(t, tag));
         return this;
       },
@@ -336,6 +337,108 @@
     return L.out();
   }
 
+  // ---------- JavaScript (Node 18+: fetch, FormData e Blob nativos; nenhuma dependência) ----------
+  function jsLiteral(v, ind) {
+    ind = ind || "";
+    if (v === null || v === undefined) return "null";
+    if (typeof v !== "object") return JSON.stringify(v);
+    if (v.__js) return v.__js; // expressão crua (ex.: CONTEUDO, process.env.SEGREDO)
+    const next = ind + "  ";
+    if (Array.isArray(v)) return v.length ? "[\n" + v.map((x) => next + jsLiteral(x, next)).join(",\n") + ",\n" + ind + "]" : "[]";
+    const ks = Object.keys(v);
+    const key = (k) => (/^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k));
+    return ks.length ? "{\n" + ks.map((k) => next + key(k) + ": " + jsLiteral(v[k], next)).join(",\n") + ",\n" + ind + "}" : "{}";
+  }
+  const jsSecret = (v) => { const m = typeof v === "string" && v.match(/^\{\{\s*secret\.([\w-]+)\s*\}\}$/); return m ? { __js: `process.env.${secretEnv(m[1])}` } : null; };
+  // fetch(...) de um pedido; as linhas vão para L com a marca da etapa
+  function jsCall(L, name, r, tag, why, url) {
+    const hasHeaders = r.auth || Object.keys(r.headers || {}).length;
+    const opts = [];
+    if (r.method !== "GET") opts.push(`method: ${JSON.stringify(r.method)}`);
+    if (r.form) {
+      L.add("const form = new FormData();", tag, "multipart/form-data: campos e o arquivo");
+      for (const [k, v] of Object.entries(r.form)) {
+        if (v === "@file") L.add(`form.append(${JSON.stringify(k)}, new Blob([await readFile(${dq(r._fileName || "arquivo")})]), ${dq(r._fileName || "arquivo")});`, tag);
+        else L.add(`form.append(${JSON.stringify(k)}, ${JSON.stringify(String(v))});`, tag);
+      }
+      if (hasHeaders) opts.push("headers: HEADERS");
+      opts.push("body: form");
+    } else if (isJsonBody(r.body)) {
+      opts.push(hasHeaders ? `headers: { ...HEADERS, "Content-Type": "application/json" }` : `headers: { "Content-Type": "application/json" }`);
+      opts.push(`body: JSON.stringify(${jsLiteral(r.body, "  ")})`);
+    } else {
+      if (hasHeaders) opts.push("headers: HEADERS");
+      if (r.body != null) opts.push(`body: ${JSON.stringify(String(r.body))}`);
+    }
+    const target = url || dq(r.url);
+    L.add(opts.length ? `const ${name} = await fetch(${target}, {\n${opts.map((o) => "  " + o + ",").join("\n")}\n});` : `const ${name} = await fetch(${target});`, tag, why);
+    L.add(`if (!${name}.ok) throw new Error(\`HTTP \${${name}.status}: \${await ${name}.text()}\`);`, tag, "para aqui se deu erro (4xx/5xx)");
+  }
+  function javascript(a, vars, explain) {
+    const L = Lines(explain, "// ");
+    const name = fileName(a, vars);
+    const b64 = usesB64(a);
+    const toJs = (v) => (v === "{{file.base64}}" ? { __js: "CONTEUDO" } : jsSecret(v) || (Array.isArray(v) ? v.map(toJs) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toJs(x)])) : v));
+    const req = { ...render({ ...a.request, body: toJs(a.request.body) }, { ...vars, "file.name": name }), _fileName: name };
+    const fsUse = [b64 || req.form ? "readFile" : "", a.audio ? "writeFile" : ""].filter(Boolean);
+    L.add("// Node.js 18+ · salve como exemplo.mjs e rode: node exemplo.mjs");
+    if (fsUse.length) L.add(`import { ${fsUse.join(", ")} } from "node:fs/promises";`);
+    L.blank();
+    const auth = req.auth || !!(a.polling && a.polling.check.auth);
+    if (auth) L.add(`const TOKEN = process.env.${a.tokenVar};`, null, "o token de acesso vem de uma variável de ambiente, nunca escrito no código").blank();
+    const h = [];
+    if (auth) h.push("  Authorization: `Bearer ${TOKEN}`,");
+    for (const [k, v] of Object.entries(req.headers || {})) h.push(`  ${JSON.stringify(k)}: ${jsSecret(v) ? jsSecret(v).__js : JSON.stringify(String(v))},`);
+    if (h.length) L.add(`const HEADERS = {\n${h.join("\n")}\n};`, null, "cabeçalhos enviados em toda chamada").blank();
+    if (b64) L.add(`const CONTEUDO = (await readFile(${dq(name)})).toString("base64");`, "start", "o arquivo, em base64, vai dentro do JSON").blank();
+    const out = (expr, why) => {
+      if (a.steps) {
+        L.add(`for (const etapa of ${expr}${pyPath(a.steps)}) {`, "done", why || "o resultado de cada etapa");
+        L.add(`  console.log(etapa${a.stepText ? pyPath(a.stepText) : ""});`, "done").add("}", "done");
+      } else L.add(`console.log(${expr}${a.answer ? pyPath(a.answer) : ""});`, "done", why || (a.answer ? "o campo que interessa na resposta" : "a resposta inteira"));
+    };
+    if (a.mode === "polling") {
+      const check = render(a.polling.check, { ...vars, id: "__EXECUCAO__" });
+      jsCall(L, "inicio", req, "start", "1. inicia: a resposta chega na hora, só com o código da execução");
+      L.add(`const execucao = (await inicio.json())${pyPath(a.polling.id)};`, "start", "o código que identifica esta execução").blank();
+      const url = check.url.includes("__EXECUCAO__") ? "`" + check.url.replace(/`/g, "\\`").replace(/__EXECUCAO__/g, "${execucao}") + "`" : dq(check.url);
+      L.add("let dados;", "poll").add("while (true) {", "poll", "2. consulta o andamento até terminar (polling)");
+      const inner = Lines(explain, "// ");
+      jsCall(inner, "r", { ...check, body: undefined }, "poll", null, url);
+      inner.out().code.split("\n").forEach((line) => L.push("  " + line, "poll", /^\s*\/\//.test(line)));
+      L.add("  dados = await r.json();", "poll");
+      L.add(`  const status = dados${pyPath(a.polling.status)};`, "poll", "  o status atual da execução");
+      L.add("  console.log(status);", "poll");
+      L.add(`  if (${JSON.stringify(a.polling.done)}.includes(status)) break;`, "poll", "  terminou: sai do laço");
+      L.add(`  if (${JSON.stringify(a.polling.failed)}.includes(status)) throw new Error(\`A execução falhou: \${JSON.stringify(dados)}\`);`, "poll", "  deu errado: mostra o motivo");
+      L.add(`  await new Promise((ok) => setTimeout(ok, ${Math.round(a.polling.interval * 1000)}));`, "poll", "  espera um pouco antes de perguntar de novo");
+      L.add("}", "poll").blank();
+      out("dados", a.steps ? "3. o resultado de cada etapa do workflow" : "3. o resultado");
+    } else if (a.mode === "stream") {
+      jsCall(L, "resposta", req, "start", "streaming: a resposta chega aos poucos, enquanto é gerada");
+      L.add("const decoder = new TextDecoder();", "poll").add('let resto = "";', "poll");
+      L.add("for await (const pedaco of resposta.body) {", "poll", "cada pedaço chega numa linha \"data: {...}\"");
+      L.add("  resto += decoder.decode(pedaco, { stream: true });", "poll");
+      L.add("  let fim;", "poll").add('  while ((fim = resto.indexOf("\\n")) >= 0) {', "poll");
+      L.add("    const linha = resto.slice(0, fim).trim();", "poll").add("    resto = resto.slice(fim + 1);", "poll");
+      L.add('    if (!linha.startsWith("data:")) continue;', "poll");
+      L.add("    const dado = linha.slice(5).trim();", "poll");
+      L.add('    if (!dado || dado === "[DONE]") continue;', "poll", "    o servidor avisa que terminou");
+      L.add(`    process.stdout.write(String(JSON.parse(dado)${pyPath(a.stream.text)} ?? ""));`, "poll", "    mostra o texto conforme chega");
+      L.add("  }", "poll").add("}", "poll");
+    } else {
+      jsCall(L, "resposta", req, "start", "a chamada: espera a resposta completa");
+      if (a.audio) {
+        L.add(`await writeFile(${dq(a.audio)}, Buffer.from(await resposta.arrayBuffer()));`, "done", "a resposta é o áudio: salva num arquivo");
+        L.add(`console.log("áudio salvo em", ${dq(a.audio)});`, "done");
+        return L.out();
+      }
+      L.add("const dados = await resposta.json();", "done");
+      out("dados");
+    }
+    return L.out();
+  }
+
   // similaridade por cosseno: 1 = mesma direção (mesmo sentido), 0 = nada a ver
   function cosine(a, b) {
     let dot = 0, na = 0, nb = 0;
@@ -405,9 +508,14 @@
     return L.out();
   }
 
-  const LANGS = { curl: "curl", python: "Python", "python-comentado": "Python comentado" };
+  const LANGS = { curl: "curl", javascript: "JavaScript", "javascript-comentado": "JavaScript comentado", python: "Python", "python-comentado": "Python comentado" };
   function code(slide, lang, vars) {
     const a = slide && slide._normalized ? slide : normalize(slide);
+    if (/^javascript/.test(lang || "")) {
+      // tempo real (WebSocket) e similaridade ficam no curl/Python
+      if (a.realtime || a.similarity) return { code: "// Este slide (tempo real ou similaridade) tem exemplo em curl e Python.", marks: {}, comments: [1] };
+      return javascript(a, vars || {}, lang === "javascript-comentado");
+    }
     if (a.realtime) return lang === "curl" ? wscat(a, vars || {}) : pythonRealtime(a, vars || {}, lang === "python-comentado");
     if (a.similarity && lang !== "curl") return pythonSimilarity(a, vars || {}, lang === "python-comentado");
     if (a.similarity && lang === "curl") return curl(a, Object.assign({}, vars, { text: a.similarity.reference }));
