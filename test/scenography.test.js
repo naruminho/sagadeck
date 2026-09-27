@@ -89,3 +89,41 @@ test("cada composição cabe no slide: título, subtítulo e assinatura dentro d
     await browser.close();
   }
 });
+
+test("tom padrão por composição (as noturnas nascem escuras); o tom do slide vence", () => {
+  const tone = (s) => renderSlide({ layout: "scenography", title: "X", ...s }).html.match(/tone-(\w+)/)[1];
+  assert.equal(tone({ scene: "terminal" }), "dark");
+  assert.equal(tone({ scene: "orbit" }), "dark");
+  assert.equal(tone({ scene: "gallery" }), "light");
+  assert.equal(tone({ scene: "terminal", tone: "light" }), "light");
+});
+
+// Nada de cor fixa: a composição se veste com a paleta do tema (e do tom) do deck, para não destoar dos outros slides
+test("as composições seguem a paleta do tema: trocar o tema muda as cores, e elas vêm do tema", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const p = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const cores = async (theme, scene) => {
+      const { html } = buildHTML({ theme, slides: [{ layout: "scenography", scene, title: "CENA", kicker: "K", subtitle: "S", caption: "C" }] });
+      await p.setContent(html);
+      return p.evaluate(() => {
+        const slide = document.querySelector(".slide"), cs = (sel, prop) => getComputedStyle(slide.querySelector(sel))[prop];
+        const v = (n) => getComputedStyle(slide).getPropertyValue(n).trim();
+        const probe = document.createElement("i"); slide.append(probe);
+        const rgb = (c) => { probe.style.color = c; return getComputedStyle(probe).color; };
+        return { fundo: cs(".L-scenography", "backgroundColor"), atmosfera: cs(".scene-atmosphere", "backgroundImage"), titulo: cs(".scene-title", "color"),
+          paleta: [v("--bg"), v("--fg"), v("--hi"), v("--em"), v("--muted"), v("--surface")].map(rgb) };
+      });
+    };
+    for (const scene of IDS) {
+      const a = await cores("sinal", scene), b = await cores("oceano", scene);
+      assert.notDeepEqual([a.fundo, a.atmosfera, a.titulo], [b.fundo, b.atmosfera, b.titulo], `${scene}: trocar o tema não mudou nada`);
+      // o título ou é transparente (texto vazado/gradiente) ou tem uma cor da paleta, pura ou misturada
+      assert.ok(a.titulo === "rgba(0, 0, 0, 0)" || a.paleta.includes(a.titulo) || /color\(srgb|rgb/.test(a.titulo), `${scene}: ${a.titulo}`);
+      assert.equal(a.fundo, a.paleta[0], `${scene}: o fundo é o --bg do tema`);
+    }
+  } finally {
+    await browser.close();
+  }
+});

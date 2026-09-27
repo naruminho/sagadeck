@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS } from "./themes.js";
-import { LAYOUTS } from "./layouts.js";
+import { LAYOUTS, SCENES } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
@@ -77,7 +77,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const layout = inferLayout(s);
     const fn = LAYOUTS[layout];
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
-    const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
+    const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
     try { inner = fn(s, ctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
     html += slideShell({ s, i, spec, theme, ctx, layout, tone, inner }) + "\n";
@@ -186,7 +186,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
-  const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
+  const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
   const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });
