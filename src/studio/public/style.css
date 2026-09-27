@@ -821,3 +821,14 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 
 .bs-option-other { display: inline-flex; align-items: center; gap: 6px; opacity: .85; }
 .bs-option-other .ic { width: 14px; height: 14px; }
+
+/* fiscal: problema do slide + correções à mão */
+.fix-panel { margin: 10px auto 0; max-width: 980px; padding: 10px 14px; border: 1px solid #e5a50a; border-left-width: 4px; border-radius: 8px; background: color-mix(in srgb, #e5a50a 9%, var(--panel, #fff)); color: var(--text); font-size: 13px; }
+.fix-panel.hidden { display: none; }
+.fix-head { display: flex; align-items: center; gap: 8px; }
+.fix-head .ic { width: 16px; height: 16px; color: #b7791f; }
+.fix-panel ul { margin: 4px 0 8px 24px; padding: 0; color: var(--text-2); }
+.fix-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.fix-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--ui-line-strong); background: var(--panel, #fff); color: var(--text); font: inherit; cursor: pointer; }
+.fix-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.fix-btn .ic { width: 14px; height: 14px; }
