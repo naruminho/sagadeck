@@ -87,7 +87,8 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       await p.fill('.api-json-dialog input', '$.choices.0.message.content');
       assert.match(await p.innerText('.api-json-tree'), /eco: o que é RAG/);
       await p.click('.api-json-dialog [data-close]');
-      assert.equal(await p.locator('.api-json-dialog').count(), 0);
+      // fechar pode levar um instante (no CI, lento): espera sumir em vez de conferir na hora
+      await p.waitForSelector('.api-json-dialog', { state: "detached", timeout: 5000 });
     });
 
     await t.test("polling: linha do tempo STARTED → RUNNING → FINISHED, cartões das etapas e o código acendendo", async () => {
