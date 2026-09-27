@@ -43,6 +43,12 @@ export async function startMockApi({ clientId = "id-teste", clientSecret = "segr
       state.tokens.add(t);
       return json(res, 200, { data: { token: t }, expires_in: 1800 });
     }
+    // eco: devolve o que recebeu; é o que o slide de API genérico (Inserir, Slide de API) chama no ambiente ENSAIO
+    if (url.pathname === "/v1/echo") {
+      let body = raw;
+      try { body = JSON.parse(raw || "null"); } catch {}
+      return json(res, 200, { metodo: req.method, recebido: body, consulta: Object.fromEntries(url.searchParams) });
+    }
     const auth = (req.headers.authorization || "").replace(/^Bearer /, "");
     if (!state.tokens.has(auth)) return json(res, 401, { error: "token inválido ou vencido" });
     state.lastHeaders = req.headers;

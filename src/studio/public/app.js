@@ -3016,44 +3016,6 @@
   }
 
   // ---------------------------------------------------------------- slides de API
-  // Inserir → Slide de API: exemplos prontos (os slides do deck de ensaio), que rodam no ambiente embutido ENSAIO
-  let apiExamples = null;
-  async function loadApiExamples() {
-    const list = document.getElementById("api-examples-list");
-    if (!apiExamples) {
-      try { apiExamples = (await (await fetch("api/api-examples")).json()).examples || []; } catch { apiExamples = []; }
-    }
-    list.innerHTML = "";
-    if (!apiExamples.length) { list.textContent = "Nenhum exemplo encontrado."; return; }
-    apiExamples.forEach((ex, i) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "api-ex-item";
-      b.dataset.example = i;
-      b.innerHTML = "<b></b><span></span>";
-      b.querySelector("b").textContent = ex.label || ex.title;
-      b.querySelector("span").textContent = ex.title;
-      b.onclick = () => { closePopovers(); insertApiExample(ex); };
-      list.append(b);
-    });
-  }
-
-  async function insertApiExample(ex) {
-    const slide = JSON.parse(JSON.stringify(ex.slide));
-    const at = state.currentSlideIndex + 1;
-    state.deck.slides.splice(at, 0, slide);
-    state.currentSlideIndex = at;
-    syncDeckToServer();
-    renderThumbnails();
-    renderCurrentSlide();
-    let extra = "";
-    if (slide.file) { // o exemplo de upload usa um arquivo ao lado do deck
-      const r = await fetch("api/api-examples/files", { method: "POST" }).then((x) => x.json()).catch(() => ({}));
-      if (r.written?.length) extra = ` (${r.written.join(", ")} criado ao lado do deck)`;
-    }
-    showToast(`Slide de API "${ex.label || ex.title}" adicionado${extra}. Apresente e clique em Executar; para o seu serviço, troque os endereços em Ambientes.`, 5200);
-  }
-
   // Ambientes: o ~/.sagadeck/ambientes.yaml como texto, validado pelo Studio antes de gravar
   const apiEnvsModal = () => document.getElementById("modal-api-envs");
   function apiEnvsStatus(text, kind = "") {
@@ -3195,9 +3157,7 @@
     });
     popover(dom.btnLayoutGallery, dom.layoutPopover, loadLayoutPreviews);
     popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
-    const apiExamplesPop = document.getElementById("api-examples-popover");
-    popover(document.getElementById("btn-api-slide"), apiExamplesPop, loadApiExamples);
-    apiExamplesPop.addEventListener("click", (e) => e.stopPropagation());
+    document.getElementById("btn-api-slide").onclick = () => insertScene("api");
     // Tom e Fundo: botões com prévia (o slide atual desenhado em cada opção)
     popover(document.getElementById("btn-tone"), variantPop, () => openVariantPicker("tone"));
     popover(document.getElementById("btn-deco"), variantPop, () => openVariantPicker("deco"));

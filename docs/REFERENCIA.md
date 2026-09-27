@@ -413,7 +413,9 @@ No YAML: `widgets: [widgets/contador.js]` e `{ widget: contador, rotulo: "Votos"
 
 ## Texto no cenário (`scenography`)
 
-Composição estática: o texto permanece editável, integrado a planos, luz e profundidade. `scene: stage` usa letras monumentais atrás de uma escultura; `floor` projeta o texto no chão; `signs` constrói uma placa em perspectiva. Campos: `title` (frase curta, quebra de linha permitida), `kicker`, `subtitle`, `caption`, `titleSize`, `image` (fundo opcional), `foreground` (recorte PNG transparente colocado à frente das letras). Um fundo arbitrário não é segmentado automaticamente: para oclusão de uma pessoa, forneça o recorte em `foreground`.
+Composição estática: o texto permanece editável, integrado a planos, luz e profundidade. `scene`: `stage` (letras monumentais atrás de uma escultura), `floor` (texto no chão), `signs` (placa em perspectiva), `terminal` (terminal hacker), `cafe` (lousa de café com letreiro neon), `travel` (cartão de embarque), `ticker` (pregão com cotações e candles), `marquee` (letreiro de cinema com lâmpadas), `blueprint` (planta técnica), `magazine` (capa de revista), `orbit` (planeta e estrelas), `synthwave` (neon anos 80) ou `gallery` (parede de galeria). Cada uma tem um tamanho de título padrão; `titleSize` vence. Campos: `title` (frase curta, quebra de linha permitida), `kicker`, `subtitle`, `caption`, `titleSize`, `image` (fundo opcional), `imageOpacity` (transparência do fundo, de 0 a 1; padrão 0.85), `foreground` (recorte PNG transparente colocado à frente das letras). Um fundo arbitrário não é segmentado automaticamente: para oclusão de uma pessoa, forneça o recorte em `foreground`.
+
+Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
 
 ```yaml
 - layout: scenography

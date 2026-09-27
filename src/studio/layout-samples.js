@@ -2,7 +2,7 @@
 export const LAYOUT_INFO = {
   decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
   science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
-  scenography: ["Texto no cenário", "Palco, placas e chão em perspectiva, sem animação"],
+  scenography: ["Texto no cenário", "13 composições (palco, terminal, café, embarque, pregão, cinema, revista…), sem animação"],
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
   section: ["Seção", "Abre um novo ato ou capítulo"],
   statement: ["Frase de impacto", "Uma ideia em letras grandes"],
@@ -81,7 +81,8 @@ export const LAYOUT_SAMPLES = {
       { text: "ACENDE", style: "neon", position: "right", color: "cyan", size: "large" },
       { text: "E MUDA", style: "editorial", position: "bottom", color: "gold", size: "medium" },
       { text: "O CENÁRIO", style: "outline", position: "center", color: "pink", size: "large" }] },
-  api: { layout: "api", kicker: "Ao vivo", title: "Pergunte ao ==modelo==", request: { method: "POST", url: "{{base}}/chat", body: { messages: [{ role: "user", content: "Explique RAG em uma frase" }] } }, answer: "$.choices[0].message.content" },
+  // genérico de propósito: troque método, URL e corpo pelos do seu serviço (os exemplos prontos ficam no deck "Exemplo: aula de APIs")
+  api: { layout: "api", kicker: "Ao vivo", title: "Minha ==chamada==", text: "Troque o método, a URL e o corpo pelos do seu serviço", request: { method: "POST", url: "{{base}}/echo", body: { mensagem: "Olá, API" } }, answer: "$.recebido.mensagem" },
   video: { layout: "video", title: "Assista", url: "https://example.com", label: "Assistir" },
   blocks: { layout: "blocks", title: "Blocos livres", content: [{ row: [{ lead: "Esquerda" }, { lead: "Direita" }] }] },
   canvas: { layout: "canvas", elements: [{ h2: "Livre", x: 200, y: 200 }, { icon: "star", size: 200, x: 1200, y: 400 }] },

@@ -98,3 +98,15 @@ test("ensaio-api reabre o deck do ensaio que já está na biblioteca, sem sobres
     proc.kill();
   }
 });
+
+test("o slide de API genérico (Inserir, Slide de API) roda no ambiente ENSAIO sem configurar nada", { timeout: 20000 }, async () => {
+  const { LAYOUT_SAMPLES } = await import("../src/studio/layout-samples.js");
+  const mock = await startMockApi();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-generico-"));
+  fs.writeFileSync(path.join(dir, "ambientes.yaml"), demoEnvFile(mock));
+  try {
+    const r = await new ApiEnvironments(path.join(dir, "ambientes.yaml")).runSlide(LAYOUT_SAMPLES.api, { vars: {}, deckDir: dir });
+    assert.equal(r.report.ok, true, JSON.stringify(r.report));
+    assert.match(r.report.resposta, /Olá, API/);
+  } finally { await mock.close(); }
+});

@@ -490,29 +490,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      // Inserir → Slide de API: os slides api do deck de exemplo, um por tipo (token, síncrono, polling…)
-      if (pathname === "/api/api-examples" && req.method === "GET") {
-        const tpl = templateFile("ensaio-api.yaml");
-        const slides = tpl ? (YAML.parse(fs.readFileSync(tpl, "utf8")).slides || []).filter((sl) => sl.layout === "api") : [];
-        const examples = slides.map(({ id, ...slide }) => ({ label: String(slide.kicker || "").replace(/^Passo \d+ · /, ""), title: String(slide.title || "").replace(/==/g, ""), mode: slide.mode || "sync", slide }));
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ examples }));
-        return;
-      }
-      // o exemplo que usa um arquivo (file: contrato.txt) precisa dele ao lado do deck; nunca sobrescreve
-      if (pathname === "/api/api-examples/files" && req.method === "POST") {
-        const written = [];
-        if (W.file && !isBundledTemplate(W.file)) {
-          for (const [name, text] of Object.entries(DEMO_FILES)) {
-            const f = path.join(path.dirname(W.file), name);
-            if (!fs.existsSync(f)) { fs.writeFileSync(f, text); written.push(name); }
-          }
-        }
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ written }));
-        return;
-      }
-
       if (pathname === "/api/render-slide" && req.method === "POST") {
         const { slide, index, spec } = await readJSON(req);
         const deckSpec = spec || W.spec;
@@ -928,6 +905,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const title = String(b.title || "Nova apresentação").trim();
               const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
                 slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              return ok({ id });
+            }
+            case "/api/library/decks/example-cenario": {
+              // demonstração do Texto no cenário: o YAML e as imagens de exemplo (fundo e recorte transparente)
+              const dir0 = TEMPLATE_DIRS.map((d) => path.join(d, "cenario")).find((d) => fs.existsSync(d));
+              if (!dir0) throw new Error("o exemplo não veio no pacote (templates/cenario)");
+              const tpl = fs.readdirSync(dir0).find((f) => f.endsWith(".yaml"));
+              const id = L.createDeck(b.topic || "", YAML.parse(fs.readFileSync(path.join(dir0, tpl), "utf8")));
+              fs.cpSync(path.join(dir0, "imagens"), path.join(path.dirname(L.resolveId(id)), "imagens"), { recursive: true, force: false });
               return ok({ id });
             }
             case "/api/library/decks/example": {
