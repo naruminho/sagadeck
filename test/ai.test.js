@@ -358,3 +358,76 @@ test("diagrama que encolheu demais: o modelo recebe o fato (uma vez) e a respost
   assert.equal(n, 2);
   assert.match(r2.spec.slides[1].mermaid, /LR/);
 });
+
+test("o prompt não se contradiz: diagram e infographic são layouts (e os diagramas simples continuam como elementos)", async () => {
+  reply = () => "ok";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+  const sys = llm.requests[n].system;
+  assert.doesNotMatch(sys, /Diagramas e gráficos são ELEMENTOS[^.\n]*não layouts/, "dizia que diagrama não é layout, mas o layout diagram existe");
+  assert.match(sys, /layout `?diagram`?/);
+  assert.match(sys, /layout `?infographic`?/);
+});
+
+// Comandos da IA (Studio local): ela pede run:, quem chama mostra à pessoa e só roda com aprovação; o resultado (ou a
+// recusa) volta ao modelo, que segue até devolver o patch. Aqui o "Studio" é um stub; o executor real é testado abaixo.
+const RUN = (code, why = "testar") => "Vou testar primeiro.\n```yaml\nrun:\n  language: javascript\n  why: " + why + "\n  code: |\n    " + code + "\n```";
+test("comando aprovado: o resultado real volta ao modelo e o patch vem depois", async () => {
+  const pedidos = [];
+  reply = ({ lastUser }) => (/Resultado do comando 1/.test(lastUser) ? "Funcionou.\n```yaml\nedit:\n  2:\n    text: Resposta 42\n```" : RUN("console.log(6 * 7)", "conferir a conta"));
+  const n = llm.requests.length;
+  const r = await editDeck({ spec: base(), instruction: "teste a conta e ponha no slide 2", targetSlide: 1,
+    runCommand: async (c) => { pedidos.push(c); return { exitCode: 0, stdout: "42\n", stderr: "", timedOut: false }; } });
+  assert.equal(pedidos.length, 1);
+  assert.equal(pedidos[0].language, "javascript");
+  assert.equal(pedidos[0].why, "conferir a conta");
+  assert.match(llm.requests[n].system, /COMANDOS \(Studio local\)/);
+  assert.match(llm.requests[n + 1].lastUser, /Resultado do comando 1[\s\S]*42/);
+  assert.equal(r.spec.slides[1].text, "Resposta 42");
+  assert.ok(r.actions.some((a) => /Comando 1 \(javascript\): conferir a conta \(ok\)/.test(a)), r.actions.join("; "));
+});
+
+test("comando recusado: nada roda, o modelo sabe que a pessoa não autorizou e segue sem ele", async () => {
+  reply = ({ lastUser }) => (/NÃO autorizou/.test(lastUser) ? "Sem problema: não testei, montei com o que a documentação diz." : RUN("console.log(1)"));
+  const r = await editDeck({ spec: base(), instruction: "teste", targetSlide: 1, runCommand: async () => ({ denied: true }) });
+  assert.equal(r.talk, true);
+  assert.match(r.reply, /não testei/);
+  assert.ok(r.actions.some((a) => /Comando 1 não autorizado/.test(a)));
+});
+
+test("sem Studio local (runCommand ausente): o prompt diz que não há comandos", async () => {
+  reply = () => "ok";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+  assert.match(llm.requests[n].system, /Comandos: indisponíveis aqui/);
+  assert.doesNotMatch(llm.requests[n].system, /COMANDOS \(Studio local\)/);
+});
+
+test("limite de comandos por pedido: passou dele, o modelo é avisado para responder sem comandos", async () => {
+  let rodou = 0;
+  reply = ({ lastUser }) => (/Limite de \d+ comandos/.test(lastUser) ? "Parei de testar: o endpoint não responde." : RUN("console.log(1)"));
+  const r = await editDeck({ spec: base(), instruction: "teste", targetSlide: 1, runCommand: async () => { rodou++; return { exitCode: 0, stdout: "1" }; } });
+  const { MAX_COMMANDS } = await import("../src/ai/commands.js");
+  assert.equal(rodou, MAX_COMMANDS);
+  assert.match(r.reply, /Parei de testar/);
+});
+
+test("executor: variáveis e segredos do ambiente chegam ao comando; a saída volta mascarada; tempo esgotado e comando inválido", async () => {
+  const { runCommand, commandRequest } = await import("../src/ai/commands.js");
+  const cwd = fs.mkdtempSync(path.join((await import("node:os")).tmpdir(), "saga-cmd-"));
+  try {
+    const r = await runCommand({ language: "javascript", code: "console.log(process.env.SAGA_VAR_BASE_URL, process.env.SAGA_SECRET_CHAVE)" },
+      { cwd, env: { SAGA_VAR_BASE_URL: "http://x", SAGA_SECRET_CHAVE: "segredo-muito-secreto" }, mask: (s) => s.split("segredo-muito-secreto").join("se***to") });
+    assert.equal(r.exitCode, 0, r.stderr);
+    assert.match(r.stdout, /http:\/\/x se\*\*\*to/);
+    assert.doesNotMatch(r.stdout, /segredo-muito-secreto/);
+    const lento = await runCommand({ language: "javascript", code: "setInterval(() => {}, 1000)" }, { cwd, timeoutMs: 150 });
+    assert.equal(lento.timedOut, true);
+    const erro = await runCommand({ language: "js", code: "throw new Error('falhou')" }, { cwd });
+    assert.notEqual(erro.exitCode, 0);
+    assert.match(erro.stderr, /falhou/);
+    assert.throws(() => commandRequest({ language: "cobol", code: "x" }), /language/);
+    assert.throws(() => commandRequest({ language: "javascript", code: "  " }), /código/);
+    await assert.rejects(runCommand({ language: "javascript", code: "1" }, { cwd: path.join(cwd, "nao-existe") }), /Abra uma apresentação/);
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});

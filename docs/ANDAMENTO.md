@@ -98,6 +98,20 @@ Ideias que ficaram para depois (não bloqueiam):
 Decisão pendente com Naruminho: manter MIT ou trocar para AGPL-3.0 (proteção contra uso fechado como serviço).
 Versões já publicadas como MIT continuam MIT.
 
+### Revisão da branch do GPT (`gpt-adaptativo`) e comandos da IA
+
+- Aproveitado: correção do prompt (dizia que diagrama não é layout), aba JavaScript nos slides api, layouts
+  adaptativos e modelos de demonstração (ver abaixo o que entrou), regras do AGENTS.md.
+- Descartado: `scripts/restore-humano-bug.mjs` (alterava o conteúdo de uma palestra da pessoa, com caminhos da
+  máquina dela), `scripts/wire-adaptive.mjs` (editava o código-fonte por substituição de texto) e
+  `scripts/verify-demo-decks.mjs` (caminhos fixos da máquina).
+- Comandos da IA, redesenhados (`src/ai/commands.js`): a IA pede `run: {language, why, code}`; o Studio mostra
+  o código e só roda com o clique (Executar / Executar e liberar os próximos / Não executar). Pedido pelo fluxo
+  NDJSON (`phase: "approve"`), resposta em `/api/ai/approve`, presa ao usuário que pediu; 10 min sem resposta =
+  recusado. Variáveis/segredos/token do ambiente como `SAGA_VAR_*`/`SAGA_SECRET_*`/`SAGA_TOKEN`, saída
+  mascarada. Local: liberado para a pessoa da máquina. Multiusuário: só `--agentes` / `SAGADECK_AGENTES`
+  (pedido de Naruminho: no servidor Oracle, a Mary usa tudo menos comandos).
+
 ### 2. One-page: A FAZER
 
 ### 3. Status semanal: A FAZER

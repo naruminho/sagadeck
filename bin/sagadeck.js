@@ -57,6 +57,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
+                                   --agentes=naru,ana: no multiusuário, quem pode deixar a IA rodar comandos (padrão: ninguém)
   sagadeck ensaio-api [--port=3000]            ensaio do slide "api": deck de exemplo contra uma API de mentira (sem VPN)
                                    o deck fica na biblioteca (Sem tópico/Ensaio APIs de IA ao vivo); se já existir, reabre
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
@@ -333,7 +334,9 @@ async function main() {
       }
       const { defaultLibraryRoot } = await import("../src/library.js");
       const library = typeof flags.library === "string" ? path.resolve(flags.library) : defaultLibraryRoot();
-      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"] });
+      // --agentes=naru,ana: no multiusuário, só esses usuários podem deixar a IA rodar comandos (na máquina do servidor)
+      const agentUsers = typeof flags.agentes === "string" ? flags.agentes.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
+      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers });
       server.listen(port, host, () => {
         const shown = host === "0.0.0.0" ? "localhost" : host;
         console.log(`✓ SagaDeck Studio em http://${shown}:${port}${deckFile ? "" : "  (biblioteca)"}`);
