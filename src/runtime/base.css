@@ -1119,3 +1119,7 @@ html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="
 
 /* Ornamentos da pele do tema (runtime/skins/<tema>.css liga e desenha os que usa); atrás do conteúdo */
 .orn{position:absolute;inset:0;pointer-events:none;overflow:hidden}.orn i{position:absolute;display:none}
+
+/* estrelas da avaliação: desenhadas (cheia x vazia) */
+.rating-stars{display:inline-flex;gap:4px}.rating-stars .star-on{fill:currentColor}.rating-stars .star-off{opacity:.45}
+.st-trend svg,.check-pill svg,.step-connector svg{vertical-align:-.15em}

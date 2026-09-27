@@ -745,6 +745,18 @@
       };
       row.append(b);
     }
+    // nenhuma das opções serve: a pessoa escreve a sua (a IA entende texto livre)
+    const other = document.createElement("button");
+    other.type = "button";
+    other.className = "bs-option bs-option-other";
+    other.innerHTML = '<i class="ic" data-ic="pencil"></i><span>Outra resposta…</span>';
+    other.onclick = () => {
+      dom.chatInput.value = "";
+      dom.chatInput.placeholder = "Escreva a sua resposta…";
+      dom.chatInput.focus();
+    };
+    row.append(other);
+    hydrateIcons(row);
     msg.querySelector(".ai-content").append(row);
   }
 

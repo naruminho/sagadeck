@@ -17,6 +17,11 @@ footer: texto do rodapé          # opcional; false desliga; ou { left, center, 
 #   header: { left: "{depto}", right: "Confidencial" }
 #   variáveis: {titulo} {autor} {evento} {depto} {data} {data:MÁSCARA} {pagina} (01) {n} (1) {total}
 #   máscara: DD MM AAAA AA MMM (jan) MMMM (janeiro). Capa, seção, encerramento e página inteira ficam sem.
+context:                         # opcional: a ocasião (a IA usa para decidir tom, visual e interação; não aparece nos slides)
+  pessoas: 30                    #   tamanho da plateia
+  formato: presencial            #   presencial | online | gravado
+  tom: executivo                 #   executivo | técnico | didático | informal
+  objetivo: decidir              #   decidir | informar | ensinar | inspirar (e o que mais ajudar)
 markStyle: marca-texto           # como o ==destaque== aparece: marca-texto | sublinhado | cor | negrito | nenhum
 tone: light                      # tom padrão dos slides (light | dark | accent | alert)
 maxWords: 40                     # alerta "anti-sono" quando um slide passa disso
@@ -65,6 +70,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `split` | `title, body, bullets, content, figure, ratio: "1.2:1", reverse, build` | texto + figura |
 | `cards` | `title, items: [{icon, picto, number, title, text, foot, hl}], cols, build` | 2–4 cartões |
 | `list` | `title, items: [texto ou {text, sub}], numbered, size, build` | lista numerada grande |
+| `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |

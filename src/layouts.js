@@ -2,6 +2,7 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { decisionLabHTML } from "./decision-lab.js";
 import { md, esc } from "./markup.js";
+import { iconSVG } from "./figures/icons.js";
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import { mathHTML, plotHTML } from "./science.js";
@@ -28,7 +29,7 @@ const kineticPhrases = (value) => {
   }
   return phrases;
 };
-const lessonControls = (items) => `<nav class="lesson-controls" aria-label="Etapas da explicação"><button type="button" data-lesson-prev aria-label="Etapa anterior" disabled>←</button><div class="lesson-dots">${items.map((p, i) => `<button type="button" data-lesson-go="${i}" aria-label="Etapa ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</div><button type="button" data-lesson-next aria-label="Próxima etapa" ${items.length === 1 ? "disabled" : ""}>→</button></nav>`;
+const lessonControls = (items) => `<nav class="lesson-controls" aria-label="Etapas da explicação"><button type="button" data-lesson-prev aria-label="Etapa anterior" disabled>${iconSVG("arrow-left", { size: 26, stroke: 2 })}</button><div class="lesson-dots">${items.map((p, i) => `<button type="button" data-lesson-go="${i}" aria-label="Etapa ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</div><button type="button" data-lesson-next aria-label="Próxima etapa" ${items.length === 1 ? "disabled" : ""}>${iconSVG("arrow-right", { size: 26, stroke: 2 })}</button></nav>`;
 const lessonPanels = (items, output = false) => `<div class="lesson-panels" aria-live="polite" aria-atomic="true">${items.map((p, i) => `<article class="lesson-panel${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-highlight="${esc(JSON.stringify([].concat(p.highlight || []).filter(Number.isFinite)))}"><div class="lesson-counter f-label">${String(i + 1).padStart(2, "0")} / ${String(items.length).padStart(2, "0")}</div>${text(p.title || `Etapa ${i + 1}`, "h3", { class: "lesson-title", size: 48 })}${p.text ? text(p.text, "body", { class: "lesson-text", size: 32 }) : ""}${output && p.output != null ? `<div class="lesson-output"><div class="lesson-output-label f-label">Saída esperada · simulação</div><pre class="f-mono">${esc(p.output)}</pre></div>` : ""}</article>`).join("")}</div>`;
 const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i) => `<article><div class="f-label lesson-summary-number">${String(i + 1).padStart(2, "0")}</div><div><strong class="f-heading">${md(p.title || `Etapa ${i + 1}`)}</strong>${p.text ? `<p class="f-body">${md(p.text)}</p>` : ""}${p.output != null ? `<pre class="f-mono">${esc(p.output)}</pre>` : ""}</div></article>`).join("")}</div>`;
 const percent = (value, fallback, min = 0, max = 100) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
@@ -261,7 +262,7 @@ export const LAYOUTS = {
       <div class="kinetic-sequence" aria-live="polite" aria-atomic="true">${frames}</div>
       <div class="kinetic-controls"><button type="button" class="kinetic-toggle" data-kinetic-toggle aria-pressed="${autoplay}" aria-label="${autoplay ? "Pausar" : "Reproduzir"} sequência"${beats.length < 2 ? " disabled" : ""}>${autoplay ? "Pausar" : "Reproduzir"}</button>
         <nav class="kinetic-dots" aria-label="Frases da sequência">${beats.map((beat, i) => `<button type="button" data-lesson-go="${i}" aria-label="Frase ${i + 1}: ${esc(beat.text || "")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</nav>
-        <button type="button" class="kinetic-next" data-lesson-next aria-label="Próxima frase">→</button>
+        <button type="button" class="kinetic-next" data-lesson-next aria-label="Próxima frase">${iconSVG("arrow-right", { size: 26, stroke: 2 })}</button>
       </div>${summary}
     </div>${add(s, ctx)}`;
   },

@@ -116,9 +116,17 @@ test("studio + IA (LLM falso)", async (t) => {
       await send("o que você acha de eu falar de fraudes para a empresa?");
       assert.match(await lastAI(), /Conversa — nada mudou nos slides/);
       assert.match(await lastAI(), /Quem é o público/);
-      assert.equal(await p.locator(".bs-options .bs-option").count(), 2);
+      assert.equal(await p.locator(".bs-options .bs-option:not(.bs-option-other)").count(), 2);
       assert.equal(JSON.stringify((await deck()).slides), before);
       assert.ok(await p.isVisible("#btn-brainstorm-apply"));
+    });
+
+    await t.test("opções clicáveis sempre com 'Outra resposta…', que leva para a caixa de texto", async () => {
+      const other = p.locator(".bs-options").last().locator(".bs-option-other");
+      assert.equal(await other.count(), 1);
+      await other.click();
+      assert.equal(await p.evaluate(() => document.activeElement?.id), "chat-input");
+      assert.equal(await p.inputValue("#chat-input"), "");
     });
 
     await t.test("rodada de refinamento: clicar numa opção continua a conversa", async () => {
