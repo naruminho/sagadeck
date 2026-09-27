@@ -249,3 +249,27 @@ test("contraste: rótulos legíveis em temas claros e escuros (mapa mental, flux
     assert.deepEqual(todos, []);
   } finally { await browser.close(); }
 });
+
+test("paleta de família: grupos e ramos ficam nos tons da família; a cor forte só na ênfase", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const flow = "flowchart LR\n  subgraph A[Um]\n    a1[x] --> a2[y]\n  end\n  subgraph B[Dois]\n    b1[x]\n  end\n  subgraph C[Três]\n    c1[x]\n  end\n  subgraph D[Quatro]\n    d1[x]:::em\n  end\n  a2 --> b1 --> c1 --> d1";
+    const mind = "mindmap\n  root((Centro))\n    Um\n    Dois\n    Três\n    Quatro\n    Cinco";
+    const { p, errors } = await montar(browser, "prata", [{ layout: "diagram", mermaid: flow }, { layout: "diagram", mermaid: mind }], "rubi");
+    const r = await p.evaluate((HSL) => {
+      const hsl = eval(HSL);
+      const [f, m] = [...document.querySelectorAll(".dg-box > svg")];
+      const fills = (svg, sel) => [...svg.querySelectorAll(sel)].map((n) => n.querySelector("rect,polygon,path,circle")).filter(Boolean).map((s) => getComputedStyle(s).fill).filter((c) => !/rgba?\(0, 0, 0, 0\)|none/.test(c)).map(hsl);
+      const em = svg => { const n = svg.querySelector('[id*="flowchart-d1-"]'); return hsl(getComputedStyle(n.querySelector("rect,polygon,path")).fill); };
+      return { nodes: fills(f, "g.node:not(.em)"), groups: [...f.querySelectorAll("g.cluster rect")].map((r) => hsl(getComputedStyle(r).fill)), em: em(f), ramos: fills(m, ".mindmap-node, g.node") };
+    }, HSL);
+    // família rubi: rosas, magentas e vinhos (matiz de ~300 a ~360/0) e, no máximo, um terracota vizinho (até ~25)
+    const naFamilia = (c) => c.s < 0.12 || c.h >= 290 || c.h <= 25;
+    const fora = [...r.nodes, ...r.groups, ...r.ramos].filter((c) => !naFamilia(c));
+    assert.deepEqual(fora.map((c) => Math.round(c.h)), [], "nada de verde, azul ou amarelo numa paleta rosa");
+    assert.ok(new Set([...r.groups].map((c) => Math.round(c.h / 4) + ":" + Math.round(c.l * 20))).size >= 3, "grupos distinguíveis dentro da família");
+    assert.ok(perto(r.em.h, 350, 14), `ênfase no vermelho da marca (${r.em.h})`);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});

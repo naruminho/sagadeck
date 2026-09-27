@@ -439,3 +439,23 @@ test("conteúdo da pessoa com emoji e símbolos passa intacto", () => {
   const { html } = buildHTML({ slides: [{ layout: "list", title: "Plano 🚀", items: ["Fase 1 → Fase 2", "✓ feito", "★★★☆☆"] }] });
   for (const t of ["Plano 🚀", "Fase 1 → Fase 2", "✓ feito", "★★★☆☆"]) assert.ok(html.includes(t), t);
 });
+
+// Paletas de família: a cor forte da marca vira só o detalhe (alert); os parentes (family) viram variáveis e as
+// séries extras dos gráficos, no lugar dos cinzas.
+test("paleta de família: parentes viram --c-fN e as séries 3 a 5 dos gráficos; paleta sem família não muda", async () => {
+  const { resolveTheme, themeCSS, scopedThemeCSS, PALETTES } = await import("../src/themes.js");
+  for (const k of ["rubi", "ametista", "tangerina", "oceano", "esmeralda"]) {
+    assert.ok(PALETTES[k]?.family?.length >= 2, k);
+    assert.doesNotMatch(PALETTES[k].label, /bradesco|nubank|ita[uú]/i, "sem nome de empresa");
+  }
+  const css = themeCSS(resolveTheme("prata", "rubi"));
+  assert.match(css, /--c-f1:#F9DCE5;/);
+  const series = css.match(/\[class\*="tone-"\]\{(--s3:#[0-9A-F]{6};--s4:#[0-9A-F]{6};--s5:#[0-9A-F]{6};)\}/);
+  assert.ok(series, "séries 3 a 5 da família");
+  const fam = PALETTES.rubi.family;
+  for (const c of series[1].match(/#[0-9A-F]{6}/g)) assert.ok(fam.includes(c.slice(1)), c);
+  assert.match(scopedThemeCSS(resolveTheme("prata", "rubi")), /\.slide\.lk-prata--rubi\[class\*="tone-"\]\{--s3:/, "também num slide com paleta própria");
+  // a da pessoa também aceita family; sem family, nada de séries novas
+  assert.match(themeCSS(resolveTheme("prata", { paper: "FFFFFF", ink: "222222", accent: "0066CC", alert: "CC0000", family: ["CCE0F5", "3385D6"] })), /--c-f2:#3385D6;/);
+  assert.doesNotMatch(themeCSS(resolveTheme("prata", "tinta")), /--s3:/);
+});

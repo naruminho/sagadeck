@@ -59,7 +59,33 @@ Ideias que ficaram para depois (não bloqueiam):
   um elemento próprio se a pessoa pedir.
 - Editar o diagrama arrastando (tipo draw.io) está fora: a edição é pelo chat/código. Reavaliar com uso real.
 
-### 2. One-page: A FAZER (próxima etapa)
+### Paletas de família: FEITO
+
+- Pedido: identidade de marca sem cansar a vista (a cor forte da marca só no detalhe; a página trabalha com os
+  parentes mais agradáveis dela). Pré-definidas e **sem nome de empresa** (o software é distribuído livremente):
+  `rubi`, `ametista`, `tangerina`, `oceano`, `esmeralda` em `src/themes.js`.
+- Campo `family` (2 a 8 parentes) em qualquer paleta: vira `--c-f1..` e as séries 3 a 5 dos gráficos
+  (`familySeriesCSS`); nos diagramas, grupos e ramos usam os parentes (`familyOf`/`visible` em
+  `src/runtime/diagram.js`: parente claro demais escurece mantendo o matiz; faltando parentes, variações pequenas
+  de matiz/luminosidade, nunca o arco-íris). A ênfase (`alert`) nunca vira grupo nem ramo.
+- Testes: `engine.test.js` (variáveis e séries), `diagram.test.js` (tudo na família, ênfase na cor forte).
+
+### Fila combinada (próximas etapas, nesta ordem)
+
+1. **PowerPoint sem as notas do apresentador** (opção ao baixar: mandar a apresentação sem a "cola").
+2. **Identidade (fontes da empresa)**: arquivo local `~/.sagadeck/identidades.yaml` (fica na máquina do
+   trabalho, nunca no repositório), com fontes por papel (título, corpo, compacta) em ordem de preferência e a
+   paleta preferida. Opcional e por deck (`identidade: nome`; Studio: Design → Identidade). Corpo e rótulos sempre
+   na fonte da empresa; títulos grandes só nos temas sóbrios (os de personalidade mantêm a fonte do tema).
+   Fallback: fontes digitadas → fonte do tema → genérica; aviso no Studio se nenhuma estiver instalada. Sem
+   embutir o arquivo da fonte (licença). Fontes mais largas (rabisco/sketch): o ajuste de texto já remede quando a
+   fonte chega; o diagrama agora espera `document.fonts.ready`.
+3. One-page, status semanal, governança navegável (abaixo).
+
+Decisão pendente com Naruminho: manter MIT ou trocar para AGPL-3.0 (proteção contra uso fechado como serviço).
+Versões já publicadas como MIT continuam MIT.
+
+### 2. One-page: A FAZER
 
 ### 3. Status semanal: A FAZER
 

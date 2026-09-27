@@ -70,6 +70,29 @@
       strong: hsl(h, s(62), 79), strongStroke: hsl(h, s(48), 36), strongText: hsl(h, s(55), 17), line: hsl(h, s(40), 52),
     };
   }
+  // Família a partir de uma cor pronta (paletas de família: os parentes da cor da marca). Os tons saem da própria
+  // cor misturada com o fundo e com o texto, e a letra é a mais escura/clara que ainda lê bem sobre o fundo do nó.
+  // parente muito claro (ou muito escuro, no tema escuro) sumiria no fundo: vai em direção ao texto até aparecer
+  // (mantendo o matiz e a saturação: o rosa-claro vira um rosa médio, não um cinza)
+  function lightness(c) { const [r, g, b] = rgb(c).map((v) => v / 255); return (Math.max(r, g, b) + Math.min(r, g, b)) / 2 * 100; }
+  function visible(c, L) {
+    if (contrast(c, L.bg) >= 3) return c;
+    const { h, s } = hueOf(c), sat = Math.max(s * 100, 45);
+    let l = lightness(c);
+    for (let k = 0; k < 40; k++) { l += L.dark ? 2 : -2; const y = hsl(h, sat, l); if (contrast(y, L.bg) >= 3) return y; }
+    return hsl(h, sat, L.dark ? 70 : 40);
+  }
+  function familyOf(c0, L) {
+    const { bg, fg } = L, c = visible(c0, L);
+    const t = (x, base, min = 5.5) => { for (let p = 0.35; p <= 1; p += 0.05) { const y = mix(fg, x, p); if (contrast(y, base) >= min) return y; } return mix(fg, x, 0.92); };
+    const fill = L.dark ? mix(c, bg, 0.34) : mix(c, bg, 0.2), strong = L.dark ? mix(c, bg, 0.62) : mix(c, bg, 0.5);
+    return {
+      fill, stroke: L.dark ? mix(c, fg, 0.75) : mix(c, fg, 0.78), text: t(c, fill),
+      cbg: mix(c, bg, L.dark ? 0.12 : 0.055), cstroke: mix(c, bg, L.dark ? 0.35 : 0.3), ctext: t(c, mix(c, bg, L.dark ? 0.12 : 0.055), 4.5),
+      strong, strongStroke: L.dark ? mix(c, fg, 0.6) : mix(c, fg, 0.62), strongText: t(c, strong), line: mix(c, bg, 0.8),
+    };
+  }
+
   // matizes: o destaque do tema, a ênfase (a do tema, ou a complementar se ela for parecida com o destaque ou
   // cinza) e vizinhos harmônicos bem separados
   const CANDIDATOS = [212, 272, 145, 175, 28, 335, 48, 195, 300, 100];
@@ -96,12 +119,30 @@
     L.ink = mix(fg, bg, 0.8); L.soft = mix(fg, bg, 0.6); L.arrow = mix(fg, bg, 0.5); L.faint = mix(fg, bg, 0.12);
     // tema quase sem cor (preto e branco): as famílias ficam discretas
     const sat = Math.max(0.35, Math.min(1, L.hueHi.s * 1.4));
-    L.fams = hues(L).map((h) => family(h, dark, sat));
+    // paleta de família (--c-f1…): destaque, ênfase e os parentes dela; senão, matizes harmônicos
+    const kin = [];
+    for (let i = 1; i <= 8; i++) { const c = cs.getPropertyValue("--c-f" + i).trim(); if (c) kin.push(hex(c, slide)); }
+    if (kin.length >= 2) {
+      // os parentes bem diferentes do destaque e entre si (o muito claro vira grupo; o destaque já é família 0)
+      const fams = [], seen = [visible(hi, L), visible(em, L)];
+      const differs = (c) => seen.every((x) => contrast(x, c) > 1.2 || dist(hueOf(x).h, hueOf(c).h) > 12);
+      for (const c of kin.map((k) => visible(k, L))) if (differs(c)) { fams.push(c); seen.push(c); }
+      // poucos parentes diferentes: variações da própria família (o matiz gira um pouco), nunca o arco-íris
+      // (giro pequeno do matiz e tons mais escuros/claros: o laranja vira cobre, não oliva)
+      for (const [turn, dl] of [[16, 0], [-16, 0], [0, L.dark ? 14 : -14], [0, L.dark ? -10 : 10], [16, L.dark ? 12 : -12]]) {
+        if (fams.length >= 4) break;
+        const v = visible(hi, L), b = hueOf(v), c = visible(hsl((b.h + turn + 360) % 360, Math.max(b.s * 100, 40), lightness(v) + dl), L);
+        if (differs(c)) { fams.push(c); seen.push(c); }
+      }
+      L.fams = [familyOf(hi, L), familyOf(em, L), ...fams.map((c) => familyOf(c, L))];
+    } else L.fams = hues(L).map((h) => family(h, dark, sat));
     L.neutral = family(220, dark, 0.12);
     L.hiFam = L.fams[0];
     L.emFam = L.fams[1];
     // grupos: nem a família do destaque (dos nós soltos) nem a da ênfase (a ênfase tem que se destacar do grupo)
     L.groupFams = L.fams.slice(2);
+    // ramos do mapa mental, jornada, linha do tempo: também sem a ênfase (ela é o detalhe, não um ramo)
+    L.scaleFams = [L.fams[0], ...L.groupFams];
     return L;
   }
 
@@ -125,11 +166,13 @@
       `[id$="-sequencenumber"],[id$="-sequencenumber"] circle{fill:${F.strongStroke}!important;stroke:${F.strongStroke}!important}.sequenceNumber{fill:${on(F.strongStroke, L.bg, L.ink)}!important}`,
       // mapa mental, jornada e linha do tempo: uma família por ramo, com contorno e linha da própria cor
       // (o Mermaid pinta o ramo N com a cor N+1 da escala: o contorno e a linha acompanham)
-      ...L.fams.slice(1, 12).map((f, i) => `.section-${i} rect,.section-${i} path,.section-${i} circle,.section-${i} polygon{stroke:${f.stroke};stroke-width:1.6px}.section-edge-${i}{stroke:${f.line}!important}`),
+      ...Array.from({ length: 11 }, (_, i) => L.scaleFams[(i + 1) % L.scaleFams.length]).map((f, i) => `.section-${i} rect,.section-${i} path,.section-${i} circle,.section-${i} polygon{stroke:${f.stroke};stroke-width:1.6px}.section-edge-${i}{stroke:${f.line}!important}`),
       `.section-root rect,.section-root path,.section-root circle,.section-root polygon{fill:${F.strong}!important;stroke:${F.strongStroke}!important;stroke-width:2px}`,
     ].join("\n");
     const sizes = { useMaxWidth: false };
-    const cs = Object.fromEntries(L.fams.slice(0, 12).flatMap((f, i) => [["cScale" + i, f.fill], ["cScaleLabel" + i, f.text], ["cScalePeer" + i, f.stroke]]));
+    // 12 cores de escala sempre (com mais ramos que famílias, as famílias dão a volta; senão o Mermaid usa as dele)
+    const S = Array.from({ length: 12 }, (_, i) => L.scaleFams[i % L.scaleFams.length]);
+    const cs = Object.fromEntries(S.flatMap((f, i) => [["cScale" + i, f.fill], ["cScaleLabel" + i, f.text], ["cScalePeer" + i, f.stroke]]));
     const N = L.neutral, E = L.emFam;
     return {
       startOnLoad: false, securityLevel: "antiscript", theme: "base", fontFamily: L.font, themeCSS,
@@ -287,7 +330,9 @@
     const boxes = [...root.querySelectorAll(".dg-box:not([data-dg])")];
     if (!boxes.length) return chain;
     boxes.forEach((b) => { b.dataset.dg = "pending"; });
-    chain = chain.then(load).then(async () => { for (const b of boxes) await renderOne(b); })
+    // a fonte do tema (ou uma mais larga, de rabisco) pode chegar depois: o Mermaid mede o texto com a que estiver
+    // carregada, e o rótulo cortaria. Espera as fontes antes de desenhar.
+    chain = chain.then(load).then(() => document.fonts && document.fonts.ready).then(async () => { for (const b of boxes) await renderOne(b); })
       .catch((e) => boxes.forEach((b) => { if (b.dataset.dg === "pending") { b.dataset.dg = "error"; b.insertAdjacentHTML("beforeend", `<div class="dg-error"><b>${e.message}</b></div>`); } }));
     return chain;
   }

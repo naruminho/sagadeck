@@ -309,6 +309,14 @@ export const PALETTES = {
   areia: { label: "Areia", paper: "F3EAD8", ink: "3B2F2F", accent: "C08552", alert: "6B8F71" },
   cereja: { label: "Cereja", paper: "FFF0F3", ink: "3A0D1A", accent: "E63946", alert: "457B9D" },
   corporativo: { label: "Corporativo", paper: "FFFFFF", ink: "1B2A41", accent: "0052CC", alert: "FFAB00" },
+  // Paletas de família: a cor forte da marca cansa a vista, então ela vira só o detalhe (alert, a ênfase pontual)
+  // e quem trabalha na página são os parentes mais agradáveis dela (accent e family: tons claros e médios da mesma
+  // família). family alimenta os gráficos e os grupos dos diagramas no lugar das cores genéricas.
+  rubi: { label: "Rubi (vermelho discreto)", paper: "FFFFFF", ink: "3B2B33", accent: "B83A6E", alert: "CC092F", family: ["F9DCE5", "EFA3BC", "D9668F", "B83A6E", "7E2349"] },
+  ametista: { label: "Ametista (roxos)", paper: "FFFFFF", ink: "2D2440", accent: "8A05BE", alert: "4B0C7F", family: ["EFE3FA", "D2B4F0", "B07FE0", "8A05BE", "5B2A86"] },
+  tangerina: { label: "Tangerina (laranja e marinho)", paper: "FFFFFF", ink: "14213D", accent: "EC7000", alert: "1F4E8C", family: ["FFE3C7", "F9B26B", "EC7000", "1F4E8C", "0E2A55"] },
+  oceano: { label: "Oceano (azuis)", paper: "FFFFFF", ink: "1B2A3A", accent: "1F6FB2", alert: "E8A317", family: ["DCEBF7", "A7CBEA", "5C9FD6", "1F6FB2", "0F3F6E"] },
+  esmeralda: { label: "Esmeralda (verdes)", paper: "FFFFFF", ink: "1D2B24", accent: "2E8B57", alert: "0B5D3B", family: ["DDF2E6", "A8DDBE", "5DBB86", "2E8B57", "1B5E3A"] },
 };
 
 const rgb = (h) => [0, 2, 4].map((i) => parseInt(String(h).replace("#", "").slice(i, i + 2), 16));
@@ -322,11 +330,13 @@ const onColor = (bg, p) => (contrast(bg, p.ink) >= contrast(bg, p.paper) ? p.ink
 
 export function paletteColors(p) {
   const { paper, ink, accent, alert } = p;
+  // parentes da cor (paletas de família): f1..fN, do mais claro ao mais escuro como vieram
+  const family = Object.fromEntries((Array.isArray(p.family) ? p.family : []).slice(0, 8).map((c, i) => [`f${i + 1}`, String(c).replace("#", "").toUpperCase()]));
   const muted = mix(ink, paper, 0.55), line = mix(ink, paper, 0.16), surface = mix(ink, paper, 0.06), surfaceDark = mix(paper, ink, 0.1);
   const tone = (bg, fg, hi, em) => ({ bg, fg, muted: mix(fg, bg, 0.62), line: mix(fg, bg, 0.2), surface: mix(fg, bg, 0.08), hi, em, onHi: onColor(hi, p) });
   const onAccent = onColor(accent, p), onAlert = onColor(alert, p);
   return {
-    colors: { paper, ink, accent, alert, muted, line, surface, surfaceDark, c1: accent, c2: ink, c3: alert, c4: muted, c5: mix(accent, alert, 0.5) },
+    colors: { paper, ink, accent, alert, muted, line, surface, surfaceDark, c1: accent, c2: ink, c3: alert, c4: muted, c5: mix(accent, alert, 0.5), ...family },
     tones: {
       light: { ...tone(paper, ink, accent, alert), muted, line, surface },
       dark: tone(ink, paper, accent, contrast(ink, alert) > contrast(ink, accent) ? alert : accent),
@@ -336,7 +346,16 @@ export function paletteColors(p) {
   };
 }
 
-// palette: nome de PALETTES, "tema"/vazio (as cores do tema) ou { paper, ink, accent, alert } próprias
+// Séries 3 a 5 dos gráficos (em vez de cinzas): os parentes da família que aparecem sobre o fundo claro e o escuro.
+function familySeriesCSS(theme, sel) {
+  const fam = Object.keys(theme.colors).filter((k) => /^f\d+$/.test(k)).map((k) => theme.colors[k]);
+  if (fam.length < 2) return "";
+  const { paper, ink } = theme.colors;
+  const pick = fam.map((c) => ({ c, k: Math.min(contrast(c, paper), contrast(c, ink)) })).sort((a, b) => b.k - a.k).slice(0, 3).map((x) => x.c);
+  return `${sel}{${pick.map((c, i) => `--s${i + 3}:#${c};`).join("")}}\n`;
+}
+
+// palette: nome de PALETTES, "tema"/vazio (as cores do tema) ou { paper, ink, accent, alert, family } próprias
 export function resolveTheme(spec, palette) {
   const t = typeof spec === "string" ? { extends: spec } : spec || {};
   const base = THEMES[t.extends || "sinal"];
@@ -376,6 +395,7 @@ export function scopedThemeCSS(theme, { faces = true } = {}) {
   let css = faces ? fontFaceCSS(theme) : "";
   css += `${lk}{` + Object.entries(theme.colors).map(([k, v]) => `--c-${k}:#${v};`).join("") + `--radius:${theme.radius}px;}\n`;
   for (const [tone, m] of Object.entries(theme.tones)) css += `${lk}.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};}\n`;
+  css += familySeriesCSS(theme, `${lk}[class*="tone-"]`);
   if (faces) for (const [name, f] of Object.entries(theme.faces)) css += `.slide.th-${theme.name} .f-${name}{${f.css}}\n`;
   return css;
 }
@@ -392,6 +412,7 @@ export function themeCSS(theme) {
   for (const [tone, m] of Object.entries(theme.tones)) {
     css += `.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};}\n`;
   }
+  css += familySeriesCSS(theme, `[class*="tone-"]`);
   for (const [name, f] of Object.entries(theme.faces)) css += `.f-${name}{${f.css}}\n`;
   return css;
 }

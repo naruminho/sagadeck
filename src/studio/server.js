@@ -357,7 +357,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
           }])),
           // paletas (só cores, valem em qualquer tema): para a galeria de paletas
-          palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert].map((c) => `#${c}`) }])),
+          palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert, ...(p.family || [])].map((c) => `#${c}`) }])),
           layouts: Object.keys(LAYOUTS),
         }));
         return;
