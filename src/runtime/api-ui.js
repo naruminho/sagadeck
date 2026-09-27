@@ -23,7 +23,11 @@
   const deckId = (window.sagadeck && window.sagadeck.data && window.sagadeck.data.id) || location.pathname;
   const VKEY = "sagadeck-api-vars:" + deckId;
   const saved = (() => { try { return JSON.parse(sessionStorage.getItem(VKEY) || "{}"); } catch { return {}; } })();
-  const persist = () => { try { sessionStorage.setItem(VKEY, JSON.stringify(saved)); } catch {} };
+  // de qual slide veio cada valor guardado, e o último token JWT visto (só os 4 últimos caracteres e a validade)
+  const meta = (() => { try { return JSON.parse(sessionStorage.getItem(VKEY + ":meta") || "{}"); } catch { return {}; } })();
+  meta.from = meta.from || {};
+  const persist = () => { try { sessionStorage.setItem(VKEY, JSON.stringify(saved)); sessionStorage.setItem(VKEY + ":meta", JSON.stringify(meta)); } catch {} };
+  const slideNo = (root) => { const s = root.closest(".slide"); return s ? Number(s.dataset.idx) + 1 : null; };
   const envVars = () => ((STATE.envs || []).find((e) => e.name === STATE.current) || {}).vars || {};
   const vars = () => Object.assign({}, envVars(), saved);
 
@@ -219,6 +223,34 @@
     box.innerHTML = (r.jwt ? jwtHTML(r.jwt) : "") + '<button type="button" class="api-explore-json">Explorar resposta completa</button>' + html;
     $(".api-explore-json", box).onclick = () => exploreJSON(r.body);
     if (r.jwt && r.jwt.exp) countdown(root, r.jwt.exp);
+    if (r.jwt && r.jwt.last4) { meta.token = { last4: r.jwt.last4, exp: r.jwt.exp || null, slide: slideNo(root) }; persist(); }
+  }
+
+  // ---------- painel Variáveis: tudo o que está valendo agora, num lugar só ----------
+  // Ambiente (vars e o NOME dos segredos), o token (nunca o valor: •••• + 4 finais + validade) e o que cada slide
+  // guardou com save:, dizendo de qual slide veio. "Limpar" zera o que os slides guardaram.
+  function varsPanel(root) {
+    const old = $(".api-vars-panel", root);
+    if (old) { clearInterval(old._tick); old.remove(); return; }
+    const p = document.createElement("div");
+    p.className = "api-vars-panel";
+    const row = (k, v, from) => `<div class="av-row"><code>{{${esc(k)}}}</code><span class="av-v">${esc(String(typeof v === "object" ? JSON.stringify(v) : v).slice(0, 80))}</span>${from ? `<small>slide ${esc(from)}</small>` : ""}</div>`;
+    const paint = () => {
+      const env = (STATE.envs || []).find((e) => e.name === STATE.current) || {};
+      const envRows = Object.entries(env.vars || {}).map(([k, v]) => row(k, v)).join("") + (env.secrets || []).map((k) => row(`secret.${k}`, "•••• (segredo: fica na sua máquina)")).join("");
+      const t = meta.token, left = t && t.exp ? Math.max(0, Math.round(t.exp - Date.now() / 1000)) : null;
+      const tok = t ? `<div class="av-row"><code>token</code><span class="av-v">••••${esc(t.last4)} ${left == null ? "" : left ? `expira em ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` : "expirou"}</span>${t.slide ? `<small>slide ${esc(t.slide)}</small>` : ""}</div>`
+        : `<div class="av-row av-empty">${env.token ? "pedido sozinho ao executar (token do ambiente)" : "nenhum token ainda"}</div>`;
+      const mine = Object.keys(saved);
+      p.innerHTML = `<div class="av-sec"><b>Ambiente ${esc(String(STATE.current || "").toUpperCase())}</b>${envRows || '<div class="av-row av-empty">sem variáveis</div>'}</div>`
+        + `<div class="av-sec"><b>Token</b>${tok}</div>`
+        + `<div class="av-sec"><b>Guardadas pelos slides</b>${mine.length ? mine.map((k) => row(k, saved[k], meta.from[k])).join("") : '<div class="av-row av-empty">nenhuma ainda (use save: num slide)</div>'}</div>`
+        + `<button type="button" class="av-clear" data-vars-clear>Limpar o que os slides guardaram</button>`;
+      $("[data-vars-clear]", p).onclick = () => { Object.keys(saved).forEach((k) => delete saved[k]); meta.from = {}; delete meta.token; persist(); roots.forEach(paintCode); paint(); };
+    };
+    paint();
+    p._tick = setInterval(() => { if (!p.isConnected) clearInterval(p._tick); else if (meta.token && meta.token.exp) paint(); }, 1000);
+    $(".api-bar", root).appendChild(p);
   }
 
   // Árvore preguiçosa: payloads grandes não precisam de milhares de nós DOM logo na abertura.
@@ -472,7 +504,7 @@
     const cfg = root._cfg;
     const body = rec.final ? rec.final.body : rec.result ? rec.result.body : null;
     const got = [];
-    Object.entries(cfg.save || {}).forEach(([name, path]) => { const v = C.get(body, path); if (v != null) { saved[name] = v; got.push(name); } });
+    Object.entries(cfg.save || {}).forEach(([name, path]) => { const v = C.get(body, path); if (v != null) { saved[name] = v; meta.from[name] = slideNo(root); got.push(name); } });
     if (got.length) {
       persist();
       const box = document.createElement("div");
@@ -827,6 +859,8 @@
     $$("[data-tab]", root).forEach((b) => { b.onclick = () => showTab(root, b.dataset.tab); });
     $("[data-api-run]", root).onclick = () => run(root);
     $("[data-api-env]", root).onclick = (e) => envMenu(root, e.currentTarget);
+    const varsBtn = $("[data-api-vars]", root);
+    if (varsBtn) varsBtn.onclick = () => varsPanel(root);
     if (root._cfg.realtime) {
       $("[data-rt-mic]", root).onclick = () => (root._rt && root._rt.mic ? stopMic(root) : startMic(root));
       $("[data-rt-send]", root).onclick = () => sendText(root);

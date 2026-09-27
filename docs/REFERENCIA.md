@@ -241,6 +241,9 @@ para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, ve
 Na apresentação: a URL e o corpo são editáveis na hora (a execução usa o que está na tela); o código
 das abas acompanha. Com `polling`, as linhas do código acendem na fase que está rodando (início, laço de
 consulta, resultado) enquanto a linha do tempo mostra cada status.
+O botão **Variáveis** (na barra do slide) mostra tudo o que está valendo num lugar só: as variáveis do ambiente, o
+nome dos segredos (nunca o valor), o token (só os 4 últimos caracteres, quem gerou e quanto falta para expirar) e o
+que cada slide guardou com `save:`, dizendo de qual slide veio. "Limpar" zera o que os slides guardaram.
 
 ### Conversa em tempo real (`mode: realtime`, WebSocket)
 

@@ -127,6 +127,23 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       assert.match(await txt(`${s} .api-answer`), /lido: cláusula 7: multa de 2%/);
     });
 
+    await t.test("painel Variáveis: ambiente, token (sem o valor), o que cada slide guardou e de onde veio; limpar zera", async () => {
+      const s = await go(5);
+      await p.click(`${s} [data-api-vars]`);
+      await p.waitForSelector(`${s} .api-vars-panel`);
+      const txt5 = await p.innerText(`${s} .api-vars-panel`);
+      assert.match(txt5, /\{\{base\}\}/, "variáveis do ambiente");
+      assert.match(txt5, /\{\{path_id\}\}[\s\S]*store\/contrato\.txt[\s\S]*slide 5/, "guardado pelo slide 5");
+      assert.match(txt5, /token[\s\S]*••••\w{4}[\s\S]*expira em/i);
+      assert.doesNotMatch(await p.content(), /assinatura1XyZw/, "o token não aparece");
+      await p.click(`${s} .api-vars-panel [data-vars-clear]`);
+      assert.doesNotMatch(await p.innerText(`${s} .api-vars-panel`), /store\/contrato\.txt/);
+      await p.click(`${s} [data-api-vars]`); // fecha
+      assert.equal(await p.locator(`${s} .api-vars-panel`).count(), 0);
+      // o OCR precisa do path_id de novo: roda o upload outra vez para os próximos testes
+      const up = await go(4); await run(up);
+    });
+
     await t.test("arquivo trocado na hora (arrastado/escolhido) vai no lugar do padrão", async () => {
       const s = await go(4);
       const other = path.join(dir, "outro.txt");

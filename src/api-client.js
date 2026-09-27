@@ -148,6 +148,7 @@ export class ApiEnvironments {
       current: this.currentName(data),
       envs: Object.entries(data.environments).map(([name, e]) => ({
         name, kind: C.envKind(name), vars: (e && e.vars) || {}, token: !!(e && e.token && e.token.url),
+        secrets: Object.keys((e && e.secrets) || {}), // só os nomes; o valor nunca sai do Node
         ...(data.own.includes(name) ? {} : { builtin: true, builtinLabel: e.label || "ambiente local" }),
       })),
     };
