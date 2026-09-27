@@ -1,0 +1,7 @@
+/* Rabisco: fitas adesivas nos cantos, chapéu com marca-texto torto, títulos de capa e seção levemente inclinados */
+.th-rabisco .orn i:nth-child(1),.th-rabisco .orn i:nth-child(2){display:block;top:26px;width:170px;height:44px;background:color-mix(in srgb,var(--hi) 45%,transparent);box-shadow:0 2px 4px #0000001a}
+.th-rabisco .orn i:nth-child(1){left:70px;transform:rotate(-8deg)}
+.th-rabisco .orn i:nth-child(2){right:70px;transform:rotate(7deg)}
+.th-rabisco .kicker{align-self:flex-start;background:color-mix(in srgb,var(--hi) 55%,transparent);padding:2px 14px;transform:rotate(-2deg)}
+.th-rabisco :is(.L-cover,.L-section,.L-end) .ttl{transform:rotate(-1.5deg)}
+.th-rabisco .sc-num{transform:rotate(-6deg)}

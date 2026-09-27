@@ -1,0 +1,8 @@
+/* Bauhaus: círculo, quadrado e triângulo na capa e no fim, faixa de cor na lateral, número da seção num círculo */
+.th-bauhaus .orn i:nth-child(4){display:block;left:0;top:0;bottom:0;width:18px;background:var(--hi)}
+.th-bauhaus:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(1){display:block;right:-120px;top:-120px;width:520px;height:520px;border-radius:50%;background:var(--hi)}
+.th-bauhaus:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(2){display:block;right:280px;bottom:0;width:230px;height:230px;background:var(--em)}
+.th-bauhaus:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(3){display:block;right:40px;bottom:0;border-left:130px solid transparent;border-right:130px solid transparent;border-bottom:220px solid var(--fg)}
+.th-bauhaus .kicker{align-self:flex-start;background:var(--hi);color:var(--on-hi);padding:8px 18px}
+.th-bauhaus .L-cover .cv-main,.th-bauhaus .L-end .en-main{justify-content:flex-end}
+.th-bauhaus .sc-num{display:flex;align-items:center;justify-content:center;width:440px;height:440px;border-radius:50%;background:var(--hi);color:var(--on-hi);font-size:230px}

@@ -1,0 +1,7 @@
+/* Oceano: ondas no pé, chapéu em pílula, seção com o número em contorno acima do título */
+.th-oceano .orn i:nth-child(1),.th-oceano .orn i:nth-child(2){display:block;left:-10%;right:-10%;height:420px;border-radius:50% 50% 0 0/60% 60% 0 0}
+.th-oceano .orn i:nth-child(1){bottom:-330px;background:color-mix(in srgb,var(--hi) 20%,transparent)}
+.th-oceano .orn i:nth-child(2){bottom:-350px;left:10%;right:-30%;background:color-mix(in srgb,var(--hi) 32%,transparent)}
+.th-oceano .kicker{align-self:flex-start;background:var(--hi);color:var(--on-hi);padding:6px 22px;border-radius:999px;text-transform:uppercase;letter-spacing:.1em}
+.th-oceano .L-section:not(:has(.sc-fig)){flex-direction:column;align-items:flex-start;justify-content:center;gap:0}
+.th-oceano .sc-num{font-size:200px;color:transparent;-webkit-text-stroke:3px var(--fg)}

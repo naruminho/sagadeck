@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { resolveTheme, themeCSS } from "./themes.js";
+import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { LAYOUTS, SCENES } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el } from "./elements.js";
@@ -63,9 +63,25 @@ export function wordCount(s) {
   return txt.join(" ").split(/\s+/).filter((w) => w.length > 1).length;
 }
 
+// Tema e paleta de cada slide: os do deck, ou os do próprio slide (theme:/palette: no slide). Tema e paleta são
+// independentes, como no PowerPoint: o tema cuida de fonte, arranjo e ornamentos (a pele em runtime/skins/<tema>.css
+// rearruma capa, seção e encerramento); a paleta, só das cores.
+const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette) : deckTheme);
+const skinCSS = (name) => { try { return read(`runtime/skins/${name}.css`); } catch { return ""; } };
+export function deckThemeCSS(spec, deckTheme) {
+  const looks = new Map(), names = new Set([deckTheme.name]);
+  for (const raw of spec.slides || []) {
+    const t = slideTheme({ ...(spec.defaults || {}), ...raw }, deckTheme, spec);
+    if (t.key !== deckTheme.key) looks.set(t.key, t);
+  }
+  let css = themeCSS(deckTheme);
+  for (const t of looks.values()) { css += "\n" + scopedThemeCSS(t, { faces: !names.has(t.name) }); names.add(t.name); }
+  return css + "\n" + [...names].map(skinCSS).join("\n");
+}
+
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
-  const theme = resolveTheme(spec.theme);
+  const theme = resolveTheme(spec.theme, spec.palette);
   const warnings = [];
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings };
   const id = spec.id || slug(spec.title);
@@ -79,8 +95,9 @@ export function buildHTML(rawSpec, opts = {}) {
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
     const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
-    try { inner = fn(s, ctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
-    html += slideShell({ s, i, spec, theme, ctx, layout, tone, inner }) + "\n";
+    const th = slideTheme(s, theme, spec), sctx = th === theme ? ctx : { ...ctx, theme: th };
+    try { inner = fn(s, sctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
+    html += slideShell({ s, i, spec, theme: th, ctx: sctx, layout, tone, inner }) + "\n";
 
     const words = wordCount({ ...raw, notes: undefined });
     const limit = s.maxWords || spec.maxWords || 40;
@@ -117,7 +134,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${read("runtime/base.css")}
 ${spec.slides.some(s => s.layout === "science") ? read("runtime/vendor/katex.css") : ""}
-${themeCSS(theme)}
+${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">
 <div id="viewport"><div id="stage">
@@ -171,8 +188,10 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   const total = spec.slides?.length || i + 1;
-  let html = `<section class="slide${current ? " current" : ""} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
+  // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
+  if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
   html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits)}</div>`;
   if (bars) html += barHTML("footer", spec, i, total);
@@ -180,9 +199,10 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
 }
 
 export function renderSlide(raw, i = 0, spec = {}) {
-  const theme = resolveTheme(spec.theme);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };
+  const deckTheme = resolveTheme(spec.theme, spec.palette);
   const s = { ...(spec.defaults || {}), ...raw };
+  const theme = slideTheme(s, deckTheme, spec);
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
@@ -190,5 +210,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
   const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });
-  return { html, layout, tone, deco, theme, inner, baseCSS: read("runtime/base.css"), themeCSS: themeCSS(theme) };
+  // o CSS de todos os temas do deck (e do próprio slide), igual para qualquer slide: as miniaturas não piscam
+  const all = deckThemeCSS({ ...spec, slides: [...(spec.slides || []), s] }, deckTheme);
+  return { html, layout, tone, deco, theme, inner, baseCSS: read("runtime/base.css"), themeCSS: all };
 }

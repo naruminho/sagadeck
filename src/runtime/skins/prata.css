@@ -1,0 +1,7 @@
+/* Prata (Keynote): nada de enfeite; muito respiro, tudo centralizado, título contido, número da seção discreto */
+.th-prata .L-cover:not(:has(.cv-fig)) .cv-main,.th-prata .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center;gap:28px}
+.th-prata :is(.L-cover,.L-end) .ttl{max-width:1300px}
+.th-prata .kicker{color:var(--muted);letter-spacing:.02em}
+.th-prata .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;text-align:center;gap:24px}
+.th-prata .L-section .sc-num{font-size:120px;color:var(--muted)}
+.th-prata .sc-text{align-items:center}

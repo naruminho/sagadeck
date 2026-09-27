@@ -1,0 +1,7 @@
+/* Aurora: dois brilhos desfocados nos cantos, capa centralizada com traço em gradiente sob o título */
+.th-aurora .orn i:nth-child(1){display:block;width:640px;height:640px;left:-220px;top:-240px;border-radius:50%;background:var(--hi);filter:blur(120px);opacity:.35}
+.th-aurora .orn i:nth-child(2){display:block;width:560px;height:560px;right:-180px;bottom:-260px;border-radius:50%;background:var(--em);filter:blur(120px);opacity:.3}
+.th-aurora .kicker{letter-spacing:.2em;color:var(--hi)}
+.th-aurora .L-cover:not(:has(.cv-fig)) .cv-main,.th-aurora .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center}
+.th-aurora :is(.L-cover,.L-end) .ttl{padding-bottom:30px;background:linear-gradient(90deg,var(--hi),var(--em)) no-repeat 50% 100%/240px 6px}
+.th-aurora .sc-num{background:linear-gradient(180deg,var(--hi),var(--em));-webkit-background-clip:text;background-clip:text;color:transparent}

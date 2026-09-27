@@ -295,12 +295,60 @@ export const THEMES = {
   },
 };
 
-export function resolveTheme(spec) {
+// Paletas: só as cores, independentes do tema (o tema cuida de fonte, arranjo e ornamentos). Qualquer tema aceita
+// qualquer paleta, no deck (palette:) ou num slide. De quatro cores saem os quatro tons (claro, escuro, destaque,
+// alerta). "tema" (ou nada) = as cores do próprio tema.
+export const PALETTES = {
+  tinta: { label: "Tinta", paper: "F4F1EA", ink: "161616", accent: "D7263D", alert: "1B998B" },
+  floresta: { label: "Floresta", paper: "EEF2E9", ink: "1E2B22", accent: "2F7D4F", alert: "D98E04" },
+  mar: { label: "Mar", paper: "EAF4F8", ink: "0B2A3C", accent: "0E7CB8", alert: "F25F5C" },
+  entardecer: { label: "Entardecer", paper: "FFF4EA", ink: "2B1A2F", accent: "FF6B35", alert: "C2185B" },
+  lavanda: { label: "Lavanda", paper: "F4F1FA", ink: "2A2340", accent: "7B5CD6", alert: "E0569B" },
+  grafite: { label: "Grafite", paper: "F2F2F2", ink: "202124", accent: "5F6368", alert: "1A73E8" },
+  neon: { label: "Neon", paper: "0B0B12", ink: "F5F5FF", accent: "39FF14", alert: "FF2E97" },
+  areia: { label: "Areia", paper: "F3EAD8", ink: "3B2F2F", accent: "C08552", alert: "6B8F71" },
+  cereja: { label: "Cereja", paper: "FFF0F3", ink: "3A0D1A", accent: "E63946", alert: "457B9D" },
+  corporativo: { label: "Corporativo", paper: "FFFFFF", ink: "1B2A41", accent: "0052CC", alert: "FFAB00" },
+};
+
+const rgb = (h) => [0, 2, 4].map((i) => parseInt(String(h).replace("#", "").slice(i, i + 2), 16));
+const hex = (c) => c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("").toUpperCase();
+// a% de a com o resto de b
+const mix = (a, b, p) => { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v * p + y[i] * (1 - p))); };
+const lum = (h) => { const [r, g, b] = rgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+// a cor de texto (entre as da paleta) que mais aparece sobre o fundo `bg`
+const onColor = (bg, p) => (contrast(bg, p.ink) >= contrast(bg, p.paper) ? p.ink : p.paper);
+
+export function paletteColors(p) {
+  const { paper, ink, accent, alert } = p;
+  const muted = mix(ink, paper, 0.55), line = mix(ink, paper, 0.16), surface = mix(ink, paper, 0.06), surfaceDark = mix(paper, ink, 0.1);
+  const tone = (bg, fg, hi, em) => ({ bg, fg, muted: mix(fg, bg, 0.62), line: mix(fg, bg, 0.2), surface: mix(fg, bg, 0.08), hi, em, onHi: onColor(hi, p) });
+  const onAccent = onColor(accent, p), onAlert = onColor(alert, p);
+  return {
+    colors: { paper, ink, accent, alert, muted, line, surface, surfaceDark, c1: accent, c2: ink, c3: alert, c4: muted, c5: mix(accent, alert, 0.5) },
+    tones: {
+      light: { ...tone(paper, ink, accent, alert), muted, line, surface },
+      dark: tone(ink, paper, accent, contrast(ink, alert) > contrast(ink, accent) ? alert : accent),
+      accent: tone(accent, onAccent, onAccent, onAccent === ink ? mix(ink, accent, 0.7) : paper),
+      alert: tone(alert, onAlert, onAlert, onAlert === ink ? mix(ink, alert, 0.7) : paper),
+    },
+  };
+}
+
+// palette: nome de PALETTES, "tema"/vazio (as cores do tema) ou { paper, ink, accent, alert } próprias
+export function resolveTheme(spec, palette) {
   const t = typeof spec === "string" ? { extends: spec } : spec || {};
   const base = THEMES[t.extends || "sinal"];
   if (!base) throw new Error(`Tema desconhecido: ${t.extends}. Disponíveis: ${Object.keys(THEMES).join(", ")}`);
   const theme = structuredClone(base);
   theme.name = t.extends || "sinal";
+  const pal = !palette || palette === "tema" ? null : typeof palette === "object" ? palette : PALETTES[palette];
+  if (palette && palette !== "tema" && !pal) throw new Error(`Paleta desconhecida: ${palette}. Disponíveis: tema, ${Object.keys(PALETTES).join(", ")}`);
+  if (pal) Object.assign(theme, paletteColors(pal));
+  theme.palette = pal ? (typeof palette === "string" ? palette : "propria") : null;
+  // a "cara" do slide: tema + paleta (o CSS de cores de cada combinação vale só nos slides dela)
+  theme.key = theme.palette ? `${theme.name}--${theme.palette}` : theme.name;
   Object.assign(theme.colors, t.colors || {});
   for (const [k, v] of Object.entries(t.tones || {})) theme.tones[k] = { ...(theme.tones[k] || {}), ...v };
   for (const [k, v] of Object.entries(t.faces || {})) theme.faces[k] = { ...(theme.faces[k] || {}), ...v };
@@ -316,6 +364,20 @@ export function col(theme, v) {
   const s = String(v).replace(/^#/, "");
   if (theme.colors[s]) return theme.colors[s];
   return s;
+}
+
+const fontFaceCSS = (theme) => (theme.fontFaces || []).map((f) => `@font-face{font-family:${f.family};src:${f.src};${f.weight ? `font-weight:${f.weight};` : ""}${f.stretch ? `font-stretch:${f.stretch};` : ""}${f.style ? `font-style:${f.style};` : ""}}\n`).join("");
+
+// Para um slide com tema/paleta diferentes dos do deck: as cores valem só em .slide.lk-<tema--paleta>; as fontes
+// (faces: true) só em .slide.th-<tema>. O deck continua usando themeCSS(theme) sem escopo.
+export function scopedThemeCSS(theme, { faces = true } = {}) {
+  const c = (v) => "#" + col(theme, v);
+  const lk = `.slide.lk-${theme.key}`;
+  let css = faces ? fontFaceCSS(theme) : "";
+  css += `${lk}{` + Object.entries(theme.colors).map(([k, v]) => `--c-${k}:#${v};`).join("") + `--radius:${theme.radius}px;}\n`;
+  for (const [tone, m] of Object.entries(theme.tones)) css += `${lk}.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};}\n`;
+  if (faces) for (const [name, f] of Object.entries(theme.faces)) css += `.slide.th-${theme.name} .f-${name}{${f.css}}\n`;
+  return css;
 }
 
 export function themeCSS(theme) {

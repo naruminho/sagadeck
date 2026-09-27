@@ -1,0 +1,9 @@
+/* Terminal: todo slide é uma janela (barra com três bolinhas e o caminho), chapéu com prompt, capa no alto */
+.th-terminal .orn i:nth-child(1){display:block;left:0;right:0;top:0;height:54px;background:var(--surface);border-bottom:1px solid var(--line)}
+.th-terminal .orn i:nth-child(2){display:block;left:28px;top:19px;width:16px;height:16px;border-radius:50%;background:var(--em);box-shadow:26px 0 var(--hi),52px 0 var(--muted)}
+.th-terminal .orn i:nth-child(3){display:block;left:0;right:0;top:17px;text-align:center;font:18px/1 "Cascadia Mono",Consolas,monospace;color:var(--muted)}
+.th-terminal .orn i:nth-child(3)::after{content:"~/apresentacao"}
+.th-terminal .kicker::before{content:"> ";color:var(--hi)}
+.th-terminal .L-cover .cv-main,.th-terminal .L-end .en-main{justify-content:flex-start}
+.th-terminal .sc-num::before{content:"#";opacity:.4}
+.th-terminal .headbar{top:70px}
