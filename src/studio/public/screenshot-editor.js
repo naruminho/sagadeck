@@ -68,6 +68,9 @@
         $(".shot-hint").textContent = mode === "point" ? "Clique para marcar. Arraste um ponto para reposicionar." : "Arraste para contornar a área importante.";
       });
       function paint() {
+        // redesenhar troca os botões dos destaques: quem estava com o foco continua com ele (senão, a imagem terminando
+        // de carregar no meio da edição "roubava" o foco e as setas do teclado paravam de mover o destaque)
+        const hadFocus = marks.contains(document.activeElement) ? +document.activeElement.dataset.index : -1;
         marks.replaceChildren(); $(".shot-list").replaceChildren();
         spots.forEach((p, i) => {
           const mark = document.createElement("button"); mark.type = "button";
@@ -87,6 +90,7 @@
         const p = spots[selected]; $(".shot-fields").hidden = !p;
         if (p) { $("[data-label]").value = p.title || ""; $("[data-text]").value = p.text || ""; }
         $("[data-up]").disabled = selected <= 0; $("[data-down]").disabled = selected < 0 || selected >= spots.length - 1;
+        if (hadFocus >= 0) marks.children[hadFocus]?.focus();
       }
       function coords(e) { const r = wrap.getBoundingClientRect(); return { x: Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100)), y: Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)) }; }
       wrap.onpointerdown = e => {
@@ -117,8 +121,15 @@
       $("[data-delete]").onclick = removeSelected;
       $("[data-delete]").title = "Excluir destaque selecionado (Delete ou Backspace)";
       for (const [sel, delta] of [["[data-up]", -1], ["[data-down]", 1]]) $(sel).onclick = () => { const to = selected + delta; if (to < 0 || to >= spots.length) return; [spots[selected], spots[to]] = [spots[to], spots[selected]]; selected = to; paint(); };
-      $("[data-apply]").onclick = () => {
-        if (loading || !img.naturalWidth || !image) return status("Escolha uma imagem válida primeiro.");
+      // Reabrir para editar recarrega a imagem: clicar em "Usar screenshot" nesse meio-tempo espera ela terminar (antes
+      // recusava com "Escolha uma imagem válida" e a edição se perdia sem aviso claro)
+      const loaded = () => new Promise((done) => { const t = setInterval(() => { if (!loading) { clearInterval(t); done(); } }, 40); });
+      $("[data-apply]").onclick = async () => {
+        if (loading) {
+          const b = $("[data-apply]"); b.disabled = true; status("Terminando de carregar a imagem…");
+          await loaded(); b.disabled = false;
+        }
+        if (!img.naturalWidth || !image) return status("Escolha uma imagem válida primeiro.");
         const result = { ...draft, layout: spots.length ? "spotlight" : "image", fit: "contain", title: $("[data-title]").value.trim(), caption: $("[data-caption]").value.trim(), image, hotspots: spots };
         delete result.figure; finish(result);
       };
