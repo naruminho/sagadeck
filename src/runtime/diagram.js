@@ -51,8 +51,9 @@
   }
 
   // escala de cores (mapa mental, linha do tempo, jornada) tirada da paleta
-  const scale = (L) => [L.hi, L.em, mix(L.hi, L.fg, 0.55), mix(L.em, L.bg, 0.55), mix(L.hi, L.bg, 0.4), mix(L.fg, L.bg, 0.7),
-    mix(L.em, L.fg, 0.5), mix(L.hi, L.em, 0.5), L.surface, L.line, mix(L.hi, L.bg, 0.2), mix(L.em, L.bg, 0.25)];
+  // (sem tons do meio: nem letra clara nem escura lê bem neles; cada cor é forte ou clara)
+const scale = (L) => [L.hi, L.em, mix(L.hi, L.bg, 0.35), mix(L.em, L.bg, 0.35), mix(L.hi, L.fg, 0.3), mix(L.em, L.fg, 0.3),
+    mix(L.hi, L.bg, 0.18), mix(L.em, L.bg, 0.18), mix(L.fg, L.bg, 0.85), L.surface, mix(L.hi, L.em, 0.5), mix(L.fg, L.bg, 0.12)];
 
   function config(L) {
     const shape = ".node rect,.node polygon,.node circle,.node ellipse,.node path";
@@ -69,6 +70,8 @@
       `.dgi{display:inline-flex;align-items:center;height:26px;vertical-align:-6px}.dgi svg{width:26px;height:26px;display:block;flex:none}`,
       // (nada de mudar peso/tamanho da letra dos nós aqui: o Mermaid já mediu o texto, e o rótulo cortaria)
       `.actor{stroke-width:2px}`,
+      // números da sequência (autonumber): bolinha na cor de destaque, número legível
+      `[id$="-sequencenumber"],[id$="-sequencenumber"] circle{fill:${L.hi}!important;stroke:${L.hi}!important}.sequenceNumber{fill:${L.onHi}!important}`,
     ].join("\n");
     const sizes = { useMaxWidth: false };
     const cs = Object.fromEntries(scale(L).flatMap((c, i) => [["cScale" + i, c], ["cScaleLabel" + i, on(c, L.bg, L.fg)], ["cScalePeer" + i, c]]));
@@ -83,7 +86,7 @@
         actorBkg: L.tint, actorBorder: L.hi, actorTextColor: L.fg, actorLineColor: L.line, signalColor: L.fg, signalTextColor: L.fg,
         labelBoxBkgColor: L.tint, labelBoxBorderColor: L.hi, labelTextColor: L.fg, loopTextColor: L.fg,
         noteBkgColor: mix(L.em, L.bg, 0.14), noteBorderColor: L.em, noteTextColor: L.fg,
-        activationBkgColor: mix(L.hi, L.bg, 0.25), activationBorderColor: L.hi, sequenceNumberColor: L.onHi,
+        activationBkgColor: mix(L.hi, L.bg, 0.25), activationBorderColor: L.hi, sequenceNumberColor: L.onHi, gitBranchLabel0: L.onHi,
         stateBkg: L.tint, stateLabelColor: L.fg, compositeBackground: mix(L.fg, L.bg, 0.035), transitionColor: L.muted,
         classText: L.fg, git0: L.hi, git1: L.em, pie1: L.hi, pie2: L.em, pie3: L.muted, pie4: L.tint, ...cs,
       },
@@ -131,6 +134,7 @@
         ph.replaceWith(span);
       });
       const k = fit(box, el);
+      box.dataset.dgScale = k.toFixed(2);
       // encolheu demais para caber: a letra fica pequena na tela (a IA recebe o aviso e reorganiza)
       if (k < 0.62) window.sagadeckDiagramWarnings.push({ slide: slideNo, scale: +k.toFixed(2),
         warning: `o diagrama precisou encolher para ${Math.round(k * 100)}% para caber (letra pequena): use menos nós por linha, rótulos mais curtos ou troque a direção (LR/TB) para acompanhar o formato da área (${box.clientWidth}×${box.clientHeight}).` });

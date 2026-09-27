@@ -249,6 +249,32 @@ test("studio", async (t) => {
     await settle();
   });
 
+  await t.test("Inserir → Diagrama: desenha no palco e na miniatura; editar o código salva, e erro aparece na barra", async () => {
+    await tab("inserir");
+    await p.click("#btn-add-diagram"); await settle(1200);
+    const i = (await deck()).slides.findIndex((s) => s.layout === "diagram");
+    assert.ok(i >= 0, "slide inserido");
+    assert.match(saved().slides[i].mermaid, /flowchart/, "salvo no arquivo");
+    await p.waitForSelector('#rendered-slide-container .dg-box[data-dg="ready"] > svg', { timeout: 15000 });
+    await p.waitForSelector(`.thumb-card[data-idx="${i}"] .dg-box[data-dg="ready"] > svg`, { timeout: 15000 });
+    const code = p.locator(`${form} textarea`).first();
+    // código quebrado: o palco mostra o erro e a barra de status avisa
+    await code.fill("flowchart LR\n  A[Pedido --> ");
+    await settle(1500);
+    await p.waitForSelector('#rendered-slide-container .dg-error', { timeout: 15000 });
+    assert.match(await p.textContent("#status-fit"), /Diagrama com erro/);
+    // conserta: desenha de novo e o arquivo guarda o código novo (ênfase e ícone inclusos)
+    await code.fill("flowchart LR\n  A([:key-round: Pedido]):::hi --> B[Wave] ==> C[Produção]:::em");
+    await settle(1500);
+    await p.waitForSelector('#rendered-slide-container .dg-box[data-dg="ready"] .dgi svg', { timeout: 15000 });
+    assert.match(saved().slides[i].mermaid, /C\[Produção\]:::em/);
+    assert.doesNotMatch(await p.textContent("#status-fit"), /Diagrama com erro/);
+    // limpa para os próximos testes
+    await tab("inicio");
+    await go((s) => s.layout === "diagram");
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
   await t.test("lista: adicionar, reordenar e remover cartões", async () => {
     const i = await go("cards");
     const [a, b] = (await deck()).slides[i].items.map((c) => c.title);

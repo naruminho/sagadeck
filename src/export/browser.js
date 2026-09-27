@@ -29,6 +29,7 @@ export async function openDeck(htmlFile, { scale = 1 } = {}) {
   await page.goto(pathToFileURL(htmlFile).href + "?export=1");
   await page.waitForFunction(() => window.sagadeck && window.sagadeck.cur >= 0 && document.fonts.status === "loaded");
   await page.evaluate(() => window.SagaScienceReady);
+  await page.evaluate(() => window.SagaDiagramsReady);
     await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(150);
   return { browser, page, errors };

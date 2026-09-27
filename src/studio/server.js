@@ -21,7 +21,7 @@ import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
-import { slideSnapshots } from "./snapshot.js";
+import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -558,7 +558,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         let notice = "";
         if (body.mode !== "rules" && body.text && await llmAvailable()) {
           try {
-            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(W, withBase(W, W.spec)) });
+            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(W, withBase(W, W.spec)), drawCheck: diagramCheck });
             mode = "llm";
           } catch (e) {
             notice = `A IA falhou (${e.message}); usei as regras locais.`;
@@ -667,6 +667,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             images: true, // o briefing diz se quer imagens (e onde)
             imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
             onEvent: emit,
+            drawCheck: diagramCheck,
           });
           let target = path.join(dir, `${slugify(gen.spec.title)}.yaml`);
           for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${slugify(gen.spec.title)}-${n}.yaml`);
@@ -739,6 +740,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               visuals,
               renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
               apiContext: apiContextFor(req, W),
+              drawCheck: diagramCheck,
             });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
@@ -765,6 +767,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const next = await editDeck({
                 spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
                 imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+                drawCheck: diagramCheck,
               });
               convo.push({ role: "user", text: instruction });
               result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
@@ -997,7 +1000,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               await respond(res, b.stream, async (emit) => {
                 try {
                   const gen = await generateDeck(b.briefing || "", { theme: b.theme || undefined, slides: Number(b.slides) || undefined,
-                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit });
+                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit, drawCheck: diagramCheck });
                   fs.writeFileSync(file, toYaml(gen.spec), "utf8");
                   const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
                   return { ok: true, id: finalId, images: gen.images };

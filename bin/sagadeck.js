@@ -202,15 +202,17 @@ async function main() {
         if (flags.images === true) briefing += "\n\nImagens: você decide onde vale ilustrar com imagens geradas (não precisa ser em todos os slides).";
         if (flags["no-images"]) briefing += "\n\nNão gere imagens.";
         const { generateDeck, toYaml } = await import("../src/ai/deck-ai.js");
+        const { diagramCheck, closeSnapshots } = await import("../src/studio/snapshot.js");
         const dir = path.dirname(target);
         const { spec, images } = await generateDeck(briefing, {
+          drawCheck: diagramCheck, // diagramas: confere desenhando (se houver Chrome/Edge)
           theme: typeof flags.theme === "string" ? flags.theme : undefined,
           slides: Number(flags.slides) || undefined,
           duration: Number(flags.duration) || undefined,
           images: !flags["no-images"],
           imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
           onProgress: (m) => console.log(`  … ${m}`),
-        });
+        }).finally(closeSnapshots);
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(target, toYaml(spec));
         console.log(`✓ criado ${target} com IA: ${spec.slides.length} slides · tema ${spec.theme || "sinal"}`);

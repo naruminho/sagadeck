@@ -94,6 +94,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+| `diagram` | `kicker, title, mermaid, caption` | diagrama desenhado (fluxograma, sequência, estados, UML, ER, jornada, mapa mental, linha do tempo, blocos) nas cores do tema; ver [Diagramas](#diagramas-diagram) |
 
 ### Ajustes finos de campos
 
@@ -474,6 +475,42 @@ Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem execut
   plot:
     preset: surface
 ```
+
+## Diagramas (`diagram`)
+
+Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida, mapa de ideias: o campo `mermaid` leva o código [Mermaid](https://mermaid.js.org) e o sagadeck desenha com a fonte e a paleta do slide (troque tema/paleta e o diagrama acompanha). Setas contínuas, pontilhadas e grossas, losangos de decisão, grupos, ícones: tudo sai colorido e com cantos arredondados, sem o visual "aramado". O desenho ocupa a área livre do slide. Funciona offline no HTML; PDF e PowerPoint levam a imagem.
+
+Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`.
+
+Ênfase (acrescente ao nó): `:::hi` (cheio na cor de destaque), `:::em` (cheio na cor de ênfase), `:::escuro`, `:::suave` (quase sem cor), `:::vazado` (tracejado: opcional, futuro, fora do escopo). Os demais nós ficam num tom leve do destaque com contorno.
+
+Ícones: `:nome-do-icone:` dentro do rótulo (nome oficial em inglês do Lucide, como nos `icon`), por exemplo `A[:rocket: Produção]`.
+
+Setas no `flowchart`: `-->` normal, `-.->` pontilhada (opcional, eventual), `==>` grossa (o caminho principal), `-->|texto|` com rótulo. Grupos: `subgraph Nome ... end`.
+
+```yaml
+- layout: diagram
+  kicker: Governança
+  title: Do pedido de acesso à ==produção==
+  caption: Experimento é prorrogável; em HOM e PROD as chaves ficam no Key Vault
+  mermaid: |
+    flowchart LR
+      A([:key-round: Pedido de acesso]):::hi --> B{Experimento ou projeto?}
+      B -->|experimento| C[:flask-conical: 30 dias, dados fictícios]
+      B -->|projeto| D[DEV 30 dias] ==> E[HOM 30 dias] ==> F[:rocket: PROD]:::em
+      C -.->|deu certo| D
+      E -.- K[(Key Vault via RITM)]:::vazado
+```
+
+Regras de bom desenho (siga sempre):
+- Direção pela forma da área: o slide é largo, então prefira `LR` para até ~6 etapas seguidas; com mais etapas, quebre em linhas com `subgraph` (um por fase, `direction LR` dentro) empilhados em `TB`.
+- Rótulos curtos: 1 a 4 palavras por nó (detalhe vai em `caption`, nas `notes` ou em outro slide). Rótulo de seta com 1 a 3 palavras.
+- No máximo ~12 nós por slide. Processo maior: divida em slides (visão geral primeiro, depois um slide por fase) em vez de encolher tudo.
+- Ênfase em 1 ou 2 nós (início e resultado, ou o gargalo). Tudo destacado é nada destacado.
+- Use a seta certa: `==>` o caminho feliz, `-.->` o alternativo; decisões em losango `{...}`; banco/cofre em `[(...)]`; início/fim em `([...])`.
+- Não use `%%{init}%%`, `style` nem `classDef` com cores: quebram a paleta do tema. Use as classes acima.
+- Foto de um rascunho (guardanapo, quadro): reproduza a mesma estrutura em Mermaid e enfeite (ícones, ênfase, setas grossas no caminho principal), sem inventar etapas.
+- O sagadeck desenha e confere: código que não desenha volta para você corrigir; diagrama que precisou encolher demais (letra pequena) também volta, com o tamanho da área, para você reorganizar.
 
 ## Ajustes diretos no Studio
 

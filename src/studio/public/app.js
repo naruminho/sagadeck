@@ -331,7 +331,7 @@
       window.SagaScience?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
-      window.SagaDiagrams?.mount(dom.renderedSlideContainer);
+      window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
       applyEditorStep(idx);
       fitSlideText(dom.renderedSlideContainer);
@@ -2768,6 +2768,21 @@
     root.querySelectorAll(".slide").forEach((s) => window.SagadeckFit.shrink(s));
   }
 
+  // Diagrama desenhado: se encolheu demais para caber, a pessoa vê o aviso e a IA recebe junto com o pedido
+  function reportDiagram(root) {
+    if (root !== dom.renderedSlideContainer) return;
+    const box = root.querySelector(".dg-box[data-dg-scale]");
+    const k = box ? +box.dataset.dgScale : 1;
+    const err = root.querySelector(".dg-box[data-dg=error] .dg-error span")?.textContent;
+    const notes = (state.renderNotes || []).filter((n) => !/^o diagrama/.test(n));
+    if (err) notes.push(`o diagrama não desenhou (erro no código Mermaid): ${err.slice(0, 200)}`);
+    else if (k < 0.62) notes.push(`o diagrama precisou encolher para ${Math.round(k * 100)}% para caber na área (${box.clientWidth}×${box.clientHeight}): letra pequena`);
+    state.renderNotes = notes;
+    const fit = state.fitStatus || { text: "", title: "" }; // sem problema no diagrama: volta o aviso do texto (se houver)
+    dom.statusFit.textContent = err ? "Diagrama com erro no código" : k < 0.62 ? `Diagrama reduzido para caber (${Math.round(k * 100)}%)` : fit.text;
+    dom.statusFit.title = err || k < 0.62 ? `${notes.join("\n")}\nPeça para a IA reorganizar (menos nós por linha, rótulos curtos, dividir em dois slides).` : fit.title;
+  }
+
   function fitSlideText(root) {
     const run = () => fitRendered(root);
     const report = () => {
@@ -2779,9 +2794,14 @@
       });
       const z = +(root.querySelector(".slide")?.dataset.shrink || 1);
       if (z < 1) notes.push(`o motor reduziu automaticamente todo o conteúdo do slide para ${Math.round(z * 100)}% para caber (sem isso, uma parte ficaria por cima de outra)`);
-      state.renderNotes = notes;
-      dom.statusFit.textContent = z < 1 ? `Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "Texto reduzido para caber" : "";
-      dom.statusFit.title = notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "";
+      state.renderNotes = [...notes, ...(state.renderNotes || []).filter((n) => /^o diagrama/.test(n))]; // o aviso do diagrama é de reportDiagram
+      state.fitStatus = {
+        text: z < 1 ? `Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "Texto reduzido para caber" : "",
+        title: notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "",
+      };
+      if (state.renderNotes.length > notes.length) return; // o diagrama tem aviso: ele manda na barra
+      dom.statusFit.textContent = state.fitStatus.text;
+      dom.statusFit.title = state.fitStatus.title;
     };
     run();
     report();

@@ -99,3 +99,95 @@ test("sequência, estados e classes UML desenham; código errado mostra um erro 
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
+
+// Todo tipo que a referência promete à IA precisa desenhar de verdade (e o exemplo dela também).
+test("todos os tipos da referência desenham, inclusive o exemplo que a IA copia", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const ref = fs.readFileSync(new URL("../docs/REFERENCIA.md", import.meta.url), "utf8");
+    const exemplo = ref.match(/- layout: diagram[\s\S]*?mermaid: \|\n([\s\S]*?)```/)[1].replace(/^ {4}/gm, "");
+    const codes = {
+      exemplo,
+      journey: "journey\n  title Pedido de acesso\n  section Bridge\n    Abrir chamado: 3: Dev\n    Esperar: 1: Dev",
+      mindmap: "mindmap\n  root((Artefatos))\n    Segurança\n      Throughput\n    Sustentação\n      Runbook",
+      timeline: "timeline\n  DEV : 30 dias\n  HOM : 30 dias\n  PROD : sem prazo",
+      er: "erDiagram\n  PROJETO ||--o{ AREA : pede\n  PROJETO { string wave }",
+      block: "block-beta\n  columns 3\n  App Bridge Identity",
+      gantt: "gantt\n  dateFormat YYYY-MM-DD\n  section Projeto\n  DEV :a1, 2026-01-01, 30d\n  HOM :after a1, 30d",
+      quadrant: "quadrantChart\n  x-axis Baixo esforço --> Alto esforço\n  y-axis Baixo valor --> Alto valor\n  Experimento: [0.2, 0.7]",
+    };
+    const { p, errors } = await montar(browser, "sinal", Object.values(codes).map((mermaid) => ({ layout: "diagram", title: "x", mermaid })));
+    const r = await p.evaluate(() => [...document.querySelectorAll(".slide")].map((s) => s.querySelector(".dg-box").dataset.dg));
+    assert.deepEqual(Object.fromEntries(Object.keys(codes).map((k, i) => [k, r[i]])), Object.fromEntries(Object.keys(codes).map((k) => [k, "ready"])),
+      JSON.stringify(await p.evaluate(() => window.sagadeckDiagramErrors)));
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test("desenho que precisa encolher demais vira aviso (com o tamanho da área); o conferidor do servidor devolve o slide certo", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  await browser.close();
+  const { diagramCheck, closeSnapshots } = await import("../src/studio/snapshot.js");
+  try {
+    const trem = "flowchart LR\n  " + Array.from({ length: 22 }, (_, i) => `N${i}[Etapa número ${i + 1}]`).join(" --> ");
+    const spec = { theme: "sinal", slides: [
+      { layout: "cover", title: "Capa" },
+      { layout: "diagram", title: "Curto", mermaid: "flowchart LR\n  A --> B" },
+      { layout: "diagram", title: "Longo demais", mermaid: trem },
+      { layout: "diagram", title: "Quebrado", mermaid: "flowchart LR\n  A[ok --> " },
+    ] };
+    const r = await diagramCheck(spec, [1, 2, 3]);
+    assert.deepEqual(r.errors.map((e) => e.slide), [4]);
+    assert.deepEqual(r.warnings.map((w) => w.slide), [3]);
+    assert.match(r.warnings[0].warning, /encolher para \d+%.*\d+×\d+/);
+  } finally { await closeSnapshots(); }
+});
+
+// Letra legível em qualquer tema: todo rótulo de nó (inclusive ramos do mapa mental e números da sequência) com
+// contraste de pelo menos 3:1 contra o próprio fundo.
+test("contraste: rótulos legíveis em temas claros e escuros (mapa mental, fluxo, números da sequência)", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const slides = [
+      { layout: "diagram", mermaid: "mindmap\n  root((:folder-open: Artefatos))\n    Segurança\n      Throughput\n    Cyber\n      Mecanismos\n    Sustentação\n      Runbook\n    Governança\n      Curadoria\n    Infra\n      Namespace\n    Rede\n      Firewall" },
+      { layout: "diagram", mermaid: FLUXO },
+      { layout: "diagram", mermaid: "sequenceDiagram\n  autonumber\n  App->>Bridge: chamada\n  Bridge-->>App: resposta" },
+    ];
+    const todos = [];
+    for (const theme of ["sinal", "noite", "bauhaus"]) {
+      const { p, errors } = await montar(browser, theme, slides);
+      const ruins = await p.evaluate(() => {
+        const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+        const opaque = (c) => c && c !== "none" && !/rgba\(.*,\s*0\)$/.test(c) && c !== "transparent";
+        const out = [];
+        document.querySelectorAll(".dg-box > svg").forEach((svg, k) => {
+          svg.querySelectorAll(".node, .mindmap-node").forEach((n) => {
+            const shape = n.querySelector("rect, path, circle, polygon, ellipse");
+            const label = n.querySelector(".nodeLabel, span, text");
+            if (!shape || !label || !label.textContent.trim()) return;
+            const bg = getComputedStyle(shape).fill;
+            if (!opaque(bg)) return;
+            const fg = label instanceof SVGElement ? getComputedStyle(label).fill : getComputedStyle(label).color;
+            const r = ratio(fg, bg);
+            if (r < 3) out.push(`${k + 1} "${label.textContent.trim()}": ${r.toFixed(1)} (${fg} sobre ${bg})`);
+          });
+          // números da sequência: o círculo e o número
+          svg.querySelectorAll(".sequenceNumber").forEach((num) => {
+            const circle = svg.querySelector('[id$="-sequencenumber"] circle, [id$="-sequencenumber"]');
+            const r = ratio(getComputedStyle(num).fill, getComputedStyle(circle).fill);
+            if (r < 3) out.push(`${k + 1} número ${num.textContent}: ${r.toFixed(1)}`);
+          });
+        });
+        return out;
+      });
+      todos.push(...ruins.map((r) => `${theme} slide ${r}`));
+      assert.deepEqual(errors, []);
+      await p.close();
+    }
+    assert.deepEqual(todos, []);
+  } finally { await browser.close(); }
+});
