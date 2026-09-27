@@ -183,6 +183,7 @@
       <div class="sep"></div>
       <button class="mi" data-dl="sagadeck">${ic("download")}Baixar apresentação<small>.sagadeck</small></button>
       <button class="mi" data-dl="pptx">Baixar PowerPoint<small>.pptx</small></button>
+      <button class="mi" data-dl="pptx" data-notas="0">Baixar PowerPoint sem as notas<small>.pptx</small></button>
       <button class="mi" data-dl="pdf">Baixar PDF</button>
       <div class="sep"></div>
       <button class="mi danger" data-a="trash">${ic("trash-2")}Mover para a lixeira</button>`;
@@ -200,7 +201,7 @@
     m.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => {
       closeMenus();
       if (b.dataset.dl !== "sagadeck") toast("Gerando… o download começa em alguns segundos.", 6000);
-      location.href = `api/library/download?id=${encodeURIComponent(id)}&kind=${b.dataset.dl}`;
+      location.href = `api/library/download?id=${encodeURIComponent(id)}&kind=${b.dataset.dl}${b.dataset.notas === "0" ? "&notas=0" : ""}`;
     });
   }
 

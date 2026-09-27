@@ -318,3 +318,43 @@ test("memória do chat: o que a pessoa disse lá no começo continua chegando ao
   assert.ok(conv.recent.length <= 16);
   assert.ok(conv.memory.length < 12000);
 });
+
+// Diagramas: o Mermaid só se confere desenhando (navegador). O código que não desenha volta para a IA corrigir;
+// desenho que encolheu demais volta uma vez, como objeção (o fato vai junto do pedido, sem a resposta rejeitada).
+test("diagrama com código errado: o erro do desenho volta para o modelo e só a versão que desenha entra", { timeout: 60000 }, async (t) => {
+  const { findBrowser } = await import("../src/export/browser.js");
+  try { findBrowser(); } catch { t.skip("sem Chrome/Edge — defina SAGADECK_BROWSER"); return; }
+  const { diagramCheck, closeSnapshots } = await import("../src/studio/snapshot.js");
+  let n = 0;
+  reply = () => (++n === 1
+    ? "Fiz o fluxo.\n```yaml\nslides:\n  2:\n    layout: diagram\n    title: Fluxo\n    mermaid: |\n      flowchart LR\n        A[Pedido --> \n```"
+    : "Fiz o fluxo.\n```yaml\nslides:\n  2:\n    layout: diagram\n    title: Fluxo\n    mermaid: |\n      flowchart LR\n        A[Pedido] --> B[Entrega]\n```");
+  const k = llm.requests.length;
+  try {
+    const r = await editDeck({ spec: base(), instruction: "transforme o slide 2 num fluxo", targetSlide: 1, drawCheck: diagramCheck });
+    assert.equal(n, 2);
+    assert.match(llm.requests[k + 1].lastUser, /Mermaid não conseguiu desenhar[\s\S]*slide 2/);
+    assert.match(r.spec.slides[1].mermaid, /B\[Entrega\]/);
+  } finally { await closeSnapshots(); }
+});
+
+test("diagrama que encolheu demais: o modelo recebe o fato (uma vez) e a resposta nova vale", async () => {
+  let n = 0;
+  const drawCheck = async (spec, idx) => ({ errors: [], warnings: idx.filter((i) => /LR/.test(spec.slides[i].mermaid)).map((i) => ({ slide: i + 1, warning: "o diagrama precisou encolher para 40% para caber" })) });
+  reply = () => (++n === 1
+    ? "Pronto.\n```yaml\nedit:\n  2:\n    layout: diagram\n    mermaid: \"flowchart LR\\n  A --> B\"\n```"
+    : n === 2 ? "Reorganizei.\n```yaml\nedit:\n  2:\n    layout: diagram\n    mermaid: \"flowchart TB\\n  A --> B\"\n```"
+    : "não devia chegar aqui");
+  const k = llm.requests.length;
+  const r = await editDeck({ spec: base(), instruction: "vire um fluxo", targetSlide: 1, drawCheck });
+  assert.equal(n, 2);
+  assert.match(llm.requests[k + 1].lastUser, /FATO DO DESENHO[\s\S]*40%/);
+  assert.ok(!llm.requests[k + 1].messages.some((m) => m.role === "assistant" && /Pronto\./.test(m.content)), "a resposta rejeitada não fica na conversa");
+  assert.match(r.spec.slides[1].mermaid, /TB/);
+  // insistiu no mesmo desenho: a 2ª resposta vale (a objeção é uma vez só)
+  n = 0;
+  reply = () => (++n, "Mantive.\n```yaml\nedit:\n  2:\n    layout: diagram\n    mermaid: \"flowchart LR\\n  A --> B\"\n```");
+  const r2 = await editDeck({ spec: base(), instruction: "vire um fluxo", targetSlide: 1, drawCheck });
+  assert.equal(n, 2);
+  assert.match(r2.spec.slides[1].mermaid, /LR/);
+});

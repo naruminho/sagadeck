@@ -49,7 +49,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
   sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
   sagadeck shots <deck.yaml> [--steps] [--only=3,5]  PNG de cada slide + folhas de contato (para revisar)
-  sagadeck pptx <deck.yaml> [--native-charts]  gera <deck>.pptx editável (com animações dos cliques e notas)
+  sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas]  gera <deck>.pptx editável (com animações dos cliques e notas; --sem-notas tira as notas, para mandar a alguém)
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
@@ -202,15 +202,17 @@ async function main() {
         if (flags.images === true) briefing += "\n\nImagens: você decide onde vale ilustrar com imagens geradas (não precisa ser em todos os slides).";
         if (flags["no-images"]) briefing += "\n\nNão gere imagens.";
         const { generateDeck, toYaml } = await import("../src/ai/deck-ai.js");
+        const { diagramCheck, closeSnapshots } = await import("../src/studio/snapshot.js");
         const dir = path.dirname(target);
         const { spec, images } = await generateDeck(briefing, {
+          drawCheck: diagramCheck, // diagramas: confere desenhando (se houver Chrome/Edge)
           theme: typeof flags.theme === "string" ? flags.theme : undefined,
           slides: Number(flags.slides) || undefined,
           duration: Number(flags.duration) || undefined,
           images: !flags["no-images"],
           imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
           onProgress: (m) => console.log(`  … ${m}`),
-        });
+        }).finally(closeSnapshots);
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(target, toYaml(spec));
         console.log(`✓ criado ${target} com IA: ${spec.slides.length} slides · tema ${spec.theme || "sinal"}`);
@@ -250,7 +252,7 @@ async function main() {
       const p = paths(args[0]); const r = doBuild(p, true);
       const { exportPptx } = await import("../src/export/pptx.js");
       console.log("… exportando PowerPoint");
-      const { errors } = await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], log: flags.verbose ? console.log : () => {} });
+      const { errors } = await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"], log: flags.verbose ? console.log : () => {} });
       errors.forEach((e) => console.log("  ✗ " + e));
       console.log(`✓ PPTX: ${p.pptx}`);
       break;
@@ -273,7 +275,7 @@ async function main() {
       await doCheck(p);
       const files = await doShots(p, flags.revisao ? p.shots : p.tmpShots);
       const { exportPptx } = await import("../src/export/pptx.js");
-      await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"] });
+      await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"] });
       console.log(`✓ PPTX: ${p.pptx}`);
       const { pdf } = await import("../src/export/shots.js");
       await pdf(p.html, p.pdf); console.log(`✓ PDF: ${p.pdf}`);

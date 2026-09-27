@@ -94,6 +94,8 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
 | `agenda` | `title, items: [{title, text, time}], current, build` | agenda com a seção atual destacada |
+| `infographic` | `kicker, title, shape, center: {title, text, icon}, items: [{title, text, icon, steps}], build, caption` | infográfico desenhado: arco, ramos, lados, trilhas ou metrô; ver [Infográficos](#infográficos-infographic) |
+| `diagram` | `kicker, title, mermaid, caption, autoDirection` | diagrama desenhado (fluxograma, sequência, estados, UML, ER, jornada, mapa mental, linha do tempo, blocos) nas cores do tema; ver [Diagramas](#diagramas-diagram) |
 
 ### Ajustes finos de campos
 
@@ -411,6 +413,9 @@ Como no PowerPoint, são duas escolhas independentes:
 
 - **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado).
 - **Paleta** (`palette`): só as cores, em qualquer tema. `tinta`, `floresta`, `mar`, `entardecer`, `lavanda`, `grafite`, `neon`, `areia`, `cereja`, `corporativo`, ou as suas: `palette: { paper: "F4F1EA", ink: "161616", accent: "D7263D", alert: "1B998B" }`. Os quatro tons saem dessas quatro cores, com contraste garantido.
+- **Paletas de família** (para identidade de marca sem cansar a vista): a cor forte da marca fica só no detalhe (`alert`, a ênfase pontual) e a página trabalha com os parentes mais agradáveis dela (`accent` e `family`). `rubi` (rosas, magenta e vinho; vermelho só no detalhe), `ametista` (roxos e lilases), `tangerina` (laranja com azul-marinho), `safira` (azuis com um toque âmbar), `esmeralda` (verdes). Na sua: `palette: { paper: "FFFFFF", ink: "3B2B33", accent: "B83A6E", alert: "CC092F", family: ["F9DCE5", "EFA3BC", "D9668F", "7E2349"] }` (de 2 a 8 parentes). `family` pinta as séries extras dos gráficos e os grupos e ramos dos diagramas. Pedido de "cores da empresa X": monte uma paleta de família assim, com a cor forte em `alert`.
+
+- **Identidade** (`identity: trabalho`, no deck): as fontes da empresa da pessoa (e a paleta preferida), configuradas só no computador dela (`~/.sagadeck/identidades.yaml`; no Studio, aba Design, grupo Identidade). Corpo, rótulos e código sempre na fonte da empresa; títulos também, menos nos temas com personalidade (`rabisco`, `pop`, `terminal`, `jornal`, `bauhaus`), que mantêm o título deles. A paleta da identidade vale quando o deck não escolheu outra. Nunca invente o nome de uma identidade: use só a que a pessoa pedir ou a que o deck já tem; numa máquina sem ela, a apresentação sai com as fontes do tema.
 
 Os dois valem no deck todo ou num slide só (`theme:`/`palette:` no slide). No Studio, aba Design: clique aplica em todos os slides; botão direito, "Só neste slide".
 
@@ -474,6 +479,79 @@ Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem execut
   plot:
     preset: surface
 ```
+
+## Infográficos (`infographic`)
+
+As formas clássicas de slide de consultoria, desenhadas na hora para a quantidade de itens que vier (o desenho se reorganiza; o texto encolhe para caber). Uma cor por item, tirada do tema (numa paleta de família, os parentes dela); o texto é editável no PowerPoint. `build: true` revela um item por clique.
+
+| `shape` | para quê | itens |
+|---|---|---|
+| `arco` | lista de desafios, pilares, etapas numeradas em volta de um tema (pílulas coloridas ao longo de um arco, centro com anel colorido) | 2 a 8 |
+| `ramos` | 2 a 6 opções/estratégias com uma frase de explicação cada (cartões contornados com número colorido) | 2 a 6 |
+| `lados` | frentes, áreas ou pilares com ícone (metade à esquerda, metade à direita da peça central) | 2 a 8 |
+| `trilhas` | objetivo e linhas de etapas encadeadas: cada item é o começo de uma linha e `steps` são as etapas seguintes (estratégia, tática, tática…); uma cor por coluna | 1 a 4 linhas, até 4 etapas cada |
+| `metro` | caminhos que partem de um mesmo ponto (linhas de metrô até cada item, com ícone e legenda) | 2 a 7 |
+
+`center`: o que fica no meio (`title`, `text`, `icon`; ou só um texto). Itens: `title` curto (1 a 3 palavras), `text` de uma frase, `icon` (nome do Lucide). Mais itens que a forma aceita: os demais ficam de fora com aviso; divida em dois slides.
+
+```yaml
+- layout: infographic
+  shape: metro
+  title: Os caminhos de um projeto na Bridge
+  center: { title: Bridge, text: Um pedido, vários caminhos }
+  items:
+    - { title: Lote, text: Databricks chama a Bridge de madrugada, icon: moon }
+    - { title: Teams, text: Copilot Studio + Power Automate, icon: message-square }
+    - { title: App próprio, text: Wave, arquitetura, infra e rede, icon: app-window }
+    - { title: SaaS externo, text: Túnel mTLS e serviço extra, icon: globe }
+```
+
+Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
+
+## Diagramas (`diagram`)
+
+Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida, mapa de ideias: o campo `mermaid` leva o código [Mermaid](https://mermaid.js.org) e o sagadeck desenha com a fonte e a paleta do slide (troque tema/paleta e o diagrama acompanha). O visual é de diagrama de arquitetura bem feito: cada grupo (`subgraph`) ganha uma família de cor (fundo bem claro, título colorido, nós com preenchimento suave e contorno da mesma cor mais escura), setas em ângulo reto, texto em grafite (nunca preto chapado). No mapa mental, cada ramo tem sua família. O desenho ocupa a área livre do slide. Funciona offline no HTML; PDF e PowerPoint levam a imagem.
+
+Direção automática: em fluxogramas o sagadeck desenha deitado (`LR`) e em pé (`TB`) e usa o que deixa a letra maior na área do slide. Escreva a direção que fizer sentido; `autoDirection: false` no slide mantém a do código (use só se a pessoa pedir uma direção).
+
+Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`.
+
+Ênfase (acrescente ao nó): `:::hi` (tom forte da cor de destaque), `:::em` (tom forte da cor de ênfase), `:::escuro`, `:::suave` (cinza neutro: usuário, sistemas externos, bancos de terceiros), `:::vazado` (tracejado: opcional, futuro, fora do escopo). Os demais nós herdam a família do grupo em que estão (fora de grupo: a família do destaque).
+
+Ícones: `:nome-do-icone:` dentro do rótulo (nome oficial em inglês do Lucide, como nos `icon`), por exemplo `A[:rocket: Produção]`.
+
+Setas no `flowchart`: `-->` normal, `-.->` pontilhada (opcional, eventual), `==>` grossa (o caminho principal), `-->|texto|` com rótulo. Grupos: `subgraph Nome ... end`.
+
+```yaml
+- layout: diagram
+  kicker: Governança
+  title: Do pedido de acesso à ==produção==
+  caption: Experimento é prorrogável; em HOM e PROD as chaves ficam no Key Vault
+  mermaid: |
+    flowchart LR
+      A([:key-round: Pedido de acesso]):::hi --> B{Experimento ou projeto?}
+      subgraph EXP[Experimento]
+        C[:flask-conical: 30 dias, dados fictícios]
+      end
+      subgraph PRJ[Projeto]
+        D[DEV 30 dias] ==> E[HOM 30 dias] ==> F[:rocket: PROD]:::em
+      end
+      B -->|experimento| C
+      B -->|projeto| D
+      C -.->|deu certo| D
+      K[(Key Vault via RITM)]:::suave -.- E
+```
+
+Regras de bom desenho (siga sempre):
+- Agrupe com `subgraph` o que é da mesma área, time, camada ou fase (Front-end, Bridge, Segurança; DEV, HOM, PROD): é o que dá cor e organização ao desenho. 2 a 5 grupos por slide.
+- Coisas de fora (usuário, sistema externo, banco de terceiros) com `:::suave`, fora dos grupos.
+- Rótulos curtos: 1 a 4 palavras por nó (detalhe vai em `caption`, nas `notes` ou em outro slide). Rótulo de seta com 1 a 3 palavras.
+- No máximo ~12 nós por slide. Processo maior: divida em slides (visão geral primeiro, depois um slide por fase) em vez de encolher tudo.
+- Ênfase em 1 ou 2 nós (início e resultado, ou o gargalo). Tudo destacado é nada destacado.
+- Use a seta certa: `==>` o caminho feliz, `-.->` o alternativo; decisões em losango `{...}` com 1 ou 2 palavras (`{Tipo?}`: o losango cresce muito com texto; o resto vai nos rótulos das setas); banco/cofre em `[(...)]`; início/fim em `([...])`.
+- Não use `%%{init}%%`, `style` nem `classDef` com cores: quebram a paleta do tema. Use as classes acima.
+- Foto de um rascunho (guardanapo, quadro): reproduza a mesma estrutura em Mermaid e enfeite (ícones, ênfase, setas grossas no caminho principal), sem inventar etapas.
+- O sagadeck desenha e confere: código que não desenha volta para você corrigir; diagrama que precisou encolher demais (letra pequena) também volta, com o tamanho da área, para você reorganizar.
 
 ## Ajustes diretos no Studio
 

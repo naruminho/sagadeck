@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
+    "chart", "compare", "matrix", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
     "blocks", "canvas", "references", "end",
   ];
 
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", infographic: "Infográfico", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -244,6 +244,8 @@
     };
     document.getElementById("btn-add-science").onclick = () => insertScene("science");
     document.getElementById("btn-add-scenography").onclick = () => insertScene("scenography");
+    document.getElementById("btn-add-diagram").onclick = () => insertScene("diagram");
+    document.getElementById("btn-add-infographic").onclick = () => insertScene("infographic");
     buildLayoutPicker();
     bindLookMenu();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
@@ -330,6 +332,7 @@
       window.SagaScience?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
+      window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
       applyEditorStep(idx);
       fitSlideText(dom.renderedSlideContainer);
@@ -1811,8 +1814,40 @@
     syncThemeGallery();
   }
 
+  // Identidade: as fontes (e a paleta) da empresa, do arquivo local identidades.yaml. O deck só guarda o nome.
+  // Fonte instalada? Mede um texto com ela e com as genéricas: se sai igual às duas, o navegador não achou a fonte.
+  function fontInstalled(name) {
+    const c = document.createElement("canvas").getContext("2d"), t = "mmmmmmmmmmlliWWQ@#0";
+    return ["monospace", "serif"].some((g) => { c.font = `72px ${g}`; const a = c.measureText(t).width; c.font = `72px '${name}', ${g}`; return c.measureText(t).width !== a; });
+  }
+  async function loadIdentities() {
+    try { state.identities = await (await fetch("api/identities")).json(); } catch { state.identities = { identities: [] }; }
+    syncIdentity();
+  }
+  function syncIdentity() {
+    const sel = document.getElementById("identity-select"), note = document.getElementById("identity-note");
+    if (!sel) return;
+    const d = state.identities || { identities: [] }, cur = state.deck?.identity || "";
+    const opts = [["", "Do tema"], ...d.identities.map((x) => [x.id, x.name])];
+    if (cur && !d.identities.some((x) => x.id === cur)) opts.push([cur, `${cur} (não configurada aqui)`]);
+    sel.innerHTML = "";
+    for (const [v, l] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = l; sel.append(o); }
+    sel.value = cur;
+    const say = (text, warn) => { note.textContent = text; note.hidden = !text; note.classList.toggle("warn", !!warn); };
+    const ident = d.identities.find((x) => x.id === cur);
+    if (d.error) say(d.error, true);
+    else if (cur && !ident) say("Esta identidade não está configurada neste computador: vale a fonte do tema.", true);
+    else if (ident) {
+      const fonts = [...new Set([...ident.fonts.titulo, ...ident.fonts.corpo, ...ident.fonts.compacta])];
+      const missing = fonts.filter((f) => !fontInstalled(f));
+      say(missing.length === fonts.length ? "Nenhuma das fontes está instalada neste computador: vale a do tema."
+        : missing.length ? `Não instaladas aqui: ${missing.join(", ")}.` : "", missing.length === fonts.length);
+    } else say(d.exists ? "" : "Use as fontes da sua empresa: Configurar.", false);
+  }
+
   // cartão ativo = o que vale no slide aberto; "só este slide" ganha uma marca
   function syncThemeGallery() {
+    syncIdentity();
     const ms = document.getElementById("mark-style-select");
     if (ms) ms.value = state.deck?.markStyle || "marca-texto";
     const slide = state.deck?.slides?.[state.currentSlideIndex] || {};
@@ -1843,7 +1878,7 @@
   // tudo do deck que muda o desenho de um slide (tema, destaque, cabeçalho/rodapé e o que eles mostram)
   const deckLook = () => {
     const d = state.deck || {};
-    return JSON.stringify([d.theme, d.palette, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
+    return JSON.stringify([d.theme, d.palette, d.identity, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
   };
   const thumbKey = (idx, slide) => `${deckLook()}|${idx}|${JSON.stringify(slide)}`;
   let thumbObserver = null;
@@ -1982,6 +2017,7 @@
     if (!screen) return;
     screen.innerHTML = `<div class="thumb-render">${html}</div>`;
     requestAnimationFrame(() => fitRendered(screen));
+    window.SagaDiagrams?.mount(screen); // miniatura de diagrama também é desenhada
   }
 
   function markActiveThumb() {
@@ -2023,6 +2059,8 @@
   const SCENES = [
     ["scenography", "impact", "Texto no cenário", "Letras que ocupam o palco, o chão ou uma placa."],
     ["science", "teach", "Equações e gráficos", "Explore uma curva ou gire uma superfície em 3D."],
+    ["infographic", "teach", "Tudo em volta de uma ideia", "Desafios, frentes ou caminhos em arco, ramos, trilhas ou metrô."],
+    ["diagram", "teach", "Um processo que se explica", "Fluxo, sequência, UML ou mapa mental, nas cores do tema."],
     ["headline", "impact", "Uma ideia. Todo o palco.", "Tipografia monumental para a frase que fica."],
     ["number", "impact", "O número que muda tudo", "Dê dimensão a um resultado, sem um mar de dados."],
     ["quote", "impact", "Uma voz na história", "Uma citação com espaço para ressoar."],
@@ -2271,7 +2309,7 @@
   });
   let layoutPreviewKey = "";
   async function loadLayoutPreviews() {
-    const key = `${state.deck?.theme}|${state.deck?.markStyle || ""}`;
+    const key = `${state.deck?.theme}|${state.deck?.palette || ""}|${state.deck?.identity || ""}|${state.deck?.markStyle || ""}`;
     const cur = state.deck?.slides[state.currentSlideIndex]?.layout || "blocks";
     dom.layoutPickerGrid.querySelectorAll(".layout-card").forEach((c) => c.classList.toggle("active", c.dataset.layout === cur));
     if (key === layoutPreviewKey) return;
@@ -2764,6 +2802,21 @@
     root.querySelectorAll(".slide").forEach((s) => window.SagadeckFit.shrink(s));
   }
 
+  // Diagrama desenhado: se encolheu demais para caber, a pessoa vê o aviso e a IA recebe junto com o pedido
+  function reportDiagram(root) {
+    if (root !== dom.renderedSlideContainer) return;
+    const box = root.querySelector(".dg-box[data-dg-scale]");
+    const k = box ? +box.dataset.dgScale : 1;
+    const err = root.querySelector(".dg-box[data-dg=error] .dg-error span")?.textContent;
+    const notes = (state.renderNotes || []).filter((n) => !/^o diagrama/.test(n));
+    if (err) notes.push(`o diagrama não desenhou (erro no código Mermaid): ${err.slice(0, 200)}`);
+    else if (k < 0.62) notes.push(`o diagrama precisou encolher para ${Math.round(k * 100)}% para caber na área (${box.clientWidth}×${box.clientHeight}): letra pequena`);
+    state.renderNotes = notes;
+    const fit = state.fitStatus || { text: "", title: "" }; // sem problema no diagrama: volta o aviso do texto (se houver)
+    dom.statusFit.textContent = err ? "Diagrama com erro no código" : k < 0.62 ? `Diagrama reduzido para caber (${Math.round(k * 100)}%)` : fit.text;
+    dom.statusFit.title = err || k < 0.62 ? `${notes.join("\n")}\nPeça para a IA reorganizar (menos nós por linha, rótulos curtos, dividir em dois slides).` : fit.title;
+  }
+
   function fitSlideText(root) {
     const run = () => fitRendered(root);
     const report = () => {
@@ -2775,9 +2828,14 @@
       });
       const z = +(root.querySelector(".slide")?.dataset.shrink || 1);
       if (z < 1) notes.push(`o motor reduziu automaticamente todo o conteúdo do slide para ${Math.round(z * 100)}% para caber (sem isso, uma parte ficaria por cima de outra)`);
-      state.renderNotes = notes;
-      dom.statusFit.textContent = z < 1 ? `Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "Texto reduzido para caber" : "";
-      dom.statusFit.title = notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "";
+      state.renderNotes = [...notes, ...(state.renderNotes || []).filter((n) => /^o diagrama/.test(n))]; // o aviso do diagrama é de reportDiagram
+      state.fitStatus = {
+        text: z < 1 ? `Conteúdo reduzido para caber (${Math.round(z * 100)}%)` : notes.length ? "Texto reduzido para caber" : "",
+        title: notes.length ? `${notes.join("\n")}\nIsso é automático. Para ficar maior: encurte o texto ou use outro layout.` : "",
+      };
+      if (state.renderNotes.length > notes.length) return; // o diagrama tem aviso: ele manda na barra
+      dom.statusFit.textContent = state.fitStatus.text;
+      dom.statusFit.title = state.fitStatus.title;
     };
     run();
     report();
@@ -3354,6 +3412,28 @@
       renderThumbnails();
     });
 
+    // identidade (fontes da empresa) no deck todo
+    const idSel = document.getElementById("identity-select");
+    idSel.addEventListener("change", () => {
+      if (idSel.value) state.deck.identity = idSel.value;
+      else delete state.deck.identity;
+      syncDeckToServer();
+      renderCurrentSlide();
+      renderThumbnails();
+      syncIdentity();
+    });
+    document.getElementById("btn-identity-setup").addEventListener("click", async () => {
+      try {
+        const r = await fetch("api/identities/setup", { method: "POST" });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || r.statusText);
+        showToast(`Escreva as fontes da empresa em ${j.file} (o arquivo explica como) e volte aqui: a lista atualiza sozinha.`, 12000);
+        loadIdentities();
+      } catch (e) { showToast(`Não deu para configurar: ${e.message}`, 8000); }
+    });
+    window.addEventListener("focus", loadIdentities); // editou o arquivo e voltou: a lista acompanha
+    loadIdentities();
+
     // assistente: "Transformar em slides" aparece depois de uma conversa
     document.getElementById("btn-brainstorm-apply").addEventListener("click", applyBrainstorm);
 
@@ -3697,11 +3777,12 @@
       btn.onclick = async (e) => {
         e.preventDefault();
         if (btn.disabled) return;
-        const kind = btn.dataset.export, x = EXPORTS[kind];
+        const kind = btn.dataset.export, clean = btn.dataset.notas === "0";
+        const x = clean ? { label: "o PowerPoint sem as notas", done: "PowerPoint sem as notas do apresentador, pronto para mandar." } : EXPORTS[kind];
         btn.disabled = true;
         showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`api/export/${kind}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
+          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
           const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
           showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
         } catch (err) {

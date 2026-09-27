@@ -2,10 +2,13 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { decisionLabHTML } from "./decision-lab.js";
 import { md, esc } from "./markup.js";
-import { iconSVG } from "./figures/icons.js";
+import { iconSVG, listIcons } from "./figures/icons.js";
+let iconNames = null;
+const diagramIconNames = () => (iconNames ||= new Set(listIcons()));
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import { mathHTML, plotHTML } from "./science.js";
+import { infographicHTML } from "./infographic.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
@@ -432,6 +435,25 @@ export const LAYOUTS = {
   canvas(s, ctx) {
     return (s.elements || []).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");
   },
+  // Diagrama (Mermaid): fluxograma, sequência, estados, classes/UML, ER, jornada, mapa mental, linha do tempo, blocos.
+  // Quem desenha é o navegador (runtime/diagram.js), com a paleta do slide. Ícones: ":nome-do-icone:" nos rótulos.
+  diagram(s, ctx) {
+    const icons = {};
+    const known = diagramIconNames();
+    // %%{init}%% no código trocaria o tema do Mermaid e fugiria da paleta: sai
+    const code = String(s.mermaid || s.code || "").replace(/%%\{[\s\S]*?\}%%\s*/g, "").replace(/:([a-z][a-z0-9-]*[a-z0-9]):/g, (m, name) => {
+      if (!known.has(name)) return m;
+      try { icons[name] = iconSVG(name, { size: 40, stroke: 2 }); } catch { return m; }
+      return `<i class=dgi-${name}></i>`; // sem aspas: não briga com as aspas do Mermaid
+    });
+    return `<div class="L-diagram${s.caption ? " has-caption" : ""}">${head(s)}<div class="dg-box e" style="--d:2;"${s.autoDirection === false ? " data-dg-auto=\"0\"" : ""} data-dg-icons="${esc(JSON.stringify(icons))}"><pre class="dg-src" hidden>${esc(code)}</pre></div>${s.caption ? text(s.caption, "small", { class: "dg-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Infográfico: arco, ramos, lados, trilhas ou metrô, para qualquer quantidade de itens (src/infographic.js)
+  infographic(s, ctx) {
+    return `<div class="L-infographic">${head(s)}${infographicHTML(s, ctx)}${s.caption ? text(s.caption, "small", { class: "ig-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
+
   science(s, ctx) {
     return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {})}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
   },

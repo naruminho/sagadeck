@@ -439,3 +439,80 @@ test("conteúdo da pessoa com emoji e símbolos passa intacto", () => {
   const { html } = buildHTML({ slides: [{ layout: "list", title: "Plano 🚀", items: ["Fase 1 → Fase 2", "✓ feito", "★★★☆☆"] }] });
   for (const t of ["Plano 🚀", "Fase 1 → Fase 2", "✓ feito", "★★★☆☆"]) assert.ok(html.includes(t), t);
 });
+
+// Paletas de família: a cor forte da marca vira só o detalhe (alert); os parentes (family) viram variáveis e as
+// séries extras dos gráficos, no lugar dos cinzas.
+test("paleta de família: parentes viram --c-fN e as séries 3 a 5 dos gráficos; paleta sem família não muda", async () => {
+  const { resolveTheme, themeCSS, scopedThemeCSS, PALETTES } = await import("../src/themes.js");
+  for (const k of ["rubi", "ametista", "tangerina", "safira", "esmeralda"]) {
+    assert.ok(PALETTES[k]?.family?.length >= 2, k);
+    assert.doesNotMatch(PALETTES[k].label, /bradesco|nubank|ita[uú]/i, "sem nome de empresa");
+  }
+  const css = themeCSS(resolveTheme("prata", "rubi"));
+  assert.match(css, /--c-f1:#F9DCE5;/);
+  const series = css.match(/\[class\*="tone-"\]\{(--s3:#[0-9A-F]{6};--s4:#[0-9A-F]{6};--s5:#[0-9A-F]{6};)\}/);
+  assert.ok(series, "séries 3 a 5 da família");
+  const fam = PALETTES.rubi.family;
+  for (const c of series[1].match(/#[0-9A-F]{6}/g)) assert.ok(fam.includes(c.slice(1)), c);
+  assert.match(scopedThemeCSS(resolveTheme("prata", "rubi")), /\.slide\.lk-prata--rubi\[class\*="tone-"\]\{--s3:/, "também num slide com paleta própria");
+  // a da pessoa também aceita family; sem family, nada de séries novas
+  assert.match(themeCSS(resolveTheme("prata", { paper: "FFFFFF", ink: "222222", accent: "0066CC", alert: "CC0000", family: ["CCE0F5", "3385D6"] })), /--c-f2:#3385D6;/);
+  assert.doesNotMatch(themeCSS(resolveTheme("prata", "tinta")), /--s3:/);
+});
+
+// Identidade: as fontes da empresa vêm de um arquivo local (nunca do repositório). Corpo e rótulos sempre nelas;
+// títulos também, menos nos temas com personalidade. Fallback: a fonte do tema continua na lista.
+test("identidade: fontes da empresa por papel, respeitando o tema; paleta dela quando o deck não tem; sem o arquivo, aviso", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-ident-"));
+  const old = process.env.SAGADECK_IDENTIDADES;
+  process.env.SAGADECK_IDENTIDADES = path.join(dir, "identidades.yaml");
+  try {
+    fs.writeFileSync(process.env.SAGADECK_IDENTIDADES, `trabalho:\n  nome: Trabalho\n  fontes:\n    titulo: ["Acme Sans", "Acme Sans Compact"]\n    corpo: ["Acme Sans"]\n    compacta: ["Acme Sans Compact"]\n  paleta: rubi\nquebrada:\n  fontes: { corpo: "Outra Sans" }\n  paleta: nao-existe\n`);
+    const face = (html, role) => (html.match(new RegExp(`\\.f-${role}\\{font-family:([^;]+);`)) || [])[1] || "";
+    const sobrio = buildHTML({ theme: "prata", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.match(face(sobrio.html, "body"), /^ 'Acme Sans', .+/, "corpo na fonte da empresa, com a do tema depois");
+    assert.match(face(sobrio.html, "label"), /^ 'Acme Sans Compact',/, "rótulo na compacta");
+    assert.match(face(sobrio.html, "display"), /^ 'Acme Sans', 'Acme Sans Compact',/, "tema sóbrio: título também");
+    assert.match(sobrio.html, /--c-accent:#B83A6E/, "paleta da identidade");
+    assert.deepEqual(sobrio.warnings.filter((w) => /identidade/.test(w)), []);
+    const solto = buildHTML({ theme: "rabisco", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(face(solto.html, "display"), /Acme/, "tema com personalidade: o título fica com a fonte dele");
+    assert.match(face(solto.html, "body"), /^ 'Acme Sans',/);
+    const paleta = buildHTML({ theme: "prata", palette: "esmeralda", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(paleta.html, /--c-accent:#B83A6E/, "a paleta escolhida no deck vence");
+    // arquivo da pessoa com paleta que não existe: não quebra
+    assert.match(face(buildHTML({ theme: "prata", identity: "quebrada", slides: [{ layout: "statement", text: "x" }] }).html, "body"), /'Outra Sans'/);
+    // deck de outra máquina (identidade que não existe aqui): fontes do tema e um aviso
+    const fora = buildHTML({ theme: "prata", identity: "empresa-x", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(fora.html, /Acme/);
+    assert.ok(fora.warnings.some((w) => /identidade "empresa-x" não está/.test(w)));
+    // o PowerPoint recebe o nome da primeira fonte da empresa
+    assert.equal(sobrio.theme.faces.body.pptx.face, "Acme Sans");
+  } finally {
+    if (old === undefined) delete process.env.SAGADECK_IDENTIDADES; else process.env.SAGADECK_IDENTIDADES = old;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Infográficos: qualquer quantidade de itens (até o máximo da forma), cores do tema com letra clara legível.
+test("infographic: todas as formas desenham de 2 ao máximo de itens; excesso vira aviso; cores do tema com contraste", async () => {
+  const { INFOGRAPHIC_SHAPES, itemColors } = await import("../src/infographic.js");
+  const { resolveTheme } = await import("../src/themes.js");
+  const item = (i) => ({ title: `Item ${i + 1}`, text: "Uma frase curta.", icon: "star", steps: [{ title: "Etapa" }] });
+  for (const [shape, { max }] of Object.entries(INFOGRAPHIC_SHAPES)) {
+    for (const n of [shape === "trilhas" ? 1 : 2, max]) {
+      const r = buildHTML({ slides: [{ layout: "infographic", shape, title: "x", center: { title: "Centro" }, items: Array.from({ length: n }, (_, i) => item(i)) }] });
+      assert.deepEqual(r.warnings.filter((w) => /infográfico/.test(w)), [], `${shape} ${n}`);
+      assert.match(r.html, new RegExp(`ig-${shape}`));
+    }
+    const muitos = buildHTML({ slides: [{ layout: "infographic", shape, items: Array.from({ length: max + 2 }, (_, i) => item(i)) }] });
+    assert.ok(muitos.warnings.some((w) => new RegExp(`infográfico ${shape}: ${max + 2} itens, cabem até ${max}`).test(w)), shape);
+  }
+  const lum = (h) => { const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  for (const [theme, palette] of [["sinal"], ["prata"], ["noite"], ["prata", "rubi"], ["prata", "tangerina"], ["rabisco", "esmeralda"]]) {
+    const t = resolveTheme(theme, palette), cols = itemColors(t, 6);
+    for (const c of cols) assert.ok(ratio(c, t.colors.paper) >= 3, `${theme}/${palette}: #${c} com letra clara (${ratio(c, t.colors.paper).toFixed(2)})`);
+    assert.ok(new Set(cols).size >= 4, `${theme}/${palette}: cores diferentes para os itens (${cols})`);
+  }
+});

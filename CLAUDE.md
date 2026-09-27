@@ -1,5 +1,7 @@
 # sagadeck — regras do repositório
 
+**Antes de começar, leia `docs/ANDAMENTO.md`**: o diário das frentes em curso (o que já entrou, o que falta, decisões). Terminou uma etapa, atualize-o no mesmo commit e dê push; trabalho só no disco local se perde.
+
 ## Testes são parte do DNA do código
 
 **Nenhuma funcionalidade entra sem teste, e nenhum bug é corrigido sem um teste que o reproduza.**

@@ -36,12 +36,15 @@ export function newDeckPath(wanted, { root = defaultLibraryRoot(), topic = "Sem 
   root = path.resolve(root);
   const abs = wanted ? path.resolve(root, String(wanted)) : "";
   const rel = abs && path.relative(root, abs);
+  // caminho de Windows (C:\… ou \\servidor\…) num servidor Linux não é "absoluto" para o path de lá, mas também é
+  // de fora da biblioteca: vira só o nome, como em qualquer sistema
+  const foreign = process.platform !== "win32" && /^([A-Za-z]:[\\/]|\\\\)/.test(String(wanted || ""));
   let dir, name, file;
-  if (rel && !rel.startsWith("..") && !path.isAbsolute(rel) && /[\\/]/.test(String(wanted))) {
+  if (rel && !foreign && !rel.startsWith("..") && !path.isAbsolute(rel) && /[\\/]/.test(String(wanted))) {
     if (/\.ya?ml$/i.test(abs)) file = abs;
     else { dir = abs; name = path.basename(abs); }
   } else {
-    name = safeName(wanted ? path.basename(String(wanted)).replace(/\.ya?ml$/i, "") : title || "Nova apresentação");
+    name = safeName(wanted ? String(wanted).split(/[\\/]/).pop().replace(/\.ya?ml$/i, "") : title || "Nova apresentação");
     dir = path.join(root, safeName(topic, "Sem tópico"), name);
   }
   file ||= path.join(dir, name + ".yaml");

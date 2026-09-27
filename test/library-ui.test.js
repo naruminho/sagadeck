@@ -80,6 +80,17 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
       assert.equal(l.decks.filter((d) => d.topic === "Trabalho").length, 1);
     });
 
+    await t.test("menu do cartão: Baixar PowerPoint sem as notas pede o arquivo sem as notas", { timeout: 120000 }, async () => {
+      await p.click('[data-view="Trabalho"]');
+      await p.click(".card[data-id] [data-more]");
+      const [req] = await Promise.all([p.waitForRequest(/api\/library\/download/), p.click('[data-dl="pptx"][data-notas="0"]')]);
+      const u = new URL(req.url());
+      assert.equal(u.searchParams.get("kind"), "pptx");
+      assert.equal(u.searchParams.get("notas"), "0");
+      const head = await p.evaluate(async (href) => { const r = await fetch(href); return { ok: r.ok, type: r.headers.get("content-type") }; }, req.url());
+      assert.ok(head.ok && /presentationml/.test(head.type), JSON.stringify(head));
+    });
+
     await t.test("baixar .sagadeck pelo menu do cartão e importar de volta", async () => {
       await p.click('[data-view="Trabalho"]');
       await p.click(".card[data-id] [data-more]");

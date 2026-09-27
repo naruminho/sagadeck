@@ -19,6 +19,7 @@ test("newDeckPath: fora da biblioteca vira <biblioteca>/<tópico>/<nome>/<nome>.
   const root = lib();
   assert.equal(newDeckPath(path.join(os.tmpdir(), "x", "palestra.yaml"), { root }), path.join(root, "Sem tópico", "palestra", "palestra.yaml"));
   assert.equal(newDeckPath("C:/Users/fulano/src/sagadeck/deck.yaml", { root, topic: "Aulas" }), path.join(root, "Aulas", "deck", "deck.yaml"));
+  assert.equal(newDeckPath("C:\\Users\\fulano\\Desktop\\aula.yaml", { root, topic: "Aulas" }), path.join(root, "Aulas", "aula", "aula.yaml"), "barra invertida do Windows, em qualquer sistema");
   assert.equal(newDeckPath(null, { root, title: "Ensaio: APIs de IA ao vivo" }), path.join(root, "Sem tópico", "Ensaio APIs de IA ao vivo", "Ensaio APIs de IA ao vivo.yaml"));
   assert.equal(newDeckPath("Minha palestra", { root }), path.join(root, "Sem tópico", "Minha palestra", "Minha palestra.yaml"));
   const dentro = path.join(root, "Trabalho", "ia", "ia.yaml");

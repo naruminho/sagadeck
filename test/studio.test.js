@@ -220,6 +220,28 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Identidade: Configurar cria o modelo; escolher põe as fontes da empresa no slide e no deck salvo; avisa se não estão instaladas", async () => {
+    const old = process.env.SAGADECK_IDENTIDADES;
+    process.env.SAGADECK_IDENTIDADES = path.join(deckFile.dir, "config", "identidades.yaml");
+    try {
+      await tab("design");
+      await p.click("#btn-identity-setup"); await settle(700);
+      assert.ok(fs.existsSync(process.env.SAGADECK_IDENTIDADES), "modelo criado");
+      assert.match(fs.readFileSync(process.env.SAGADECK_IDENTIDADES, "utf8"), /fontes:/);
+      await p.waitForFunction(() => [...document.querySelectorAll("#identity-select option")].some((o) => o.value === "trabalho"));
+      await p.selectOption("#identity-select", "trabalho"); await settle(1200);
+      assert.equal(saved().identity, "trabalho", "salvo no deck");
+      const font = await p.evaluate(() => getComputedStyle(document.querySelector("#rendered-slide-container .f-body, #rendered-slide-container .t")).fontFamily);
+      assert.match(font, /Nome da Fonte Sans/, "o slide usa a fonte da empresa (com a do tema de reserva)");
+      assert.match(await p.textContent("#identity-note"), /Nenhuma das fontes está instalada/, "aviso: fonte de mentira não está instalada");
+      await p.selectOption("#identity-select", ""); await settle(900);
+      assert.equal(saved().identity, undefined, "Do tema: sai do deck");
+    } finally {
+      if (old === undefined) delete process.env.SAGADECK_IDENTIDADES; else process.env.SAGADECK_IDENTIDADES = old;
+      await tab("inicio");
+    }
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);
@@ -247,6 +269,51 @@ test("studio", async (t) => {
     assert.ok(saved().slides[i].title.endsWith(" TESTE"), "arquivo");
     for (let k = 0; k < 6; k++) await input.press("Backspace");
     await settle();
+  });
+
+  await t.test("Inserir → Diagrama: desenha no palco e na miniatura; editar o código salva, e erro aparece na barra", async () => {
+    await tab("inserir");
+    await p.click("#btn-add-diagram"); await settle(1200);
+    const i = (await deck()).slides.findIndex((s) => s.layout === "diagram");
+    assert.ok(i >= 0, "slide inserido");
+    assert.match(saved().slides[i].mermaid, /flowchart/, "salvo no arquivo");
+    await p.waitForSelector('#rendered-slide-container .dg-box[data-dg="ready"] > svg', { timeout: 15000 });
+    await p.waitForSelector(`.thumb-card[data-idx="${i}"] .dg-box[data-dg="ready"] > svg`, { timeout: 15000 });
+    const code = p.locator(`${form} textarea`).first();
+    // código quebrado: o palco mostra o erro e a barra de status avisa
+    await code.fill("flowchart LR\n  A[Pedido --> ");
+    await settle(1500);
+    await p.waitForSelector('#rendered-slide-container .dg-error', { timeout: 15000 });
+    assert.match(await p.textContent("#status-fit"), /Diagrama com erro/);
+    // conserta: desenha de novo e o arquivo guarda o código novo (ênfase e ícone inclusos)
+    await code.fill("flowchart LR\n  A([:key-round: Pedido]):::hi --> B[Wave] ==> C[Produção]:::em");
+    await settle(1500);
+    await p.waitForSelector('#rendered-slide-container .dg-box[data-dg="ready"] .dgi svg', { timeout: 15000 });
+    assert.match(saved().slides[i].mermaid, /C\[Produção\]:::em/);
+    assert.doesNotMatch(await p.textContent("#status-fit"), /Diagrama com erro/);
+    // limpa para os próximos testes
+    await tab("inicio");
+    await go((s) => s.layout === "diagram");
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
+  await t.test("Inserir → Infográfico: desenha; trocar a forma e adicionar item pelo formulário salva no deck", async () => {
+    await tab("inserir");
+    await p.click("#btn-add-infographic"); await settle(1200);
+    const i = (await deck()).slides.findIndex((s) => s.layout === "infographic");
+    assert.ok(i >= 0, "slide inserido");
+    assert.ok(saved().slides[i].items.length >= 2, "salvo com os itens de exemplo");
+    await p.waitForSelector("#rendered-slide-container .ig-stage.ig-arco .ig-box");
+    await p.selectOption(`${form} select.form-control >> nth=0`, "metro"); await settle(1200);
+    await p.waitForSelector("#rendered-slide-container .ig-stage.ig-metro");
+    assert.equal(saved().slides[i].shape, "metro");
+    const n = saved().slides[i].items.length;
+    await p.click(`${form} button:has-text("Adicionar item")`); await settle(1200);
+    assert.equal(saved().slides[i].items.length, n + 1, "item novo no deck");
+    assert.equal(await p.locator("#rendered-slide-container .ig-layer").count(), n + 1, "e no desenho");
+    await tab("inicio");
+    await go((s) => s.layout === "infographic");
+    await p.click("#btn-del-slide"); await settle(500);
   });
 
   await t.test("lista: adicionar, reordenar e remover cartões", async () => {
@@ -540,6 +607,20 @@ test("studio", async (t) => {
     await download.saveAs(file);
     const pp = await readPptx(fs.readFileSync(file));
     assert.equal(pp.slides.length, n);
+    assert.match(pp.notes, /falar de segurança primeiro/, "com as notas do apresentador");
+  });
+
+  await t.test("Baixar PowerPoint sem as notas: mesma apresentação, sem a cola do apresentador", { timeout: 180000 }, async () => {
+    const n = (await deck()).slides.length;
+    await p.click("#btn-export-menu");
+    const [download] = await Promise.all([p.waitForEvent("download", { timeout: 170000 }), p.click("#export-pptx-clean")]);
+    assert.match(download.suggestedFilename(), /\.pptx$/);
+    const file = path.join(deckFile.dir, "sem-notas.pptx");
+    await download.saveAs(file);
+    const pp = await readPptx(fs.readFileSync(file));
+    assert.equal(pp.slides.length, n);
+    assert.doesNotMatch(pp.notes, /falar de segurança/, "sem as notas");
+    assert.match(saved().slides.find((x) => x.notes)?.notes || "", /falar de segurança/, "as notas continuam no deck");
   });
 
   await t.test("Baixar PDF e roteiro pelo menu", { timeout: 240000 }, async () => {

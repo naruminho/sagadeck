@@ -38,6 +38,7 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
     await page.goto(`${pathToFileURL(file).href}?export#${index + 1}`, { waitUntil: "load" });
     await page.waitForFunction(() => window.sagadeck && typeof window.sagadeck.goto === "function", null, { timeout: 10000 });
     await page.evaluate(() => window.SagaScienceReady);
+    await page.evaluate(() => window.SagaDiagramsReady);
     await page.evaluate(() => document.fonts?.ready);
     const steps = await page.evaluate((i) => window.sagadeck.steps(i) || 0, index);
     const frames = [];
@@ -57,6 +58,32 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
       await shot(steps ? `todos os ${steps} cliques revelados` : "slide completo");
     }
     return frames;
+  } finally {
+    await page.close().catch(() => {});
+    fs.rm(file, { force: true }, () => {});
+  }
+}
+
+/**
+ * Diagramas (layout diagram) só se conferem desenhando: o Mermaid roda no navegador. Desenha os slides `indices`
+ * do deck e devolve o que deu errado, com o número do slide no deck.
+ * @returns {Promise<{ errors: {slide:number, error:string}[], warnings: {slide:number, warning:string}[] }>}
+ */
+export async function diagramCheck(spec, indices) {
+  const only = { ...spec, slides: indices.map((i) => spec.slides[i]) };
+  const { html } = buildHTML(only);
+  const file = path.join(os.tmpdir(), `sagadeck-dg-${process.pid}-${Date.now()}.html`);
+  fs.writeFileSync(file, html);
+  const b = await browser();
+  const page = await b.newPage({ viewport: { width: 1920, height: 1080 } });
+  try {
+    await page.goto(`${pathToFileURL(file).href}?export`, { waitUntil: "load" });
+    await page.waitForFunction(() => window.sagadeck && window.SagaDiagramsReady, null, { timeout: 10000 });
+    await page.evaluate(() => document.fonts?.ready);
+    await page.evaluate(() => window.SagaDiagramsReady);
+    const r = await page.evaluate(() => ({ errors: window.sagadeckDiagramErrors || [], warnings: window.sagadeckDiagramWarnings || [] }));
+    const real = (x) => ({ ...x, slide: indices[x.slide - 1] + 1 }); // número no deck de verdade
+    return { errors: r.errors.map(real), warnings: r.warnings.map(real) };
   } finally {
     await page.close().catch(() => {});
     fs.rm(file, { force: true }, () => {});

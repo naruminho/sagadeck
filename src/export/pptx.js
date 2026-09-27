@@ -303,7 +303,9 @@ function materializePseudos() {
   document.head.append(st);
 }
 
-export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, log = () => {} } = {}) {
+// notes: false tira as notas do apresentador (mandar a apresentação para alguém sem a "cola")
+export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, log = () => {} } = {}) {
+  const notesOpt = notes !== false;
   const { browser, page, errors } = await openDeck(htmlFile, { scale: 2 });
   await page.evaluate(materializePseudos);
   await page.addStyleTag({ content: `
@@ -388,8 +390,8 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
         anims.push({ name, step: it.step, exit: it.exit, isSp: false });
       }
     }
-    const notes = meta.slides[i]?.notesRaw ?? "";
-    if (notes) slide.addNotes(notesPlain(notes));
+    const notes = meta.slides[i]?.notesRaw ?? "", withNotes = notesOpt;
+    if (notes && withNotes) slide.addNotes(notesPlain(notes));
     animBySlide.push({ anims, tr: data.tr });
     log(`  slide ${i + 1}/${n}: ${data.items.length} objetos`);
   }

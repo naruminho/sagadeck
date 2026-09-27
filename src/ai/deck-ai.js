@@ -168,6 +168,22 @@ function withoutImagePrompts(node) {
   return out;
 }
 
+// Diagramas (layout diagram) só se conferem desenhando: quem desenha o Mermaid é o navegador (drawCheck vem do
+// Studio; sem navegador, segue sem conferir). Código que não desenha volta para a IA corrigir, como qualquer slide
+// que não renderiza. Desenho que precisou encolher demais (letra pequena) volta uma vez, como objeção: ela
+// reorganiza (direção, quebra, rótulos curtos, dividir em dois) ou mantém, se não tiver jeito.
+async function checkDrawings(spec, indices, drawCheck, seen) {
+  const idx = [...new Set(indices)].filter((i) => spec.slides[i]?.layout === "diagram");
+  if (!drawCheck || !idx.length) return;
+  let r;
+  try { r = await drawCheck(spec, idx); } catch { return; }
+  if (r.errors?.length) throw new Error(`O Mermaid não conseguiu desenhar o diagrama:\n${r.errors.map((e) => `- slide ${e.slide}: ${e.error}`).join("\n")}\nCorrija o código (sintaxe Mermaid; veja a seção Diagramas da referência).`);
+  const fresh = (r.warnings || []).filter((w) => !seen.has(w.slide));
+  if (!fresh.length) return;
+  fresh.forEach((w) => seen.add(w.slide));
+  throw Object.assign(new Error(`FATO DO DESENHO:\n${fresh.map((w) => `- slide ${w.slide}: ${w.warning}`).join("\n")}\nReorganize o diagrama para a letra ficar legível; se não houver jeito melhor, mantenha e diga isso numa frase.`), { soft: true });
+}
+
 // Conversa com o LLM até ele devolver algo que passa na validação.
 // opts.onProgress({ phase, text, chars }) recebe as etapas e o texto chegando (para a interface mostrar vida).
 async function askUntilValid(messages, parse, opts = {}) {
@@ -190,7 +206,7 @@ async function askUntilValid(messages, parse, opts = {}) {
     progress({ phase: "validating", text: "Validando os slides…", chars: res.text.length });
     if (attempt === 1) firstProse = extractYaml(res.text).prose;
     try {
-      const parsed = parse(res.text);
+      const parsed = await parse(res.text);
       // Correção só de formato: a explicação que vale é a da 1ª resposta (não o "desculpe, corrigi").
       // Revisão de conteúdo (soft): o que foi aplicado é a última resposta, então vale a explicação dela.
       if (attempt > 1 && firstProse && !lastError?.soft) parsed.prose = firstProse;
@@ -442,7 +458,7 @@ export function applyPatch(base, patch) {
 // ---------------------------------------------------------------------------------------------
 const STUDIO_KEYS = ["layout", "notes", "time", "id", "visualEdits", "auto", "image_prompt", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
-const FREE_TEXT_KEYS = new Set(["code", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
+const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
 const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);
 let knownKeysCache = null;
 function knownSlideKeys() {
@@ -589,7 +605,7 @@ function parseEditText(text, base) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null }) {
   const deck = publicSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -634,9 +650,15 @@ Antes de responder, verifique (e siga as Regras de edição):
     { role: "user", content: userContent },
   ];
   let motifObjected = false;
+  const drawWarned = new Set();
   const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, test = [] } =
-    await askUntilValid(messages, (t) => {
+    await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
+      if (parsed.variants) await checkDrawings({ slides: parsed.variants.options.map((o) => o.slide) }, parsed.variants.options.map((_, k) => k), drawCheck, drawWarned);
+      else if (parsed.changed?.length) {
+        onProgress?.({ phase: "validating", text: "Conferindo o desenho dos diagramas…" });
+        await checkDrawings(parsed.spec, parsed.changed, drawCheck, drawWarned);
+      }
       if (motifObjected) return parsed; // já objetou uma vez: a 2ª resposta vale, mesmo insistindo
       try { return checkMotifs(parsed, spec); } catch (e) { if (e.soft) motifObjected = true; throw e; }
     }, { onProgress });
@@ -684,7 +706,7 @@ function pickTarget(before, after, current) {
 }
 
 // Napkin com LLM: texto bruto -> um slide visual.
-export async function textToSlide(text, { theme, tone, title, kicker, layout, images = false, imageOptions = {} } = {}) {
+export async function textToSlide(text, { theme, tone, title, kicker, layout, images = false, imageOptions = {}, drawCheck = null } = {}) {
   const hints = [layout && `use OBRIGATORIAMENTE o layout ${layout}`, theme && `tema do deck: ${theme}`, tone && `tom: ${tone}`, title && `título sugerido: ${title}`, kicker && `kicker: ${kicker}`]
     .filter(Boolean).join("; ");
   const messages = [
@@ -701,14 +723,19 @@ Responda com:
 2. O slide num bloco \`\`\`yaml (um único objeto de slide, sem "slides:").` },
   ];
   const deck = { theme: theme || "sinal", slides: [] };
-  const { slide, prose } = await askUntilValid(messages, (t) => parseSlideText(t, deck));
+  const drawWarned = new Set();
+  const { slide, prose } = await askUntilValid(messages, async (t) => {
+    const r = parseSlideText(t, deck);
+    await checkDrawings({ ...deck, slides: [r.slide] }, [0], drawCheck, drawWarned);
+    return r;
+  });
   const wrapper = { ...deck, slides: [slide] };
   await materializeImages(wrapper, images ? imageOptions : { max: 0 });
   return { slide: wrapper.slides[0], detectedType: wrapper.slides[0].layout || "blocks", confidence: 1, rationale: prose || "Layout escolhido pelo LLM." };
 }
 
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, direction, images = true, imageOptions = {}, onProgress, onEvent } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, direction, images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const wishes = [
@@ -738,7 +765,9 @@ ${briefing}
 Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duration e slides).` },
   ];
   say("pedindo o deck ao LLM…");
-  let { spec, attempts } = await askUntilValid(messages, (t) => parseDeckText(t), { temperature: 0.7, onProgress: onEvent });
+  const drawWarned = new Set();
+  const parseDrawn = async (t) => { const r = parseDeckText(t); await checkDrawings(r.spec, r.spec.slides.map((_, i) => i), drawCheck, drawWarned); return r; };
+  let { spec, attempts } = await askUntilValid(messages, parseDrawn, { temperature: 0.7, onProgress: onEvent });
   if (attempts > 1) say(`YAML corrigido após ${attempts - 1} tentativa(s)`);
 
   // Uma rodada de enxugamento se o fiscal anti-sono reclamaria de algum slide.
@@ -754,7 +783,7 @@ ${wordy.map((w) => `- slide ${w.n}: ${w.words} palavras (limite ${w.limit})`).jo
 
 Enxugue esses slides para no máximo ~75% do limite (ex.: 30 palavras se o limite é 40): frases curtas, menos itens, detalhe movido para \`notes\` — ou divida um slide em dois. Não mexa nos outros slides.
 Responda só com o deck completo num bloco \`\`\`yaml.` },
-      ], (t) => parseDeckText(t), { onProgress: onEvent }));
+      ], parseDrawn, { onProgress: onEvent }));
     } catch (e) {
       say(`não consegui enxugar (${e.message}); mantive a versão anterior`);
     }
@@ -773,7 +802,7 @@ ${before.problems.map((p) => `- ${p}`).join("\n")}
 Reescreva variando os layouts, o ritmo e o tom, SEM perder conteúdo nem a ordem da narrativa (direção criativa: ${dir}).
 Troque slides de lista/cartões por formatos de impacto onde fizer sentido; mantenha notes e time.
 Responda só com o deck completo num bloco \`\`\`yaml.` },
-      ], (t) => parseDeckText(t), { onProgress: onEvent });
+      ], parseDrawn, { onProgress: onEvent });
       if (varietyReport(varied).problems.length < before.problems.length) spec = varied;
       else say("a revisão de ritmo não melhorou; mantive a versão anterior");
     } catch (e) {

@@ -21,7 +21,7 @@ import { packDeck, unpackDeck, EXTENSION, MIME } from "../package.js";
 import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
-import { slideSnapshots } from "./snapshot.js";
+import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -295,6 +295,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.writeHead(200, {"Content-Type":"application/javascript"});
         res.end(fs.readFileSync(path.join(RUNTIME_DIR,"decision-lab.js"))); return;
       }
+      if (["/diagram.js", "/mermaid.min.js"].includes(pathname)) {
+        res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/diagram.js" ? "diagram.js" : "vendor/mermaid.min.js")));
+        return;
+      }
       if (["/science.js", "/plotly.min.js"].includes(pathname)) {
         res.writeHead(200, {"Content-Type":"application/javascript; charset=utf-8"});
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/science.js" ? "science.js" : "vendor/plotly.min.js")));
@@ -337,6 +342,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // 3. API Endpoints
+      // Identidades (fontes da empresa, arquivo local ~/.sagadeck/identidades.yaml; ver src/identity.js).
+      // Ler vale sempre; criar o modelo e abrir a pasta, só no Studio local (é a máquina da pessoa).
+      if (pathname === "/api/identities" && req.method === "GET") {
+        const { loadIdentities } = await import("../identity.js");
+        const d = loadIdentities();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, identities: Object.values(d.identities).map((x) => ({ id: x.id, name: x.name, fonts: x.fonts, palette: typeof x.palette === "string" ? x.palette : x.palette ? "propria" : null })) }));
+        return;
+      }
+      if (pathname === "/api/identities/setup" && req.method === "POST") {
+        const blocked = apiBlocked(req);
+        if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
+        const { ensureIdentitiesFile } = await import("../identity.js");
+        const file = ensureIdentitiesFile();
+        if (process.platform === "win32") spawn("explorer.exe", [`/select,${file}`], { detached: true, stdio: "ignore" }).unref();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ file }));
+        return;
+      }
+
       if (pathname === "/api/deck" && req.method === "GET") {
         const rawYaml = toYaml(W.spec); // sem os campos internos (_dir, _file)
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -352,7 +377,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
           }])),
           // paletas (só cores, valem em qualquer tema): para a galeria de paletas
-          palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert].map((c) => `#${c}`) }])),
+          palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert, ...(p.family || [])].map((c) => `#${c}`) }])),
           layouts: Object.keys(LAYOUTS),
         }));
         return;
@@ -487,16 +512,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/api/layout-previews") {
         const { LAYOUT_INFO, LAYOUT_SAMPLES } = await import("./layout-samples.js");
         const theme = W.spec?.theme || "sinal";
-        const key = `${theme}|${W.spec?.markStyle || ""}`;
+        const identity = W.spec?.identity, palette = W.spec?.palette;
+        const key = `${theme}|${palette || ""}|${identity || ""}|${W.spec?.markStyle || ""}`;
         if (!layoutPreviewCache.has(key)) {
-          const spec = { theme, markStyle: W.spec?.markStyle, title: "", footer: false, slides: [] };
+          const spec = { theme, palette, identity, markStyle: W.spec?.markStyle, title: "", footer: false, slides: [] };
           const out = {};
           for (const [name, sample] of Object.entries(LAYOUT_SAMPLES)) {
             try { out[name] = renderSlide(sample, 0, spec).html; } catch (e) { out[name] = ""; }
           }
           layoutPreviewCache.set(key, out);
         }
-        const r = renderSlide({ layout: "statement", text: "x" }, 0, { theme });
+        const r = renderSlide({ layout: "statement", text: "x" }, 0, { theme, palette, identity });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ info: LAYOUT_INFO, html: layoutPreviewCache.get(key), baseCSS: r.baseCSS, themeCSS: r.themeCSS }));
         return;
@@ -553,7 +579,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         let notice = "";
         if (body.mode !== "rules" && body.text && await llmAvailable()) {
           try {
-            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(W, withBase(W, W.spec)) });
+            result = await textToSlide(body.text, { ...opts, images: true, imageOptions: imageOptions(W, withBase(W, W.spec)), drawCheck: diagramCheck });
             mode = "llm";
           } catch (e) {
             notice = `A IA falhou (${e.message}); usei as regras locais.`;
@@ -662,6 +688,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             images: true, // o briefing diz se quer imagens (e onde)
             imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
             onEvent: emit,
+            drawCheck: diagramCheck,
           });
           let target = path.join(dir, `${slugify(gen.spec.title)}.yaml`);
           for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${slugify(gen.spec.title)}-${n}.yaml`);
@@ -734,6 +761,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               visuals,
               renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
               apiContext: apiContextFor(req, W),
+              drawCheck: diagramCheck,
             });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
@@ -760,6 +788,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const next = await editDeck({
                 spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
                 imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
+                drawCheck: diagramCheck,
               });
               convo.push({ role: "user", text: instruction });
               result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
@@ -925,7 +954,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const file = L.resolveId(url.searchParams.get("id"));
             const kind = url.searchParams.get("kind") || "sagadeck";
             if (!["sagadeck", "pptx", "pdf", "roteiro"].includes(kind)) throw new Error("formato inválido");
-            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""));
+            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { notes: url.searchParams.get("notas") !== "0" });
             return;
           }
           if (pathname === "/api/library/import" && req.method === "POST") {
@@ -992,7 +1021,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               await respond(res, b.stream, async (emit) => {
                 try {
                   const gen = await generateDeck(b.briefing || "", { theme: b.theme || undefined, slides: Number(b.slides) || undefined,
-                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit });
+                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit, drawCheck: diagramCheck });
                   fs.writeFileSync(file, toYaml(gen.spec), "utf8");
                   const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
                   return { ok: true, id: finalId, images: gen.images };
@@ -1015,7 +1044,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (exportKind) {
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        await sendExport(res, exportKind, spec, name);
+        await sendExport(res, exportKind, spec, name, { notes: url.searchParams.get("notas") !== "0" });
         return;
       }
 
@@ -1125,7 +1154,7 @@ async function lookAt(spec, index, prompt, emit) {
 // de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-async function sendExport(res, kind, spec, name) {
+async function sendExport(res, kind, spec, name, { notes = true } = {}) {
   const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
   if (kind === "sagadeck") {
     const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
@@ -1147,7 +1176,7 @@ async function sendExport(res, kind, spec, name) {
     let errors = [];
     if (kind === "pptx") {
       const { exportPptx } = await import("../export/pptx.js");
-      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } }));
+      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes }));
     } else if (kind === "pdf") {
       const { pdf } = await import("../export/shots.js");
       await pdf(htmlFile, out);
