@@ -395,7 +395,8 @@ test("interface sem emoji nem símbolo unicode fazendo papel de ícone (use íco
   const pub = path.join(ROOT, "src", "studio", "public");
   const files = [
     ...fs.readdirSync(pub).filter((f) => /\.(js|html|css)$/.test(f) && f !== "ui-icons.js").map((f) => path.join(pub, f)),
-    ...["runtime/runtime.js", "runtime/api-ui.js", "runtime/base.css", "build.js", "chrome.js", "studio/server.js"].map((f) => path.join(ROOT, "src", f)),
+    ...["runtime/runtime.js", "runtime/api-ui.js", "runtime/base.css", "build.js", "chrome.js", "studio/server.js", "elements.js", "layouts.js"].map((f) => path.join(ROOT, "src", f)),
+    ...fs.readdirSync(path.join(ROOT, "src", "runtime", "skins")).map((f) => path.join(ROOT, "src", "runtime", "skins", f)),
   ];
   const found = [];
   for (const file of files) {
@@ -408,4 +409,28 @@ test("interface sem emoji nem símbolo unicode fazendo papel de ícone (use íco
     });
   }
   assert.deepEqual(found, [], "troque por <i class=\"ic\" data-ic=\"…\"> (Studio) ou SVG inline (apresentação)");
+});
+
+// A IA do sagadeck só usa o que está na referência (docs/REFERENCIA.md vai inteira no prompt). Recurso novo que
+// não entra lá é invisível para ela: este teste falha se faltar um layout, composição, tema ou paleta.
+test("a IA conhece tudo: todo layout, composição, tema e paleta aparece na referência que vai no prompt", async () => {
+  const { reference } = await import("../src/ai/deck-ai.js");
+  const { LAYOUTS, SCENES } = await import("../src/layouts.js");
+  const { THEMES, PALETTES } = await import("../src/themes.js");
+  const ref = reference();
+  const missing = [
+    ...Object.keys(LAYOUTS).filter((k) => !new RegExp("`" + k + "`|layout: " + k + "\b").test(ref)).map((k) => "layout " + k),
+    ...Object.keys(SCENES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "composição " + k),
+    ...Object.keys(THEMES).filter((k) => !ref.includes("`" + k + "`") && !ref.includes(" " + k + " ")).map((k) => "tema " + k),
+    ...Object.keys(PALETTES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "paleta " + k),
+  ];
+  assert.deepEqual(missing, []);
+  assert.match(ref, /context:/, "o campo de contexto da apresentação");
+});
+
+// A regra "sem unicode como ícone" vale para o que o sagadeck desenha (interface, setas, selos). O conteúdo da pessoa
+// (digitado ou colado de outra IA) passa do jeito que veio: emoji, setas e símbolos no texto não são filtrados.
+test("conteúdo da pessoa com emoji e símbolos passa intacto", () => {
+  const { html } = buildHTML({ slides: [{ layout: "list", title: "Plano 🚀", items: ["Fase 1 → Fase 2", "✓ feito", "★★★☆☆"] }] });
+  for (const t of ["Plano 🚀", "Fase 1 → Fase 2", "✓ feito", "★★★☆☆"]) assert.ok(html.includes(t), t);
 });

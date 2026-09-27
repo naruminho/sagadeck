@@ -207,3 +207,26 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   const asked = reqs.filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", ""));
   assert.deepEqual(asked.sort(), ["a bank vault at night", "a crowded subway station"], "só os slides que a IA escolheu ilustrar");
 });
+
+// Perguntas assistidas: o modelo decide QUANDO perguntar (não é um formulário fixo); o prompt diz o que importa
+// saber (plateia, presencial/online, executivo/informal…) e que a resposta fica no deck (context:) para as próximas.
+test("contexto da apresentação: regras de quando perguntar no prompt, e o que já se sabe vai junto", async () => {
+  reply = () => "Para quantas pessoas vai ser?\n```opcoes\nAté 10\nDe 10 a 50\nMais de 50\n```";
+  const n = llm.requests.length;
+  const spec = { ...base(), context: { formato: "online", tom: "executivo" } };
+  const r = await editDeck({ spec, instruction: "refaça a apresentação para a diretoria", targetSlide: 0 });
+  const req = llm.requests[n], sys = req.system, all = JSON.stringify(req.messages || req);
+  assert.match(sys, /CONTEXTO/);
+  assert.match(sys, /online|gravad/i);
+  assert.match(sys, /executivo/i);
+  assert.match(sys, /context:/, "o modelo sabe onde guardar o que a pessoa respondeu");
+  assert.match(all, /formato: online/, "o contexto já conhecido vai para o modelo");
+  assert.equal(r.talk, true);
+  assert.deepEqual(r.options, ["Até 10", "De 10 a 50", "Mais de 50"]);
+});
+
+test("o que a pessoa responde vira context: no deck", async () => {
+  reply = () => "Anotei: presencial, para umas 30 pessoas.\n```yaml\ndeck:\n  context: { formato: presencial, pessoas: 30 }\n```";
+  const r = await editDeck({ spec: base(), instruction: "presencial, umas 30 pessoas", targetSlide: 0 });
+  assert.deepEqual(r.spec.context, { formato: "presencial", pessoas: 30 });
+});

@@ -177,15 +177,15 @@ export function cards(e, ctx) {
     if (c.badge) badgeHtml = `<span class="cd-badge badge">${md(c.badge)}</span>`;
     else if (c.trend) {
       const isUp = c.trendUp !== false && !String(c.trend).startsWith("-");
-      badgeHtml = `<span class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${isUp ? '↑ ' : '↓ '}${esc(c.trend)}</span>`;
+      badgeHtml = `<span class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${iconSVG(isUp ? "trending-up" : "trending-down", { size: 26, stroke: 2.2, cls: "st-trend-ic" })} ${esc(c.trend)}</span>`;
     }
 
     let extraWidgets = "";
     if (c.progress != null) extraWidgets += progress({ progress: c.progress, label: c.progressLabel });
     if (c.tags) extraWidgets += tags({ tags: c.tags });
     if (c.rating != null) extraWidgets += rating({ rating: c.rating, label: c.ratingLabel });
-    if (c.check === true || c.status === "pro") extraWidgets += `<div class="check-pill pro">✓ ${c.checkText ? md(c.checkText) : "Recomendado"}</div>`;
-    if (c.check === false || c.status === "con") extraWidgets += `<div class="check-pill con">✗ ${c.checkText ? md(c.checkText) : "Evitar"}</div>`;
+    if (c.check === true || c.status === "pro") extraWidgets += `<div class="check-pill pro">${iconSVG("check", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Recomendado"}</div>`;
+    if (c.check === false || c.status === "con") extraWidgets += `<div class="check-pill con">${iconSVG("x", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Evitar"}</div>`;
 
     return `<div${attrs({ ...c, step, card: c.hl ? "hi" : true }, "cd")}>
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
@@ -214,7 +214,7 @@ export function stats(e, ctx) {
     let trendHtml = "";
     if (st.trend) {
       const isUp = st.trendUp !== false && !String(st.trend).startsWith("-");
-      trendHtml = `<div class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${isUp ? '↑ ' : '↓ '}${esc(st.trend)}</div>`;
+      trendHtml = `<div class="st-trend ${isUp ? 'trend-up' : 'trend-down'}">${iconSVG(isUp ? "trending-up" : "trending-down", { size: 26, stroke: 2.2, cls: "st-trend-ic" })} ${esc(st.trend)}</div>`;
     }
     return `<div${attrs({ ...st, step, card: st.card ?? true }, "stat-card")}>
       <div class="st-top">
@@ -247,7 +247,7 @@ export function steps(e, ctx) {
       ${st.title ? `<div class="step-title t f-heading">${md(st.title)}</div>` : ""}
       ${st.text ? `<div class="step-text t f-body">${md(st.text)}</div>` : ""}
       ${st.tag ? `<div class="tag-pill" style="align-self:flex-start;margin-top:auto;">${md(st.tag)}</div>` : ""}
-      ${i < items.length - 1 ? `<div class="step-connector" aria-hidden="true">➔</div>` : ""}
+      ${i < items.length - 1 ? `<div class="step-connector" aria-hidden="true">${iconSVG("arrow-right", { size: 40, stroke: 2 })}</div>` : ""}
     </div>`;
   }).join("");
   return `<div${attrs(e, "steps-flow", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
@@ -277,7 +277,7 @@ export function rating(e) {
   const stars = Math.min(5, Math.max(1, Math.round(Number(e.rating || 5))));
   const score = e.score || `${stars}.0/5`;
   return `<div${attrs(e, "rating-widget")}>
-    <div class="rating-stars">${"★".repeat(stars)}${"☆".repeat(5 - stars)}</div>
+    <div class="rating-stars">${Array.from({ length: 5 }, (_, k) => iconSVG("star", { size: 30, stroke: 1.8, cls: k < stars ? "star-on" : "star-off" })).join("")}</div>
     ${score ? `<span class="rating-score t f-display">${esc(score)}</span>` : ""}
     ${e.label ? `<span class="rating-label t f-body">${md(e.label)}</span>` : ""}
   </div>`;

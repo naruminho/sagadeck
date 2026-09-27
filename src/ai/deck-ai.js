@@ -303,7 +303,19 @@ const CONVERSATION_RULES = `Como responder (você decide pelo que a pessoa quer 
    faça, com o bloco yaml de patch. Se veio de uma conversa, aplique exatamente o que foi combinado nela.
 3. VERSÕES — pediu alternativas, opções ou "N versões" de um slide: devolva um bloco yaml com \`variants\` (2 a 4 versões completas e
    realmente diferentes entre si: layout, estrutura ou abordagem visual). Nada muda até a pessoa escolher.
-Na dúvida entre conversar e mexer, CONVERSE e ofereça fazer. Nunca mude slides que ninguém pediu para mudar.`;
+Na dúvida entre conversar e mexer, CONVERSE e ofereça fazer. Nunca mude slides que ninguém pediu para mudar.
+4. CONTEXTO DA APRESENTAÇÃO — o que você sabe sobre a ocasião fica em \`context:\` no deck. Antes de uma decisão que depende da
+   ocasião (criar ou reestruturar o deck, escolher tema/paleta, o tom do texto, interação com a plateia, tamanho da letra),
+   confira o \`context:\`, o briefing e a conversa. Se faltar algo que MUDA essa decisão, pergunte — UMA pergunta curta por vez,
+   terminando com \`\`\`opcoes (2 a 4 respostas prováveis; a pessoa pode clicar ou escrever outra). Não pergunte o que já se sabe,
+   nem em pedidos pontuais (corrigir um texto, trocar uma cor, ajustar um slide): aí só faça. O que costuma importar:
+   - tamanho da plateia (poucas pessoas numa sala × auditório);
+   - presencial, online ou gravado: online/gravado → nada de enquete ou pergunta ao vivo que dependa da sala, letra maior,
+     menos detalhe por slide; presencial com muita gente → interação por mão levantada, nada de letra pequena;
+   - executivo, técnico, didático ou informal: decide o tom do texto e o visual (executivo → sóbrio: noite, prata, editorial,
+     paletas grafite/corporativo/tinta; informal → pop, rabisco, oceano, paletas vivas);
+   - objetivo (decidir, informar, ensinar, inspirar), duração, idioma e restrições da marca.
+   Quando a pessoa responder, grave no deck (patch \`deck: { context: { … } }\`, juntando com o que já havia) e siga o pedido.`;
 
 // Formato de patch: o LLM devolve só o que mudou (bem mais rápido que reescrever o deck inteiro).
 const VARIANTS_FORMAT = `Formato de VERSÕES (caso 3), no lugar do patch:
@@ -608,7 +620,8 @@ export async function generateDeck(briefing, { theme, slides, duration, directio
 Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
 
 Direção criativa deste deck: ${dir}
-Use a direção como ponto de partida: o tema escolhido, o público e o nível de sobriedade pedidos no briefing têm precedência. Varie também a abertura, a escala tipográfica, a composição e o papel das imagens; trocar só a cor não cria uma apresentação diferente.
+Use a direção como ponto de partida: o tema escolhido, o público e o nível de sobriedade pedidos no briefing têm precedência.
+Se o briefing disser a ocasião (quantas pessoas, presencial/online/gravado, executivo/informal, objetivo), grave em context: no deck e respeite: online ou gravado sem interação ao vivo e com letra maior; executivo com visual sóbrio. Varie também a abertura, a escala tipográfica, a composição e o papel das imagens; trocar só a cor não cria uma apresentação diferente.
 Ritmo visual (a plateia enjoa de slides iguais):
 - Nunca 3 slides seguidos com o mesmo layout; use pelo menos metade de layouts diferentes (manchete, número grande, página inteira, mosaico, funil, pirâmide, comparação, matriz, linha do tempo, pergunta, enquete…).
 - No máximo ~40% de listas/cartões; alterne com slides de impacto (headline, number, statement, full, quote, question).
