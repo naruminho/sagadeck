@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
+import { identityFor, identitiesFile } from "./identity.js";
 import { LAYOUTS, SCENES } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el } from "./elements.js";
@@ -66,7 +67,9 @@ export function wordCount(s) {
 // Tema e paleta de cada slide: os do deck, ou os do próprio slide (theme:/palette: no slide). Tema e paleta são
 // independentes, como no PowerPoint: o tema cuida de fonte, arranjo e ornamentos (a pele em runtime/skins/<tema>.css
 // rearruma capa, seção e encerramento); a paleta, só das cores.
-const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette) : deckTheme);
+// identidade do deck (fontes da empresa, do arquivo local; ver src/identity.js)
+const identityOf = (spec) => (spec.identity ? identityFor(spec.identity) : null);
+const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette, identityOf(spec)) : deckTheme);
 const skinCSS = (name) => { try { return read(`runtime/skins/${name}.css`); } catch { return ""; } };
 export function deckThemeCSS(spec, deckTheme) {
   const looks = new Map(), names = new Set([deckTheme.name]);
@@ -81,8 +84,9 @@ export function deckThemeCSS(spec, deckTheme) {
 
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
-  const theme = resolveTheme(spec.theme, spec.palette);
+  const theme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const warnings = [];
+  if (spec.identity && !theme.identity) warnings.push(`identidade "${spec.identity}" não está em ${identitiesFile()} nesta máquina: a apresentação saiu com as fontes do tema`);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings };
   const id = spec.id || slug(spec.title);
   const slidesMeta = [];
@@ -200,7 +204,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
 }
 
 export function renderSlide(raw, i = 0, spec = {}) {
-  const deckTheme = resolveTheme(spec.theme, spec.palette);
+  const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const s = { ...(spec.defaults || {}), ...raw };
   const theme = slideTheme(s, deckTheme, spec);
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };

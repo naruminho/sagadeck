@@ -63,7 +63,7 @@ Ideias que ficaram para depois (não bloqueiam):
 
 - Pedido: identidade de marca sem cansar a vista (a cor forte da marca só no detalhe; a página trabalha com os
   parentes mais agradáveis dela). Pré-definidas e **sem nome de empresa** (o software é distribuído livremente):
-  `rubi`, `ametista`, `tangerina`, `oceano`, `esmeralda` em `src/themes.js`.
+  `rubi`, `ametista`, `tangerina`, `safira`, `esmeralda` em `src/themes.js`.
 - Campo `family` (2 a 8 parentes) em qualquer paleta: vira `--c-f1..` e as séries 3 a 5 dos gráficos
   (`familySeriesCSS`); nos diagramas, grupos e ramos usam os parentes (`familyOf`/`visible` em
   `src/runtime/diagram.js`: parente claro demais escurece mantendo o matiz; faltando parentes, variações pequenas
@@ -73,7 +73,7 @@ Ideias que ficaram para depois (não bloqueiam):
 ### Fila combinada (próximas etapas, nesta ordem)
 
 1. ~~PowerPoint sem as notas do apresentador~~ FEITO: menu Arquivo e cartão da biblioteca ("Baixar PowerPoint sem as notas", `?notas=0`), CLI `--sem-notas`, `exportPptx({ notes: false })`. As notas continuam no deck.
-2. **Identidade (fontes da empresa)**: arquivo local `~/.sagadeck/identidades.yaml` (fica na máquina do
+2. ~~Identidade~~ FEITO (`src/identity.js`, `applyIdentity` em `src/themes.js`, grupo Identidade na aba Design, rotas `/api/identities`; paleta `oceano` renomeada para `safira` por colidir com o tema `oceano`). Desenho original: arquivo local `~/.sagadeck/identidades.yaml` (fica na máquina do
    trabalho, nunca no repositório), com fontes por papel (título, corpo, compacta) em ordem de preferência e a
    paleta preferida. Opcional e por deck (`identidade: nome`; Studio: Design → Identidade). Corpo e rótulos sempre
    na fonte da empresa; títulos grandes só nos temas sóbrios (os de personalidade mantêm a fonte do tema).

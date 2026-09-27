@@ -342,6 +342,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // 3. API Endpoints
+      // Identidades (fontes da empresa, arquivo local ~/.sagadeck/identidades.yaml; ver src/identity.js).
+      // Ler vale sempre; criar o modelo e abrir a pasta, só no Studio local (é a máquina da pessoa).
+      if (pathname === "/api/identities" && req.method === "GET") {
+        const { loadIdentities } = await import("../identity.js");
+        const d = loadIdentities();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, identities: Object.values(d.identities).map((x) => ({ id: x.id, name: x.name, fonts: x.fonts, palette: typeof x.palette === "string" ? x.palette : x.palette ? "propria" : null })) }));
+        return;
+      }
+      if (pathname === "/api/identities/setup" && req.method === "POST") {
+        const blocked = apiBlocked(req);
+        if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
+        const { ensureIdentitiesFile } = await import("../identity.js");
+        const file = ensureIdentitiesFile();
+        if (process.platform === "win32") spawn("explorer.exe", [`/select,${file}`], { detached: true, stdio: "ignore" }).unref();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ file }));
+        return;
+      }
+
       if (pathname === "/api/deck" && req.method === "GET") {
         const rawYaml = toYaml(W.spec); // sem os campos internos (_dir, _file)
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -492,16 +512,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/api/layout-previews") {
         const { LAYOUT_INFO, LAYOUT_SAMPLES } = await import("./layout-samples.js");
         const theme = W.spec?.theme || "sinal";
-        const key = `${theme}|${W.spec?.markStyle || ""}`;
+        const identity = W.spec?.identity, palette = W.spec?.palette;
+        const key = `${theme}|${palette || ""}|${identity || ""}|${W.spec?.markStyle || ""}`;
         if (!layoutPreviewCache.has(key)) {
-          const spec = { theme, markStyle: W.spec?.markStyle, title: "", footer: false, slides: [] };
+          const spec = { theme, palette, identity, markStyle: W.spec?.markStyle, title: "", footer: false, slides: [] };
           const out = {};
           for (const [name, sample] of Object.entries(LAYOUT_SAMPLES)) {
             try { out[name] = renderSlide(sample, 0, spec).html; } catch (e) { out[name] = ""; }
           }
           layoutPreviewCache.set(key, out);
         }
-        const r = renderSlide({ layout: "statement", text: "x" }, 0, { theme });
+        const r = renderSlide({ layout: "statement", text: "x" }, 0, { theme, palette, identity });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ info: LAYOUT_INFO, html: layoutPreviewCache.get(key), baseCSS: r.baseCSS, themeCSS: r.themeCSS }));
         return;

@@ -444,7 +444,7 @@ test("conteúdo da pessoa com emoji e símbolos passa intacto", () => {
 // séries extras dos gráficos, no lugar dos cinzas.
 test("paleta de família: parentes viram --c-fN e as séries 3 a 5 dos gráficos; paleta sem família não muda", async () => {
   const { resolveTheme, themeCSS, scopedThemeCSS, PALETTES } = await import("../src/themes.js");
-  for (const k of ["rubi", "ametista", "tangerina", "oceano", "esmeralda"]) {
+  for (const k of ["rubi", "ametista", "tangerina", "safira", "esmeralda"]) {
     assert.ok(PALETTES[k]?.family?.length >= 2, k);
     assert.doesNotMatch(PALETTES[k].label, /bradesco|nubank|ita[uú]/i, "sem nome de empresa");
   }
@@ -458,4 +458,38 @@ test("paleta de família: parentes viram --c-fN e as séries 3 a 5 dos gráficos
   // a da pessoa também aceita family; sem family, nada de séries novas
   assert.match(themeCSS(resolveTheme("prata", { paper: "FFFFFF", ink: "222222", accent: "0066CC", alert: "CC0000", family: ["CCE0F5", "3385D6"] })), /--c-f2:#3385D6;/);
   assert.doesNotMatch(themeCSS(resolveTheme("prata", "tinta")), /--s3:/);
+});
+
+// Identidade: as fontes da empresa vêm de um arquivo local (nunca do repositório). Corpo e rótulos sempre nelas;
+// títulos também, menos nos temas com personalidade. Fallback: a fonte do tema continua na lista.
+test("identidade: fontes da empresa por papel, respeitando o tema; paleta dela quando o deck não tem; sem o arquivo, aviso", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-ident-"));
+  const old = process.env.SAGADECK_IDENTIDADES;
+  process.env.SAGADECK_IDENTIDADES = path.join(dir, "identidades.yaml");
+  try {
+    fs.writeFileSync(process.env.SAGADECK_IDENTIDADES, `trabalho:\n  nome: Trabalho\n  fontes:\n    titulo: ["Acme Sans", "Acme Sans Compact"]\n    corpo: ["Acme Sans"]\n    compacta: ["Acme Sans Compact"]\n  paleta: rubi\nquebrada:\n  fontes: { corpo: "Outra Sans" }\n  paleta: nao-existe\n`);
+    const face = (html, role) => (html.match(new RegExp(`\\.f-${role}\\{font-family:([^;]+);`)) || [])[1] || "";
+    const sobrio = buildHTML({ theme: "prata", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.match(face(sobrio.html, "body"), /^ 'Acme Sans', .+/, "corpo na fonte da empresa, com a do tema depois");
+    assert.match(face(sobrio.html, "label"), /^ 'Acme Sans Compact',/, "rótulo na compacta");
+    assert.match(face(sobrio.html, "display"), /^ 'Acme Sans', 'Acme Sans Compact',/, "tema sóbrio: título também");
+    assert.match(sobrio.html, /--c-accent:#B83A6E/, "paleta da identidade");
+    assert.deepEqual(sobrio.warnings.filter((w) => /identidade/.test(w)), []);
+    const solto = buildHTML({ theme: "rabisco", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(face(solto.html, "display"), /Acme/, "tema com personalidade: o título fica com a fonte dele");
+    assert.match(face(solto.html, "body"), /^ 'Acme Sans',/);
+    const paleta = buildHTML({ theme: "prata", palette: "esmeralda", identity: "trabalho", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(paleta.html, /--c-accent:#B83A6E/, "a paleta escolhida no deck vence");
+    // arquivo da pessoa com paleta que não existe: não quebra
+    assert.match(face(buildHTML({ theme: "prata", identity: "quebrada", slides: [{ layout: "statement", text: "x" }] }).html, "body"), /'Outra Sans'/);
+    // deck de outra máquina (identidade que não existe aqui): fontes do tema e um aviso
+    const fora = buildHTML({ theme: "prata", identity: "empresa-x", slides: [{ layout: "statement", text: "x" }] });
+    assert.doesNotMatch(fora.html, /Acme/);
+    assert.ok(fora.warnings.some((w) => /identidade "empresa-x" não está/.test(w)));
+    // o PowerPoint recebe o nome da primeira fonte da empresa
+    assert.equal(sobrio.theme.faces.body.pptx.face, "Acme Sans");
+  } finally {
+    if (old === undefined) delete process.env.SAGADECK_IDENTIDADES; else process.env.SAGADECK_IDENTIDADES = old;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

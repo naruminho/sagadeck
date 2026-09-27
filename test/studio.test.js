@@ -220,6 +220,28 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Identidade: Configurar cria o modelo; escolher põe as fontes da empresa no slide e no deck salvo; avisa se não estão instaladas", async () => {
+    const old = process.env.SAGADECK_IDENTIDADES;
+    process.env.SAGADECK_IDENTIDADES = path.join(deckFile.dir, "config", "identidades.yaml");
+    try {
+      await tab("design");
+      await p.click("#btn-identity-setup"); await settle(700);
+      assert.ok(fs.existsSync(process.env.SAGADECK_IDENTIDADES), "modelo criado");
+      assert.match(fs.readFileSync(process.env.SAGADECK_IDENTIDADES, "utf8"), /fontes:/);
+      await p.waitForFunction(() => [...document.querySelectorAll("#identity-select option")].some((o) => o.value === "trabalho"));
+      await p.selectOption("#identity-select", "trabalho"); await settle(1200);
+      assert.equal(saved().identity, "trabalho", "salvo no deck");
+      const font = await p.evaluate(() => getComputedStyle(document.querySelector("#rendered-slide-container .f-body, #rendered-slide-container .t")).fontFamily);
+      assert.match(font, /Nome da Fonte Sans/, "o slide usa a fonte da empresa (com a do tema de reserva)");
+      assert.match(await p.textContent("#identity-note"), /Nenhuma das fontes está instalada/, "aviso: fonte de mentira não está instalada");
+      await p.selectOption("#identity-select", ""); await settle(900);
+      assert.equal(saved().identity, undefined, "Do tema: sai do deck");
+    } finally {
+      if (old === undefined) delete process.env.SAGADECK_IDENTIDADES; else process.env.SAGADECK_IDENTIDADES = old;
+      await tab("inicio");
+    }
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);
