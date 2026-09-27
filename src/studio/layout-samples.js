@@ -1,5 +1,8 @@
 // Conteúdo de exemplo de cada layout — usado na galeria de layouts do Studio (prévia no tema do deck).
 export const LAYOUT_INFO = {
+  mosaic: ["Grade adaptável", "De 1 a 12 itens: as colunas se ajustam à quantidade e ao tamanho do texto"],
+  ribbon: ["Cápsulas", "Etapas em painéis arredondados, com colunas automáticas"],
+  dossier: ["Página de consulta", "Material compacto com seções, código e notas na mesma página"],
   decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
   science: ["Equações e gráficos", "Até cinco equações com zoom, valores e superfícies 3D"],
   infographic: ["Infográfico", "Arco, ramos, lados, trilhas ou metrô: de 2 a 8 itens coloridos em volta de um centro"],
@@ -41,6 +44,9 @@ export const LAYOUT_INFO = {
 };
 
 export const LAYOUT_SAMPLES = {
+  mosaic: {layout:"mosaic",title:"Uma ideia, vários caminhos",items:[{title:"Descobrir",text:"Entenda o problema."},{title:"Experimentar",text:"Teste a hipótese."},{title:"Construir",text:"Transforme em produto."},{title:"Aprender",text:"Use o resultado para melhorar."},{title:"Compartilhar",text:"Mostre o que funcionou."}]},
+  ribbon: {layout:"ribbon",title:"Do primeiro passo ao resultado",items:[{title:"Explorar",text:"Encontre uma oportunidade."},{title:"Testar",text:"Experimente em pequena escala."},{title:"Evoluir",text:"Repita o que funciona."}]},
+  dossier: {layout:"dossier",title:"Referência rápida",items:[{title:"Requisição",text:"GET consulta o recurso.",code:"GET /exemplos/42"},{title:"Resposta",text:"Confira o status antes de usar o corpo.",code:'{"id":42,"status":"ok"}'}]},
   decisionlab: {layout:"decisionlab", title:"A revisão melhora o resultado?", lab:{volume:10000,errorRate:2,reviewRate:100,catchRate:60,introducedRate:0.2,seconds:30}},
   infographic: { layout: "infographic", shape: "arco", title: "Os ==desafios== do projeto", center: { title: "Desafios" }, items: [{ title: "Acesso", text: "Pedido pela Bridge" }, { title: "Dados", text: "Mockados no experimento" }, { title: "Segurança", text: "Chaves no Key Vault" }, { title: "Infra", text: "Namespace e firewall" }] },
   diagram: { layout: "diagram", kicker: "Processo", title: "Da ideia à ==produção==", mermaid: "flowchart LR\n  A([:lightbulb: Ideia]):::hi --> B{Vale testar?}\n  B -->|sim| C[:flask-conical: Experimento]\n  B -.->|não| X[Arquivar]:::vazado\n  C ==> D[:rocket: Produção]:::em" },

@@ -31,9 +31,9 @@
   // ordem da galeria: abertura, frase, números, listas/estruturas, dados, interação, mídia, livres, fim
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
-    "cards", "bento", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
-    "chart", "compare", "matrix", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
-    "blocks", "canvas", "references", "end",
+    "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
+    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
+    "blocks", "dossier", "canvas", "references", "end",
   ];
 
   // Nome que a pessoa vê para cada layout (o YAML continua com o nome em inglês).
@@ -42,7 +42,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    diagram: "Diagrama", infographic: "Infográfico", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };

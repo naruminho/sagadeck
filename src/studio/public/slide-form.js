@@ -70,7 +70,10 @@
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".
+  // grades adaptáveis (src/adaptive-layouts.js): os mesmos campos nas três
+  const ADAPTIVE = [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", obj([f.text("title", "Título"), f.area("text", "Texto"), f.text("value", "Valor"), f.icon("icon", "Ícone"), f.area("code", "Código (opcional)", { mono: true, rows: 4 }), f.text("foot", "Nota")]), { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }), max: 12 }), f.bool("build", "Revelar por clique")];
   const LAYOUTS = {
+    mosaic: ADAPTIVE, ribbon: ADAPTIVE, dossier: ADAPTIVE,
     cover: [f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.text("author", "Autor"), f.text("role", "Cargo do autor"),
       f.el("figure", "Figura"), f.more([f.num("titleSize", "Tamanho do título (px)")])],
     section: [f.text("number", "Número"), f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.el("figure", "Figura"),

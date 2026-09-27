@@ -2,6 +2,7 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { decisionLabHTML } from "./decision-lab.js";
 import { md, esc } from "./markup.js";
+import { adaptiveHTML } from "./adaptive-layouts.js";
 import { iconSVG, listIcons } from "./figures/icons.js";
 let iconNames = null;
 const diagramIconNames = () => (iconNames ||= new Set(listIcons()));
@@ -60,6 +61,9 @@ export const SCENES = {
 };
 
 export const LAYOUTS = {
+  mosaic(s) { return `${head(s)}${adaptiveHTML(s,'mosaic')}${src(s)}`; },
+  ribbon(s) { return `${head(s)}${adaptiveHTML(s,'ribbon')}${src(s)}`; },
+  dossier(s) { return `${head(s)}${adaptiveHTML(s,'dossier')}${src(s)}`; },
   decisionlab(s) { return `${head(s)}${decisionLabHTML(s.lab)}${src(s)}`; },
   cover(s, ctx) {
     return `<div class="L-cover">

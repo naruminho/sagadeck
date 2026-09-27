@@ -100,8 +100,13 @@ Versões já publicadas como MIT continuam MIT.
 
 ### Revisão da branch do GPT (`gpt-adaptativo`) e comandos da IA
 
-- Aproveitado: correção do prompt (dizia que diagrama não é layout), aba JavaScript nos slides api, layouts
-  adaptativos e modelos de demonstração (ver abaixo o que entrou), regras do AGENTS.md.
+- Aproveitado: correção do prompt (dizia que diagrama não é layout); aba JavaScript nos slides api (reescrita
+  legível, no molde do Python; testada executando contra uma API de mentira); grades adaptáveis `mosaic`
+  ("Grade adaptável"; "Mosaico" já era o bento), `ribbon`, `dossier` (`src/adaptive-layouts.js`; regra do item
+  em destaque corrigida para a grade fechar sem buraco); modelos de demonstração (`src/studio/demo-decks.js`,
+  capa comprimida de 1,9 MB para 144 KB; menu Nova agora cabe em janela baixa, com rolagem); regras do
+  AGENTS.md. Galeria do Studio: teste novo falha se um layout do motor ficar fora dela (pegou também o
+  `decisionlab`, que estava escondido).
 - Descartado: `scripts/restore-humano-bug.mjs` (alterava o conteúdo de uma palestra da pessoa, com caminhos da
   máquina dela), `scripts/wire-adaptive.mjs` (editava o código-fonte por substituição de texto) e
   `scripts/verify-demo-decks.mjs` (caminhos fixos da máquina).

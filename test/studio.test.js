@@ -12,6 +12,36 @@ import { browserOrSkip, newPage, startStudio, tempDeck, readPptx } from "./helpe
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
+test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=>{
+  const browser=await browserOrSkip(t);if(!browser)return;
+  const studio=await startStudio(null);
+  try{const {page:p,errors}=await newPage(browser,studio.url+'/biblioteca');
+    await t.test('menu de modelos cabe em janela baixa',async()=>{
+      await p.setViewportSize({width:1100,height:650});await p.click('#btn-new');
+      const bounds=await p.locator('.lmenu.open').boundingBox();assert.ok(bounds.y+bounds.height<=650,'menu sai da janela');
+      await p.keyboard.press('Escape');
+    });
+    await t.test('modelo lavanda cria arquivo completo na biblioteca',async()=>{
+      await p.click('#btn-new');await p.click('[data-new="model-lavanda"]');
+      await p.waitForSelector('.thumb-card[data-idx="1"]');
+      await p.click('.thumb-card[data-idx="1"]');await p.waitForSelector('#rendered-slide-container .adaptive');
+      assert.equal(await p.locator('#rendered-slide-container .adaptive-item').count(),5);
+      const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.ok(data.file.startsWith(studio.library));assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].layout,'mosaic');
+    });
+    await t.test('alterar item pelo formulário salva no YAML',async()=>{
+      await p.click('#tab-btn-props');
+      const toggles=p.locator('#slide-fields-form .sf-item-toggle');
+      await toggles.first().click();
+      const input=p.locator('#slide-fields-form .sf-field').filter({has:p.locator('.sf-label', {hasText:/^Título$/})}).locator('input').nth(1);
+      await input.fill('Ideia revisada');await input.blur();await p.waitForTimeout(800);
+      const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].items[0].title,'Ideia revisada');
+    });
+    assert.deepEqual(errors,[]);
+  }finally{await studio.close();await browser.close();}
+});
+
 test("studio", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;

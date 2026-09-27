@@ -23,6 +23,7 @@ import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { runCommand, envName } from "../ai/commands.js";
+import { demoDeck } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -1037,6 +1038,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
               const title = String(b.title || "Nova apresentação").trim();
               const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
                 slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              return ok({ id });
+            }
+            case "/api/library/decks/model": {
+              // modelos de fábrica (src/studio/demo-decks.js): viram uma apresentação nova na biblioteca
+              const id = L.createDeck(b.topic || "Modelos", demoDeck(b.kind));
+              if (b.kind === "lavanda") {
+                const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
+                fs.mkdirSync(dest, { recursive: true });
+                fs.copyFileSync(path.join(firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets")), "lavanda-cover.jpg"), path.join(dest, "lavanda-cover.jpg"));
+              }
               return ok({ id });
             }
             case "/api/library/decks/example-cenario": {

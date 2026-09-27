@@ -162,10 +162,13 @@
   function place(menu, anchor) {
     closeMenus();
     const r = anchor.getBoundingClientRect();
+    menu.style.maxHeight = ""; menu.style.overflowY = "";
     menu.classList.add("open");
+    // janela baixa (ou menu comprido, como o Nova com os modelos): cabe na tela, com rolagem, em vez de vazar
+    if (menu.offsetHeight > innerHeight - 16) { menu.style.maxHeight = innerHeight - 16 + "px"; menu.style.overflowY = "auto"; }
     const w = menu.offsetWidth, h = menu.offsetHeight;
     menu.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
-    menu.style.top = (r.bottom + 6 + h > innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + "px";
+    menu.style.top = (r.bottom + 6 + h <= innerHeight ? r.bottom + 6 : r.top - h - 6 >= 8 ? r.top - h - 6 : Math.max(8, innerHeight - h - 8)) + "px";
   }
   function closeMenus() { document.querySelectorAll(".lmenu").forEach((m) => m.classList.remove("open")); }
 
@@ -225,6 +228,9 @@
         try { const { id } = await api("api/library/decks", { topic, title }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
       }, "Título");
       if (b.dataset.new === "ai") return aiDialog(topic);
+      if (b.dataset.new.startsWith('model-')) return (async () => {
+        try { const {id} = await api('api/library/decks/model',{topic,kind:b.dataset.new.slice(6)}); openEditor(id); } catch(e) { toast('Não deu: '+e.message,5000); }
+      })();
       if (b.dataset.new === "example-cenario") return (async () => {
         try { const { id } = await api("api/library/decks/example-cenario", { topic }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
       })();
