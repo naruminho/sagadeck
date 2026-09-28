@@ -8,6 +8,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Aviso de modelrelay velho sabe da instalação editável — 28/09/2026
+
+- Pergunta do Naruminho: no laptop o modelrelay roda do clone; precisa `pip install -U`? Não: com `pip install -e`
+  o `git pull` basta (o sagadeck lê `modelrelay.__version__` do próprio código). O aviso mandava `pip install -U`
+  para todo mundo; agora `relay_clone()` (`python/sagadeck/llm.py`) vê se o pacote vem de uma pasta com `.git` e
+  `pyproject.toml` (fora de site-packages) e manda `git pull` naquela pasta. Teste em `python-relay.test.js`
+  (clone falso com `.git`; `.venv` dentro de repositório não conta como clone). README explica.
+
 ## Frente F: fontes embutidas (sem Google) e modo simples no Studio — 28/09/2026
 
 - **Fontes**: o `base.css` importava 6 famílias de `fonts.googleapis.com`. Na rede do banco (proxy barrando o Google)

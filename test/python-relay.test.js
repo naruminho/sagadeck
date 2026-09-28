@@ -68,5 +68,21 @@ test("versão mínima do modelrelay: a mesma no aviso e no extra ia; modelrelay 
   const velho = run("0.1.0");
   assert.match(velho, new RegExp(`modelrelay 0\\.1\\.0 está desatualizado: este sagadeck precisa do ${min.replace(/\./g, "\\.")}`));
   assert.match(velho, /pip install -U "modelrelay>=/);
+  assert.doesNotMatch(velho, /git pull/, "instalado pelo pip: nada de git pull");
   assert.equal(run(min), "", "na versão exigida, nenhum aviso");
+  // instalação editável (pip install -e, direto do clone): o código vem da pasta do repositório, então quem atualiza
+  // é o git pull ali; pip install -U baixaria outra cópia do PyPI por cima (pergunta do Naruminho no laptop)
+  fs.mkdirSync(path.join(fake, ".git"));
+  fs.writeFileSync(path.join(fake, "pyproject.toml"), '[project]\nname = "modelrelay"\n');
+  const clone = run("0.1.0");
+  assert.match(clone, /modelrelay 0\.1\.0 está desatualizado/);
+  assert.match(clone, /git pull/);
+  assert.ok(clone.includes(fake), `diz a pasta do clone: ${clone}`);
+  assert.doesNotMatch(clone, /pip install -U/);
+  // cópia no site-packages não é clone, mesmo com um .venv dentro de um repositório git
+  const venv = path.join(fake, ".venv", "lib", "python3.12", "site-packages", "modelrelay");
+  fs.mkdirSync(venv, { recursive: true });
+  const r = spawnSync(py, ["-c", `import sagadeck.llm as llm; print(llm.relay_clone(r"${path.join(venv, "__init__.py")}"))`],
+    { env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: path.join(ROOT, "python") }, encoding: "utf8" });
+  assert.equal(r.stdout.trim(), "None", r.stderr);
 });
