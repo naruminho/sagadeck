@@ -70,7 +70,6 @@
 .studio-next .rbtn { border-radius: 7px; }
 .studio-next .rbtn-lg { height: 56px; min-width: 65px; padding: 7px 10px; gap: 5px; font-size: 11px; }
 .studio-next .rbtn-lg > .ic { width: 21px; height: 21px; }
-.studio-next .rbtn-lg br { display: none; }
 .studio-next .rgroup-fields { gap: 5px; }
 .studio-next .rfield > span { font-size: 11px; }
 .studio-next .workspace { grid-template-columns: 200px minmax(0, 1fr) auto; }

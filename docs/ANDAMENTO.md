@@ -8,6 +8,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Rótulos grudados na faixa de opções — 28/09/2026
+
+- Reclamação: vários botões do editor com palavras grudadas ("Diagramade texto", "Cabeçalhoe rodapé",
+  "Deckcom IA", "Últimafileira", "Mapa deatenção").
+- Causa: os rótulos usavam `<br>` para quebrar em duas linhas, mas o `studio-next.css` escondia o `<br>`
+  (`.studio-next .rbtn-lg br { display: none }`, do wip do visual novo) — as palavras colavam numa linha só.
+- Correção: rótulos em linha única com espaço de verdade (`index.html`) e remoção da regra morta do CSS.
+  A faixa já rola na horizontal (`overflow-x`), então os botões mais largos não quebram nada.
+- Não eram bug (só innerText de elemento escondido): selo "0" do fiscal (absoluto, some quando limpo),
+  "Aa+nome" dos cartões de tema (posicionamento absoluto) e título+descrição do menu Nova (descrição em bloco).
+- Teste: `studio.test.js` abre cada aba (Inserir, Design, IA, Revisar) e confere o texto visível dos botões,
+  mais uma guarda contra minúscula seguida de maiúscula nos rótulos da faixa.
+- Validação: `npm test` — 405 testes, 391 passaram, 14 pulados (ao vivo), zero falhas; `npm run bundle` passou.
+
 ## Coleções visuais — 28/09/2026
 
 - Pedido anterior interrompido após revisão e merge por Claude; nova frente limitada aos templates dos cinco

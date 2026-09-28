@@ -342,6 +342,25 @@ test("studio", async (t) => {
     }
   });
 
+  await t.test("faixa de opções: rótulos dos botões com espaço entre as palavras", async () => {
+    // um <br> escondido pelo CSS grudava as palavras ("Diagramade texto"); o teste lê o texto
+    // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)
+    const esperado = {
+      inserir: ["Diagrama de texto"],
+      design: ["Cabeçalho e rodapé"],
+      ia: ["Deck com IA"],
+      revisar: ["Última fileira", "Mapa de atenção"],
+    };
+    for (const [aba, rotulos] of Object.entries(esperado)) {
+      await tab(aba); await settle(300);
+      const visiveis = await p.evaluate(() => [...document.querySelectorAll(".ribbon-panel.active .rbtn-lg > span")]
+        .map((s) => s.innerText.replace(/\s+/g, " ").trim()));
+      for (const r of rotulos) assert.ok(visiveis.includes(r), `${aba}: sem o botão "${r}" (veio: ${visiveis.join(" | ")})`);
+      for (const v of visiveis) assert.ok(!/[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]/.test(v), `${aba}: palavras grudadas em "${v}"`);
+    }
+    await tab("inicio");
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);
