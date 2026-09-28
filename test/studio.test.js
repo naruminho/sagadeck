@@ -22,7 +22,7 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
       await p.keyboard.press('Escape');
     });
     await t.test('modelo lavanda cria arquivo completo na biblioteca',async()=>{
-      await p.click('#btn-new');await p.click('[data-new="model-lavanda"]');
+      await p.click('#btn-new');await p.click('#new-menu [data-new="gallery"]');await p.click('.vit-card[data-new="model-lavanda"]');
       await p.waitForSelector('.thumb-card[data-idx="1"]');
       await p.click('.thumb-card[data-idx="1"]');await p.waitForSelector('#rendered-slide-container .adaptive');
       assert.equal(await p.locator('#rendered-slide-container .adaptive-item').count(),5);
@@ -50,7 +50,7 @@ test('coleções: criar modelos e substituir foto preserva a composição', asyn
     for (const kind of ['perspectiva', 'essencial', 'revista', 'cromatico', 'tracos']) {
       await t.test(`criar ${kind} pela biblioteca`, async () => {
         await p.goto(studio.url + '/biblioteca');
-        await p.click('#btn-new'); await p.click(`[data-new="model-${kind}"]`);
+        await p.click('#btn-new'); await p.click('#new-menu [data-new="gallery"]'); await p.click(`.vit-card[data-new="model-${kind}"]`);
         await p.waitForSelector('.thumb-card[data-idx="1"]');
         const data = await p.evaluate(async () => (await fetch('/api/deck')).json());
         const saved = YAML.parse(fs.readFileSync(data.file, 'utf8'));
@@ -106,6 +106,25 @@ test("studio", async (t) => {
     await p.keyboard.press("Escape");
     await p.keyboard.press("Escape");
     await p.evaluate(() => document.querySelectorAll(".popover.open").forEach((x) => x.classList.remove("open")));
+  });
+
+  // pedido do "preguiçoso": sem mil botões. Por padrão as ferramentas de especialista ficam guardadas; "Mais opções"
+  // mostra tudo e a escolha sobrevive a recarregar. (Deixa ligado: os testes seguintes usam YAML, API, ritmo…)
+  await t.test("modo simples por padrão: ferramentas de especialista guardadas; Mais opções mostra e lembra", async () => {
+    const visivel = (sel) => p.isVisible(sel);
+    await tab("exibir");
+    assert.ok(!(await visivel("#btn-yaml-drawer")), "YAML guardado no modo simples");
+    assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
+    await tab("inserir");
+    assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
+    assert.ok(await visivel("#btn-add-diagram"));
+    await p.click("#btn-more-options");
+    assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
+    assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
+    await p.reload(); await p.waitForSelector(".thumb-card");
+    await tab("exibir");
+    assert.ok(await visivel("#btn-yaml-drawer"), "a escolha sobrevive a recarregar");
+    await tab("inicio");
   });
 
   // ------------------------------------------------------------ slides
@@ -844,6 +863,26 @@ test("studio", async (t) => {
       await download.saveAs(file);
       assert.equal(fs.readFileSync(file).subarray(0, 4).toString(), "%PDF");
     }
+  });
+
+  // pedido do "preguiçoso": um clique só em vez de três idas ao menu Arquivo
+  await t.test("Baixar tudo: um .zip com o PowerPoint (com notas), o PDF e o roteiro", { timeout: 300000 }, async () => {
+    const n = (await deck()).slides.length;
+    await p.click("#btn-export-menu");
+    const [download] = await Promise.all([p.waitForEvent("download", { timeout: 290000 }), p.click("#export-all")]);
+    assert.match(download.suggestedFilename(), /\.zip$/);
+    const file = path.join(deckFile.dir, "tudo.zip");
+    await download.saveAs(file);
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(fs.readFileSync(file));
+    const names = Object.keys(zip.files).sort();
+    assert.equal(names.length, 3, names.join(", "));
+    const pick = (re) => zip.file(names.find((x) => re.test(x)));
+    const pp = await readPptx(await pick(/\.pptx$/).async("nodebuffer"));
+    assert.equal(pp.slides.length, n);
+    assert.match(pp.notes, /falar de segurança primeiro/, "o PowerPoint leva as notas (é para quem apresenta)");
+    assert.equal((await pick(/ - roteiro\.pdf$/).async("nodebuffer")).subarray(0, 4).toString(), "%PDF");
+    assert.equal((await pick(/(?<! - roteiro)\.pdf$/).async("nodebuffer")).subarray(0, 4).toString(), "%PDF");
   });
 
   // ------------------------------------------------------------ arquivo .sagadeck

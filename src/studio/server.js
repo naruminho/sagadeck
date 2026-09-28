@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import YAML from "yaml";
+import JSZip from "jszip";
 import { buildHTML, renderSlide, loadSpec, inferLayout } from "../build.js";
 import { THEMES, PALETTES } from "../themes.js";
 import { writeDeckFile } from "../deck-file.js";
@@ -240,6 +241,41 @@ export function createStudioServer(deckPath = null, opts = {}) {
     while (W.contextDocs.size > CONTEXT_MAX_DOCS) W.contextDocs.delete(W.contextDocs.keys().next().value);
     return { id, name, chars: text.length, detail };
   }
+  // Gerar com IA (editor ou biblioteca): pasta nova na biblioteca ("Gerando…"), o deck gravado nela com as imagens
+  // em imagens/, e a pasta renomeada para o título. Falhou: a pasta vai para a lixeira. Minutos, estilo, anexos.
+  async function generateIntoLibrary(W, topic, b, emit) {
+    const L = W.library;
+    const id = L.createDeck(topic, { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
+    const file = L.resolveId(id), dir = path.dirname(file);
+    try {
+      const gen = await generateDeck(String(b.briefing || ""), {
+        theme: b.theme || undefined,
+        style: b.style || undefined,
+        slides: Number(b.slides) || undefined,
+        duration: Number(b.duration) || undefined,
+        direction: b.direction || undefined,
+        materials: takeMaterials(W, b.materials),
+        images: true, // o briefing diz se quer imagens (e onde)
+        imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
+        onEvent: emit,
+        drawCheck: diagramCheck,
+      });
+      fs.writeFileSync(file, toYaml(gen.spec), "utf8");
+      const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
+      return { id: finalId, file: L.resolveId(finalId), images: gen.images };
+    } catch (e) {
+      L.trashDeck(id);
+      throw e;
+    }
+  }
+  // tópico do deck aberto, se ele mora na biblioteca ("" = Sem tópico)
+  function topicOfOpen(W) {
+    if (!W.file || isBundledTemplate(W.file)) return "";
+    const rel = path.relative(W.library.root, W.file);
+    if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return "";
+    const parts = rel.split(/[\\/]/);
+    return parts.length > 1 ? parts[0] : "";
+  }
   function takeMaterials(W, ids) {
     if (!(W.contextDocs instanceof Map)) return [];
     return (Array.isArray(ids) ? ids : []).map((a) => {
@@ -363,6 +399,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const css = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
         res.end(css);
+        return;
+      }
+      if (pathname === "/fonts.css") { // as fontes de todos os temas (embutidas, sem Google), para o editor e as miniaturas
+        const index = JSON.parse(fs.readFileSync(path.join(RUNTIME_DIR, "fonts", "index.json"), "utf8"));
+        res.writeHead(200, { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "max-age=86400" });
+        res.end(Object.values(index).map((f) => fs.readFileSync(path.join(RUNTIME_DIR, "fonts", f), "utf8")).join("\n"));
         return;
       }
       if (pathname === "/katex.css") {
@@ -781,27 +823,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
           res.end(JSON.stringify({ error: `Nenhum LLM respondendo em ${llmConfig().url}. Rode "modelrelay serve" ou ajuste SAGADECK_LLM_URL.` }));
           return;
         }
-        // Arquivo novo na pasta do deck aberto (ou na pasta atual), sem sobrescrever nada.
-        const dir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : process.cwd();
+        // O deck novo vai para uma pasta própria na biblioteca (regra do CLAUDE.md), no tópico do deck aberto
         await respond(res, body.stream, async (emit) => {
-          const gen = await generateDeck(body.briefing, {
-            theme: body.theme || undefined,
-            style: body.style || undefined,
-            slides: Number(body.slides) || undefined,
-            duration: Number(body.duration) || undefined,
-            direction: body.direction || undefined,
-            materials: takeMaterials(W, body.materials),
-            images: true, // o briefing diz se quer imagens (e onde)
-            imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
-            onEvent: emit,
-            drawCheck: diagramCheck,
-          });
-          let target = path.join(dir, `${slugify(gen.spec.title)}.yaml`);
-          for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${slugify(gen.spec.title)}-${n}.yaml`);
-          fs.writeFileSync(target, toYaml(gen.spec), "utf8");
-          W.file = target;
-          W.spec = loadSpec(target);
-          return { ok: true, spec: W.spec, file: W.file, images: gen.images };
+          const r = await generateIntoLibrary(W, topicOfOpen(W), body, emit);
+          W.file = r.file;
+          W.spec = loadSpec(r.file);
+          return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images };
         });
         return;
       }
@@ -1081,7 +1108,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (pathname === "/api/library/download" && req.method === "GET") {
             const file = L.resolveId(url.searchParams.get("id"));
             const kind = url.searchParams.get("kind") || "sagadeck";
-            if (!["sagadeck", "pptx", "pdf", "roteiro"].includes(kind)) throw new Error("formato inválido");
+            if (!["sagadeck", "pptx", "pdf", "roteiro", "tudo"].includes(kind)) throw new Error("formato inválido");
             await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { notes: url.searchParams.get("notas") !== "0" });
             return;
           }
@@ -1154,19 +1181,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
             case "/api/library/decks/ai": {
               // gera com IA direto numa pasta nova da biblioteca (as imagens ficam dentro dela)
               if (!(await llmAvailable({ force: true }))) return fail(new Error(`Nenhum LLM respondendo em ${llmConfig().url}.`), 503);
-              const id = L.createDeck(b.topic || "", { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
-              const file = L.resolveId(id), dir = path.dirname(file);
               await respond(res, b.stream, async (emit) => {
-                try {
-                  const gen = await generateDeck(b.briefing || "", { theme: b.theme || undefined, slides: Number(b.slides) || undefined,
-                    imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") }, onEvent: emit, drawCheck: diagramCheck });
-                  fs.writeFileSync(file, toYaml(gen.spec), "utf8");
-                  const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
-                  return { ok: true, id: finalId, images: gen.images };
-                } catch (e) {
-                  L.trashDeck(id);
-                  throw e;
-                }
+                const r = await generateIntoLibrary(W, b.topic || "", b, emit);
+                return { ok: true, id: r.id, images: r.images };
               });
               return;
             }
@@ -1178,7 +1195,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // Baixar o deck aberto: .sagadeck (YAML + imagens, CSS, widgets), PowerPoint, PDF ou roteiro
-      const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro)$/) || [])[1];
+      const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro|tudo)$/) || [])[1];
       if (exportKind) {
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
@@ -1304,32 +1321,44 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
     pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
     pdf: { file: `${name}.pdf`, mime: "application/pdf" },
     roteiro: { file: `${name} - roteiro.pdf`, mime: "application/pdf" },
+    // "Baixar tudo": o que se leva para apresentar, num clique (PowerPoint com as notas, PDF e roteiro)
+    tudo: { file: `${name}.zip`, mime: "application/zip" },
   };
   const k = kinds[kind];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${kind}-`));
   try {
     const r = buildHTML(spec);
-    const htmlFile = path.join(tmp, "deck.html"), out = path.join(tmp, "saida");
+    const htmlFile = path.join(tmp, "deck.html");
     fs.writeFileSync(htmlFile, r.html);
-    let errors = [];
-    if (kind === "pptx") {
-      const { exportPptx } = await import("../export/pptx.js");
-      ({ errors } = await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes }));
-    } else if (kind === "pdf") {
-      const { pdf } = await import("../export/shots.js");
-      await pdf(htmlFile, out);
-    } else {
-      const { shots } = await import("../export/shots.js");
-      const { roteiroPDF } = await import("../export/roteiro.js");
-      const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
-      await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
-    }
+    const errors = [];
+    const make = async (what) => {
+      const out = path.join(tmp, `saida-${what}`);
+      if (what === "pptx") {
+        const { exportPptx } = await import("../export/pptx.js");
+        errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes })).errors);
+      } else if (what === "pdf") {
+        const { pdf } = await import("../export/shots.js");
+        await pdf(htmlFile, out);
+      } else {
+        const { shots } = await import("../export/shots.js");
+        const { roteiroPDF } = await import("../export/roteiro.js");
+        const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
+        await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
+      }
+      return fs.readFileSync(out);
+    };
+    let body;
+    if (kind === "tudo") {
+      const zip = new JSZip();
+      for (const what of ["pptx", "pdf", "roteiro"]) zip.file(kinds[what].file, await make(what));
+      body = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    } else body = await make(kind);
     res.writeHead(200, {
       "Content-Type": k.mime, "Content-Disposition": cd(k.file),
       // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
       "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
     });
-    res.end(fs.readFileSync(out));
+    res.end(body);
   } catch (e) {
     console.error(`[Studio] exportação ${kind} falhou:`, e.message);
     res.writeHead(500, { "Content-Type": "application/json" });

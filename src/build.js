@@ -82,6 +82,14 @@ export function deckThemeCSS(spec, deckTheme) {
   return css + "\n" + [...names].map(skinCSS).join("\n");
 }
 
+// Fontes dos temas (OFL) embutidas: só as famílias que o CSS da apresentação cita (runtime/fonts, scripts/vendor-fonts.mjs)
+let FONT_INDEX = null;
+export function fontsCSSFor(css) {
+  FONT_INDEX ||= JSON.parse(read("runtime/fonts/index.json"));
+  return Object.entries(FONT_INDEX).filter(([family]) => css.includes(`'${family}'`) || css.includes(`"${family}"`))
+    .map(([, file]) => read(`runtime/fonts/${file}`)).join("\n");
+}
+
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
   const theme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
@@ -136,7 +144,8 @@ export function buildHTML(rawSpec, opts = {}) {
 <meta name="generator" content="sagadeck">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
-<style>${read("runtime/base.css")}
+<style>${fontsCSSFor(read("runtime/base.css") + deckThemeCSS(spec, theme) + customCSS)}
+${read("runtime/base.css")}
 ${spec.slides.some(s => s.layout === "science") ? read("runtime/vendor/katex.css") : ""}
 ${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>

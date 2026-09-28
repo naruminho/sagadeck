@@ -79,8 +79,11 @@ O chat lateral do Studio, o Napkin (texto → slide), o **"✨ Deck com IA"** e 
 O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completions`). O caminho recomendado é o [modelrelay](https://github.com/naruminho/modelrelay), que decide pela configuração dele para onde as chamadas vão (OpenRouter, OpenAI, gateway corporativo), sem nada disso no sagadeck:
 
 ```bash
-pip install git+https://github.com/naruminho/modelrelay
+pip install "sagadeck[ia]"      # o sagadeck com o modelrelay na versão que ele exige
+# ou só o modelrelay:  pip install -U modelrelay
 ```
+
+Com um modelrelay mais velho do que o exigido, o sagadeck avisa ao abrir e mostra o comando para atualizar.
 
 O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **modelrelay** no alto da
 biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor
@@ -178,7 +181,13 @@ formato avisa para atualizar o sagadeck. Se um filtro de e-mail barrar a extens�
 ## Biblioteca
 
 `sagadeck studio` sem arquivo abre a biblioteca: suas apresentações organizadas em tópicos, com capa, busca,
-lixeira (30 dias) e o menu **⋯** de cada cartão (apresentar, renomear, duplicar, mover, baixar .sagadeck/PPTX/PDF).
+lixeira (30 dias) e o menu **⋯** de cada cartão (apresentar, renomear, duplicar, mover, baixar tudo/.sagadeck/PPTX/PDF).
+
+**Nova apresentação** tem três caminhos: *Descrever com IA* (o assunto, quanto tempo você tem, que vira o número de
+slides, o estilo e, se quiser, material de apoio: PDF, Word, PowerPoint, Excel ou um link), *A partir de um arquivo
+ou link* (o mesmo, começando pelo anexo) e *Modelo pronto* (coleções, estilos, demonstrações e exemplos, com filtro).
+No editor, **Arquivo › Baixar tudo** entrega num .zip o PowerPoint (com notas), o PDF e o roteiro. O editor abre no
+modo simples; **Mais opções**, ao lado das abas, mostra as ferramentas de especialista (YAML, API ao vivo…).
 Arraste um cartão para um tópico para movê-lo. O ícone da biblioteca, no canto do editor, volta para ela.
 
 Não tem banco de dados: a biblioteca é uma pasta comum, que dá para abrir no Explorer e fazer backup.
@@ -253,8 +262,11 @@ resposta gravada. Todos os campos estão na [referência](docs/REFERENCIA.md#sli
 
 ## Temas
 
-`sinal` (sinalização, DIN condensada, amarelo de aviso) · `editorial` (revista, serifada, vermelho-tomate) · `noite` (escuro elegante, latão) · `bauhaus` (geométrico, cores primárias) · `terminal` (dados, monoespaçada, âmbar — sem neon) · `jornal` (manchete, Franklin Gothic, azul-tinta).
-Veja todos lado a lado com `sagadeck themes`. Dá para criar o seu estendendo um tema — veja `docs/REFERENCIA.md`.
+`sinal` (sinalização, DIN condensada, amarelo de aviso) · `editorial` (revista, serifada, vermelho-tomate) · `noite` (escuro elegante, latão) · `bauhaus` (geométrico, cores primárias) · `terminal` (dados, monoespaçada, âmbar — sem neon) · `jornal` (manchete, Franklin Gothic, azul-tinta) · `rabisco` · `oceano` · `pop` · `aurora` · `prata`.
+Trocar o tema muda o arranjo, não só cor e fonte: capa, seção, título, cartões, lista, citação e número grande têm o
+jeito de cada tema. No Studio, passar o mouse num tema mostra a prévia no slide; o clique aplica.
+As fontes dos temas vêm embutidas (licença OFL): a apresentação não pede nada à internet e funciona numa rede que
+barra o Google. Veja todos lado a lado com `sagadeck themes`. Dá para criar o seu estendendo um tema — veja `docs/REFERENCIA.md`.
 
 ## Arquivos
 
