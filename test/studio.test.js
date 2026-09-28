@@ -393,6 +393,29 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Deck com IA: anexos vão como materiais no pedido", async () => {
+    await tab("ia");
+    await p.click("#btn-ai-deck");
+    // upload de verdade (o servidor extrai sem LLM); a geração é interceptada
+    await p.setInputFiles("#ai-deck-files", { name: "dados.txt", mimeType: "text/plain", buffer: Buffer.from("Fraudes: 40% em 2025.") });
+    await p.waitForFunction(() => [...document.querySelectorAll("#ai-deck-materials .chat-doc b")]
+      .some((b) => b.textContent === "dados.txt" && !/lendo/.test(b.closest(".chat-att").textContent)));
+    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    await p.route("**/api/ai/generate", async (route) => {
+      const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+      await route.fulfill({ json: { ok: true, spec, file: deckFile.file, images: { done: [], failed: [] } } });
+    });
+    const req = p.waitForRequest("**/api/ai/generate");
+    await p.click("#btn-run-ai-deck");
+    const body = JSON.parse((await req).postData());
+    await p.unroute("**/api/ai/generate");
+    assert.equal(body.materials.length, 1);
+    assert.equal(typeof body.materials[0], "string");
+    await p.waitForTimeout(1500);
+    assert.ok(await p.isHidden("#modal-ai-deck"), "modal fechou: gerou");
+    await tab("inicio");
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);

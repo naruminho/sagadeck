@@ -26,6 +26,7 @@ import { runCommand, envName } from "../ai/commands.js";
 import { demoDeck, demoAssets } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
+import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Caminhos que existem no repositório (src/studio/…) OU no motor empacotado do pip (engine/studio/…, engine/runtime/…)
@@ -228,6 +229,36 @@ export function createStudioServer(deckPath = null, opts = {}) {
   function withBase(W, spec) {
     if (!spec._dir && W.file) return { ...spec, _dir: path.dirname(W.file), _file: W.file };
     return spec;
+  }
+
+  // Materiais de contexto (arquivos e links) para a IA: o texto extraído fica na sessão (W),
+  // o binário nunca vai para o modelo. POST /api/ai/context guarda; o chat e a geração referenciam por id.
+  function keepMaterial(W, name, text, detail) {
+    if (!(W.contextDocs instanceof Map)) W.contextDocs = new Map();
+    const id = crypto.randomBytes(4).toString("hex");
+    W.contextDocs.set(id, { name: String(name).slice(0, 120), text: String(text).slice(0, CONTEXT_STORE_CHARS), detail, at: Date.now() });
+    while (W.contextDocs.size > CONTEXT_MAX_DOCS) W.contextDocs.delete(W.contextDocs.keys().next().value);
+    return { id, name, chars: text.length, detail };
+  }
+  function takeMaterials(W, ids) {
+    if (!(W.contextDocs instanceof Map)) return [];
+    return (Array.isArray(ids) ? ids : []).map((a) => {
+      const d = typeof a === "string" ? W.contextDocs.get(a) : W.contextDocs.get(a?.id);
+      return d ? { name: d.name, text: d.text, detail: d.detail } : null;
+    }).filter(Boolean);
+  }
+  // Links colados na mensagem: o servidor lê sozinho (até 2) e conta nas ações; falha não trava o pedido.
+  async function readPastedLinks(W, text, actions) {
+    const docs = [];
+    for (const u of pastedUrls(text)) {
+      try {
+        const d = await fetchUrlText(u, { allowLocal: process.env.SAGADECK_CONTEXT_ALLOW_LOCAL === "1" });
+        keepMaterial(W, d.name, d.text, d.detail); // guarda para os próximos pedidos
+        docs.push({ name: d.name, text: d.text.slice(0, CONTEXT_STORE_CHARS), detail: d.detail });
+        actions.push(`Li o link ${u} (${d.detail}, ${d.text.length} caracteres).`);
+      } catch (e) { actions.push(`Não consegui ler o link ${u}: ${e.message}`); }
+    }
+    return docs;
   }
 
   // Só a própria página usa o Studio. Ele roda na máquina da pessoa (no banco, dentro da VPN): sem isto,
@@ -713,6 +744,31 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Materiais de contexto: a pessoa anexa arquivo (dataUrl) ou link; o servidor extrai o texto
+      // e devolve um id. O texto fica na sessão; o chat e a geração mandam os ids.
+      if (pathname === "/api/ai/context" && req.method === "POST") {
+        const body = await readJSON(req);
+        try {
+          let doc;
+          if (body.url) {
+            doc = await fetchUrlText(String(body.url), { allowLocal: process.env.SAGADECK_CONTEXT_ALLOW_LOCAL === "1" });
+          } else if (body.name && body.dataUrl) {
+            const m = String(body.dataUrl).match(/^data:([^;]+);base64,([\s\S]*)$/);
+            if (!m) throw new Error("Anexo inválido.");
+            const fname = String(body.name).split(/[\\/]/).pop();
+            doc = { ...(await extractDocText(fname, Buffer.from(m[2], "base64"))), name: fname };
+          } else throw new Error("Mande { name, dataUrl } ou { url }.");
+          if (!doc.text.trim()) throw new Error("Não achei texto legível no material.");
+          const kept = keepMaterial(W, doc.name, doc.text, doc.detail);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ...kept, preview: doc.text.slice(0, 200) }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
       if (pathname === "/api/ai/generate" && req.method === "POST") {
         const body = await readJSON(req);
         if (!String(body.briefing || "").trim()) {
@@ -734,6 +790,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             slides: Number(body.slides) || undefined,
             duration: Number(body.duration) || undefined,
             direction: body.direction || undefined,
+            materials: takeMaterials(W, body.materials),
             images: true, // o briefing diz se quer imagens (e onde)
             imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
             onEvent: emit,
@@ -808,9 +865,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
           try {
             const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
             const visuals = await lookAt(withBase(W, spec), target, prompt, emit);
+            // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
+            const materials = takeMaterials(W, (Array.isArray(body.attachments) ? body.attachments : [])
+              .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id));
             for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
               if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
             }
+            // links colados na mensagem: o servidor lê sozinho e conta nas ações
+            const linkActions = [];
+            for (const doc of await readPastedLinks(W, prompt, linkActions)) materials.push(doc);
             result = await editDeck({
               spec: withBase(W, spec),
               instruction: prompt,
@@ -821,11 +884,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
               history,
               onProgress: emit,
               visuals,
+              materials,
               renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
               apiContext: apiContextFor(req, W),
               drawCheck: diagramCheck,
               runCommand: commandRunner(req, emit, body, W),
             });
+            if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
             const convo = [...history, { role: "user", text: prompt }]

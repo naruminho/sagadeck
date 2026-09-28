@@ -8,6 +8,24 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Frente B (preguiçoso): chat e Nova leem pdf/docx/xlsx/pptx e links — 28/09/2026
+
+- Novo `src/ai/context.js`: extração de texto no servidor (txt/md/csv direto; docx/xlsx/pptx via jszip;
+  pdf via pdfjs-dist, dependência nova); links com anti-SSRF (sem rede local/metadata, redirects revalidados,
+  2 MB, 15 s), HTML virando texto e PDF linkado valendo; bloco MATERIAL ANEXADO rotulado e truncado (12 mil
+  caracteres no prompt). O binário nunca vai para o modelo.
+- `POST /api/ai/context` guarda o texto na sessão e devolve id; chat manda ids (imagens continuam embutidas);
+  links colados na mensagem são lidos sozinhos (até 2, falha não trava, aparece nas ações); `editDeck` e
+  `generateDeck` aceitam `materials`; modal "Deck com IA" tem anexos de arquivo + link.
+- UI: chips de documento no chat e no modal, trava de envio enquanto lê, placeholders e accepts atualizados.
+  REFERENCIA.md documenta os materiais (vai no prompt da IA).
+- Testes: `test/context.test.js` novo (extração, SSRF, fetch local, truncamento); `ai.test.js` (bloco no pedido);
+  `studio-ai.test.js` (docx anexado chega ao modelo sem o zip; link lido sozinho sem script); `studio.test.js`
+  (anexo no modal vai no corpo do pedido). `npm run bundle` passou (3,4 MB).
+- Validação ao vivo (nemotron-3-super-120b:free, só texto): docx com "40 por cento / 3 bilhões" → slide editado
+  com os dois números em `==destaque==`. Na primeira tentativa o provedor gratuito devolveu 503 (sobrecarga);
+  passou na segunda.
+
 ## Frente A (preguiçoso): Nova em 1 tela — minutos, estilo e placeholder — 28/09/2026
 
 - Modal "Deck com IA" agora pede **minutos** (slides saem daqui: ~1 a cada 1,5 min, `slidesForMinutes()` em

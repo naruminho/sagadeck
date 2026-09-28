@@ -117,6 +117,44 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.match(labels, /imagem colada pelo usuário/);
     });
 
+    await t.test("anexo docx vira material de contexto (o binário não vai ao modelo)", async () => {
+      const { default: JSZip } = await import("jszip");
+      const buf = await new JSZip().file("word/document.xml",
+        "<w:document><w:body><w:p><w:r><w:t>Fraudes no Pix: 40% em 2025.</w:t></w:r></w:p></w:body></w:document>")
+        .generateAsync({ type: "nodebuffer" });
+      await p.setInputFiles("#chat-attach-input", { name: "relatorio.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: buf });
+      await p.waitForFunction(() => [...document.querySelectorAll("#chat-attachments .chat-doc b")]
+        .some((b) => b.textContent === "relatorio.docx" && !/lendo/.test(b.closest(".chat-att").textContent)));
+      await send("use os números do relatório");
+      const req = lastReq(/use os números/);
+      assert.match(req.lastUser, /MATERIAL ANEXADO/);
+      assert.match(req.lastUser, /relatorio\.docx/);
+      assert.match(req.lastUser, /40% em 2025/);
+      assert.ok(!JSON.stringify(req.body).includes("UEsDB"), "zip não vai ao modelo");
+    });
+
+    await t.test("link colado é lido sozinho (até 2 por mensagem)", async () => {
+      const http = await import("node:http");
+      const srv = http.createServer((req, res) => {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end("<html><body><h1>Banco Central</h1><p>Golpe do pix cresceu 40%.</p><script>var x=1;</script></body></html>");
+      });
+      await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+      const old = process.env.SAGADECK_CONTEXT_ALLOW_LOCAL;
+      process.env.SAGADECK_CONTEXT_ALLOW_LOCAL = "1";
+      try {
+        await send(`resuma http://127.0.0.1:${srv.address().port}/noticia sobre o golpe`);
+        const req = lastReq(/resuma http/);
+        assert.match(req.lastUser, /MATERIAL ANEXADO/);
+        assert.match(req.lastUser, /Golpe do pix cresceu 40%/);
+        assert.doesNotMatch(req.lastUser, /var x=1/);
+        assert.match(await lastAI(), /Li o link/);
+      } finally {
+        if (old === undefined) delete process.env.SAGADECK_CONTEXT_ALLOW_LOCAL; else process.env.SAGADECK_CONTEXT_ALLOW_LOCAL = old;
+        srv.close();
+      }
+    });
+
     await t.test("conversa: a IA responde, sugere e não mexe em nada", async () => {
       const before = JSON.stringify((await deck()).slides);
       await send("o que você acha de eu falar de fraudes para a empresa?");

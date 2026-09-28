@@ -187,6 +187,28 @@ test("gerar deck: slides explícitos e tema explícito vencem duration e style",
   assert.match(req, /Revista editorial/);
 });
 
+test("editDeck com materiais: bloco rotulado no pedido", async () => {
+  reply = () => "Entendi, não mudei nada.";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "use os números", targetSlide: 0,
+    materials: [{ name: "relatorio.pdf", text: "Fraudes: 40% em 2025", detail: "pdf (1 página)" }] });
+  const req = llm.requests[n].lastUser;
+  assert.match(req, /MATERIAL ANEXADO/);
+  assert.match(req, /relatorio\.pdf/);
+  assert.match(req, /Fraudes: 40% em 2025/);
+  assert.match(req, /Pedido: use os números/);
+});
+
+test("generateDeck com materiais: bloco antes do briefing", async () => {
+  reply = () => deckYaml(VARIED);
+  const n = llm.requests.length;
+  await generateDeck("fraudes", { direction: "x", materials: [{ name: "dados.csv", text: "ano,valor\n2024,3\n2025,5", detail: "texto" }] });
+  const req = llm.requests[n].lastUser;
+  assert.match(req, /MATERIAL ANEXADO/);
+  assert.match(req, /dados\.csv/);
+  assert.match(req, /2025,5/);
+});
+
 test("o sagadeck se identifica para o modelrelay (modelos por app)", async () => {
   reply = () => "ok";
   const n = llm.requests.length;
