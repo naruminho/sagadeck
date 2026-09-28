@@ -430,6 +430,18 @@ test("studio", async (t) => {
       await card.locator(".sf-item-toggle").click();
     }
     const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
+    // DIAG temporário para o CI: despeja o estado do cartão se o campo não aparecer
+    const diag = () => card.evaluate((c) => ({
+      cls: c.className,
+      toggle: c.querySelector(".sf-item-toggle")?.getAttribute("aria-expanded"),
+      fields: [...c.querySelectorAll(".sf-field")].map((f) => `${f.querySelector("label")?.textContent}=${f.querySelector("input,textarea,select")?.tagName}.${f.querySelector("input,textarea,select") ? getComputedStyle(f.querySelector("input,textarea,select")).display : "?"}`),
+      bodyDisplay: getComputedStyle(c.querySelector(".sf-item-body")).display,
+    }));
+    try {
+      await field("Título").waitFor({ state: "visible", timeout: 5000 });
+    } catch {
+      throw new Error(`DIAG aviso: ${JSON.stringify(await diag())}`);
+    }
     await field("Título").fill("Cuidado");
     await field("Texto").fill("Não molhe o equipamento.");
     await settle(1200);
