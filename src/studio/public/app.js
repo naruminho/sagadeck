@@ -138,6 +138,10 @@
     aiDeckSlides: document.getElementById("ai-deck-slides"),
     aiDeckMinutes: document.getElementById("ai-deck-minutes"),
     aiDeckStyle: document.getElementById("ai-deck-style"),
+    aiDeckFiles: document.getElementById("ai-deck-files"),
+    aiDeckLink: document.getElementById("ai-deck-link"),
+    aiDeckAddLink: document.getElementById("ai-deck-add-link"),
+    aiDeckMaterials: document.getElementById("ai-deck-materials"),
     aiDeckStatus: document.getElementById("ai-deck-status"),
     toast: document.getElementById("toast-notification"),
     // Biblioteca de Ícones
@@ -861,12 +865,15 @@
     const message = dom.chatInput.value.trim();
     if (!message) return;
 
-    // Adicionar bolha do usuário (com as imagens anexadas)
+    // Adicionar bolha do usuário (com os anexos: imagens e documentos)
     const bubble = appendChatMessage("user", message);
     if (state.chatAttachments.length) {
       const row = document.createElement("div");
       row.className = "msg-atts";
-      state.chatAttachments.forEach((u) => { const img = document.createElement("img"); img.src = u; row.appendChild(img); });
+      state.chatAttachments.forEach((a) => {
+        if (a.t === "img") { const img = document.createElement("img"); img.src = a.url; row.appendChild(img); }
+        else { const chip = document.createElement("span"); chip.className = "msg-doc"; chip.innerHTML = `<i class="ic" data-ic="file-text"></i> `; hydrateIcons(chip); chip.appendChild(document.createTextNode(a.name)); row.appendChild(chip); }
+      });
       bubble.querySelector(".user-content")?.appendChild(row);
     }
     dom.chatInput.value = "";
@@ -884,8 +891,13 @@
     // a conversa inteira deste deck (o servidor compacta as mensagens antigas; nada é esquecido)
     const history = state.chatHistory.slice();
     const baseDeck = JSON.parse(JSON.stringify(state.deck));
+    if (state.chatAttachments.some((a) => a.t === "doc" && !a.id)) {
+      showToast("Aguarde a leitura do anexo antes de enviar.", 4000);
+      return;
+    }
     state.chatHistory.push({ role: "user", text: message });
-    const attachments = state.chatAttachments.slice();
+    // imagens vão embutidas (como antes); documentos vão por id (o texto já está no servidor)
+    const attachments = state.chatAttachments.map((a) => (a.t === "img" ? a.url : { type: "doc", id: a.id }));
     clearChatAttachments();
 
     try {
@@ -1028,7 +1040,7 @@
     } catch { state.chatHistory = []; }
   }
 
-  // ---- anexos do chat (colar/arrastar/escolher imagem) ----
+  // ---- anexos do chat (imagem: colar/arrastar/escolher · documento: escolher → o servidor lê) ----
   state.chatAttachments = [];
   function clearChatAttachments() {
     state.chatAttachments = [];
@@ -1038,11 +1050,15 @@
     const box = dom.chatAttachments;
     box.hidden = !state.chatAttachments.length;
     box.innerHTML = "";
-    state.chatAttachments.forEach((url, i) => {
+    state.chatAttachments.forEach((a, i) => {
       const it = document.createElement("div");
       it.className = "chat-att";
-      it.innerHTML = `<img alt=""><button type="button" title="Remover"><i class="ic" data-ic="x"></i></button>`; hydrateIcons(it);
-      it.querySelector("img").src = url;
+      if (a.t === "img") {
+        it.innerHTML = `<img alt=""><button type="button" title="Remover"><i class="ic" data-ic="x"></i></button>`; hydrateIcons(it);
+        it.querySelector("img").src = a.url;
+      } else {
+        it.innerHTML = `<span class="chat-doc" title="${escHtml(a.name)}"><i class="ic" data-ic="file-text"></i><b>${escHtml(a.name)}</b><small>${a.chars} caracteres</small></span><button type="button" title="Remover"><i class="ic" data-ic="x"></i></button>`; hydrateIcons(it);
+      }
       it.querySelector("button").onclick = () => { state.chatAttachments.splice(i, 1); renderChatAttachments(); };
       box.appendChild(it);
     });
@@ -1057,12 +1073,44 @@
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      state.chatAttachments.push(c.toDataURL("image/jpeg", 0.85));
+      state.chatAttachments.push({ t: "img", url: c.toDataURL("image/jpeg", 0.85) });
       URL.revokeObjectURL(img.src);
       renderChatAttachments();
       openPane("chat");
     };
     img.src = URL.createObjectURL(file);
+  }
+  // documento (pdf, docx, xlsx, pptx, txt…): sobe na hora; o servidor extrai o texto e devolve um id.
+  // O binário nunca vai para a IA — só o texto extraído, na hora de enviar a mensagem.
+  function addChatDoc(file) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) { showToast("Arquivo grande demais (limite 15 MB)."); return; }
+    const provisional = { t: "doc", id: null, name: file.name, chars: "lendo…" };
+    state.chatAttachments.push(provisional);
+    renderChatAttachments();
+    openPane("chat");
+    const rd = new FileReader();
+    rd.onload = async () => {
+      try {
+        const res = await fetch("api/ai/context", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, dataUrl: rd.result }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        Object.assign(provisional, { id: data.id, chars: data.chars });
+      } catch (e) {
+        state.chatAttachments.splice(state.chatAttachments.indexOf(provisional), 1);
+        showToast(`Não deu para ler "${file.name}": ${e.message}`, 6000);
+      }
+      renderChatAttachments();
+    };
+    rd.readAsDataURL(file);
+  }
+  function addChatFile(file) {
+    if (!file) return;
+    if (file.type.startsWith("image/")) addChatImage(file);
+    else addChatDoc(file);
   }
   // Altura da caixa do chat = o conteúdo (ou o placeholder, se vazia) + a borda; barra de rolagem só no limite.
   function autoGrowChat() {
@@ -2988,6 +3036,8 @@
     dom.aiDeckMinutes.value = "15";
     dom.aiDeckSlides.value = "10";
     dom.aiDeckStyle.value = "";
+    state.deckMaterials = [];
+    renderDeckMaterials();
     dom.modalAiDeck.classList.remove("hidden");
     dom.aiDeckBriefing.focus();
   }
@@ -3010,12 +3060,64 @@
       const theme = STYLE_THEMES[dom.aiDeckStyle.value];
       if (theme && !dom.aiDeckTheme.value) dom.aiDeckTheme.value = theme;
     });
+    dom.aiDeckFiles.addEventListener("change", () => {
+      [...dom.aiDeckFiles.files].forEach((f) => uploadDeckMaterial({ name: f.name, file: f }));
+      dom.aiDeckFiles.value = "";
+    });
+    const addLink = () => {
+      const url = dom.aiDeckLink.value.trim();
+      if (!url) return;
+      dom.aiDeckLink.value = "";
+      uploadDeckMaterial({ url });
+    };
+    dom.aiDeckAddLink.onclick = addLink;
+    dom.aiDeckLink.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } });
+  }
+  // materiais do modal: iguais aos do chat (o servidor lê), guardados aqui até gerar
+  state.deckMaterials = [];
+  function renderDeckMaterials() {
+    const box = dom.aiDeckMaterials;
+    box.hidden = !state.deckMaterials.length;
+    box.innerHTML = "";
+    state.deckMaterials.forEach((a, i) => {
+      const it = document.createElement("div");
+      it.className = "chat-att";
+      it.innerHTML = `<span class="chat-doc" title="${escHtml(a.name)}"><i class="ic" data-ic="${a.url ? "link" : "file-text"}"></i><b>${escHtml(a.name)}</b><small>${a.chars}</small></span><button type="button" title="Remover"><i class="ic" data-ic="x"></i></button>`; hydrateIcons(it);
+      it.querySelector("button").onclick = () => { state.deckMaterials.splice(i, 1); renderDeckMaterials(); };
+      box.appendChild(it);
+    });
+  }
+  async function uploadDeckMaterial({ name, file, url }) {
+    const provisional = { name: name || url, chars: "lendo…" };
+    if (url) provisional.url = url;
+    state.deckMaterials.push(provisional);
+    renderDeckMaterials();
+    try {
+      let body;
+      if (url) body = { url };
+      else {
+        if (file.size > 15 * 1024 * 1024) throw new Error("Arquivo grande demais (limite 15 MB).");
+        body = { name: file.name, dataUrl: await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(rd.result); rd.onerror = rej; rd.readAsDataURL(file); }) };
+      }
+      const res = await fetch("api/ai/context", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      Object.assign(provisional, { id: data.id, name: data.name, chars: `${data.chars} caracteres` });
+    } catch (e) {
+      state.deckMaterials.splice(state.deckMaterials.indexOf(provisional), 1);
+      showToast(`Não deu para ler o material: ${e.message}`, 6000);
+    }
+    renderDeckMaterials();
   }
 
   async function runAiDeckGeneration() {
     const briefing = dom.aiDeckBriefing.value.trim();
     if (!briefing) {
       showToast("Descreva a apresentação que você quer.");
+      return;
+    }
+    if (state.deckMaterials.some((a) => !a.id)) {
+      showToast("Aguarde a leitura dos anexos antes de gerar.", 4000);
       return;
     }
     dom.btnRunAiDeck.disabled = true;
@@ -3033,6 +3135,7 @@
         style: dom.aiDeckStyle.value || undefined,
         slides: Number(dom.aiDeckSlides.value) || undefined,
         duration: Number(dom.aiDeckMinutes.value) || undefined,
+        materials: state.deckMaterials.map((a) => a.id),
       }, (ev) => {
         if (ev.type !== "progress") return;
         phase = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
@@ -3656,7 +3759,7 @@
       if (files.length) { e.preventDefault(); files.forEach(addChatImage); }
     });
     dom.chatAttach.onclick = () => dom.chatAttachInput.click();
-    dom.chatAttachInput.onchange = () => { [...dom.chatAttachInput.files].forEach(addChatImage); dom.chatAttachInput.value = ""; };
+    dom.chatAttachInput.onchange = () => { [...dom.chatAttachInput.files].forEach(addChatFile); dom.chatAttachInput.value = ""; };
 
     // Chips de Sugestões de Prompt do Chat
     document.querySelectorAll(".chip-prompt").forEach((btn) => {

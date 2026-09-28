@@ -13,6 +13,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { autofixDeck, autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
 import { varietyReport, nextDirection } from "./variety.js";
+import { materialsBlock } from "./context.js";
 import { COLLECTION_STYLE } from "../studio/template-collections.js";
 import { COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
 
@@ -637,7 +638,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [] }) {
   const deck = publicSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -661,7 +662,7 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
 ${YAML.stringify(numbered, { indent: 2 })}slides:
 ${slidesYaml}\`\`\`
 ${focus}${problems}${autoLog}${drawn}${apiEnvText}
-
+${materialsBlock(materials) ? `\n${materialsBlock(materials)}\n` : ""}
 Pedido: ${instruction}
 
 Antes de responder, verifique (e siga as Regras de edição):
@@ -783,7 +784,7 @@ export function styleFor(kind) {
 }
 
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, style, direction, images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const st = style ? styleFor(style) : null;
@@ -798,7 +799,7 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
   const dir = direction || nextDirection();
   const messages = [
     { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
-    { role: "user", content: `Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
+    { role: "user", content: `${materialsBlock(materials) ? materialsBlock(materials) + "\n\n" : ""}Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
 Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
 
 Direção criativa deste deck: ${dir}

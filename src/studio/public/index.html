@@ -394,11 +394,11 @@
         <form id="chat-form" class="chat-input-bar">
           <div id="chat-attachments" class="chat-attachments" hidden></div>
           <div class="chat-compose">
-            <textarea id="chat-input" class="chat-field" rows="1" placeholder="Pergunte, peça uma mudança ou cole uma imagem (Ctrl+V)…" autocomplete="off"></textarea>
-            <button type="button" id="chat-attach" class="icon-btn" title="Anexar imagem"><i class="ic" data-ic="image-plus"></i></button>
+            <textarea id="chat-input" class="chat-field" rows="1" placeholder="Pergunte, peça uma mudança, anexe um arquivo ou cole um link…" autocomplete="off"></textarea>
+            <button type="button" id="chat-attach" class="icon-btn" title="Anexar imagem ou documento (pdf, docx, xlsx, pptx, txt)"><i class="ic" data-ic="image-plus"></i></button>
             <button type="submit" id="chat-send" class="icon-btn icon-btn-primary" title="Enviar (Enter)"><i class="ic" data-ic="send"></i></button>
           </div>
-          <input type="file" id="chat-attach-input" accept="image/*" multiple hidden>
+          <input type="file" id="chat-attach-input" accept="image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.csv" multiple hidden>
         </form>
       </div>
     </aside>
@@ -659,6 +659,11 @@
           <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option></select></label>
           <label class="field-label">Tema <select id="ai-deck-theme" class="form-control"><option value="">A IA escolhe</option></select></label>
         </div>
+        <div class="form-row">
+          <label class="field-label">Arquivos <input id="ai-deck-files" type="file" multiple accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.csv" class="form-control" title="pdf, docx, xlsx, pptx, txt, md, csv: a IA lê o conteúdo"></label>
+          <label class="field-label">Link <span class="form-inline"><input id="ai-deck-link" type="url" placeholder="https://…" class="form-control"><button type="button" id="ai-deck-add-link" class="btn btn-secondary">Anexar</button></span></label>
+        </div>
+        <div id="ai-deck-materials" class="chat-attachments" hidden></div>
         <div id="ai-deck-status" class="status-line"></div>
       </div>
       <div class="modal-dialog-footer">
