@@ -216,6 +216,14 @@ test("o sagadeck se identifica para o modelrelay (modelos por app)", async () =>
   assert.equal(llm.requests[n].headers["x-modelrelay-app"], "sagadeck");
 });
 
+test("prompt do sistema: slide denso usa takeaway e aviso", async () => {
+  reply = () => "ok";
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+  assert.match(llm.requests[n].system, /elemento `aviso`/);
+  assert.match(llm.requests[n].system, /takeaway/);
+});
+
 test("modelo sem visão (ex.: DeepSeek V4 Flash): refaz sem imagens, avisa e não insiste", async () => {
   const NO_VISION = { status: 404, error: "HTTP 404: No endpoints found that support image input" };
   reply = (req) => (req.hasImages ? NO_VISION : "Vi pelo YAML: o título está ok.");

@@ -360,6 +360,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
 | forma | `{ shape: rect|rounded|circle|pill|line, fill: hi, stroke: fg, w, h }` |
 | selo | `{ badge: "NOVO" }` |
+| aviso | `{ aviso: { tipo: dica, titulo: "Dica", texto: "…" } }` — tipos: `importante`, `atencao`, `dica`, `perigo` (atalho: `{ aviso: "texto" }` vira dica). Caixa com ícone e cor do tema para o que não pode passar batido; slide denso fecha com 1 takeaway em ==destaque== mais um aviso quando couber |
 | vídeo | `{ video: "https://…", label: "Assistir" }` |
 | HTML livre | `{ html: "<div>…</div>" }` |
 | widget | `{ widget: nome, …opções }` |

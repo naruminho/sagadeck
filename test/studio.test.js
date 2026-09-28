@@ -416,6 +416,29 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("elemento Aviso: adiciona pelo formulário, salva e desenha a caixa", async () => {
+    await p.click('.thumb-card[data-idx="0"]'); await settle(600);
+    await p.click("#tab-btn-props"); await settle(400);
+    for (const s of await p.locator(`${form} summary:has-text("Mais opções")`).all()) {
+      if (await s.isVisible()) await s.click();
+    }
+    const extras = p.locator(`${form} .sf-list`, { has: p.locator(".sf-list-head", { hasText: "Elementos extras no fim" }) });
+    await extras.locator("select.sf-kind-add").selectOption("aviso");
+    await settle(600);
+    const card = p.locator(`${form} .sf-item`).last();
+    const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
+    await field("Título").fill("Cuidado");
+    await field("Texto").fill("Não molhe o equipamento.");
+    await settle(1200);
+    const add = saved().slides[0].add || [];
+    assert.ok(add.some((e) => e.aviso && e.aviso.titulo === "Cuidado" && e.aviso.texto === "Não molhe o equipamento."), "aviso salvo no deck");
+    const box = p.locator("#rendered-slide-container .aviso");
+    assert.ok(await box.isVisible(), "caixa desenhada");
+    assert.match(await box.innerText(), /Cuidado/);
+    assert.match(await box.innerText(), /Não molhe/);
+    await tab("inicio");
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);

@@ -85,6 +85,22 @@ function imageSrc(p, ctx) {
 
 const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image || el.qr);
 
+// Caixa de aviso/dica: { aviso: { tipo: importante|atencao|dica|perigo, titulo, texto } }.
+// Atalho: { aviso: "texto" } vira dica sem título. O tipo aceita "atenção" com ou sem acento.
+const AVISO_KINDS = {
+  importante: { icon: "sparkles", titulo: "Importante" },
+  atencao: { icon: "alert-triangle", titulo: "Atenção" },
+  dica: { icon: "lightbulb", titulo: "Dica" },
+  perigo: { icon: "x-circle", titulo: "Perigo" },
+};
+export function aviso(e) {
+  const a = typeof e.aviso === "string" ? { texto: e.aviso } : e.aviso || {};
+  const norm = String(a.tipo || "dica").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const kind = AVISO_KINDS[norm] ? norm : "dica";
+  const { icon, titulo } = AVISO_KINDS[kind];
+  return `<div${attrs(e, `aviso av-${kind}`)}><span class="av-icon">${iconSVG(a.icon || icon, { size: 44, stroke: 2 })}</span><div class="av-body"><div class="av-title f-heading">${md(a.titulo || titulo)}</div><div class="av-text f-body">${md(a.texto || "")}</div></div></div>`;
+}
+
 // Renderiza qualquer elemento
 export function el(e, ctx, w, h) {
   if (e == null) return "";
@@ -110,6 +126,7 @@ export function el(e, ctx, w, h) {
   if (e.code) return code(e);
   if (e.shape) return shape(e);
   if (e.badge) return `<div${attrs(e, "badge f-label")}>${md(e.badge)}</div>`;
+  if (e.aviso) return aviso(e);
   if (e.video) return video(e, ctx);
   if (e.widget) return `<div${attrs(e, "widget")} data-widget="${esc(e.widget)}" data-opts="${esc(JSON.stringify(e))}"></div>`;
   if (e.html) return `<div${attrs(e, "raw")}>${e.html}</div>`;
