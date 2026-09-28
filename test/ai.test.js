@@ -3,7 +3,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startMockLLM } from "./mock-llm.js";
-import { editDeck, textToSlide, parseOptions, generateDeck, applyPatch, sanitizeCheck, conversationFor } from "../src/ai/deck-ai.js";
+import { editDeck, textToSlide, parseOptions, generateDeck, applyPatch, sanitizeCheck, conversationFor, slidesForMinutes, styleFor } from "../src/ai/deck-ai.js";
+import { COLLECTION_STYLE } from "../src/studio/template-collections.js";
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./helpers.js";
@@ -148,6 +149,42 @@ test("gerar deck: deck já variado não gasta revisão", async () => {
   const n = llm.requests.length;
   await generateDeck("fraudes", { direction: "x" });
   assert.equal(llm.requests.slice(n).filter((q) => /Ficou repetitivo/.test(q.lastUser)).length, 0);
+});
+
+test("slidesForMinutes: ~1 slide a cada 1,5 min, entre 3 e 40", () => {
+  assert.equal(slidesForMinutes(15), 10);
+  assert.equal(slidesForMinutes(30), 20);
+  assert.equal(slidesForMinutes(4), 3);
+  assert.equal(slidesForMinutes(120), 40);
+  assert.equal(slidesForMinutes(0), undefined);
+  assert.equal(slidesForMinutes("x"), undefined);
+});
+
+test("styleFor: coleção vira tema+direção; desconhecido é null", () => {
+  assert.deepEqual(styleFor("revista"), COLLECTION_STYLE.revista);
+  assert.equal(styleFor("revista").theme, "editorial");
+  assert.equal(styleFor("x"), null);
+});
+
+test("gerar deck: duration vira slides e style vira tema+direção no prompt", async () => {
+  reply = () => deckYaml(VARIED);
+  const n = llm.requests.length;
+  await generateDeck("fraudes", { duration: 30, style: "revista" });
+  const req = llm.requests[n].lastUser;
+  assert.match(req, /Cerca de 20 slides/);
+  assert.match(req, /Duração planejada: 30 minutos/);
+  assert.match(req, /Use o tema "editorial"/);
+  assert.match(req, /Revista editorial/);
+});
+
+test("gerar deck: slides explícitos e tema explícito vencem duration e style", async () => {
+  reply = () => deckYaml(VARIED);
+  const n = llm.requests.length;
+  await generateDeck("fraudes", { duration: 30, style: "revista", slides: 5, theme: "noite" });
+  const req = llm.requests[n].lastUser;
+  assert.match(req, /Cerca de 5 slides/);
+  assert.match(req, /Use o tema "noite"/);
+  assert.match(req, /Revista editorial/);
 });
 
 test("o sagadeck se identifica para o modelrelay (modelos por app)", async () => {

@@ -136,6 +136,8 @@
     aiDeckBriefing: document.getElementById("ai-deck-briefing"),
     aiDeckTheme: document.getElementById("ai-deck-theme"),
     aiDeckSlides: document.getElementById("ai-deck-slides"),
+    aiDeckMinutes: document.getElementById("ai-deck-minutes"),
+    aiDeckStyle: document.getElementById("ai-deck-style"),
     aiDeckStatus: document.getElementById("ai-deck-status"),
     toast: document.getElementById("toast-notification"),
     // Biblioteca de Ícones
@@ -2979,15 +2981,35 @@
   }
 
   function openAiDeckModal() {
-    dom.aiDeckTheme.innerHTML = '<option value="">IA escolhe</option>' +
+    dom.aiDeckTheme.innerHTML = '<option value="">A IA escolhe</option>' +
       (state.themes || []).map((t) => `<option value="${t}">${t}</option>`).join("");
     dom.aiDeckStatus.textContent = state.ai.available ? "" : 'Nenhum LLM disponível — rode "modelrelay serve" antes de gerar.';
+    // cada abertura recomeça do sensato: 15 min viram 10 slides
+    dom.aiDeckMinutes.value = "15";
+    dom.aiDeckSlides.value = "10";
+    dom.aiDeckStyle.value = "";
     dom.modalAiDeck.classList.remove("hidden");
     dom.aiDeckBriefing.focus();
   }
 
   function closeAiDeckModal() {
     dom.modalAiDeck.classList.add("hidden");
+  }
+
+  // Minutos → slides e estilo → tema, no modal "Deck com IA". A conta minutos → slides é a mesma de
+  // slidesForMinutes() em src/ai/deck-ai.js (o modal não importa o motor): mude aqui, mude lá.
+  // O ajuste fino manual no campo Slides vale até trocar os minutos de novo (o input de minutos recalcula).
+  const STYLE_THEMES = { perspectiva: "jornal", essencial: "prata", revista: "editorial", cromatico: "bauhaus", tracos: "bauhaus" };
+  function setupAiDeckModal() {
+    dom.aiDeckMinutes.addEventListener("input", () => {
+      const m = Number(dom.aiDeckMinutes.value);
+      if (!Number.isFinite(m) || m <= 0) return;
+      dom.aiDeckSlides.value = String(Math.min(40, Math.max(3, Math.round(m / 1.5))));
+    });
+    dom.aiDeckStyle.addEventListener("change", () => {
+      const theme = STYLE_THEMES[dom.aiDeckStyle.value];
+      if (theme && !dom.aiDeckTheme.value) dom.aiDeckTheme.value = theme;
+    });
   }
 
   async function runAiDeckGeneration() {
@@ -3008,7 +3030,9 @@
       const data = await streamAI("api/ai/generate", {
         briefing,
         theme: dom.aiDeckTheme.value,
+        style: dom.aiDeckStyle.value || undefined,
         slides: Number(dom.aiDeckSlides.value) || undefined,
+        duration: Number(dom.aiDeckMinutes.value) || undefined,
       }, (ev) => {
         if (ev.type !== "progress") return;
         phase = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
@@ -3961,6 +3985,7 @@
     dom.btnCloseAiDeck.onclick = closeAiDeckModal;
     dom.btnCancelAiDeck.onclick = closeAiDeckModal;
     dom.btnRunAiDeck.onclick = runAiDeckGeneration;
+    setupAiDeckModal();
     dom.aiStatus.onclick = openAISettings;
 
     // Napkin AI (Texto -> Diagrama Visual)

@@ -650,10 +650,14 @@
       </div>
       <div class="modal-dialog-body">
         <label class="field-label" for="ai-deck-briefing">Sobre o que é, para quem e com que objetivo?</label>
-        <textarea id="ai-deck-briefing" class="form-control" rows="5" placeholder="ex.: Palestra de 15 minutos para gerentes de agência sobre usar IA com segurança no atendimento. Ilustre com imagens onde fizer sentido.&#10;(imagens: peça no texto — 'com fotos', 'você decide onde ilustrar'… sem pedir, não gera)"></textarea>
+        <textarea id="ai-deck-briefing" class="form-control" rows="5" placeholder="ex.: Palestra de 20 minutos para gerentes de agência sobre usar IA com segurança no atendimento. Comece com um caso real, mostre 3 cuidados e feche com um checklist.&#10;(imagens: peça no texto — 'com fotos', 'você decide onde ilustrar'… sem pedir, não gera)"></textarea>
         <div class="form-row">
+          <label class="field-label">Minutos <input id="ai-deck-minutes" type="number" min="3" max="120" value="15" class="form-control" title="A quantidade de slides sai daqui (~1 a cada 1,5 min)"></label>
+          <label class="field-label">Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control" title="Ajuste fino: mexer aqui vale até trocar os minutos"></label>
+        </div>
+        <div class="form-row">
+          <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option></select></label>
           <label class="field-label">Tema <select id="ai-deck-theme" class="form-control"><option value="">A IA escolhe</option></select></label>
-          <label class="field-label">Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control"></label>
         </div>
         <div id="ai-deck-status" class="status-line"></div>
       </div>

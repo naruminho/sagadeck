@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Frente A (preguiçoso): Nova em 1 tela — minutos, estilo e placeholder — 28/09/2026
+
+- Modal "Deck com IA" agora pede **minutos** (slides saem daqui: ~1 a cada 1,5 min, `slidesForMinutes()` em
+  `src/ai/deck-ai.js`; ajuste fino manual vale até trocar os minutos) e **estilo** (as 5 coleções →
+  `COLLECTION_STYLE` em `template-collections.js`: tema + direção criativa; tema explícito continua vencendo).
+- Encanamento: modal manda `duration`+`style`, servidor repassa (`direction` resolvida no `generateDeck`);
+  sem minutos/slides, o servidor calcula os slides da duração (vale para o CLI `--duration`, que já existia).
+- Ajuda do CLI menciona `--duration`. Placeholder do briefing com exemplo melhor.
+- Testes: `ai.test.js` (regra, prompt com duration/style, precedência de explícitos), `template-collections.test.js`
+  (um estilo por coleção, tema válido), `studio.test.js` (modal: auto, sugestão de tema, corpo do pedido).
+- Validação ao vivo (nemotron-3-super-120b:free, sem imagens): 10 min + estilo essencial → 7 slides variados,
+  tema prata, soma dos tempos = 10, em 1,6 min. `npm run bundle` passou.
+
 ## Rótulos grudados na faixa de opções — 28/09/2026
 
 - Reclamação: vários botões do editor com palavras grudadas ("Diagramade texto", "Cabeçalhoe rodapé",

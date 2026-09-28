@@ -13,6 +13,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { autofixDeck, autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
 import { varietyReport, nextDirection } from "./variety.js";
+import { COLLECTION_STYLE } from "../studio/template-collections.js";
 import { COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -767,10 +768,28 @@ Responda com:
   return { slide: wrapper.slides[0], detectedType: wrapper.slides[0].layout || "blocks", confidence: 1, rationale: prose || "Layout escolhido pelo LLM." };
 }
 
+// Regra canônica minutos → slides (~1 slide a cada 1,5 min de fala). A mesma conta está no modal
+// "Deck com IA" (src/studio/public/app.js), que não importa o motor: mude aqui, mude lá.
+export function slidesForMinutes(min) {
+  const m = Number(min);
+  if (!Number.isFinite(m) || m <= 0) return undefined;
+  return Math.min(40, Math.max(3, Math.round(m / 1.5)));
+}
+
+// Estilo do modal (uma coleção) → { theme, direction } para a geração. Desconhecido: null.
+export function styleFor(kind) {
+  const s = COLLECTION_STYLE[kind];
+  return s ? { theme: s.theme, direction: s.direction } : null;
+}
+
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, direction, images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
+  const st = style ? styleFor(style) : null;
+  if (st && !theme) theme = st.theme;
+  if (st && !direction) direction = st.direction;
+  if (!slides && duration) slides = slidesForMinutes(duration);
   const wishes = [
     theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
     slides ? `Cerca de ${slides} slides.` : "Entre 8 e 14 slides.",

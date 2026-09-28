@@ -27,6 +27,14 @@ const priorities = [item('Uma pergunta melhor', 'Entenda o que precisa mudar ant
 const agenda = ['O contexto', 'A oportunidade', 'O experimento', 'O próximo passo'];
 const palette = (paper, ink, accent, alert, family) => Object.fromEntries(Object.entries({ paper, ink, accent, alert, family }).map(([key, value]) => [key, Array.isArray(value) ? value.map(c => c.replace('#', '')) : value.replace('#', '')]));
 
+// Estética de cada coleção para a geração com IA (modal "Deck com IA": estilo → tema + direção criativa).
+export const COLLECTION_STYLE = {
+  perspectiva: { theme: 'jornal', direction: 'Corporativo fotográfico: fotografia grande de gente de verdade, contraste firme, uma ideia por slide. Considere jornal.' },
+  essencial: { theme: 'prata', direction: 'Minimalismo de estúdio: muito espaço vazio, uma frase por slide, detalhes em preto e branco. Considere prata.' },
+  revista: { theme: 'editorial', direction: 'Revista editorial: serifas grandes, capítulos, fotografia e respiro de página. Considere editorial.' },
+  cromatico: { theme: 'bauhaus', direction: 'Cor e fotografia: painéis sobrepostos, blocos de cor chapada, energia alegre. Considere bauhaus.' },
+  tracos: { theme: 'bauhaus', direction: 'Geometria criativa: molduras, caminhos visuais, números grandes, composição assimétrica. Considere bauhaus.' },
+};
 export function collectionDeck(kind) {
   if (!Object.hasOwn(COLLECTION_NAMES, kind)) throw new Error('Coleção não encontrada.');
   let theme, colors, slides;

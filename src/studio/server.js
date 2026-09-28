@@ -730,8 +730,10 @@ export function createStudioServer(deckPath = null, opts = {}) {
         await respond(res, body.stream, async (emit) => {
           const gen = await generateDeck(body.briefing, {
             theme: body.theme || undefined,
+            style: body.style || undefined,
             slides: Number(body.slides) || undefined,
             duration: Number(body.duration) || undefined,
+            direction: body.direction || undefined,
             images: true, // o briefing diz se quer imagens (e onde)
             imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
             onEvent: emit,

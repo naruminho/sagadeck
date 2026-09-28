@@ -361,6 +361,38 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Deck com IA: minutos calculam os slides, estilo sugere o tema e o pedido leva tudo", async () => {
+    await tab("ia");
+    await p.click("#btn-ai-deck");
+    assert.ok(await p.isVisible("#modal-ai-deck"), "modal abriu");
+    assert.equal(await p.inputValue("#ai-deck-minutes"), "15");
+    assert.equal(await p.inputValue("#ai-deck-slides"), "10");
+    await p.fill("#ai-deck-minutes", "30");
+    assert.equal(await p.inputValue("#ai-deck-slides"), "20", "30 min viram 20 slides");
+    await p.fill("#ai-deck-slides", "8"); // ajuste fino manual…
+    await p.fill("#ai-deck-minutes", "45");
+    assert.equal(await p.inputValue("#ai-deck-slides"), "30", "…mas trocar os minutos recalcula");
+    await p.selectOption("#ai-deck-style", "revista");
+    assert.equal(await p.inputValue("#ai-deck-theme"), "editorial", "estilo sugere o tema");
+    await p.selectOption("#ai-deck-theme", ""); // a IA escolhe: o estilo decide no servidor
+    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    // o servidor está sem LLM nos testes: responde com o próprio deck de teste (renderização conhecida)
+    await p.route("**/api/ai/generate", async (route) => {
+      const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+      await route.fulfill({ json: { ok: true, spec, file: deckFile.file, images: { done: [], failed: [] } } });
+    });
+    const req = p.waitForRequest("**/api/ai/generate");
+    await p.click("#btn-run-ai-deck");
+    const body = JSON.parse((await req).postData());
+    await p.unroute("**/api/ai/generate");
+    assert.equal(body.duration, 45);
+    assert.equal(body.slides, 30);
+    assert.equal(body.style, "revista");
+    await p.waitForTimeout(1500);
+    assert.ok(await p.isHidden("#modal-ai-deck"), "modal fechou: gerou");
+    await tab("inicio");
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);
