@@ -241,7 +241,7 @@ Ideias que ficaram para depois (não bloqueiam):
    Correção depois: o grupo Identidade ficou alto e as 16 paletas espremeram a galeria de temas até sumir (a faixa
    rolava na vertical). Agora temas e paletas dividem o espaço, cada um com a sua rolagem (`.rgroup-gallery`), e o
    teste "Design: temas e paletas ficam à vista" confere em 1366 e 2000 px.
-3. One-page, status semanal, governança navegável (abaixo).
+3. One-page, status semanal, governança navegável (abaixo): FEITOS.
 
 Decisão pendente com Naruminho: manter MIT ou trocar para AGPL-3.0 (proteção contra uso fechado como serviço).
 Versões já publicadas como MIT continuam MIT.
@@ -265,9 +265,33 @@ Versões já publicadas como MIT continuam MIT.
   mascarada. Local: liberado para a pessoa da máquina. Multiusuário: só `--agentes` / `SAGADECK_AGENTES`
   (pedido de Naruminho: no servidor Oracle, a Mary usa tudo menos comandos).
 
-### 2. One-page: A FAZER
+### 2. One-page: FEITO
 
-### 3. Status semanal: A FAZER
+- Layout `onepage`: jornada (etapas com ícone e mini-frase), o problema (texto, números grandes, tópicos), a solução
+  e o painel (`dashboard: {numbers, figures}`): números grandes em cima; gráficos (os mesmos de `chart`, com `title`)
+  e mapa por UF embaixo. Só aparece o que foi preenchido (bloco `{}` vazio some); sem painel, letra maior e conteúdo
+  no meio; problema/solução + painel lado a lado; só o painel = dashboard de página inteira. Gráficos desenhados na
+  proporção do quadro (1,5x e reduzidos, a letra acompanha). Limite de palavras próprio: 120 (status: 90).
+- Elemento novo `ufmap` (`src/figures/ufmap.js`): mapa do Brasil em grade (cartograma, sem geodados de fora), cor
+  pela escala do `--em` do tema, UF sem valor apagada, `highlight`, legenda; em quadro estreito só as siglas. No
+  mapa do one-page ganha coluna própria da altura do painel. Serve em qualquer lugar (`figure`, `side`…).
+- Studio: galeria (One-page), formulário (jornada, O problema/A solução com números e tópicos, Painel com números
+  grandes e "Gráficos e mapa" como elementos); elemento "Mapa por UF" no seletor de elementos. `f.obj` com
+  `stringAs` converte o atalho em texto (`problem: "…"`) em `{text}` sem perder o conteúdo.
+- Testes: `onepage.test.js` (motor, mapa, e no navegador cheio/só painel/simples sem nada fora, vazando do quadro
+  ou encavalado em sinal, editorial e noite; gráfico não espremido), `studio.test.js` (criar pela galeria, problema
+  e número do painel no deck salvo). Exportação PPTX/PDF conferida à mão.
+
+### 3. Status semanal: FEITO
+
+- Layout `status`: saúde (`health` ok/risco/atrasado, com `healthLabel` para trocar o texto), avanço (`progress` %),
+  destaque (`highlight`) e as seções feito, em andamento, bloqueios, riscos e problemas, próximos passos; item é texto
+  ou `{text, owner, due}` ("Ana · até 30/09"); `shots` (até 3 telas com legenda) ao lado.
+- "Muito variável": só aparece o que foi preenchido. Grade de 6 trilhas: a última linha incompleta se reparte inteira
+  (5 seções = 3 + 2, sem buraco); semana magra (até 6 itens, sem telas) ganha letra maior e o bloco no meio.
+- Studio: galeria (Status semanal) e formulário (saúde, avanço, listas com responsável e prazo, telas).
+- Testes: `status.test.js` (motor; no navegador, semana cheia e vazia sem nada fora do slide ou encavalado em
+  sinal, editorial e noite), `studio.test.js` (criar pela galeria, saúde, avanço e bloqueio no deck salvo).
 
 ### 4 e 5. Governança navegável: FEITO o recurso (navegação por caminhos)
 

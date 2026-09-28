@@ -235,6 +235,53 @@ test("studio", async (t) => {
     await p.click("#btn-del-slide"); await settle(500);
   });
 
+  // status semanal: pela galeria, marcar a saúde, pôr o avanço e anotar um bloqueio com responsável
+  await t.test("Status semanal: criar pela galeria, marcar saúde, avanço e um bloqueio salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx);
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="status"]'); await settle();
+    assert.equal(saved().slides[i].layout, "status");
+    const campo = (label, tag = "input") => p.locator(`${form} .sf-field:has(.sf-label:text-is("${label}")) ${tag}`).first();
+    await campo("Saúde", "select").selectOption("atrasado"); await settle();
+    await campo("Avanço (%)").fill("40"); await campo("Avanço (%)").blur(); await settle();
+    const n = (saved().slides[i].blocked || []).length;
+    await p.click(`${form} button:has-text("Adicionar bloqueio")`); await settle();
+    const item = p.locator(`${form} .sf-list:has(> .sf-list-head button:has-text("Adicionar bloqueio")) .sf-item`).last();
+    const texto = item.locator("textarea, input").first();
+    await texto.fill("Aguardando acesso ao banco"); await texto.blur(); await settle();
+    const s = saved().slides[i];
+    assert.equal(s.health, "atrasado");
+    assert.equal(s.progress, 40);
+    assert.equal(s.blocked.length, n + 1);
+    assert.match(JSON.stringify(s.blocked.at(-1)), /Aguardando acesso ao banco/, "o bloqueio no deck salvo");
+    assert.match(await p.textContent("#rendered-slide-container .stt-health"), /Atrasado/);
+    assert.match(await p.textContent("#rendered-slide-container .stt-blocked"), /Aguardando acesso ao banco/);
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
+  // one-page: pela galeria, escrever o problema e pôr um número grande no painel
+  await t.test("One-page: criar pela galeria, escrever o problema e adicionar número ao painel salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx);
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="onepage"]'); await settle();
+    assert.equal(saved().slides[i].layout, "onepage");
+    const problema = p.locator(`${form} fieldset:has(> legend:text-is("O problema")) .sf-field:has(.sf-label:text-is("Texto")) textarea`).first();
+    await problema.fill("Abrir conta leva 5 dias"); await problema.blur(); await settle();
+    assert.equal(saved().slides[i].problem.text, "Abrir conta leva 5 dias", "o problema no deck salvo");
+    await p.locator(`${form} fieldset:has(> legend:text-is("Painel")) button:has-text("Adicionar número")`).first().click();
+    await settle();
+    const n = saved().slides[i].dashboard?.numbers || [];
+    assert.equal(n.length, 1, "um número grande no painel");
+    assert.equal(n[0].value, "100");
+    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Abrir conta leva 5 dias/);
+    assert.ok(await p.locator("#rendered-slide-container .op-kpi").count(), "e o número no slide");
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
   await t.test("editor visual tem formulário para os layouts novos", async () => {
     const i = await go("statement");
     const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/, kinetic: /Cena de fundo/ };

@@ -9,6 +9,7 @@ import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
 import { chart } from "./figures/charts.js";
+import { ufmap } from "./figures/ufmap.js";
 import { highlightCode } from "./code-highlight.js";
 import { resolveCodeLanguage } from "./code-language.js";
 
@@ -64,6 +65,7 @@ export function figureHTML(el, ctx, w, h) {
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
   if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(el, el.cw || w || 1200, el.ch || h || 620)}</div>`;
+  if (el.ufmap) return `<div${attrs(el, "fig fig-ufmap")}>${ufmap({ cw: w, ...el }, ctx?.warnings)}</div>`;
   if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
   if (el.image) {
     const src = imageSrc(el.image, ctx);
@@ -84,7 +86,7 @@ function imageSrc(p, ctx) {
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image || el.qr);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr);
 
 // Caixa de aviso/dica: { aviso: { tipo: importante|atencao|dica|perigo, titulo, texto } }.
 // Atalho: { aviso: "texto" } vira dica sem título. O tipo aceita "atenção" com ou sem acento.
