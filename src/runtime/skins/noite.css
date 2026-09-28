@@ -17,3 +17,5 @@
 .th-noite .L-number:not(:has(.nb-side)){justify-content:center}
 .th-noite .L-number:not(:has(.nb-side)) .nb-main{flex:none;align-items:center;text-align:center}
 .th-noite .L-statement{align-items:center;text-align:center}
+/* botão Voltar (navegação por caminhos) fora da barra/moldura do tema */
+.th-noite .nav-back{top:46px;left:60px}

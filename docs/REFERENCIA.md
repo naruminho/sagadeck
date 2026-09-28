@@ -51,12 +51,15 @@ slides:
 | `bg` / `fg` | cor de fundo / texto (hex) só neste slide |
 | `transition` | `fade` (padrão) ou `cut` |
 | `footer: false` | esconde o rodapé neste slide |
+| `id` | nome curto do slide, destino dos links (`goto`, `back`, `next`, `[texto](#id)`); ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
+| `back` | id (ou número) do slide para onde o botão **Voltar** do canto leva; o botão mostra o título do destino |
+| `next` | id (ou número) do slide para onde o avanço leva **no fim deste slide** (o fim de um caminho volta ao mapa, em vez de seguir a ordem) |
 
 Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`).
 
 ## Marcação inline (qualquer texto)
 
-`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
+`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · `[texto](#id)` (leva ao slide de `id`) · quebra de linha = nova linha no YAML (`|`).
 
 ## Layouts
 
@@ -68,8 +71,9 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
 | `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor` | número gigante animado (conta de `from` até `value`) |
 | `split` | `title, body, bullets, content, figure, ratio: "1.2:1", reverse, build` | texto + figura |
-| `cards` | `title, items: [{icon, picto, number, title, text, foot, hl}], cols, build` | 2–4 cartões |
-| `list` | `title, items: [texto ou {text, sub}], numbered, size, build` | lista numerada grande |
+| `cards` | `title, items: [{icon, picto, number, title, text, foot, hl, goto}], cols, build` | 2–4 cartões |
+| `list` | `title, items: [texto ou {text, sub, goto}], numbered, size, build` | lista numerada grande |
+| `hub` | `kicker, title, question, options: [{icon, title, text, meta, goto}], cols, build` | mapa de caminhos: cada opção leva (`goto`) à parte da apresentação daquele caminho; ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
 | `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
@@ -342,6 +346,46 @@ no deck nem exibida na página. Os demais exemplos continuam usando o ambiente l
 Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pela própria página
 (outros sites e HTML aberto do disco são recusados), só com JSON. No modo multiusuário (servidor) e com
 `--host` aberto para a rede, o slide só mostra gravações.
+
+## Navegação por caminhos (`hub`, `goto`, `back`, `next`)
+
+Para processo com vários caminhos ("é experimento ou projeto? DEV, HOM ou PROD?", "o que muda conforme o
+front-end?"), em vez de uma sequência única: um **mapa** (`layout: hub`) com as opções, cada uma levando à sua
+seção; cada seção termina voltando ao mapa. Funciona ao apresentar (clique), no PDF (links entre páginas) e no
+PowerPoint (clique pula para o slide).
+
+- `id: mapa` num slide o torna destino. `goto: mapa` (ou o número do slide) em opção do `hub`, cartão (`cards`),
+  item de lista (`list`) ou etapa (`steps`) deixa o item clicável, com uma seta. No texto: `[veja o projeto](#proj)`.
+- No **primeiro** slide de cada caminho, `back: mapa` mostra o botão **Voltar: <título do mapa>** no canto.
+- No **último** slide de cada caminho, `next: mapa`: avançar ali volta ao mapa, em vez de cair no primeiro slide do
+  caminho seguinte. Dentro do caminho a ordem é a normal (o próximo da lista).
+- Ordem no YAML: capa, mapa, depois cada caminho inteiro em sequência (os slides de um caminho juntos), e o
+  encerramento. Dá para ter mapa dentro de caminho (um caminho que se abre em outros), com `back` para o mapa de cima.
+- Destino que não existe vira aviso no build ("o link para x não leva a nenhum slide").
+
+```yaml
+- layout: hub
+  id: mapa
+  title: Qual é o seu caso?
+  question: Cada caminho tem prazos e responsáveis diferentes
+  options:
+    - { icon: flask-conical, title: Experimento, text: Dados fictícios, meta: 30 dias, goto: experimento }
+    - { icon: rocket, title: Projeto, text: DEV, HOM e PROD, goto: projeto }
+- layout: steps
+  id: experimento
+  back: mapa
+  title: Experimento
+  steps: [{ title: Pedido }, { title: 30 dias }, { title: Renovar ou virar projeto, goto: projeto }]
+- layout: statement
+  text: Passou de 30 dias? Renove ou [vire projeto](#projeto).
+  next: mapa            # fim do caminho: volta ao mapa
+- layout: cards
+  id: projeto
+  back: mapa
+  next: mapa
+  title: Projeto
+  items: [{ title: DEV, text: 30 dias }, { title: HOM, text: 30 dias }, { title: PROD, text: sem prazo }]
+```
 
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 

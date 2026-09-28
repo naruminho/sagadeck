@@ -49,16 +49,27 @@ export async function contactSheet(files, outDir, { perSheet = 12, cols = 3 } = 
 export async function pdf(htmlFile, outFile) {
   const { browser, page } = await openDeck(htmlFile, { scale: 1 });
   const n = await page.evaluate(() => window.sagadeck.n);
-  const imgs = [];
+  const imgs = [], links = [];
   for (let i = 0; i < n; i++) {
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     await page.evaluate(([j, k]) => window.sagadeck.goto(j, k), [i, S]);
     await page.waitForTimeout(50);
     imgs.push((await page.screenshot({ type: "jpeg", quality: 92 })).toString("base64"));
+    links.push(await page.evaluate(gotoRects, i));
   }
-  await page.setContent(`<style>@page{size:1920px 1080px;margin:0}body{margin:0}img{width:1920px;height:1080px;display:block;page-break-after:always}</style>${imgs.map((b) => `<img src="data:image/jpeg;base64,${b}">`).join("")}`);
+  // cada página é a foto do slide; por cima, áreas clicáveis nos itens com goto (o PDF pula para a página do destino)
+  const hit = (l) => `<a href="#p${l.to}" style="position:absolute;left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px"></a>`;
+  await page.setContent(`<style>@page{size:1920px 1080px;margin:0}body{margin:0}.pg{position:relative;width:1920px;height:1080px;page-break-after:always;overflow:hidden}img{width:1920px;height:1080px;display:block}</style>${imgs.map((b, i) => `<div class="pg" id="p${i}"><img src="data:image/jpeg;base64,${b}">${links[i].map(hit).join("")}</div>`).join("")}`);
   await page.pdf({ path: outFile, width: "1920px", height: "1080px", printBackground: true });
   await browser.close();
+}
+
+// Itens com goto do slide i (dentro do navegador): retângulo em pixels do slide e o índice do slide de destino
+function gotoRects(i) {
+  const all = [...document.querySelectorAll("#stage > .slide")], s = all[i], sr = s.getBoundingClientRect(), k = sr.width / 1920 || 1;
+  const idx = (t) => { t = String(t); const j = all.findIndex((x) => x.dataset.id === t); return j >= 0 ? j : /^\d+$/.test(t) ? +t - 1 : -1; };
+  return [...s.querySelectorAll("[data-goto]")].map((a) => { const r = a.getBoundingClientRect(); return { x: Math.round((r.left - sr.left) / k), y: Math.round((r.top - sr.top) / k), w: Math.round(r.width / k), h: Math.round(r.height / k), to: idx(a.dataset.goto) }; })
+    .filter((l) => l.to >= 0 && l.w > 0 && l.h > 0);
 }
 
 // ---------- verificação (roda dentro do navegador) ----------

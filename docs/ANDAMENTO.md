@@ -269,7 +269,22 @@ Versões já publicadas como MIT continuam MIT.
 
 ### 3. Status semanal: A FAZER
 
-### 4 e 5. Governança navegável: A FAZER
+### 4 e 5. Governança navegável: FEITO o recurso (navegação por caminhos)
+
+- Pergunta do Naruminho: "como deixar isso navegável, organizado e útil?" (acesso → experimento ou projeto → DEV/HOM/
+  PROD; caminhos que se abrem conforme o front-end). Resposta: um **mapa** e seções por caminho, em vez de sequência.
+- Layout `hub` (mapa de caminhos: pergunta + opções com ícone, texto, detalhe e seta). `goto` (id ou número) em opção,
+  cartão, item de lista e etapa deixa o item clicável; `[texto](#id)` no meio do texto; no slide, `id`, `back`
+  (botão "Voltar: <título do destino>" no canto; no terminal fica na barra da janela, no noite dentro da moldura) e
+  `next` (o fim do caminho volta ao mapa em vez de seguir a ordem). `navWarnings` avisa destino inexistente e id repetido.
+- Funciona na apresentação (runtime: clique; `next` no fim do slide), no PDF (áreas clicáveis por cima das fotos das
+  páginas, links internos) e no PowerPoint (`hyperlink: { slide }`, "hlinksldjump").
+- Studio: galeria (Mapa de caminhos), formulário do hub, "Ao clicar, ir para" em cartão/etapa/item e, em Mais
+  opções de todo slide, "Id do slide", "Botão Voltar para" e "No fim, avançar para". REFERENCIA: seção "Navegação por
+  caminhos" com exemplo (a IA sabe montar).
+- Testes: `navigation.test.js` (motor, cliques na apresentação, links no PDF e no PPTX), `studio.test.js` (mapa pelo
+  formulário, destino e id no deck salvo).
+- O deck da governança em si (conteúdo do trabalho) não entra no repositório: vai para a biblioteca da pessoa.
 
 ---
 

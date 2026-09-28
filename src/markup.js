@@ -1,6 +1,6 @@
 // Marcação inline usada em qualquer texto do YAML.
 //   **negrito**   *itálico*   ==marca-texto==   ^^cor de ênfase^^
-//   ~~riscado~~   `código`    [link](https://...)   quebra de linha = \n
+//   ~~riscado~~   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
 
 export function esc(s) {
   return String(s ?? "")
@@ -15,6 +15,8 @@ export function md(s) {
   h = h.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
   h = h
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // [texto](#id): link para outro slide da apresentação (navegação por caminhos; ver goto no build)
+    .replace(/\[([^\]]+)\]\(#([\w-]+)\)/g, '<a class="goto-link" href="#s-$2" data-goto="$2">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
     .replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, "$1<i>$2</i>")
     .replace(/==([^=]+)==/g, "<mark>$1</mark>")
