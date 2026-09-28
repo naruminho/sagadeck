@@ -342,6 +342,21 @@ test("studio", async (t) => {
     }
   });
 
+  await t.test("Design: passar o mouse no tema mostra a prévia sem salvar; sair restaura", async () => {
+    await tab("design");
+    const before = (await deck()).theme;
+    const other = before === "editorial" ? "sinal" : "editorial";
+    await p.locator(`#theme-gallery .theme-card[data-theme="${other}"]`).hover();
+    await p.waitForFunction((t) => document.querySelector("#rendered-slide-container .slide")?.className.includes(`th-${t}`), other, { timeout: 8000 });
+    assert.equal(saved().theme, before, "prévia não salva no deck");
+    const thumb = await p.evaluate(() => document.querySelector(".thumb-card.active .thumb-render")?.innerHTML || "");
+    assert.ok(!thumb.includes(`th-${other}`), "miniatura intacta na prévia");
+    await p.mouse.move(720, 500); // tira o mouse do cartão, sem passar por outros cartões
+    await p.waitForFunction((t) => document.querySelector("#rendered-slide-container .slide")?.className.includes(`th-${t}`), before, { timeout: 8000 });
+    assert.equal(saved().theme, before, "sair da prévia não salva");
+    await tab("inicio");
+  });
+
   await t.test("faixa de opções: rótulos dos botões com espaço entre as palavras", async () => {
     // um <br> escondido pelo CSS grudava as palavras ("Diagramade texto"); o teste lê o texto
     // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)

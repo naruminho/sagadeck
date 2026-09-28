@@ -8,6 +8,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Frente D (preguiçoso): prévia de tema no hover, sem salvar — 28/09/2026
+
+- Passar o mouse no cartão do tema (aba Design) mostra o slide atual com aquele tema; tirar o mouse restaura.
+  Nada salva, miniaturas intactas; o clique continua aplicando de verdade. Pedidos concorrentes usam a mesma
+  guarda de sequência do render (`renderSeq`); falha de rede na prévia é silenciosa.
+- Teste em `studio.test.js`: prévia aparece (`th-<tema>` no canvas), deck salvo e miniatura não mudam, sair
+  restaura. `npm run bundle` passou.
+
 ## Frente C (preguiçoso): elemento aviso: + regras de prompt + auditoria da referência — 28/09/2026
 
 - Elemento novo `{ aviso: { tipo, titulo, texto } }` (tipos: importante/atencao/dica/perigo; atalho `{ aviso: "texto" }`

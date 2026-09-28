@@ -305,6 +305,7 @@
   let renderSeq = 0;
   async function renderCurrentSlide() {
     if (!state.deck || !state.deck.slides || state.deck.slides.length === 0) return;
+    previewThemeName = null; // render canônico: qualquer prévia de hover terminou
     const seq = ++renderSeq;
     const rebuildForm = !state.skipFormRebuild;
     state.skipFormRebuild = false;
@@ -1845,6 +1846,7 @@
   const lookLabel = (kind, name) => kind === "theme" ? (state.themeMeta?.[name]?.label || name) : name === "tema" ? "Do tema" : (state.palettes?.[name]?.label || name);
   function applyLook(kind, name, scope = "all") {
     const key = kind === "theme" ? "theme" : "palette";
+    previewThemeName = null; // a prévia do hover termina no clique que aplica
     const slide = state.deck.slides[state.currentSlideIndex];
     if (scope === "all") {
       if (key === "palette" && name === "tema") delete state.deck.palette; else state.deck[key] = name;
@@ -1862,6 +1864,32 @@
     playHaptic("snap");
   }
   const changeTheme = (themeName) => applyLook("theme", themeName);
+
+  // Prévia de tema no hover: mostra o slide atual com o tema, sem salvar nem tocar nas miniaturas.
+  // O clique continua aplicando de verdade (applyLook). Sem compromisso antes de ver.
+  let previewThemeName = null;
+  async function previewTheme(name) {
+    if (!state.deck || previewThemeName === name) return;
+    previewThemeName = name;
+    const seq = ++renderSeq;
+    try {
+      const res = await fetch("api/render-slide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slide: state.deck.slides[state.currentSlideIndex], index: state.currentSlideIndex, spec: { ...state.deck, theme: name } }),
+      });
+      const data = await res.json();
+      if (seq !== renderSeq || previewThemeName !== name) return; // já pediram um render mais novo
+      ensureSlideStyles(data.baseCSS, data.themeCSS);
+      dom.renderedSlideContainer.innerHTML = data.html;
+      window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
+    } catch { /* prévia é melhor esforço; o clique aplica de verdade */ }
+  }
+  function endThemePreview() {
+    if (!previewThemeName) return;
+    previewThemeName = null;
+    renderCurrentSlide();
+  }
 
   function openLookMenu(e, kind, name) {
     e.preventDefault();
@@ -1919,6 +1947,8 @@
       card.innerHTML = `<span class="tc-aa" style="color:${m.ink}">Aa</span><span class="tc-bar" style="background:${m.accent}"></span><span class="tc-name"></span>`;
       card.querySelector(".tc-name").textContent = m.label;
       card.onclick = () => changeTheme(n);
+      card.onmouseenter = () => previewTheme(n);
+      card.onmouseleave = endThemePreview;
       card.oncontextmenu = (e) => openLookMenu(e, "theme", n);
       card.title += ". Clique: todos os slides. Botão direito: só neste slide.";
       dom.themeGallery.appendChild(card);
@@ -2145,6 +2175,7 @@
     if (idx < 0 || idx >= state.deck.slides.length) return;
     if (idx !== state.currentSlideIndex) state.editorStep = "all"; // outro slide: volta a mostrar tudo
     state.currentSlideIndex = idx;
+    previewThemeName = null; // a prévia era do slide anterior; o render abaixo restaura
     markActiveThumb();
     renderCurrentSlide();
   }
