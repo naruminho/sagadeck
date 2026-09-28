@@ -30,6 +30,7 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - Para testar algo com um deck da pessoa, abra o da biblioteca (`sagadeck studio`, sem `--library`). Os testes automáticos usam uma biblioteca temporária própria (`test/helpers.js` define `SAGADECK_HOME`); isso é só da suíte.
 - No código: apresentação nova passa por `newDeckPath` (`src/library.js`) ou pela biblioteca (`openLibrary(...).createDeck`). `test/storage.test.js` garante isso no `new`, `scaffold`, `ensaio-api` e nas ferramentas MCP.
 - Terminou uma mudança: teste, commit, PR e merge na hora, sem perguntar.
+- Acompanhando um PR (CI, revisão): confira a cada **10 minutos**, nunca de hora em hora.
 
 ## Escrita do deck (IA e código)
 
