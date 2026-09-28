@@ -1843,7 +1843,7 @@
       const sw = card.querySelector(".pc-sw");
       if (m.colors.length) m.colors.forEach((c) => { const i = document.createElement("i"); i.style.background = c; sw.append(i); });
       else sw.innerHTML = '<i class="ic" data-ic="palette"></i>';
-      card.querySelector(".tc-name").textContent = m.label;
+      card.querySelector(".tc-name").textContent = m.label.replace(/\s*\(.*\)$/, ""); // "Rubi (vermelho discreto)": o cartão mostra o nome, a dica o resto
       card.onclick = () => applyLook("palette", n);
       card.oncontextmenu = (e) => openLookMenu(e, "palette", n);
       gal.appendChild(card);
@@ -1893,7 +1893,7 @@
     sel.innerHTML = "";
     for (const [v, l] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = l; sel.append(o); }
     sel.value = cur;
-    const say = (text, warn) => { note.textContent = text; note.hidden = !text; note.classList.toggle("warn", !!warn); };
+    const say = (text, warn) => { note.textContent = text; note.title = text; note.hidden = !text; note.classList.toggle("warn", !!warn); };
     const ident = d.identities.find((x) => x.id === cur);
     if (d.error) say(d.error, true);
     else if (cur && !ident) say("Esta identidade não está configurada neste computador: vale a fonte do tema.", true);
@@ -1902,7 +1902,7 @@
       const missing = fonts.filter((f) => !fontInstalled(f));
       say(missing.length === fonts.length ? "Nenhuma das fontes está instalada neste computador: vale a do tema."
         : missing.length ? `Não instaladas aqui: ${missing.join(", ")}.` : "", missing.length === fonts.length);
-    } else say(d.exists ? "" : "Use as fontes da sua empresa: Configurar.", false);
+    } else say(d.exists ? "" : "Fontes da empresa: configure no botão ao lado.", false);
   }
 
   // cartão ativo = o que vale no slide aberto; "só este slide" ganha uma marca

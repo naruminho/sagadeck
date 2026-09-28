@@ -182,12 +182,14 @@
       </div>
       <div class="rgroup">
         <div class="rgroup-body rgroup-fields">
-          <label class="rfield"><span>Fontes</span>
-            <select id="identity-select" class="rselect" title="Fontes (e paleta) da sua empresa, configuradas só neste computador">
-              <option value="">Do tema</option>
-            </select>
-          </label>
-          <button id="btn-identity-setup" class="rbtn" title="Configurar as fontes da empresa (arquivo identidades.yaml, só neste computador)"><i class="ic" data-ic="sliders-horizontal"></i><span>Configurar</span></button>
+          <div class="rrow">
+            <label class="rfield"><span>Fontes</span>
+              <select id="identity-select" class="rselect" title="Fontes (e paleta) da sua empresa, configuradas só neste computador">
+                <option value="">Do tema</option>
+              </select>
+            </label>
+            <button id="btn-identity-setup" class="rbtn rbtn-icon" title="Configurar as fontes da empresa (arquivo identidades.yaml, só neste computador)" aria-label="Configurar as fontes da empresa"><i class="ic" data-ic="sliders-horizontal"></i></button>
+          </div>
           <span id="identity-note" class="rnote" hidden></span>
         </div>
         <div class="rgroup-label">Identidade</div>
@@ -198,14 +200,14 @@
         </div>
         <div class="rgroup-label">Páginas</div>
       </div>
-      <div class="rgroup rgroup-grow">
+      <div class="rgroup rgroup-gallery">
         <div class="rgroup-body">
           <div id="theme-gallery" class="theme-gallery" role="listbox" aria-label="Temas"></div>
           <select id="theme-select" class="visually-hidden" tabindex="-1" aria-hidden="true"></select>
         </div>
         <div class="rgroup-label">Temas (botão direito: só neste slide)</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup rgroup-gallery">
         <div class="rgroup-body">
           <div id="palette-gallery" class="theme-gallery palette-gallery" role="listbox" aria-label="Paletas"></div>
         </div>

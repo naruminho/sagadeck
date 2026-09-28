@@ -93,6 +93,9 @@ Ideias que ficaram para depois (não bloqueiam):
    Fallback: fontes digitadas → fonte do tema → genérica; aviso no Studio se nenhuma estiver instalada. Sem
    embutir o arquivo da fonte (licença). Fontes mais largas (rabisco/sketch): o ajuste de texto já remede quando a
    fonte chega; o diagrama agora espera `document.fonts.ready`.
+   Correção depois: o grupo Identidade ficou alto e as 16 paletas espremeram a galeria de temas até sumir (a faixa
+   rolava na vertical). Agora temas e paletas dividem o espaço, cada um com a sua rolagem (`.rgroup-gallery`), e o
+   teste "Design: temas e paletas ficam à vista" confere em 1366 e 2000 px.
 3. One-page, status semanal, governança navegável (abaixo).
 
 Decisão pendente com Naruminho: manter MIT ou trocar para AGPL-3.0 (proteção contra uso fechado como serviço).
