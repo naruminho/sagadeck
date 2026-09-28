@@ -74,6 +74,8 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `cards` | `title, items: [{icon, picto, number, title, text, foot, hl, goto}], cols, build` | 2–4 cartões |
 | `list` | `title, items: [texto ou {text, sub, goto}], numbered, size, build` | lista numerada grande |
 | `hub` | `kicker, title, question, options: [{icon, title, text, meta, goto}], cols, build` | mapa de caminhos: cada opção leva (`goto`) à parte da apresentação daquele caminho; ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
+| `onepage` | `kicker, title, subtitle, journey: [texto ou {icon, title, text, goto}], journeyTitle, problem: {title, text, numbers: [{value, label}], items}, solution: {…}, dashboard: {numbers: [{value, label, trend, title}], figures: [gráfico ou ufmap, com title]}` | tudo numa página (jornada, problema, solução, painel); ver [One-page](#one-page-onepage) |
+| `status` | `kicker, title, health: ok\|risco\|atrasado, healthLabel, progress (0–100), highlight, done, doing, blocked, risks, upcoming: [texto ou {text, owner, due}], shots: [{image, caption}]` | status semanal; ver [Status semanal](#status-semanal-status) |
 | `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
@@ -387,6 +389,62 @@ PowerPoint (clique pula para o slide).
   items: [{ title: DEV, text: 30 dias }, { title: HOM, text: 30 dias }, { title: PROD, text: sem prazo }]
 ```
 
+## One-page (`onepage`)
+
+Tudo numa página só: **jornada** (etapas com ícone e mini-frase, lado a lado), **o problema** (texto, números
+grandes, tópicos), **a solução** e, quando fizer sentido, um **painel** (dashboard): números grandes em cima,
+gráficos e mapa por UF embaixo. Só aparecem as partes preenchidas e o arranjo se ajusta: sem painel, a letra
+cresce e o conteúdo vai para o meio; com problema/solução e painel, os dois ficam lado a lado; só o painel = um
+dashboard de página inteira. Os gráficos do painel são os mesmos de `chart` (com `title`), e o mapa é o `ufmap`.
+`problem`/`solution` também aceitam só o texto (`problem: Leva 2 semanas`). Etapa da jornada só com texto
+aparece como frase curta em destaque. É denso de propósito: o limite de palavras dele é 120 (os outros, 40).
+
+```yaml
+- layout: onepage
+  kicker: Proposta
+  title: Cadastro digital de clientes
+  subtitle: Menos papel, menos fila, menos retrabalho
+  journey:
+    - { icon: user, title: Cliente chega, text: Fila de 40 min }
+    - { icon: file-text, title: Preenche papel, text: 3 formulários }
+    - { icon: check, title: Conta aberta, text: Até 5 dias }
+  problem:
+    text: O cadastro em papel atrasa a abertura de contas.
+    numbers: [{ value: 5 dias, label: para abrir uma conta }, { value: 20%, label: dos cadastros refeitos }]
+  solution:
+    text: Cadastro no tablet, com validação na hora e assinatura digital.
+    items: [Conta aberta no mesmo dia, Zero papel na agência]
+  dashboard:
+    numbers: [{ value: 1,2 mi, label: cadastros por ano, trend: +8% }]
+    figures:
+      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Fila, value: 40 }, { label: Papel, value: 25 }] }
+      - { title: Cadastros por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
+```
+
+## Status semanal (`status`)
+
+Um slide por semana, por projeto: o que foi feito, o que está em andamento, bloqueios, riscos e problemas e os
+próximos passos, com a saúde do projeto (`health`: `ok` Em dia, `risco` Atenção, `atrasado` Atrasado; `healthLabel`
+troca o texto) e o avanço (`progress`, em %). Só as seções preenchidas aparecem e o arranjo se ajusta: semana sem
+nada mostrável fica com duas colunas limpas, sem buraco. Item é texto ou `{text, owner, due}` (aparece "Ana · até
+30/09"). `shots` (até 3) põe as telas da semana ao lado, com legenda; `highlight` é a frase de destaque. Para um
+status por projeto, um slide `status` para cada.
+
+```yaml
+- layout: status
+  kicker: Semana 39 · 22 a 26/09
+  title: Portal do cliente
+  health: risco
+  progress: 65
+  highlight: Login novo em homologação
+  done: [Tela de login, { text: Integração com o cadastro, owner: Ana }]
+  doing: [Recuperação de senha]
+  blocked: [{ text: Liberação de firewall, owner: Infra, due: 30/09 }]
+  risks: [Prazo de HOM apertado]
+  upcoming: [Homologar com o negócio]
+  shots: [{ image: imagens/login.png, caption: Nova tela de login }]
+```
+
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 
 Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some), `anim` (`up` padrão, `fade`, `pop`, `left`, `right`, `down`, `zoom`, `none`), `w`, `h`, `flex`, `color`, `bg`, `align`, `pad`, `card: true|hi`, `class`, `style` e, no `canvas`, `x`, `y`.
@@ -435,6 +493,11 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 { chart: stacked, data: [{label, value}, …] }
 ```
 `null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
+
+**Mapa do Brasil por UF** (em grade: cada estado é um quadrado na posição aproximada; a cor mais forte é o maior
+valor): `{ ufmap: { SP: 320, RJ: 140, MG: 150 }, suffix: " mil", prefix: "R$ ", highlight: [SP], legend: "cadastros", showValues: true }`.
+Chave é a sigla da UF (sigla desconhecida vira aviso); UF sem valor fica apagada. Em quadro estreito só as siglas
+aparecem (`showValues: true` força os valores).
 
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML).

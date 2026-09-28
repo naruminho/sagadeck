@@ -12,6 +12,7 @@ import { mathHTML, plotHTML } from "./science.js";
 import { infographicHTML } from "./infographic.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
+const plainTitle = (s) => String(s.title || s.kicker || s.layout || "").replace(/[*=^~`]/g, "").slice(0, 40);
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
 const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
 const head = (s, as = "h2") => (s.kicker || s.title ? `<header class="hd">${kicker(s)}${title(s, as)}</header>` : "");
@@ -91,6 +92,91 @@ export const LAYOUTS = {
       : text(s.text, s.as || "title", { class: "st-line e", style: "--d:1;", fit: true, size: s.size });
     return `<div class="L-statement ${s.center ? "center" : ""}">${kicker(s)}<div class="st-body">${lines}</div>
       ${s.by ? text(s.by, "label", { class: "st-by e", style: "--d:3;", step: s.byStep }) : ""}${src(s)}</div>${add(s, ctx)}`;
+  },
+
+  // Status semanal: saúde, avanço e as seções que tiverem conteúdo (feito, em andamento, bloqueios, riscos, próximos
+  // passos); screenshots ao lado quando houver. Semana sem nada "mostrável" = sem colunas vazias nem área de imagem.
+  status(s, ctx) {
+    const SEC = [["done", "Feito", "circle-check"], ["doing", "Em andamento", "loader-circle"], ["blocked", "Bloqueios", "octagon-alert"],
+      ["risks", "Riscos e problemas", "triangle-alert"], ["upcoming", "Próximos passos", "circle-arrow-right"]];
+    const HEALTH = { ok: "Em dia", risco: "Atenção", atrasado: "Atrasado" };
+    if (s.health && !HEALTH[s.health]) ctx.warnings?.push(`slide "${plainTitle(s)}": health: use ok, risco ou atrasado (veio "${s.health}")`);
+    const item = (o) => { const x = typeof o === "string" ? { text: o } : o || {}; const meta = [x.owner, x.due ? `até ${x.due}` : ""].filter(Boolean).join(" · ");
+      return `<li class="stt-item"><span class="stt-dot" aria-hidden="true"></span><div class="stt-it"><div class="t f-body">${md(x.text)}</div>${meta ? `<div class="stt-meta t f-label">${esc(meta)}</div>` : ""}</div></li>`; };
+    const secs = SEC.filter(([k]) => Array.isArray(s[k]) && s[k].length);
+    const nShots = (s.shots || []).slice(0, 3).length;
+    // grade de 6 trilhas: cada seção ocupa 6/colunas; a última linha, se incompleta, se reparte inteira (sem buraco)
+    const n = secs.length, per = nShots ? Math.min(2, n) : n === 4 ? 2 : Math.min(3, n), rest = n % per;
+    const span = (i) => (rest && i >= n - rest ? 6 / rest : 6 / per);
+    const nItems = secs.reduce((a, [k]) => a + s[k].length, 0);
+    const cols = secs.map(([k, label, icon], i) => `<div class="stt-col stt-${k} e" style="--d:${2 + i};grid-column:span ${span(i)};">
+        <div class="stt-h"><span class="stt-ic">${iconSVG(icon, { size: 30, stroke: 2 })}</span><span class="t f-label">${esc(s[`${k}Label`] || label)}</span></div>
+        <ul class="stt-list">${s[k].map(item).join("")}</ul></div>`);
+    const shots = (s.shots || []).slice(0, 3).map((sh) => { const x = typeof sh === "string" ? { image: sh } : sh || {};
+      return `<figure class="stt-shot">${el({ image: x.image, fit: "contain" }, ctx, 640, 360)}${x.caption ? `<figcaption class="t f-label">${md(x.caption)}</figcaption>` : ""}</figure>`; });
+    const pct = s.progress != null && Number.isFinite(+s.progress) ? Math.max(0, Math.min(100, +s.progress)) : null;
+    const health = HEALTH[s.health] ? `<span class="stt-health stt-${s.health}"><i aria-hidden="true"></i><span class="t f-label">${esc(s.healthLabel || HEALTH[s.health])}</span></span>` : "";
+    const prog = pct != null ? `<div class="stt-prog"><div class="stt-track"><div class="stt-bar" style="width:${pct}%"></div></div><span class="t f-label">${pct}%</span></div>` : "";
+    // semana magra (poucos itens, sem telas): letra maior e o bloco no meio, em vez de cartões pequenos no alto
+    const roomy = !shots.length && nItems <= 6;
+    return `<div class="L-status${shots.length ? " with-shots" : ""}${roomy ? " stt-roomy" : ""}">
+      <div class="stt-top">${head(s)}<div class="stt-side e" style="--d:1;">${health}${prog}</div></div>
+      ${s.highlight ? text(s.highlight, "lead", { class: "stt-highlight e", style: "--d:1;" }) : ""}
+      <div class="stt-body"><div class="stt-cols">${cols.join("")}</div>${shots.length ? `<div class="stt-shots e" style="--d:3;">${shots.join("")}</div>` : ""}</div>
+      ${src(s)}</div>${add(s, ctx)}`;
+  },
+
+  // One-page: tudo numa página só. Jornada (ícones e mini-frases), problema com números, solução e, quando houver,
+  // um painel (números grandes em cima, gráficos e mapa por UF embaixo). Só entram as partes preenchidas; o painel
+  // sozinho é um dashboard. Com problema/solução e painel juntos, os dois ficam lado a lado (cabe numa página).
+  onepage(s, ctx) {
+    // bloco vazio (o formulário cria {} ao abrir) não aparece
+    const filled = (b) => b && (b.text || (b.items || []).length || (b.numbers || []).length);
+    const sec = (v, dflt) => { const b = v == null ? null : typeof v === "string" ? { text: v } : Array.isArray(v) ? { items: v } : v;
+      return filled(b) ? { ...b, title: b.title || dflt } : null; };
+    const problem = sec(s.problem, "O problema"), solution = sec(s.solution, "A solução");
+    const jSteps = (Array.isArray(s.journey) ? s.journey : s.journey?.steps || []).filter((x) => x != null && x !== "");
+    const journey = { title: s.journeyTitle ?? s.journey?.title ?? "Jornada" };
+    // painel: { numbers: [...], figures: [...] } (também aceita uma lista misturada)
+    const D = s.dashboard || {}, mixed = Array.isArray(D) ? D : [];
+    const isKpi = (x) => (x.value != null || x.stat != null) && !x.chart && !x.ufmap;
+    const obj = (t) => (typeof t === "object" && t ? (t.chart && typeof t.chart === "object" ? { ...t.chart, title: t.title } : t) : { value: t });
+    const kpis = [...(D.numbers || []), ...mixed].filter((x) => x != null).map(obj).filter(isKpi);
+    const figAll = [...(D.figures || []), ...mixed].filter((x) => x != null).map(obj).filter((x) => !isKpi(x));
+    const tiles = [...kpis, ...figAll];
+    const maps = figAll.filter((x) => x.ufmap), figs = figAll.filter((x) => !x.ufmap);
+    const mid = [problem, solution].filter(Boolean).length;
+    const beside = mid && tiles.length;
+    const roomy = !tiles.length;
+    // tamanho de cada gráfico, para desenhar já na proporção certa (a letra do gráfico acompanha)
+    const bodyH = 850 - (s.kicker ? 170 : 120) - (s.subtitle ? 60 : 0) - (jSteps.length ? 200 : 0);
+    // o mapa por UF é alto: ganha uma coluna própria no painel, da altura toda
+    const mapW = maps.length ? Math.round((bodyH - 90) * 0.75) + 44 : 0;
+    const dashW = (beside ? 1680 * 0.58 - 12 : 1680) - (maps.length ? (mapW + 24) * maps.length : 0);
+    const figH = bodyH - (kpis.length ? 170 : 0) - 70, figW = figs.length ? (dashW - 24 * (figs.length - 1)) / figs.length - 44 : 0;
+    const nums = (arr) => (arr || []).length ? `<div class="op-nums">${arr.map((n) => { const x = typeof n === "object" ? n : { value: n };
+      return `<div class="op-num"><div class="t f-display op-num-v">${esc(String(x.value ?? ""))}</div>${x.label ? `<div class="t f-label op-num-l">${md(x.label)}</div>` : ""}</div>`; }).join("")}</div>` : "";
+    const bullets = (arr) => (arr || []).length ? `<ul class="op-items">${arr.map((x) => `<li class="t f-body">${md(typeof x === "object" ? x.text : x)}</li>`).join("")}</ul>` : "";
+    const block = (b, cls, d) => b ? `<section class="op-block ${cls} e" style="--d:${d};"><div class="op-h t f-label">${md(b.title)}</div>
+        ${b.text ? `<div class="t f-body op-text">${md(b.text)}</div>` : ""}${nums(b.numbers)}${bullets(b.items)}</section>` : "";
+    const jHTML = jSteps.length ? `<section class="op-journey e" style="--d:2;">${journey.title ? `<div class="op-h t f-label">${md(journey.title)}</div>` : ""}<ol class="op-steps" style="--n:${jSteps.length}">${jSteps.map((st, i) => { const x0 = typeof st === "string" ? { text: st } : st, x = x0.title ? x0 : { ...x0, title: x0.text, text: "" }; // só texto = frase curta, em destaque
+        return `<li class="op-step${x.goto ? " goto" : ""}"${x.goto ? ` data-goto="${esc(x.goto)}"` : ""}>${x.icon ? `<span class="op-ic">${iconSVG(x.icon, { size: 40, stroke: 1.8 })}</span>` : `<span class="op-ic op-ic-n t f-label">${i + 1}</span>`}
+          <div class="op-st">${x.title ? `<div class="t f-heading op-st-t">${md(x.title)}</div>` : ""}${x.text ? `<div class="t f-body op-st-x">${md(x.text)}</div>` : ""}</div></li>`; }).join("")}</ol></section>` : "";
+    const tHead = (x) => (x.title ? `<div class="op-h t f-label">${md(x.title)}</div>` : "");
+    const kpi = (x) => { const up = x.trendUp !== false && !String(x.trend || "").startsWith("-");
+      return `<div class="op-tile op-kpi">${tHead(x)}<div class="t f-display op-kpi-v">${esc(String(x.value ?? x.stat))}</div>${x.label ? `<div class="t f-body op-kpi-l">${md(x.label)}</div>` : ""}
+        ${x.trend ? `<div class="st-trend ${up ? "trend-up" : "trend-down"}">${iconSVG(up ? "trending-up" : "trending-down", { size: 22, stroke: 2.2 })} ${esc(x.trend)}</div>` : ""}</div>`; };
+    // gráfico desenhado 1,5x maior e reduzido: a letra fica proporcional ao quadro pequeno
+    const fig = (x) => { const { title: _t, ...f } = x;
+      return `<div class="op-tile op-fig${x.ufmap ? " op-map" : ""}">${tHead(x)}<div class="op-fig-in">${x.ufmap ? el(f, ctx, mapW - 44) : el(f, ctx, Math.round(figW * 1.5), Math.round(Math.max(180, figH) * 1.5))}</div></div>`; };
+    const dMain = kpis.length || figs.length ? `<div class="op-dash-main">${kpis.length ? `<div class="op-kpis">${kpis.map(kpi).join("")}</div>` : ""}${figs.length ? `<div class="op-figs" style="--n:${figs.length}">${figs.map(fig).join("")}</div>` : ""}</div>` : "";
+    const dHTML = tiles.length ? `<section class="op-dash e" style="--d:4;${maps.length ? `--op-mapw:${mapW}px;` : ""}">${dMain}${maps.map(fig).join("")}</section>` : "";
+    const midHTML = mid ? `<div class="op-mid">${block(problem, "op-problem", 3)}${block(solution, "op-solution", 3)}</div>` : "";
+    const cls = ["L-onepage", beside ? "op-beside" : "", roomy ? "op-roomy" : "", tiles.length && !jSteps.length && !mid ? "op-only-dash" : ""].filter(Boolean).join(" ");
+    return `<div class="${cls}">${head(s)}
+      ${s.subtitle ? text(s.subtitle, "lead", { class: "op-sub e", style: "--d:1;" }) : ""}
+      <div class="op-main">${jHTML}<div class="op-body">${midHTML}${dHTML}</div></div>
+      ${src(s)}</div>${add(s, ctx)}`;
   },
 
   // Mapa de caminhos: uma pergunta e as opções; cada opção leva (goto) à seção dela. O fim de cada caminho volta
