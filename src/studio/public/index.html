@@ -60,6 +60,7 @@
         <div class="menu-sep"></div>
         <button class="menu-item" id="action-save-yaml"><i class="ic" data-ic="save"></i>Salvar</button>
         <button class="menu-item" id="export-sagadeck" title="A apresentação inteira num arquivo: YAML + imagens, CSS e widgets"><i class="ic" data-ic="download"></i>Baixar apresentação (.sagadeck)</button>
+        <button class="menu-item" id="export-all" data-export="tudo" title="Um .zip com o PowerPoint (com as notas), o PDF e o roteiro do apresentador: tudo o que se leva para apresentar"><i class="ic" data-ic="download"></i>Baixar tudo (PowerPoint, PDF e roteiro)</button>
         <button class="menu-item" id="export-pptx" data-export="pptx" title="PowerPoint editável: textos nativos, animações dos cliques e notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint (.pptx)</button>
         <button class="menu-item" id="export-pptx-clean" data-export="pptx" data-notas="0" title="Para mandar a alguém: o mesmo PowerPoint, sem as notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint sem as notas</button>
         <button class="menu-item" id="export-pdf" data-export="pdf" title="Um slide por página, como a plateia vê (tudo revelado)"><i class="ic" data-ic="file-text"></i>Baixar PDF</button>
@@ -330,6 +331,7 @@
           <div id="inspector-overlay" class="inspector-layer"></div>
           <div id="heatmap-overlay" class="heatmap-layer hidden"></div>
           <div id="rendered-slide-container"></div>
+          <div id="look-preview-badge" class="look-preview-badge hidden" role="status"></div>
         </div>
       </div>
       <!-- fiscal: o problema do slide e as correções, à mão -->

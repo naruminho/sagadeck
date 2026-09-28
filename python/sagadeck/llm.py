@@ -9,11 +9,29 @@ plano (na porta 8765, ou outra livre; só em 127.0.0.1) enquanto o comando roda 
 from __future__ import annotations
 
 import os
+import re
 import socket
 import sys
 import threading
 from contextlib import contextmanager
 from typing import Iterator, Sequence
+
+# Versão mínima do modelrelay que este sagadeck espera (0.2.0: a tela de modelos com a lista do provedor e o Testar).
+# Mudou o modelrelay? Suba aqui e no extra "ia" do pyproject.toml (regra no CLAUDE.md dos dois repositórios).
+MIN_MODELRELAY = "0.2.0"
+
+
+def _version(v: str) -> tuple:
+    return tuple(int(n) for n in re.findall(r"\d+", str(v))[:3]) or (0,)
+
+
+def outdated_relay(installed: str) -> str | None:
+    """Aviso (ou None) para um modelrelay mais velho que o exigido."""
+    if _version(installed) >= _version(MIN_MODELRELAY):
+        return None
+    return (f"Aviso: modelrelay {installed} está desatualizado: este sagadeck precisa do {MIN_MODELRELAY} ou mais novo. "
+            f'Atualize com: pip install -U "modelrelay>={MIN_MODELRELAY}"')
+
 
 # comandos do motor que podem usar o LLM
 AI_COMMANDS = {"studio", "web", "ensaio-api", "new", "napkin", "visual", "imagens", "images"}
@@ -35,10 +53,14 @@ def llm_env(command: str | None, env: dict | None = None) -> Iterator[dict]:
         yield env
         return
     try:
+        import modelrelay
         from modelrelay.server import make_server
     except ImportError:  # sem modelrelay: o motor usa as regras locais
         yield env
         return
+    warn = outdated_relay(getattr(modelrelay, "__version__", "0"))
+    if warn:  # segue funcionando, mas a pessoa fica sabendo o que falta
+        print(warn, file=sys.stderr)
     try:
         # na porta padrão, se livre: a tela de configuração (http://127.0.0.1:8765/) fica sempre no mesmo endereço
         try:

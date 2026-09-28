@@ -184,6 +184,7 @@
       <button class="mi" data-a="dup">${ic("copy")}Duplicar</button>
       ${others.map((t) => `<button class="mi" data-move="${esc(t.id)}"><span class="dot" style="background:${esc(t.color)}"></span>Mover para ${esc(t.name)}</button>`).join("")}
       <div class="sep"></div>
+      <button class="mi" data-dl="tudo">${ic("download")}Baixar tudo<small>PowerPoint, PDF e roteiro</small></button>
       <button class="mi" data-dl="sagadeck">${ic("download")}Baixar apresentação<small>.sagadeck</small></button>
       <button class="mi" data-dl="pptx">Baixar PowerPoint<small>.pptx</small></button>
       <button class="mi" data-dl="pptx" data-notas="0">Baixar PowerPoint sem as notas<small>.pptx</small></button>
@@ -222,29 +223,67 @@
     const m = $("#new-menu");
     place(m, anchor);
     const topic = topicOf(view) ? view : "";
-    m.querySelectorAll("[data-new]").forEach((b) => b.onclick = () => {
-      closeMenus();
-      if (b.dataset.new === "blank") return nameDialog("Nova apresentação", "", async (title) => {
-        try { const { id } = await api("api/library/decks", { topic, title }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
-      }, "Título");
-      if (b.dataset.new === "ai") return aiDialog(topic);
-      if (b.dataset.new.startsWith('model-')) return (async () => {
-        try { const {id} = await api('api/library/decks/model',{topic,kind:b.dataset.new.slice(6)}); openEditor(id); } catch(e) { toast('Não deu: '+e.message,5000); }
-      })();
-      if (b.dataset.new === "example-cenario") return (async () => {
-        try { const { id } = await api("api/library/decks/example-cenario", { topic }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
-      })();
-      if (b.dataset.new === "example-api") return (async () => {
-        try { const { id } = await api("api/library/decks/example", { topic }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
-      })();
-      $("#import-input").dataset.topic = topic;
-      $("#import-input").click();
+    m.querySelectorAll("[data-new]").forEach((b) => b.onclick = () => { closeMenus(); startNew(b.dataset.new, topic); });
+  }
+
+  // Um jeito de começar (menu Nova ou cartão da vitrine) → a apresentação nova, já aberta no editor
+  function startNew(key, topic) {
+    const create = async (path, body) => {
+      try { const { id } = await api(path, { topic, ...body }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
+    };
+    if (key === "blank") return nameDialog("Nova apresentação", "", (title) => create("api/library/decks", { title }), "Título");
+    if (key === "ai") return aiDialog(topic);
+    if (key === "ai-file") return aiDialog(topic, { fromFile: true });
+    if (key === "gallery") return galleryDialog(topic);
+    if (key.startsWith("model-")) return create("api/library/decks/model", { kind: key.slice(6) });
+    if (key.startsWith("exp-")) return create("api/library/experience", { experience: key.slice(4) });
+    if (key === "example-cenario") return create("api/library/decks/example-cenario", {});
+    if (key === "example-api") return create("api/library/decks/example", {});
+    $("#import-input").dataset.topic = topic;
+    $("#import-input").click();
+  }
+
+  // Vitrine "Modelo pronto": tudo o que já vem pronto num lugar só (antes eram 14 linhas no menu Nova), com filtro
+  const GALLERY = [
+    ["colecao", "model-perspectiva", "Perspectiva", "Fotografia, agenda e contraste corporativo", ["#1F2A44", "#E9E4DA", "#C8553D"]],
+    ["colecao", "model-essencial", "Essencial", "Minimalismo, espaço e detalhes em preto e branco", ["#F5F5F2", "#1A1A1A", "#9A9A94"]],
+    ["colecao", "model-revista", "Revista", "Serifas, capítulos e fotografia editorial", ["#FAF7F0", "#1C1C1C", "#B23A2E"]],
+    ["colecao", "model-cromatico", "Cromático", "Cor, fotos e painéis sobrepostos", ["#F2B33D", "#1F4AA8", "#D93A2B"]],
+    ["colecao", "model-tracos", "Traços", "Geometria, molduras e caminhos visuais", ["#F3EEE3", "#1A1A1A", "#D93A2B"]],
+    ["demo", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
+    ["demo", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
+    ["demo", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
+    ["demo", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
+    ["demo", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
+    ["exemplo", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
+    ["exemplo", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
+  ];
+  const GALLERY_KINDS = [["", "Todos"], ["colecao", "Coleções"], ["estilo", "Estilos prontos"], ["demo", "Demonstrações"], ["exemplo", "Exemplos"]];
+  async function galleryDialog(topic) {
+    let items = GALLERY;
+    try {
+      const { experiences } = await api("api/experiences");
+      items = [...GALLERY.slice(0, 5), ...experiences.map((x) => ["estilo", `exp-${x.id}`, x.name, x.description, [x.background, x.accent, x.color]]), ...GALLERY.slice(5)];
+    } catch { /* sem os estilos prontos, a vitrine segue com o resto */ }
+    dialog(`<h3 id="dialog-heading">Modelo pronto</h3>
+      <div class="vit-filters" role="tablist">${GALLERY_KINDS.map(([k, l], i) => `<button class="vit-filter ${i ? "" : "active"}" data-kind="${k}">${l}</button>`).join("")}</div>
+      <div class="vit-grid">${items.map(([kind, key, name, desc, sw]) => `<button class="vit-card" data-new="${esc(key)}" data-kind="${kind}">
+        <span class="vit-sw">${sw.map((c) => `<i style="background:${esc(c)}"></i>`).join("")}</span>
+        <b>${esc(name)}</b><span class="d">${esc(desc)}</span></button>`).join("")}</div>
+      <div class="row"><button class="lib-btn ghost" data-cancel>Fechar</button></div>`, (box, close) => {
+      box.classList.add("wide");
+      box.querySelectorAll(".vit-filter").forEach((f) => f.onclick = () => {
+        box.querySelectorAll(".vit-filter").forEach((x) => x.classList.toggle("active", x === f));
+        box.querySelectorAll(".vit-card").forEach((c) => { c.hidden = !!f.dataset.kind && c.dataset.kind !== f.dataset.kind; });
+      });
+      box.querySelectorAll(".vit-card").forEach((c) => c.onclick = () => { close(); startNew(c.dataset.new, topic); });
     });
   }
 
   // ---------------------------------------------------------------- diálogos
   function dialog(html, onOpen) {
     const back = $("#dlg"), box = back.firstElementChild;
+    box.className = "ldlg"; // tira o "wide" de um diálogo anterior
     box.innerHTML = html;
     hydrate(box);
     back.classList.add("open");
@@ -281,19 +320,68 @@
       box.querySelector("#dlg-name").onkeydown = (e) => { if (e.key === "Enter") go(); };
     });
   }
-  function aiDialog(topic) {
-    dialog(`<h3>Nova apresentação com IA</h3><label>Sobre o que é, para quem e com que objetivo?</label>
-      <textarea id="dlg-brief" placeholder="Ex.: palestra de 15 minutos para gestores sobre golpes no Pix. Você decide onde ilustrar."></textarea>
+  // Estilos = as coleções (COLLECTION_STYLE em src/studio/template-collections.js decide tema e direção criativa)
+  const STYLES = [["perspectiva", "Perspectiva: corporativo fotográfico"], ["essencial", "Essencial: minimalismo"], ["revista", "Revista: editorial"], ["cromatico", "Cromático: cor e fotografia"], ["tracos", "Traços: geometria criativa"]];
+  // mesma conta de slidesForMinutes (src/ai/deck-ai.js): ~1 slide a cada 1,5 min, entre 3 e 40
+  const slidesFor = (min) => Math.min(40, Math.max(3, Math.round(Number(min) / 1.5)));
+  const readAsDataURL = (f) => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
+
+  // "Descrever com IA" e "A partir de um arquivo ou link": o mesmo diálogo, numa tela só (assunto, tempo, estilo,
+  // material de apoio). O material vira texto no servidor (/api/ai/context) e vai para a IA junto com o pedido.
+  function aiDialog(topic, { fromFile = false } = {}) {
+    const docs = [];
+    let reading = 0;
+    dialog(`<h3 id="dialog-heading">${fromFile ? "Apresentação a partir de um arquivo ou link" : "Nova apresentação com IA"}</h3>
+      <label for="dlg-brief">${fromFile ? "Para quem é e o que destacar? (opcional)" : "Sobre o que é, para quem e com que objetivo?"}</label>
+      <textarea id="dlg-brief" placeholder="${fromFile ? "Ex.: resumo para a diretoria, focando nos números do ano e nos riscos." : "Ex.: palestra para gestores sobre golpes no Pix. Tom leve, começando com um caso real. Quero imagens só na capa."}"></textarea>
+      <div class="dlg-two">
+        <div><label for="dlg-min">Quanto tempo você tem?</label><div class="dlg-min"><input type="number" id="dlg-min" min="1" max="120" value="10"><span>min</span><span class="hint" id="dlg-slides"></span></div></div>
+        <div><label for="dlg-style">Estilo</label><select id="dlg-style"><option value="">Automático (a IA escolhe pelo assunto)</option>${STYLES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
+      </div>
+      <label>Material de apoio${fromFile ? "" : " (opcional)"}</label>
+      <div class="dlg-att"><button class="lib-btn ghost" id="dlg-file" type="button">${ic("paperclip")}Anexar arquivo</button>
+        <input type="file" id="dlg-files" multiple hidden accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv">
+        <input type="text" id="dlg-link" placeholder="ou cole um link (https://…)"><button class="lib-btn ghost" id="dlg-link-add" type="button">Adicionar</button></div>
+      <div class="dlg-chips" id="dlg-chips"></div>
       <div class="status" id="dlg-status"></div>
       <div class="row"><button class="lib-btn ghost" data-cancel>Cancelar</button><button class="lib-btn primary" id="dlg-ok">${ic("sparkles")}Gerar</button></div>`, (box) => {
-      box.querySelector("#dlg-ok").onclick = async () => {
-        const briefing = box.querySelector("#dlg-brief").value.trim();
-        if (!briefing) return;
-        const status = box.querySelector("#dlg-status"), btn = box.querySelector("#dlg-ok");
+      box.classList.add("wide");
+      const status = box.querySelector("#dlg-status"), btn = box.querySelector("#dlg-ok"), min = box.querySelector("#dlg-min");
+      const showSlides = () => { box.querySelector("#dlg-slides").textContent = Number(min.value) > 0 ? `≈ ${slidesFor(min.value)} slides` : ""; };
+      min.oninput = showSlides; showSlides();
+      const chips = () => {
+        box.querySelector("#dlg-chips").innerHTML = docs.map((d, i) => `<span class="dlg-chip">${ic(d.url ? "link" : "file-text")}<span>${esc(d.name)}${d.detail ? ` · ${esc(d.detail)}` : ""}</span><button type="button" data-rm="${i}" aria-label="Tirar ${esc(d.name)}">${ic("x")}</button></span>`).join("")
+          + (reading ? `<span class="dlg-chip reading">lendo ${reading} material(is)…</span>` : "");
+        hydrate(box.querySelector("#dlg-chips"));
+        box.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => { docs.splice(+b.dataset.rm, 1); chips(); });
+        btn.disabled = reading > 0;
+      };
+      const add = async (body, label) => {
+        reading++; chips();
+        try { docs.push({ ...(await api("api/ai/context", body)), url: !!body.url }); status.textContent = ""; }
+        catch (e) { status.textContent = `Não deu para ler ${label}: ${e.message}`; }
+        reading--; chips();
+      };
+      const files = box.querySelector("#dlg-files");
+      box.querySelector("#dlg-file").onclick = () => files.click();
+      files.onchange = async () => {
+        for (const f of [...files.files]) add({ name: f.name, dataUrl: await readAsDataURL(f) }, f.name);
+        files.value = "";
+      };
+      const link = box.querySelector("#dlg-link");
+      const addLink = () => { const u = link.value.trim(); if (!/^https?:\/\//i.test(u)) { status.textContent = "Cole um link que comece com http:// ou https://"; return; } link.value = ""; add({ url: u }, u); };
+      box.querySelector("#dlg-link-add").onclick = addLink;
+      link.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } };
+      if (fromFile) setTimeout(() => files.click(), 0);
+      btn.onclick = async () => {
+        let briefing = box.querySelector("#dlg-brief").value.trim();
+        if (!briefing && !docs.length) { status.textContent = fromFile ? "Anexe um arquivo ou cole um link." : "Conte sobre o que é a apresentação."; return; }
+        if (!briefing) briefing = "Transforme o material anexado numa apresentação clara e bem redigida, para quem não leu o material.";
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";
+        const payload = { topic, briefing, stream: true, duration: Number(min.value) || undefined, style: box.querySelector("#dlg-style").value || undefined, materials: docs.map((d) => d.id) };
         try {
-          const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic, briefing, stream: true }) });
+          const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
           const reader = res.body.getReader(), dec = new TextDecoder();
           let buf = "", result = null;

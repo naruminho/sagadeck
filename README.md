@@ -79,8 +79,11 @@ O chat lateral do Studio, o Napkin (texto → slide), o **"✨ Deck com IA"** e 
 O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completions`). O caminho recomendado é o [modelrelay](https://github.com/naruminho/modelrelay), que decide pela configuração dele para onde as chamadas vão (OpenRouter, OpenAI, gateway corporativo), sem nada disso no sagadeck:
 
 ```bash
-pip install git+https://github.com/naruminho/modelrelay
+pip install "sagadeck[ia]"      # o sagadeck com o modelrelay na versão que ele exige
+# ou só o modelrelay:  pip install -U modelrelay
 ```
+
+Com um modelrelay mais velho do que o exigido, o sagadeck avisa ao abrir e mostra o comando para atualizar.
 
 O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **modelrelay** no alto da
 biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor

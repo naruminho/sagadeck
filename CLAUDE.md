@@ -46,3 +46,6 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - **Nada de emoji ou símbolo unicode como ícone** (✕ ✓ ✨ 🪄 ▶ ↗ ◎ ● ▸ ←→ …): no Studio, `<i class="ic" data-ic="nome">` (Lucide; novos nomes em `scripts/vendor-ui-icons.mjs` e rode o script); na apresentação, SVG inline (`iconSVG` de `src/figures/icons.js`). Em aviso de texto, sem enfeite. Nome de tecla dentro de `<kbd>` pode. `engine.test.js` falha se aparecer. A regra vale para o que o **sagadeck desenha**; o conteúdo da pessoa (digitado ou colado de outra IA) passa como veio, nunca filtre emoji ou símbolo do texto dela.
 - **A IA do sagadeck só conhece o que está em `docs/REFERENCIA.md`** (vai inteira no prompt). Recurso novo (layout, campo, composição, tema, paleta, campo do deck) entra lá no mesmo commit. `engine.test.js` falha se faltar layout, composição, tema ou paleta.
 - `npm run bundle` depois de mudar o motor ou o Studio: o pacote Python usa a cópia em `python/sagadeck/engine`.
+- **Mudou o modelrelay** (repositório `naruminho/modelrelay`): suba a versão dele (`pyproject.toml` e `__version__`)
+  e, aqui, `MIN_MODELRELAY` em `python/sagadeck/llm.py` e o extra `ia` do `pyproject.toml` para a versão nova
+  (`test/python-relay.test.js` confere que os dois batem). O sagadeck avisa quem estiver com um modelrelay mais velho.
