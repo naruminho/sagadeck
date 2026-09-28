@@ -6,3 +6,14 @@
 .th-noite .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;gap:10px;text-align:center}
 .th-noite .L-section .sc-num{font-size:150px;color:var(--hi)}
 .th-noite .sc-text{align-items:center}
+/* conteúdo: título centralizado, cartões vazados com fio de latão, números da lista em anel fino, citação, número e
+   frase centralizados (sala de decisão: simétrico e sóbrio) */
+.th-noite .hd{align-items:center;text-align:center}
+.th-noite .hd .ttl{text-align:center}
+.th-noite :is(.card:not(.card-hi),.stat-card){background:transparent;border:1.5px solid color-mix(in srgb,var(--hi) 60%,transparent);border-radius:0}
+.th-noite .li-n{display:flex;align-items:center;justify-content:center;width:96px;height:96px;min-width:96px;border:1.5px solid var(--hi);border-radius:50%;font-size:38px;color:var(--hi)}
+.th-noite .L-quote{align-items:center;text-align:center;padding:0 140px}
+.th-noite .q-mark{color:var(--hi)}
+.th-noite .L-number:not(:has(.nb-side)){justify-content:center}
+.th-noite .L-number:not(:has(.nb-side)) .nb-main{flex:none;align-items:center;text-align:center}
+.th-noite .L-statement{align-items:center;text-align:center}

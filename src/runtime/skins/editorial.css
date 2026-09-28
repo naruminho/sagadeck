@@ -6,3 +6,14 @@
 .th-editorial .L-cover .kicker,.th-editorial .L-end .kicker{align-self:center}
 .th-editorial .L-section:not(:has(.sc-fig)){flex-direction:row-reverse}
 .th-editorial .sc-num{font-style:italic;border-left:2px solid var(--fg);padding-left:50px}
+/* conteúdo: título sobre fio fino, cartões sem caixa (só o fio de coluna no alto), número da lista em itálico com fio,
+   citação e frase centralizadas entre fios, número grande em itálico sublinhado */
+.th-editorial .hd{border-bottom:1px solid var(--fg);padding-bottom:26px}
+.th-editorial :is(.card:not(.card-hi),.stat-card){background:transparent;border:0;border-top:2px solid var(--fg);border-radius:0;padding:32px 8px 0}
+.th-editorial .li-n{font-style:italic;border-right:1px solid var(--fg);padding-right:24px}
+.th-editorial .L-quote{align-items:center;text-align:center;padding:0 160px}
+.th-editorial .q-mark{height:100px}
+.th-editorial .q-text{border-top:1px solid var(--fg);border-bottom:1px solid var(--fg);padding:40px 0}
+.th-editorial .nb-val{font-style:italic;border-bottom:2px solid var(--fg)}
+.th-editorial .L-statement{align-items:center;text-align:center}
+.th-editorial .st-body{border-top:1px solid var(--fg);border-bottom:1px solid var(--fg);padding:36px 0}

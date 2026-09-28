@@ -4,3 +4,13 @@
 .th-sinal .kicker{align-self:flex-start;background:var(--fg);color:var(--bg);padding:8px 16px;text-transform:uppercase;letter-spacing:.12em}
 .th-sinal .L-cover .cv-main,.th-sinal .L-end .en-main{justify-content:flex-end}
 .th-sinal .sc-num{font-size:300px;border:14px solid currentColor;padding:10px 40px 0;border-radius:var(--radius)}
+/* conteúdo: título com barra de aviso ao lado, cartões de placa (faixa escura no alto), marcador em placa amarela,
+   citação e frase com a barra de aviso, número grande dentro de uma placa */
+.th-sinal .hd{border-left:14px solid var(--hi);padding-left:30px}
+.th-sinal :is(.card,.stat-card){border-top:12px solid var(--fg);border-radius:0 0 var(--radius) var(--radius)}
+.th-sinal .li-n{background:var(--hi);color:var(--on-hi);padding:8px 14px 2px;text-align:center}
+.th-sinal .li-b{border-radius:0;transform:translateY(-.08em) rotate(45deg)}
+.th-sinal .L-quote{border-left:14px solid var(--hi);padding-left:60px}
+.th-sinal .q-mark{display:none}
+.th-sinal .nb-val{align-self:flex-start;border:12px solid currentColor;border-radius:var(--radius);padding:14px 40px 0;margin:10px 0 6px}
+.th-sinal .L-statement{border-left:14px solid var(--hi);padding-left:60px}

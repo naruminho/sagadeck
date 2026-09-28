@@ -6,3 +6,14 @@
 .th-bauhaus .kicker{align-self:flex-start;background:var(--hi);color:var(--on-hi);padding:8px 18px}
 .th-bauhaus .L-cover .cv-main,.th-bauhaus .L-end .en-main{justify-content:flex-end}
 .th-bauhaus .sc-num{display:flex;align-items:center;justify-content:center;width:440px;height:440px;border-radius:50%;background:var(--hi);color:var(--on-hi);font-size:230px}
+/* conteúdo: círculo de cor acima do título, cartões com faixa grossa no alto alternando as primárias, números da lista
+   em círculos, marca da citação num círculo, número grande e frase com bloco de cor */
+.th-bauhaus .hd::before{content:"";flex:none;width:56px;height:56px;border-radius:50%;background:var(--em)}
+.th-bauhaus :is(.card,.stat-card){border-radius:0;border-top:18px solid var(--hi)}
+.th-bauhaus :is(.card,.stat-card):nth-child(3n+2){border-top-color:var(--em)}
+.th-bauhaus :is(.card,.stat-card):nth-child(3n){border-top-color:var(--fg)}
+.th-bauhaus .li-n{display:flex;align-items:center;justify-content:center;width:92px;height:92px;min-width:92px;border-radius:50%;background:var(--hi);color:var(--on-hi);font-size:38px}
+.th-bauhaus .li-b{border:0;border-radius:0;background:var(--em);width:26px;height:26px}
+.th-bauhaus .q-mark{width:170px;height:170px;border-radius:50%;background:var(--hi);color:var(--on-hi);text-align:center;font-size:240px;line-height:1.05;overflow:hidden}
+.th-bauhaus .nb-val{border-left:24px solid var(--hi);padding-left:40px;margin-left:0}
+.th-bauhaus .st-body{border-top:18px solid var(--hi);padding-top:40px}
