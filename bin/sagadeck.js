@@ -40,7 +40,8 @@ for (let i = 0; i < rawRest.length; i++) {
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
-  sagadeck new <nome> --prompt "briefing" [--slides=10] [--theme=x]  deck inteiro escrito pelo LLM
+  sagadeck new <nome> --prompt "briefing" [--slides=10] [--duration=20] [--theme=x]  deck inteiro escrito pelo LLM
+                                   (--duration dispensa --slides: ~1 slide a cada 1,5 min)
                                    (imagens: peça no briefing; --images = "você decide onde ilustrar", --no-images = nenhuma)
   sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
   sagadeck imagens <deck.yaml>                 gera as imagens pedidas com image_prompt: no YAML (modelo de imagem)

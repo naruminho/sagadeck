@@ -3,9 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { demoDeck, demoAssets } from '../src/studio/demo-decks.js';
-import { COLLECTION_NAMES } from '../src/studio/template-collections.js';
+import { COLLECTION_NAMES, COLLECTION_STYLE } from '../src/studio/template-collections.js';
+import { THEMES } from '../src/themes.js';
 import { buildHTML } from '../src/build.js';
 import { browserOrSkip, ROOT } from './helpers.js';
+
+test('estilos das coleções: um por coleção, com tema válido e direção com dica de tema', () => {
+  assert.deepEqual(Object.keys(COLLECTION_STYLE).sort(), Object.keys(COLLECTION_NAMES).sort());
+  for (const [kind, s] of Object.entries(COLLECTION_STYLE)) {
+    assert.ok(THEMES[s.theme], `${kind}: tema "${s.theme}" não existe`);
+    assert.match(s.direction, /Considere \w+/, `${kind}: direção sem dica de tema`);
+  }
+});
 
 test('coleções: fotos portáteis, texto editável e todos os slides renderizados', async t => {
   const browser = await browserOrSkip(t); if (!browser) return;
