@@ -564,6 +564,24 @@ Regras de bom desenho (siga sempre):
 - Foto de um rascunho (guardanapo, quadro): reproduza a mesma estrutura em Mermaid e enfeite (ícones, ênfase, setas grossas no caminho principal), sem inventar etapas.
 - O sagadeck desenha e confere: código que não desenha volta para você corrigir; diagrama que precisou encolher demais (letra pequena) também volta, com o tamanho da área, para você reorganizar.
 
+## Coleções prontas e suas imagens
+
+Na biblioteca, **Nova apresentação** oferece Perspectiva (corporativo fotográfico, 7 slides), Essencial
+(minimalismo, 6), Revista (editorial, 6), Cromático (cores e fotografia, 6) e Traços (geometria, 6).
+São apresentações novas, com fotografias locais em `imagens/`, composições `canvas` editáveis e páginas
+adaptáveis (`mosaic`, `ribbon`, `stats`, `infographic`). Não substituem apresentações existentes.
+As fotografias são exemplos: texto, formas e fotos são elementos separados.
+
+Em **Formatar → Elementos → imagem**, **Escolher minha foto** permite substituir por PNG, JPEG ou WebP
+de até 8 MB, preservando posição, tamanho, enquadramento e os demais elementos. A foto escolhida fica
+embutida no documento. **Criar imagem pelo conteúdo do slide** prepara um pedido no chat para a imagem
+específica; a pessoa pode completar a descrição e enviar. Também é possível escrever em **Descrição para
+a IA gerar** e clicar em **Gerar imagem agora**, inclusive para substituir uma foto existente.
+O chat aceita pedidos como “gere uma foto com base no conteúdo deste slide” ou uma descrição visual própria.
+Ao trocar uma imagem, preserve `x`, `y`, `w`, `h`, `fit`, `radius` e os demais elementos; use `image_prompt`
+no elemento correto. A geração exige um provedor de imagens configurado no modelrelay. As imagens geradas
+ficam na pasta `imagens/` da apresentação.
+
 ## Ajustes diretos no Studio
 
 Na barra de objetos: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Selecionar objetos permite arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.

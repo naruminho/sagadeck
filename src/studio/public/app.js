@@ -2501,7 +2501,42 @@
       commit: formCommit,
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
-      generateImage: (_el, btn) => generateSlideImages(btn),
+      generateImage: (element, btn) => {
+        if (!element.image_prompt?.trim()) return showToast('Descreva a imagem no campo “Descrição para a IA gerar”.', 4000);
+        return generateSlideImages(btn);
+      },
+      chooseImage: (element) => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp';
+        input.onchange = async () => {
+          const file = input.files[0]; if (!file) return;
+          if (file.size > 8 * 1024 * 1024) return showToast('Use uma imagem de até 8 MB.', 4000);
+          try {
+            const data = await new Promise((resolve, reject) => {
+              const reader = new FileReader(); reader.onload = () => resolve(reader.result);
+              reader.onerror = reject; reader.readAsDataURL(file);
+            });
+            element.image = data; element.alt = file.name; delete element.image_prompt;
+            formCommit(true);
+          } catch { showToast('Não foi possível ler a imagem.', 4000); }
+        };
+        input.click();
+      },
+      imageChat: (element) => {
+        const locate = (node, p = '') => {
+          if (node === element) return p;
+          if (!node || typeof node !== 'object') return null;
+          for (const [key, value] of Object.entries(node)) {
+            const found = locate(value, Array.isArray(node) ? `${p}[${key}]` : p ? `${p}.${key}` : key);
+            if (found !== null) return found;
+          }
+          return null;
+        };
+        dom.chatInput.value = `Gere uma nova imagem para ${locate(slide) || 'a figura'} do slide ${state.currentSlideIndex + 1}, baseada no conteúdo e na intenção deste slide. Escolha uma direção visual coerente com a apresentação. Substitua somente essa imagem, preservando textos, posição, tamanho e enquadramento. Não inclua texto na imagem.`;
+        document.getElementById('tab-btn-chat').click();
+        dom.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        dom.chatInput.focus();
+      },
       editScreenshot: (slide) => editScreenshot(slide),
     });
     hydrateIcons(dom.slideFieldsForm);

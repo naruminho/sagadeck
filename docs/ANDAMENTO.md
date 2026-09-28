@@ -8,6 +8,36 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Rótulos grudados na faixa de opções — 28/09/2026
+
+- Reclamação: vários botões do editor com palavras grudadas ("Diagramade texto", "Cabeçalhoe rodapé",
+  "Deckcom IA", "Últimafileira", "Mapa deatenção").
+- Causa: os rótulos usavam `<br>` para quebrar em duas linhas, mas o `studio-next.css` escondia o `<br>`
+  (`.studio-next .rbtn-lg br { display: none }`, do wip do visual novo) — as palavras colavam numa linha só.
+- Correção: rótulos em linha única com espaço de verdade (`index.html`) e remoção da regra morta do CSS.
+  A faixa já rola na horizontal (`overflow-x`), então os botões mais largos não quebram nada.
+- Não eram bug (só innerText de elemento escondido): selo "0" do fiscal (absoluto, some quando limpo),
+  "Aa+nome" dos cartões de tema (posicionamento absoluto) e título+descrição do menu Nova (descrição em bloco).
+- Teste: `studio.test.js` abre cada aba (Inserir, Design, IA, Revisar) e confere o texto visível dos botões,
+  mais uma guarda contra minúscula seguida de maiúscula nos rótulos da faixa.
+- Validação: `npm test` — 405 testes, 391 passaram, 14 pulados (ao vivo), zero falhas; `npm run bundle` passou.
+
+## Coleções visuais — 28/09/2026
+
+- Pedido anterior interrompido após revisão e merge por Claude; nova frente limitada aos templates dos cinco
+  screenshots e à troca de imagens solicitada durante a execução. Nenhuma palestra pessoal reescrita.
+- Cinco coleções em `src/studio/template-collections.js`: Perspectiva, Essencial, Revista, Cromático e Traços;
+  31 slides editáveis, fotografias originais locais, capas, agendas, capítulos, colagens, encerramentos e
+  páginas adaptáveis. Menu Nova apresentação; cada cópia recebe seus recursos em `imagens/` na biblioteca.
+- Formatar → imagem: escolher foto própria sem perder geometria; atalho que prepara no chat a geração pelo
+  conteúdo do slide; geração por descrição disponível também para substituir uma imagem existente.
+- Testes: criação das cinco coleções pela UI com conferência de YAML/arquivos, substituição da foto com
+  preservação da geometria, pedido contextual no chat, renderização de todos os slides sem imagens faltantes,
+  formas transparentes por cores inválidas, texto fora do palco ou erros JS. Revisão visual dos 31 slides.
+- Validação concluída: `npm test` — 404 testes, 390 passaram, 14 pulados, zero falhas; `npm run bundle` passou.
+- Reinício local solicitado, mas o comando foi recusado pela revisão automática de permissões
+  (`blocked by policy`); não confirmado nesta etapa. O Studio permanece em `http://127.0.0.1:3001`.
+
 ## Frente: diagramas, one-page e apresentações do dia a dia
 
 Pedido original (Naruminho, set/2026), em cinco partes:

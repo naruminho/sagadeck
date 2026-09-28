@@ -23,7 +23,7 @@ import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { runCommand, envName } from "../ai/commands.js";
-import { demoDeck } from "./demo-decks.js";
+import { demoDeck, demoAssets } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 
@@ -1043,10 +1043,10 @@ export function createStudioServer(deckPath = null, opts = {}) {
             case "/api/library/decks/model": {
               // modelos de fábrica (src/studio/demo-decks.js): viram uma apresentação nova na biblioteca
               const id = L.createDeck(b.topic || "Modelos", demoDeck(b.kind));
-              if (b.kind === "lavanda") {
+              for (const asset of demoAssets(b.kind)) {
                 const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
                 fs.mkdirSync(dest, { recursive: true });
-                fs.copyFileSync(path.join(firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets")), "lavanda-cover.jpg"), path.join(dest, "lavanda-cover.jpg"));
+                fs.copyFileSync(path.join(firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets")), asset), path.join(dest, asset));
               }
               return ok({ id });
             }
