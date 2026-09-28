@@ -430,17 +430,22 @@ test("studio", async (t) => {
       await card.locator(".sf-item-toggle").click();
     }
     const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
-    // DIAG temporário para o CI: despeja o estado do cartão se o campo não aparecer
-    const diag = () => card.evaluate((c) => ({
-      cls: c.className,
-      toggle: c.querySelector(".sf-item-toggle")?.getAttribute("aria-expanded"),
-      fields: [...c.querySelectorAll(".sf-field")].map((f) => `${f.querySelector("label")?.textContent}=${f.querySelector("input,textarea,select")?.tagName}.${f.querySelector("input,textarea,select") ? getComputedStyle(f.querySelector("input,textarea,select")).display : "?"}`),
-      bodyDisplay: getComputedStyle(c.querySelector(".sf-item-body")).display,
-    }));
+    // espera robusta: o formulário reconstrói de forma assíncrona (no CI lento, o cartão aparece fechado por segundos)
     try {
-      await field("Título").waitFor({ state: "visible", timeout: 5000 });
+      await p.waitForFunction((form) => {
+        const cards = [...document.querySelectorAll(`${form} .sf-item`)];
+        const card = cards.find((c) => c.querySelector(".sf-item-title")?.textContent.includes("Aviso"));
+        const inp = card?.querySelector(".sf-field input");
+        return !!(card?.classList.contains("open") && inp && getComputedStyle(inp).display !== "none");
+      }, form, { timeout: 20000 });
     } catch {
-      throw new Error(`DIAG aviso: ${JSON.stringify(await diag())}`);
+      const timeline = await card.evaluate(async (c) => {
+        const snap = () => `${c.className.includes("open") ? "open" : "closed"}/${c.querySelectorAll(".sf-field").length}f/${(() => { const i = c.querySelector(".sf-field input"); return i ? getComputedStyle(i).display : "?"; })()}`;
+        const out = [snap()];
+        for (let k = 0; k < 8; k++) { await new Promise((r) => setTimeout(r, 1000)); out.push(snap()); }
+        return out.join(" ");
+      });
+      throw new Error(`DIAG aviso timeline(9s): ${timeline}`);
     }
     await field("Título").fill("Cuidado");
     await field("Texto").fill("Não molhe o equipamento.");
