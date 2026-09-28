@@ -84,6 +84,9 @@ pip install "sagadeck[ia]"      # o sagadeck com o modelrelay na versão que ele
 ```
 
 Com um modelrelay mais velho do que o exigido, o sagadeck avisa ao abrir e mostra o comando para atualizar.
+Quem desenvolve o modelrelay e o instalou direto do clone (`pip install -e .` na pasta dele, a "instalação
+editável": o Python lê o código da pasta, sem cópia) atualiza só com `git pull` ali, e o aviso diz isso, com a
+pasta. `pip install -e .` de novo só quando o modelrelay ganhar uma dependência nova.
 
 O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **modelrelay** no alto da
 biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor

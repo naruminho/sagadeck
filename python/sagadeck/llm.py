@@ -25,12 +25,34 @@ def _version(v: str) -> tuple:
     return tuple(int(n) for n in re.findall(r"\d+", str(v))[:3]) or (0,)
 
 
-def outdated_relay(installed: str) -> str | None:
-    """Aviso (ou None) para um modelrelay mais velho que o exigido."""
+def relay_clone(module_file: str | None) -> str | None:
+    """Pasta do clone do modelrelay quando ele roda direto do repositório (pip install -e), senão None.
+
+    Instalação editável: o Python lê o código da pasta do clone, então quem atualiza é o git pull ali.
+    Cópia no site-packages (pip install comum) nunca conta, mesmo com um .venv dentro de um repositório.
+    """
+    if not module_file:
+        return None
+    pkg = os.path.dirname(os.path.abspath(module_file))
+    if any(p in ("site-packages", "dist-packages") for p in pkg.replace("\\", "/").split("/")):
+        return None
+    parent = os.path.dirname(pkg)
+    for root in (parent, os.path.dirname(parent)) if os.path.basename(parent) == "src" else (parent,):
+        if os.path.exists(os.path.join(root, ".git")) and os.path.isfile(os.path.join(root, "pyproject.toml")):
+            return root
+    return None
+
+
+def outdated_relay(installed: str, module_file: str | None = None) -> str | None:
+    """Aviso (ou None) para um modelrelay mais velho que o exigido, com o jeito certo de atualizar."""
     if _version(installed) >= _version(MIN_MODELRELAY):
         return None
-    return (f"Aviso: modelrelay {installed} está desatualizado: este sagadeck precisa do {MIN_MODELRELAY} ou mais novo. "
-            f'Atualize com: pip install -U "modelrelay>={MIN_MODELRELAY}"')
+    msg = f"Aviso: modelrelay {installed} está desatualizado: este sagadeck precisa do {MIN_MODELRELAY} ou mais novo. "
+    clone = relay_clone(module_file)
+    if clone:
+        return msg + f"Ele roda direto do clone (instalação editável); atualize com git pull na pasta {clone}"
+    return msg + f'Atualize com: pip install -U "modelrelay>={MIN_MODELRELAY}"'
+
 
 
 # comandos do motor que podem usar o LLM
@@ -58,7 +80,7 @@ def llm_env(command: str | None, env: dict | None = None) -> Iterator[dict]:
     except ImportError:  # sem modelrelay: o motor usa as regras locais
         yield env
         return
-    warn = outdated_relay(getattr(modelrelay, "__version__", "0"))
+    warn = outdated_relay(getattr(modelrelay, "__version__", "0"), getattr(modelrelay, "__file__", None))
     if warn:  # segue funcionando, mas a pessoa fica sabendo o que falta
         print(warn, file=sys.stderr)
     try:
