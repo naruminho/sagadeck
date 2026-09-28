@@ -23,6 +23,10 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   pelo formulário, salva no YAML, desenha a caixa), `ai.test.js` (regra no prompt do sistema). `npm run bundle` passou.
 - Validação ao vivo (nemotron-3-ultra-550b:free; o 120b e o qwen gratuitos estavam sobrecarregados/limitados):
   "adicione um aviso de perigo…" → `{aviso:{tipo:perigo,…}}` exato no slide.
+- CI acusou 2 falhas no Linux (ambas verdes no Windows): (1) teste do Aviso não achava o campo visível —
+  blindado abrindo o cartão do elemento antes de digitar, como a pessoa faria; (2) conversa salva depois do
+  indicador sumir (race real: recarregar na mesma hora perdia a troca) — agora a conversa grava antes de
+  dispensar o indicador, nos 3 caminhos de resposta.
 
 ## Frente B (preguiçoso): chat e Nova leem pdf/docx/xlsx/pptx e links — 28/09/2026
 

@@ -912,9 +912,11 @@
         autoRun: !!state.autoRunCommands, // a pessoa liberou os comandos desta conversa (só enquanto a página está aberta)
       }, (ev) => { if (!commandEvent(ev)) work.update(ev); });
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
+      // conversa salva antes de dispensar o indicador: quem espera o fim da resposta já encontra o arquivo gravado
+      const finishWork = async () => { await saveChatHistory(); work.done(); };
       if (data.variants) {
         state.chatHistory.push({ role: "assistant", text: `${data.reply}\n(versões: ${data.variants.options.map((o) => o.label).join(" | ")})`, talk: true });
-        work.done();
+        await finishWork();
         const msg = appendChatMessage("ai", data.reply, data.actions);
         await renderVariants(msg, data.variants);
         updateBrainstormApply();
@@ -924,7 +926,7 @@
         // conversa: nada muda nos slides (com a IA desligada o aviso não entra na conversa com o modelo)
         if (data.mode === "off") state.chatHistory.pop();
         else state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
-        work.done();
+        await finishWork();
         const msg = appendChatMessage("ai", data.reply, data.actions);
         msg.classList.add("bs");
         const tag = document.createElement("div");
@@ -955,7 +957,7 @@
       await renderCurrentSlide();
 
       // Substituir o indicador pela resposta completa
-      work.done();
+      await finishWork();
       appendChatMessage("ai", data.reply, data.actions);
       updateBrainstormApply();
     } catch (err) {
@@ -964,13 +966,14 @@
       dom.chatSend.disabled = false;
       dom.chatInput.disabled = false;
       dom.chatInput.focus();
-      saveChatHistory();
+      await saveChatHistory();
     }
   }
 
   // A conversa é desta apresentação e fica ao lado dela (<deck>.conversa.json): volta ao reabrir o deck.
+  // Devolve a promise: quem chama espera antes de liberar a tela, senão recarregar na mesma hora perde a troca.
   function saveChatHistory() {
-    fetch("api/chat/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: state.chatHistory }) }).catch(() => {});
+    return fetch("api/chat/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: state.chatHistory }) }).catch(() => {});
   }
   // ---- comandos da IA: nada roda sem a pessoa ver o código e clicar (a liberação vale só nesta página e neste deck) ----
   state.autoRunCommands = false;

@@ -425,7 +425,10 @@ test("studio", async (t) => {
     const extras = p.locator(`${form} .sf-list`, { has: p.locator(".sf-list-head", { hasText: "Elementos extras no fim" }) });
     await extras.locator("select.sf-kind-add").selectOption("aviso");
     await settle(600);
-    const card = p.locator(`${form} .sf-item`).last();
+    const card = p.locator(`${form} .sf-item`, { has: p.locator(".sf-item-title", { hasText: "Aviso" }) });
+    if (await card.locator(".sf-item-toggle").getAttribute("aria-expanded") === "false") {
+      await card.locator(".sf-item-toggle").click();
+    }
     const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
     await field("Título").fill("Cuidado");
     await field("Texto").fill("Não molhe o equipamento.");
