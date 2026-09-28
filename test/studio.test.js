@@ -272,6 +272,36 @@ test("studio", async (t) => {
     }
   });
 
+  await t.test("Design: temas e paletas ficam à vista (a lista de paletas não espreme os temas), a faixa não rola na vertical e o tema clicado vai para o deck salvo", async () => {
+    const old = process.env.SAGADECK_IDENTIDADES;
+    process.env.SAGADECK_IDENTIDADES = path.join(deckFile.dir, "sem-config", "identidades.yaml"); // aviso "configure" à vista
+    const size = p.viewportSize();
+    try {
+      await tab("design");
+      await p.evaluate(() => window.dispatchEvent(new Event("focus"))); await settle(600); // relê as identidades
+      assert.ok(await p.isVisible("#identity-note"), "o aviso das fontes está à vista (o caso mais alto)");
+      for (const width of [1366, 2000]) {
+        await p.setViewportSize({ width, height: 900 }); await settle(300);
+        const m = await p.evaluate(() => {
+          const panel = document.querySelector('.ribbon-panel[data-panel="design"]');
+          const w = (sel) => document.querySelector(sel).getBoundingClientRect().width;
+          return { sobra: panel.scrollHeight - panel.clientHeight, temas: w("#theme-gallery"), paletas: w("#palette-gallery") };
+        });
+        assert.ok(m.sobra <= 1, `${width}px: a faixa rola na vertical (${m.sobra}px a mais)`);
+        assert.ok(m.temas >= 3 * 104, `${width}px: a galeria de temas sumiu (${Math.round(m.temas)}px)`);
+        assert.ok(m.paletas >= 3 * 104, `${width}px: a galeria de paletas sumiu (${Math.round(m.paletas)}px)`);
+      }
+      await p.click('#theme-gallery .theme-card[data-theme="editorial"]'); await settle(900);
+      assert.equal(saved().theme, "editorial", "tema clicado salvo no deck");
+      await p.click('#theme-gallery .theme-card[data-theme="sinal"]'); await settle(900);
+      assert.equal(saved().theme, "sinal");
+    } finally {
+      if (old === undefined) delete process.env.SAGADECK_IDENTIDADES; else process.env.SAGADECK_IDENTIDADES = old;
+      await p.setViewportSize(size);
+      await tab("inicio");
+    }
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);
