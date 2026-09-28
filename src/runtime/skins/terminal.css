@@ -7,3 +7,15 @@
 .th-terminal .L-cover .cv-main,.th-terminal .L-end .en-main{justify-content:flex-start}
 .th-terminal .sc-num::before{content:"#";opacity:.4}
 .th-terminal .headbar{top:70px}
+/* conteúdo: título como comando ($) sobre linha tracejada, cartões como janelinhas (barra no alto), lista [01],
+   marcador em cursor, citação e frase com a barra do prompt, número grande num painel */
+.th-terminal .hd{border-bottom:1px dashed var(--line);padding-bottom:22px}
+.th-terminal .hd .ttl::before{content:"$ ";color:var(--hi)}
+.th-terminal :is(.card:not(.card-hi),.stat-card){background:transparent;border:1px solid var(--line);border-top:34px solid var(--surface);border-radius:6px}
+.th-terminal .li-n::before{content:"[";opacity:.5}
+.th-terminal .li-n::after{content:"]";opacity:.5}
+.th-terminal .li-b{border:0;border-radius:0;background:var(--hi);width:16px;height:30px}
+.th-terminal .L-quote{border-left:4px solid var(--hi);padding-left:50px}
+.th-terminal .q-mark{display:none}
+.th-terminal .nb-val{align-self:flex-start;background:var(--surface);border:1px solid var(--line);padding:20px 40px 0;margin:10px 0 6px}
+.th-terminal .st-body{border-left:4px solid var(--hi);padding-left:40px}

@@ -5,3 +5,14 @@
 .th-rabisco .kicker{align-self:flex-start;background:color-mix(in srgb,var(--hi) 55%,transparent);padding:2px 14px;transform:rotate(-2deg)}
 .th-rabisco :is(.L-cover,.L-section,.L-end) .ttl{transform:rotate(-1.5deg)}
 .th-rabisco .sc-num{transform:rotate(-6deg)}
+/* conteúdo: risco de caneta sob o título, cartões tracejados e tortinhos, números da lista circulados à mão, citação
+   num papel de recado, número e frase levemente inclinados */
+.th-rabisco .hd::after{content:"";flex:none;width:320px;height:16px;border-top:5px solid var(--hi);border-radius:50%;transform:rotate(-2deg)}
+.th-rabisco :is(.card:not(.card-hi),.stat-card){background:transparent;border:3px dashed var(--line);border-radius:26px 8px 30px 10px/12px 30px 8px 26px}
+.th-rabisco :is(.card,.stat-card):nth-child(odd){transform:rotate(-.8deg)}
+.th-rabisco :is(.card,.stat-card):nth-child(even){transform:rotate(.8deg)}
+.th-rabisco .li-n{display:flex;align-items:center;justify-content:center;width:90px;height:84px;min-width:90px;border:3px solid var(--em);border-radius:48% 52% 45% 55%/55% 45% 52% 48%;font-size:38px;transform:rotate(-4deg)}
+.th-rabisco .q-mark{transform:rotate(-8deg);margin-bottom:40px}
+.th-rabisco .q-text{background:color-mix(in srgb,var(--hi) 18%,transparent);padding:40px 50px;transform:rotate(-1deg)}
+.th-rabisco .nb-val{transform:rotate(-3deg)}
+.th-rabisco .st-body{transform:rotate(-1deg)}

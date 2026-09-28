@@ -5,3 +5,13 @@
 .th-oceano .kicker{align-self:flex-start;background:var(--hi);color:var(--on-hi);padding:6px 22px;border-radius:999px;text-transform:uppercase;letter-spacing:.1em}
 .th-oceano .L-section:not(:has(.sc-fig)){flex-direction:column;align-items:flex-start;justify-content:center;gap:0}
 .th-oceano .sc-num{font-size:200px;color:transparent;-webkit-text-stroke:3px var(--fg)}
+/* conteúdo: traço arredondado sob o título, cartões bem arredondados e flutuando (sombra), números da lista em bolhas,
+   citação e frase em balão, número grande numa pílula */
+.th-oceano .hd::after{content:"";flex:none;width:160px;height:8px;border-radius:8px;background:var(--hi)}
+.th-oceano :is(.card:not(.card-hi),.stat-card){border:0;border-radius:40px;box-shadow:0 18px 40px color-mix(in srgb,var(--fg) 12%,transparent)}
+.th-oceano .li-n{display:flex;align-items:center;justify-content:center;width:92px;height:92px;min-width:92px;border-radius:50%;background:color-mix(in srgb,var(--hi) 22%,var(--bg));color:var(--fg);font-size:38px}
+.th-oceano .L-quote{justify-content:center}
+.th-oceano .q-text{background:var(--surface);border-radius:48px;padding:50px 70px}
+.th-oceano .nb-val{align-self:flex-start;background:color-mix(in srgb,var(--hi) 16%,var(--bg));border-radius:999px;padding:14px 70px 0;margin:10px 0 6px}
+.th-oceano .L-statement{align-items:center;text-align:center}
+.th-oceano .st-body{background:var(--surface);border-radius:48px;padding:50px 70px}
