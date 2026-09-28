@@ -429,31 +429,19 @@ test("studio", async (t) => {
     if (await card.locator(".sf-item-toggle").getAttribute("aria-expanded") === "false") {
       await card.locator(".sf-item-toggle").click();
     }
+    // o cartão pode estar dentro de um "Mais opções" fechado (o display calculado não acusa, mas o
+    // navegador esconde): abre toda a cadeia de details, como a pessoa faria
+    await card.evaluate((c) => { for (let e = c.parentElement; e; e = e.parentElement) if (e.tagName === "DETAILS" && !e.open) e.open = true; });
     const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
-    // espera robusta: o formulário reconstrói de forma assíncrona (no CI lento, o cartão aparece fechado por segundos)
+    // espera robusta: o formulário reconstrói de forma assíncrona e o CI lento atrasa o desenho
     await p.waitForFunction((form) => {
       const cards = [...document.querySelectorAll(`${form} .sf-item`)];
       const card = cards.find((c) => c.querySelector(".sf-item-title")?.textContent.includes("Aviso"));
       const inp = card?.querySelector(".sf-field input");
-      return !!(card?.classList.contains("open") && inp && getComputedStyle(inp).display !== "none");
+      if (!card?.classList.contains("open") || !inp || getComputedStyle(inp).display === "none") return false;
+      for (let e = inp; e; e = e.parentElement) if (e.tagName === "DETAILS" && !e.open) return false;
+      return true;
     }, form, { timeout: 20000 });
-    // DIAG temporário: rastreia reconstruções e visibilidade por 10s após o campo aparecer
-    const trace = await p.evaluate(async (form) => {
-      const out = [];
-      let muts = 0;
-      const mo = new MutationObserver(() => muts++);
-      mo.observe(document.querySelector(form), { childList: true, subtree: true });
-      for (let k = 0; k < 50; k++) {
-        await new Promise((r) => setTimeout(r, 200));
-        const card = [...document.querySelectorAll(`${form} .sf-item`)].find((c) => c.querySelector(".sf-item-title")?.textContent.includes("Aviso"));
-        const inp = card?.querySelector(".sf-field input");
-        out.push(`${k}:${card ? (card.classList.contains("open") ? "o" : "c") : "-"}/${inp ? getComputedStyle(inp).display : "-"}/m${muts}`);
-        muts = 0;
-      }
-      mo.disconnect();
-      return out.join(" ");
-    }, form);
-    throw new Error(`DIAG trace: ${trace}`);
     await field("Título").fill("Cuidado");
     await field("Texto").fill("Não molhe o equipamento.");
     await settle(1200);
