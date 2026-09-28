@@ -401,6 +401,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(css);
         return;
       }
+      if (pathname === "/fonts.css") { // as fontes de todos os temas (embutidas, sem Google), para o editor e as miniaturas
+        const index = JSON.parse(fs.readFileSync(path.join(RUNTIME_DIR, "fonts", "index.json"), "utf8"));
+        res.writeHead(200, { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "max-age=86400" });
+        res.end(Object.values(index).map((f) => fs.readFileSync(path.join(RUNTIME_DIR, "fonts", f), "utf8")).join("\n"));
+        return;
+      }
       if (pathname === "/katex.css") {
         res.writeHead(200, {"Content-Type":"text/css; charset=utf-8"});
         res.end(fs.readFileSync(path.join(RUNTIME_DIR,"vendor/katex.css")));return;

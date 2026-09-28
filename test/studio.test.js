@@ -108,6 +108,25 @@ test("studio", async (t) => {
     await p.evaluate(() => document.querySelectorAll(".popover.open").forEach((x) => x.classList.remove("open")));
   });
 
+  // pedido do "preguiçoso": sem mil botões. Por padrão as ferramentas de especialista ficam guardadas; "Mais opções"
+  // mostra tudo e a escolha sobrevive a recarregar. (Deixa ligado: os testes seguintes usam YAML, API, ritmo…)
+  await t.test("modo simples por padrão: ferramentas de especialista guardadas; Mais opções mostra e lembra", async () => {
+    const visivel = (sel) => p.isVisible(sel);
+    await tab("exibir");
+    assert.ok(!(await visivel("#btn-yaml-drawer")), "YAML guardado no modo simples");
+    assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
+    await tab("inserir");
+    assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
+    assert.ok(await visivel("#btn-add-diagram"));
+    await p.click("#btn-more-options");
+    assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
+    assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
+    await p.reload(); await p.waitForSelector(".thumb-card");
+    await tab("exibir");
+    assert.ok(await visivel("#btn-yaml-drawer"), "a escolha sobrevive a recarregar");
+    await tab("inicio");
+  });
+
   // ------------------------------------------------------------ slides
   await t.test("novo, duplicar e excluir slide", async () => {
     const n = (await deck()).slides.length;

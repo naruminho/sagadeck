@@ -3615,10 +3615,24 @@
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
+  // Modo simples (padrão): as ferramentas de especialista ([data-adv]: YAML, API ao vivo, tom e textura,
+  // legibilidade, ritmo, guias, sons) ficam guardadas; "Mais opções" mostra tudo e o navegador lembra.
+  function setSimpleMode(on) {
+    document.body.classList.toggle("simple-mode", on);
+    const b = document.getElementById("btn-more-options");
+    b.setAttribute("aria-pressed", String(!on));
+    b.querySelector("span").textContent = on ? "Mais opções" : "Menos opções";
+    b.title = on ? "Mostrar as ferramentas avançadas (YAML, API ao vivo, tom e textura, legibilidade, ritmo, guias, sons)" : "Guardar as ferramentas avançadas";
+    store.set("simpleMode", on);
+    if (on && document.querySelector(".ribbon-tab.active") && !document.querySelector(".ribbon-panel.active .rgroup:not([data-adv])")) selectRibbonTab("inicio");
+  }
+
   function setupShell() {
     // abas da faixa de opções
     dom.ribbonTabs.forEach((t) => t.addEventListener("click", () => selectRibbonTab(t.dataset.tab)));
     selectRibbonTab(store.get("ribbonTab", "inicio"));
+    setSimpleMode(store.get("simpleMode", true));
+    document.getElementById("btn-more-options").onclick = () => setSimpleMode(!document.body.classList.contains("simple-mode"));
 
     // popovers (layout, ritmo) e menus (Arquivo, Apresentar)
     // os popovers são "fixed" e ancorados no botão: a faixa rola na horizontal e cortaria um absolute
