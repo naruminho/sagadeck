@@ -42,6 +42,46 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
   }finally{await studio.close();await browser.close();}
 });
 
+test('coleções: criar modelos e substituir foto preserva a composição', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + '/biblioteca');
+    for (const kind of ['perspectiva', 'essencial', 'revista', 'cromatico', 'tracos']) {
+      await t.test(`criar ${kind} pela biblioteca`, async () => {
+        await p.goto(studio.url + '/biblioteca');
+        await p.click('#btn-new'); await p.click(`[data-new="model-${kind}"]`);
+        await p.waitForSelector('.thumb-card[data-idx="1"]');
+        const data = await p.evaluate(async () => (await fetch('/api/deck')).json());
+        const saved = YAML.parse(fs.readFileSync(data.file, 'utf8'));
+        assert.ok(saved.slides.length >= 6);
+        const photo = saved.slides.flatMap(s => s.elements || []).find(e => e.image);
+        assert.ok(fs.existsSync(path.join(path.dirname(data.file), photo.image)));
+      });
+    }
+    await p.click('.thumb-card[data-idx="2"]'); await p.click('#tab-btn-props');
+    const imageRow = p.locator('#slide-fields-form .sf-element').nth(2).locator('.sf-item-toggle').first();
+    await imageRow.click();
+    assert.equal(await p.getByRole('button', { name: 'Gerar imagem agora', exact: true }).isVisible(), true, 'gerar deve estar acessível mesmo antes de digitar a descrição');
+    const before = await p.evaluate(async () => (await (await fetch('/api/deck')).json()).spec.slides[2].elements.find(e => e.image));
+    const chooser = p.waitForEvent('filechooser');
+    await p.getByRole('button', { name: 'Escolher minha foto', exact: true }).click();
+    await (await chooser).setFiles({ name: 'minha-foto.png', mimeType: 'image/png', buffer: PNG_1PX });
+    await p.waitForTimeout(1000);
+    const data = await p.evaluate(async () => (await fetch('/api/deck')).json());
+    const after = YAML.parse(fs.readFileSync(data.file, 'utf8')).slides[2].elements.find(e => e.image);
+    assert.ok(after.image.startsWith('data:image/png;'));
+    for (const k of ['x', 'y', 'w', 'h', 'fit']) assert.equal(after[k], before[k], k);
+    // O formulário pode ter sido reconstruído após o salvamento.
+    const generate = p.getByRole('button', { name: 'Criar imagem pelo conteúdo do slide', exact: true });
+    if (!await generate.isVisible()) await imageRow.click();
+    await generate.click();
+    assert.match(await p.locator('#chat-input').inputValue(), /elements\[2\].*slide 3/);
+    assert.match(await p.locator('#chat-input').inputValue(), /baseada no conteúdo/);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); }
+});
+
 test("studio", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;

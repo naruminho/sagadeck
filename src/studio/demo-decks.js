@@ -1,8 +1,11 @@
 // Modelos de fábrica são código; as apresentações criadas ficam somente na biblioteca.
+import { COLLECTION_NAMES, COLLECTION_ASSETS, collectionDeck } from './template-collections.js';
+export function demoAssets(kind) { return kind === 'lavanda' ? ['lavanda-cover.jpg'] : COLLECTION_ASSETS[kind] || []; }
 const item=(title,text,extra={})=>({title,text,...extra});
 const route='flowchart LR\n  A([Pedido]):::hi --> B{Dados válidos?}\n  B -->|sim| C[Executar tarefa]\n  B -.->|não| D[Informar erro]:::vazado\n  C ==> E[Guardar resultado]:::em';
-export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',diagramas:'Demo — diagramas vivos'};
+export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',diagramas:'Demo — diagramas vivos',...COLLECTION_NAMES};
 export function demoDeck(kind) {
+  if(Object.hasOwn(COLLECTION_NAMES,kind))return collectionDeck(kind);
   if(!DEMO_NAMES[kind])throw Error('Modelo não encontrado.');
   const common={title:DEMO_NAMES[kind],theme:kind==='lavanda'?'bauhaus':kind==='executivo'?'prata':kind==='workshop'?'sinal':'editorial',palette:kind==='executivo'?'corporativo':'lavanda',duration:15,maxWords:140};
   const cover={layout:'cover',title:DEMO_NAMES[kind],subtitle:'Um modelo para adaptar ao seu conteúdo',kicker:'SAGADECK · MODELOS',tone:'dark'};

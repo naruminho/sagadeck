@@ -8,6 +8,22 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Coleções visuais — 28/09/2026
+
+- Pedido anterior interrompido após revisão e merge por Claude; nova frente limitada aos templates dos cinco
+  screenshots e à troca de imagens solicitada durante a execução. Nenhuma palestra pessoal reescrita.
+- Cinco coleções em `src/studio/template-collections.js`: Perspectiva, Essencial, Revista, Cromático e Traços;
+  31 slides editáveis, fotografias originais locais, capas, agendas, capítulos, colagens, encerramentos e
+  páginas adaptáveis. Menu Nova apresentação; cada cópia recebe seus recursos em `imagens/` na biblioteca.
+- Formatar → imagem: escolher foto própria sem perder geometria; atalho que prepara no chat a geração pelo
+  conteúdo do slide; geração por descrição disponível também para substituir uma imagem existente.
+- Testes: criação das cinco coleções pela UI com conferência de YAML/arquivos, substituição da foto com
+  preservação da geometria, pedido contextual no chat, renderização de todos os slides sem imagens faltantes,
+  formas transparentes por cores inválidas, texto fora do palco ou erros JS. Revisão visual dos 31 slides.
+- Validação concluída: `npm test` — 404 testes, 390 passaram, 14 pulados, zero falhas; `npm run bundle` passou.
+- Reinício local solicitado, mas o comando foi recusado pela revisão automática de permissões
+  (`blocked by policy`); não confirmado nesta etapa. O Studio permanece em `http://127.0.0.1:3001`.
+
 ## Frente: diagramas, one-page e apresentações do dia a dia
 
 Pedido original (Naruminho, set/2026), em cinco partes:
