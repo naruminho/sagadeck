@@ -19,3 +19,5 @@
 .th-terminal .q-mark{display:none}
 .th-terminal .nb-val{align-self:flex-start;background:var(--surface);border:1px solid var(--line);padding:20px 40px 0;margin:10px 0 6px}
 .th-terminal .st-body{border-left:4px solid var(--hi);padding-left:40px}
+/* botão Voltar (navegação por caminhos) fora da barra/moldura do tema */
+.th-terminal .nav-back{top:9px;left:120px}

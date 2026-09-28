@@ -93,6 +93,21 @@ export const LAYOUTS = {
       ${s.by ? text(s.by, "label", { class: "st-by e", style: "--d:3;", step: s.byStep }) : ""}${src(s)}</div>${add(s, ctx)}`;
   },
 
+  // Mapa de caminhos: uma pergunta e as opções; cada opção leva (goto) à seção dela. O fim de cada caminho volta
+  // ao mapa com next:/back: no último slide da seção (ver "Navegação por caminhos" na REFERENCIA).
+  hub(s, ctx) {
+    const opts = (s.options || s.items || []).map((o) => (typeof o === "string" ? { title: o } : o || {}));
+    const cols = s.cols || (opts.length <= 4 ? Math.max(1, opts.length) : opts.length <= 6 ? 3 : 4);
+    const body = opts.map((c, i) => `<div${attrs({ ...c, step: s.build ? 1 + i : c.step }, "hub-card")}>
+        ${c.icon ? `<div class="hub-ico">${iconSVG(c.icon, { size: 56, stroke: 1.8 })}</div>` : ""}
+        ${c.title ? `<div class="hub-title t f-heading">${md(c.title)}</div>` : ""}
+        ${c.text ? `<div class="hub-text t f-body">${md(c.text)}</div>` : ""}
+        <div class="hub-foot">${c.meta ? `<span class="hub-meta t f-label">${md(c.meta)}</span>` : "<span></span>"}${c.goto != null && c.goto !== "" ? `<span class="hub-go" aria-hidden="true">${iconSVG("arrow-right", { size: 30, stroke: 2 })}</span>` : ""}</div>
+      </div>`).join("");
+    return `<div class="L-hub">${head(s)}${s.question ? text(s.question, "lead", { class: "hub-q e", style: "--d:1;" }) : ""}
+      <div class="hub-grid e" style="--d:2;grid-template-columns:repeat(${cols},minmax(0,1fr))">${body}</div>${src(s)}</div>${add(s, ctx)}`;
+  },
+
   quote(s, ctx) {
     return `<div class="L-quote">${kicker(s)}
       <div class="q-mark t f-quote e" aria-hidden="true">“</div>

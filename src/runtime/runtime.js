@@ -174,7 +174,18 @@
     broadcast({ type: "state", i, k });
     if (PRESENTER && document.getElementById("pv")) presenterState(i, k);
   }
-  const next = () => (step < STEPS[cur] ? goto(cur, step + 1) : cur < N - 1 && goto(cur + 1, 0));
+  // Navegação por caminhos: id do slide (data-id) ou número; next: no slide troca o "próximo" do fim dele
+  const slideOf = (target) => {
+    const t = String(target ?? "").replace(/^#?s-/, "");
+    const j = slides.findIndex((s) => s.dataset.id === t);
+    return j >= 0 ? j : /^\d+$/.test(t) ? +t - 1 : -1;
+  };
+  const next = () => {
+    if (step < STEPS[cur]) return goto(cur, step + 1);
+    const to = slides[cur].dataset.next ? slideOf(slides[cur].dataset.next) : -1;
+    if (to >= 0) return goto(to, 0);
+    return cur < N - 1 && goto(cur + 1, 0);
+  };
   const prev = () => (step > 0 ? goto(cur, step - 1) : cur > 0 && goto(cur - 1, STEPS[cur - 1], { instant: true }));
 
   // ---------- mensagens com a janela do apresentador ----------
@@ -492,6 +503,18 @@
     else if (k === "r" || k === "R") { $$(".timer", slides[cur]).forEach((t) => { stopTimer(t); }); toast("Timer zerado"); }
     else if (k.length === 1) cmd("key", k);
   }
+  // clicar num item com goto (cartão, opção do mapa, item de lista, [texto](#id), Voltar) leva ao slide dele
+  document.addEventListener("click", (e) => {
+    if (EXPORT) return;
+    const a = e.target.closest && e.target.closest("[data-goto]");
+    if (!a || !a.closest(".slide")) return;
+    const to = slideOf(a.dataset.goto);
+    if (to < 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cmd("goto", [to, 0]);
+  }, true);
+
   function cmd(c, arg) {
     if (PRESENTER && window.opener && !window.opener.closed) { window.opener.postMessage({ sagadeck: DATA.id, type: "cmd", c, arg }, "*"); return; }
     local(c, arg);

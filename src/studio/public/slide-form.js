@@ -57,15 +57,20 @@
   const textOrObj = (fields, o = {}) => ({ fields, textOrObj: true, ...o });
 
   const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"),
-    f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique")])];
+    f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
   const STAT = [f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
     f.more([f.bool("trendUp", "Tendência positiva"), f.color("color", "Cor")])];
-  const STEP = [f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.more([f.text("tag", "Etiqueta")])];
+  const STEP = [f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.more([f.text("tag", "Etiqueta"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
+  // opção do mapa de caminhos (layout hub): leva à seção do caminho
+  const HUB_OPTION = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"), f.text("meta", "Detalhe", { hint: "Ex.: 30 dias, prorrogável" }), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })];
   const TIMELINE_EV = [f.text("when", "Quando"), f.text("title", "Título"), f.area("text", "Texto"), f.text("tag", "Etiqueta")];
   const COMPARE_SIDE = [f.text("label", "Rótulo"), f.text("value", "Valor grande"), f.text("title", "Título"), f.area("text", "Texto"),
     f.list("items", "Itens", T), f.el("figure", "Figura"), f.bool("hl", "Destacar")];
   const MATRIX_CELL = [f.text("title", "Título"), f.area("text", "Texto"), f.text("example", "Exemplo"), f.icon("icon", "Ícone"), f.bool("hl", "Destacar")];
-  const COMMON_MORE = [f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
+  const COMMON_MORE = [f.text("id", "Id do slide", { hint: "Nome curto para os links (goto, Voltar) chegarem aqui. Ex.: mapa, dev" }),
+    f.text("back", "Botão Voltar para", { hint: "Id do slide (ex.: mapa): mostra 'Voltar' no canto" }),
+    f.text("next", "No fim, avançar para", { hint: "Id do slide: o fim de um caminho volta ao mapa em vez de seguir a ordem" }),
+    f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
     f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.text("transition", "Transição", { datalist: ["fade", "slide", "zoom", "none"] }),
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
@@ -82,6 +87,9 @@
       f.list("lines", "Linhas (uma por clique)", textOrObj([f.area("text", "Texto"), f.select("as", "Estilo", TEXT_ROLES, { empty: "Título grande" }), f.color("color", "Cor"), f.num("step", "Clique")]), { addLabel: "Adicionar linha" }),
       f.text("by", "Assinatura"),
       f.more([f.bool("center", "Centralizar"), f.select("as", "Estilo da frase", TEXT_ROLES, { empty: "Título grande" }), f.num("size", "Tamanho (px)"), f.num("byStep", "Assinatura no clique")])],
+    hub: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("question", "Pergunta"),
+      f.list(["options", "items"], "Caminhos", obj(HUB_OPTION), { addLabel: "Adicionar caminho", newItem: () => ({ icon: "signpost", title: "Novo caminho", text: "", goto: "" }) }),
+      f.more([f.num("cols", "Colunas"), f.bool("build", "Um caminho por clique")])],
     quote: [f.text("kicker", "Chapéu"), f.area("quote", "Citação"), f.text("by", "Autor"), f.text("role", "Cargo"), f.text("after", "Comentário (depois de um clique)"),
       f.more([f.num("afterStep", "Comentário no clique"), f.num("size", "Tamanho (px)")])],
     number: [f.text("kicker", "Chapéu"), f.num("value", "Valor"), f.text("prefix", "Antes do número"), f.text("suffix", "Depois do número"), f.text("label", "Rótulo"),
@@ -99,7 +107,7 @@
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
     steps: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["steps", "process", "flow", "items"], "Etapas", obj(STEP), { addLabel: "Adicionar etapa", newItem: () => ({ title: "Nova etapa", text: "" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Uma por clique")])],
-    list: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", textOrObj([f.area("text", "Texto"), f.text("sub", "Detalhe")]), { addLabel: "Adicionar item" }),
+    list: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", textOrObj([f.area("text", "Texto"), f.text("sub", "Detalhe"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })]), { addLabel: "Adicionar item" }),
       f.more([f.bool("numbered", "Numerada", { default: true }), f.bool("build", "Um por clique"), f.num("size", "Tamanho (px)")])],
     timeline: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("events", "Eventos", obj(TIMELINE_EV), { addLabel: "Adicionar evento", newItem: () => ({ when: "2025", title: "Evento" }) }),
       f.text("after", "Frase final (depois de um clique)"),

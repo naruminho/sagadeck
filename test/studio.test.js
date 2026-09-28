@@ -207,6 +207,34 @@ test("studio", async (t) => {
     assert.equal((await deck()).slides[i].layout, "cards");
   });
 
+  // navegação por caminhos: o mapa (hub) pelo formulário, com o destino de cada caminho e o id do slide
+  await t.test("Mapa de caminhos: criar pela galeria, adicionar caminho com destino e dar id ao slide salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx); // o slide novo
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="hub"]'); await settle();
+    assert.equal(saved().slides[i].layout, "hub");
+    assert.match(await p.textContent(form), /Caminhos/);
+    const n = (saved().slides[i].options || []).length;
+    await p.click(`${form} button:has-text("Adicionar caminho")`); await settle();
+    assert.equal(saved().slides[i].options.length, n + 1, "caminho novo no deck");
+    const item = p.locator(`${form} .sf-item`).last();
+    const destino = item.locator('.sf-field:has(.sf-label:text-is("Ao clicar, ir para")) input').first();
+    if (!(await destino.isVisible())) await item.locator(".sf-item-toggle").first().click();
+    await destino.fill("fim"); await destino.blur(); await settle();
+    assert.equal(saved().slides[i].options.at(-1).goto, "fim", "o destino do caminho no deck salvo");
+    assert.ok(await p.locator('#rendered-slide-container .hub-card[data-goto="fim"]').count(), "e a opção clicável no slide");
+    const idField = p.locator(`${form} .sf-field:has(.sf-label:text-is("Id do slide")) input`).first();
+    const abriu = !(await idField.isVisible());
+    if (abriu) await p.locator(`${form} summary:has-text("Mais opções")`).last().click();
+    await idField.fill("mapa"); await idField.blur(); await settle();
+    assert.equal(saved().slides[i].id, "mapa", "id do slide salvo");
+    // o Studio lembra se "Mais opções" está aberto: deixa como estava para os próximos testes
+    if (abriu) await p.locator(`${form} summary:has-text("Mais opções")`).last().click();
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
   await t.test("editor visual tem formulário para os layouts novos", async () => {
     const i = await go("statement");
     const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/, kinetic: /Cena de fundo/ };
