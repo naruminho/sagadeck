@@ -275,6 +275,9 @@
     { id: "shape", label: "Forma", is: (e) => e.shape, tpl: () => ({ shape: "rounded", w: 300, h: 160, fill: "hi" }),
       fields: [f.select("shape", "Forma", [["rect", "Retângulo"], ["rounded", "Arredondado"], ["circle", "Círculo"], ["pill", "Pílula"], ["line", "Linha"]]), f.color("fill", "Preenchimento"), f.color("stroke", "Contorno")] },
     { id: "badge", label: "Selo", is: (e) => e.badge, tpl: () => ({ badge: "NOVO" }), fields: [f.text("badge", "Texto")] },
+    { id: "aviso", label: "Aviso", is: (e) => e.aviso,
+      tpl: () => ({ aviso: { tipo: "dica", titulo: "Dica", texto: "Texto do aviso" } }),
+      fields: [f.obj("aviso", "Aviso", [f.select("tipo", "Tipo", [["importante", "Importante"], ["atencao", "Atenção"], ["dica", "Dica"], ["perigo", "Perigo"]]), f.text("titulo", "Título"), f.area("texto", "Texto")])] },
     { id: "video", label: "Vídeo", is: (e) => e.video, tpl: () => ({ video: "https://", label: "Assistir" }), fields: [f.text("video", "Link"), f.text("label", "Texto do botão")] },
     { id: "widget", label: "Widget", is: (e) => e.widget, tpl: () => ({ widget: "" }), fields: [f.text("widget", "Nome do widget")] },
     { id: "html", label: "HTML", is: (e) => e.html, tpl: () => ({ html: "<div></div>" }), fields: [f.area("html", "HTML", { mono: true, rows: 6 })] },
@@ -289,7 +292,7 @@
     if (typeof e !== "object") return ELEMENT_KINDS.find((k) => k.id === "text");
     // mesma ordem de el() em src/elements.js: figuras, texto, estruturas, widgets, atalhos de texto
     const order = ["icon", "picto", "diagram", "chart", "svg", "image", "text", "row", "col", "counter", "timer", "poll", "list", "cards", "stats", "steps",
-      "progress", "tags", "rating", "code", "shape", "badge", "video", "widget", "html", "spacer"];
+      "progress", "tags", "rating", "code", "shape", "badge", "aviso", "video", "widget", "html", "spacer"];
     for (const id of order) {
       const k = ELEMENT_KINDS.find((x) => x.id === id);
       if (id === "text" ? e.text != null : k.is(e)) return k;

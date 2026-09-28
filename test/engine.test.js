@@ -198,6 +198,20 @@ test("markStyle muda o estilo do ==destaque== (deck e slide)", () => {
   assert.doesNotMatch(renderSlide({ layout: "statement", text: "==x==" }, 0, spec).html, /ms-/);
 });
 
+test("elemento aviso: caixa com ícone, título e texto nos 4 tipos (+atalho)", () => {
+  const a = (aviso) => html({ layout: "blocks", title: "T", add: [{ aviso }] });
+  const dica = a({ tipo: "dica", titulo: "Dica", texto: "Confira **isso**." });
+  assert.match(dica, /aviso av-dica/);
+  assert.match(dica, /Dica/);
+  assert.match(dica, /<b>isso<\/b>/);
+  assert.match(dica, /<svg/);
+  assert.match(a("só o texto"), /av-dica/);
+  assert.match(a({ tipo: "atenção", texto: "x" }), /av-atencao/);
+  assert.match(a({ tipo: "inexistente", texto: "x" }), /av-dica/);
+  assert.match(a({ tipo: "perigo", texto: "x" }), /av-perigo/);
+  assert.match(a({ tipo: "importante", texto: "x" }), /av-importante/);
+});
+
 // ---------------------------------------------------------------- auto-correção
 test("auto-correção registra o que mudou em `auto` (campo, antes, motivo)", () => {
   const before = { layout: "statement", text: "a", titleSize: 110 };

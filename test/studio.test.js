@@ -416,6 +416,44 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("elemento Aviso: adiciona pelo formulário, salva e desenha a caixa", async () => {
+    await p.click('.thumb-card[data-idx="0"]'); await settle(600);
+    await p.click("#tab-btn-props"); await settle(400);
+    for (const s of await p.locator(`${form} summary:has-text("Mais opções")`).all()) {
+      if (await s.isVisible()) await s.click();
+    }
+    const extras = p.locator(`${form} .sf-list`, { has: p.locator(".sf-list-head", { hasText: "Elementos extras no fim" }) });
+    await extras.locator("select.sf-kind-add").selectOption("aviso");
+    await settle(600);
+    const card = p.locator(`${form} .sf-item`, { has: p.locator(".sf-item-title", { hasText: "Aviso" }) });
+    if (await card.locator(".sf-item-toggle").getAttribute("aria-expanded") === "false") {
+      await card.locator(".sf-item-toggle").click();
+    }
+    // o cartão pode estar dentro de um "Mais opções" fechado (o display calculado não acusa, mas o
+    // navegador esconde): abre toda a cadeia de details, como a pessoa faria
+    await card.evaluate((c) => { for (let e = c.parentElement; e; e = e.parentElement) if (e.tagName === "DETAILS" && !e.open) e.open = true; });
+    const field = (label) => card.locator(".sf-field", { has: p.locator("label.sf-label", { hasText: label }) }).locator("input, textarea, select");
+    // espera robusta: o formulário reconstrói de forma assíncrona e o CI lento atrasa o desenho
+    await p.waitForFunction((form) => {
+      const cards = [...document.querySelectorAll(`${form} .sf-item`)];
+      const card = cards.find((c) => c.querySelector(".sf-item-title")?.textContent.includes("Aviso"));
+      const inp = card?.querySelector(".sf-field input");
+      if (!card?.classList.contains("open") || !inp || getComputedStyle(inp).display === "none") return false;
+      for (let e = inp; e; e = e.parentElement) if (e.tagName === "DETAILS" && !e.open) return false;
+      return true;
+    }, form, { timeout: 20000 });
+    await field("Título").fill("Cuidado");
+    await field("Texto").fill("Não molhe o equipamento.");
+    await settle(1200);
+    const add = saved().slides[0].add || [];
+    assert.ok(add.some((e) => e.aviso && e.aviso.titulo === "Cuidado" && e.aviso.texto === "Não molhe o equipamento."), "aviso salvo no deck");
+    const box = p.locator("#rendered-slide-container .aviso");
+    assert.ok(await box.isVisible(), "caixa desenhada");
+    assert.match(await box.innerText(), /Cuidado/);
+    assert.match(await box.innerText(), /Não molhe/);
+    await tab("inicio");
+  });
+
   await t.test("conteúdo que não cabe: editor e miniatura reduzem (sem sobrepor) e avisam que foi automático", async () => {
     const i = await go((s) => s.title === "Conteúdo que não cabe");
     await settle(900);

@@ -39,6 +39,7 @@ Regras de qualidade:
 - Uma ideia por slide. Pouco texto na tela (o fiscal "anti-sono" reclama de textão); o detalhe vai em \`notes\`.
 - Prefira figuras geradas (icon, picto, diagram, chart) a listas de bullets. Ícones são do Lucide, nomes em inglês kebab-case (ex.: rocket, shield-check, trending-up).
 - Varie os layouts ao longo do deck; capa (cover) no início e encerramento (end) no fim quando fizer sentido.
+- Slide denso (documentação, referência, números): feche com 1 takeaway em ==destaque== e use o elemento \`aviso\` (tipos: \`importante\`, \`atencao\`, \`dica\`, \`perigo\`) para o que não pode passar batido; grife ==palavras-chave== no texto corrido em vez de encher de negrito.
 - Escreva no idioma do pedido do usuário.
 - Layouts válidos (\`layout:\`): ${Object.keys(LAYOUTS).join(", ")}. Processo, fluxo, arquitetura ou UML: layout \`diagram\` (Mermaid). Itens em volta de uma ideia (desafios, frentes, caminhos): layout \`infographic\`. Gráficos: layout \`chart\` (ou \`science\`). Diagramas simples (\`diagram: loop/flow/venn…\`) e gráficos também existem como ELEMENTOS, dentro de figure/content/side.
 - Temas disponíveis: ${themes}.
