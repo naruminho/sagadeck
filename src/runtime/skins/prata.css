@@ -5,3 +5,14 @@
 .th-prata .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;text-align:center;gap:24px}
 .th-prata .L-section .sc-num{font-size:120px;color:var(--muted)}
 .th-prata .sc-text{align-items:center}
+/* conteúdo: tudo centralizado e com ar; cartões sem caixa, números da lista discretos, citação e número grande no meio */
+.th-prata .hd{align-items:center;text-align:center;margin-bottom:70px}
+.th-prata .hd .ttl{text-align:center}
+.th-prata :is(.card:not(.card-hi),.stat-card){background:transparent;border:0;text-align:center;align-items:center}
+.th-prata .li-n{color:var(--muted);font-size:40px}
+.th-prata .L-quote{align-items:center;text-align:center;padding:0 200px}
+.th-prata .q-mark{color:var(--muted);font-size:200px;height:90px}
+.th-prata .L-number:not(:has(.nb-side)){justify-content:center}
+.th-prata .L-number:not(:has(.nb-side)) .nb-main{flex:none;align-items:center;text-align:center}
+.th-prata .L-statement{align-items:center;text-align:center}
+.th-prata .st-body{max-width:1400px}

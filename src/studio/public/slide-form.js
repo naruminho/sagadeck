@@ -57,15 +57,26 @@
   const textOrObj = (fields, o = {}) => ({ fields, textOrObj: true, ...o });
 
   const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"),
-    f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique")])];
+    f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
   const STAT = [f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
     f.more([f.bool("trendUp", "Tendência positiva"), f.color("color", "Cor")])];
-  const STEP = [f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.more([f.text("tag", "Etiqueta")])];
+  const STEP = [f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.more([f.text("tag", "Etiqueta"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
+  // bloco do one-page (problema, solução): texto, números grandes e tópicos
+  const OP_BLOCK = [f.text("title", "Título"), f.area("text", "Texto"),
+    f.list("numbers", "Números", obj([f.text("value", "Valor"), f.text("label", "Rótulo")]), { addLabel: "Adicionar número", newItem: () => ({ value: "10%", label: "" }) }),
+    f.list("items", "Tópicos", T, { addLabel: "Adicionar tópico" })];
+  // item do status semanal: texto, com responsável e prazo opcionais
+  const STATUS_ITEM = textOrObj([f.area("text", "Texto"), f.text("owner", "Responsável"), f.text("due", "Prazo")]);
+  // opção do mapa de caminhos (layout hub): leva à seção do caminho
+  const HUB_OPTION = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"), f.text("meta", "Detalhe", { hint: "Ex.: 30 dias, prorrogável" }), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })];
   const TIMELINE_EV = [f.text("when", "Quando"), f.text("title", "Título"), f.area("text", "Texto"), f.text("tag", "Etiqueta")];
   const COMPARE_SIDE = [f.text("label", "Rótulo"), f.text("value", "Valor grande"), f.text("title", "Título"), f.area("text", "Texto"),
     f.list("items", "Itens", T), f.el("figure", "Figura"), f.bool("hl", "Destacar")];
   const MATRIX_CELL = [f.text("title", "Título"), f.area("text", "Texto"), f.text("example", "Exemplo"), f.icon("icon", "Ícone"), f.bool("hl", "Destacar")];
-  const COMMON_MORE = [f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
+  const COMMON_MORE = [f.text("id", "Id do slide", { hint: "Nome curto para os links (goto, Voltar) chegarem aqui. Ex.: mapa, dev" }),
+    f.text("back", "Botão Voltar para", { hint: "Id do slide (ex.: mapa): mostra 'Voltar' no canto" }),
+    f.text("next", "No fim, avançar para", { hint: "Id do slide: o fim de um caminho volta ao mapa em vez de seguir a ordem" }),
+    f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
     f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.text("transition", "Transição", { datalist: ["fade", "slide", "zoom", "none"] }),
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
@@ -89,6 +100,25 @@
       f.list("lines", "Linhas (uma por clique)", textOrObj([f.area("text", "Texto"), f.select("as", "Estilo", TEXT_ROLES, { empty: "Título grande" }), f.color("color", "Cor"), f.num("step", "Clique")]), { addLabel: "Adicionar linha" }),
       f.text("by", "Assinatura"),
       f.more([f.bool("center", "Centralizar"), f.select("as", "Estilo da frase", TEXT_ROLES, { empty: "Título grande" }), f.num("size", "Tamanho (px)"), f.num("byStep", "Assinatura no clique")])],
+    hub: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("question", "Pergunta"),
+      f.list(["options", "items"], "Caminhos", obj(HUB_OPTION), { addLabel: "Adicionar caminho", newItem: () => ({ icon: "signpost", title: "Novo caminho", text: "", goto: "" }) }),
+      f.more([f.num("cols", "Colunas"), f.bool("build", "Um caminho por clique")])],
+    onepage: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("subtitle", "Subtítulo"),
+      f.list("journey", "Jornada", textOrObj([f.icon("icon", "Ícone"), f.text("title", "Título"), f.text("text", "Mini-frase"), f.text("goto", "Ao clicar, ir para")]),
+        { addLabel: "Adicionar etapa da jornada", newItem: () => ({ icon: "circle", title: "Etapa", text: "" }) }),
+      f.obj("problem", "O problema", OP_BLOCK, { stringAs: "text" }), f.obj("solution", "A solução", OP_BLOCK, { stringAs: "text" }),
+      f.obj("dashboard", "Painel", [f.list("numbers", "Números grandes", obj([f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência", { hint: "Ex.: +12% (com - na frente fica vermelho)" }), f.text("title", "Título")]),
+          { addLabel: "Adicionar número", newItem: () => ({ value: "100", label: "Indicador" }) }),
+        f.list("figures", "Gráficos e mapa", "element", { addLabel: "Adicionar gráfico ou mapa", newItem: () => ({ title: "Gráfico", chart: "bar", data: [{ label: "A", value: 10 }, { label: "B", value: 20 }] }) })]),
+      f.more([f.text("journeyTitle", "Título da jornada", { placeholder: "Jornada" })])],
+    status: [f.text("kicker", "Chapéu", { hint: "Ex.: Semana 39 · 22 a 26/09" }), f.text("title", "Título"),
+      f.select("health", "Saúde", [["ok", "Em dia"], ["risco", "Atenção"], ["atrasado", "Atrasado"]], { empty: "Sem indicador" }), f.num("progress", "Avanço (%)"),
+      f.text("highlight", "Destaque da semana"),
+      f.list("done", "Feito", STATUS_ITEM, { addLabel: "Adicionar feito" }), f.list("doing", "Em andamento", STATUS_ITEM, { addLabel: "Adicionar em andamento" }),
+      f.list("blocked", "Bloqueios", STATUS_ITEM, { addLabel: "Adicionar bloqueio" }), f.list("risks", "Riscos e problemas", STATUS_ITEM, { addLabel: "Adicionar risco" }),
+      f.list("upcoming", "Próximos passos", STATUS_ITEM, { addLabel: "Adicionar próximo passo" }),
+      f.list("shots", "Telas da semana (até 3)", obj([f.text("image", "Imagem (arquivo ou link)"), f.text("caption", "Legenda")]), { addLabel: "Adicionar tela", max: 3, newItem: () => ({ image: "", caption: "" }) }),
+      f.more([f.text("healthLabel", "Texto da saúde", { hint: "Troca o rótulo, ex.: Atrasado 1 semana" })])],
     quote: [f.text("kicker", "Chapéu"), f.area("quote", "Citação"), f.text("by", "Autor"), f.text("role", "Cargo"), f.text("after", "Comentário (depois de um clique)"),
       f.more([f.num("afterStep", "Comentário no clique"), f.num("size", "Tamanho (px)")])],
     number: [f.text("kicker", "Chapéu"), f.num("value", "Valor"), f.text("prefix", "Antes do número"), f.text("suffix", "Depois do número"), f.text("label", "Rótulo"),
@@ -106,7 +136,7 @@
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
     steps: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["steps", "process", "flow", "items"], "Etapas", obj(STEP), { addLabel: "Adicionar etapa", newItem: () => ({ title: "Nova etapa", text: "" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Uma por clique")])],
-    list: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", textOrObj([f.area("text", "Texto"), f.text("sub", "Detalhe")]), { addLabel: "Adicionar item" }),
+    list: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", textOrObj([f.area("text", "Texto"), f.text("sub", "Detalhe"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })]), { addLabel: "Adicionar item" }),
       f.more([f.bool("numbered", "Numerada", { default: true }), f.bool("build", "Um por clique"), f.num("size", "Tamanho (px)")])],
     timeline: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("events", "Eventos", obj(TIMELINE_EV), { addLabel: "Adicionar evento", newItem: () => ({ when: "2025", title: "Evento" }) }),
       f.text("after", "Frase final (depois de um clique)"),
@@ -246,6 +276,10 @@
         f.action("Gerar imagem agora", (e, btn) => CTX.generateImage?.(e, btn)),
         f.select("fit", "Enquadramento", [["cover", "Preencher"], ["contain", "Caber inteira"]]), f.text("alt", "Texto alternativo"), f.num("radius", "Cantos (px)")] },
     { id: "chart", label: "Gráfico", is: (e) => e.chart, tpl: () => ({ chart: "bar", data: [{ label: "A", value: 10 }, { label: "B", value: 20 }] }), chart: true },
+    { id: "ufmap", label: "Mapa por UF", is: (e) => e.ufmap, tpl: () => ({ ufmap: { SP: 30, RJ: 15, MG: 18 } }),
+      fields: [f.json("ufmap", "Valores por UF", { placeholder: '{ "SP": 120, "RJ": 80 }', hint: "Sigla da UF e o valor; a cor mais forte é o maior." }),
+        f.text("prefix", "Antes do valor"), f.text("suffix", "Depois do valor"), f.list("highlight", "Destacar UFs", T, { addLabel: "Adicionar UF" }), f.text("legend", "Legenda"),
+        f.bool("showValues", "Mostrar os valores")] },
     { id: "diagram", label: "Diagrama", is: (e) => e.diagram, tpl: () => ({ diagram: "flow", steps: ["Início", "Meio", "Fim"] }),
       fields: [f.select("diagram", "Tipo", [["flow", "Fluxo"], ["loop", "Ciclo"], ["spectrum", "Espectro"], ["venn", "Venn"]]),
         f.list("steps", "Etapas", T, { when: (e) => e.diagram === "flow" }), f.num("highlight", "Etapa destacada", { when: (e) => e.diagram === "flow" }),
@@ -580,6 +614,8 @@
   }
 
   function objectField(o, spec, path) {
+    // atalho em texto (ex.: problem: "Leva 2 semanas") vira { text: … } sem perder o conteúdo
+    if (typeof o[spec.k] === "string" && spec.stringAs) o[spec.k] = { [spec.stringAs]: o[spec.k] };
     if (!o[spec.k] || typeof o[spec.k] !== "object") o[spec.k] = {};
     const target = o[spec.k];
     return h("fieldset", { class: "sf-object" }, h("legend", { text: spec.label }), renderFields(target, spec.fields, `${path}.${spec.k}`));

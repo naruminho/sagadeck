@@ -9,6 +9,7 @@ import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
 import { chart } from "./figures/charts.js";
+import { ufmap } from "./figures/ufmap.js";
 import { highlightCode } from "./code-highlight.js";
 import { resolveCodeLanguage } from "./code-language.js";
 
@@ -19,7 +20,7 @@ const px = (v) => (v == null ? null : typeof v === "number" ? `${v}px` : String(
 const colorVal = (c) => (!c ? null : /^#?[0-9a-f]{6}$/i.test(c) ? `#${c.replace("#", "")}` : `var(--${c})`);
 
 export function attrs(el = {}, extraCls = "", extraStyle = "") {
-  const cls = [extraCls, el.class, el.card ? "card" : "", el.card === "hi" ? "card-hi" : ""].filter(Boolean).join(" ");
+  const cls = [extraCls, el.class, el.card ? "card" : "", el.card === "hi" ? "card-hi" : "", el.goto != null && el.goto !== "" ? "goto" : ""].filter(Boolean).join(" ");
   let st = extraStyle;
   if (el.w != null) st += `width:${px(el.w)};`;
   if (el.h != null) st += `height:${px(el.h)};flex-shrink:0;`;
@@ -40,6 +41,7 @@ export function attrs(el = {}, extraCls = "", extraStyle = "") {
   if (el.exit != null) a += ` data-exit="${el.exit}"`;
   if (el.anim) a += ` data-anim="${el.anim}"`;
   if (el.id) a += ` id="${esc(el.id)}"`;
+  if (el.goto != null && el.goto !== "") a += ` data-goto="${esc(el.goto)}"`;
   return a;
 }
 
@@ -63,6 +65,7 @@ export function figureHTML(el, ctx, w, h) {
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
   if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(el, el.cw || w || 1200, el.ch || h || 620)}</div>`;
+  if (el.ufmap) return `<div${attrs(el, "fig fig-ufmap")}>${ufmap({ cw: w, ...el }, ctx?.warnings)}</div>`;
   if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
   if (el.image) {
     const src = imageSrc(el.image, ctx);
@@ -83,7 +86,7 @@ function imageSrc(p, ctx) {
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.svg || el.image || el.qr);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr);
 
 // Caixa de aviso/dica: { aviso: { tipo: importante|atencao|dica|perigo, titulo, texto } }.
 // Atalho: { aviso: "texto" } vira dica sem título. O tipo aceita "atenção" com ou sem acento.
@@ -177,7 +180,8 @@ export function list(e) {
     const o = typeof it === "string" ? { text: it } : it;
     const step = build ? (e.buildFrom ?? 1) + i : o.step;
     const mark = e.numbered ? `<span class="li-n f-display">${String(++n).padStart(2, "0")}</span>` : `<span class="li-b"></span>`;
-    return `<li${attrs({ ...o, step }, "li")}>${mark}<div class="li-t t f-${o.face || "body"}" style="font-size:${o.size || e.size || SIZES.lead}px">${md(o.text)}${o.sub ? `<div class="li-sub t f-body" style="font-size:${SIZES.small}px">${md(o.sub)}</div>` : ""}</div></li>`;
+    const go = o.goto != null && o.goto !== "" ? `<span class="goto-mark" aria-hidden="true">${iconSVG("arrow-up-right", { size: 30, stroke: 2 })}</span>` : "";
+    return `<li${attrs({ ...o, step }, "li")}>${mark}<div class="li-t t f-${o.face || "body"}" style="font-size:${o.size || e.size || SIZES.lead}px">${md(o.text)}${o.sub ? `<div class="li-sub t f-body" style="font-size:${SIZES.small}px">${md(o.sub)}</div>` : ""}</div>${go}</li>`;
   }).join("");
   return `<${tag}${attrs(e, `list ${e.numbered ? "numbered" : ""}`)}>${body}</${tag}>`;
 }
@@ -214,6 +218,7 @@ export function cards(e, ctx) {
       ${c.text ? `<div class="cd-text t f-body">${md(c.text)}</div>` : ""}
       ${extraWidgets}
       ${c.foot ? `<div class="cd-foot t f-label">${md(c.foot)}</div>` : ""}
+      ${c.goto != null && c.goto !== "" ? `<span class="goto-mark" aria-hidden="true">${iconSVG("arrow-up-right", { size: 30, stroke: 2 })}</span>` : ""}
     </div>`;
   }).join("");
   return `<div${attrs(e, "cards", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
@@ -265,6 +270,7 @@ export function steps(e, ctx) {
       ${st.title ? `<div class="step-title t f-heading">${md(st.title)}</div>` : ""}
       ${st.text ? `<div class="step-text t f-body">${md(st.text)}</div>` : ""}
       ${st.tag ? `<div class="tag-pill" style="align-self:flex-start;margin-top:auto;">${md(st.tag)}</div>` : ""}
+      ${st.goto != null && st.goto !== "" ? `<span class="goto-mark" aria-hidden="true">${iconSVG("arrow-up-right", { size: 30, stroke: 2 })}</span>` : ""}
       ${i < items.length - 1 ? `<div class="step-connector" aria-hidden="true">${iconSVG("arrow-right", { size: 40, stroke: 2 })}</div>` : ""}
     </div>`;
   }).join("");

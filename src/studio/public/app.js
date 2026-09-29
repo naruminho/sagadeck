@@ -31,7 +31,7 @@
   // ordem da galeria: abertura, frase, números, listas/estruturas, dados, interação, mídia, livres, fim
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
-    "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline",
+    "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
     "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video",
     "blocks", "dossier", "canvas", "references", "end",
   ];
@@ -44,7 +44,7 @@
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
-    headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
+    hub: "Mapa de caminhos", status: "Status semanal", onepage: "One-page", headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
   const layoutLabel = (name) => LAYOUT_LABELS[name] || name || "Automático";
 
@@ -308,7 +308,6 @@
   let renderSeq = 0;
   async function renderCurrentSlide() {
     if (!state.deck || !state.deck.slides || state.deck.slides.length === 0) return;
-    previewThemeName = null; // render canônico: qualquer prévia de hover terminou
     const seq = ++renderSeq;
     const rebuildForm = !state.skipFormRebuild;
     state.skipFormRebuild = false;
@@ -1867,9 +1866,53 @@
   // Tema (fonte, arranjo, ornamentos) e paleta (cores) são duas escolhas, como no PowerPoint. Clique = a
   // apresentação toda (e desfaz o que era só de um slide); botão direito = menu com "Só neste slide".
   const lookLabel = (kind, name) => kind === "theme" ? (state.themeMeta?.[name]?.label || name) : name === "tema" ? "Do tema" : (state.palettes?.[name]?.label || name);
+  // Prévia ao passar o mouse num tema ou paleta: o slide aberto aparece com aquele visual, sem gravar nada; tirar
+  // o mouse volta ao que era; o clique aplica. O CSS da prévia vai numa <style> à parte, que sai no fim.
+  let previewTimer = null, previewing = null;
+  function previewLook(kind, name) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(async () => {
+      const key = kind === "theme" ? "theme" : "palette";
+      const idx = state.currentSlideIndex, slide = state.deck?.slides?.[idx];
+      if (!slide) return;
+      const spec = { ...state.deck, [key]: name };
+      if (key === "palette" && name === "tema") delete spec.palette;
+      const s = { ...slide };
+      delete s[key]; // o clique aplica na apresentação toda (e tira o que era só deste slide): a prévia mostra isso
+      previewing = { kind, name };
+      const seq = ++renderSeq;
+      try {
+        const res = await fetch("api/render-slide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slide: s, index: idx, spec }) });
+        const data = await res.json();
+        if (seq !== renderSeq || !previewing || previewing.name !== name) return;
+        let st = document.getElementById("sagadeck-preview-styles");
+        if (!st) { st = document.createElement("style"); st.id = "sagadeck-preview-styles"; document.head.appendChild(st); }
+        st.textContent = data.themeCSS || "";
+        const box = dom.renderedSlideContainer;
+        window.SagaScience?.dispose(box);
+        box.innerHTML = data.html;
+        window.SagaScience?.mount(box);
+        window.SagaDiagrams?.mount(box);
+        fitSlideText(box);
+        const badge = document.getElementById("look-preview-badge");
+        badge.textContent = `Prévia: ${lookLabel(kind, name)}. Clique para aplicar.`;
+        badge.classList.remove("hidden");
+      } catch { /* prévia é só conforto: se falhar, nada muda */ }
+    }, 160);
+  }
+  // fim da prévia; restore=false quando o clique já vai redesenhar o slide
+  function endPreview(restore = true) {
+    clearTimeout(previewTimer);
+    if (!previewing) return;
+    previewing = null;
+    document.getElementById("sagadeck-preview-styles")?.remove();
+    document.getElementById("look-preview-badge")?.classList.add("hidden");
+    if (restore) renderCurrentSlide();
+  }
+
   function applyLook(kind, name, scope = "all") {
+    endPreview(false);
     const key = kind === "theme" ? "theme" : "palette";
-    previewThemeName = null; // a prévia do hover termina no clique que aplica
     const slide = state.deck.slides[state.currentSlideIndex];
     if (scope === "all") {
       if (key === "palette" && name === "tema") delete state.deck.palette; else state.deck[key] = name;
@@ -1887,32 +1930,6 @@
     playHaptic("snap");
   }
   const changeTheme = (themeName) => applyLook("theme", themeName);
-
-  // Prévia de tema no hover: mostra o slide atual com o tema, sem salvar nem tocar nas miniaturas.
-  // O clique continua aplicando de verdade (applyLook). Sem compromisso antes de ver.
-  let previewThemeName = null;
-  async function previewTheme(name) {
-    if (!state.deck || previewThemeName === name) return;
-    previewThemeName = name;
-    const seq = ++renderSeq;
-    try {
-      const res = await fetch("api/render-slide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slide: state.deck.slides[state.currentSlideIndex], index: state.currentSlideIndex, spec: { ...state.deck, theme: name } }),
-      });
-      const data = await res.json();
-      if (seq !== renderSeq || previewThemeName !== name) return; // já pediram um render mais novo
-      ensureSlideStyles(data.baseCSS, data.themeCSS);
-      dom.renderedSlideContainer.innerHTML = data.html;
-      window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
-    } catch { /* prévia é melhor esforço; o clique aplica de verdade */ }
-  }
-  function endThemePreview() {
-    if (!previewThemeName) return;
-    previewThemeName = null;
-    renderCurrentSlide();
-  }
 
   function openLookMenu(e, kind, name) {
     e.preventDefault();
@@ -1949,7 +1966,9 @@
       else sw.innerHTML = '<i class="ic" data-ic="palette"></i>';
       card.querySelector(".tc-name").textContent = m.label.replace(/\s*\(.*\)$/, ""); // "Rubi (vermelho discreto)": o cartão mostra o nome, a dica o resto
       card.onclick = () => applyLook("palette", n);
-      card.oncontextmenu = (e) => openLookMenu(e, "palette", n);
+      card.onmouseenter = () => previewLook("palette", n);
+      card.onmouseleave = () => endPreview();
+      card.oncontextmenu = (e) => { endPreview(); openLookMenu(e, "palette", n); };
       gal.appendChild(card);
     }
     hydrateIcons(gal);
@@ -1970,9 +1989,9 @@
       card.innerHTML = `<span class="tc-aa" style="color:${m.ink}">Aa</span><span class="tc-bar" style="background:${m.accent}"></span><span class="tc-name"></span>`;
       card.querySelector(".tc-name").textContent = m.label;
       card.onclick = () => changeTheme(n);
-      card.onmouseenter = () => previewTheme(n);
-      card.onmouseleave = endThemePreview;
-      card.oncontextmenu = (e) => openLookMenu(e, "theme", n);
+      card.onmouseenter = () => previewLook("theme", n);
+      card.onmouseleave = () => endPreview();
+      card.oncontextmenu = (e) => { endPreview(); openLookMenu(e, "theme", n); };
       card.title += ". Clique: todos os slides. Botão direito: só neste slide.";
       dom.themeGallery.appendChild(card);
     });
@@ -2198,7 +2217,6 @@
     if (idx < 0 || idx >= state.deck.slides.length) return;
     if (idx !== state.currentSlideIndex) state.editorStep = "all"; // outro slide: volta a mostrar tudo
     state.currentSlideIndex = idx;
-    previewThemeName = null; // a prévia era do slide anterior; o render abaixo restaura
     markActiveThumb();
     renderCurrentSlide();
   }
@@ -3814,10 +3832,24 @@
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
+  // Modo simples (padrão): as ferramentas de especialista ([data-adv]: YAML, API ao vivo, tom e textura,
+  // legibilidade, ritmo, guias, sons) ficam guardadas; "Mais opções" mostra tudo e o navegador lembra.
+  function setSimpleMode(on) {
+    document.body.classList.toggle("simple-mode", on);
+    const b = document.getElementById("btn-more-options");
+    b.setAttribute("aria-pressed", String(!on));
+    b.querySelector("span").textContent = on ? "Mais opções" : "Menos opções";
+    b.title = on ? "Mostrar as ferramentas avançadas (YAML, API ao vivo, tom e textura, legibilidade, ritmo, guias, sons)" : "Guardar as ferramentas avançadas";
+    store.set("simpleMode", on);
+    if (on && document.querySelector(".ribbon-tab.active") && !document.querySelector(".ribbon-panel.active .rgroup:not([data-adv])")) selectRibbonTab("inicio");
+  }
+
   function setupShell() {
     // abas da faixa de opções
     dom.ribbonTabs.forEach((t) => t.addEventListener("click", () => selectRibbonTab(t.dataset.tab)));
     selectRibbonTab(store.get("ribbonTab", "inicio"));
+    setSimpleMode(store.get("simpleMode", true));
+    document.getElementById("btn-more-options").onclick = () => setSimpleMode(!document.body.classList.contains("simple-mode"));
 
     // popovers (layout, ritmo) e menus (Arquivo, Apresentar)
     // os popovers são "fixed" e ancorados no botão: a faixa rola na horizontal e cortaria um absolute
@@ -4313,6 +4345,7 @@
       pptx: { label: "o PowerPoint", done: "PowerPoint editável, com animações e notas." },
       pdf: { label: "o PDF", done: "PDF com um slide por página." },
       roteiro: { label: "o roteiro", done: "roteiro com miniaturas, notas e tempos." },
+      tudo: { label: "o PowerPoint, o PDF e o roteiro", done: "um .zip com o PowerPoint (com notas), o PDF e o roteiro." },
     };
     document.querySelectorAll("[data-export]").forEach((btn) => {
       btn.onclick = async (e) => {
@@ -4323,7 +4356,7 @@
         btn.disabled = true;
         showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${kind === "pptx" ? "pptx" : "pdf"}`);
+          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${{ pptx: "pptx", tudo: "zip" }[kind] || "pdf"}`);
           const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
           showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
         } catch (err) {

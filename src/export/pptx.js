@@ -81,14 +81,17 @@ function collectInPage([idx, nativeCharts]) {
       const cs = getComputedStyle(el);
       const faceEl = el.closest('[class*="f-"]');
       const role = faceEl ? ([...faceEl.classList].find((k) => /^f-(display|heading|body|label|mono|quote)$/.test(k)) || "").slice(2) : "";
-      const link = el.closest("a");
+      // link para outro slide (goto, [texto](#id), Voltar): vira "slide:N" e, no PowerPoint, salto para o slide
+      const go = el.closest("[data-goto]");
+      const link = go ? null : el.closest("a");
+      const goHref = go ? (() => { const all = [...document.querySelectorAll("#stage > .slide")], t = String(go.dataset.goto), j = all.findIndex((x) => x.dataset.id === t); const n = j >= 0 ? j : /^\d+$/.test(t) ? +t - 1 : -1; return n >= 0 ? `slide:${n}` : null; })() : null;
       const col = rgba(cs.color);
       return {
         color: col.hex, alpha: col.a, size: parseFloat(cs.fontSize), weight: +cs.fontWeight, baseW,
         italic: cs.fontStyle === "italic", baseItalic, family: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(), role,
         spacing: parseFloat(cs.letterSpacing) || 0, upper: cs.textTransform === "uppercase", stretch: parseFloat(cs.fontStretch) || 100,
         strike: cs.textDecorationLine.includes("line-through"), underline: !link && cs.textDecorationLine.includes("underline"),
-        href: link ? link.href : null,
+        href: goHref || (link ? link.href : null),
       };
     };
     const same = (a, b) => ["color", "alpha", "size", "weight", "italic", "family", "role", "spacing", "strike", "underline", "href"].every((k) => a[k] === b[k]);
@@ -354,7 +357,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
           if (r.hi) o.highlight = r.hi;
           if (r.strike) o.strike = "sngStrike";
           if (r.underline) o.underline = { style: "sng" };
-          if (r.href) o.hyperlink = { url: r.href };
+          if (r.href) o.hyperlink = r.href.startsWith("slide:") ? { slide: +r.href.slice(6) + 1 } : { url: r.href };
           if (ri === p.length - 1 && pi < it.paras.length - 1) o.breakLine = true;
           runs.push({ text: r.text, options: o });
         }));

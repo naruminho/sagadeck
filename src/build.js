@@ -82,6 +82,40 @@ export function deckThemeCSS(spec, deckTheme) {
   return css + "\n" + [...names].map(skinCSS).join("\n");
 }
 
+// Fontes dos temas (OFL) embutidas: só as famílias que o CSS da apresentação cita (runtime/fonts, scripts/vendor-fonts.mjs)
+let FONT_INDEX = null;
+export function fontsCSSFor(css) {
+  FONT_INDEX ||= JSON.parse(read("runtime/fonts/index.json"));
+  return Object.entries(FONT_INDEX).filter(([family]) => css.includes(`'${family}'`) || css.includes(`"${family}"`))
+    .map(([, file]) => read(`runtime/fonts/${file}`)).join("\n");
+}
+
+// Destinos de navegação de um slide: goto (em qualquer item), back, next e os [texto](#id) do texto
+function navTargets(slide) {
+  const out = [];
+  const walk = (v, k) => {
+    if (typeof v === "string") {
+      if (k === "goto" || k === "back" || (k === "next" && v)) out.push(v);
+      for (const m of v.matchAll(/\]\(#([\w-]+)\)/g)) out.push(m[1]);
+    } else if (typeof v === "number" && (k === "goto" || k === "back" || k === "next")) out.push(String(v));
+    else if (Array.isArray(v)) v.forEach((x) => walk(x, k));
+    else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) if (kk !== "notes") walk(vv, kk);
+  };
+  walk(slide, "");
+  return out;
+}
+export function navWarnings(slides = []) {
+  const ids = new Map(), warns = [];
+  slides.forEach((s, i) => { if (s && s.id != null && s.id !== "") { const id = String(s.id); if (ids.has(id)) warns.push(`slide ${i + 1}: id "${id}" repetido (o slide ${ids.get(id) + 1} já usa)`); else ids.set(id, i); } });
+  slides.forEach((s, i) => {
+    for (const t of navTargets(s)) {
+      const n = /^\d+$/.test(t) ? +t : 0;
+      if (!ids.has(t) && !(n >= 1 && n <= slides.length)) warns.push(`slide ${i + 1}: o link para "${t}" não leva a nenhum slide (dê id: ${t} ao slide de destino)`);
+    }
+  });
+  return warns;
+}
+
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(rawSpec);
   const theme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
@@ -104,11 +138,15 @@ export function buildHTML(rawSpec, opts = {}) {
     html += slideShell({ s, i, spec, theme: th, ctx: sctx, layout, tone, inner }) + "\n";
 
     const words = wordCount({ ...raw, notes: undefined });
-    const limit = s.maxWords || spec.maxWords || 40;
+    // one-page e status são densos por natureza (uma página com tudo): limite próprio, maior
+    const limit = s.maxWords || spec.maxWords || { onepage: 120, status: 90 }[layout] || 40;
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
     slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", time: s.time || 0, layout, words });
   });
+
+  // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)
+  warnings.push(...navWarnings(spec.slides));
 
   // CSS e widgets próprios ficam ao lado do YAML. Se faltar um (ex.: deck aberto pelo navegador no
   // Studio, sem a pasta original), a apresentação sai sem ele e com aviso — não quebra inteira.
@@ -136,7 +174,8 @@ export function buildHTML(rawSpec, opts = {}) {
 <meta name="generator" content="sagadeck">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
-<style>${read("runtime/base.css")}
+<style>${fontsCSSFor(read("runtime/base.css") + deckThemeCSS(spec, theme) + customCSS)}
+${read("runtime/base.css")}
 ${spec.slides.some(s => s.layout === "science") ? read("runtime/vendor/katex.css") : ""}
 ${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>
@@ -193,13 +232,20 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   const total = spec.slides?.length || i + 1;
-  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  // navegação por caminhos: id (destino de goto/back/next), next (aonde o avanço leva no fim do slide), back (botão Voltar)
+  const nav = (s.id != null && s.id !== "" ? ` id="s-${esc(s.id)}" data-id="${esc(s.id)}"` : "") + (s.next != null && s.next !== "" ? ` data-next="${esc(s.next)}"` : "");
+  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
   // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
   html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits)}</div>`;
   if (bars) html += barHTML("footer", spec, i, total);
+  if (s.back != null && s.back !== "") {
+    const alvo = (spec.slides || []).find((x) => x && String(x.id) === String(s.back));
+    const nome = s.backLabel || (alvo ? plain(alvo.title || alvo.kicker || alvo.question || "") : "") || "o mapa";
+    html += `<a class="nav-back t f-label" href="#s-${esc(s.back)}" data-goto="${esc(s.back)}">${iconSVG("arrow-left", { size: 26, stroke: 2 })}<span>Voltar: ${esc(nome)}</span></a>`;
+  }
   return html + `</section>`;
 }
 

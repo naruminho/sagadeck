@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SagaDeck Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="studio-next.css">
   <script>
@@ -61,6 +62,7 @@
         <div class="menu-sep"></div>
         <button class="menu-item" id="action-save-yaml"><i class="ic" data-ic="save"></i>Salvar</button>
         <button class="menu-item" id="export-sagadeck" title="A apresentação inteira num arquivo: YAML + imagens, CSS e widgets"><i class="ic" data-ic="download"></i>Baixar apresentação (.sagadeck)</button>
+        <button class="menu-item" id="export-all" data-export="tudo" title="Um .zip com o PowerPoint (com as notas), o PDF e o roteiro do apresentador: tudo o que se leva para apresentar"><i class="ic" data-ic="download"></i>Baixar tudo (PowerPoint, PDF e roteiro)</button>
         <button class="menu-item" id="export-pptx" data-export="pptx" title="PowerPoint editável: textos nativos, animações dos cliques e notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint (.pptx)</button>
         <button class="menu-item" id="export-pptx-clean" data-export="pptx" data-notas="0" title="Para mandar a alguém: o mesmo PowerPoint, sem as notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint sem as notas</button>
         <button class="menu-item" id="export-pdf" data-export="pdf" title="Um slide por página, como a plateia vê (tudo revelado)"><i class="ic" data-ic="file-text"></i>Baixar PDF</button>
@@ -75,6 +77,8 @@
     <button class="ribbon-tab" role="tab" data-tab="ia">IA</button>
     <button class="ribbon-tab" role="tab" data-tab="revisar">Revisar</button>
     <button class="ribbon-tab" role="tab" data-tab="exibir">Exibir</button>
+    <!-- modo simples (padrão): esconde as ferramentas de especialista ([data-adv]); a escolha fica no navegador -->
+    <button id="btn-more-options" class="ribbon-more" type="button" aria-pressed="false" title="Mostrar as ferramentas avançadas (YAML, API ao vivo, tom e textura, legibilidade, ritmo, guias, sons)"><i class="ic" data-ic="sliders-horizontal"></i><span>Mais opções</span></button>
   </nav>
 
   <div id="ribbon" class="ribbon">
@@ -103,7 +107,7 @@
         </div>
         <div class="rgroup-label">Layout</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body rgroup-fields">
           <div class="rfield"><span>Tom</span>
             <button id="btn-tone" class="vpick-btn" type="button" aria-haspopup="true" title="Cores deste slide (com prévia)"><span class="vpick-sw"></span><span class="vpick-name">Claro</span><i class="ic caret" data-ic="chevron-down"></i></button>
@@ -134,7 +138,7 @@
         </div>
         <div class="rgroup-label">Aparência</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body">
           <button id="btn-open-yaml" class="rbtn rbtn-lg" title="Abrir um arquivo .yaml do computador"><i class="ic" data-ic="folder-open"></i><span>Abrir</span></button>
         </div>
@@ -162,7 +166,7 @@
         <div id="visual-tools" class="rgroup-body visual-tools" aria-label="Inserir e ajustar objetos"></div>
         <div class="rgroup-label">Objetos livres</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body">
           <button id="btn-api-slide" class="rbtn rbtn-lg" title="Slide que executa uma requisição de verdade (tipo Postman), com o código curl e Python ao lado. Exemplos prontos: biblioteca, Nova, Exemplo: aula de APIs"><i class="ic" data-ic="plug-zap"></i><span>Slide de API</span></button>
           <button id="btn-api-envs" class="rbtn rbtn-lg" title="Endereços, tokens e segredos dos slides de API (ficam na sua máquina, nunca no deck)"><i class="ic" data-ic="server-cog"></i><span>Ambientes</span></button>
@@ -285,14 +289,14 @@
         </div>
         <div class="rgroup-label">Layout</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body">
           <button id="btn-squint" class="rbtn rbtn-lg" title="Desfoca o slide para testar se dá para ler do fundo da sala"><i class="ic" data-ic="scan-eye"></i><span>Última fileira</span></button>
           <button id="btn-heatmap" class="rbtn rbtn-lg" title="Onde o olho bate primeiro"><i class="ic" data-ic="flame"></i><span>Mapa de atenção</span></button>
         </div>
         <div class="rgroup-label">Legibilidade</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body">
           <div class="popover-wrap">
             <button id="btn-story-arc" class="rbtn rbtn-lg" aria-haspopup="true" title="Ritmo da apresentação"><i class="ic" data-ic="activity"></i><span>Ritmo <i class="ic caret" data-ic="chevron-down"></i></span></button>
@@ -319,7 +323,7 @@
 
     <!-- EXIBIR -->
     <div class="ribbon-panel" data-panel="exibir">
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body rgroup-fields">
           <label class="rcheck"><input type="checkbox" id="chk-guides" checked> Margens seguras</label>
           <label class="rcheck"><input type="checkbox" id="chk-inspect-overlay" checked> Destacar problemas</label>
@@ -330,11 +334,11 @@
         <div class="rgroup-body">
           <button id="btn-notes-toggle" class="rbtn rbtn-lg" title="Mostrar ou ocultar as anotações do apresentador"><i class="ic" data-ic="sticky-note"></i><span>Anotações</span></button>
           <button id="btn-pane-props" class="rbtn rbtn-lg" title="Painel com os campos do slide"><i class="ic" data-ic="sliders-horizontal"></i><span>Formatar</span></button>
-          <button id="btn-yaml-drawer" class="rbtn rbtn-lg" title="Editar o YAML da apresentação"><i class="ic" data-ic="code-xml"></i><span>YAML</span></button>
+          <button id="btn-yaml-drawer" data-adv class="rbtn rbtn-lg" title="Editar o YAML da apresentação"><i class="ic" data-ic="code-xml"></i><span>YAML</span></button>
         </div>
         <div class="rgroup-label">Painéis</div>
       </div>
-      <div class="rgroup">
+      <div class="rgroup" data-adv>
         <div class="rgroup-body">
           <div class="rgroup-fields">
             <label class="rfield"><span>Interface</span>
@@ -371,6 +375,7 @@
           <div id="inspector-overlay" class="inspector-layer"></div>
           <div id="heatmap-overlay" class="heatmap-layer hidden"></div>
           <div id="rendered-slide-container"></div>
+          <div id="look-preview-badge" class="look-preview-badge hidden" role="status"></div>
         </div>
       </div>
       <!-- fiscal: o problema do slide e as correções, à mão -->

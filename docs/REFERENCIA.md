@@ -51,12 +51,15 @@ slides:
 | `bg` / `fg` | cor de fundo / texto (hex) só neste slide |
 | `transition` | `fade` (padrão) ou `cut` |
 | `footer: false` | esconde o rodapé neste slide |
+| `id` | nome curto do slide, destino dos links (`goto`, `back`, `next`, `[texto](#id)`); ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
+| `back` | id (ou número) do slide para onde o botão **Voltar** do canto leva; o botão mostra o título do destino |
+| `next` | id (ou número) do slide para onde o avanço leva **no fim deste slide** (o fim de um caminho volta ao mapa, em vez de seguir a ordem) |
 
 Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`).
 
 ## Marcação inline (qualquer texto)
 
-`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · quebra de linha = nova linha no YAML (`|`).
+`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · `[texto](#id)` (leva ao slide de `id`) · quebra de linha = nova linha no YAML (`|`).
 
 ## Layouts
 
@@ -68,8 +71,11 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
 | `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor` | número gigante animado (conta de `from` até `value`) |
 | `split` | `title, body, bullets, content, figure, ratio: "1.2:1", reverse, build` | texto + figura |
-| `cards` | `title, items: [{icon, picto, number, title, text, foot, hl}], cols, build` | 2–4 cartões |
-| `list` | `title, items: [texto ou {text, sub}], numbered, size, build` | lista numerada grande |
+| `cards` | `title, items: [{icon, picto, number, title, text, foot, hl, goto}], cols, build` | 2–4 cartões |
+| `list` | `title, items: [texto ou {text, sub, goto}], numbered, size, build` | lista numerada grande |
+| `hub` | `kicker, title, question, options: [{icon, title, text, meta, goto}], cols, build` | mapa de caminhos: cada opção leva (`goto`) à parte da apresentação daquele caminho; ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
+| `onepage` | `kicker, title, subtitle, journey: [texto ou {icon, title, text, goto}], journeyTitle, problem: {title, text, numbers: [{value, label}], items}, solution: {…}, dashboard: {numbers: [{value, label, trend, title}], figures: [gráfico ou ufmap, com title]}` | tudo numa página (jornada, problema, solução, painel); ver [One-page](#one-page-onepage) |
+| `status` | `kicker, title, health: ok\|risco\|atrasado, healthLabel, progress (0–100), highlight, done, doing, blocked, risks, upcoming: [texto ou {text, owner, due}], shots: [{image, caption}]` | status semanal; ver [Status semanal](#status-semanal-status) |
 | `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
@@ -349,6 +355,102 @@ Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pel
 (outros sites e HTML aberto do disco são recusados), só com JSON. No modo multiusuário (servidor) e com
 `--host` aberto para a rede, o slide só mostra gravações.
 
+## Navegação por caminhos (`hub`, `goto`, `back`, `next`)
+
+Para processo com vários caminhos ("é experimento ou projeto? DEV, HOM ou PROD?", "o que muda conforme o
+front-end?"), em vez de uma sequência única: um **mapa** (`layout: hub`) com as opções, cada uma levando à sua
+seção; cada seção termina voltando ao mapa. Funciona ao apresentar (clique), no PDF (links entre páginas) e no
+PowerPoint (clique pula para o slide).
+
+- `id: mapa` num slide o torna destino. `goto: mapa` (ou o número do slide) em opção do `hub`, cartão (`cards`),
+  item de lista (`list`) ou etapa (`steps`) deixa o item clicável, com uma seta. No texto: `[veja o projeto](#proj)`.
+- No **primeiro** slide de cada caminho, `back: mapa` mostra o botão **Voltar: <título do mapa>** no canto.
+- No **último** slide de cada caminho, `next: mapa`: avançar ali volta ao mapa, em vez de cair no primeiro slide do
+  caminho seguinte. Dentro do caminho a ordem é a normal (o próximo da lista).
+- Ordem no YAML: capa, mapa, depois cada caminho inteiro em sequência (os slides de um caminho juntos), e o
+  encerramento. Dá para ter mapa dentro de caminho (um caminho que se abre em outros), com `back` para o mapa de cima.
+- Destino que não existe vira aviso no build ("o link para x não leva a nenhum slide").
+
+```yaml
+- layout: hub
+  id: mapa
+  title: Qual é o seu caso?
+  question: Cada caminho tem prazos e responsáveis diferentes
+  options:
+    - { icon: flask-conical, title: Experimento, text: Dados fictícios, meta: 30 dias, goto: experimento }
+    - { icon: rocket, title: Projeto, text: DEV, HOM e PROD, goto: projeto }
+- layout: steps
+  id: experimento
+  back: mapa
+  title: Experimento
+  steps: [{ title: Pedido }, { title: 30 dias }, { title: Renovar ou virar projeto, goto: projeto }]
+- layout: statement
+  text: Passou de 30 dias? Renove ou [vire projeto](#projeto).
+  next: mapa            # fim do caminho: volta ao mapa
+- layout: cards
+  id: projeto
+  back: mapa
+  next: mapa
+  title: Projeto
+  items: [{ title: DEV, text: 30 dias }, { title: HOM, text: 30 dias }, { title: PROD, text: sem prazo }]
+```
+
+## One-page (`onepage`)
+
+Tudo numa página só: **jornada** (etapas com ícone e mini-frase, lado a lado), **o problema** (texto, números
+grandes, tópicos), **a solução** e, quando fizer sentido, um **painel** (dashboard): números grandes em cima,
+gráficos e mapa por UF embaixo. Só aparecem as partes preenchidas e o arranjo se ajusta: sem painel, a letra
+cresce e o conteúdo vai para o meio; com problema/solução e painel, os dois ficam lado a lado; só o painel = um
+dashboard de página inteira. Os gráficos do painel são os mesmos de `chart` (com `title`), e o mapa é o `ufmap`.
+`problem`/`solution` também aceitam só o texto (`problem: Leva 2 semanas`). Etapa da jornada só com texto
+aparece como frase curta em destaque. É denso de propósito: o limite de palavras dele é 120 (os outros, 40).
+
+```yaml
+- layout: onepage
+  kicker: Proposta
+  title: Cadastro digital de clientes
+  subtitle: Menos papel, menos fila, menos retrabalho
+  journey:
+    - { icon: user, title: Cliente chega, text: Fila de 40 min }
+    - { icon: file-text, title: Preenche papel, text: 3 formulários }
+    - { icon: check, title: Conta aberta, text: Até 5 dias }
+  problem:
+    text: O cadastro em papel atrasa a abertura de contas.
+    numbers: [{ value: 5 dias, label: para abrir uma conta }, { value: 20%, label: dos cadastros refeitos }]
+  solution:
+    text: Cadastro no tablet, com validação na hora e assinatura digital.
+    items: [Conta aberta no mesmo dia, Zero papel na agência]
+  dashboard:
+    numbers: [{ value: 1,2 mi, label: cadastros por ano, trend: +8% }]
+    figures:
+      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Fila, value: 40 }, { label: Papel, value: 25 }] }
+      - { title: Cadastros por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
+```
+
+## Status semanal (`status`)
+
+Um slide por semana, por projeto: o que foi feito, o que está em andamento, bloqueios, riscos e problemas e os
+próximos passos, com a saúde do projeto (`health`: `ok` Em dia, `risco` Atenção, `atrasado` Atrasado; `healthLabel`
+troca o texto) e o avanço (`progress`, em %). Só as seções preenchidas aparecem e o arranjo se ajusta: semana sem
+nada mostrável fica com duas colunas limpas, sem buraco. Item é texto ou `{text, owner, due}` (aparece "Ana · até
+30/09"). `shots` (até 3) põe as telas da semana ao lado, com legenda; `highlight` é a frase de destaque. Para um
+status por projeto, um slide `status` para cada.
+
+```yaml
+- layout: status
+  kicker: Semana 39 · 22 a 26/09
+  title: Portal do cliente
+  health: risco
+  progress: 65
+  highlight: Login novo em homologação
+  done: [Tela de login, { text: Integração com o cadastro, owner: Ana }]
+  doing: [Recuperação de senha]
+  blocked: [{ text: Liberação de firewall, owner: Infra, due: 30/09 }]
+  risks: [Prazo de HOM apertado]
+  upcoming: [Homologar com o negócio]
+  shots: [{ image: imagens/login.png, caption: Nova tela de login }]
+```
+
 ## Elementos (dentro de `content`, `side`, `add`, `figure`, `elements`…)
 
 Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some), `anim` (`up` padrão, `fade`, `pop`, `left`, `right`, `down`, `zoom`, `none`), `w`, `h`, `flex`, `color`, `bg`, `align`, `pad`, `card: true|hi`, `class`, `style` e, no `canvas`, `x`, `y`.
@@ -398,6 +500,11 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 ```
 `null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
 
+**Mapa do Brasil por UF** (em grade: cada estado é um quadrado na posição aproximada; a cor mais forte é o maior
+valor): `{ ufmap: { SP: 320, RJ: 140, MG: 150 }, suffix: " mil", prefix: "R$ ", highlight: [SP], legend: "cadastros", showValues: true }`.
+Chave é a sigla da UF (sigla desconhecida vira aviso); UF sem valor fica apagada. Em quadro estreito só as siglas
+aparecem (`showValues: true` força os valores).
+
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML).
 **Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
@@ -421,7 +528,7 @@ Linhas que começam com PALAVRAS EM MAIÚSCULAS seguidas de `:` viram etiquetas 
 
 Como no PowerPoint, são duas escolhas independentes:
 
-- **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado).
+- **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento, muda o jeito dos slides de conteúdo (título, cartões, marcadores da lista, citação, número grande, frase) e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado). Nos slides de conteúdo: `sinal` barra de aviso e placas; `editorial` fios finos e citação centralizada; `noite` tudo centralizado e cartões vazados; `bauhaus` faixas de cor primária e círculos; `terminal` título como comando e cartões-janela; `jornal` fios duplos e colunas; `oceano` cartões flutuando e balões; `pop` contorno grosso e sombra dura; `prata` centralizado e sem caixa; `rabisco` tracejados e números circulados; `aurora` vidro com brilho. Trocar o tema já muda o arranjo: não reescreva slides só para "combinar" com o tema.
 - **Paleta** (`palette`): só as cores, em qualquer tema. `tinta`, `floresta`, `mar`, `entardecer`, `lavanda`, `grafite`, `neon`, `areia`, `cereja`, `corporativo`, ou as suas: `palette: { paper: "F4F1EA", ink: "161616", accent: "D7263D", alert: "1B998B" }`. Os quatro tons saem dessas quatro cores, com contraste garantido.
 - **Paletas de família** (para identidade de marca sem cansar a vista): a cor forte da marca fica só no detalhe (`alert`, a ênfase pontual) e a página trabalha com os parentes mais agradáveis dela (`accent` e `family`). `rubi` (rosas, magenta e vinho; vermelho só no detalhe), `ametista` (roxos e lilases), `tangerina` (laranja com azul-marinho), `safira` (azuis com um toque âmbar), `esmeralda` (verdes). Na sua: `palette: { paper: "FFFFFF", ink: "3B2B33", accent: "B83A6E", alert: "CC092F", family: ["F9DCE5", "EFA3BC", "D9668F", "7E2349"] }` (de 2 a 8 parentes). `family` pinta as séries extras dos gráficos e os grupos e ramos dos diagramas. Pedido de "cores da empresa X": monte uma paleta de família assim, com a cor forte em `alert`.
 
@@ -500,7 +607,7 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 
 No Studio, a aba **Avançado** oferece atalhos para inserir uma página de consulta, uma grade adaptável, um diagrama ou uma sequência cinética. Também permite mudar a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
 
-Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova apresentação → Demo: recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
+Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
 
 ## Infográficos (`infographic`)
 

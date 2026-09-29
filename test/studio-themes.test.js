@@ -59,6 +59,34 @@ test("Design: paletas e temas, na apresentação toda ou só num slide", { timeo
       assert.match(await slideClass(), /th-editorial/);
     });
 
+    // pedido do "preguiçoso": ver antes de escolher. Passar o mouse mostra o slide aberto com o tema (ou a paleta),
+    // sem gravar nada; tirar o mouse volta ao que era; o clique é que aplica.
+    await t.test("passar o mouse num tema ou paleta mostra a prévia no slide, sem gravar; tirar o mouse volta", async () => {
+      const antes = fs.readFileSync(deckFile.file, "utf8");
+      assert.match(await slideClass(), /th-editorial/);
+      await p.hover('#theme-gallery .theme-card[data-theme="pop"]');
+      await p.waitForFunction(() => /th-pop/.test(document.querySelector("#rendered-slide-container .slide")?.className || ""));
+      assert.ok(await p.isVisible("#look-preview-badge"), "aviso de prévia à vista");
+      assert.match(await p.textContent("#look-preview-badge"), /Pop/);
+      await p.hover('#palette-gallery .palette-card[data-palette="safira"]');
+      await p.waitForFunction(() => /--safira/.test(document.querySelector("#rendered-slide-container .slide")?.className || ""));
+      await p.hover("#slide-stage");
+      await p.waitForFunction(() => /th-editorial/.test(document.querySelector("#rendered-slide-container .slide")?.className || ""));
+      assert.ok(!(await p.isVisible("#look-preview-badge")), "a prévia sumiu");
+      await settle();
+      assert.equal(fs.readFileSync(deckFile.file, "utf8"), antes, "passar o mouse não grava nada");
+      // clicar durante a prévia aplica de verdade
+      await p.hover('#theme-gallery .theme-card[data-theme="noite"]');
+      await p.waitForFunction(() => /th-noite/.test(document.querySelector("#rendered-slide-container .slide")?.className || ""));
+      await p.click('#theme-gallery .theme-card[data-theme="noite"]');
+      await settle();
+      assert.equal(saved().theme, "noite");
+      await p.hover("#slide-stage"); await settle();
+      assert.match(await slideClass(), /th-noite/, "depois do clique, tirar o mouse mantém o tema escolhido");
+      assert.equal(await p.$("#sagadeck-preview-styles"), null, "o CSS da prévia saiu");
+      await p.click('#theme-gallery .theme-card[data-theme="editorial"]'); await settle();
+    });
+
     // bug: o fiscal media no meio da animação de entrada (tudo 34px abaixo) e acusava "fora da margem" numa capa
     // ancorada embaixo (bauhaus), e a auto-correção encolhia o título sem motivo
     await t.test("o fiscal mede o slide parado: capa ancorada embaixo não é 'fora da margem'", async () => {

@@ -23,6 +23,7 @@
         // qualquer outro texto do slide passando da área útil também conta: o título "cede" espaço
         for (const t of safe.querySelectorAll(".t")) {
           const tr = t.getBoundingClientRect();
+          if (!tr.width && !tr.height) continue; // escondido (display:none) não ocupa lugar nenhum
           if ((tr.bottom - sr.bottom) / sc > 6 || (sr.top - tr.top) / sc > 6) return true;
         }
         return false;

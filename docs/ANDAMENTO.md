@@ -8,23 +8,100 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Variáveis em tabela, ambientes protegidos e ajustes do editor — 29/09/2026
+
+- Aba **Variáveis**: tabela Nome / Valor do ambiente atual, editável na linha (nome sem `{{}}`); arrastar o nome
+  para um campo do slide escreve `{{nome}}`. Sem botão Inserir. Segredos só pelo nome; valor com cara de token é mascarado.
+- **Ambientes** (slides de API): modal maior; o YAML é validado a cada digitação (`POST /api/http/ambientes/validar`,
+  mesma regra do salvar, inclusive `secrets` e `current`); **Salvar** só habilita com YAML válido e a versão anterior
+  fica em `ambientes.yaml.bak` (0600).
+- Texto / Forma / Imagem foram para **Inserir → Objetos livres**, sem o botão "Selecionar objetos" nem instrução
+  escrita: clicar num objeto do slide já seleciona. Miniaturas do "Diagrama de texto" com o dobro do tamanho.
+  Botão Apresentar e o menu dele com 40 px de altura. Elemento `{ image: "" }` não quebra mais o render.
+- Prévia de tema no hover: a da main (`previewLook`, tema e paleta) ficou; a versão paralela da Frente D saiu,
+  o teste dela continua valendo para a da main.
+
 ## Guia Avançado e demonstrações visíveis — 28/09/2026
 
 - A aba **Avançado** do editor reúne o seletor de densidade do slide, inserção de página de consulta e atalhos
   para grade adaptável, diagrama vivo e tipografia cinética. A seleção compacta o slide atual sem remover texto.
 - A galeria **Exemplos do SagaDeck** também inclui página de consulta, grade adaptável, cápsulas e tipografia
   cinética; são cenas inseridas no deck em edição, não apresentações completas.
-- Biblioteca: **Abrir demos completos** leva ao tópico `Demos e modelos`; incluído `Demo: recursos avançados`
+- Biblioteca: **Abrir demos completos** leva ao tópico `Demos e modelos`; incluído `Recursos avançados` em **Modelo pronto**
   para mostrar texto denso, blocos de código, aviso, grade, diagrama e sequência cinética no deck inteiro.
 - Testes verificam seleção/persistência de densidade, inserção de página de consulta e renderização do demo.
 
-## Frente D (preguiçoso): prévia de tema no hover, sem salvar — 28/09/2026
+## Aviso de modelrelay velho sabe da instalação editável — 28/09/2026
 
-- Passar o mouse no cartão do tema (aba Design) mostra o slide atual com aquele tema; tirar o mouse restaura.
-  Nada salva, miniaturas intactas; o clique continua aplicando de verdade. Pedidos concorrentes usam a mesma
-  guarda de sequência do render (`renderSeq`); falha de rede na prévia é silenciosa.
-- Teste em `studio.test.js`: prévia aparece (`th-<tema>` no canvas), deck salvo e miniatura não mudam, sair
-  restaura. `npm run bundle` passou.
+- Pergunta do Naruminho: no laptop o modelrelay roda do clone; precisa `pip install -U`? Não: com `pip install -e`
+  o `git pull` basta (o sagadeck lê `modelrelay.__version__` do próprio código). O aviso mandava `pip install -U`
+  para todo mundo; agora `relay_clone()` (`python/sagadeck/llm.py`) vê se o pacote vem de uma pasta com `.git` e
+  `pyproject.toml` (fora de site-packages) e manda `git pull` naquela pasta. Teste em `python-relay.test.js`
+  (clone falso com `.git`; `.venv` dentro de repositório não conta como clone). README explica.
+
+## Frente F: fontes embutidas (sem Google) e modo simples no Studio — 28/09/2026
+
+- **Fontes**: o `base.css` importava 6 famílias de `fonts.googleapis.com`. Na rede do banco (proxy barrando o Google)
+  o tema perdia a letra, abrir/exportar podia esperar a fonte e cada abertura avisava o Google. Agora as fontes (OFL,
+  pacotes `@fontsource` em devDependencies) ficam em `src/runtime/fonts/<família>.css` em base64, só o subconjunto
+  latino (`scripts/vendor-fonts.mjs` gera; `index.json` lista). O HTML leva só as famílias que o CSS do deck cita
+  (`fontsCSSFor` em `build.js`: um deck do sinal não leva a letra do rabisco); o Studio carrega todas uma vez em
+  `/fonts.css`. Licenças no `THIRD_PARTY_NOTICES.md`. Efeito colateral bom: os testes de UI da nuvem pararam de
+  falhar por "fonte do Google barrada".
+- **Modo simples** (padrão): as ferramentas de especialista (`[data-adv]` no `index.html`: Abrir YAML, tom e textura,
+  API ao vivo, Última fileira/Mapa de atenção, Ritmo, Guias, YAML, Sons) ficam guardadas; "Mais opções" (à direita
+  das abas) mostra tudo e o navegador lembra (`simpleMode`). Nada foi removido.
+- Testes: `fonts.test.js` (nenhum tema pede fonte à internet; deck leva só as suas; com a internet cortada o rabisco
+  desenha com Caveat; Studio serve `/fonts.css`), `studio.test.js` (modo simples esconde, Mais opções mostra e lembra).
+
+## Frente E (preguiçoso): Nova em 3 caminhos, vitrine única, prévia do tema e "Baixar tudo" — 28/09/2026
+
+- **Nova (biblioteca)**: o menu tinha 16 entradas. Agora: *Descrever com IA*, *A partir de um arquivo ou link*,
+  *Modelo pronto*, e embaixo *Em branco* / *Importar*. `startNew()` em `library.js` é a porta única.
+- **Vitrine "Modelo pronto"** (`galleryDialog`): coleções, estilos prontos (as experiências de
+  `src/experiences.js`, que antes não tinham porta: o "Escolher um estilo" abria o seletor de importar), demonstrações
+  e exemplos, com filtro. Mesmos `data-new` de antes (`model-*`, `example-*`) e `exp-<id>` para os estilos.
+- **Diálogo de IA da biblioteca** (era só um campo de texto; a Frente A tinha melhorado só o modal do editor): assunto,
+  minutos (mostra "≈ N slides", mesma conta de `slidesForMinutes`), estilo (Automático = a IA escolhe o tema pelo
+  assunto, ou uma coleção) e material de apoio (arquivos e link, via `/api/ai/context`). "A partir de um arquivo" é o
+  mesmo diálogo, que já abre o seletor de arquivo e aceita gerar só com o anexo.
+- **Bug**: "Deck com IA" do editor gravava o deck gerado solto na pasta do deck aberto (ou na pasta atual do servidor),
+  fora da biblioteca. Agora editor e biblioteca usam `generateIntoLibrary()` (pasta própria, no tópico do deck aberto;
+  falhou, vai para a lixeira). Teste em `storage.test.js` (falhava antes: o deck ia para `/tmp`).
+- **Prévia do tema/paleta ao passar o mouse** (aba Design): o slide aberto aparece com o visual, com o selo
+  "Prévia: … Clique para aplicar."; nada é gravado; tirar o mouse volta; o clique aplica (`previewLook`/`endPreview`
+  em `app.js`, CSS da prévia numa `<style>` à parte).
+- **Baixar tudo** (Arquivo, primeiro item): um .zip com o PowerPoint (com notas), o PDF e o roteiro
+  (`/api/export/tudo`; também na biblioteca por `kind=tudo`).
+- Ícones `link` e `paperclip` incluídos (o chip de link do chat, da Frente B, aparecia sem ícone).
+- Testes: `library-ui.test.js` (3 caminhos, vitrine com filtro, estilo pronto vira deck, IA manda minutos/estilo/anexo,
+  "a partir de um arquivo" só com o anexo), `studio-themes.test.js` (prévia sem gravar, clique aplica),
+  `studio.test.js` (Baixar tudo: zip com pptx com notas, pdf e roteiro), `storage.test.js` (gerado na biblioteca).
+
+Falta da lista: modo simples por padrão (avançado dobrável) e as fontes do Google embutidas (a rede do banco barra
+`fonts.googleapis.com`: temas perdem a letra, abrir/exportar pode esperar, e cada abertura avisa o Google).
+
+## Frente D (preguiçoso): trocar o tema muda o arranjo dos slides de conteúdo — 28/09/2026
+
+- Antes a pele de cada tema (`src/runtime/skins/<tema>.css`) só rearrumava capa, seção e encerramento; no resto a
+  troca era cor e fonte. Agora cada tema tem o seu jeito para título (`.hd`), cartões e KPIs, marcador da lista,
+  citação, número grande e frase: barra de aviso e placas (sinal), fios e centralizado (editorial), vazado e
+  simétrico (noite), faixas primárias e círculos (bauhaus), prompt e janelinhas (terminal), fios duplos e colunas
+  (jornal), balões e sombra suave (oceano), contorno grosso e sombra dura (pop), centralizado sem caixa (prata),
+  tracejado e circulado à mão (rabisco), vidro e brilho (aurora). Só CSS (vale no HTML, PDF e PPTX pela coleta),
+  zero token, a geometria do YAML não muda.
+- Bug achado no caminho (`src/runtime/fit.js`): elemento escondido (`display:none`, ex.: a aspas que o tema esconde)
+  contava como "texto fora da área" e o ajuste encolhia a citação até o mínimo.
+- Mermaid na troca de tema: conferido que é só repintura no navegador (`paint()` com a paleta), sem IA. Nada a fazer.
+- Teste: `themes-skin.test.js` monta 6 slides de conteúdo nos 11 temas e exige ao menos 8 arranjos diferentes por
+  tipo (ignorando cor, fonte e raio), nada fora do slide, nada vazando e texto curto sem encolher. REFERENCIA.md
+  descreve o que cada tema faz (a IA não reescreve slides só para "combinar").
+- Frentes A, B e C (abaixo) foram feitas por outro agente (opencode); a suíte na `main` foi conferida antes: só as
+  falhas de ambiente da nuvem (fontes do Google barradas, nome do download no Chrome headless).
+
+Próximas (mesma lista do "preguiçoso"): prévia do tema ao passar o mouse; "Baixar tudo" (PPTX + PDF + roteiro);
+menu Nova com 3 caminhos e vitrine única de modelos; modo simples por padrão (avançado dobrável); estilo escolhido
+pela IA pelo briefing quando a pessoa não escolhe.
 
 ## Frente C (preguiçoso): elemento aviso: + regras de prompt + auditoria da referência — 28/09/2026
 
@@ -195,7 +272,7 @@ Ideias que ficaram para depois (não bloqueiam):
    Correção depois: o grupo Identidade ficou alto e as 16 paletas espremeram a galeria de temas até sumir (a faixa
    rolava na vertical). Agora temas e paletas dividem o espaço, cada um com a sua rolagem (`.rgroup-gallery`), e o
    teste "Design: temas e paletas ficam à vista" confere em 1366 e 2000 px.
-3. One-page, status semanal, governança navegável (abaixo).
+3. One-page, status semanal, governança navegável (abaixo): FEITOS.
 
 Decisão pendente com Naruminho: manter MIT ou trocar para AGPL-3.0 (proteção contra uso fechado como serviço).
 Versões já publicadas como MIT continuam MIT.
@@ -219,11 +296,50 @@ Versões já publicadas como MIT continuam MIT.
   mascarada. Local: liberado para a pessoa da máquina. Multiusuário: só `--agentes` / `SAGADECK_AGENTES`
   (pedido de Naruminho: no servidor Oracle, a Mary usa tudo menos comandos).
 
-### 2. One-page: A FAZER
+### 2. One-page: FEITO
 
-### 3. Status semanal: A FAZER
+- Layout `onepage`: jornada (etapas com ícone e mini-frase), o problema (texto, números grandes, tópicos), a solução
+  e o painel (`dashboard: {numbers, figures}`): números grandes em cima; gráficos (os mesmos de `chart`, com `title`)
+  e mapa por UF embaixo. Só aparece o que foi preenchido (bloco `{}` vazio some); sem painel, letra maior e conteúdo
+  no meio; problema/solução + painel lado a lado; só o painel = dashboard de página inteira. Gráficos desenhados na
+  proporção do quadro (1,5x e reduzidos, a letra acompanha). Limite de palavras próprio: 120 (status: 90).
+- Elemento novo `ufmap` (`src/figures/ufmap.js`): mapa do Brasil em grade (cartograma, sem geodados de fora), cor
+  pela escala do `--em` do tema, UF sem valor apagada, `highlight`, legenda; em quadro estreito só as siglas. No
+  mapa do one-page ganha coluna própria da altura do painel. Serve em qualquer lugar (`figure`, `side`…).
+- Studio: galeria (One-page), formulário (jornada, O problema/A solução com números e tópicos, Painel com números
+  grandes e "Gráficos e mapa" como elementos); elemento "Mapa por UF" no seletor de elementos. `f.obj` com
+  `stringAs` converte o atalho em texto (`problem: "…"`) em `{text}` sem perder o conteúdo.
+- Testes: `onepage.test.js` (motor, mapa, e no navegador cheio/só painel/simples sem nada fora, vazando do quadro
+  ou encavalado em sinal, editorial e noite; gráfico não espremido), `studio.test.js` (criar pela galeria, problema
+  e número do painel no deck salvo). Exportação PPTX/PDF conferida à mão.
 
-### 4 e 5. Governança navegável: A FAZER
+### 3. Status semanal: FEITO
+
+- Layout `status`: saúde (`health` ok/risco/atrasado, com `healthLabel` para trocar o texto), avanço (`progress` %),
+  destaque (`highlight`) e as seções feito, em andamento, bloqueios, riscos e problemas, próximos passos; item é texto
+  ou `{text, owner, due}` ("Ana · até 30/09"); `shots` (até 3 telas com legenda) ao lado.
+- "Muito variável": só aparece o que foi preenchido. Grade de 6 trilhas: a última linha incompleta se reparte inteira
+  (5 seções = 3 + 2, sem buraco); semana magra (até 6 itens, sem telas) ganha letra maior e o bloco no meio.
+- Studio: galeria (Status semanal) e formulário (saúde, avanço, listas com responsável e prazo, telas).
+- Testes: `status.test.js` (motor; no navegador, semana cheia e vazia sem nada fora do slide ou encavalado em
+  sinal, editorial e noite), `studio.test.js` (criar pela galeria, saúde, avanço e bloqueio no deck salvo).
+
+### 4 e 5. Governança navegável: FEITO o recurso (navegação por caminhos)
+
+- Pergunta do Naruminho: "como deixar isso navegável, organizado e útil?" (acesso → experimento ou projeto → DEV/HOM/
+  PROD; caminhos que se abrem conforme o front-end). Resposta: um **mapa** e seções por caminho, em vez de sequência.
+- Layout `hub` (mapa de caminhos: pergunta + opções com ícone, texto, detalhe e seta). `goto` (id ou número) em opção,
+  cartão, item de lista e etapa deixa o item clicável; `[texto](#id)` no meio do texto; no slide, `id`, `back`
+  (botão "Voltar: <título do destino>" no canto; no terminal fica na barra da janela, no noite dentro da moldura) e
+  `next` (o fim do caminho volta ao mapa em vez de seguir a ordem). `navWarnings` avisa destino inexistente e id repetido.
+- Funciona na apresentação (runtime: clique; `next` no fim do slide), no PDF (áreas clicáveis por cima das fotos das
+  páginas, links internos) e no PowerPoint (`hyperlink: { slide }`, "hlinksldjump").
+- Studio: galeria (Mapa de caminhos), formulário do hub, "Ao clicar, ir para" em cartão/etapa/item e, em Mais
+  opções de todo slide, "Id do slide", "Botão Voltar para" e "No fim, avançar para". REFERENCIA: seção "Navegação por
+  caminhos" com exemplo (a IA sabe montar).
+- Testes: `navigation.test.js` (motor, cliques na apresentação, links no PDF e no PPTX), `studio.test.js` (mapa pelo
+  formulário, destino e id no deck salvo).
+- O deck da governança em si (conteúdo do trabalho) não entra no repositório: vai para a biblioteca da pessoa.
 
 ---
 

@@ -9,3 +9,15 @@
 .th-pop .L-section:not(:has(.sc-fig)){flex-direction:column;justify-content:center;text-align:center;gap:0}
 .th-pop .L-section .sc-num{font-size:180px}
 .th-pop .sc-text{align-items:center}
+/* conteúdo: título com sombra chapada, cartões com contorno grosso e sombra dura (levemente tortos), números da lista
+   em etiquetas, citação e frase em balão de HQ, número grande com sombra chapada */
+.th-pop .hd .ttl{text-shadow:5px 5px 0 var(--hi)}
+.th-pop .hd{transform:rotate(-1deg)}
+.th-pop :is(.card,.stat-card){border:4px solid var(--fg);box-shadow:10px 10px 0 var(--fg)}
+.th-pop :is(.card,.stat-card):nth-child(odd){transform:rotate(-1.2deg)}
+.th-pop :is(.card,.stat-card):nth-child(even){transform:rotate(1deg)}
+.th-pop .li-n{background:var(--em);color:var(--bg);border-radius:18px;padding:6px 16px 0;transform:rotate(-4deg)}
+.th-pop .L-quote{align-items:center;text-align:center;padding:0 120px}
+.th-pop .q-text{background:var(--surface);border:4px solid var(--fg);border-radius:40px;box-shadow:10px 10px 0 var(--hi);padding:50px 70px}
+.th-pop .nb-val{text-shadow:10px 10px 0 var(--hi);transform:rotate(-3deg)}
+.th-pop .st-body{border:4px solid var(--fg);border-radius:30px;box-shadow:10px 10px 0 var(--hi);padding:50px 70px}

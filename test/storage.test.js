@@ -45,6 +45,46 @@ test("sagadeck new sem caminho, ou com caminho de fora, grava na biblioteca e n�
   assert.deepEqual(fs.readdirSync(cwd), [], "nada na pasta atual");
 });
 
+// "Deck com IA" no editor gravava o deck novo solto na pasta do deck aberto (ou na pasta atual do servidor), fora da
+// estrutura da biblioteca. Pelo editor ou pela biblioteca, o gerado vai para uma pasta própria, no tópico do deck aberto.
+test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca, com minutos, estilo e anexos", async () => {
+  const { startStudio } = await import("./helpers.js");
+  const { startMockLLM } = await import("./mock-llm.js");
+  const DECK = "```yaml\ntitle: Deck gerado\ntheme: editorial\nduration: 12\nslides:\n  - layout: cover\n    title: Deck gerado\n    notes: abertura\n    time: 6\n  - layout: statement\n    text: Uma ideia\n    notes: fechamento\n    time: 6\n```";
+  const llm = await startMockLLM(() => DECK);
+  const fora = lib();
+  fs.writeFileSync(path.join(fora, "aberto.yaml"), "title: Aberto\nslides:\n  - layout: cover\n    title: Aberto\n");
+  const studio = await startStudio(path.join(fora, "aberto.yaml"), { llmUrl: llm.url });
+  const post = async (p, body) => { const r = await fetch(studio.url + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); return [r.status, await r.json()]; };
+  try {
+    // editor: o deck aberto está fora da biblioteca, então o gerado vai para "Sem tópico", numa pasta com o nome dele
+    let [status, r] = await post("/api/ai/generate", { briefing: "palestra sobre pix", duration: 12, style: "revista" });
+    assert.equal(status, 200, JSON.stringify(r));
+    assert.ok(inside(studio.library, r.file), r.file);
+    assert.equal(path.basename(path.dirname(r.file)) + ".yaml", path.basename(r.file), "pasta própria");
+    assert.deepEqual(fs.readdirSync(fora), ["aberto.yaml"], "nada solto ao lado do deck aberto");
+    let pedido = llm.requests.at(-1).lastUser;
+    assert.match(pedido, /Use o tema "editorial"/);
+    assert.match(pedido, /Duração planejada: 12 minutos/);
+    assert.match(pedido, /Cerca de 8 slides/, "12 min → 8 slides");
+
+    // biblioteca: minutos, estilo e o material anexado chegam ao modelo
+    [status, r] = await post("/api/ai/context", { name: "dados.txt", dataUrl: "data:text/plain;base64," + Buffer.from("Receita de 3 bilhões em 2025").toString("base64") });
+    assert.equal(status, 200, JSON.stringify(r));
+    [status, r] = await post("/api/library/decks/ai", { topic: "", briefing: "resultado do ano", duration: 20, style: "essencial", materials: [r.id] });
+    assert.equal(status, 200, JSON.stringify(r));
+    const file = path.join(studio.library, ...r.id.split("/"));
+    assert.ok(fs.existsSync(file), file);
+    pedido = llm.requests.at(-1).lastUser;
+    assert.match(pedido, /Receita de 3 bilhões/, "o anexo vai no pedido");
+    assert.match(pedido, /Use o tema "prata"/, "estilo essencial → tema prata");
+    assert.match(pedido, /Duração planejada: 20 minutos/);
+  } finally {
+    await studio.close();
+    await llm.close();
+  }
+});
+
 test("ferramentas MCP de criar deck gravam na biblioteca e nunca sobrescrevem", async () => {
   const home = process.env.SAGADECK_HOME;
   const fora = path.join(lib(), "agente", "deck.yaml");

@@ -22,7 +22,7 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
       await p.keyboard.press('Escape');
     });
     await t.test('modelo lavanda cria arquivo completo na biblioteca',async()=>{
-      await p.click('#btn-new');await p.click('[data-new="model-lavanda"]');
+      await p.click('#btn-new');await p.click('#new-menu [data-new="gallery"]');await p.click('.vit-card[data-new="model-lavanda"]');
       await p.waitForSelector('.thumb-card[data-idx="1"]');
       await p.click('.thumb-card[data-idx="1"]');await p.waitForSelector('#rendered-slide-container .adaptive');
       assert.equal(await p.locator('#rendered-slide-container .adaptive-item').count(),5);
@@ -311,7 +311,8 @@ test("demo avançado: aparece no tópico de demonstrações da biblioteca", asyn
     assert.ok(topic.id);
     await p.goto(studio.url + "/biblioteca?topic=" + encodeURIComponent(topic.id));
     await p.click("#btn-new");
-    await p.click('[data-new="model-avancado"]');
+    await p.click('#new-menu [data-new="gallery"]');
+    await p.click('.vit-card[data-new="model-avancado"]');
     await p.waitForURL(/editor\?deck=/);
     await p.waitForSelector(".thumb-card[data-idx='5']");
     const data = await p.evaluate(async () => (await (await fetch("/api/deck")).json()));
@@ -331,7 +332,7 @@ test('coleções: criar modelos e substituir foto preserva a composição', asyn
     for (const kind of ['perspectiva', 'essencial', 'revista', 'cromatico', 'tracos']) {
       await t.test(`criar ${kind} pela biblioteca`, async () => {
         await p.goto(studio.url + '/biblioteca');
-        await p.click('#btn-new'); await p.click(`[data-new="model-${kind}"]`);
+        await p.click('#btn-new'); await p.click('#new-menu [data-new="gallery"]'); await p.click(`.vit-card[data-new="model-${kind}"]`);
         await p.waitForSelector('.thumb-card[data-idx="1"]');
         const data = await p.evaluate(async () => (await fetch('/api/deck')).json());
         const saved = YAML.parse(fs.readFileSync(data.file, 'utf8'));
@@ -387,6 +388,25 @@ test("studio", async (t) => {
     await p.keyboard.press("Escape");
     await p.keyboard.press("Escape");
     await p.evaluate(() => document.querySelectorAll(".popover.open").forEach((x) => x.classList.remove("open")));
+  });
+
+  // pedido do "preguiçoso": sem mil botões. Por padrão as ferramentas de especialista ficam guardadas; "Mais opções"
+  // mostra tudo e a escolha sobrevive a recarregar. (Deixa ligado: os testes seguintes usam YAML, API, ritmo…)
+  await t.test("modo simples por padrão: ferramentas de especialista guardadas; Mais opções mostra e lembra", async () => {
+    const visivel = (sel) => p.isVisible(sel);
+    await tab("exibir");
+    assert.ok(!(await visivel("#btn-yaml-drawer")), "YAML guardado no modo simples");
+    assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
+    await tab("inserir");
+    assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
+    assert.ok(await visivel("#btn-add-diagram"));
+    await p.click("#btn-more-options");
+    assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
+    assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
+    await p.reload(); await p.waitForSelector(".thumb-card");
+    await tab("exibir");
+    assert.ok(await visivel("#btn-yaml-drawer"), "a escolha sobrevive a recarregar");
+    await tab("inicio");
   });
 
   // ------------------------------------------------------------ slides
@@ -467,6 +487,81 @@ test("studio", async (t) => {
     await p.click("#btn-layout-gallery");
     await p.click('.layout-card[data-layout="cards"]'); await settle();
     assert.equal((await deck()).slides[i].layout, "cards");
+  });
+
+  // navegação por caminhos: o mapa (hub) pelo formulário, com o destino de cada caminho e o id do slide
+  await t.test("Mapa de caminhos: criar pela galeria, adicionar caminho com destino e dar id ao slide salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx); // o slide novo
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="hub"]'); await settle();
+    assert.equal(saved().slides[i].layout, "hub");
+    assert.match(await p.textContent(form), /Caminhos/);
+    const n = (saved().slides[i].options || []).length;
+    await p.click(`${form} button:has-text("Adicionar caminho")`); await settle();
+    assert.equal(saved().slides[i].options.length, n + 1, "caminho novo no deck");
+    const item = p.locator(`${form} .sf-item`).last();
+    const destino = item.locator('.sf-field:has(.sf-label:text-is("Ao clicar, ir para")) input').first();
+    if (!(await destino.isVisible())) await item.locator(".sf-item-toggle").first().click();
+    await destino.fill("fim"); await destino.blur(); await settle();
+    assert.equal(saved().slides[i].options.at(-1).goto, "fim", "o destino do caminho no deck salvo");
+    assert.ok(await p.locator('#rendered-slide-container .hub-card[data-goto="fim"]').count(), "e a opção clicável no slide");
+    const idField = p.locator(`${form} .sf-field:has(.sf-label:text-is("Id do slide")) input`).first();
+    const abriu = !(await idField.isVisible());
+    if (abriu) await p.locator(`${form} summary:has-text("Mais opções")`).last().click();
+    await idField.fill("mapa"); await idField.blur(); await settle();
+    assert.equal(saved().slides[i].id, "mapa", "id do slide salvo");
+    // o Studio lembra se "Mais opções" está aberto: deixa como estava para os próximos testes
+    if (abriu) await p.locator(`${form} summary:has-text("Mais opções")`).last().click();
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
+  // status semanal: pela galeria, marcar a saúde, pôr o avanço e anotar um bloqueio com responsável
+  await t.test("Status semanal: criar pela galeria, marcar saúde, avanço e um bloqueio salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx);
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="status"]'); await settle();
+    assert.equal(saved().slides[i].layout, "status");
+    const campo = (label, tag = "input") => p.locator(`${form} .sf-field:has(.sf-label:text-is("${label}")) ${tag}`).first();
+    await campo("Saúde", "select").selectOption("atrasado"); await settle();
+    await campo("Avanço (%)").fill("40"); await campo("Avanço (%)").blur(); await settle();
+    const n = (saved().slides[i].blocked || []).length;
+    await p.click(`${form} button:has-text("Adicionar bloqueio")`); await settle();
+    const item = p.locator(`${form} .sf-list:has(> .sf-list-head button:has-text("Adicionar bloqueio")) .sf-item`).last();
+    const texto = item.locator("textarea, input").first();
+    await texto.fill("Aguardando acesso ao banco"); await texto.blur(); await settle();
+    const s = saved().slides[i];
+    assert.equal(s.health, "atrasado");
+    assert.equal(s.progress, 40);
+    assert.equal(s.blocked.length, n + 1);
+    assert.match(JSON.stringify(s.blocked.at(-1)), /Aguardando acesso ao banco/, "o bloqueio no deck salvo");
+    assert.match(await p.textContent("#rendered-slide-container .stt-health"), /Atrasado/);
+    assert.match(await p.textContent("#rendered-slide-container .stt-blocked"), /Aguardando acesso ao banco/);
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
+  // one-page: pela galeria, escrever o problema e pôr um número grande no painel
+  await t.test("One-page: criar pela galeria, escrever o problema e adicionar número ao painel salva no deck", async () => {
+    await go("statement");
+    await p.click("#btn-add-slide"); await settle(500);
+    const i = await p.evaluate(() => +document.querySelector(".thumb-card.active").dataset.idx);
+    await p.click("#btn-layout-gallery");
+    await p.click('.layout-card[data-layout="onepage"]'); await settle();
+    assert.equal(saved().slides[i].layout, "onepage");
+    const problema = p.locator(`${form} fieldset:has(> legend:text-is("O problema")) .sf-field:has(.sf-label:text-is("Texto")) textarea`).first();
+    await problema.fill("Abrir conta leva 5 dias"); await problema.blur(); await settle();
+    assert.equal(saved().slides[i].problem.text, "Abrir conta leva 5 dias", "o problema no deck salvo");
+    await p.locator(`${form} fieldset:has(> legend:text-is("Painel")) button:has-text("Adicionar número")`).first().click();
+    await settle();
+    const n = saved().slides[i].dashboard?.numbers || [];
+    assert.equal(n.length, 1, "um número grande no painel");
+    assert.equal(n[0].value, "100");
+    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Abrir conta leva 5 dias/);
+    assert.ok(await p.locator("#rendered-slide-container .op-kpi").count(), "e o número no slide");
+    await p.click("#btn-del-slide"); await settle(500);
   });
 
   await t.test("editor visual tem formulário para os layouts novos", async () => {
@@ -621,21 +716,6 @@ test("studio", async (t) => {
       await p.setViewportSize(size);
       await tab("inicio");
     }
-  });
-
-  await t.test("Design: passar o mouse no tema mostra a prévia sem salvar; sair restaura", async () => {
-    await tab("design");
-    const before = (await deck()).theme;
-    const other = before === "editorial" ? "sinal" : "editorial";
-    await p.locator(`#theme-gallery .theme-card[data-theme="${other}"]`).hover();
-    await p.waitForFunction((t) => document.querySelector("#rendered-slide-container .slide")?.className.includes(`th-${t}`), other, { timeout: 8000 });
-    assert.equal(saved().theme, before, "prévia não salva no deck");
-    const thumb = await p.evaluate(() => document.querySelector(".thumb-card.active .thumb-render")?.innerHTML || "");
-    assert.ok(!thumb.includes(`th-${other}`), "miniatura intacta na prévia");
-    await p.mouse.move(720, 500); // tira o mouse do cartão, sem passar por outros cartões
-    await p.waitForFunction((t) => document.querySelector("#rendered-slide-container .slide")?.className.includes(`th-${t}`), before, { timeout: 8000 });
-    assert.equal(saved().theme, before, "sair da prévia não salva");
-    await tab("inicio");
   });
 
   await t.test("faixa de opções: rótulos dos botões com espaço entre as palavras", async () => {
@@ -1146,6 +1226,26 @@ test("studio", async (t) => {
       await download.saveAs(file);
       assert.equal(fs.readFileSync(file).subarray(0, 4).toString(), "%PDF");
     }
+  });
+
+  // pedido do "preguiçoso": um clique só em vez de três idas ao menu Arquivo
+  await t.test("Baixar tudo: um .zip com o PowerPoint (com notas), o PDF e o roteiro", { timeout: 300000 }, async () => {
+    const n = (await deck()).slides.length;
+    await p.click("#btn-export-menu");
+    const [download] = await Promise.all([p.waitForEvent("download", { timeout: 290000 }), p.click("#export-all")]);
+    assert.match(download.suggestedFilename(), /\.zip$/);
+    const file = path.join(deckFile.dir, "tudo.zip");
+    await download.saveAs(file);
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(fs.readFileSync(file));
+    const names = Object.keys(zip.files).sort();
+    assert.equal(names.length, 3, names.join(", "));
+    const pick = (re) => zip.file(names.find((x) => re.test(x)));
+    const pp = await readPptx(await pick(/\.pptx$/).async("nodebuffer"));
+    assert.equal(pp.slides.length, n);
+    assert.match(pp.notes, /falar de segurança primeiro/, "o PowerPoint leva as notas (é para quem apresenta)");
+    assert.equal((await pick(/ - roteiro\.pdf$/).async("nodebuffer")).subarray(0, 4).toString(), "%PDF");
+    assert.equal((await pick(/(?<! - roteiro)\.pdf$/).async("nodebuffer")).subarray(0, 4).toString(), "%PDF");
   });
 
   // ------------------------------------------------------------ arquivo .sagadeck

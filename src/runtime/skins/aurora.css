@@ -5,3 +5,13 @@
 .th-aurora .L-cover:not(:has(.cv-fig)) .cv-main,.th-aurora .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center}
 .th-aurora :is(.L-cover,.L-end) .ttl{padding-bottom:30px;background:linear-gradient(90deg,var(--hi),var(--em)) no-repeat 50% 100%/240px 6px}
 .th-aurora .sc-num{background:linear-gradient(180deg,var(--hi),var(--em));-webkit-background-clip:text;background-clip:text;color:transparent}
+/* conteúdo: traço em gradiente sob o título, cartões de vidro com brilho, números da lista com traço luminoso, citação
+   e número grande em vidro, frase centralizada */
+.th-aurora .hd::after{content:"";flex:none;width:200px;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--hi),var(--em))}
+.th-aurora :is(.card:not(.card-hi),.stat-card){background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid color-mix(in srgb,var(--hi) 35%,transparent);box-shadow:0 0 40px color-mix(in srgb,var(--hi) 18%,transparent)}
+.th-aurora .li-n{color:var(--hi);border-bottom:3px solid var(--em);padding-bottom:8px}
+.th-aurora .L-quote{align-items:center;text-align:center;padding:0 160px}
+.th-aurora .q-mark{color:var(--hi)}
+.th-aurora .q-text{background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid color-mix(in srgb,var(--hi) 35%,transparent);border-radius:var(--radius);padding:50px 70px}
+.th-aurora .nb-main{background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid color-mix(in srgb,var(--hi) 35%,transparent);border-radius:var(--radius);padding:40px 60px}
+.th-aurora .L-statement{align-items:center;text-align:center}
