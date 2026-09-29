@@ -466,7 +466,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
 | QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
-| forma | `{ shape: rect|rounded|circle|pill|line, fill: hi, stroke: fg, w, h }` |
+| forma | `{ shape: rect|rounded|circle|pill|line|triangle|diamond|hexagon|star|arrow|chevron|bubble, fill: hi, stroke: fg, strokeWidth, w, h, content }` (circle vira elipse se w ≠ h; triangle…bubble são desenhos com preenchimento e contorno) |
 | selo | `{ badge: "NOVO" }` |
 | aviso | `{ aviso: { tipo: dica, titulo: "Dica", texto: "…" } }` — tipos: `importante`, `atencao`, `dica`, `perigo` (atalho: `{ aviso: "texto" }` vira dica). Caixa com ícone e cor do tema para o que não pode passar batido; slide denso fecha com 1 takeaway em ==destaque== mais um aviso quando couber |
 | vídeo | `{ video: "https://…", label: "Assistir" }` |
@@ -605,7 +605,7 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 - `ribbon`: os mesmos campos em cápsulas arredondadas, centralizadas. Para serviços, etapas ou pilares.
 - `dossier`: página de consulta, compacta: letra menor e blocos de código (`code`) com quebra de linha. Para material de referência (documentação, payloads, instruções); não imponha a ela o limite de palavras de uma palestra quando a pessoa pede material denso.
 
-No Studio, a aba **Avançado** oferece atalhos para inserir uma página de consulta, uma grade adaptável, um diagrama ou uma sequência cinética. Também permite mudar a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
+No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, tipografia cinética, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
 
 Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
 
@@ -702,7 +702,7 @@ ficam na pasta `imagens/` da apresentação.
 
 ## Ajustes diretos no Studio
 
-Em **Inserir → Objetos livres**: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Clicar numa forma ou imagem do slide a seleciona; num texto, o clique escreve e apertar e arrastar move o objeto. Selecionado, dá para arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual; Escape solta. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
+Em **Inserir → Neste slide**: Texto, Formas (menu com 12 desenhos: retângulo, arredondado, elipse, pílula, linha, triângulo, losango, hexágono, estrela, seta, chevron, balão), Imagem e Ícone adicionam elementos sem trocar o layout. Clicar numa forma ou imagem do slide a seleciona; num texto, o clique escreve e apertar e arrastar move o objeto. Selecionado, dá para arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual; Escape solta. Delete/Backspace excluem o objeto selecionado (fica em `visualEdits` como `hidden`, recuperável); Ctrl+Z restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
 
 `Corrigir layout` continua local e baseado em regras. `Revisar com IA` envia a imagem renderizada do slide ao modelo configurado e solicita melhorias; usa tokens. O status de IA abre a configuração do modelrelay. Um modelo sem visão é identificado na resposta; conectividade com `/models` não comprova que uma geração será aceita pelo provedor.
 O fiscal local também sinaliza texto principal abaixo de 16 px como alerta de leitura; esse aviso é informativo e não reduz a fonte automaticamente.

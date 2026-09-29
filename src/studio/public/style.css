@@ -196,7 +196,7 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .rgroup:last-child { border-right: 0; }
 .rgroup-grow { flex: 1; min-width: 0; }
 /* temas e paletas dividem o espaço que sobra, cada um com a sua rolagem: uma lista comprida não espreme a outra até sumir */
-.rgroup-gallery { flex: 1 1 0; min-width: 336px; }
+.rgroup-gallery { flex: 1 1 0; min-width: 374px; } /* 3 cartões inteiros + a coluna de controles */
 .rgroup-gallery .rgroup-body { min-width: 0; }
 .rgroup-gallery .theme-gallery { flex: 1; min-width: 0; }
 .rrow { display: flex; align-items: center; gap: 2px; }
@@ -909,3 +909,19 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .cmd-state.cmd-bad { color: var(--danger); }
 .cmd-out { margin-top: 6px; font-size: 12px; }
 .cmd-out summary { cursor: pointer; color: var(--text-2); }
+/* faixas de tema e paleta: só cartões inteiros (largura calculada no app), setas e "Ver todos" em grade */
+.look-strip { display: flex; align-items: center; gap: 2px; min-width: 0; width: 100%; }
+.rgroup-gallery .look-strip .theme-gallery { flex: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-snap-type: x mandatory; padding: 2px 0; }
+.look-strip .theme-gallery::-webkit-scrollbar { display: none; }
+.look-strip .theme-card { scroll-snap-align: start; }
+.look-ctrl { flex: none; display: flex; flex-direction: column; gap: 1px; }
+.look-nav, .look-all { width: 18px; height: 20px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--text-2); cursor: pointer; }
+.look-nav:hover:not(:disabled), .look-all:hover { background: var(--hover); color: var(--text); }
+.look-nav:disabled { opacity: .25; cursor: default; }
+.look-nav .ic, .look-all .ic { width: 13px; height: 13px; }
+.look-strip.open { width: var(--strip-w); }
+.look-strip.open .look-nav { visibility: hidden; }
+.look-strip.open .look-all { background: var(--selected); border-color: var(--brand); color: var(--brand); }
+.rgroup-gallery .look-strip.open .theme-gallery { position: fixed; z-index: 1100; width: min(640px, calc(100vw - 16px)) !important; max-height: min(60vh, 520px); display: grid; grid-template-columns: repeat(auto-fill, 104px); justify-content: start; gap: 8px; overflow: auto; padding: 12px; scroll-snap-type: none; border: 1px solid var(--ui-line-strong); border-radius: 10px; background: var(--chrome); box-shadow: var(--shadow-2, 0 12px 32px #0004); }
+/* Design em 1366 px: os seletores de texto e fontes cedem um pouco para as faixas mostrarem 3 cartões inteiros */
+.ribbon-panel[data-panel="design"] #mark-style-select, .ribbon-panel[data-panel="design"] #identity-select { width: 116px; min-width: 116px; }

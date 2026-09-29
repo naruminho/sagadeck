@@ -5,7 +5,7 @@ import YAML from 'yaml';
 import {buildHTML,renderSlide} from '../src/build.js';
 import {mathHTML} from '../src/science.js';
 import {applyVisualEdits} from '../src/visual-edits.js';
-import {browserOrSkip,newPage,startStudio,tempDeck} from './helpers.js';
+import {browserOrSkip,newPage,startStudio,tempDeck,novoSlide} from './helpers.js';
 
 test('equações, cena e ajustes persistem no HTML offline',()=>{
   assert.throws(()=>mathHTML(Array(6).fill('x')),/cinco/);
@@ -39,12 +39,12 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       await popup.close();await p.unroute('**/api/ai/setup');
     });
     await t.test('insere cena estática',async()=>{
-      await p.click('[data-tab="inserir"]');await p.click('#btn-add-scenography');
+      await novoSlide(p,'scenography');
       await p.waitForSelector('#rendered-slide-container .L-scenography');
       assert.ok(saved().slides.some(s=>s.layout==='scenography'));
     });
     await t.test('equação e gráfico 2D ficam editáveis e interativos',async()=>{
-      await p.click('#btn-add-science');
+      await novoSlide(p,'science');
       await p.waitForSelector('#rendered-slide-container .science-plot[data-mounted="ready"]',{timeout:25000});
       assert.equal(await p.locator('#rendered-slide-container .katex').count(),2);
       assert.ok(await p.locator('#rendered-slide-container .js-plotly-plot').count());
@@ -64,9 +64,15 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       const target=p.locator('#rendered-slide-container .science-plot-target');
       const camera=()=>target.evaluate(el=>JSON.stringify(el._fullLayout.scene._scene.getCamera()));
       const before=await camera(), box=await target.boundingBox();
-      await p.mouse.move(box.x+box.width*.45,box.y+box.height*.45);await p.mouse.down();
-      await p.mouse.move(box.x+box.width*.7,box.y+box.height*.55,{steps:10});await p.mouse.up();
-      assert.notEqual(await camera(),before,'arrastar gira a câmera 3D');
+      // o WebGL do Plotly leva um instante para responder ao mouse depois de pronto: tenta o arraste algumas vezes
+      let girou=false;
+      for(let k=0;k<5&&!girou;k++){
+        await p.mouse.move(box.x+box.width*.45,box.y+box.height*.45);await p.mouse.down();
+        await p.mouse.move(box.x+box.width*.7,box.y+box.height*.55,{steps:10});await p.mouse.up();
+        girou=(await camera())!==before;
+        if(!girou)await p.waitForTimeout(400);
+      }
+      assert.ok(girou,'arrastar gira a câmera 3D');
     });
     await t.test('insere, arrasta, exclui com teclado e desfaz objeto',async()=>{
       await p.getByRole('button',{name:'Texto',exact:true}).click();

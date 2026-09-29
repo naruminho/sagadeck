@@ -243,6 +243,7 @@
     setupShell();
     setupCreativeTools();
     window.SagaVisual?.setup(document.getElementById("visual-tools"));
+    hydrateIcons(document.getElementById("visual-tools"));
     document.getElementById("btn-ai-review").onclick = async () => {
       if (dom.chatSend.disabled) return;
       await refreshAIStatus(true);
@@ -251,12 +252,9 @@
       dom.chatInput.value = `Analise visualmente a imagem renderizada do slide ${state.currentSlideIndex + 1}. Avalie hierarquia, legibilidade, espaço, alinhamento, composição e intenção narrativa. Aplique melhorias somente neste slide, preservando conteúdo e significado. Explique brevemente o que mudou. Se não tiver recebido a imagem ou não conseguir enxergá-la, diga isso explicitamente e não finja uma revisão visual.`;
       handleChatSubmit();
     };
-    document.getElementById("btn-add-science").onclick = () => insertScene("science");
-    document.getElementById("btn-add-scenography").onclick = () => insertScene("scenography");
-    document.getElementById("btn-add-diagram").onclick = () => insertScene("diagram");
-    document.getElementById("btn-add-infographic").onclick = () => insertScene("infographic");
     buildLayoutPicker();
     bindLookMenu();
+    bindLookStrips();
     // vindo da biblioteca: /editor?deck=<id>[&present=1]
     const params = new URLSearchParams(location.search);
     if (params.get("deck")) {
@@ -1974,6 +1972,58 @@
     hydrateIcons(gal);
   }
 
+  // Faixas de tema e paleta (padrão da galeria do PowerPoint): só cartões inteiros, sem barra de rolagem; as setas
+  // passam de página e "Ver todos" abre a mesma galeria em grade logo abaixo (os mesmos cartões: prévia e clique valem).
+  const LOOK_STEP = 112; // cartão 104 + espaço 8
+  function fitLookStrip(strip) {
+    const gal = strip.querySelector(".theme-gallery");
+    if (strip.classList.contains("open")) return;
+    if (!strip.parentElement.clientWidth) return; // aba escondida: mede quando aparecer
+    const room = strip.parentElement.clientWidth - strip.querySelector(".look-ctrl").offsetWidth - 2;
+    const n = Math.max(1, Math.floor((room + 8) / LOOK_STEP));
+    gal.style.width = `${n * LOOK_STEP - 8}px`;
+    syncLookNav(strip);
+  }
+  function syncLookNav(strip) {
+    const gal = strip.querySelector(".theme-gallery");
+    const [prev, next] = strip.querySelectorAll(".look-nav");
+    prev.disabled = gal.scrollLeft <= 1;
+    next.disabled = gal.scrollLeft + gal.clientWidth >= gal.scrollWidth - 1;
+  }
+  function closeLookAll(strip) {
+    if (!strip?.classList.contains("open")) return;
+    strip.classList.remove("open");
+    const gal = strip.querySelector(".theme-gallery");
+    gal.style.left = gal.style.top = "";
+    strip.querySelector(".look-all").setAttribute("aria-expanded", "false");
+    fitLookStrip(strip);
+    gal.querySelector(".theme-card.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  function bindLookStrips() {
+    const strips = [...document.querySelectorAll(".look-strip")];
+    const ro = new ResizeObserver(() => strips.forEach(fitLookStrip));
+    strips.forEach((strip) => {
+      const gal = strip.querySelector(".theme-gallery");
+      ro.observe(strip.parentElement);
+      gal.addEventListener("scroll", () => syncLookNav(strip), { passive: true });
+      gal.addEventListener("wheel", (e) => { if (!strip.classList.contains("open") && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); gal.scrollBy({ left: e.deltaY }); } }, { passive: false });
+      strip.querySelectorAll(".look-nav").forEach((b) => b.onclick = () => gal.scrollBy({ left: Number(b.dataset.dir) * Math.max(LOOK_STEP, gal.clientWidth + 8), behavior: "smooth" }));
+      strip.querySelector(".look-all").onclick = () => {
+        if (strip.classList.contains("open")) return closeLookAll(strip);
+        strips.forEach(closeLookAll);
+        const r = strip.getBoundingClientRect();
+        strip.style.setProperty("--strip-w", `${strip.offsetWidth}px`);
+        strip.classList.add("open");
+        gal.style.top = `${Math.round(r.bottom + 6)}px`;
+        gal.style.left = `${Math.round(Math.min(r.left, window.innerWidth - Math.min(640, window.innerWidth - 16) - 8))}px`;
+        strip.querySelector(".look-all").setAttribute("aria-expanded", "true");
+      };
+      gal.addEventListener("click", (e) => { if (e.target.closest(".theme-card")) closeLookAll(strip); });
+    });
+    document.addEventListener("pointerdown", (e) => strips.forEach((s) => { if (!s.contains(e.target) && !e.target.closest("#look-menu")) closeLookAll(s); }));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") strips.forEach(closeLookAll); });
+  }
+
   // Galeria de temas da aba Design: cartão com as cores do tema; o <select> escondido segue valendo.
   function buildThemeGallery() {
     const names = state.themes.length ? state.themes : Object.keys(state.themeMeta || {});
@@ -1997,6 +2047,7 @@
     });
     buildPaletteGallery();
     syncThemeGallery();
+    document.querySelectorAll(".look-strip").forEach(fitLookStrip);
   }
 
   // Identidade: as fontes (e a paleta) da empresa, do arquivo local identidades.yaml. O deck só guarda o nome.
@@ -2241,29 +2292,20 @@
   // ==========================================================================
   // OPERAÇÕES DO DECK (ADICIONAR, DUPLICAR, EXCLUIR)
   // ==========================================================================
-  const SCENES = [
-    ["scenography", "impact", "Texto no cenário", "Letras que ocupam o palco, o chão ou uma placa."],
-    ["science", "teach", "Equações e gráficos", "Explore uma curva ou gire uma superfície em 3D."],
-    ["infographic", "teach", "Tudo em volta de uma ideia", "Desafios, frentes ou caminhos em arco, ramos, trilhas ou metrô."],
-    ["diagram", "teach", "Um processo que se explica", "Fluxo, sequência, UML ou mapa mental, nas cores do tema."],
-    ["headline", "impact", "Uma ideia. Todo o palco.", "Tipografia monumental para a frase que fica."],
-    ["number", "impact", "O número que muda tudo", "Dê dimensão a um resultado, sem um mar de dados."],
-    ["quote", "impact", "Uma voz na história", "Uma citação com espaço para ressoar."],
-    ["full", "impact", "Visão panorâmica", "Uma imagem ocupa a cena. A ideia ganha escala."],
-    ["compare", "data", "Antes de ver, compare", "Dois caminhos, uma decisão mais clara."],
-    ["chart", "data", "Dados que contam", "Um gráfico que ajuda a enxergar o argumento."],
-    ["timeline", "data", "Conecte os acontecimentos", "Um percurso visual, no seu ritmo."],
-    ["bento", "data", "Um mosaico de ideias", "Contraste de tamanhos e respiros na composição."],
-    ["code", "teach", "Código", "Código com numeração por linha e realce de sintaxe."],
-    ["codewalk", "teach", "Código, um passo por vez", "Linhas em foco, explicação e saída simulada."],
-    ["spotlight", "teach", "Olhe bem aqui", "Guie a atenção por regiões de uma imagem."],
-    ["dossier", "data", "Material para consultar", "Texto técnico, seções e blocos de código organizados para leitura."],
-    ["mosaic", "data", "Grade que se adapta", "De 1 a 12 ideias; as colunas se ajustam ao conteúdo."],
-    ["ribbon", "data", "Etapas em cápsulas", "Organize etapas em painéis com colunas automáticas."],
-    ["kinetic", "impact", "Frases em movimento", "Uma sequência de frases com estilos tipográficos e avanço automático."],
-    ["question", "teach", "O que você acha?", "Uma pergunta. A resposta aparece na hora certa."],
-    ["poll", "teach", "Traga a sala para a conversa", "Votação local para registrar as escolhas da turma."],
+  // Categorias dos tipos de slide: a mesma divisão na galeria "Novo slide" (cria) e no Layout (troca o formato do atual)
+  const SLIDE_GROUPS = [
+    ["estrutura", "Abertura e estrutura", ["cover", "section", "agenda", "end", "references"]],
+    ["texto", "Texto e ideias", ["statement", "headline", "quote", "list", "cards", "split", "mosaic", "ribbon", "bento", "dossier"]],
+    ["dados", "Números e gráficos", ["number", "stats", "chart", "science", "compare", "matrix"]],
+    ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
+    ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
+    ["codigo", "Código e API", ["code", "codewalk", "api"]],
+    ["visual", "Imagem e movimento", ["image", "full", "spotlight", "video", "scenography", "kinetic"]],
+    ["plateia", "Plateia", ["question", "poll"]],
+    ["livre", "Montar do zero", ["blocks", "canvas"]],
   ];
+  const groupOf = (layout) => SLIDE_GROUPS.find(([, , ids]) => ids.includes(layout))?.[0] || "livre";
+  const fold = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   let sceneReturnFocus;
   const sceneModal = () => document.getElementById("scene-modal");
   function closeSceneLibrary() {
@@ -2295,22 +2337,42 @@
   async function openSceneLibrary() {
     sceneReturnFocus = document.activeElement;
     sceneModal().classList.remove("hidden");
-    document.getElementById("scene-close").focus();
+    const search = document.getElementById("scene-search");
+    search.value = "";
+    search.focus();
+    const filters = document.querySelector("#scene-modal .scene-filters");
+    filters.innerHTML = [["all", "Todos"], ...SLIDE_GROUPS.map(([id, label]) => [id, label])]
+      .map(([id, label]) => `<button type="button" data-scene-filter="${id}"${id === "all" ? ' class="active"' : ""}>${escHtml(label)}</button>`).join("");
+    filters.querySelectorAll("[data-scene-filter]").forEach((b) => b.onclick = () => {
+      filters.querySelectorAll("[data-scene-filter]").forEach((x) => x.classList.toggle("active", x === b));
+      applySceneFilter();
+    });
     const grid = document.getElementById("scene-grid");
-    grid.innerHTML = '<p class="scene-loading" role="status">Preparando as cenas no seu tema…</p>';
-    document.querySelectorAll("[data-scene-filter]").forEach(b => b.classList.toggle("active", b.dataset.sceneFilter === "all"));
+    grid.innerHTML = '<p class="scene-loading" role="status">Preparando os tipos de slide no seu tema…</p>';
     try {
       const res = await fetch("api/layout-previews");
-      if (!res.ok) throw new Error("Não foi possível carregar as cenas. Tente novamente.");
+      if (!res.ok) throw new Error("Não foi possível carregar os tipos de slide. Tente novamente.");
       const data = await res.json();
       ensureSlideStyles(data.baseCSS, data.themeCSS);
-      grid.innerHTML = SCENES.filter(([id]) => data.html[id]).map(([id,category,title,desc]) => `<div class="scene-card" role="button" tabindex="0" data-scene="${id}" data-category="${category}" aria-label="Inserir ${layoutLabel(id)}"><div class="scene-preview" aria-hidden="true"><div class="scene-render" inert>${data.html[id]}</div><span class="scene-insert">+ Inserir</span></div><div class="scene-card-copy"><b>${title}</b><span>${desc}</span><small>${layoutLabel(id)}</small></div></div>`).join("");
+      const card = (id, group) => `<div class="scene-card" role="button" tabindex="0" data-scene="${id}" data-category="${group}" data-search="${escAttr(fold(`${layoutLabel(id)} ${data.info?.[id]?.[1] || ""} ${id}`))}" aria-label="Novo slide: ${escAttr(layoutLabel(id))}"><div class="scene-preview" aria-hidden="true"><div class="scene-render" inert>${data.html[id]}</div><span class="scene-insert">+ Inserir</span></div><div class="scene-card-copy"><b>${escHtml(layoutLabel(id))}</b><span>${escHtml(data.info?.[id]?.[1] || "")}</span></div></div>`;
+      grid.innerHTML = SLIDE_GROUPS.map(([group, label, ids]) => {
+        const cards = ids.filter((id) => state.layouts.includes(id) && data.html[id]).map((id) => card(id, group)).join("");
+        return cards ? `<h4 class="scene-group" data-category="${group}">${escHtml(label)}</h4>${cards}` : "";
+      }).join("");
       grid.querySelectorAll(".scene-card").forEach(b => {
         b.onclick = () => insertScene(b.dataset.scene);
         b.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); insertScene(b.dataset.scene); } };
       });
-      scaleScenePreviews();
+      applySceneFilter(); // o que a pessoa já digitou enquanto as prévias carregavam vale
     } catch (err) { grid.innerHTML = `<p class="scene-loading" role="alert">${escHtml(err.message)}</p>`; }
+  }
+  // categoria + busca (sem acento: "codigo" acha "Código"); títulos de categoria sem cartão visível somem
+  function applySceneFilter() {
+    const cat = document.querySelector("#scene-modal [data-scene-filter].active")?.dataset.sceneFilter || "all";
+    const q = fold(document.getElementById("scene-search").value.trim());
+    document.querySelectorAll("#scene-grid .scene-card").forEach((x) => { x.hidden = (cat !== "all" && x.dataset.category !== cat) || (q && !x.dataset.search.includes(q)); });
+    document.querySelectorAll("#scene-grid .scene-group").forEach((h) => { h.hidden = !document.querySelector(`#scene-grid .scene-card[data-category="${h.dataset.category}"]:not([hidden])`); });
+    scaleScenePreviews();
   }
   function scaleScenePreviews() {
     document.querySelectorAll(".scene-preview").forEach(box => {
@@ -2361,11 +2423,13 @@
     document.getElementById("scene-close").onclick = closeSceneLibrary;
     sceneModal().onclick = e => { if (e.target === sceneModal()) closeSceneLibrary(); };
     document.querySelectorAll("[data-add-scene]").forEach(b => b.onclick = () => insertScene(b.dataset.addScene));
-    document.querySelectorAll("[data-scene-filter]").forEach(b => b.onclick = () => {
-      document.querySelectorAll("[data-scene-filter]").forEach(x => x.classList.toggle("active", x === b));
-      document.querySelectorAll(".scene-card").forEach(x => { x.hidden = b.dataset.sceneFilter !== "all" && x.dataset.category !== b.dataset.sceneFilter; });
-      scaleScenePreviews();
-    });
+    document.querySelectorAll("[data-open-scenes]").forEach(b => b.onclick = openSceneLibrary);
+    document.getElementById("scene-search").oninput = applySceneFilter;
+    document.getElementById("scene-search").onkeydown = (e) => {
+      if (e.key !== "Enter") return;
+      const first = document.querySelector("#scene-grid .scene-card:not([hidden])");
+      if (first) { e.preventDefault(); insertScene(first.dataset.scene); }
+    };
     document.getElementById("motion-select").onchange = async e => {
       if (!state.deck) return;
       state.deck.motion = e.target.value;
@@ -2476,7 +2540,15 @@
   // Galeria de layouts: prévia de verdade (exemplo desenhado no tema do deck) + descrição
   function buildLayoutPicker() {
     dom.layoutPickerGrid.innerHTML = "";
-    LAYOUT_NAMES.forEach((name) => {
+    const ordered = SLIDE_GROUPS.flatMap(([group, label, ids]) => ids.filter((id) => LAYOUT_NAMES.includes(id)).map((id, i) => [id, i === 0 ? label : null]));
+    LAYOUT_NAMES.filter((n) => !ordered.some(([id]) => id === n)).forEach((n) => ordered.push([n, null]));
+    ordered.forEach(([name, heading]) => {
+      if (heading) {
+        const h = document.createElement("div");
+        h.className = "lp-group";
+        h.textContent = heading;
+        dom.layoutPickerGrid.appendChild(h);
+      }
       const card = document.createElement("button");
       card.className = "layout-card";
       card.dataset.layout = name;
@@ -3797,6 +3869,7 @@ ${ta.value}`;
     });
     dom.ribbonPanels.forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
     store.set("ribbonTab", name);
+    if (name === "design") document.querySelectorAll(".look-strip").forEach(fitLookStrip); // escondida, a faixa não tinha largura para medir
   }
 
   const isMobile = () => window.matchMedia("(max-width: 900px)").matches;

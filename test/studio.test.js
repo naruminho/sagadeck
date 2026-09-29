@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { unpackDeck } from "../src/package.js";
-import { browserOrSkip, newPage, startStudio, tempDeck, readPptx } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, tempDeck, readPptx, novoSlide } from "./helpers.js";
 
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -42,7 +42,7 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
   }finally{await studio.close();await browser.close();}
 });
 
-test("guia Avançado: aplica densidade e insere uma página de consulta", async (t) => {
+test("galeria Novo slide: todos os tipos por categoria, busca acha o Status semanal; Avançado só com a densidade", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
@@ -51,28 +51,39 @@ test("guia Avançado: aplica densidade e insere uma página de consulta", async 
     const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
     const deck = () => p.evaluate(async () => (await (await fetch("/api/deck")).json()).spec);
     const index = 0;
+    // Avançado: só a densidade e o guia; os tipos de slide moram na galeria Novo slide (sem atalho duplicado)
     await tab("avancado");
-    assert.ok(await p.getByRole("button", { name: "Página de consulta" }).isVisible());
-    const ribbon = await p.locator("#ribbon").boundingBox();
-    const queryButton = await p.getByRole("button", { name: "Página de consulta" }).boundingBox();
-    assert.ok(queryButton.y + queryButton.height <= ribbon.y + ribbon.height, "o atalho de página de consulta cabe na faixa");
+    assert.equal(await p.locator('.ribbon-panel[data-panel="avancado"] [data-add-scene]').count(), 0, "Avançado sem atalhos de slide duplicados");
     const demosLink = p.getByRole("link", { name: "Abrir demos completos" });
     assert.ok(await demosLink.isVisible());
     assert.equal(new URL(await demosLink.getAttribute("href"), studio.url).searchParams.get("topic"), "Demos e modelos");
     await tab("inicio");
     await p.click("#btn-scenes");
     await p.waitForSelector('.scene-card[data-scene="dossier"]');
-    assert.ok(await p.locator('.scene-card[data-scene="mosaic"]').isVisible());
-    assert.ok(await p.locator('.scene-card[data-scene="kinetic"]').isVisible());
+    for (const tipo of ["mosaic", "kinetic", "status", "onepage", "code", "question"]) assert.ok(await p.locator(`.scene-card[data-scene="${tipo}"]`).isVisible(), `${tipo} na galeria`);
+    const grupos = await p.locator("#scene-grid .scene-group").allTextContents();
+    assert.ok(grupos.includes("Gestão e status") && grupos.includes("Código e API"), `categorias: ${grupos}`);
     const sceneSizes = await p.evaluate(() => {
-      const dialog = document.querySelector(".scene-dialog").getBoundingClientRect();
       const grid = document.querySelector("#scene-grid").getBoundingClientRect();
       const preview = document.querySelector(".scene-preview").getBoundingClientRect();
-      return { dialog: dialog.height, grid: grid.height, previewWidth: preview.width, ratio: preview.width / preview.height };
+      return { grid: grid.height, previewWidth: preview.width, ratio: preview.width / preview.height };
     });
     assert.ok(sceneSizes.grid > 250, "a galeria reserva altura suficiente para os exemplos");
-    assert.ok(sceneSizes.previewWidth >= 400, "as prévias ficam grandes o bastante para ler a composição");
+    assert.ok(sceneSizes.previewWidth >= 400, `as prévias ficam grandes o bastante para ler a composição (${sceneSizes.previewWidth})`);
     assert.ok(Math.abs(sceneSizes.ratio - 16 / 9) < 0.02, "as prévias mantêm proporção 16:9");
+    // busca sem acento; categoria sem resultado some
+    await p.fill("#scene-search", "semanal");
+    assert.deepEqual(await p.locator("#scene-grid .scene-card:not([hidden])").evaluateAll((els) => els.map((e) => e.dataset.scene)), ["status"]);
+    assert.deepEqual(await p.locator("#scene-grid .scene-group:not([hidden])").allTextContents(), ["Gestão e status"]);
+    await p.fill("#scene-search", "codigo");
+    assert.ok(await p.locator('#scene-grid .scene-card[data-scene="code"]:not([hidden])').count(), "codigo acha Código");
+    await p.fill("#scene-search", "");
+    await p.click('#scene-modal [data-scene-filter="gestao"]');
+    assert.deepEqual(await p.locator("#scene-grid .scene-card:not([hidden])").evaluateAll((els) => els.map((e) => e.dataset.scene)), ["status", "onepage", "decisionlab"]);
+    await p.keyboard.press("Escape");
+    // Layout (trocar o formato do slide atual) usa as mesmas categorias
+    await p.click("#btn-layout-gallery");
+    assert.ok((await p.locator("#layout-picker-grid .lp-group, .lp-group").allTextContents()).includes("Gestão e status"), "Layout com as categorias");
     await p.keyboard.press("Escape");
     await tab("avancado");
     await p.locator("#advanced-density-select").selectOption("dense");
@@ -82,24 +93,26 @@ test("guia Avançado: aplica densidade e insere uma página de consulta", async 
     await p.locator("#advanced-density-select").selectOption("");
     await p.waitForFunction(() => document.querySelector("#rendered-slide-container .slide:not(.density-dense)"));
     assert.equal(saved().slides[index].density, undefined);
+    // Status semanal pela galeria: entra depois do slide atual e salva no deck
     const before = (await deck()).slides.length;
-    await p.getByRole("button", { name: "Página de consulta" }).click();
+    await tab("inicio");
+    await p.click("#btn-scenes");
+    await p.waitForSelector('.scene-card[data-scene="status"]');
+    await p.fill("#scene-search", "status");
+    await p.keyboard.press("Enter");
     await p.waitForFunction((n) => document.querySelectorAll(".thumb-card").length === n + 1, before);
-    assert.equal((await deck()).slides[index + 1].layout, "dossier");
-    assert.ok(await p.locator("#rendered-slide-container .adaptive").count());
+    assert.equal((await deck()).slides[index + 1].layout, "status");
+    assert.equal(saved().slides[index + 1].layout, "status");
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
 
-test("guia Inserir oferece o slide de código simples", async (t) => {
+test("galeria Novo slide oferece o slide de código simples", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
-    await p.click('.ribbon-tab[data-tab="inserir"]');
-    const button = p.locator('[data-add-scene="code"]');
-    assert.equal(await button.innerText(), "Código");
-    await button.click();
+    await novoSlide(p, "code");
     await p.waitForFunction(() => document.querySelector('.thumb-card.active')?.getAttribute("title").includes("Código"));
     assert.match(await p.locator("#rendered-slide-container").innerText(), /def ola/);
     const form = await p.locator("#slide-fields-form").innerText();
@@ -127,13 +140,31 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     assert.equal(await theme.getAttribute("aria-label"), "Ativar tema escuro");
     await p.click('.ribbon-tab[data-tab="exibir"]');
     await p.selectOption("#app-theme-select", "system");
+    // no editor o botão de tema fica onde fica na biblioteca: canto direito do topo, depois do Apresentar
+    const [themeBox, presentBox] = await Promise.all([theme.boundingBox(), p.locator("#present-split").boundingBox()]);
+    assert.ok(themeBox.x > presentBox.x + presentBox.width - 1, "tema claro/escuro à direita do Apresentar");
 
     await p.click('.ribbon-tab[data-tab="inserir"]');
     assert.equal(await p.locator("#visual-tools").evaluate((el) => getComputedStyle(el).position), "static");
     assert.equal(await p.locator("#btn-visual-edit").count(), 0);
-    for (const name of ["Texto", "Forma", "Imagem", "Desfazer objeto"]) {
+    for (const name of ["Texto", "Formas", "Imagem"]) {
       assert.ok(await p.locator("#visual-tools").getByRole("button", { name, exact: true }).isVisible(), `${name} fica na faixa Inserir`);
     }
+    assert.equal(await p.getByRole("button", { name: "Desfazer objeto" }).count(), 0, "sem botão Desfazer objeto (Ctrl+Z e Delete bastam)");
+    // Formas: menu com os desenhos; a estrela entra no slide e no deck salvo
+    await p.click("#btn-insert-shape");
+    assert.equal(await p.locator(".shape-menu:not([hidden]) .shape-option").count(), 12, "12 formas no menu");
+    await p.click('.shape-menu .shape-option[data-shape="star"]');
+    await p.waitForSelector("#rendered-slide-container .shape-star .shape-svg polygon");
+    await p.waitForTimeout(900);
+    assert.ok((YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].add || []).some((e) => e.shape === "star"), "estrela salva no deck");
+    // Delete exclui o objeto selecionado
+    await p.click("#rendered-slide-container .shape-star");
+    assert.ok(await p.locator("#rendered-slide-container .shape-star.visual-selected").count(), "clicar na forma a seleciona");
+    await p.keyboard.press("Delete");
+    await p.waitForTimeout(900);
+    assert.equal(await p.locator("#rendered-slide-container .shape-star").evaluate((el) => getComputedStyle(el).display), "none", "Delete tira a forma do slide");
+    await p.keyboard.press("Escape");
     const target = p.locator('#rendered-slide-container [data-vkey]:not([contenteditable="true"])').first();
     await target.click();
     assert.ok(await p.locator("#rendered-slide-container .visual-selected").count(), "clicar no próprio objeto o seleciona");
@@ -422,7 +453,7 @@ test("studio", async (t) => {
     assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
     await tab("inserir");
     assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
-    assert.ok(await visivel("#btn-add-diagram"));
+    assert.ok(await visivel("[data-open-scenes]"), "Novo slide continua no Inserir");
     await p.click("#btn-more-options");
     assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
     assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
@@ -744,12 +775,47 @@ test("studio", async (t) => {
     }
   });
 
+  await t.test("Design: faixas de tema e paleta só com cartões inteiros, sem barra de rolagem; setas passam de página e Ver todos aplica", async () => {
+    // abrir o Studio em outra aba e só depois ir para Design: a faixa foi montada escondida e precisa se medir de novo
+    await tab("inicio"); await p.reload(); await p.waitForSelector(".thumb-card");
+    await tab("design"); await settle(400);
+    for (const id of ["theme-gallery", "palette-gallery"]) {
+      const m = await p.evaluate((id) => {
+        const g = document.getElementById(id), gr = g.getBoundingClientRect();
+        const seen = [...g.querySelectorAll(".theme-card")].map((c) => c.getBoundingClientRect()).filter((r) => r.right > gr.left + 1 && r.left < gr.right - 1);
+        return { cortados: seen.filter((r) => r.left < gr.left - 1 || r.right > gr.right + 1).length, inteiros: seen.length, barra: g.offsetHeight - g.clientHeight };
+      }, id);
+      assert.equal(m.cortados, 0, `${id}: cartão cortado na borda`);
+      assert.ok(m.inteiros >= 3, `${id}: ${m.inteiros} cartões à vista`);
+      assert.equal(m.barra, 0, `${id}: barra de rolagem à vista`);
+    }
+    assert.ok(await p.evaluate(() => { const pn = document.querySelector('.ribbon-panel[data-panel="design"]'); return pn.scrollWidth - pn.clientWidth <= 1; }), "a aba Design não transborda para o lado");
+    const strip = p.locator(".look-strip").filter({ has: p.locator("#palette-gallery") });
+    assert.equal(await strip.locator('.look-nav[data-dir="-1"]').isDisabled(), true, "no começo, a seta para trás fica apagada");
+    await strip.locator('.look-nav[data-dir="1"]').click(); await settle(700);
+    assert.ok(await p.locator("#palette-gallery").evaluate((g) => g.scrollLeft > 0), "a seta passa de página");
+    // Ver todos: a mesma galeria em grade, com todos os cartões à vista; clicar aplica e fecha
+    const temas = p.locator(".look-strip").filter({ has: p.locator("#theme-gallery") });
+    await temas.locator(".look-all").click();
+    const grade = await p.evaluate(() => {
+      const g = document.getElementById("theme-gallery"), gr = g.getBoundingClientRect();
+      return { fixa: getComputedStyle(g).position, todos: [...g.children].every((c) => { const r = c.getBoundingClientRect(); return r.top >= gr.top - 1 && r.bottom <= gr.bottom + 1 && r.left >= gr.left - 1 && r.right <= gr.right + 1; }) };
+    });
+    assert.equal(grade.fixa, "fixed", "abre por cima do slide");
+    assert.ok(grade.todos, "todos os temas à vista na grade");
+    const outro = saved().theme === "editorial" ? "sinal" : "editorial";
+    await p.click(`#theme-gallery .theme-card[data-theme="${outro}"]`); await settle(900);
+    assert.equal(saved().theme, outro, "clicar na grade aplica e salva");
+    assert.equal(await temas.evaluate((el) => el.classList.contains("open")), false, "a grade fecha depois do clique");
+    await tab("inicio");
+  });
+
   await t.test("faixa de opções: rótulos dos botões com espaço entre as palavras", async () => {
     // um <br> escondido pelo CSS grudava as palavras ("Diagramade texto"); o teste lê o texto
     // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)
     const esperado = {
-      inserir: ["Diagrama de texto"],
-      avancado: ["Página de consulta", "Grade adaptável", "Diagrama vivo", "Tipografia cinética"],
+      inserir: ["Novo slide", "Formas", "Diagrama de texto"],
+      inicio: ["Escolher tipo"],
       design: ["Cabeçalho e rodapé"],
       ia: ["Deck com IA"],
       revisar: ["Última fileira", "Mapa de atenção"],
@@ -887,8 +953,7 @@ test("studio", async (t) => {
   });
 
   await t.test("Inserir → Diagrama: desenha no palco e na miniatura; editar o código salva, e erro aparece na barra", async () => {
-    await tab("inserir");
-    await p.click("#btn-add-diagram"); await settle(1200);
+    await novoSlide(p, "diagram"); await settle(1200);
     const i = (await deck()).slides.findIndex((s) => s.layout === "diagram");
     assert.ok(i >= 0, "slide inserido");
     assert.match(saved().slides[i].mermaid, /flowchart/, "salvo no arquivo");
@@ -913,8 +978,7 @@ test("studio", async (t) => {
   });
 
   await t.test("Inserir → Infográfico: desenha; trocar a forma e adicionar item pelo formulário salva no deck", async () => {
-    await tab("inserir");
-    await p.click("#btn-add-infographic"); await settle(1200);
+    await novoSlide(p, "infographic"); await settle(1200);
     const i = (await deck()).slides.findIndex((s) => s.layout === "infographic");
     assert.ok(i >= 0, "slide inserido");
     assert.ok(saved().slides[i].items.length >= 2, "salvo com os itens de exemplo");

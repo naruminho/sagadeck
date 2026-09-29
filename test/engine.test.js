@@ -560,3 +560,18 @@ test("todo layout do motor aparece na galeria do Studio (LAYOUT_NAMES) com nome 
   const semNome = names.filter((k) => !new RegExp(`\\b${k}:\\s*"`).test(labels));
   assert.deepEqual(semNome, [], "sem nome na galeria");
 });
+
+test("formas livres: triângulo, losango, hexágono, estrela, seta, chevron e balão desenham em SVG com preenchimento e contorno", () => {
+  const kinds = ["triangle", "diamond", "hexagon", "star", "arrow", "chevron", "bubble"];
+  const r = buildHTML({ slides: [{ layout: "canvas", elements: kinds.map((shape, i) => ({ shape, x: 100 + i * 200, y: 200, w: 180, h: 140, fill: "hi", stroke: "fg" })) }] });
+  assert.deepEqual(r.warnings, []);
+  for (const k of kinds) assert.match(r.html, new RegExp(`class="shape shape-${k}"[^>]*><svg class="shape-svg"`), k);
+  assert.match(r.html, /<polygon points="50,0 100,100 0,100"[^>]*fill="var\(--hi\)"[^>]*stroke="var\(--fg\)"/, "triângulo com cor do tema");
+  assert.match(r.html, /<path d="M8,0/, "balão é um caminho");
+  // o fundo retangular não vaza por trás do desenho (bg vira o preenchimento)
+  const bg = buildHTML({ slides: [{ layout: "canvas", elements: [{ shape: "star", x: 0, y: 0, w: 100, h: 100, bg: "hi" }] }] });
+  assert.doesNotMatch(bg.html, /shape-star"[^>]*style="[^"]*background/);
+  assert.match(bg.html, /fill="var\(--hi\)"/);
+  // as de antes continuam iguais
+  assert.match(buildHTML({ slides: [{ layout: "canvas", elements: [{ shape: "circle", x: 0, y: 0, w: 50, h: 50 }] }] }).html, /shape-circle[^>]*border-radius:50%/);
+});
