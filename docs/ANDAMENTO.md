@@ -18,8 +18,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 - Texto / Forma / Imagem foram para **Inserir → Objetos livres**, sem o botão "Selecionar objetos" nem instrução
   escrita: clicar num objeto do slide já seleciona. Miniaturas do "Diagrama de texto" com o dobro do tamanho.
   Botão Apresentar e o menu dele com 40 px de altura. Elemento `{ image: "" }` não quebra mais o render.
-- Prévia de tema no hover: a da main (`previewLook`, tema e paleta) ficou; a versão paralela da Frente D saiu,
-  o teste dela continua valendo para a da main.
+- Prévia de tema no hover: a da main (`previewLook`, tema e paleta) ficou; a versão paralela da Frente D saiu
+  (a main já testa em `studio-themes.test.js`).
+- Achados no merge, com teste: (1) escolher um ambiente gravava `current:` no arquivo mas a caixa de texto ficava
+  com o antigo, e o Salvar seguinte desfazia a escolha; agora o texto acompanha (com edição pendente, só a linha
+  `current:` muda). (2) A caixa do aviso "texto pequeno" bloqueava o clique para editar o texto (agora deixa passar).
+  (3) Clique simples no texto voltou a escrever (barra de formatação); apertar e arrastar move o objeto; clique em
+  forma/imagem seleciona. Sair com Escape religa a edição dos textos.
 
 ## Guia Avançado e demonstrações visíveis — 28/09/2026
 

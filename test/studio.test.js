@@ -115,6 +115,8 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
+    // Tema da interface e Variáveis ficam em "Mais opções" (modo simples é o padrão)
+    if (await p.evaluate(() => document.body.classList.contains("simple-mode"))) await p.click("#btn-more-options");
     const theme = p.locator("#btn-app-theme");
     await theme.click();
     assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
@@ -132,11 +134,26 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     for (const name of ["Texto", "Forma", "Imagem", "Desfazer objeto"]) {
       assert.ok(await p.locator("#visual-tools").getByRole("button", { name, exact: true }).isVisible(), `${name} fica na faixa Inserir`);
     }
-    const target = p.locator("#rendered-slide-container [data-vkey]").first();
+    const target = p.locator('#rendered-slide-container [data-vkey]:not([contenteditable="true"])').first();
     await target.click();
     assert.ok(await p.locator("#rendered-slide-container .visual-selected").count(), "clicar no próprio objeto o seleciona");
     await p.keyboard.press("Escape");
-    assert.equal(await p.locator("#rendered-slide-container .visual-mode").count(), 0, "Escape sai do ajuste de objetos");
+    assert.equal(await p.locator("#rendered-slide-container.visual-mode").count(), 0, "Escape sai do ajuste de objetos");
+    // texto: apertar e arrastar move o objeto (e salva); depois do Escape, clique simples volta a escrever
+    const text = p.locator('#rendered-slide-container [data-vkey][contenteditable="true"]').first();
+    const box = await text.boundingBox();
+    await p.mouse.move(box.x + 12, box.y + box.height / 2);
+    await p.mouse.down();
+    await p.mouse.move(box.x + 72, box.y + box.height / 2, { steps: 6 });
+    await p.mouse.up();
+    await p.waitForTimeout(900);
+    const edits = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].visualEdits || {};
+    assert.ok(Object.values(edits).some((v) => v.dx > 0), `arrastar o texto move o objeto e salva no deck: ${JSON.stringify(edits)}`);
+    await p.keyboard.press("Escape");
+    const again = p.locator('#rendered-slide-container [data-vkey][contenteditable="true"]').first();
+    await again.click();
+    assert.equal(await p.locator("#rendered-slide-container.visual-mode").count(), 0, "clique simples no texto não vira ajuste de objeto");
+    assert.equal(await again.evaluate((el) => document.activeElement === el), true, "o cursor fica no texto");
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
@@ -153,11 +170,13 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
   const envFile = process.env.SAGADECK_AMBIENTES;
   fs.writeFileSync(envFile, YAML.stringify({
     current: "dev",
-    environments: { dev: { vars: { base: "https://private-env-value.invalid", api_token: "PRIVATE_VAR_TOKEN" }, secrets: ["api_key"] } },
+    environments: { dev: { vars: { base: "https://private-env-value.invalid", api_token: "PRIVATE_VAR_TOKEN" }, secrets: { api_key: "PRIVATE_SECRET_VALUE" } } },
   }), "utf8");
   const studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
+    // Tema da interface e Variáveis ficam em "Mais opções" (modo simples é o padrão)
+    if (await p.evaluate(() => document.body.classList.contains("simple-mode"))) await p.click("#btn-more-options");
     await p.click('.ribbon-tab[data-tab="inserir"]');
     await p.click("#btn-api-vars-studio");
     assert.equal(await p.locator("#modal-studio-vars").count(), 0, "variáveis não abrem em janela flutuante");
@@ -179,6 +198,7 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
     await urlField.fill("https://api.example.test");
     await p.click("#btn-api-vars-studio");
     await p.waitForSelector("#tab-panel-vars.active");
+    await p.waitForSelector('#studio-env-vars [data-studio-drag-var="base"]'); // a tabela recarrega ao abrir
     await p.evaluate(() => {
       const row = document.querySelector('#studio-env-vars [data-studio-drag-var="base"]');
       const field = [...document.querySelectorAll("#slide-fields-form .sf-field")].find((item) => item.textContent.includes("Endereço"))?.querySelector("input");
@@ -227,6 +247,9 @@ test("revisão do Studio sinaliza texto pequeno sem oferecer correção destruti
     });
     await p.waitForFunction(() => document.querySelector("#fix-panel")?.textContent.includes("Texto pequeno (12px)"));
     assert.equal(await p.locator('#fix-panel [data-fix="auto"]').count(), 0);
+    // aviso só informativo: a caixa em volta do texto não pode bloquear o clique para editar
+    const box = p.locator("#inspector-overlay .issue-bounding-box").filter({ hasText: "Texto pequeno" }).first();
+    assert.equal(await box.evaluate((el) => getComputedStyle(el).pointerEvents), "none", "caixa do texto pequeno deixa o clique passar");
     assert.match(await p.getAttribute("#status-issues", "title"), /revisão do slide/);
     await p.click("#status-issues");
     assert.ok(await p.locator("#tab-panel-props").evaluate((el) => el.classList.contains("active")));
@@ -416,8 +439,11 @@ test("studio", async (t) => {
     await p.click("#btn-dup-slide"); await settle(400);
     assert.equal((await deck()).slides.length, n + 2);
     await p.click("#btn-del-slide"); await settle(300);
+    // excluir foca o slide de baixo (o original 2); volta ao novo antes de excluir de novo
+    await p.click('.thumb-card[data-idx="1"]'); await settle(300);
     await p.click("#btn-del-slide"); await settle(400);
     assert.equal((await deck()).slides.length, n);
+    assert.deepEqual(saved().slides.map((s) => s.layout).slice(0, 2), ["cover", "cards"], "sobram só os slides originais");
   });
 
   await t.test("arrastar miniatura reordena os slides e salva", async () => {
@@ -606,7 +632,7 @@ test("studio", async (t) => {
     const i = await go("statement");
     await p.click("#btn-layout-gallery");
     await p.click('.layout-card[data-layout="codewalk"]'); await settle();
-    const filename = `${form} input[placeholder="exemplo.js"]`;
+    const filename = `${form} input[placeholder="exemplo.py"]`;
     const language = p.locator(`${form} select`).first();
     const options = await language.locator("option").evaluateAll((items) => items.map((item) => item.textContent.trim()));
     assert.deepEqual(options.slice(1), ["Python", "Java", "JavaScript", "TypeScript", "C#"]);
@@ -1375,8 +1401,10 @@ test("studio", async (t) => {
     await p.waitForSelector('#api-envs-list .env-chip.active[data-env="hom"]');
     assert.match(fs.readFileSync(envFile, "utf8"), /^current: hom/m, "a escolha fica no arquivo, com os comentários");
     assert.match(fs.readFileSync(envFile, "utf8"), /# meus ambientes/);
+    // o texto na tela acompanha a escolha: salvar depois não pode desfazer o ambiente escolhido
+    await p.waitForFunction(() => /^current: hom/m.test(document.getElementById("api-envs-text").value), null, { timeout: 3000 });
     const beforeUpdate = fs.readFileSync(envFile, "utf8");
-    await p.fill("#api-envs-text", `${text}# atualização validada\n`);
+    await p.fill("#api-envs-text", `${await p.inputValue("#api-envs-text")}# atualização validada\n`);
     await p.waitForFunction(() => document.getElementById("btn-api-envs-save").disabled === false);
     await p.click("#btn-api-envs-save");
     await p.waitForFunction(() => /cópia anterior/.test(document.getElementById("api-envs-status").textContent));

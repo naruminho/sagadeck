@@ -743,7 +743,7 @@
     state.issues.forEach((issue) => {
       if (!issue.logical) return;
       const box = document.createElement("div");
-      box.className = "issue-bounding-box";
+      box.className = issue.kind === "texto-pequeno" ? "issue-bounding-box issue-info" : "issue-bounding-box";
       box.style.left = `${issue.logical.left}px`;
       box.style.top = `${issue.logical.top}px`;
       box.style.width = `${Math.max(issue.logical.width, 40)}px`;
@@ -3589,11 +3589,26 @@
         const j = await r.json().catch(() => ({}));
         if (!r.ok) return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
         renderApiEnvChips(j);
+        if (!e.builtin) await syncApiEnvsText(e.name);
         apiEnvsStatus(`Em uso: ${e.name.toUpperCase()}`, "ok");
       };
       list.append(b);
     }
     if (!list.childElementCount) list.textContent = "Nenhum ambiente ainda: escreva abaixo e salve.";
+  }
+  // a escolha do ambiente grava current: no arquivo; o texto na tela acompanha, senão o próximo Salvar desfaz a escolha.
+  // Sem edição pendente, recarrega o arquivo; com edição pendente, troca só a linha current: e mantém o resto.
+  let apiEnvsLoadedText = "";
+  async function syncApiEnvsText(name) {
+    const ta = document.getElementById("api-envs-text");
+    if (ta.value !== apiEnvsLoadedText) {
+      if (/^current:.*$/m.test(ta.value)) ta.value = ta.value.replace(/^current:.*$/m, `current: ${name}`);
+      else ta.value = `current: ${name}
+${ta.value}`;
+      return scheduleApiEnvValidation();
+    }
+    const j = await (await fetch("api/http/ambientes")).json().catch(() => null);
+    if (j && typeof j.text === "string") ta.value = apiEnvsLoadedText = j.text;
   }
   async function openApiEnvs() {
     const m = apiEnvsModal(), ta = document.getElementById("api-envs-text"), save = document.getElementById("btn-api-envs-save");
@@ -3610,7 +3625,7 @@
       document.getElementById("api-envs-file").textContent = "";
       return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
     }
-    ta.value = j.text || "";
+    ta.value = apiEnvsLoadedText = j.text || "";
     document.getElementById("api-envs-file").textContent = j.file || "";
     const st = await (await fetch("api/http/state")).json().catch(() => ({ envs: [] }));
     renderApiEnvChips(st);
@@ -3627,6 +3642,7 @@
       const response = await fetch("api/http/ambientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      apiEnvsLoadedText = text;
       renderApiEnvChips(data);
       await refreshStudioVars();
       apiEnvsStatus(`Salvo. ${data.backupCreated ? "A cópia anterior está no arquivo .bak." : "Novo arquivo criado."} Os slides de API já usam o arquivo atualizado.`, "ok");

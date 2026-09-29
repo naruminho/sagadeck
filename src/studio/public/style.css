@@ -315,6 +315,7 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .safe-box { position: absolute; left: 120px; right: 120px; top: 92px; bottom: 104px; border: 2px dashed rgba(15, 108, 189, .35); border-radius: 4px; }
 .inspector-layer { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
 .issue-bounding-box { position: absolute; border: 3px dashed var(--err); background: rgba(197, 15, 31, .08); border-radius: 4px; pointer-events: auto; }
+.issue-bounding-box.issue-info { pointer-events: none; } /* aviso de leitura: não bloqueia o clique para editar o texto */
 .issue-tag { position: absolute; top: -34px; left: 0; background: var(--err); color: #fff; font-size: 18px; font-weight: 600; padding: 3px 10px; border-radius: 4px; white-space: nowrap; }
 [contenteditable="true"] { outline: none; cursor: text; border-radius: 4px; transition: box-shadow .12s; }
 [contenteditable="true"]:hover { box-shadow: 0 0 0 3px rgba(15, 108, 189, .35); }
