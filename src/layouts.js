@@ -20,6 +20,12 @@ const src = (s) => (s.source ? `<div class="src t f-body">${md(s.source)}</div>`
 const add = (s, ctx) => (s.add ? el(s.add, ctx) : "");
 const fig = (f, ctx, w, h, cls = "") => (f ? `<div class="figbox ${cls}" style="${w ? `width:${w}px;` : ""}${h ? `height:${h}px;` : ""}">${typeof f === "object" ? el(f, ctx, w, h) : el({ image: f }, ctx)}</div>` : "");
 const build = (s, i, base = 1) => (s.build ? base + i : undefined);
+const codeEditor = (s, { source, highlight = s.highlight, footer = "CÓDIGO · LINHAS NUMERADAS" } = {}) => {
+  const filename = s.filename || "código";
+  const language = resolveCodeLanguage(s.language, filename);
+  const languageLabel = displayCodeLanguage(s.language, filename) || "Código";
+  return `<div class="codewalk-editor"><div class="codewalk-bar"><span class="codewalk-lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="codewalk-file f-mono">${esc(filename)}</span><span class="codewalk-language f-label">${esc(languageLabel)}</span></div>${code({ code: source || s.code || "// Cole seu código aqui", language, filename, highlight, size: s.size || 30 })}<div class="codewalk-footer f-label">${footer}</div></div>`;
+};
 // As cenas de aula deixam todo o conteúdo no HTML: funcionam offline e têm resumo estático.
 const lessonSteps = (items, fallback) => Array.isArray(items) && items.length ? items.map((p) => typeof p === "string" ? { title: p } : (p || {})) : [fallback];
 const kineticPhrases = (value) => {
@@ -315,16 +321,13 @@ export const LAYOUTS = {
   },
 
   code(s, ctx) {
-    return `<div class="L-code">${head(s)}<div class="cd-row">${code({ code: s.code, highlight: s.highlight, size: s.size, class: "e", style: "--d:2;" })}
+    return `<div class="L-code">${head(s)}<div class="cd-row">${codeEditor(s)}
       ${s.note ? `<div class="cd-note" ${s.noteStep ? `data-step="${s.noteStep}"` : ""}>${typeof s.note === "string" ? text(s.note, "lead") : el(s.note, ctx)}</div>` : ""}</div></div>${src(s)}${add(s, ctx)}`;
   },
 
   codewalk(s, ctx) {
-    const frames = lessonSteps(s.steps, { title: "Acompanhe o código", text: "Adicione etapas com linhas destacadas e a saída esperada." });
-    const filename = s.filename || "exemplo.js";
-    const language = resolveCodeLanguage(s.language, filename);
-    const languageLabel = displayCodeLanguage(s.language, filename);
-    return `<div class="L-codewalk" data-lesson="codewalk" data-lesson-count="${frames.length}">${head(s)}<div class="lesson-row"><div class="codewalk-editor"><div class="codewalk-bar"><span class="codewalk-lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="f-mono">${esc(filename)}</span><span class="codewalk-language f-label">${esc(languageLabel || "Código")}</span></div>${code({ code: s.code || "// Cole seu código aqui", language, highlight: frames[0].highlight, size: s.size || 30 })}<div class="codewalk-footer f-label">LEIA · PREVEJA · REVELE</div></div><aside class="lesson-aside">${lessonPanels(frames, true)}${lessonSummary(frames)}${lessonControls(frames)}</aside></div></div>${src(s)}${add(s, ctx)}`;
+    const frames = lessonSteps(s.steps, { title: "Acompanhe o código", text: "Adicione etapas com linhas destacadas e a saída esperada.", highlight: s.highlight });
+    return `<div class="L-codewalk" data-lesson="codewalk" data-lesson-count="${frames.length}">${head(s)}<div class="lesson-row">${codeEditor(s, { highlight: frames[0].highlight ?? s.highlight, footer: "LEIA · PREVEJA · REVELE" })}<aside class="lesson-aside">${lessonPanels(frames, true)}${lessonSummary(frames)}${lessonControls(frames)}</aside></div></div>${src(s)}${add(s, ctx)}`;
   },
 
   spotlight(s, ctx) {
@@ -346,12 +349,12 @@ export const LAYOUTS = {
           ...kineticPhrases(s.title || s.text),
           ...kineticPhrases(s.subtitle),
         ].map((text, i) => ({
-          text, style: "editorial", position: "left", size: "medium",
+          text, style: "clean", position: "left", size: "medium",
           ...(i === 0 && s.kicker ? { tag: s.kicker } : {}),
         }));
-    if (!beats.length) beats.push({ text: "Uma ideia em movimento", style: "poster", position: "left", color: "white", size: "large" });
+    if (!beats.length) beats.push({ text: "Uma ideia em movimento", style: "clean", position: "left", color: "white", size: "large" });
     const frames = beats.map((beat, i) => {
-      const style = ["poster", "neon", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : "editorial";
+      const style = ["clean", "poster", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : "clean";
       const position = ["left", "center", "right", "top", "bottom"].includes(beat.position) ? beat.position : "left";
       const color = ["white", "gold", "pink", "cyan"].includes(beat.color) ? beat.color : "white";
       const size = ["small", "medium", "large"].includes(beat.size) ? beat.size : "medium";

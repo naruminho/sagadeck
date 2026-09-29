@@ -997,8 +997,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
         let body;
         try { body = await readJSON(req); } catch (e) { return reply(400, { error: e.message }); }
-        if (pathname === "/api/http/ambientes") {
-          // só grava YAML que o slide api entende: nada de arquivo quebrado no lugar do que funcionava
+        if (pathname === "/api/http/ambientes" || pathname === "/api/http/ambientes/validar") {
           const text = String(body.text ?? "");
           let data;
           try { data = YAML.parse(text) || {}; } catch (e) { return reply(400, { error: `YAML inválido: ${e.message}` }); }
@@ -1008,11 +1007,21 @@ export function createStudioServer(deckPath = null, opts = {}) {
           for (const [name, e] of Object.entries(envs || {})) {
             if (!e || typeof e !== "object") return reply(400, { error: `O ambiente "${name}" está vazio: ponha pelo menos vars: { base: "…" }` });
             if (e.vars != null && (typeof e.vars !== "object" || Array.isArray(e.vars))) return reply(400, { error: `vars do ambiente "${name}" precisa ser nome: valor` });
+            if (e.secrets != null && (typeof e.secrets !== "object" || Array.isArray(e.secrets))) return reply(400, { error: `secrets do ambiente "${name}" precisa ser um mapa de nomes para configurações de segredos` });
+          }
+          if (data.current != null && (typeof data.current !== "string" || (!Object.hasOwn(envs || {}, data.current) && !Object.hasOwn(apiEnv.builtin, data.current)))) {
+            return reply(400, { error: `O ambiente current "${String(data.current)}" não está definido em environments nem é um ambiente embutido.` });
+          }
+          if (pathname.endsWith("/validar")) return reply(200, { valid: true });
+          const backupCreated = fs.existsSync(apiEnv.file);
+          if (backupCreated) {
+            fs.copyFileSync(apiEnv.file, `${apiEnv.file}.bak`);
+            fs.chmodSync(`${apiEnv.file}.bak`, 0o600);
           }
           fs.mkdirSync(path.dirname(apiEnv.file), { recursive: true });
           fs.writeFileSync(apiEnv.file, text.endsWith("\n") ? text : text + "\n", "utf8");
           apiEnv.tokens.clear(); // credencial pode ter mudado: o próximo pedido pega um token novo
-          return reply(200, apiEnv.state());
+          return reply(200, { ...apiEnv.state(), backupCreated });
         }
         // o arquivo do slide: o que foi arrastado na hora, ou o padrão (file:), só de dentro da pasta do deck
         const fileOf = (b) => {

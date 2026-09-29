@@ -8,6 +8,34 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Variáveis em tabela, ambientes protegidos e ajustes do editor — 29/09/2026
+
+- Aba **Variáveis**: tabela Nome / Valor do ambiente atual, editável na linha (nome sem `{{}}`); arrastar o nome
+  para um campo do slide escreve `{{nome}}`. Sem botão Inserir. Segredos só pelo nome; valor com cara de token é mascarado.
+- **Ambientes** (slides de API): modal maior; o YAML é validado a cada digitação (`POST /api/http/ambientes/validar`,
+  mesma regra do salvar, inclusive `secrets` e `current`); **Salvar** só habilita com YAML válido e a versão anterior
+  fica em `ambientes.yaml.bak` (0600).
+- Texto / Forma / Imagem foram para **Inserir → Objetos livres**, sem o botão "Selecionar objetos" nem instrução
+  escrita: clicar num objeto do slide já seleciona. Miniaturas do "Diagrama de texto" com o dobro do tamanho.
+  Botão Apresentar e o menu dele com 40 px de altura. Elemento `{ image: "" }` não quebra mais o render.
+- Prévia de tema no hover: a da main (`previewLook`, tema e paleta) ficou; a versão paralela da Frente D saiu
+  (a main já testa em `studio-themes.test.js`).
+- Achados no merge, com teste: (1) escolher um ambiente gravava `current:` no arquivo mas a caixa de texto ficava
+  com o antigo, e o Salvar seguinte desfazia a escolha; agora o texto acompanha (com edição pendente, só a linha
+  `current:` muda). (2) A caixa do aviso "texto pequeno" bloqueava o clique para editar o texto (agora deixa passar).
+  (3) Clique simples no texto voltou a escrever (barra de formatação); apertar e arrastar move o objeto; clique em
+  forma/imagem seleciona. Sair com Escape religa a edição dos textos.
+
+## Guia Avançado e demonstrações visíveis — 28/09/2026
+
+- A aba **Avançado** do editor reúne o seletor de densidade do slide, inserção de página de consulta e atalhos
+  para grade adaptável, diagrama vivo e tipografia cinética. A seleção compacta o slide atual sem remover texto.
+- A galeria **Exemplos do SagaDeck** também inclui página de consulta, grade adaptável, cápsulas e tipografia
+  cinética; são cenas inseridas no deck em edição, não apresentações completas.
+- Biblioteca: **Abrir demos completos** leva ao tópico `Demos e modelos`; incluído `Recursos avançados` em **Modelo pronto**
+  para mostrar texto denso, blocos de código, aviso, grade, diagrama e sequência cinética no deck inteiro.
+- Testes verificam seleção/persistência de densidade, inserção de página de consulta e renderização do demo.
+
 ## Aviso de modelrelay velho sabe da instalação editável — 28/09/2026
 
 - Pergunta do Naruminho: no laptop o modelrelay roda do clone; precisa `pip install -U`? Não: com `pip install -e`

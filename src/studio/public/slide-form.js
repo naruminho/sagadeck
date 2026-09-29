@@ -83,6 +83,13 @@
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".
   // grades adaptáveis (src/adaptive-layouts.js): os mesmos campos nas três
   const ADAPTIVE = [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Itens", obj([f.text("title", "Título"), f.area("text", "Texto"), f.text("value", "Valor"), f.icon("icon", "Ícone"), f.area("code", "Código (opcional)", { mono: true, rows: 4 }), f.text("foot", "Nota")]), { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }), max: 12 }), f.bool("build", "Revelar por clique")];
+  const CODE_SOURCE_FIELDS = [
+    f.text("filename", "Nome do arquivo", { placeholder: "exemplo.py" }),
+    f.codeLanguage("language", "Linguagem", "filename"),
+    f.area("code", "Código", { mono: true, rows: 10, hint: "O código é exibido, sem execução." }),
+    f.nums("highlight", "Linhas destacadas (a partir de 1)"),
+  ];
+  const CODE_SIZE_FIELDS = [f.num("size", "Tamanho do código (px)")];
   const LAYOUTS = {
     mosaic: ADAPTIVE, ribbon: ADAPTIVE, dossier: ADAPTIVE,
     cover: [f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.text("author", "Autor"), f.text("role", "Cargo do autor"),
@@ -151,8 +158,8 @@
       f.more([f.text("id", "Identificador da enquete"), f.text("compare", "Comparar com a enquete (identificador)"), f.num("titleSize", "Tamanho da pergunta (px)")])],
     image: [f.action("Editar imagem e destaques", (s) => CTX.editScreenshot?.(s)), f.text("image", "Imagem (arquivo ou link)"), f.select("fit", "Enquadramento", [["cover", "Preencher"], ["contain", "Caber inteira"]], { empty: "Preencher" }),
       f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("caption", "Legenda"), f.more([f.el("figure", "Figura no lugar da imagem")])],
-    code: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.area("code", "Código", { mono: true, rows: 8 }), f.nums("highlight", "Linhas destacadas"), f.el("note", "Nota ao lado", { stringAs: "text" }),
-      f.more([f.num("size", "Tamanho (px)"), f.num("noteStep", "Nota no clique")])],
+    code: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...CODE_SOURCE_FIELDS, f.el("note", "Nota ao lado", { stringAs: "text" }),
+      f.more([...CODE_SIZE_FIELDS, f.num("noteStep", "Nota no clique")])],
     api: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("text", "Explicação curta"),
       f.select("mode", "Modo", [["sync", "Síncrono (responde na hora)"], ["polling", "Polling (inicia e consulta até terminar)"], ["stream", "Streaming (chega aos poucos)"], ["realtime", "Tempo real (conversa por WebSocket)"]], { empty: "Síncrono (responde na hora)", structural: true }),
       f.obj("request", "Requisição", [f.select("method", "Método", [["GET", "GET"], ["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"], ["DELETE", "DELETE"]], { empty: "POST se tiver corpo" }),
@@ -163,6 +170,7 @@
         { when: (s) => s.mode !== "realtime" }),
       f.json("realtime", "Conexão (WebSocket)", { when: (s) => s.mode === "realtime", placeholder: '{ "url": "{{ws}}/realtime" }', hint: "Só url é obrigatório; os outros campos seguem o formato mais comum (veja a referência)." }),
       f.json("polling", "Polling", { when: (s) => s.mode === "polling", placeholder: '{ "id": "$.executionId", "check": { "url": "{{base}}/status/{{id}}" }, "status": "$.status", "done": ["FINISHED"] }' }),
+      f.json("stream", "Leitura do texto no streaming", { when: (s) => s.mode === "stream", placeholder: '{ "text": "$.choices[0].delta.content" }', hint: "Caminho do texto em cada pedaço SSE." }),
       f.text("answer", "Campo da resposta em destaque", { hint: "ex.: $.choices[0].message.content", when: (s) => s.mode !== "realtime" }),
       f.json("save", "Guardar para os próximos slides", { placeholder: '{ "path_id": "$.path_id" }', hint: "Viram {{nome}} nos slides seguintes", rows: 2 }),
       f.text("file", "Arquivo padrão (ao lado do deck)", { hint: "para upload (@file) ou {{file.base64}}" }),
@@ -170,13 +178,17 @@
       f.more([f.text("token", "Este slide gera o token (caminho na resposta)", { hint: "ex.: $.access_token — os slides seguintes usam esse token" }),
         f.text("steps", "Lista de etapas na resposta", { hint: "ex.: $.responses" }), f.text("stepText", "Texto de cada etapa", { hint: "ex.: $.output" }),
         f.bool("mic", "Botão Gravar (microfone, para STT)"), f.text("audio", "A resposta é áudio (TTS): nome do arquivo", { placeholder: "fala.mp3" }),
-        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["curl", "curl"], ["javascript", "JavaScript"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
-        f.text("id", "Identificador (para guardar a gravação)")])],
-    codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.text("filename", "Nome do arquivo", { placeholder: "exemplo.js" }), f.codeLanguage("language", "Linguagem", "filename"),
-      f.area("code", "Código", { mono: true, rows: 10, hint: "O código é exibido, sem execução. Na apresentação, as setas percorrem as etapas." }),
+        f.select("tab", "Aba aberta ao entrar", [["body", "Corpo"], ["headers", "Cabeçalhos"], ["fields", "Parâmetros"], ["texts", "Frases (embeddings)"], ["log", "Mensagens (WebSocket)"], ["curl", "curl"], ["javascript", "JavaScript"], ["javascript-comentado", "JavaScript comentado"], ["python", "Python"], ["python-comentado", "Python comentado"]], { empty: "Corpo" }),
+        f.text("id", "Identificador (para guardar a gravação)"),
+        f.text("stepTitle", "Título de cada etapa (caminho)", { hint: "ex.: $.name — padrão tenta name, step, service e type" }),
+        f.text("tokenVar", "Nome da variável do token no código", { placeholder: "API_TOKEN" }),
+        f.json("fields", "Parâmetros documentados", { placeholder: '{ "$.campo": "O que este campo faz" }', hint: "Exibe a aba Parâmetros com caminho, valor atual e explicação." }),
+        f.json("similarity", "Comparação por embeddings", { placeholder: '{ "reference": "frase de referência", "texts": ["outra frase"], "vector": "$.data[0].embedding" }', hint: "O corpo deve usar {{text}}; compara cada frase com a referência." }),
+        f.json("code", "Abas de código", { placeholder: '["curl", "javascript", "python", "python-comentado"]', hint: "Lista de linguagens: curl, javascript, javascript-comentado, python, python-comentado." })])],
+    codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...CODE_SOURCE_FIELDS,
       f.list("steps", "Etapas da explicação", obj([f.text("title", "Título da etapa"), f.area("text", "Explicação"), f.nums("highlight", "Linhas destacadas (a partir de 1)"), f.area("output", "Saída esperada (simulação)", { mono: true, rows: 3 })]),
         { addLabel: "Adicionar etapa", newItem: () => ({ title: "Próximo passo", text: "", highlight: [1] }) }),
-      f.more([f.num("size", "Tamanho do código (px)")])],
+      f.more(CODE_SIZE_FIELDS)],
     spotlight: [f.action("Editar imagem e destaques", (s) => CTX.editScreenshot?.(s)), f.text("kicker", "Chapéu"), f.text("title", "Título"),
       f.text("caption", "Legenda"), f.more([f.text("image", "Imagem (arquivo ou link)"), f.list("hotspots", "Detalhes em foco", obj([f.select("kind", "Tipo", [["area", "Área"], ["point", "Ponto"]]), f.text("title", "Título do detalhe"), f.area("text", "Explicação"),
         f.num("x", "Posição horizontal (%)", { min: 0, max: 96 }), f.num("y", "Posição vertical (%)", { min: 0, max: 96 }),
@@ -196,7 +208,7 @@
     scenography: [f.select("scene", "Composição", [["stage","Palco e profundidade"],["floor","Chão em perspectiva"],["signs","Placas na cidade"],["terminal","Terminal hacker"],["cafe","Lousa de café"],["travel","Cartão de embarque"],["ticker","Pregão financeiro"],["marquee","Letreiro de cinema"],["blueprint","Planta técnica"],["magazine","Capa de revista"],["orbit","Órbita"],["synthwave","Neon anos 80"],["gallery","Parede de galeria"]]), f.area("title", "Texto no cenário", {rows:2}), f.text("kicker", "Texto menor"), f.text("subtitle", "Subtítulo"), f.text("caption", "Assinatura"), f.text("image", "Imagem de fundo (arquivo ou link)"), f.num("imageOpacity", "Transparência do fundo (0 a 1; padrão 0.85)", { placeholder: "0.85" }), f.text("foreground", "Recorte em primeiro plano (PNG transparente)"), f.num("titleSize", "Tamanho do texto (px)")],
     kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
       f.area("text", "Frase", { rows: 2 }),
-      f.select("style", "Estilo tipográfico", [["poster", "Pôster"], ["neon", "Neon"], ["editorial", "Editorial"], ["outline", "Contorno"], ["marker", "Marca-texto"]], { empty: "Variar automaticamente" }),
+      f.select("style", "Estilo tipográfico", [["clean", "Limpo"], ["poster", "Pôster"], ["editorial", "Editorial"], ["outline", "Contorno"], ["marker", "Marca-texto"]], { empty: "Limpo" }),
       f.select("position", "Posição", [["left", "Esquerda"], ["center", "Centro"], ["right", "Direita"], ["top", "Alto"], ["bottom", "Baixo"]], { empty: "Variar automaticamente" }),
       f.select("color", "Cor", [["white", "Branco"], ["gold", "Dourado"], ["pink", "Rosa"], ["cyan", "Ciano"]], { empty: "Branco" }),
       f.select("size", "Escala", [["small", "Pequena"], ["medium", "Média"], ["large", "Grande"]], { empty: "Grande" }),

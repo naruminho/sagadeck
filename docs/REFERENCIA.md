@@ -84,10 +84,10 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `question` | `question, options: [texto ou {key, text, sub}], keys, cols, timer, hint, optionSize` | pergunta para a plateia (com timer) |
 | `poll` | `question, id, options, compare: outroId, hint` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete |
 | `video` | `title, url, label, figure, caption` | cartão que abre um vídeo |
-| `code` | `title, code, highlight: [linhas], note` | código com linhas destacadas |
-| `codewalk` | `title, filename, language, code, size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: cada etapa destaca linhas e explica uma saída simulada |
+| `code` | `title, filename, language, code, highlight: [linhas], size, note` | código com linhas destacadas |
+| `codewalk` | `title, filename, language, code, highlight: [linhas], size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: usa o mesmo editor, tema e realce de sintaxe; cada etapa pode trocar as linhas destacadas e explicar uma saída simulada |
 | `spotlight` | `title, image` ou `figure`, `caption, hotspots: [{x, y, width, height, title, text}]` | foco guiado em regiões de screenshots, imagens ou diagramas |
-| `api` | `title, request: {method, url, body/form, headers, auth}, mode, answer, save, token, polling, steps, file, mic, audio, similarity, fields` | requisição ao vivo (tipo Postman) com código curl/Python; ver [Slide api](#slide-api-requisição-ao-vivo) |
+| `api` | `title, request: {method, url, body/form, headers, auth}, mode, answer, save, token, polling, stream, realtime, steps, file, mic, audio, similarity, fields, code, tokenVar, tab, portal` | requisição ao vivo (tipo Postman) com código curl/Python; ver [Slide api](#slide-api-requisição-ao-vivo) |
 | `image` | `image` ou `figure`, `title, caption` | imagem/figura em tela cheia |
 | `blocks` | `title, content: [elementos]` | layout livre em fluxo (linhas/colunas) |
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
@@ -182,7 +182,8 @@ itens existentes como frases e mantém a figura do slide. Sem título, frase ou 
 última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite iniciar
 manualmente. Para uma frase estática, use `autoplay: false`.
 
-Os estilos disponíveis são `poster`, `neon`, `editorial`, `outline` e `marker`; posições: `left`, `center`,
+Os estilos disponíveis são `clean`, `poster`, `editorial`, `outline` e `marker`; o estilo limpo é o padrão,
+sem brilho ou sombra exagerada. Posições: `left`, `center`,
 `right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.
 Campos omitidos variam com a batida para criar ritmo visual. Em impressão/exportação estática, os controles
 e a animação são substituídos por uma lista das frases.
@@ -194,7 +195,7 @@ e a animação são substituídos por uma lista das frases.
   interval: 1100
   beats:
     - { text: "A IDEIA", style: poster, position: left, color: white, size: large, tag: "COMEÇA PEQUENA" }
-    - { text: "ACENDE", style: neon, position: right, color: cyan, size: large }
+    - { text: "ACENDE", style: clean, position: right, color: white, size: large }
     - { text: "E MUDA", style: editorial, position: bottom, color: gold, size: medium }
 ```
 
@@ -245,13 +246,18 @@ para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, ve
 | `similarity` | embeddings: `{ reference, texts: [..], vector: "$.data[0].embedding" }`; o corpo usa `{{text}}`. Mostra o vetor e a similaridade por cosseno de cada frase |
 | `fields` | aba **Parâmetros**: `{ "$.campo": "o que faz" }`, com o valor atual de cada campo |
 | `code` | abas de código: `[curl, javascript, javascript-comentado, python, python-comentado]` (padrão: curl, javascript, python, python-comentado; sem javascript em tempo real e similaridade). O JavaScript é para Node 18+ (fetch nativo), sem dependências |
-| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `curl`, `javascript`, `javascript-comentado`, `python`, `python-comentado` |
+| `tab` | aba aberta ao entrar: `body`, `headers`, `fields`, `texts`, `log` (WebSocket), `curl`, `javascript`, `javascript-comentado`, `python`, `python-comentado` |
 | `tokenVar` | nome da variável de ambiente do token no código gerado (padrão `API_TOKEN`) |
 | `id` | chave da gravação (padrão: título + URL) |
 
 Na apresentação: a URL e o corpo são editáveis na hora (a execução usa o que está na tela); o código
 das abas acompanha. Com `polling`, as linhas do código acendem na fase que está rodando (início, laço de
 consulta, resultado) enquanto a linha do tempo mostra cada status.
+No Studio, a aba **Variáveis** mostra o ambiente atual em uma tabela **Nome / Valor**. Edite ou crie variáveis
+normais ali; nomes e valores são salvos no arquivo de ambientes, nunca no deck. Arraste um nome da tabela
+para um campo do slide para inserir `{{nome}}`. Segredos são listados pelo nome, mas seu valor nunca aparece.
+Os campos `save` do deck também aparecem com sua origem e disponibilidade.
+O editor de ambientes valida o YAML antes de habilitar **Salvar** e preserva a versão anterior em `ambientes.yaml.bak`.
 O botão **Variáveis** (na barra do slide) é o inspect/watch da apresentação, tudo num lugar só:
 - **Ambiente**: as variáveis (criar, editar, apagar) e as **protegidas** (marque "protegida" ao criar): na tela só o nome
   e ••••; o olhinho mostra o valor por 15 segundos. Nos slides e no código gerado aparece o nome (`{{secret.chave}}`),
@@ -599,6 +605,10 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 - `ribbon`: os mesmos campos em cápsulas arredondadas, centralizadas. Para serviços, etapas ou pilares.
 - `dossier`: página de consulta, compacta: letra menor e blocos de código (`code`) com quebra de linha. Para material de referência (documentação, payloads, instruções); não imponha a ela o limite de palavras de uma palestra quando a pessoa pede material denso.
 
+No Studio, a aba **Avançado** oferece atalhos para inserir uma página de consulta, uma grade adaptável, um diagrama ou uma sequência cinética. Também permite mudar a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
+
+Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
+
 ## Infográficos (`infographic`)
 
 As formas clássicas de slide de consultoria, desenhadas na hora para a quantidade de itens que vier (o desenho se reorganiza; o texto encolhe para caber). Uma cor por item, tirada do tema (numa paleta de família, os parentes dela); o texto é editável no PowerPoint. `build: true` revela um item por clique.
@@ -692,9 +702,10 @@ ficam na pasta `imagens/` da apresentação.
 
 ## Ajustes diretos no Studio
 
-Na barra de objetos: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Selecionar objetos permite arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
+Em **Inserir → Objetos livres**: Texto, Forma e Imagem adicionam elementos sem trocar o layout. Clicar numa forma ou imagem do slide a seleciona; num texto, o clique escreve e apertar e arrastar move o objeto. Selecionado, dá para arrastar, redimensionar pela alça, ajustar fonte/cor e ordem visual; Escape solta. Delete/Backspace excluem a aparência do objeto selecionado; Ctrl+Z ou Desfazer objeto restaura a última edição visual no slide. Duplo clique permite voltar a escrever. Os ajustes são persistidos em `visualEdits`, com chaves geradas pelo renderizador; não invente essas chaves ao criar um deck. Prefira alterar os campos semânticos. A exclusão visual usa `hidden` para preservar conteúdo recuperável. Mudanças estruturais grandes podem invalidar ajustes: remova `visualEdits` ao reconstruir um slide.
 
 `Corrigir layout` continua local e baseado em regras. `Revisar com IA` envia a imagem renderizada do slide ao modelo configurado e solicita melhorias; usa tokens. O status de IA abre a configuração do modelrelay. Um modelo sem visão é identificado na resposta; conectividade com `/models` não comprova que uma geração será aceita pelo provedor.
+O fiscal local também sinaliza texto principal abaixo de 16 px como alerta de leitura; esse aviso é informativo e não reduz a fonte automaticamente.
 
 ## Densidade técnica e payloads extensos
 

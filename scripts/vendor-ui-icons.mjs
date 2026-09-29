@@ -20,7 +20,7 @@ const NAMES = [
   "zoom-in", "zoom-out", "maximize", "arrow-up", "arrow-down", "send", "image-plus", "circle-alert", "check",
   "monitor-play", "sliders-horizontal", "loader-circle", "panel-bottom",
   "clock", "layout-grid", "ellipsis", "pencil", "folder", "arrow-left", "library", "rotate-ccw", "upload", "file-plus", "moon", "sun", "folder-plus", "presentation",
-  "server-cog", "plug-zap", "graduation-cap", "theater", "square", "minimize-2", "link", "paperclip",
+  "server-cog", "plug-zap", "graduation-cap", "theater", "square", "minimize-2", "braces", "link", "paperclip",
 ];
 
 const icons = {};

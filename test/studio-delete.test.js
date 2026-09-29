@@ -26,6 +26,7 @@ test("Delete na lista de slides exclui o selecionado, com Desfazer", { timeout: 
       await settle();
       assert.deepEqual(layouts(), [before[0], ...before.slice(2)]);
       assert.equal(await p.locator(".thumb-card").count(), before.length - 1);
+      assert.equal(await p.locator(".thumb-card.active").getAttribute("data-idx"), "1", "o slide que estava abaixo recebe o foco");
       assert.match(await p.innerText("#toast-notification"), /Slide 2 excluído/);
     });
 
@@ -41,6 +42,7 @@ test("Delete na lista de slides exclui o selecionado, com Desfazer", { timeout: 
       await p.keyboard.press("Backspace");
       await settle();
       assert.deepEqual(layouts(), [...before.slice(0, 2), ...before.slice(3)]);
+      assert.equal(await p.locator(".thumb-card.active").getAttribute("data-idx"), "2", "o slide que estava abaixo recebe o foco");
       await p.click("#toast-notification [data-toast-undo]");
       await settle();
       assert.deepEqual(layouts(), before);

@@ -134,6 +134,7 @@ export function el(e, ctx, w, h) {
   if (e.widget) return `<div${attrs(e, "widget")} data-widget="${esc(e.widget)}" data-opts="${esc(JSON.stringify(e))}"></div>`;
   if (e.html) return `<div${attrs(e, "raw")}>${e.html}</div>`;
   if (e.spacer != null) return `<div class="spacer" style="flex:${e.spacer === true ? 1 : 0} 0 ${px(e.spacer === true ? 0 : e.spacer)}"></div>`;
+  if (!e.image && Object.keys(e).every((key) => ["image", "fit", "alt", "radius"].includes(key))) return "";
   // atalhos de texto: { h2: "…" }, { label: "…" }, { quote: "…" } …
   for (const r of ["title", "h2", "h3", "lead", "body", "small", "label", "quote", "mono", "hero", "number", "tiny"]) {
     if (e[r] != null && typeof e[r] !== "object") return text(e[r], r, e);

@@ -10,7 +10,7 @@
     set(k, v) { try { localStorage.setItem("sagadeck." + k, JSON.stringify(v)); } catch {} },
   };
   let data = { topics: [], decks: [], trash: [], root: "" };
-  let view = store.get("libView", "recentes");
+  let view = new URLSearchParams(location.search).get("topic") || store.get("libView", "recentes");
   let sortBy = store.get("libSort", "editada");
 
   function hydrate(root = document) {
@@ -254,6 +254,7 @@
     ["demo", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
     ["demo", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
     ["demo", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
+    ["demo", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["demo", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
     ["exemplo", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
     ["exemplo", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
