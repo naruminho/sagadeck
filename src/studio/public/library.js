@@ -232,45 +232,50 @@
       try { const { id } = await api(path, { topic, ...body }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
     };
     if (key === "blank") return nameDialog("Nova apresentação", "", (title) => create("api/library/decks", { title }), "Título");
-    if (key === "ai") return aiDialog(topic);
-    if (key === "ai-file") return aiDialog(topic, { fromFile: true });
+    if (key === "ai" || key === "ai-file") return aiDialog(topic);
     if (key === "gallery") return galleryDialog(topic);
-    // modelo de fábrica: abre em prévia (vitrine); a cópia só nasce quando a pessoa muda algo ou clica "Usar como base"
-    if (key.startsWith("model-")) { location.href = `editor?model=${encodeURIComponent(key.slice(6))}&topic=${encodeURIComponent(topic || "Modelos")}`; return; }
-    if (key.startsWith("exp-")) return create("api/library/experience", { experience: key.slice(4) });
-    if (key === "example-cenario") return create("api/library/decks/example-cenario", {});
-    if (key === "example-api") return create("api/library/decks/example", {});
+    // tudo da vitrine abre em prévia: a cópia só nasce quando a pessoa muda algo ou clica "Usar como base".
+    // Modelo de fábrica cai em "Modelos" se não veio de um tópico; estilo e exemplo, no tópico atual (ou sem tópico).
+    if (/^(model|exp|example)-/.test(key)) {
+      const dest = topic || (key.startsWith("model-") ? "Modelos" : "");
+      location.href = `editor?model=${encodeURIComponent(key.startsWith("model-") ? key.slice(6) : key)}&topic=${encodeURIComponent(dest)}`;
+      return;
+    }
     $("#import-input").dataset.topic = topic;
     $("#import-input").click();
   }
 
-  // Vitrine "Modelo pronto": tudo o que já vem pronto num lugar só (antes eram 14 linhas no menu Nova), com filtro
+  // Vitrine "Modelo pronto": tudo o que já vem pronto num lugar só, em dois grupos pelo que a pessoa quer fazer:
+  // "visual" (um visual completo para trocar o texto) e "recurso" (mostra do que o SagaDeck é capaz).
+  // O cartão mostra a capa desenhada de verdade (api/library/gallery-cover); as cores são só o fundo enquanto carrega.
   const GALLERY = [
-    ["colecao", "model-perspectiva", "Perspectiva", "Fotografia, agenda e contraste corporativo", ["#1F2A44", "#E9E4DA", "#C8553D"]],
-    ["colecao", "model-essencial", "Essencial", "Minimalismo, espaço e detalhes em preto e branco", ["#F5F5F2", "#1A1A1A", "#9A9A94"]],
-    ["colecao", "model-revista", "Revista", "Serifas, capítulos e fotografia editorial", ["#FAF7F0", "#1C1C1C", "#B23A2E"]],
-    ["colecao", "model-cromatico", "Cromático", "Cor, fotos e painéis sobrepostos", ["#F2B33D", "#1F4AA8", "#D93A2B"]],
-    ["colecao", "model-tracos", "Traços", "Geometria, molduras e caminhos visuais", ["#F3EEE3", "#1A1A1A", "#D93A2B"]],
-    ["demo", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
-    ["demo", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
-    ["demo", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
-    ["demo", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
-    ["demo", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
-    ["demo", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
-    ["exemplo", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
-    ["exemplo", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
+    ["visual", "model-perspectiva", "Perspectiva", "Corporativo com fotografia, agenda e contraste", ["#1F2A44", "#E9E4DA", "#C8553D"]],
+    ["visual", "model-essencial", "Essencial", "Minimalismo, espaço e detalhes em preto e branco", ["#F5F5F2", "#1A1A1A", "#9A9A94"]],
+    ["visual", "model-revista", "Revista", "Serifas, capítulos e fotografia editorial", ["#FAF7F0", "#1C1C1C", "#B23A2E"]],
+    ["visual", "model-cromatico", "Cromático", "Cor, fotos e painéis sobrepostos", ["#F2B33D", "#1F4AA8", "#D93A2B"]],
+    ["visual", "model-tracos", "Traços", "Geometria, molduras e caminhos visuais", ["#F3EEE3", "#1A1A1A", "#D93A2B"]],
+    ["visual", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
+    ["visual", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
+    ["visual", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
+    ["recurso", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
+    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
+    ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
+    ["recurso", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
+    ["recurso", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
   ];
-  const GALLERY_KINDS = [["", "Todos"], ["colecao", "Coleções"], ["estilo", "Estilos prontos"], ["demo", "Demonstrações"], ["exemplo", "Exemplos"]];
+  const GALLERY_KINDS = [["", "Todos"], ["visual", "Visuais para começar"], ["recurso", "Recursos do SagaDeck"]];
   async function galleryDialog(topic, kind = "") {
+    if (kind === "demo") kind = "recurso"; // link antigo: biblioteca?galeria=demo
     let items = GALLERY;
     try {
       const { experiences } = await api("api/experiences");
-      items = [...GALLERY.slice(0, 5), ...experiences.map((x) => ["estilo", `exp-${x.id}`, x.name, x.description, [x.background, x.accent, x.color]]), ...GALLERY.slice(5)];
+      items = [...GALLERY.slice(0, 8), ...experiences.map((x) => ["visual", `exp-${x.id}`, x.name, x.description, [x.background, x.accent, x.color]]), ...GALLERY.slice(8)];
     } catch { /* sem os estilos prontos, a vitrine segue com o resto */ }
     dialog(`<h3 id="dialog-heading">Modelo pronto</h3>
+      <p class="vit-intro">Escolha um ponto de partida. Tudo abre em prévia: você navega e experimenta à vontade, e a sua cópia só é criada quando você muda algo.</p>
       <div class="vit-filters" role="tablist">${GALLERY_KINDS.map(([k, l], i) => `<button class="vit-filter ${i ? "" : "active"}" data-kind="${k}">${l}</button>`).join("")}</div>
       <div class="vit-grid">${items.map(([kind, key, name, desc, sw]) => `<button class="vit-card" data-new="${esc(key)}" data-kind="${kind}">
-        <span class="vit-sw">${sw.map((c) => `<i style="background:${esc(c)}"></i>`).join("")}</span>
+        <span class="vit-thumb" style="background:linear-gradient(90deg,${sw.map(esc).join(",")})"><img loading="lazy" alt="" src="api/library/gallery-cover?key=${encodeURIComponent(key)}" onerror="this.remove()"></span>
         <b>${esc(name)}</b><span class="d">${esc(desc)}</span></button>`).join("")}</div>
       <div class="row"><button class="lib-btn ghost" data-cancel>Fechar</button></div>`, (box, close) => {
       box.classList.add("wide");
@@ -331,17 +336,17 @@
 
   // "Descrever com IA" e "A partir de um arquivo ou link": o mesmo diálogo, numa tela só (assunto, tempo, estilo,
   // material de apoio). O material vira texto no servidor (/api/ai/context) e vai para a IA junto com o pedido.
-  function aiDialog(topic, { fromFile = false } = {}) {
+  function aiDialog(topic) {
     const docs = [];
     let reading = 0;
-    dialog(`<h3 id="dialog-heading">${fromFile ? "Apresentação a partir de um arquivo ou link" : "Nova apresentação com IA"}</h3>
-      <label for="dlg-brief">${fromFile ? "Para quem é e o que destacar? (opcional)" : "Sobre o que é, para quem e com que objetivo?"}</label>
-      <textarea id="dlg-brief" placeholder="${fromFile ? "Ex.: resumo para a diretoria, focando nos números do ano e nos riscos." : "Ex.: palestra para gestores sobre golpes no Pix. Tom leve, começando com um caso real. Quero imagens só na capa."}"></textarea>
+    dialog(`<h3 id="dialog-heading">Nova apresentação com IA</h3>
+      <label for="dlg-brief">Sobre o que é, para quem e com que objetivo? <span class="muted">Ou só anexe o material abaixo.</span></label>
+      <textarea id="dlg-brief" placeholder="Ex.: palestra para gestores sobre golpes no Pix, tom leve, começando com um caso real. Ou: resumo deste relatório para a diretoria, focando nos números do ano."></textarea>
       <div class="dlg-two">
         <div><label for="dlg-min">Quanto tempo você tem?</label><div class="dlg-min"><input type="number" id="dlg-min" min="1" max="120" value="10"><span>min</span><span class="hint" id="dlg-slides"></span></div></div>
         <div><label for="dlg-style">Estilo</label><select id="dlg-style"><option value="">Automático (a IA escolhe pelo assunto)</option>${STYLES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
       </div>
-      <label>Material de apoio${fromFile ? "" : " (opcional)"}</label>
+      <label>Material de apoio <span class="muted">(opcional: arquivos ou links; dá para arrastar arquivos para cá)</span></label>
       <div class="dlg-att"><button class="lib-btn ghost" id="dlg-file" type="button">${ic("paperclip")}Anexar arquivo</button>
         <input type="file" id="dlg-files" multiple hidden accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv">
         <input type="text" id="dlg-link" placeholder="ou cole um link (https://…)"><button class="lib-btn ghost" id="dlg-link-add" type="button">Adicionar</button></div>
@@ -375,10 +380,17 @@
       const addLink = () => { const u = link.value.trim(); if (!/^https?:\/\//i.test(u)) { status.textContent = "Cole um link que comece com http:// ou https://"; return; } link.value = ""; add({ url: u }, u); };
       box.querySelector("#dlg-link-add").onclick = addLink;
       link.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } };
-      if (fromFile) setTimeout(() => files.click(), 0);
+      // arrastar arquivos para dentro do modal também anexa
+      box.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); box.classList.add("drop-over"); } });
+      box.addEventListener("dragleave", (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove("drop-over"); });
+      box.addEventListener("drop", async (e) => {
+        if (!e.dataTransfer?.files?.length) return;
+        e.preventDefault(); box.classList.remove("drop-over");
+        for (const f of [...e.dataTransfer.files]) add({ name: f.name, dataUrl: await readAsDataURL(f) }, f.name);
+      });
       btn.onclick = async () => {
         let briefing = box.querySelector("#dlg-brief").value.trim();
-        if (!briefing && !docs.length) { status.textContent = fromFile ? "Anexe um arquivo ou cole um link." : "Conte sobre o que é a apresentação."; return; }
+        if (!briefing && !docs.length) { status.textContent = "Conte sobre o que é a apresentação ou anexe um arquivo ou link."; return; }
         if (!briefing) briefing = "Transforme o material anexado numa apresentação clara e bem redigida, para quem não leu o material.";
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";

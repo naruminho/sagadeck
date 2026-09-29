@@ -243,7 +243,7 @@
     setupShell();
     setupCreativeTools();
     window.SagaVisual?.setup(document.getElementById("visual-tools"));
-    hydrateIcons(document.getElementById("visual-tools"));
+    hydrateIcons(document); // botões do Inserir e a barra flutuante do objeto
     document.getElementById("btn-ai-review").onclick = async () => {
       if (dom.chatSend.disabled) return;
       await refreshAIStatus(true);
@@ -259,7 +259,7 @@
     const params = new URLSearchParams(location.search);
     if (params.get("model")) {
       try {
-        const r = await fetch("api/library/decks/model-preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: params.get("model"), topic: params.get("topic") || "Modelos" }) });
+        const r = await fetch("api/library/decks/model-preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: params.get("model"), topic: params.has("topic") ? params.get("topic") : "Modelos" }) });
         if (!r.ok) showToast("Não deu para abrir o modelo: " + ((await r.json().catch(() => ({}))).error || r.status), 6000);
       } catch {}
     } else if (params.get("deck")) {

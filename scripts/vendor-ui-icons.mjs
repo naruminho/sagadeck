@@ -21,7 +21,7 @@ const NAMES = [
   "monitor-play", "sliders-horizontal", "loader-circle", "panel-bottom",
   "clock", "layout-grid", "ellipsis", "pencil", "folder", "arrow-left", "library", "rotate-ccw", "upload", "file-plus", "moon", "sun", "folder-plus", "presentation",
   "server-cog", "plug-zap", "graduation-cap", "theater", "square", "minimize-2", "braces", "link", "paperclip",
-  "type", "chevron-left", "chevron-right", "layout-grid", "maximize-2", "eye",
+  "type", "chevron-left", "chevron-right", "layout-grid", "maximize-2", "eye", "baseline", "paint-bucket", "bring-to-front", "send-to-back",
 ];
 
 const icons = {};

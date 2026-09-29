@@ -31,9 +31,30 @@
     if(!sel.length)return;
     sel.forEach(el=>el.classList.add('visual-selected'));
     const el=primary();
+    // só os controles que fazem sentido para o que está selecionado
+    const texts=sel.every(n=>n.classList.contains('t')), anyText=sel.some(n=>n.classList.contains('t')), shapes=sel.every(n=>n.classList.contains('shape'));
+    toolbar.querySelector('[data-size-field]').hidden=!texts;
+    toolbar.querySelector('[data-color-field]').hidden=!anyText;
+    toolbar.querySelector('[data-fill-field]').hidden=!shapes;
     toolbar.querySelector('[data-size]').value=Math.round(parseFloat(getComputedStyle(el).fontSize));
-    toolbar.querySelector('[data-size]').disabled=!sel.every(n=>n.classList.contains('t'));
+    toolbar.querySelector('[data-color]').value=toHex(getComputedStyle(el).color);
+    const fillOf=n=>n.querySelector('.shape-svg polygon, .shape-svg path')?getComputedStyle(n.querySelector('.shape-svg polygon, .shape-svg path')).fill:getComputedStyle(n).backgroundColor;
+    if(shapes)toolbar.querySelector('[data-fill]').value=toHex(fillOf(el));
     if(sel.length===1) { const h=document.createElement('button');h.type='button';h.className='visual-handle';h.ariaLabel='Redimensionar elemento';el.append(h); }
+    placeToolbar();
+  }
+  const toHex=c=>{const m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return '#000000';return '#'+m.slice(0,3).map(v=>Math.round(+v).toString(16).padStart(2,'0')).join('');};
+  // a barra do objeto flutua logo acima da seleção (embaixo, se não couber), em qualquer aba da faixa
+  function placeToolbar() {
+    if(toolbar.hidden||!sel.length)return;
+    const rs=sel.map(n=>n.getBoundingClientRect()),top=Math.min(...rs.map(r=>r.top)),bottom=Math.max(...rs.map(r=>r.bottom)),left=Math.min(...rs.map(r=>r.left));
+    const h=toolbar.offsetHeight,w=toolbar.offsetWidth;
+    toolbar.style.top=`${Math.round(top-h-12<70?bottom+12:top-h-12)}px`;
+    toolbar.style.left=`${Math.round(Math.max(8,Math.min(innerWidth-w-8,left)))}px`;
+  }
+  // cor ao vivo enquanto a pessoa escolhe; grava (com Desfazer) quando ela solta
+  function liveColor(kind,value) {
+    sel.forEach(n=>{if(kind==='color')n.style.setProperty('color',value,'important');else if(n.querySelector(':scope > .shape-svg'))n.style.setProperty('--shape-fill',value);else n.style.setProperty('background',value,'important');});
   }
   // escreve no texto: o cursor vai para onde a pessoa clicou; o app salva no blur (enableInlineEditing)
   function startWriting(el,x,y) {
@@ -65,16 +86,32 @@
     const file=document.createElement('input');file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;container.append(file);
     container.append(button('Imagem',()=>file.click(),'rbtn rbtn-lg','image'));
     file.onchange=async()=>{ const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Use uma imagem de até 8 MB.');return;} const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f);});insert({image:data,x:260,y:180,w:700,h:450,fit:'contain'});file.value=''; };
-    toolbar=document.createElement('div');toolbar.className='visual-toolbar';toolbar.hidden=true;toolbar.ariaLabel='Objeto selecionado';
-    const size=document.createElement('input');size.type='number';size.min='10';size.max='500';size.dataset.size='';size.ariaLabel='Tamanho do texto';size.onchange=()=>change(e=>e.size=Math.max(10,Math.min(500,Number(size.value))));
-    const color=document.createElement('input');color.type='color';color.ariaLabel='Cor do texto';color.onchange=()=>change(e=>e.color=color.value);
-    toolbar.append(size,color,button('Frente',()=>change(e=>e.z=(e.z||0)+1),'visual-action-button'),button('Atrás',()=>change(e=>e.z=(e.z||0)-1),'visual-action-button'),button('Excluir',()=>change(e=>e.hidden=true),'visual-action-button'));container.append(toolbar);
+    toolbar=document.createElement('div');toolbar.className='visual-toolbar';toolbar.hidden=true;toolbar.setAttribute('role','toolbar');toolbar.ariaLabel='Objeto selecionado';
+    toolbar.innerHTML=`<label class="vt-field" data-size-field title="Tamanho do texto"><i class="ic" data-ic="type"></i><input type="number" min="10" max="500" data-size aria-label="Tamanho do texto"></label>
+      <label class="vt-field vt-color" data-color-field title="Cor do texto"><i class="ic" data-ic="baseline"></i><input type="color" data-color aria-label="Cor do texto"></label>
+      <label class="vt-field vt-color" data-fill-field title="Preenchimento"><i class="ic" data-ic="paint-bucket"></i><input type="color" data-fill aria-label="Preenchimento"></label>
+      <span class="vt-sep"></span>
+      <button type="button" class="vt-btn" data-act="front" aria-label="Trazer para frente" title="Trazer para frente"><i class="ic" data-ic="bring-to-front"></i></button>
+      <button type="button" class="vt-btn" data-act="back" aria-label="Enviar para trás" title="Enviar para trás (fica atrás dos outros objetos, nunca do fundo)"><i class="ic" data-ic="send-to-back"></i></button>
+      <button type="button" class="vt-btn" data-act="delete" aria-label="Excluir" title="Excluir (Delete)"><i class="ic" data-ic="trash-2"></i></button>`;
+    const size=toolbar.querySelector('[data-size]'),color=toolbar.querySelector('[data-color]'),fill=toolbar.querySelector('[data-fill]');
+    size.onchange=()=>change(e=>e.size=Math.max(10,Math.min(500,Number(size.value))));
+    color.oninput=()=>liveColor('color',color.value);color.onchange=()=>change(e=>e.color=color.value);
+    fill.oninput=()=>liveColor('fill',fill.value);fill.onchange=()=>change(e=>e.fill=fill.value);
+    toolbar.querySelector('[data-act="front"]').onclick=()=>change(e=>e.z=(e.z||0)+1);
+    toolbar.querySelector('[data-act="back"]').onclick=()=>change(e=>e.z=(e.z||0)-1);
+    toolbar.querySelector('[data-act="delete"]').onclick=()=>{change(e=>e.hidden=true);pick(null);};
+    toolbar.addEventListener('pointerdown',e=>e.stopPropagation());
+    document.body.append(toolbar);
+    addEventListener('resize',placeToolbar);document.addEventListener('scroll',placeToolbar,true);
     document.addEventListener('keydown',e=>{
       if(!active || e.target.closest('input,textarea,[contenteditable="true"],dialog') || document.querySelector('dialog[open]'))return;
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.stopImmediatePropagation();undo();return;}
       if(!sel.length)return;
       if(['Delete','Backspace'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();change(v=>v.hidden=true);pick(null);return;}
       if(e.key==='Escape'){pick(null);setMode(false);return;}
+      // Tab / Shift+Tab: próximo objeto (alcança o que ficou escondido atrás de outro)
+      if(e.key==='Tab'){const all=[...root.querySelectorAll('[data-vkey]')].filter(n=>n.offsetParent&&getComputedStyle(n).display!=='none');if(!all.length)return;e.preventDefault();e.stopImmediatePropagation();const i=all.indexOf(primary());pick(all[(i+(e.shiftKey?-1:1)+all.length)%all.length]);return;}
       if(e.key.startsWith('Arrow')){e.preventDefault();e.stopImmediatePropagation();const n=e.shiftKey?10:1;change(v=>{v.dx=(v.dx||0)+(e.key==='ArrowRight'?n:e.key==='ArrowLeft'?-n:0);v.dy=(v.dy||0)+(e.key==='ArrowDown'?n:e.key==='ArrowUp'?-n:0);});}
     },true);
   }
@@ -87,6 +124,12 @@
     beforeDrag=clone(slide);
     dragging={x,y,scale,resize,w:r.width/scale,h:r.height/scale,moved:false,items:sel.map(n=>({el:n,value:clone(slide.visualEdits?.[n.dataset.vkey]||{})}))};
     try{root.setPointerCapture(pointerId);}catch{}
+  }
+  // o objeto mais de cima naquele ponto, atravessando as caixas transparentes do layout: um objeto enviado para trás
+  // do texto continua clicável onde ele aparece
+  function objectAt(x,y) {
+    for(const n of document.elementsFromPoint(x,y)){if(!root.contains(n))continue;const o=n.closest('[data-vkey]');if(o&&root.contains(o)&&getComputedStyle(o).display!=='none')return o;}
+    return null;
   }
   // objetos inteiros dentro do retângulo (o de fora ganha do de dentro: um cartão e não o texto dele)
   function inMarquee(box) {
@@ -103,7 +146,7 @@
       root.addEventListener('pointerdown',e=>{
         if(e.button!==0 || e.target.closest('.science-plot,input,textarea'))return;
         if(e.target.closest('[contenteditable="true"]')?.dataset.writing)return; // escrevendo: o clique é do cursor
-        const el=e.target.closest('[data-vkey]');
+        const el=objectAt(e.clientX,e.clientY)||e.target.closest('[data-vkey]');
         if(!el){
           if(!e.target.closest('.slide')){if(active){pick(null);setMode(false);}return;}
           // área vazia do slide: retângulo de seleção

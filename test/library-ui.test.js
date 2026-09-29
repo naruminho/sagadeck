@@ -270,7 +270,8 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
     assert.match(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/);
-    await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click('.vit-card[data-new="example-api"]')]);
+    await Promise.all([p.waitForURL(/\/editor\?model=example-api/), p.click('.vit-card[data-new="example-api"]')]);
+    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/); // prévia → a cópia
     await p.waitForSelector("#rendered-slide-container .slide");
 
     // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
@@ -320,7 +321,8 @@ test("Nova → Exemplo: texto no cenário cria o deck com as imagens de exemplo 
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
     assert.match(await p.innerText(".vit-grid"), /Texto no cenário/);
-    await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click('.vit-card[data-new="example-cenario"]')]);
+    await Promise.all([p.waitForURL(/\/editor\?model=example-cenario/), p.click('.vit-card[data-new="example-cenario"]')]);
+    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/); // prévia → a cópia
     await p.waitForSelector("#rendered-slide-container .L-scenography");
     const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
     const file = path.join(studio.library, yamls.find((f) => /cen[aá]rio/i.test(f)));
@@ -346,28 +348,35 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
     await t.test("o menu tem os três caminhos (e em branco / importar), sem o mural de modelos", async () => {
       await p.click("#btn-new");
       const keys = await p.$$eval("#new-menu [data-new]", (els) => els.map((e) => e.dataset.new));
-      assert.deepEqual(keys, ["ai", "ai-file", "gallery", "blank", "import"]);
+      assert.deepEqual(keys, ["ai", "gallery", "blank", "import"], "descrever e anexar arquivo viraram um item só");
       await p.keyboard.press("Escape");
     });
 
-    await t.test("Modelo pronto: coleções, estilos prontos, demonstrações e exemplos, com filtro; um estilo pronto vira apresentação", async () => {
+    await t.test("Modelo pronto: visuais para começar e recursos do SagaDeck, com a capa de verdade; um estilo abre em prévia e vira apresentação ao usar", async () => {
       await p.click("#btn-new");
       await p.click('#new-menu [data-new="gallery"]');
-      await p.waitForSelector('.vit-card[data-kind="estilo"]'); // os estilos prontos vêm do servidor
+      await p.waitForSelector('.vit-card[data-new="exp-executivo"]'); // os estilos prontos vêm do servidor
       const kinds = await p.$$eval(".vit-card", (els) => [...new Set(els.map((e) => e.dataset.kind))]);
-      assert.deepEqual(kinds.sort(), ["colecao", "demo", "estilo", "exemplo"]);
-      await p.click('.vit-filter[data-kind="exemplo"]');
+      assert.deepEqual(kinds.sort(), ["recurso", "visual"], "dois grupos pelo que a pessoa quer fazer");
+      const nomes = await p.$$eval(".vit-card b", (els) => els.map((e) => e.textContent));
+      assert.equal(new Set(nomes).size, nomes.length, `nome repetido na vitrine: ${nomes.join(", ")}`);
+      assert.match(await p.textContent(".vit-intro"), /prévia/);
+      // a capa desenhada de verdade no lugar das barras de cor
+      await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
+      await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["example-api", "example-cenario"]);
-      await p.click('.vit-filter[data-kind="estilo"]');
-      await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click('.vit-card[data-new="exp-executivo"]')]);
+      assert.deepEqual(visiveis, ["model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      await p.click('.vit-filter[data-kind="visual"]');
+      await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/), p.click('.vit-card[data-new="exp-executivo"]')]);
       await p.waitForSelector("#rendered-slide-container .slide");
-      const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
-      assert.equal(yamls.length, 1, yamls.join(", "));
-      assert.equal(YAML.parse(fs.readFileSync(path.join(studio.library, yamls[0]), "utf8")).theme, "noite");
+      const yamls = () => fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
+      assert.equal(yamls().length, 0, "prévia: nada criado");
+      await p.click("#btn-model-use"); await p.waitForURL(/editor\?deck=/);
+      assert.equal(yamls().length, 1, yamls().join(", "));
+      assert.equal(YAML.parse(fs.readFileSync(path.join(studio.library, yamls()[0]), "utf8")).theme, "noite");
     });
 
-    await t.test("Descrever com IA: minutos viram slides, estilo e anexo vão no pedido", async () => {
+    await t.test("Criar com IA: minutos viram slides, estilo e anexo vão no pedido", async () => {
       await p.goto(studio.url + "/biblioteca", { waitUntil: "networkidle" });
       await p.click("#btn-new");
       await p.click('#new-menu [data-new="ai"]');
@@ -391,10 +400,16 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.keyboard.press("Escape");
     });
 
-    await t.test("A partir de um arquivo: sem texto nenhum, o anexo basta", async () => {
+    await t.test("Criar com IA só com anexo: o modal abre primeiro (sem seletor de arquivo de cara) e o anexo basta", async () => {
       await p.click("#btn-new");
-      const [chooser] = await Promise.all([p.waitForEvent("filechooser"), p.click('#new-menu [data-new="ai-file"]')]);
-      await chooser.setFiles({ name: "relatorio.md", mimeType: "text/markdown", buffer: Buffer.from("# Relatório\nVendas subiram 40%") });
+      let abriuSeletor = false;
+      const marca = () => { abriuSeletor = true; };
+      p.on("filechooser", marca);
+      await p.click('#new-menu [data-new="ai"]');
+      await p.waitForSelector("#dlg-brief"); await p.waitForTimeout(500);
+      p.off("filechooser", marca);
+      assert.equal(abriuSeletor, false, "o seletor de arquivo não abre sozinho");
+      await p.setInputFiles("#dlg-files", { name: "relatorio.md", mimeType: "text/markdown", buffer: Buffer.from("# Relatório\nVendas subiram 40%") });
       await p.waitForFunction(() => /relatorio\.md/.test(document.querySelector("#dlg-chips")?.textContent || "") && !document.querySelector("#dlg-ok").disabled);
       let body = null;
       await p.route("**/api/library/decks/ai", async (route) => { body = JSON.parse(route.request().postData()); await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: JSON.stringify({ type: "error", error: "sem LLM no teste" }) + "\n" }); });

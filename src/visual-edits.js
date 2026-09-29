@@ -1,4 +1,5 @@
 // Identificadores determinísticos por classe; ajustes visuais valem no Studio e no HTML exportado.
+const SVG_SHAPES = ['triangle','diamond','hexagon','star','arrow','chevron','bubble'].map(k=>`shape-${k}`);
 export function applyVisualEdits(html, edits = {}) {
   const counts = new Map();
   return html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls) => {
@@ -15,6 +16,8 @@ export function applyVisualEdits(html, edits = {}) {
     if (e.h != null) css += `height:${Math.max(20,num(e.h,100))}px!important;`;
     if (e.size != null) css += `font-size:${Math.max(10,num(e.size,36))}px!important;`;
     if (/^#[0-9a-f]{6}$/i.test(e.color)) css += `color:${e.color}!important;`;
+    // Preenchimento de forma: desenho (SVG) usa --shape-fill; retângulo, elipse e pílula pintam o fundo; linha, a cor
+    if (/^#[0-9a-f]{6}$/i.test(e.fill) && classes.includes('shape')) css += classes.some(c=>SVG_SHAPES.includes(c)) ? `--shape-fill:${e.fill};` : `background:${e.fill}!important;`;
     if (e.z != null) css += `${/position:absolute/.test(attrs) ? '' : 'position:relative;'}z-index:${Math.round(num(e.z))};`;
     if (css) attrs = /\bstyle="/.test(attrs) ? attrs.replace(/style="([^"]*)"/,(_,old)=>`style="${old};${css}"`) : `${attrs} style="${css}"`;
     return `<${name}${attrs} data-vkey="${key}">`;
