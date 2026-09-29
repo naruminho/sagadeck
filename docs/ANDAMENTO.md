@@ -8,6 +8,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Objetos: cor, preenchimento, "Enviar para trás"; vitrine clara; Criar com IA unificado — 29/09/2026
+
+- Bug: "Atrás" mandava a forma para `z-index` negativo, atrás do fundo do slide (sumia e não dava para excluir). Agora
+  `.safe`/`.free` isolam o empilhamento (`isolation:isolate`) e o clique pega o objeto mais de cima naquele ponto
+  atravessando as caixas transparentes do layout (`objectAt` com `elementsFromPoint`); Tab/Shift+Tab passam de objeto.
+- Bug: a cor só mexia no texto; formas ganharam **Preenchimento** (`visualEdits.fill`: `--shape-fill` nos desenhos SVG,
+  fundo nas formas retas). A barra do objeto flutua junto da seleção, em qualquer aba, com rótulos e ícones; a cor
+  muda ao vivo e grava ao soltar.
+- Vitrine Modelo pronto: capa desenhada de verdade (`/api/library/gallery-cover`, cache em `.cache/vitrine`), dois
+  grupos pelo uso ("Visuais para começar", "Recursos do SagaDeck"), sem nome repetido (o estilo "Essencial" virou
+  "Uma ideia por vez"). Estilos e exemplos também abrem em prévia (`galleryEntry` no servidor, chave `exp-*`/`example-*`).
+- Nova: "Descrever com IA" e "A partir de um arquivo ou link" viraram **Criar com IA**; o modal abre primeiro (sem
+  abrir o seletor de arquivo) e aceita arrastar arquivos.
+
 ## Modelos abrem em prévia (cópia só na primeira mudança) e limpeza da biblioteca — 29/09/2026
 
 - Decisão: modelo/demo de fábrica é **vitrine**, não arquivo. `Modelo pronto` abre `editor?model=<tipo>&topic=…`

@@ -224,13 +224,36 @@ export function createStudioServer(deckPath = null, opts = {}) {
       fs.copyFileSync(path.join(MODEL_ASSETS_DIR, "imagens", asset), path.join(dest, asset));
     }
   }
+  // Tudo o que a vitrine "Modelo pronto" oferece, por chave (model-*, exp-*, example-*): o deck, a pasta de onde a
+  // prévia lê as imagens e o que copiar para a pasta da cópia quando ela nasce.
+  function galleryEntry(key) {
+    key = String(key || "");
+    if (key.startsWith("model-")) { const kind = key.slice(6); return { spec: demoDeck(kind), dir: MODEL_ASSETS_DIR, copy: (L, id) => copyModelAssets(L, id, kind) }; }
+    if (key.startsWith("exp-")) return { spec: createExperienceDeck(key.slice(4)), dir: null, copy: () => {} };
+    if (key === "example-cenario") {
+      const dir0 = TEMPLATE_DIRS.map((d) => path.join(d, "cenario")).find((d) => fs.existsSync(d));
+      if (!dir0) throw new Error("o exemplo não veio no pacote (templates/cenario)");
+      const tpl = fs.readdirSync(dir0).find((f) => f.endsWith(".yaml"));
+      return { spec: YAML.parse(fs.readFileSync(path.join(dir0, tpl), "utf8")), dir: dir0,
+        copy: (L, id) => fs.cpSync(path.join(dir0, "imagens"), path.join(path.dirname(L.resolveId(id)), "imagens"), { recursive: true, force: false }) };
+    }
+    if (key === "example-api") {
+      const tpl = templateFile("ensaio-api.yaml");
+      if (!tpl) throw new Error("o exemplo não veio no pacote (templates/ensaio-api.yaml)");
+      return { spec: YAML.parse(fs.readFileSync(tpl, "utf8")), dir: path.dirname(tpl),
+        copy: (L, id) => { const dir = path.dirname(L.resolveId(id)); for (const [name, text] of Object.entries(DEMO_FILES)) fs.writeFileSync(path.join(dir, name), text); } };
+    }
+    throw new Error("Modelo não encontrado.");
+  }
+  // editor?model=lavanda (tipo do modelo) ou a chave completa da vitrine (exp-executivo, example-api…)
+  const galleryKey = (v) => /^(model|exp|example)-/.test(String(v || "")) ? String(v) : `model-${v}`;
   function materializePreview(W) {
     if (!W.preview || W.file) return null;
-    const { kind, topic } = W.preview;
+    const { key, topic } = W.preview;
     W.preview = null;
     const clean = Object.fromEntries(Object.entries(W.spec || {}).filter(([k]) => !k.startsWith("_")));
     const id = W.library.createDeck(topic, clean);
-    copyModelAssets(W.library, id, kind);
+    galleryEntry(key).copy(W.library, id);
     W.file = W.library.resolveId(id);
     W.spec = loadSpec(W.file);
     return { id, title: W.spec.title, topic };
@@ -512,7 +535,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           spec: W.spec,
           yaml: rawYaml,
           file: W.file,
-          preview: W.preview && !W.file ? { kind: W.preview.kind, title: W.spec?.title, topic: W.preview.topic } : null,
+          preview: W.preview && !W.file ? { key: W.preview.key, kind: W.preview.key.replace(/^model-/, ""), title: W.spec?.title, topic: W.preview.topic } : null,
           themes: Object.keys(THEMES),
           // para a galeria de temas: nome curto + cores de fundo, texto e destaque
           themeMeta: Object.fromEntries(Object.entries(THEMES).map(([k, t]) => [k, {
@@ -1125,6 +1148,20 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const openId = W.file && W.file.startsWith(L.root + path.sep) ? L.idOf(W.file) : null;
             return ok({ ...L.list(), user: W.user, multiuser: !!opts.multiuser, open: openId });
           }
+          if (pathname === "/api/library/gallery-cover" && req.method === "GET") {
+            const key = galleryKey(url.searchParams.get("key")), entry = galleryEntry(key);
+            const spec = entry.dir ? { ...entry.spec, _dir: entry.dir } : entry.spec;
+            const cacheDir = path.join(L.root, ".cache", "vitrine");
+            const cached = path.join(cacheDir, `${crypto.createHash("sha1").update(`${key}|${JSON.stringify(entry.spec)}`).digest("hex")}.jpg`);
+            if (!fs.existsSync(cached)) {
+              const [shot] = await slideSnapshots(spec, 0, { mode: "final", width: 480 });
+              fs.mkdirSync(cacheDir, { recursive: true });
+              fs.writeFileSync(cached, Buffer.from(shot.dataUrl.split(",")[1], "base64"));
+            }
+            res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=86400" });
+            res.end(fs.readFileSync(cached));
+            return;
+          }
           if (pathname === "/api/library/cover" && req.method === "GET") {
             const file = L.resolveId(url.searchParams.get("id"));
             const st = fs.statSync(file);
@@ -1176,12 +1213,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
               return ok({ id });
             }
             case "/api/library/decks/model-preview": {
-              // abre o modelo sem criar arquivo: é a vitrine; a cópia só nasce na primeira mudança
-              W.spec = { ...demoDeck(b.kind), _dir: MODEL_ASSETS_DIR };
+              // abre o item da vitrine sem criar arquivo; a cópia só nasce na primeira mudança
+              const key = galleryKey(b.key || b.kind), entry = galleryEntry(key);
+              W.spec = entry.dir ? { ...entry.spec, _dir: entry.dir } : entry.spec;
               W.file = null;
-              W.preview = { kind: b.kind, topic: String(b.topic || "Modelos") };
+              W.preview = { key, topic: String(b.topic ?? "Modelos") }; // "" = sem tópico
               W.chatHistory = [];
-              return ok({ spec: W.spec, preview: { kind: b.kind, title: W.spec.title, topic: W.preview.topic } });
+              return ok({ spec: W.spec, preview: { key, title: W.spec.title, topic: W.preview.topic } });
             }
             case "/api/library/decks/model-use": {
               // "Usar como base": cria a cópia agora, mesmo sem mudança

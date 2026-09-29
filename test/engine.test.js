@@ -575,3 +575,12 @@ test("formas livres: triângulo, losango, hexágono, estrela, seta, chevron e ba
   // as de antes continuam iguais
   assert.match(buildHTML({ slides: [{ layout: "canvas", elements: [{ shape: "circle", x: 0, y: 0, w: 50, h: 50 }] }] }).html, /shape-circle[^>]*border-radius:50%/);
 });
+
+test("edições visuais: preenchimento pinta o desenho (--shape-fill) ou o fundo da forma; área do slide isola o empilhamento", () => {
+  const slide = (shape) => ({ layout: "canvas", elements: [{ shape, x: 0, y: 0, w: 100, h: 100 }], visualEdits: { [`shape-shape-${shape}-0`]: { fill: "#ff0000", z: -1 } } });
+  const star = buildHTML({ slides: [slide("star")] }).html;
+  assert.match(star, /shape-star"[^>]*style="[^"]*--shape-fill:#ff0000/);
+  assert.doesNotMatch(star, /shape-star"[^>]*style="[^"]*background:#ff0000/, "desenho não ganha retângulo pintado atrás");
+  assert.match(buildHTML({ slides: [slide("rect")] }).html, /shape-rect"[^>]*style="[^"]*background:#ff0000!important/);
+  assert.match(fs.readFileSync(new URL("../src/runtime/base.css", import.meta.url), "utf8"), /\.free\{[^}]*isolation:isolate/, "z negativo não passa para trás do fundo");
+});

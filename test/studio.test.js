@@ -194,9 +194,49 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     await p.waitForSelector("#rendered-slide-container .shape-star .shape-svg polygon");
     await p.waitForTimeout(900);
     assert.ok((YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].add || []).some((e) => e.shape === "star"), "estrela salva no deck");
-    // Delete exclui o objeto selecionado
     await p.click("#rendered-slide-container .shape-star");
     assert.ok(await p.locator("#rendered-slide-container .shape-star.visual-selected").count(), "clicar na forma a seleciona");
+    // a barra do objeto flutua junto da seleção, com rótulos, e continua à vista em outra aba
+    await p.click('.ribbon-tab[data-tab="inicio"]');
+    const barra = p.locator(".visual-toolbar");
+    assert.ok(await barra.isVisible(), "barra do objeto à vista fora do Inserir");
+    for (const nome of ["Preenchimento", "Trazer para frente", "Enviar para trás", "Excluir"]) assert.ok(await barra.getByRole(/Excluir|Trazer|Enviar/.test(nome) ? "button" : "textbox", { name: nome }).or(barra.getByLabel(nome)).first().isVisible(), `${nome} na barra`);
+    // Preenchimento pinta o desenho (não só a cor do texto)
+    await barra.getByLabel("Preenchimento").fill("#ff0000"); await p.waitForTimeout(900);
+    assert.equal(await p.locator("#rendered-slide-container .shape-star polygon").evaluate((el) => getComputedStyle(el).fill), "rgb(255, 0, 0)", "a estrela fica vermelha");
+    assert.ok(Object.values(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].visualEdits || {}).some((v) => v.fill === "#ff0000"), "preenchimento salvo no deck");
+    // Enviar para trás: fica atrás dos outros objetos, mas não some atrás do fundo do slide (dá para clicar)
+    await barra.getByRole("button", { name: "Enviar para trás" }).click(); await p.waitForTimeout(900);
+    // um ponto da estrela sem outro objeto por cima: ali ela aparece (vermelha, na frente do fundo) e o clique a pega
+    const ponto = await p.evaluate(() => {
+      const star = document.querySelector("#rendered-slide-container .shape-star"), r = star.getBoundingClientRect();
+      for (let fy = 0.35; fy < 0.75; fy += 0.05) for (let fx = 0.35; fx < 0.75; fx += 0.05) {
+        const x = r.left + r.width * fx, y = r.top + r.height * fy;
+        const hit = document.elementsFromPoint(x, y).map((n) => n.closest?.("[data-vkey]")).find(Boolean);
+        if (hit === star) return [x, y];
+      }
+      return null;
+    });
+    assert.ok(ponto, "há um ponto da estrela sem outro objeto por cima");
+    // na frente do fundo do slide: a área do slide isola o empilhamento (z negativo não passa para trás do fundo)
+    assert.equal(await p.locator("#rendered-slide-container .shape-star").evaluate((el) => getComputedStyle(el.closest(".safe, .free")).isolation), "isolate");
+    await p.keyboard.press("Escape");
+    await p.mouse.click(ponto[0], ponto[1]);
+    assert.ok(await p.locator("#rendered-slide-container .shape-star.visual-selected").count(), "a estrela enviada para trás continua clicável");
+    // Tab passa para o próximo objeto (alcança o que ficou escondido atrás)
+    const antesTab = await p.locator("#rendered-slide-container .visual-selected").getAttribute("data-vkey");
+    await p.keyboard.press("Tab");
+    assert.notEqual(await p.locator("#rendered-slide-container .visual-selected").getAttribute("data-vkey"), antesTab, "Tab seleciona outro objeto");
+    await p.keyboard.press("Shift+Tab");
+    assert.equal(await p.locator("#rendered-slide-container .visual-selected").getAttribute("data-vkey"), antesTab, "Shift+Tab volta");
+    // Cor do texto: vale na hora num texto selecionado
+    const kicker = await p.locator("#rendered-slide-container .t[data-vkey]").first().elementHandle();
+    await kicker.click();
+    await barra.getByLabel("Cor do texto").fill("#00aa00"); await p.waitForTimeout(900);
+    assert.equal(await p.locator("#rendered-slide-container .t[data-vkey]").first().evaluate((el) => getComputedStyle(el).color), "rgb(0, 170, 0)", "a cor do texto muda");
+    await p.keyboard.press("Escape");
+    // Delete exclui o objeto selecionado (clicado onde ele aparece, mesmo atrás do texto)
+    await p.mouse.click(ponto[0], ponto[1]);
     await p.keyboard.press("Delete");
     await p.waitForTimeout(900);
     assert.equal(await p.locator("#rendered-slide-container .shape-star").evaluate((el) => getComputedStyle(el).display), "none", "Delete tira a forma do slide");
@@ -449,7 +489,7 @@ test("demo avançado: abre em prévia pela vitrine, sem criar arquivo no tópico
     await p.goto(studio.url + "/biblioteca?galeria=demo");
     await p.waitForSelector(".vit-card:not([hidden])");
     const tipos = await p.locator(".vit-card:not([hidden])").evaluateAll((els) => [...new Set(els.map((e) => e.dataset.kind))]);
-    assert.deepEqual(tipos, ["demo"]);
+    assert.deepEqual(tipos, ["recurso"], "só os recursos do SagaDeck (demos e exemplos)");
     assert.match(data.spec.title, /recursos avançados/i);
     assert.deepEqual(data.spec.slides.map((slide) => slide.layout), ["cover", "code", "dossier", "mosaic", "statement", "end"]);
     assert.equal(data.spec.slides[1].density, "dense");
