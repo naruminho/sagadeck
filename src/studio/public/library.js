@@ -329,7 +329,7 @@
     });
   }
   // Estilos = as coleções (COLLECTION_STYLE em src/studio/template-collections.js decide tema e direção criativa)
-  const STYLES = [["perspectiva", "Perspectiva: corporativo fotográfico"], ["essencial", "Essencial: minimalismo"], ["revista", "Revista: editorial"], ["cromatico", "Cromático: cor e fotografia"], ["tracos", "Traços: geometria criativa"]];
+  const STYLES = [["perspectiva", "Perspectiva: corporativo fotográfico"], ["essencial", "Essencial: minimalismo"], ["revista", "Revista: editorial"], ["cromatico", "Cromático: cor e fotografia"], ["tracos", "Traços: geometria criativa"], ["manual", "Documentação técnica: clara (boa para imprimir)"], ["manual-noite", "Documentação técnica: escura (descansa a vista)"]];
   // mesma conta de slidesForMinutes (src/ai/deck-ai.js): ~1 slide a cada 1,5 min, entre 3 e 40
   const slidesFor = (min) => Math.min(40, Math.max(3, Math.round(Number(min) / 1.5)));
   const readAsDataURL = (f) => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
@@ -388,13 +388,23 @@
         e.preventDefault(); box.classList.remove("drop-over");
         for (const f of [...e.dataTransfer.files]) add({ name: f.name, dataUrl: await readAsDataURL(f) }, f.name);
       });
+      let answer = "";
+      // a IA perguntou para que serve o material: opções clicáveis + campo livre; responder gera de novo
+      const showQuestion = (q) => {
+        status.innerHTML = `<div class="dlg-ask"><b></b><div class="dlg-ask-opts"></div><div class="dlg-ask-free"><input type="text" id="dlg-answer" placeholder="Ou responda com as suas palavras"><button class="lib-btn primary" type="button" id="dlg-answer-go">Responder</button></div></div>`;
+        status.querySelector("b").textContent = q.question;
+        const opts = status.querySelector(".dlg-ask-opts");
+        for (const o of q.options || []) { const b = document.createElement("button"); b.type = "button"; b.className = "lib-btn ghost"; b.textContent = o; b.onclick = () => { answer = o; btn.click(); }; opts.append(b); }
+        status.querySelector("#dlg-answer-go").onclick = () => { answer = status.querySelector("#dlg-answer").value.trim(); if (answer) btn.click(); };
+        btn.disabled = false;
+      };
       btn.onclick = async () => {
         let briefing = box.querySelector("#dlg-brief").value.trim();
         if (!briefing && !docs.length) { status.textContent = "Conte sobre o que é a apresentação ou anexe um arquivo ou link."; return; }
         if (!briefing) briefing = "Transforme o material anexado numa apresentação clara e bem redigida, para quem não leu o material.";
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";
-        const payload = { topic, briefing, stream: true, duration: Number(min.value) || undefined, style: box.querySelector("#dlg-style").value || undefined, materials: docs.map((d) => d.id) };
+        const payload = { topic, briefing, answer: answer || undefined, stream: true, duration: Number(min.value) || undefined, style: box.querySelector("#dlg-style").value || undefined, materials: docs.map((d) => d.id) };
         try {
           const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
@@ -414,6 +424,7 @@
               if (ev.type === "error") throw new Error(ev.error || "falhou");
             }
           }
+          if (result?.question) { showQuestion(result.question); return; }
           if (!result?.id) throw new Error("a geração não terminou");
           openEditor(result.id);
         } catch (e) {

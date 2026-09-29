@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Fase 2 do SagaStudio: a IA sabe para que serve o material — 29/09/2026
+
+- Causa do "material de consulta que saiu palestra": o prompt de geração era só de palestra ("pouco texto, detalhe
+  em notes, interação, slides de impacto"), a rodada de enxugar cortava para 75% de 40 palavras, a de variedade
+  trocava explicação por slide de impacto e a auto-correção movia o corpo para as notas acima do limite.
+- `purpose` no deck (`src/purpose.js`): consulta 220 palavras, aula 160, workshop 110, palestra/executiva 40; motor,
+  auto-correção, IA e Studio usam `wordLimit`. Consulta/aula: explicação no slide, sem quiz/seção vazia/número de
+  impacto, sem a rodada de variedade; notes curtas.
+- Decisão pelo modelo (regra do projeto): com Preferências › perguntar ligado, `decidePurpose` faz uma chamada curta
+  (JSON) antes de gerar; no pedido longo o modelo tendia a supor. Ambíguo (workshop sem dizer se fica com o pessoal):
+  devolve pergunta com opções; biblioteca e "Deck com IA" mostram e geram de novo com a resposta. Quantidade de texto
+  dita com todas as letras vence o tipo (grava `maxWords`) e não pergunta. Testes ao vivo em `ai-live.test.js`.
+- Contra invenção: nada de número/data/nome sem fonte; `date` = dia da criação; `author` das Preferências.
+- Temas `manual` (claro) e `manual-noite` (escuro), com `pair`: Design › Versão clara/escura; PDF no claro
+  (Preferências › Exportação, `lightVariant`). Estilo "Documentação técnica" no Criar com IA. `gitGraph` na referência.
+- IA › **Material de consulta**: pede ao assistente para reescrever o deck como material para distribuir.
+
 ## Fase 1 do SagaStudio: código nunca cortado, fiscal, Preferências — 29/09/2026
 
 - Achado do exercício (material de Git): o slide `code` usa o editor do codewalk, que tinha `overflow:auto` sem barra

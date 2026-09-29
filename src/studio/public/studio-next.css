@@ -246,3 +246,10 @@
 .pref-num input { width: 72px; }
 .pref-num span { font-size: 12px; color: var(--text-3); }
 .prefs-foot { padding: 10px 20px; border-top: 1px solid var(--ui-line); color: var(--text-3); font-size: 11px; }
+
+/* a IA perguntou para que serve o material (Deck com IA) */
+.ai-ask { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--brand); border-radius: 8px; color: var(--text); }
+.ai-ask b { font-size: 13px; font-weight: 600; }
+.ai-ask-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-ask-free { display: flex; gap: 6px; }
+.ai-ask-free input { flex: 1; }

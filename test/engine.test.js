@@ -584,3 +584,24 @@ test("edições visuais: preenchimento pinta o desenho (--shape-fill) ou o fundo
   assert.match(buildHTML({ slides: [slide("rect")] }).html, /shape-rect"[^>]*style="[^"]*background:#ff0000!important/);
   assert.match(fs.readFileSync(new URL("../src/runtime/base.css", import.meta.url), "utf8"), /\.free\{[^}]*isolation:isolate/, "z negativo não passa para trás do fundo");
 });
+
+test("purpose: material de consulta aceita texto corrido — o fiscal não reclama e a auto-correção não move a explicação para as notas", () => {
+  const body = Array.from({ length: 12 }, (_, i) => `Frase ${i + 1} explica por que o rebase reescreve a história da branch.`).join(" "); // ~130 palavras
+  const slide = () => ({ layout: "split", title: "Rebase", body, figure: { icon: "git-branch" } });
+  const palestra = autofixSlide(slide(), { purpose: "palestra" }, []);
+  assert.notEqual(palestra.slide.body, body, "palestra: o excesso vai para as notas");
+  const consulta = autofixSlide(slide(), { purpose: "consulta" }, []);
+  assert.equal(consulta.slide.body, body, "consulta: a explicação fica no slide");
+  assert.equal(buildHTML({ purpose: "consulta", slides: [slide()] }).warnings.filter((w) => /palavras/.test(w)).length, 0, "sem aviso anti-sono em consulta");
+  assert.ok(buildHTML({ purpose: "palestra", slides: [slide()] }).warnings.some((w) => /palavras \(limite 40\)/.test(w)), "palestra: limite 40");
+});
+
+test("tema com par claro/escuro: o PDF pode sair no claro (manual-noite → manual), no deck e nos slides", async () => {
+  const { lightVariant } = await import("../src/studio/server.js");
+  assert.equal(THEMES.manual.pair, "manual-noite"); assert.equal(THEMES["manual-noite"].pair, "manual");
+  const v = lightVariant({ theme: "manual-noite", slides: [{ layout: "statement", text: "a" }, { layout: "statement", text: "b", theme: "manual-noite" }] });
+  assert.equal(v.theme, "manual");
+  assert.equal(v.slides[1].theme, "manual");
+  assert.equal(lightVariant({ theme: "manual", slides: [{ layout: "statement", text: "a" }] }), null, "já é claro: nada a trocar");
+  assert.equal(lightVariant({ theme: "noite", slides: [{ layout: "statement", text: "a" }] }), null, "escuro sem par: fica como está");
+});

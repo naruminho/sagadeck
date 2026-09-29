@@ -296,18 +296,22 @@ export function createStudioServer(deckPath = null, opts = {}) {
     const id = L.createDeck(topic, { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
     const file = L.resolveId(id), dir = path.dirname(file);
     try {
+      const prefs = loadPreferences().ia;
       const gen = await generateDeck(String(b.briefing || ""), {
+        ask: prefs.perguntar !== false && !b.answer, answer: b.answer ? String(b.answer).slice(0, 500) : "",
+        author: prefs.autor || "", language: prefs.idioma || "auto",
         theme: b.theme || undefined,
         style: b.style || undefined,
         slides: Number(b.slides) || undefined,
         duration: Number(b.duration) || undefined,
         direction: b.direction || undefined,
         materials: takeMaterials(W, b.materials),
-        images: true, // o briefing diz se quer imagens (e onde)
+        images: prefs.imagens !== false, // o briefing diz se quer imagens (e onde); Preferências podem desligar
         imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
         onEvent: emit,
         drawCheck: diagramCheck,
       });
+      if (gen.question) { L.trashDeck(id); return { question: gen.question }; } // a IA quer saber para que serve o material
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
       const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
       return { id: finalId, file: L.resolveId(finalId), images: gen.images };
@@ -554,7 +558,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           themeMeta: Object.fromEntries(Object.entries(THEMES).map(([k, t]) => [k, {
             label: String(t.label || k).split(/\s+[—–-]\s+/)[0],
             desc: String(t.label || "").split(/\s+[—–-]\s+/)[1] || "",
-            paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`,
+            paper: `#${t.colors.paper}`, ink: `#${t.colors.ink}`, accent: `#${t.colors.accent}`, pair: t.pair || null, dark: !!t.dark,
           }])),
           // paletas (só cores, valem em qualquer tema): para a galeria de paletas
           palettes: Object.fromEntries(Object.entries(PALETTES).map(([k, p]) => [k, { label: p.label, colors: [p.paper, p.ink, p.accent, p.alert, ...(p.family || [])].map((c) => `#${c}`) }])),
@@ -888,6 +892,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         // O deck novo vai para uma pasta própria na biblioteca (regra do CLAUDE.md), no tópico do deck aberto
         await respond(res, body.stream, async (emit) => {
           const r = await generateIntoLibrary(W, topicOfOpen(W), body, emit);
+          if (r.question) return { ok: true, question: r.question }; // a IA perguntou para que serve o material
           W.file = r.file;
           W.spec = loadSpec(r.file);
           return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images };
@@ -1280,6 +1285,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
               if (!(await llmAvailable({ force: true }))) return fail(new Error(`Nenhum LLM respondendo em ${llmConfig().url}.`), 503);
               await respond(res, b.stream, async (emit) => {
                 const r = await generateIntoLibrary(W, b.topic || "", b, emit);
+                if (r.question) return { ok: true, question: r.question }; // o Studio mostra a pergunta e gera de novo com a resposta
                 return { ok: true, id: r.id, images: r.images };
               });
               return;
@@ -1435,7 +1441,11 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
         errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes })).errors);
       } else if (what === "pdf") {
         const { pdf } = await import("../export/shots.js");
-        await pdf(htmlFile, out);
+        // Preferências › Exportação: tema escuro com par claro (manual-noite → manual) sai claro no PDF, bom para imprimir
+        const light = loadPreferences().exportacao.pdfClaro !== false ? lightVariant(spec) : null;
+        let file = htmlFile;
+        if (light) { file = path.join(tmp, "deck-claro.html"); fs.writeFileSync(file, buildHTML(light).html); }
+        await pdf(file, out);
       } else {
         const { shots } = await import("../export/shots.js");
         const { roteiroPDF } = await import("../export/roteiro.js");
@@ -1463,6 +1473,15 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+// O mesmo deck no tema claro do par (deck e slides com tema escuro que tem par claro); null se não há o que trocar
+export function lightVariant(spec) {
+  const swap = (name) => (THEMES[name]?.dark && THEMES[name].pair ? THEMES[name].pair : null);
+  const deckTo = swap(spec.theme);
+  const slides = (spec.slides || []).map((s) => (s.theme && swap(s.theme) ? { ...s, theme: swap(s.theme) } : s));
+  if (!deckTo && slides.every((s, i) => s === spec.slides[i])) return null;
+  return { ...spec, theme: deckTo || spec.theme, slides };
 }
 
 async function respond(res, stream, work) {

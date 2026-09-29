@@ -235,6 +235,7 @@
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-header-footer" class="rbtn rbtn-lg" title="Autor, evento, data, número da página… em todos os slides"><i class="ic" data-ic="panel-bottom"></i><span>Cabeçalho e rodapé</span></button>
+          <button id="btn-theme-pair" class="rbtn rbtn-lg" hidden title="Troca para a versão clara ou escura do mesmo tema (mesmo arranjo)"><i class="ic" data-ic="sun-moon"></i><span>Versão escura</span></button>
         </div>
         <div class="rgroup-label">Páginas</div>
       </div>
@@ -279,6 +280,7 @@
         <div class="rgroup-body">
           <button id="btn-ai-deck" class="rbtn rbtn-lg" title="Gerar uma apresentação inteira a partir de um briefing"><i class="ic" data-ic="wand-sparkles"></i><span>Deck com IA</span></button>
           <button id="btn-toggle-chat" class="rbtn rbtn-lg" title="Abrir o assistente para pedir mudanças"><i class="ic" data-ic="bot"></i><span>Assistente</span></button>
+          <button id="btn-ai-reference" class="rbtn rbtn-lg" title="A IA reescreve este deck como material de consulta: explicação no slide, código completo, sem enchimento de palestra. Usa tokens."><i class="ic" data-ic="file-text"></i><span>Material de consulta</span></button>
         </div>
         <div class="rgroup-label">Criar e editar</div>
       </div>
@@ -742,7 +744,7 @@
           <label class="field-label">Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control" title="Ajuste fino: mexer aqui vale até trocar os minutos"></label>
         </div>
         <div class="form-row">
-          <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option></select></label>
+          <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option><option value="manual">Documentação técnica — clara</option><option value="manual-noite">Documentação técnica — escura</option></select></label>
           <label class="field-label">Tema <select id="ai-deck-theme" class="form-control"><option value="">A IA escolhe</option></select></label>
         </div>
         <div class="form-row">

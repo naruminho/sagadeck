@@ -438,6 +438,28 @@ test("Preferências: busca, grava sozinho no arquivo desta máquina e o mínimo 
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); fs.rmSync(file, { force: true }); }
 });
 
+test("tema com par: Design mostra Versão clara/escura só quando o tema tem par, e troca o deck inteiro", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.theme = "manual-noite";
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click('.ribbon-tab[data-tab="design"]');
+    const btn = p.locator("#btn-theme-pair");
+    assert.ok(await btn.isVisible(), "tema com par: o botão aparece");
+    assert.equal((await btn.innerText()).trim(), "Versão clara");
+    await btn.click(); await p.waitForTimeout(900);
+    assert.equal(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).theme, "manual", "o deck inteiro foi para o claro");
+    assert.equal((await btn.innerText()).trim(), "Versão escura");
+    await p.click('#theme-gallery .theme-card[data-theme="sinal"]'); await p.waitForTimeout(700);
+    assert.equal(await btn.isVisible(), false, "tema sem par: o botão some");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("fiscal: código que não coube nem no mínimo avisa e oferece dividir em dois slides (destaques acompanham)", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck();

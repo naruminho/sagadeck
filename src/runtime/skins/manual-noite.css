@@ -1,0 +1,14 @@
+/* Manual noite (documentação técnica escura): tudo alinhado à esquerda como numa página de docs; título com filete embaixo, chapéu
+   em mono como um caminho de arquivo, cartões e código com borda fina, sem ornamento. Mesmo arranjo do manual (par claro). */
+.th-manual-noite{--doc-rule:color-mix(in srgb,var(--fg) 14%,transparent)}
+.th-manual-noite .kicker{font-family:var(--font-mono,monospace);letter-spacing:.02em;text-transform:none;color:var(--em)}
+.th-manual-noite .hd{align-items:flex-start;text-align:left;padding-bottom:22px;margin-bottom:40px;border-bottom:2px solid var(--doc-rule)}
+.th-manual-noite .hd .ttl{text-align:left}
+.th-manual-noite :is(.card:not(.card-hi),.stat-card,.adaptive-item){background:var(--surface);border:1px solid var(--doc-rule);box-shadow:none}
+.th-manual-noite .code{border:1px solid var(--doc-rule)}
+.th-manual-noite .L-cover:not(:has(.cv-fig)) .cv-main{align-items:flex-start;text-align:left;border-left:10px solid var(--em);padding-left:56px}
+.th-manual-noite .L-section:not(:has(.sc-fig)){flex-direction:row;align-items:center;gap:48px;text-align:left}
+.th-manual-noite .L-section .sc-num{font-family:var(--font-mono,monospace);font-size:96px;color:var(--em)}
+.th-manual-noite .L-quote{border-left:8px solid var(--em);padding-left:60px}
+.th-manual-noite .L-statement{align-items:flex-start;text-align:left}
+.th-manual-noite .li-n{font-family:var(--font-mono,monospace);color:var(--em)}

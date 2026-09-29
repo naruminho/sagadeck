@@ -421,6 +421,30 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.keyboard.press("Escape");
     });
 
+    await t.test("Criar com IA: se a IA perguntar para que serve o material, as opções aparecem e a resposta vai no pedido seguinte", async () => {
+      await p.goto(studio.url + "/biblioteca", { waitUntil: "networkidle" });
+      await p.click("#btn-new");
+      await p.click('#new-menu [data-new="ai"]');
+      await p.fill("#dlg-brief", "um workshop de docker pro time");
+      const bodies = [];
+      await p.route("**/api/library/decks/ai", async (route) => {
+        const body = JSON.parse(route.request().postData()); bodies.push(body);
+        const data = body.answer ? { type: "error", error: "sem LLM no teste" } : { type: "result", data: { ok: true, question: { question: "O pessoal vai guardar o material?", options: ["Sim, para consulta", "Não, só a sessão"] } } };
+        await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: JSON.stringify(data) + "\n" });
+      });
+      await p.click("#dlg-ok");
+      await p.waitForSelector(".dlg-ask");
+      assert.match(await p.textContent(".dlg-ask b"), /guardar o material/);
+      assert.deepEqual(await p.locator(".dlg-ask-opts button").allTextContents(), ["Sim, para consulta", "Não, só a sessão"]);
+      await p.click('.dlg-ask-opts button:has-text("Sim, para consulta")');
+      await p.waitForFunction(() => /Não deu/.test(document.querySelector("#dlg-status")?.textContent || ""));
+      await p.unroute("**/api/library/decks/ai");
+      assert.equal(bodies.length, 2);
+      assert.equal(bodies[0].answer, undefined);
+      assert.equal(bodies[1].answer, "Sim, para consulta", "a resposta vai no segundo pedido");
+      await p.keyboard.press("Escape");
+    });
+
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
   } finally {
     await browser.close();

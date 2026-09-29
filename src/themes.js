@@ -293,6 +293,58 @@ export const THEMES = {
     },
     radius: 20, deco: "silver",
   },
+  // Par técnico (material de consulta, tutorial, apostila): o claro imprime bem, o escuro descansa a vista.
+  // pair: o Studio alterna entre os dois (Design › Claro/Escuro) e o PDF pode sair no claro (Preferências).
+  manual: {
+    label: "Manual — documentação técnica clara: fundo branco, texto escuro, código legível, ótimo para imprimir",
+    pair: "manual-noite",
+    colors: {
+      paper: "FFFFFF", ink: "1F2328", accent: "0969DA", alert: "CF222E",
+      muted: "59636E", line: "D0D7DE", surface: "F6F8FA", surfaceDark: "161B22",
+      c1: "0969DA", c2: "1A7F37", c3: "9A6700", c4: "8250DF", c5: "CF222E",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "DDF4FF", em: "accent", onHi: "ink" },
+      dark: { bg: "0D1117", fg: "E6EDF3", muted: "9198A1", line: "30363D", surface: "surfaceDark", hi: "1F3A5F", em: "4493F8", onHi: "FFFFFF" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "CFE6FF", line: "3B8BEB", surface: "0550AE", hi: "FFFFFF", em: "FFFFFF", onHi: "accent" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFD8D3", line: "E5534B", surface: "A40E26", hi: "FFFFFF", em: "FFFFFF", onHi: "alert" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: `font-family: 'Segoe UI Variable Display', 'Segoe UI', ${SYS_SANS}; font-weight: 650; letter-spacing: -0.025em; line-height: 1.02;`, pptx: { face: "Segoe UI Semibold" } },
+      heading: { css: `font-family: 'Segoe UI Variable Display', 'Segoe UI', ${SYS_SANS}; font-weight: 600; letter-spacing: -0.01em; line-height: 1.12;`, pptx: { face: "Segoe UI Semibold" } },
+      body: { css: `font-family: 'Segoe UI', ${SYS_SANS}; font-weight: 400; line-height: 1.5;`, pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: `font-family: 'Segoe UI Semibold', ${SYS_SANS}; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.5;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: `font-family: 'Segoe UI', ${SYS_SANS}; font-style: italic; line-height: 1.3;`, pptx: { face: "Segoe UI", italic: true } },
+    },
+    radius: 10, deco: "none",
+  },
+  "manual-noite": {
+    label: "Manual noite — documentação técnica escura: descansa a vista, código em destaque, mesmo arranjo do Manual",
+    pair: "manual", dark: true,
+    colors: {
+      paper: "0D1117", ink: "E6EDF3", accent: "4493F8", alert: "F85149",
+      muted: "9198A1", line: "30363D", surface: "161B22", surfaceDark: "161B22",
+      c1: "4493F8", c2: "3FB950", c3: "D29922", c4: "A371F7", c5: "F85149",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "1F3A5F", em: "accent", onHi: "FFFFFF" },
+      dark: { bg: "010409", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "1F3A5F", em: "accent", onHi: "FFFFFF" },
+      accent: { bg: "1F6FEB", fg: "FFFFFF", muted: "CFE6FF", line: "4493F8", surface: "0550AE", hi: "FFFFFF", em: "FFFFFF", onHi: "1F6FEB" },
+      alert: { bg: "DA3633", fg: "FFFFFF", muted: "FFD8D3", line: "F85149", surface: "8E1519", hi: "FFFFFF", em: "FFFFFF", onHi: "DA3633" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: `font-family: 'Segoe UI Variable Display', 'Segoe UI', ${SYS_SANS}; font-weight: 650; letter-spacing: -0.025em; line-height: 1.02;`, pptx: { face: "Segoe UI Semibold" } },
+      heading: { css: `font-family: 'Segoe UI Variable Display', 'Segoe UI', ${SYS_SANS}; font-weight: 600; letter-spacing: -0.01em; line-height: 1.12;`, pptx: { face: "Segoe UI Semibold" } },
+      body: { css: `font-family: 'Segoe UI', ${SYS_SANS}; font-weight: 400; line-height: 1.5;`, pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: `font-family: 'Segoe UI Semibold', ${SYS_SANS}; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.5;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: `font-family: 'Segoe UI', ${SYS_SANS}; font-style: italic; line-height: 1.3;`, pptx: { face: "Segoe UI", italic: true } },
+    },
+    radius: 10, deco: "none",
+  },
 };
 
 // Paletas: só as cores, independentes do tema (o tema cuida de fonte, arranjo e ornamentos). Qualquer tema aceita

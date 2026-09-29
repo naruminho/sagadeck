@@ -11,6 +11,15 @@ export const PREF_SCHEMA = {
     minTextPt: { def: 6, min: 6, max: 30 },    // texto que "encolhe para caber" não passa daqui (6 pt: quase sem limite)
     wrapCode: { def: true },                    // linha longa de código quebra em vez de encolher tudo
   },
+  ia: {
+    perguntar: { def: true },  // pedido sem dizer para que serve o material: a IA pergunta antes de gerar
+    imagens: { def: true },    // gerar imagens quando o pedido pedir (desligado: só ícones, gráficos e diagramas)
+    autor: { def: "" },        // nome na capa e no rodapé das apresentações novas (no lugar de "Seu Nome")
+    idioma: { def: "auto" },   // auto = o idioma do pedido
+  },
+  exportacao: {
+    pdfClaro: { def: true },   // PDF e impressão na versão clara do tema (quando o tema tem par claro/escuro)
+  },
 };
 
 export function preferencesFile(env = process.env, home = os.homedir()) {

@@ -1,6 +1,7 @@
 // sagadeck · IA de verdade: editar deck pelo chat, texto -> slide (Napkin), gerar deck do zero e imagens.
 // Toda saída do LLM passa por: extrair YAML -> normalizar -> renderizar cada slide (validação) ->
 // se falhar, devolve o erro ao LLM e tenta de novo -> auto-cura geométrica.
+import { wordLimit, isDense, PURPOSES } from "../purpose.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -36,7 +37,12 @@ function systemPrompt({ images = false, maxImages = 3 } = {}) {
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
 
 Regras de qualidade:
-- Uma ideia por slide. Pouco texto na tela (o fiscal "anti-sono" reclama de textão); o detalhe vai em \`notes\`.
+- Leia PARA QUE SERVE o material e grave em \`purpose:\` no deck. Quanto texto vai na tela depende disso:
+  - \`palestra\` e \`executiva\` (para apresentar): uma ideia por slide, pouco texto na tela (o fiscal "anti-sono" reclama de textão), o detalhe vai em \`notes\`. Executiva: sóbria, recomendação, números e decisão.
+  - \`workshop\` (mão na massa, hands-on): passos, comandos e exercícios na tela; se o pessoal vai guardar o material, explique mais no próprio slide.
+  - \`aula\` (tutorial, curso, treinamento) e \`consulta\` (apostila, documentação, guia, material para distribuir, guardar ou consultar depois): a explicação fica NO SLIDE, em parágrafos curtos (2 a 4 frases, o porquê e não só o quê), com exemplos e código completo para copiar. Use \`dossier\`, \`code\`/\`codewalk\`, \`split\` com texto corrido, \`compare\` e \`aviso\`; \`density: dense\` onde precisar. Sem slide só de título de seção, sem quiz, enquete ou pergunta para a plateia, sem "número de impacto"; \`notes\` curtas e opcionais. Letra menor é aceitável (o ajuste para caber cuida). Código com mais de ~16 linhas: divida em slides de continuação.
+- O que a pessoa disser com todas as letras sobre QUANTO texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos") vence o tipo de material: siga e grave \`maxWords\` no deck (muito texto: ~200; pouco: ~35), qualquer que seja o \`purpose\`.
+- Nunca invente fatos: nada de número, estatística, pesquisa, data, nome ou citação que não esteja no pedido ou no material. Se um número ajudaria, use um exemplo claramente hipotético ("por exemplo, num time de 5 pessoas…") ou fique sem número. Não invente \`author\` nem \`date\` (nem "Seu Nome"): omita se o pedido não disser.
 - Prefira figuras geradas (icon, picto, diagram, chart) a listas de bullets. Ícones são do Lucide, nomes em inglês kebab-case (ex.: rocket, shield-check, trending-up).
 - Varie os layouts ao longo do deck; capa (cover) no início e encerramento (end) no fim quando fizer sentido.
 - Slide denso (documentação, referência, números): feche com 1 takeaway em ==destaque== e use o elemento \`aviso\` (tipos: \`importante\`, \`atencao\`, \`dica\`, \`perigo\`) para o que não pode passar batido; grife ==palavras-chave== no texto corrido em vez de encher de negrito.
@@ -61,6 +67,39 @@ ${reference()}`;
 // Parsing e validação da resposta
 // ---------------------------------------------------------------------------------------------
 
+// Para que serve o material: o modelo decide (JSON curto) e diz se falta informação para decidir
+export async function decidePurpose(briefing, materials = []) {
+  const res = await chat([
+    { role: "system", content: `Você decide PARA QUE SERVE um material de apresentação, lendo o pedido. Opções:
+- palestra: para apresentar falando (pouco texto na tela).
+- executiva: reunião de decisão com diretoria (recomendação, números).
+- workshop: mão na massa na sessão (passos e comandos na tela).
+- aula: tutorial, curso ou treinamento com explicação na tela.
+- consulta: apostila, documentação, guia, material para distribuir, guardar ou consultar depois.
+Se o pedido já disser com todas as letras quanto texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos"), isso resolve: não pergunte, escolha o tipo que combina (muito texto: aula ou consulta; pouco: palestra ou workshop) e diga em "texto": "muito" ou "pouco".
+Se o pedido não permitir decidir com segurança E a escolha mudar muito o resultado — típico: workshop, treinamento, hands-on ou "uma apresentação sobre X" sem dizer se o material é só para a sessão ou para o pessoal guardar e consultar depois —, NÃO suponha: faça UMA pergunta curta com 2 a 4 opções curtas.
+Responda só com JSON: {"purpose": "…" ou null, "texto": "muito" | "pouco" | null, "why": "motivo curto", "pergunta": "…" ou null, "opcoes": ["…"]}` },
+    { role: "user", content: `${materials.length ? `(há ${materials.length} material(is) anexado(s))\n` : ""}Pedido:\n"""\n${briefing}\n"""` },
+  ], { temperature: 0.1 });
+  const m = String(res.text || "").match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  const j = JSON.parse(m[0]);
+  if (j.pergunta) return { question: { question: String(j.pergunta), options: (Array.isArray(j.opcoes) ? j.opcoes : []).map(String).filter(Boolean).slice(0, 4) } };
+  return PURPOSES[j.purpose] ? { purpose: j.purpose, texto: ["muito", "pouco"].includes(j.texto) ? j.texto : null, why: String(j.why || "").slice(0, 200) } : null;
+}
+
+// A IA preferiu perguntar antes de gerar: bloco ```pergunta com {"pergunta", "opcoes"}
+export function extractQuestion(text) {
+  const m = /```pergunta[ \t]*\r?\n([\s\S]*?)```/i.exec(String(text || ""));
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[1]);
+    const pergunta = String(j.pergunta || j.question || "").trim();
+    if (!pergunta) return null;
+    return { question: pergunta, options: (Array.isArray(j.opcoes) ? j.opcoes : Array.isArray(j.options) ? j.options : []).map(String).filter(Boolean).slice(0, 4) };
+  } catch { return { question: m[1].trim().slice(0, 300), options: [] }; }
+}
+
 export function extractYaml(text) {
   const blocks = [...String(text).matchAll(/```(?:ya?ml)?[ \t]*\r?\n([\s\S]*?)```/gi)].map((m) => m[1]);
   if (blocks.length) return { yaml: blocks[blocks.length - 1], prose: cleanProse(String(text).replace(/```[\s\S]*?```/g, "")) };
@@ -77,7 +116,7 @@ function cleanProse(s) {
 // Slides acima do limite "anti-sono" do fiscal (mesma conta do build).
 function wordySlides(spec) {
   return spec.slides
-    .map((s, i) => ({ n: i + 1, words: wordCount({ ...s, notes: undefined }), limit: s.maxWords || spec.maxWords || 40 }))
+    .map((s, i) => ({ n: i + 1, words: wordCount({ ...s, notes: undefined }), limit: wordLimit(s, spec) }))
     .filter((x) => x.words > x.limit);
 }
 
@@ -779,13 +818,18 @@ export function slidesForMinutes(min) {
 }
 
 // Estilo do modal (uma coleção) → { theme, direction } para a geração. Desconhecido: null.
+// estilos que não são coleção: material técnico, o par claro/escuro do tema manual
+const TECH_STYLES = {
+  manual: { theme: "manual", direction: "Documentação técnica clara: texto corrido legível, código completo, diagramas e avisos; boa para imprimir. Use o tema manual." },
+  "manual-noite": { theme: "manual-noite", direction: "Documentação técnica escura: texto corrido legível, código em destaque, diagramas e avisos; descansa a vista. Use o tema manual-noite." },
+};
 export function styleFor(kind) {
-  const s = COLLECTION_STYLE[kind];
+  const s = COLLECTION_STYLE[kind] || TECH_STYLES[kind];
   return s ? { theme: s.theme, direction: s.direction } : null;
 }
 
 // Gera um deck inteiro a partir de um briefing.
-export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, ask = false, answer = "", author = "", language = "" } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const st = style ? styleFor(style) : null;
@@ -798,15 +842,34 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     duration ? `Duração planejada: ${duration} minutos (campo duration).` : "",
   ].filter(Boolean).join(" ");
   const dir = direction || nextDirection();
+  // "perguntar quando não souber" (Preferências): o modelo decide se o propósito do material está claro
+  const askRule = ask && !answer
+    ? `\n\nANTES DE GERAR, confira se dá para saber PARA QUE SERVE o material (quanto texto vai na tela depende disso). Workshop, treinamento, hands-on ou "uma apresentação sobre X" que não dizem se o material é só para a sessão (rápido, pouco texto) ou para o pessoal guardar e consultar depois (explicação completa no slide): NÃO suponha — responda só com um bloco \`\`\`pergunta contendo JSON {"pergunta": "…", "opcoes": ["…", "…"]} (uma pergunta curta, 2 a 4 opções curtas) e nada mais. Se o briefing já disser (apostila, material de consulta, para distribuir; pitch, palestra, reunião executiva), gere direto, sem perguntar.`
+    : "";
+  // Antes de gerar (com "perguntar" ligado): uma chamada curta só para o modelo decidir para que serve o material e
+  // se precisa perguntar. No meio do pedido longo de geração ele tende a supor; focado, pergunta quando não dá para saber.
+  let decided = null;
+  if (ask && !answer) {
+    say("entendendo para que serve o material…");
+    decided = await decidePurpose(briefing, materials).catch(() => null);
+    if (decided?.question) return { question: decided.question };
+  }
+  const extras = [
+    decided?.purpose ? `Para que serve o material (já decidido): purpose: ${decided.purpose}${decided.why ? ` — ${decided.why}` : ""}.` : "",
+    decided?.texto ? `A pessoa disse quanto texto quer: ${decided.texto} texto na tela (grave maxWords: ${decided.texto === "muito" ? 200 : 35}).` : "",
+    answer ? `Resposta da pessoa à sua pergunta sobre o material: ${answer}` : "",
+    author ? `Autor: ${author} (use em author).` : "",
+    language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
+  ].filter(Boolean).join("\n");
   const messages = [
     { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
     { role: "user", content: `${materialsBlock(materials) ? materialsBlock(materials) + "\n\n" : ""}Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
-Tenha um arco narrativo (gancho, desenvolvimento, fechamento), inclua notas do apresentador (notes) e o tempo em minutos (time) em cada slide, somando a duração total, e ao menos uma interação com a plateia quando fizer sentido.
+Decida o \`purpose\` pelo briefing (regras do sistema) e grave no deck. Palestra, executiva e workshop: arco narrativo (gancho, desenvolvimento, fechamento), notas do apresentador (notes) e ao menos uma interação com a plateia quando fizer sentido. Aula e consulta: ordem didática (do conceito ao avançado) e a explicação no slide, sem interação com a plateia. Em todos: o tempo em minutos (time) em cada slide, somando a duração total.
 
 Direção criativa deste deck: ${dir}
 Use a direção como ponto de partida: o tema escolhido, o público e o nível de sobriedade pedidos no briefing têm precedência.
 Se o briefing disser a ocasião (quantas pessoas, presencial/online/gravado, executivo/informal, objetivo), grave em context: no deck e respeite: online ou gravado sem interação ao vivo e com letra maior; executivo com visual sóbrio. Varie também a abertura, a escala tipográfica, a composição e o papel das imagens; trocar só a cor não cria uma apresentação diferente.
-Ritmo visual (a plateia enjoa de slides iguais):
+Ritmo visual (a plateia enjoa de slides iguais; vale para palestra, executiva e workshop. Em aula e consulta a clareza vem antes: repetir \`code\` ou \`dossier\` em sequência é normal):
 - Nunca 3 slides seguidos com o mesmo layout; use pelo menos metade de layouts diferentes (manchete, número grande, página inteira, mosaico, funil, pirâmide, comparação, matriz, linha do tempo, pergunta, enquete…).
 - No máximo ~40% de listas/cartões; alterne com slides de impacto (headline, number, statement, full, quote, question).
 - Alterne o tom (dark/accent) nos momentos-chave: virada, dado forte, pergunta.
@@ -815,13 +878,17 @@ Briefing:
 """
 ${briefing}
 """
+${extras}${askRule}
 
-Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duration e slides).` },
+Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duration, purpose e slides).` },
   ];
   say("pedindo o deck ao LLM…");
   const drawWarned = new Set();
   const parseDrawn = async (t) => { const r = parseDeckText(t); await checkDrawings(r.spec, r.spec.slides.map((_, i) => i), drawCheck, drawWarned); return r; };
-  let { spec, attempts } = await askUntilValid(messages, parseDrawn, { temperature: 0.7, onProgress: onEvent });
+  // na primeira resposta o modelo pode preferir perguntar para que serve o material (Preferências › perguntar)
+  const parseFirst = async (t) => { const q = askRule ? extractQuestion(t) : null; return q ? { question: q } : parseDrawn(t); };
+  let { spec, attempts, question } = await askUntilValid(messages, parseFirst, { temperature: 0.7, onProgress: onEvent });
+  if (question) return { question };
   if (attempts > 1) say(`YAML corrigido após ${attempts - 1} tentativa(s)`);
 
   // Uma rodada de enxugamento se o fiscal anti-sono reclamaria de algum slide.
@@ -835,7 +902,7 @@ Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duratio
 O fiscal anti-sono reclama destes slides (palavras na tela, sem contar notes):
 ${wordy.map((w) => `- slide ${w.n}: ${w.words} palavras (limite ${w.limit})`).join("\n")}
 
-Enxugue esses slides para no máximo ~75% do limite (ex.: 30 palavras se o limite é 40): frases curtas, menos itens, detalhe movido para \`notes\` — ou divida um slide em dois. Não mexa nos outros slides.
+${isDense(spec) ? "É material de consulta/aula: NÃO mova a explicação para \`notes\`; divida o slide em dois (continuação) ou use \`dossier\` com \`density: dense\`." : "Enxugue esses slides para no máximo ~75% do limite (ex.: 30 palavras se o limite é 40): frases curtas, menos itens, detalhe movido para \`notes\` — ou divida um slide em dois."} Não mexa nos outros slides.
 Responda só com o deck completo num bloco \`\`\`yaml.` },
       ], parseDrawn, { onProgress: onEvent }));
     } catch (e) {
@@ -843,8 +910,9 @@ Responda só com o deck completo num bloco \`\`\`yaml.` },
     }
   }
   // Uma rodada de variedade se ficou repetitivo; a versão nova só vale se melhorar.
+  // material de consulta/aula: a clareza vem antes da variedade (a rodada trocaria explicação por slide de impacto)
   const before = varietyReport(spec);
-  if (!before.ok) {
+  if (!before.ok && !isDense(spec)) {
     say(`deixando menos repetitivo (${before.problems.length} problema(s) de ritmo)…`);
     try {
       const { spec: varied } = await askUntilValid([
@@ -863,6 +931,10 @@ Responda só com o deck completo num bloco \`\`\`yaml.` },
       say(`não consegui variar (${e.message}); mantive a versão anterior`);
     }
   }
+  // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
+  if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
+  if (author && !spec.author) spec.author = author;
+  if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
   const fixed = autofixDeck(spec, []);
   return { spec: publicSpec(fixed.spec), images: imgs, direction: dir, variety: varietyReport(fixed.spec) };

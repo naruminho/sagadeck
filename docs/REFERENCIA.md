@@ -144,6 +144,8 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 
 No `spotlight`, `x` e `y` indicam o canto superior esquerdo da região; os quatro números são porcentagens da imagem. As regiões são limitadas à imagem, respeitam a proporção de screenshots verticais e podem ser clicadas diretamente. Também é possível usar `figure` com SVG ou diagrama no lugar de `image`. Prefira 2–4 etapas e explicações curtas para manter o slide legível. Em HTML sem JavaScript aparece a primeira etapa; PDF, impressão e exportação estática mostram um resumo de todas as etapas, sem controles. Imagens locais são embutidas no HTML para funcionar offline.
 
+O cabeçalho do deck aceita `purpose: consulta | aula | workshop | palestra | executiva`: para que serve o material. Muda quanto texto cabe na tela antes do fiscal "anti-sono" reclamar (consulta 220 palavras, aula 160, workshop 110, palestra e executiva 40; `maxWords` no deck ou no slide vence) e o que a IA faz: em `consulta` (apostila, documentação, guia para distribuir) e `aula` (tutorial, curso) a explicação fica no slide, em parágrafos curtos, com código completo, sem slide só de título de seção, quiz ou "número de impacto", e a auto-correção não move texto para as notas; em `palestra` e `executiva`, pouco texto na tela e o detalhe em `notes`; `workshop` fica no meio (passos e comandos na tela). Se o pedido não deixar claro, a IA pode perguntar antes de gerar (Preferências › Inteligência artificial). Para material técnico, os temas `manual` (claro, imprime bem) e `manual-noite` (escuro) formam um par: Design › Versão escura/clara troca entre eles, e o PDF pode sair no claro (Preferências › Exportação).
+
 O cabeçalho do deck aceita `fit: { minCodePt, minTextPt, wrapCode }`: até onde o ajuste para caber encolhe código e texto (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920; padrões 10 e 6, ou os das Preferências do Studio) e se linha longa de código quebra (padrão `true`). Código que não cabe nem no mínimo rola na apresentação e o fiscal avisa, com a opção de dividir em dois slides.
 
 O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`; no Studio, menu **Apresentar ▾ › Animações**: Sem animação, Suaves, Expressivas). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
@@ -530,7 +532,7 @@ Linhas que começam com PALAVRAS EM MAIÚSCULAS seguidas de `:` viram etiquetas 
 
 Como no PowerPoint, são duas escolhas independentes:
 
-- **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento, muda o jeito dos slides de conteúdo (título, cartões, marcadores da lista, citação, número grande, frase) e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado). Nos slides de conteúdo: `sinal` barra de aviso e placas; `editorial` fios finos e citação centralizada; `noite` tudo centralizado e cartões vazados; `bauhaus` faixas de cor primária e círculos; `terminal` título como comando e cartões-janela; `jornal` fios duplos e colunas; `oceano` cartões flutuando e balões; `pop` contorno grosso e sombra dura; `prata` centralizado e sem caixa; `rabisco` tracejados e números circulados; `aurora` vidro com brilho. Trocar o tema já muda o arranjo: não reescreva slides só para "combinar" com o tema.
+- **Tema** (`theme`): fontes, raio das bordas, textura e uma **pele** própria que rearruma capa, seção e encerramento, muda o jeito dos slides de conteúdo (título, cartões, marcadores da lista, citação, número grande, frase) e põe ornamentos (`sinal`: faixa zebrada e selo no chapéu; `editorial`: fios e capa centralizada; `noite`: moldura fina; `bauhaus`: círculo, quadrado e triângulo; `terminal`: janela com barra e prompt; `jornal`: fios de jornal e manchete sublinhada; `rabisco`: fitas adesivas e títulos inclinados; `oceano`: ondas e chapéu em pílula; `pop`: adesivos e sombra chapada; `aurora`: brilhos e traço em gradiente; `prata`: limpo e centralizado; `manual` e `manual-noite`: documentação técnica, sem ornamento, código e texto corrido legíveis — o par claro/escuro do mesmo arranjo, para material de consulta, tutorial e apostila: `manual` imprime bem, `manual-noite` descansa a vista). Nos slides de conteúdo: `sinal` barra de aviso e placas; `editorial` fios finos e citação centralizada; `noite` tudo centralizado e cartões vazados; `bauhaus` faixas de cor primária e círculos; `terminal` título como comando e cartões-janela; `jornal` fios duplos e colunas; `oceano` cartões flutuando e balões; `pop` contorno grosso e sombra dura; `prata` centralizado e sem caixa; `rabisco` tracejados e números circulados; `aurora` vidro com brilho. Trocar o tema já muda o arranjo: não reescreva slides só para "combinar" com o tema.
 - **Paleta** (`palette`): só as cores, em qualquer tema. `tinta`, `floresta`, `mar`, `entardecer`, `lavanda`, `grafite`, `neon`, `areia`, `cereja`, `corporativo`, ou as suas: `palette: { paper: "F4F1EA", ink: "161616", accent: "D7263D", alert: "1B998B" }`. Os quatro tons saem dessas quatro cores, com contraste garantido.
 - **Paletas de família** (para identidade de marca sem cansar a vista): a cor forte da marca fica só no detalhe (`alert`, a ênfase pontual) e a página trabalha com os parentes mais agradáveis dela (`accent` e `family`). `rubi` (rosas, magenta e vinho; vermelho só no detalhe), `ametista` (roxos e lilases), `tangerina` (laranja com azul-marinho), `safira` (azuis com um toque âmbar), `esmeralda` (verdes). Na sua: `palette: { paper: "FFFFFF", ink: "3B2B33", accent: "B83A6E", alert: "CC092F", family: ["F9DCE5", "EFA3BC", "D9668F", "7E2349"] }` (de 2 a 8 parentes). `family` pinta as séries extras dos gráficos e os grupos e ramos dos diagramas. Pedido de "cores da empresa X": monte uma paleta de família assim, com a cor forte em `alert`.
 
@@ -647,7 +649,22 @@ Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida
 
 Direção automática: em fluxogramas o sagadeck desenha deitado (`LR`) e em pé (`TB`) e usa o que deixa a letra maior na área do slide. Escreva a direção que fizer sentido; `autoDirection: false` no slide mantém a do código (use só se a pessoa pedir uma direção).
 
-Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`.
+Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`, `gitGraph` (branches e commits do Git: `commit`, `branch nome`, `checkout nome`, `merge nome`, `cherry-pick id: "…"`; é o diagrama certo para "linhas de commits", rebase × merge e fluxo de branches).
+
+```yaml
+- layout: diagram
+  title: Feature branch e merge
+  mermaid: |
+    gitGraph
+      commit id: "base"
+      branch feat/login
+      checkout feat/login
+      commit id: "tela"
+      commit id: "testes"
+      checkout main
+      commit id: "hotfix"
+      merge feat/login
+```
 
 Ênfase (acrescente ao nó): `:::hi` (tom forte da cor de destaque), `:::em` (tom forte da cor de ênfase), `:::escuro`, `:::suave` (cinza neutro: usuário, sistemas externos, bancos de terceiros), `:::vazado` (tracejado: opcional, futuro, fora do escopo). Os demais nós herdam a família do grupo em que estão (fora de grupo: a família do destaque).
 
