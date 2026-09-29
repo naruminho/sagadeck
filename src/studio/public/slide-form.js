@@ -508,8 +508,13 @@
   }
 
   function selectField(o, spec) {
-    const sel = h("select", { class: "form-control" }, ...(spec.empty === false ? [] : [h("option", { value: "", text: spec.empty || "—" })]), spec.options.map(([v, l]) => h("option", { value: v, text: l })));
-    const cur = o[spec.k] ?? spec.default;
+    // "padrão" com o mesmo texto de uma opção (ex.: Síncrono): essa opção É o padrão, aparece uma vez só e escolhê-la
+    // tira o campo do YAML
+    const dflt = spec.empty ? spec.options.find(([, l]) => l === spec.empty)?.[0] : undefined;
+    const opts = spec.options.map(([v, l]) => h("option", { value: v === dflt ? "" : v, text: l }));
+    const sel = h("select", { class: "form-control" }, ...(spec.empty === false || dflt !== undefined ? [] : [h("option", { value: "", text: spec.empty || "—" })]), opts);
+    const cur0 = o[spec.k] ?? spec.default;
+    const cur = cur0 != null && String(cur0) === String(dflt) ? null : cur0;
     sel.value = cur == null ? "" : String(cur);
     if (cur != null && sel.value !== String(cur)) { // valor fora da lista: mostra mesmo assim
       sel.append(h("option", { value: String(cur), text: String(cur) }));

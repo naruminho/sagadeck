@@ -190,17 +190,27 @@ export class ApiEnvironments {
     fs.renameSync(tmp, this.file);
   }
 
+  // Ambiente de exemplo (embutido) editado pela pessoa: vira um ambiente dela, cópia completa no arquivo (o do arquivo
+  // vence o embutido com o mesmo nome), já com a mudança. Apagar a cópia do arquivo traz o exemplo de volta.
   targetEnv(envName) {
     const data = this.load();
     const n = envName || this.currentName(data) || "dev";
-    if (data.environments[n] && !data.own.includes(n)) throw new ApiError(`O ambiente ${n.toUpperCase()} é de exemplo (embutido) e não é gravado. Crie um ambiente seu (ex.: dev) para guardar variáveis.`, "config");
-    return n;
+    const copyOf = data.environments[n] && !data.own.includes(n) ? this.builtin[n] : null;
+    return { n, copyOf };
+  }
+  adopt(doc, n, copyOf) {
+    if (!copyOf) return;
+    const own = {};
+    if (copyOf.vars) own.vars = { ...copyOf.vars };
+    if (copyOf.secrets) own.secrets = Object.fromEntries(Object.entries(copyOf.secrets).map(([k, v]) => [k, typeof v === "string" ? protect(v) : v]));
+    doc.setIn(["environments", n], doc.createNode(own));
   }
 
   setVar(name, value, { protected: prot = false, env: envName } = {}) {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(name || ""))) throw new ApiError(`Nome de variável inválido: "${name}". Use letras, números e _ (ex.: path_id).`, "config");
-    const n = this.targetEnv(envName);
+    const { n, copyOf } = this.targetEnv(envName);
     this.editFile((doc) => {
+      this.adopt(doc, n, copyOf);
       if (!doc.get("current")) doc.set("current", n);
       doc.setIn(["environments", n, prot ? "secrets" : "vars", name], prot ? protect(String(value)) : value);
       if (doc.hasIn(["environments", n, prot ? "vars" : "secrets", name])) doc.deleteIn(["environments", n, prot ? "vars" : "secrets", name]);
@@ -217,8 +227,9 @@ export class ApiEnvironments {
   }
 
   deleteVar(name, envName) {
-    const n = this.targetEnv(envName);
+    const { n, copyOf } = this.targetEnv(envName);
     this.editFile((doc) => {
+      this.adopt(doc, n, copyOf);
       for (const k of ["vars", "secrets"]) if (doc.hasIn(["environments", n, k, name])) doc.deleteIn(["environments", n, k, name]);
     });
     return this.state();

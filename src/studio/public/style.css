@@ -138,6 +138,7 @@ button { cursor: pointer; background: none; border: 0; }
 }
 .app-mark { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; background: #c43e1c; color: #fff; }
 .app-mark .ic { width: 16px; height: 16px; }
+.app-mark .saga-mark { width: 22px; height: 22px; } /* o mesmo logotipo da biblioteca */
 .doc-title {
   min-width: 120px; max-width: 360px; flex: 0 1 auto;
   height: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px;
@@ -175,7 +176,9 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .ribbon-tab:hover { background: var(--hover); color: var(--text); }
 .ribbon-tab.active { color: var(--brand); font-weight: 600; }
 /* modo simples: ferramentas de especialista guardadas até a pessoa pedir "Mais opções" */
-.simple-mode [data-adv] { display: none !important; }
+/* ferramentas de especialista: sempre à vista, no fim da aba (à direita), separadas por um traço */
+.ribbon-panel > .rgroup[data-adv] { order: 50; }
+.ribbon-panel > .rgroup[data-adv]:not(.ribbon-panel > .rgroup[data-adv] ~ .rgroup[data-adv]) { margin-left: auto; border-left: 1px solid var(--ui-line); }
 .ribbon-more { margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
 .ribbon-more:hover { background: var(--hover); color: var(--text); }
 .ribbon-more[aria-pressed="true"] { color: var(--brand); }
@@ -925,3 +928,21 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .rgroup-gallery .look-strip.open .theme-gallery { position: fixed; z-index: 1100; width: min(640px, calc(100vw - 16px)) !important; max-height: min(60vh, 520px); display: grid; grid-template-columns: repeat(auto-fill, 104px); justify-content: start; gap: 8px; overflow: auto; padding: 12px; scroll-snap-type: none; border: 1px solid var(--ui-line-strong); border-radius: 10px; background: var(--chrome); box-shadow: var(--shadow-2, 0 12px 32px #0004); }
 /* Design em 1366 px: os seletores de texto e fontes cedem um pouco para as faixas mostrarem 3 cartões inteiros */
 .ribbon-panel[data-panel="design"] #mark-style-select, .ribbon-panel[data-panel="design"] #identity-select { width: 116px; min-width: 116px; }
+
+/* grade de variáveis no estilo do Object Inspector (Delphi): letra pequena, linhas baixas, célula = campo */
+.studio-var-table { font-size: 12px; }
+.studio-var-table th { padding: 3px 6px; font-size: 11px; }
+.studio-var-table td { padding: 0; border-bottom: 1px solid var(--ui-line); border-right: 1px solid var(--ui-line); }
+.studio-var-table td:last-child { border-right: 0; }
+.studio-var-table th:first-child, .studio-var-table td:first-child { width: 42%; }
+.studio-var-table th:last-child, .studio-var-table td:last-child { width: 24px; text-align: center; }
+.studio-var-table input { height: 22px; padding: 0 5px; border: 1px solid transparent; border-radius: 0; font: 12px var(--font-mono); text-overflow: ellipsis; }
+.studio-var-table input[data-var-value] { font: 12px var(--font-mono); }
+.studio-var-table input:focus { border-color: var(--brand); background: var(--chrome); }
+.studio-var-table input[readonly] { color: var(--text-2); }
+.studio-var-table .studio-var-new input::placeholder { color: var(--text-3); font-style: italic; }
+.studio-var-table .pg-del { width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--text-3); opacity: 0; cursor: pointer; }
+.studio-var-table tr:hover .pg-del, .studio-var-table .pg-del:focus-visible { opacity: 1; }
+.studio-var-table .pg-del:hover { color: var(--err); }
+.studio-var-table .pg-del .ic { width: 13px; height: 13px; }
+.studio-vars-panel { padding: 10px 10px 20px; }

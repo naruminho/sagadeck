@@ -36,7 +36,8 @@
     toolbar.querySelector('[data-size-field]').hidden=!texts;
     toolbar.querySelector('[data-color-field]').hidden=!anyText;
     toolbar.querySelector('[data-fill-field]').hidden=!shapes;
-    toolbar.querySelector('[data-size]').value=Math.round(parseFloat(getComputedStyle(el).fontSize));
+    // o tamanho que a pessoa escolheu (e não o que o ajuste para caber deixou na tela)
+    toolbar.querySelector('[data-size]').value=Math.round(Number(slide.visualEdits?.[el.dataset.vkey]?.size)||parseFloat(getComputedStyle(el).fontSize));
     toolbar.querySelector('[data-color]').value=toHex(getComputedStyle(el).color);
     const fillOf=n=>n.querySelector('.shape-svg polygon, .shape-svg path')?getComputedStyle(n.querySelector('.shape-svg polygon, .shape-svg path')).fill:getComputedStyle(n).backgroundColor;
     if(shapes)toolbar.querySelector('[data-fill]').value=toHex(fillOf(el));

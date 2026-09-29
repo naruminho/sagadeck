@@ -8,6 +8,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Marca, faixa sem "Mais opções", fonte que encolhia, grade de variáveis — 29/09/2026
+
+- Marca: "CREATIVE STUDIO" e um logotipo com significado (um deck, dois slides, com o "apresentar" no da frente) na
+  biblioteca e no editor (antes: um "Z" e o ícone de camadas).
+- Faixa: sem o botão "Mais opções" (modo simples saiu); tudo à vista, e os grupos `[data-adv]` ficam à direita da aba.
+- Bug: tamanho escolhido num texto com ajuste para caber (`data-fit`, ex.: o "01" das coleções) era encolhido pelo
+  `fit.js` e o campo mostrava o valor encolhido. Agora `visualEdits.size` marca `data-vsize` e o ajuste pula.
+- Bug: seletor com o padrão igual a uma opção ("Síncrono") aparecia duplicado; a opção passa a ser o padrão.
+- Variáveis: grade no estilo Object Inspector (linha de 22 px, letra 12 px, célula = campo; grava ao sair/Enter, Esc
+  desfaz, última linha cria, lixeira na linha). Editar um ambiente de exemplo (ENSAIO) cria a cópia dele no arquivo
+  (`adopt` em `src/api-client.js`), em vez de recusar.
+
 ## Objetos: cor, preenchimento, "Enviar para trás"; vitrine clara; Criar com IA unificado — 29/09/2026
 
 - Bug: "Atrás" mandava a forma para `z-index` negativo, atrás do fundo do slide (sumia e não dava para excluir). Agora
