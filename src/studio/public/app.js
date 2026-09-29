@@ -3767,28 +3767,24 @@ ${ta.value}`;
   function studioSavedVarRow(name, detail) {
     return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(name)}"><td><code>${escHtml(name)}</code></td><td colspan="2">${escHtml(detail)}</td></tr>`;
   }
-  function studioEnvVarRow(name, value, editable, secret = false) {
+  // Grade de propriedades (como o Object Inspector do Delphi): clica na célula e digita; grava ao sair dela ou no
+  // Enter; Esc desfaz. Segredo e valor com cara de token nunca aparecem: a célula fica vazia e digitar troca o valor.
+  function studioEnvVarRow(name, value, secret = false) {
     const safeName = secret ? `secret.${name}` : name;
     const hiddenValue = secret || /(?:secret|token|password|passwd|api.?key|credential|authorization)/i.test(name);
-    const displayValue = hiddenValue ? "•••••• (oculto)" : value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
-    const disabled = !editable || hiddenValue;
-    const escapedName = escAttr(name);
-    const controls = editable && !hiddenValue
-      ? `<div class="studio-var-actions"><button type="button" class="btn btn-secondary" data-save-studio-var>Salvar</button><button type="button" class="btn btn-secondary" data-delete-studio-var title="Excluir variável" aria-label="Excluir ${escAttr(name)}">×</button></div>`
-      : "";
-    return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(safeName)}" data-original-var="${escapedName}">
-      <td><input aria-label="Nome da variável" data-var-name value="${escapedName}" ${disabled ? "disabled" : ""}></td>
-      <td><input aria-label="Valor da variável" data-var-value value="${escAttr(displayValue)}" ${disabled ? "disabled" : ""} ${hiddenValue ? 'autocomplete="off" data-hidden-value="true"' : ""}></td>
-      <td>${controls}</td>
+    const shown = hiddenValue ? "" : value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(safeName)}" data-original-var="${escAttr(name)}"${secret ? ' data-secret="1"' : ""}>
+      <td><input aria-label="Nome da variável" data-var-name value="${escAttr(name)}" spellcheck="false" ${secret ? 'readonly title="Segredo: o nome não muda aqui (apague e crie de novo)"' : `title="${escAttr(name)}"`}></td>
+      <td><input aria-label="Valor da variável" data-var-value spellcheck="false" ${hiddenValue ? 'type="password" autocomplete="new-password" placeholder="•••••• (oculto) · digite para trocar" data-hidden-value="true"' : `value="${escAttr(shown)}" title="${escAttr(shown)}" data-original-value="${escAttr(shown)}"`}></td>
+      <td class="pg-act"><button type="button" class="pg-del" data-delete-studio-var title="Excluir ${escAttr(name)}" aria-label="Excluir ${escAttr(name)}"><i class="ic" data-ic="trash-2"></i></button></td>
     </tr>`;
   }
+  const studioNewVarRow = () => `<tr class="studio-var-row studio-var-new"><td><input aria-label="Nome da nova variável" data-var-name placeholder="nova variável" spellcheck="false"></td><td><input aria-label="Valor da nova variável" data-var-value placeholder="valor" spellcheck="false"></td><td class="pg-act"></td></tr>`;
   function studioVarTable(rows) {
     return `<div class="studio-var-table-wrap"><table class="studio-var-table"><thead><tr><th>Nome</th><th>Valor</th><th aria-label="Ações"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   function renderStudioEnvVars(data) {
     const host = document.getElementById("studio-env-vars");
-    const add = document.getElementById("studio-var-add");
-    add.hidden = true;
     const envs = Array.isArray(data.envs) ? data.envs : [];
     if (data.live === false) {
       host.textContent = data.reason || "Os ambientes não estão disponíveis neste momento.";
@@ -3801,13 +3797,13 @@ ${ta.value}`;
     const env = envs.find((item) => item.name === data.current) || envs[0];
     const vars = env.vars && typeof env.vars === "object" ? env.vars : {};
     const secretNames = Array.isArray(env.secrets) ? env.secrets : [];
-    const editable = !env.builtin;
     const rows = [
-      ...Object.entries(vars).map(([name, value]) => studioEnvVarRow(name, value, editable)),
-      ...secretNames.map((name) => studioEnvVarRow(name, "", false, true)),
+      ...Object.entries(vars).map(([name, value]) => studioEnvVarRow(name, value)),
+      ...secretNames.map((name) => studioEnvVarRow(name, "", true)),
+      studioNewVarRow(),
     ];
-    add.hidden = !editable;
-    host.innerHTML = `<div class="studio-env-group"><h5>${escHtml(String(env.name || "Ambiente").toUpperCase())}${env.name === data.current ? ' <span>em uso</span>' : ""}</h5>${studioVarTable(rows.join("") || '<tr><td colspan="3" class="studio-var-empty">Nenhuma variável neste ambiente.</td></tr>')}</div>${editable ? "" : '<p class="studio-var-empty">Este ambiente de exemplo é somente leitura. Selecione ou crie um ambiente próprio para editar variáveis.</p>'}`;
+    host.innerHTML = `<div class="studio-env-group"><h5>${escHtml(String(env.name || "Ambiente").toUpperCase())}${env.name === data.current ? ' <span>em uso</span>' : ""}</h5>${studioVarTable(rows.join(""))}</div>${env.builtin ? '<p class="studio-var-empty">Ambiente de exemplo: ao editar, ele vira um ambiente seu (uma cópia no seu arquivo de ambientes).</p>' : ""}`;
+    hydrateIcons(host);
   }
   function renderStudioSavedVars() {
     const host = document.getElementById("studio-saved-vars");
@@ -3846,16 +3842,19 @@ ${ta.value}`;
   }
   async function saveStudioEnvVar(row) {
     const name = row.querySelector("[data-var-name]").value.trim();
-    const value = row.querySelector("[data-var-value]").value;
+    const valueInput = row.querySelector("[data-var-value]");
+    const value = valueInput.value;
     const previousName = row.dataset.originalVar || "";
     const status = document.getElementById("studio-vars-status");
+    // valor oculto não é lido de volta: sem digitar nada, só um segredo novo não muda
+    if (valueInput.dataset.hiddenValue && !value) { if (!previousName || name === previousName) return; }
     try {
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error("Use um nome sem {{ }}: letras, números e _ (comece por letra ou _).");
       const duplicate = [...document.querySelectorAll("#studio-env-vars [data-var-name]")].some((field) => field !== row.querySelector("[data-var-name]") && field.value.trim() === name);
       if (duplicate) throw new Error(`Já existe uma variável chamada "${name}" neste ambiente.`);
       const response = await fetch("api/http/vars/set", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, value }),
+        body: JSON.stringify({ name, value, protected: row.dataset.secret === "1" }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -3879,7 +3878,7 @@ ${ta.value}`;
   }
   async function deleteStudioEnvVar(row) {
     const name = row.dataset.originalVar;
-    if (!name || !window.confirm(`Excluir a variável "${name}" do ambiente em uso?`)) return;
+    if (!name) return;
     try {
       const response = await fetch("api/http/vars/delete", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -3966,24 +3965,11 @@ ${ta.value}`;
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
-  // Modo simples (padrão): as ferramentas de especialista ([data-adv]: YAML, API ao vivo, tom e textura,
-  // legibilidade, ritmo, guias, sons) ficam guardadas; "Mais opções" mostra tudo e o navegador lembra.
-  function setSimpleMode(on) {
-    document.body.classList.toggle("simple-mode", on);
-    const b = document.getElementById("btn-more-options");
-    b.setAttribute("aria-pressed", String(!on));
-    b.querySelector("span").textContent = on ? "Mais opções" : "Menos opções";
-    b.title = on ? "Mostrar as ferramentas avançadas (YAML, API ao vivo, tom e textura, legibilidade, ritmo, guias, sons)" : "Guardar as ferramentas avançadas";
-    store.set("simpleMode", on);
-    if (on && document.querySelector(".ribbon-tab.active") && !document.querySelector(".ribbon-panel.active .rgroup:not([data-adv])")) selectRibbonTab("inicio");
-  }
-
   function setupShell() {
-    // abas da faixa de opções
+    // abas da faixa de opções. Tudo à vista de cara: as ferramentas de especialista ([data-adv]) ficam no fim de
+    // cada aba, à direita (CSS), sem botão de mostrar/esconder
     dom.ribbonTabs.forEach((t) => t.addEventListener("click", () => selectRibbonTab(t.dataset.tab)));
     selectRibbonTab(store.get("ribbonTab", "inicio"));
-    setSimpleMode(store.get("simpleMode", true));
-    document.getElementById("btn-more-options").onclick = () => setSimpleMode(!document.body.classList.contains("simple-mode"));
 
     // popovers (layout, ritmo) e menus (Arquivo, Apresentar)
     // os popovers são "fixed" e ancorados no botão: a faixa rola na horizontal e cortaria um absolute
@@ -4103,20 +4089,23 @@ ${ta.value}`;
     document.getElementById("btn-api-envs-save").addEventListener("click", saveApiEnvs);
     document.getElementById("btn-api-vars-studio").addEventListener("click", () => openPane("vars"));
     document.getElementById("api-envs-text").addEventListener("input", scheduleApiEnvValidation);
-    document.getElementById("studio-var-add").addEventListener("click", () => {
-      const tbody = document.querySelector("#studio-env-vars .studio-var-table tbody");
-      if (!tbody) return;
-      const row = document.createElement("tr");
-      row.className = "studio-var-row";
-      row.innerHTML = `<td><input aria-label="Nome da variável" data-var-name placeholder="nome"></td><td><input aria-label="Valor da variável" data-var-value placeholder="valor"></td><td><div class="studio-var-actions"><button type="button" class="btn btn-secondary" data-save-studio-var>Salvar</button></div></td>`;
-      tbody.append(row);
-      row.querySelector("[data-var-name]").focus();
-    });
-    document.getElementById("tab-panel-vars").addEventListener("click", (event) => {
-      const row = event.target.closest(".studio-var-row");
+    // grade de variáveis: grava ao sair da célula (change) ou no Enter; Esc desfaz; a linha em branco do fim cria
+    const varsPanel = document.getElementById("tab-panel-vars");
+    varsPanel.addEventListener("change", (event) => {
+      const row = event.target.closest("#studio-env-vars .studio-var-row");
       if (!row) return;
-      if (event.target.closest("[data-save-studio-var]")) void saveStudioEnvVar(row);
-      if (event.target.closest("[data-delete-studio-var]")) void deleteStudioEnvVar(row);
+      if (row.classList.contains("studio-var-new") && !row.querySelector("[data-var-name]").value.trim()) return; // falta o nome
+      void saveStudioEnvVar(row);
+    });
+    varsPanel.addEventListener("keydown", (event) => {
+      const input = event.target.closest("#studio-env-vars .studio-var-row input");
+      if (!input) return;
+      if (event.key === "Escape") { input.value = input.hasAttribute("data-var-name") ? input.closest("tr").dataset.originalVar || "" : input.dataset.originalValue || ""; input.blur(); }
+      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
+    });
+    varsPanel.addEventListener("click", (event) => {
+      const row = event.target.closest(".studio-var-row");
+      if (row && event.target.closest("[data-delete-studio-var]")) void deleteStudioEnvVar(row);
     });
     document.getElementById("tab-panel-vars").addEventListener("dragstart", (event) => {
       const row = event.target.closest("[data-studio-drag-var]");

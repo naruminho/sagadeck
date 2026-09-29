@@ -20,6 +20,6 @@ export function applyVisualEdits(html, edits = {}) {
     if (/^#[0-9a-f]{6}$/i.test(e.fill) && classes.includes('shape')) css += classes.some(c=>SVG_SHAPES.includes(c)) ? `--shape-fill:${e.fill};` : `background:${e.fill}!important;`;
     if (e.z != null) css += `${/position:absolute/.test(attrs) ? '' : 'position:relative;'}z-index:${Math.round(num(e.z))};`;
     if (css) attrs = /\bstyle="/.test(attrs) ? attrs.replace(/style="([^"]*)"/,(_,old)=>`style="${old};${css}"`) : `${attrs} style="${css}"`;
-    return `<${name}${attrs} data-vkey="${key}">`;
+    return `<${name}${attrs} data-vkey="${key}"${e.size != null ? ' data-vsize' : ''}>`;
   });
 }

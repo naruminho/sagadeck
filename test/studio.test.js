@@ -164,8 +164,6 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
-    // Tema da interface e Variáveis ficam em "Mais opções" (modo simples é o padrão)
-    if (await p.evaluate(() => document.body.classList.contains("simple-mode"))) await p.click("#btn-more-options");
     const theme = p.locator("#btn-app-theme");
     await theme.click();
     assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
@@ -208,7 +206,7 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     // Enviar para trás: fica atrás dos outros objetos, mas não some atrás do fundo do slide (dá para clicar)
     await barra.getByRole("button", { name: "Enviar para trás" }).click(); await p.waitForTimeout(900);
     // um ponto da estrela sem outro objeto por cima: ali ela aparece (vermelha, na frente do fundo) e o clique a pega
-    const ponto = await p.evaluate(() => {
+    const pontoDaEstrela = () => p.evaluate(() => {
       const star = document.querySelector("#rendered-slide-container .shape-star"), r = star.getBoundingClientRect();
       for (let fy = 0.35; fy < 0.75; fy += 0.05) for (let fx = 0.35; fx < 0.75; fx += 0.05) {
         const x = r.left + r.width * fx, y = r.top + r.height * fy;
@@ -217,6 +215,7 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
       }
       return null;
     });
+    const ponto = await pontoDaEstrela();
     assert.ok(ponto, "há um ponto da estrela sem outro objeto por cima");
     // na frente do fundo do slide: a área do slide isola o empilhamento (z negativo não passa para trás do fundo)
     assert.equal(await p.locator("#rendered-slide-container .shape-star").evaluate((el) => getComputedStyle(el.closest(".safe, .free")).isolation), "isolate");
@@ -236,7 +235,8 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     assert.equal(await p.locator("#rendered-slide-container .t[data-vkey]").first().evaluate((el) => getComputedStyle(el).color), "rgb(0, 170, 0)", "a cor do texto muda");
     await p.keyboard.press("Escape");
     // Delete exclui o objeto selecionado (clicado onde ele aparece, mesmo atrás do texto)
-    await p.mouse.click(ponto[0], ponto[1]);
+    const aqui = await pontoDaEstrela(); // o título cresceu (150 px): acha de novo um ponto só da estrela
+    await p.mouse.click(aqui[0], aqui[1]);
     await p.keyboard.press("Delete");
     await p.waitForTimeout(900);
     assert.equal(await p.locator("#rendered-slide-container .shape-star").evaluate((el) => getComputedStyle(el).display), "none", "Delete tira a forma do slide");
@@ -298,6 +298,19 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     const movidos = Object.values(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].visualEdits || {}).filter((v) => v.dx);
     assert.ok(movidos.length >= 2, "a seta move todos os selecionados");
     await p.keyboard.press("Escape");
+    // Tamanho escolhido num texto que "encolhe para caber" (data-fit): fica o que a pessoa digitou, mesmo trocando a cor
+    await p.keyboard.press("Escape");
+    const fitH = await p.locator("#rendered-slide-container [data-fit][data-vkey]").first().elementHandle();
+    assert.ok(fitH, "o slide tem um texto com ajuste para caber");
+    await fitH.click();
+    await barra.getByLabel("Tamanho do texto").fill("150"); await barra.getByLabel("Tamanho do texto").press("Enter"); await p.waitForTimeout(900);
+    const fitKey = await fitH.evaluate((el) => el.dataset.vkey);
+    const tamanho = () => p.locator(`#rendered-slide-container [data-vkey="${fitKey}"]`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    assert.equal(await tamanho(), 150, "o ajuste para caber não encolhe o tamanho escolhido");
+    assert.equal(await barra.getByLabel("Tamanho do texto").inputValue(), "150", "o campo mostra o que foi digitado");
+    await barra.getByLabel("Cor do texto").fill("#3355aa"); await p.waitForTimeout(900);
+    assert.equal(await tamanho(), 150, "trocar a cor não muda o tamanho");
+    await p.keyboard.press("Escape");
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
@@ -319,8 +332,6 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
   const studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
-    // Tema da interface e Variáveis ficam em "Mais opções" (modo simples é o padrão)
-    if (await p.evaluate(() => document.body.classList.contains("simple-mode"))) await p.click("#btn-more-options");
     await p.click('.ribbon-tab[data-tab="inserir"]');
     await p.click("#btn-api-vars-studio");
     assert.equal(await p.locator("#modal-studio-vars").count(), 0, "variáveis não abrem em janela flutuante");
@@ -330,11 +341,16 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
     assert.equal(await p.locator("#studio-env-vars [data-var-name]").first().inputValue(), "base");
     assert.equal(await p.locator('#studio-env-vars [data-var-value]').first().inputValue(), "https://private-env-value.invalid");
     const tokenRow = p.locator('#studio-env-vars .studio-var-row[data-original-var="api_token"]');
-    assert.match(await tokenRow.locator("[data-var-value]").inputValue(), /oculto/);
-    assert.equal(await tokenRow.locator("[data-var-value]").isDisabled(), true, "valor com aparência de token não pode ser editado/exposto");
+    assert.equal(await tokenRow.locator("[data-var-value]").inputValue(), "", "valor com cara de token não aparece");
+    assert.match(await tokenRow.locator("[data-var-value]").getAttribute("placeholder"), /oculto/);
+    assert.equal(await tokenRow.locator("[data-var-value]").getAttribute("type"), "password");
     const secretRow = p.locator('#studio-env-vars .studio-var-row[data-studio-drag-var="secret.api_key"]');
     assert.equal(await secretRow.count(), 1, "segredo fica disponível como placeholder sem expor valor");
-    assert.match(await secretRow.locator("[data-var-value]").inputValue(), /oculto/);
+    assert.match(await secretRow.locator("[data-var-value]").getAttribute("placeholder"), /oculto/);
+    // grade compacta, como o Object Inspector: linha baixa e letra pequena
+    const linha = await p.locator("#studio-env-vars .studio-var-row").first().boundingBox();
+    assert.ok(linha.height <= 28, `linha compacta (${linha.height}px)`);
+    assert.ok(parseFloat(await p.locator("#studio-env-vars [data-var-value]").first().evaluate((el) => getComputedStyle(el).fontSize)) <= 12);
     assert.doesNotMatch(await p.locator("#studio-env-vars").innerText(), /PRIVATE_SECRET_VALUE/);
     assert.doesNotMatch(await p.locator("#studio-env-vars").innerText(), /PRIVATE_VAR_TOKEN/);
     await p.click("#tab-btn-props");
@@ -351,17 +367,32 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
       field.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
     });
     assert.match(await urlField.inputValue(), /\{\{base\}\}/);
+    // editar direto na célula: clica, digita, Enter grava (sem botão Salvar)
+    assert.equal(await p.getByRole("button", { name: "Salvar" }).count(), 0, "sem botão Salvar por linha");
+    await p.locator('#studio-env-vars [data-var-value]').first().click();
     await p.locator('#studio-env-vars [data-var-value]').first().fill("https://new-api.example.test");
-    await p.locator("#studio-env-vars .studio-var-row").first().getByRole("button", { name: "Salvar" }).click();
+    await p.keyboard.press("Enter");
     await p.waitForFunction(() => document.getElementById("studio-vars-status").textContent.includes("salva"));
     assert.match(fs.readFileSync(envFile, "utf8"), /https:\/\/new-api\.example\.test/);
-    await p.click("#studio-var-add");
-    const newRow = p.locator("#studio-env-vars .studio-var-row").last();
+    // Esc desfaz a edição da célula (não grava)
+    const antesEsc = fs.readFileSync(envFile, "utf8");
+    await p.locator('#studio-env-vars [data-var-value]').first().fill("http://nao-grava.invalid");
+    await p.keyboard.press("Escape");
+    await p.waitForTimeout(400);
+    assert.equal(fs.readFileSync(envFile, "utf8"), antesEsc, "Esc não grava");
+    // a última linha, em branco, cria a variável
+    const newRow = p.locator("#studio-env-vars .studio-var-new");
     await newRow.locator("[data-var-name]").fill("workspace");
     await newRow.locator("[data-var-value]").fill("dev");
-    await newRow.getByRole("button", { name: "Salvar" }).click();
-    await p.waitForFunction(() => [...document.querySelectorAll("#studio-env-vars [data-var-name]")].some((field) => field.value === "workspace"));
-    assert.match(fs.readFileSync(envFile, "utf8"), /workspace: dev/);
+    await p.keyboard.press("Enter");
+    await p.waitForFunction(() => [...document.querySelectorAll("#studio-env-vars .studio-var-row:not(.studio-var-new) [data-var-name]")].some((field) => field.value === "workspace"));
+    assert.match(fs.readFileSync(envFile, "utf8"), /workspace: "?dev"?/);
+    // renomear pela célula do nome
+    const ws = p.locator('#studio-env-vars .studio-var-row[data-original-var="workspace"] [data-var-name]');
+    await ws.fill("area"); await p.keyboard.press("Enter");
+    await p.waitForFunction(() => document.querySelector('#studio-env-vars .studio-var-row[data-original-var="area"]'));
+    assert.match(fs.readFileSync(envFile, "utf8"), /area: "?dev"?/);
+    assert.doesNotMatch(fs.readFileSync(envFile, "utf8"), /workspace:/);
     await p.click('.thumb-card[data-idx="1"]');
     const savedVar = p.locator("#studio-saved-vars .studio-var-row").filter({ hasText: "task_id" });
     await savedVar.waitFor();
@@ -565,22 +596,18 @@ test("studio", async (t) => {
     await p.evaluate(() => document.querySelectorAll(".popover.open").forEach((x) => x.classList.remove("open")));
   });
 
-  // pedido do "preguiçoso": sem mil botões. Por padrão as ferramentas de especialista ficam guardadas; "Mais opções"
-  // mostra tudo e a escolha sobrevive a recarregar. (Deixa ligado: os testes seguintes usam YAML, API, ritmo…)
-  await t.test("modo simples por padrão: ferramentas de especialista guardadas; Mais opções mostra e lembra", async () => {
+  // tudo à vista de cara (o "Mais opções" era inconveniente); as ferramentas de especialista ficam no fim da aba
+  await t.test("faixa: tudo à vista, sem botão Mais opções; as ferramentas avançadas ficam à direita da aba", async () => {
     const visivel = (sel) => p.isVisible(sel);
+    assert.equal(await p.locator("#btn-more-options").count(), 0, "sem o botão de mostrar/esconder");
     await tab("exibir");
-    assert.ok(!(await visivel("#btn-yaml-drawer")), "YAML guardado no modo simples");
+    assert.ok(await visivel("#btn-yaml-drawer"), "YAML à vista");
     assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
     await tab("inserir");
-    assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
+    assert.ok(await visivel("#btn-api-slide"), "API ao vivo à vista");
     assert.ok(await visivel("#btn-insert-shape"), "Formas continua no Inserir");
-    await p.click("#btn-more-options");
-    assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
-    assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
-    await p.reload(); await p.waitForSelector(".thumb-card");
-    await tab("exibir");
-    assert.ok(await visivel("#btn-yaml-drawer"), "a escolha sobrevive a recarregar");
+    const [api, formas] = await Promise.all([p.locator("#btn-api-slide").boundingBox(), p.locator("#btn-insert-shape").boundingBox()]);
+    assert.ok(api.x > formas.x, "o grupo avançado (API ao vivo) fica à direita do essencial");
     await tab("inicio");
   });
 
@@ -1537,6 +1564,9 @@ test("studio", async (t) => {
     await p.uncheck(`${form} .sf-check:has-text("Enviar o token do ambiente") input`);
     await settle();
     assert.equal(saved().slides[i].request.auth, false);
+    // o padrão (Síncrono) aparece uma vez só no seletor, não duplicado como opção vazia + opção real
+    const modos = await p.locator(`${field("Modo")} select option`).allTextContents();
+    assert.equal(modos.filter((m) => /Síncrono/.test(m)).length, 1, `opções: ${modos.join(" | ")}`);
     // tempo real: some a requisição HTTP, aparece a conexão do WebSocket
     await p.selectOption(`${field("Modo")} select`, "realtime");
     await p.waitForSelector(field("Conexão (WebSocket)"));

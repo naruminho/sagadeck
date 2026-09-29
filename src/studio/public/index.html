@@ -25,7 +25,7 @@
        BARRA DE TÍTULO: documento, estado do salvamento, busca, Apresentar
        ====================================================================== -->
   <header id="titlebar" class="titlebar">
-    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações" aria-label="SagaDeck · Voltar à biblioteca"><i class="ic" data-ic="layers"></i></a>
+    <a href="biblioteca" class="app-mark app-mark-link" id="btn-library" title="Biblioteca de apresentações" aria-label="SagaDeck · Voltar à biblioteca"><svg class="saga-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3.5" y="4.5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2.2" opacity=".55"/><path fill="currentColor" fill-rule="evenodd" d="M12 11h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3zM16.5 14.8v6.4l5.3-3.2z"/></svg></a>
     <input type="text" id="deck-title-input" class="doc-title" value="" placeholder="Apresentação sem título" aria-label="Título da apresentação">
     <span id="save-status" class="save-status" title=""></span>
 
@@ -82,8 +82,6 @@
     <button class="ribbon-tab" role="tab" data-tab="ia">IA</button>
     <button class="ribbon-tab" role="tab" data-tab="revisar">Revisar</button>
     <button class="ribbon-tab" role="tab" data-tab="exibir">Exibir</button>
-    <!-- modo simples (padrão): esconde as ferramentas de especialista ([data-adv]); a escolha fica no navegador -->
-    <button id="btn-more-options" class="ribbon-more" type="button" aria-pressed="false" title="Mostrar as ferramentas avançadas (YAML, API ao vivo, tom e textura, legibilidade, ritmo, guias, sons)"><i class="ic" data-ic="sliders-horizontal"></i><span>Mais opções</span></button>
   </nav>
 
   <div id="ribbon" class="ribbon">
@@ -467,10 +465,10 @@
       </div>
 
       <div id="tab-panel-vars" class="tab-panel studio-vars-panel" role="tabpanel" aria-labelledby="tab-btn-vars">
-        <p class="studio-vars-intro">Arraste um nome para um campo do slide: o SagaDeck escreve <code>{{nome}}</code>. As variáveis do ambiente atual podem ser criadas e editadas aqui; segredos permanecem ocultos.</p>
+        <p class="studio-vars-intro">Arraste um nome para um campo do slide: o SagaDeck escreve <code>{{nome}}</code>. Clique numa célula para editar (grava ao sair ou com Enter; Esc desfaz); a última linha cria uma variável. Segredos ficam ocultos.</p>
         <div id="studio-vars-status" class="sf-hint" role="status"></div>
         <section class="studio-var-section">
-          <div class="studio-var-section-head"><h4>Ambiente em uso</h4><button id="studio-var-add" class="btn btn-secondary" type="button">Adicionar variável</button></div>
+          <div class="studio-var-section-head"><h4>Ambiente em uso</h4></div>
           <div id="studio-env-vars"></div>
         </section>
         <section class="studio-var-section">

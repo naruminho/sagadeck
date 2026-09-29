@@ -63,3 +63,22 @@ test("sem arquivo ainda: criar a primeira variável cria o arquivo e o ambiente"
   api.setVar("base", "https://x", { env: "dev" });
   assert.equal(api.env("dev").vars.base, "https://x");
 });
+
+test("editar uma variável de um ambiente de exemplo (embutido) cria a sua cópia completa dele no arquivo, com a mudança", () => {
+  const file = path.join(tmp(), "ambientes.yaml");
+  const api = new ApiEnvironments(file);
+  api.builtin.ensaio = { label: "API de mentira", vars: { base: "http://127.0.0.1:9/v1", client_id: "id-teste" }, secrets: { client_secret: "segredo-teste" } };
+  api.use("ensaio");
+  const st = api.setVar("base", "http://127.0.0.1:9999/v1");
+  const ensaio = st.envs.find((e) => e.name === "ensaio");
+  assert.equal(ensaio.builtin, undefined, "virou um ambiente seu");
+  assert.equal(ensaio.vars.base, "http://127.0.0.1:9999/v1", "a mudança vale");
+  assert.equal(ensaio.vars.client_id, "id-teste", "as outras variáveis vieram junto");
+  assert.deepEqual(ensaio.secrets, ["client_secret"], "o segredo também");
+  assert.equal(api.reveal("client_secret"), "segredo-teste");
+  // apagar uma variável do exemplo também vira cópia (sem aquela variável)
+  const api2 = new ApiEnvironments(path.join(tmp(), "ambientes.yaml"));
+  api2.builtin.ensaio = { vars: { a: "1", b: "2" } };
+  api2.use("ensaio");
+  assert.deepEqual(api2.deleteVar("a").envs.find((e) => e.name === "ensaio").vars, { b: "2" });
+});

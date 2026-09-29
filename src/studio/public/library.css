@@ -19,7 +19,7 @@ body.lib { display: grid; grid-template-columns: 218px minmax(0, 1fr); grid-temp
 .brand-light { font-weight: 420; }
 .lib-brand small { display: block; margin-top: 3px; color: var(--text-3); font-size: 8px; font-weight: 650; letter-spacing: 2px; }
 .lib-logo { width: 33px; height: 37px; flex: none; display: grid; place-items: center; color: var(--brand); }
-.lib-logo svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linejoin: round; }
+.lib-logo svg { width: 100%; height: 100%; } /* logotipo: um deck (dois slides) com o "apresentar" no da frente */
 .lib-top { display: flex; align-items: center; gap: 13px; padding: 0 38px; border-bottom: 1px solid var(--ui-line); }
 .breadcrumb { display: flex; gap: 12px; color: var(--text-3); font-size: 12px; white-space: nowrap; }
 .breadcrumb b { font-weight: 500; color: var(--text-2); }
