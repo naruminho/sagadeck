@@ -8,6 +8,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Novo slide × Layout × Inserir, formas, faixas do Design — 29/09/2026
+
+- Decisão: **uma galeria só para criar slide** (a antiga "Modelos", agora "Escolher tipo" no Início e "Novo slide" no
+  Inserir), com os 44 tipos em 9 categorias (`SLIDE_GROUPS` em `app.js`) e busca sem acento; Enter insere o primeiro.
+  **Layout** troca o formato do slide atual e usa as mesmas categorias. **Inserir** ficou só com o que entra no slide
+  atual (Texto, Formas, Imagem, Ícone, Diagrama de texto); os botões de tipo de slide e os atalhos do Avançado saíram.
+- Formas: menu com 12 desenhos. O motor ganhou triângulo, losango, hexágono, estrela, seta, chevron e balão
+  (SVG com preenchimento e contorno, `bg` vira o preenchimento). "Desfazer objeto" saiu: Delete exclui, Ctrl+Z desfaz.
+- Design: faixas de tema e paleta só com cartões inteiros e sem barra de rolagem; setas passam de página e "Ver
+  todos" abre a mesma galeria em grade (mesmos cartões: prévia no hover, clique, botão direito). A 1366 px cabem 3.
+- Botão de tema claro/escuro do editor foi para o canto direito do topo, como na biblioteca.
+- Testes: `engine.test.js` (formas), `studio.test.js` (galeria, busca, categorias, Status semanal pela galeria, menu
+  de formas + Delete, faixas do Design, posição do botão de tema); helper `novoSlide(p, tipo)` em `helpers.js`.
+
 ## Variáveis em tabela, ambientes protegidos e ajustes do editor — 29/09/2026
 
 - Aba **Variáveis**: tabela Nome / Valor do ambiente atual, editável na linha (nome sem `{{}}`); arrastar o nome

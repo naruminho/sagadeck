@@ -316,8 +316,27 @@ export function code(e) {
   return `<div${attrs(e, "code f-mono", `font-size:${e.size || 34}px;`)}${language ? ` data-language="${esc(language)}"` : ""}>${body}</div>`;
 }
 
+// Formas desenhadas (caixa 100×100 esticada no w×h): preenchimento e contorno de verdade, não só um retângulo
+const SHAPE_PATHS = {
+  triangle: "50,0 100,100 0,100",
+  diamond: "50,0 100,50 50,100 0,50",
+  hexagon: "25,0 75,0 100,50 75,100 25,100 0,50",
+  star: "50,0 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35",
+  arrow: "0,30 62,30 62,5 100,50 62,95 62,70 0,70",
+  chevron: "0,0 70,0 100,50 70,100 0,100 30,50",
+  bubble: "M8,0 H92 Q100,0 100,8 V64 Q100,72 92,72 H40 L22,100 L26,72 H8 Q0,72 0,64 V8 Q0,0 8,0 Z",
+};
+
 export function shape(e) {
   const k = e.shape;
+  if (SHAPE_PATHS[k]) {
+    const fill = colorVal(e.fill || e.bg) || "var(--surface)";
+    const stroke = colorVal(e.stroke);
+    const paint = `fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${e.strokeWidth || 4}" vector-effect="non-scaling-stroke" stroke-linejoin="round"` : ""}`;
+    const d = SHAPE_PATHS[k];
+    const svg = `<svg class="shape-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${d.startsWith("M") ? `<path d="${d}" ${paint}/>` : `<polygon points="${d}" ${paint}/>`}</svg>`;
+    return `<div${attrs({ ...e, bg: undefined }, `shape shape-${k}`)}>${svg}${e.content ? `<div class="shape-content">${el(e.content)}</div>` : ""}</div>`;
+  }
   const fill = colorVal(e.fill) || (k === "line" ? null : "var(--surface)");
   const stroke = colorVal(e.stroke);
   let st = "";

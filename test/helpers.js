@@ -86,3 +86,13 @@ export async function readPptx(buffer) {
     animations: (await Promise.all(slides.map((n) => zip.file(n).async("string")))).filter((x) => /<p:timing>/.test(x)).length,
   };
 }
+
+// Novo slide de um tipo, como a pessoa faz: Inserir › Novo slide › cartão da galeria
+export async function novoSlide(p, tipo) {
+  await p.click('.ribbon-tab[data-tab="inserir"]');
+  await p.click("[data-open-scenes]");
+  const card = p.locator(`#scene-grid .scene-card[data-scene="${tipo}"]`);
+  await card.waitFor();
+  await card.click();
+  await p.waitForSelector("#scene-modal.hidden", { state: "attached" });
+}

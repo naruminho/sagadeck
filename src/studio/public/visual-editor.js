@@ -2,7 +2,17 @@
 (function () {
   let active = false, root, slide, commit, selected, history = [], host, toolbar, dragging, beforeDrag, pending;
   const clone = x => JSON.parse(JSON.stringify(x));
-  const button = (label,fn,className='rbtn rbtn-lg') => { const b=document.createElement('button');b.type='button';b.className=className;b.textContent=label;b.onclick=fn;return b; };
+  const button = (label,fn,className='rbtn rbtn-lg',icon='') => { const b=document.createElement('button');b.type='button';b.className=className;if(icon){b.innerHTML=`<i class="ic" data-ic="${icon}"></i><span></span>`;b.querySelector('span').textContent=label;}else b.textContent=label;b.onclick=fn;return b; };
+  // Formas do menu: as mesmas que o motor desenha (src/elements.js); a prévia usa o mesmo desenho 100×100
+  const SHAPES = [
+    ['rect','Retângulo','<rect x="4" y="16" width="92" height="68"/>'],['rounded','Arredondado','<rect x="4" y="16" width="92" height="68" rx="16"/>'],
+    ['circle','Elipse','<ellipse cx="50" cy="50" rx="46" ry="38"/>'],['pill','Pílula','<rect x="4" y="28" width="92" height="44" rx="22"/>'],
+    ['line','Linha','<rect x="4" y="47" width="92" height="6" rx="3"/>'],['triangle','Triângulo','<polygon points="50,6 96,94 4,94"/>'],
+    ['diamond','Losango','<polygon points="50,4 96,50 50,96 4,50"/>'],['hexagon','Hexágono','<polygon points="27,8 73,8 96,50 73,92 27,92 4,50"/>'],
+    ['star','Estrela','<polygon points="50,4 61,37 96,37 68,58 79,92 50,71 21,92 32,58 4,37 39,37"/>'],['arrow','Seta','<polygon points="4,34 60,34 60,12 96,50 60,88 60,66 4,66"/>'],
+    ['chevron','Chevron','<polygon points="4,14 68,14 96,50 68,86 4,86 30,50"/>'],['bubble','Balão','<path d="M12,10 H88 Q96,10 96,18 V62 Q96,70 88,70 H42 L24,92 L28,70 H12 Q4,70 4,62 V18 Q4,10 12,10 Z"/>'],
+  ];
+  const shapeSize = k => k==='line' ? {w:420,h:8,thickness:8} : k==='circle' ? {w:280,h:280} : k==='pill' ? {w:380,h:120} : {w:320,h:240};
   function saveBefore() { history.push(clone(slide)); if(history.length>30)history.shift(); }
   function edit() { return (slide.visualEdits ||= {})[selected.dataset.vkey] ||= {}; }
   function finish() { commit?.(); }
@@ -26,11 +36,18 @@
   function setMode(value) { active=value;root?.classList.toggle('visual-mode',active);if(!active){pick(null);root?.querySelectorAll('[contenteditable="false"]').forEach(n=>n.contentEditable='true');} } // saiu do ajuste: o texto volta a ser editável
   function setup(container) {
     host=container;
-    container.append(button('Texto',()=>insert({text:'Seu texto',x:180,y:200,w:650,h:100,size:64})),button('Forma',()=>insert({shape:'rect',x:230,y:320,w:360,h:200,bg:'hi',radius:24})));
+    container.append(button('Texto',()=>insert({text:'Seu texto',x:180,y:200,w:650,h:100,size:64}),'rbtn rbtn-lg','type'));
+    // Formas: menu com as 12 formas desenhadas (abre abaixo do botão, fora do recorte da faixa)
+    const menu=document.createElement('div');menu.className='shape-menu';menu.hidden=true;menu.setAttribute('role','menu');menu.ariaLabel='Formas';
+    SHAPES.forEach(([k,label,svg])=>{const b=document.createElement('button');b.type='button';b.className='shape-option';b.dataset.shape=k;b.title=label;b.setAttribute('role','menuitem');b.innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true">${svg}</svg><span></span>`;b.querySelector('span').textContent=label;
+      b.onclick=()=>{menu.hidden=true;insert({shape:k,x:300,y:260,...shapeSize(k),fill:k==='line'?undefined:'hi',color:k==='line'?'hi':undefined});};menu.append(b);});
+    const shapesBtn=button('Formas',()=>{if(!menu.hidden){menu.hidden=true;return;}const r=shapesBtn.getBoundingClientRect();menu.style.left=`${Math.round(r.left)}px`;menu.style.top=`${Math.round(r.bottom+4)}px`;menu.hidden=false;menu.querySelector('button')?.focus();},'rbtn rbtn-lg','square');
+    shapesBtn.id='btn-insert-shape';shapesBtn.setAttribute('aria-haspopup','menu');container.append(shapesBtn);document.body.append(menu);
+    document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!shapesBtn.contains(e.target))menu.hidden=true;});
+    menu.addEventListener('keydown',e=>{if(e.key==='Escape'){menu.hidden=true;shapesBtn.focus();}});
     const file=document.createElement('input');file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;container.append(file);
-    container.append(button('Imagem',()=>file.click()));
+    container.append(button('Imagem',()=>file.click(),'rbtn rbtn-lg','image'));
     file.onchange=async()=>{ const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Use uma imagem de até 8 MB.');return;} const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f);});insert({image:data,x:260,y:180,w:700,h:450,fit:'contain'});file.value=''; };
-    container.append(button('Desfazer objeto',undo));
     toolbar=document.createElement('div');toolbar.className='visual-toolbar';toolbar.hidden=true;toolbar.ariaLabel='Objeto selecionado';
     const size=document.createElement('input');size.type='number';size.min='10';size.max='500';size.dataset.size='';size.ariaLabel='Tamanho do texto';size.onchange=()=>change(e=>e.size=Math.max(10,Math.min(500,Number(size.value))));
     const color=document.createElement('input');color.type='color';color.ariaLabel='Cor do texto';color.onchange=()=>change(e=>e.color=color.value);
