@@ -10,7 +10,7 @@
     set(k, v) { try { localStorage.setItem("sagadeck." + k, JSON.stringify(v)); } catch {} },
   };
   let data = { topics: [], decks: [], trash: [], root: "" };
-  let view = store.get("libView", "recentes");
+  let view = new URLSearchParams(location.search).get("topic") || store.get("libView", "recentes");
   let sortBy = store.get("libSort", "editada");
 
   function hydrate(root = document) {

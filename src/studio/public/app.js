@@ -88,8 +88,10 @@
     inspectorSidebar: document.getElementById("inspector-sidebar"),
     tabBtnProps: document.getElementById("tab-btn-props"),
     tabBtnChat: document.getElementById("tab-btn-chat"),
+    tabBtnVars: document.getElementById("tab-btn-vars"),
     tabPanelProps: document.getElementById("tab-panel-props"),
     tabPanelChat: document.getElementById("tab-panel-chat"),
+    tabPanelVars: document.getElementById("tab-panel-vars"),
     layoutPickerGrid: document.getElementById("layout-picker-grid"),
     slideFieldsForm: document.getElementById("slide-fields-form"),
     slideNotesInput: document.getElementById("slide-notes-input"),
@@ -216,6 +218,7 @@
     themeGallery: document.getElementById("theme-gallery"),
     presentSplit: document.getElementById("present-split"),
     btnPresentMenu: document.getElementById("btn-present-menu"),
+    btnAppTheme: document.getElementById("btn-app-theme"),
     presentFromStart: document.getElementById("present-from-start"),
     presentFromCurrent: document.getElementById("present-from-current"),
     btnClosePane: document.getElementById("btn-close-pane"),
@@ -312,11 +315,13 @@
     const idx = state.currentSlideIndex;
     const slide = state.deck.slides[idx];
     if (!slide) return;
+    if (dom.tabPanelVars.classList.contains("active")) renderStudioSavedVars();
 
     dom.currentSlideLabel.textContent = `Slide ${idx + 1} de ${state.deck.slides.length}`;
     dom.currentLayoutBadge.textContent = layoutLabel(slide.layout);
     dom.toneSelect.value = slide.tone || "light";
     dom.decoSelect.value = slide.deco || "none";
+    document.getElementById("advanced-density-select").value = ["compact", "dense"].includes(slide.density) ? slide.density : "";
     updateVariantButtons();
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
@@ -620,6 +625,18 @@
           logical: r,
         });
       }
+
+      if (el.matches(".ttl, .sub, .card, .st-line, .q-text, .cp-col, .rf")) {
+        const fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+        if (Number.isFinite(fontSize) && fontSize < 16 && label(el).length > 12) {
+          state.issues.push({
+            kind: "texto-pequeno",
+            text: label(el),
+            px: Math.round(fontSize),
+            logical: r,
+          });
+        }
+      }
     }
 
     // 2. Checagem de Sobreposição (Bounding Box Collisions)
@@ -653,14 +670,14 @@
     dom.fiscalBadge.textContent = count;
     if (count === 0) {
       dom.fiscalBadge.className = "fiscal-badge clean";
-      dom.fiscalBadge.title = "Sem sobreposições nem texto fora das margens";
+      dom.fiscalBadge.title = "Sem problemas detectados de layout ou legibilidade";
       dom.statusIssues.textContent = "";
       dom.statusIssues.classList.remove("warn");
     } else {
       dom.fiscalBadge.className = "fiscal-badge warn";
-      dom.fiscalBadge.title = `${count} problema(s): sobreposição ou texto fora das margens`;
-      dom.statusIssues.textContent = count === 1 ? "1 problema de layout" : `${count} problemas de layout`;
-      dom.statusIssues.title = "Clique para corrigir automaticamente";
+      dom.fiscalBadge.title = `${count} problema(s) de layout ou legibilidade`;
+      dom.statusIssues.textContent = count === 1 ? "1 problema no slide" : `${count} problemas no slide`;
+      dom.statusIssues.title = "Clique para abrir a revisão do slide";
       dom.statusIssues.classList.add("warn");
     }
 
@@ -673,7 +690,7 @@
   }
 
   // Painel do fiscal: em vez de só um número vermelho, o que está errado e o que dá para fazer
-  const ISSUE_LABEL = { "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", sobreposicao: () => "Elementos um em cima do outro" };
+  const ISSUE_LABEL = { "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", "texto-pequeno": (i) => `Texto pequeno (${i.px}px)`, sobreposicao: () => "Elementos um em cima do outro" };
   const fixKey = () => `${state.currentSlideIndex}:${JSON.stringify(state.deck?.slides?.[state.currentSlideIndex] || {})}`;
   state.ignoredFixes = state.ignoredFixes || new Set();
   function renderFixPanel() {
@@ -684,14 +701,14 @@
     const kinds = [...new Set(state.issues.map((i) => i.kind))];
     const lines = [...new Map(state.issues.map((i) => [i.kind + i.text, i])).values()].slice(0, 3)
       .map((i) => `<li>${escHtml((ISSUE_LABEL[i.kind] || (() => i.kind))(i))}${i.text ? `: <em>${escHtml(i.text)}</em>` : ""}</li>`).join("");
-    const overflow = kinds.some((k) => k !== "sobreposicao");
+    const overflow = kinds.some((k) => !["sobreposicao", "texto-pequeno"].includes(k));
     const buttons = [
-      ["auto", "wand", "Ajustar sozinho", "Diminui o texto ou reorganiza até caber"],
+      overflow ? ["auto", "wand", "Ajustar sozinho", "Diminui o texto ou reorganiza até caber"] : null,
       overflow && slide.density !== "compact" && slide.density !== "dense" ? ["compact", "minimize-2", "Modo compacto", "Menos espaço entre os elementos deste slide"] : null,
       state.ai?.available ? ["ai", "sparkles", "Pedir para a IA", "A IA arruma sem perder conteúdo (ou divide em dois slides)"] : null,
       ["ignore", "x", "Deixar assim", "Esconde o aviso até o slide mudar"],
     ].filter(Boolean);
-    panel.innerHTML = `<div class="fix-head"><i class="ic" data-ic="circle-alert"></i><b>${state.issues.length === 1 ? "1 problema de layout" : `${state.issues.length} problemas de layout`} neste slide</b></div><ul>${lines}</ul><div class="fix-actions">${buttons.map(([k, ic, label, title]) => `<button type="button" class="fix-btn${k === "auto" ? " primary" : ""}" data-fix="${k}" title="${title}"><i class="ic" data-ic="${ic}"></i><span>${label}</span></button>`).join("")}</div>`;
+    panel.innerHTML = `<div class="fix-head"><i class="ic" data-ic="circle-alert"></i><b>${state.issues.length === 1 ? "1 aviso de layout ou leitura" : `${state.issues.length} avisos de layout ou leitura`} neste slide</b></div><ul>${lines}</ul><div class="fix-actions">${buttons.map(([k, ic, label, title]) => `<button type="button" class="fix-btn${k === "auto" ? " primary" : ""}" data-fix="${k}" title="${title}"><i class="ic" data-ic="${ic}"></i><span>${label}</span></button>`).join("")}</div>`;
     panel.classList.remove("hidden");
     hydrateIcons(panel);
     panel.querySelectorAll("[data-fix]").forEach((b) => b.onclick = () => applyFix(b.dataset.fix));
@@ -712,6 +729,11 @@
       dom.chatInput.value = `O slide ${idx + 1} tem problema de layout (${what}). Arrume sem perder conteúdo; se não couber mesmo, divida em dois slides.`;
       handleChatSubmit();
     }
+  }
+  function openIssueReview() {
+    if (state.issues.some((issue) => issue.kind !== "texto-pequeno")) return triggerAutofix();
+    openPane("props");
+    document.getElementById("fix-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   // Renderizar Caixas de Alerta Visuais no Canvas
@@ -734,6 +756,7 @@
       if (issue.kind === "passa-da-margem-inferior") tagText = `Fora da Margem (+${issue.px}px)`;
       if (issue.kind === "fora-do-slide") tagText = "Fora do Slide";
       if (issue.kind === "estouro-horizontal") tagText = "Texto Estourado";
+      if (issue.kind === "texto-pequeno") tagText = `Texto pequeno (${issue.px}px)`;
       tag.textContent = `${tagText}: ${issue.text}`;
       box.appendChild(tag);
 
@@ -2213,8 +2236,13 @@
     ["chart", "data", "Dados que contam", "Um gráfico que ajuda a enxergar o argumento."],
     ["timeline", "data", "Conecte os acontecimentos", "Um percurso visual, no seu ritmo."],
     ["bento", "data", "Um mosaico de ideias", "Contraste de tamanhos e respiros na composição."],
+    ["code", "teach", "Código", "Código com numeração por linha e realce de sintaxe."],
     ["codewalk", "teach", "Código, um passo por vez", "Linhas em foco, explicação e saída simulada."],
     ["spotlight", "teach", "Olhe bem aqui", "Guie a atenção por regiões de uma imagem."],
+    ["dossier", "data", "Material para consultar", "Texto técnico, seções e blocos de código organizados para leitura."],
+    ["mosaic", "data", "Grade que se adapta", "De 1 a 12 ideias; as colunas se ajustam ao conteúdo."],
+    ["ribbon", "data", "Etapas em cápsulas", "Organize etapas em painéis com colunas automáticas."],
+    ["kinetic", "impact", "Frases em movimento", "Uma sequência de frases com estilos tipográficos e avanço automático."],
     ["question", "teach", "O que você acha?", "Uma pergunta. A resposta aparece na hora certa."],
     ["poll", "teach", "Traga a sala para a conversa", "Votação local para registrar as escolhas da turma."],
   ];
@@ -2409,7 +2437,7 @@
     }
     const at = state.currentSlideIndex;
     const [removed] = state.deck.slides.splice(at, 1);
-    state.currentSlideIndex = Math.max(0, at - 1);
+    state.currentSlideIndex = Math.min(at, state.deck.slides.length - 1);
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
@@ -2787,16 +2815,24 @@
         const r = b.querySelector(".thumb-render");
         if (r) r.innerHTML = data.html[b.dataset.type] || "";
       });
+      scaleNapkinPreviews();
     }).catch(() => {});
   }
 
   function openNapkinModal() {
     buildNapkinPickers();
     dom.modalNapkin.classList.remove("hidden");
+    requestAnimationFrame(scaleNapkinPreviews);
     dom.napkinPreviewBox.classList.add("hidden");
     dom.btnNapkinReplace.classList.add("hidden");
     dom.btnNapkinInsert.classList.add("hidden");
     dom.napkinInputText.focus();
+  }
+  function scaleNapkinPreviews() {
+    document.querySelectorAll(".napkin-type .lc-prev").forEach((box) => {
+      const render = box.querySelector(".thumb-render");
+      if (render && box.clientWidth) render.style.transform = `scale(${box.clientWidth / 1920})`;
+    });
   }
 
   function closeNapkinModal() {
@@ -3484,6 +3520,37 @@
     el.textContent = text;
     el.className = `sf-hint api-envs-status ${kind}`;
   }
+  let apiEnvValidationTimer = 0;
+  let apiEnvValidationVersion = 0;
+  async function validateApiEnvs() {
+    const ta = document.getElementById("api-envs-text");
+    const save = document.getElementById("btn-api-envs-save");
+    const version = ++apiEnvValidationVersion;
+    save.disabled = true;
+    apiEnvsStatus("Validando YAML…");
+    try {
+      const response = await fetch("api/http/ambientes/validar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: ta.value }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (version !== apiEnvValidationVersion) return;
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      save.disabled = false;
+      apiEnvsStatus("YAML válido. Salvar cria uma cópia .bak antes de substituir o arquivo.", "ok");
+    } catch (error) {
+      if (version !== apiEnvValidationVersion) return;
+      save.disabled = true;
+      apiEnvsStatus(error.message, "err");
+    }
+  }
+  function scheduleApiEnvValidation() {
+    clearTimeout(apiEnvValidationTimer);
+    apiEnvValidationVersion++;
+    document.getElementById("btn-api-envs-save").disabled = true;
+    apiEnvsStatus("Aguardando validação…");
+    apiEnvValidationTimer = setTimeout(validateApiEnvs, 250);
+  }
   function renderApiEnvChips(st) {
     const list = document.getElementById("api-envs-list");
     list.innerHTML = "";
@@ -3517,7 +3584,8 @@
     const r = await fetch("api/http/ambientes");
     const j = await r.json().catch(() => ({}));
     const locked = !r.ok;
-    ta.disabled = save.disabled = locked;
+    ta.disabled = locked;
+    save.disabled = true;
     if (locked) {
       ta.value = "";
       document.getElementById("api-envs-list").textContent = "";
@@ -3528,16 +3596,158 @@
     document.getElementById("api-envs-file").textContent = j.file || "";
     const st = await (await fetch("api/http/state")).json().catch(() => ({ envs: [] }));
     renderApiEnvChips(st);
-    apiEnvsStatus(j.exists ? "" : "O arquivo ainda não existe: este é um modelo comentado. Ajuste e salve para criar.");
+    if (!j.exists) apiEnvsStatus("Este arquivo ainda não existe. Validando o modelo antes de habilitar Salvar…");
+    void validateApiEnvs();
   }
   function closeApiEnvs() { apiEnvsModal().classList.add("hidden"); }
   async function saveApiEnvs() {
     const text = document.getElementById("api-envs-text").value;
-    const r = await fetch("api/http/ambientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return apiEnvsStatus(j.error || `HTTP ${r.status}`, "err");
-    renderApiEnvChips(j);
-    apiEnvsStatus("Salvo. Os slides de API já usam o arquivo novo.", "ok");
+    const save = document.getElementById("btn-api-envs-save");
+    save.disabled = true;
+    apiEnvsStatus("Salvando ambientes…");
+    try {
+      const response = await fetch("api/http/ambientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      renderApiEnvChips(data);
+      await refreshStudioVars();
+      apiEnvsStatus(`Salvo. ${data.backupCreated ? "A cópia anterior está no arquivo .bak." : "Novo arquivo criado."} Os slides de API já usam o arquivo atualizado.`, "ok");
+    } catch (error) {
+      apiEnvsStatus(`Não foi possível salvar os ambientes: ${error.message}`, "err");
+      void validateApiEnvs();
+    }
+  }
+
+  function studioSavedVarRow(name, detail) {
+    return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(name)}"><td><code>${escHtml(name)}</code></td><td colspan="2">${escHtml(detail)}</td></tr>`;
+  }
+  function studioEnvVarRow(name, value, editable, secret = false) {
+    const safeName = secret ? `secret.${name}` : name;
+    const hiddenValue = secret || /(?:secret|token|password|passwd|api.?key|credential|authorization)/i.test(name);
+    const displayValue = hiddenValue ? "•••••• (oculto)" : value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    const disabled = !editable || hiddenValue;
+    const escapedName = escAttr(name);
+    const controls = editable && !hiddenValue
+      ? `<div class="studio-var-actions"><button type="button" class="btn btn-secondary" data-save-studio-var>Salvar</button><button type="button" class="btn btn-secondary" data-delete-studio-var title="Excluir variável" aria-label="Excluir ${escAttr(name)}">×</button></div>`
+      : "";
+    return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(safeName)}" data-original-var="${escapedName}">
+      <td><input aria-label="Nome da variável" data-var-name value="${escapedName}" ${disabled ? "disabled" : ""}></td>
+      <td><input aria-label="Valor da variável" data-var-value value="${escAttr(displayValue)}" ${disabled ? "disabled" : ""} ${hiddenValue ? 'autocomplete="off" data-hidden-value="true"' : ""}></td>
+      <td>${controls}</td>
+    </tr>`;
+  }
+  function studioVarTable(rows) {
+    return `<div class="studio-var-table-wrap"><table class="studio-var-table"><thead><tr><th>Nome</th><th>Valor</th><th aria-label="Ações"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  function renderStudioEnvVars(data) {
+    const host = document.getElementById("studio-env-vars");
+    const add = document.getElementById("studio-var-add");
+    add.hidden = true;
+    const envs = Array.isArray(data.envs) ? data.envs : [];
+    if (data.live === false) {
+      host.textContent = data.reason || "Os ambientes não estão disponíveis neste momento.";
+      return;
+    }
+    if (!envs.length) {
+      host.textContent = "Nenhum ambiente configurado. Configure-o em Inserir › Ambientes.";
+      return;
+    }
+    const env = envs.find((item) => item.name === data.current) || envs[0];
+    const vars = env.vars && typeof env.vars === "object" ? env.vars : {};
+    const secretNames = Array.isArray(env.secrets) ? env.secrets : [];
+    const editable = !env.builtin;
+    const rows = [
+      ...Object.entries(vars).map(([name, value]) => studioEnvVarRow(name, value, editable)),
+      ...secretNames.map((name) => studioEnvVarRow(name, "", false, true)),
+    ];
+    add.hidden = !editable;
+    host.innerHTML = `<div class="studio-env-group"><h5>${escHtml(String(env.name || "Ambiente").toUpperCase())}${env.name === data.current ? ' <span>em uso</span>' : ""}</h5>${studioVarTable(rows.join("") || '<tr><td colspan="3" class="studio-var-empty">Nenhuma variável neste ambiente.</td></tr>')}</div>${editable ? "" : '<p class="studio-var-empty">Este ambiente de exemplo é somente leitura. Selecione ou crie um ambiente próprio para editar variáveis.</p>'}`;
+  }
+  function renderStudioSavedVars() {
+    const host = document.getElementById("studio-saved-vars");
+    const slides = Array.isArray(state.deck?.slides) ? state.deck.slides : [];
+    const rows = [];
+    slides.forEach((slide, index) => {
+      if (slide.layout !== "api" || !slide.save || typeof slide.save !== "object" || Array.isArray(slide.save)) return;
+      Object.entries(slide.save).forEach(([name, path]) => {
+        const relation = index < state.currentSlideIndex ? "slide anterior" :
+          index === state.currentSlideIndex ? "slide atual · disponível após executar" : "slide futuro";
+        rows.push(studioSavedVarRow(name, `Slide ${index + 1} · ${relation} · ${String(path)}`));
+      });
+    });
+    host.innerHTML = rows.length ? studioVarTable(rows.join("")) : '<p class="studio-var-empty">Nenhum slide API declara variáveis em <code>save</code>. Ao guardar um campo da resposta, ele aparecerá aqui.</p>';
+  }
+  async function refreshStudioVars() {
+    const status = document.getElementById("studio-vars-status");
+    status.textContent = "";
+    status.className = "sf-hint";
+    renderStudioSavedVars();
+    document.getElementById("studio-env-vars").textContent = "Carregando ambientes…";
+    try {
+      const response = await fetch("api/http/state");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      renderStudioEnvVars(data);
+      if (data.error) {
+        status.textContent = data.error;
+        status.className = "sf-hint sf-error";
+      }
+    } catch (error) {
+      document.getElementById("studio-env-vars").textContent = "Não foi possível carregar as variáveis de ambiente.";
+      status.textContent = `Erro ao carregar variáveis: ${error.message}`;
+      status.className = "sf-hint sf-error";
+    }
+  }
+  async function saveStudioEnvVar(row) {
+    const name = row.querySelector("[data-var-name]").value.trim();
+    const value = row.querySelector("[data-var-value]").value;
+    const previousName = row.dataset.originalVar || "";
+    const status = document.getElementById("studio-vars-status");
+    try {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error("Use um nome sem {{ }}: letras, números e _ (comece por letra ou _).");
+      const duplicate = [...document.querySelectorAll("#studio-env-vars [data-var-name]")].some((field) => field !== row.querySelector("[data-var-name]") && field.value.trim() === name);
+      if (duplicate) throw new Error(`Já existe uma variável chamada "${name}" neste ambiente.`);
+      const response = await fetch("api/http/vars/set", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, value }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (previousName && name !== previousName) {
+        const deleted = await fetch("api/http/vars/delete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: previousName }),
+        });
+        const result = await deleted.json().catch(() => ({}));
+        if (!deleted.ok) throw new Error(`A nova variável foi salva, mas não consegui remover "${previousName}": ${result.error || `HTTP ${deleted.status}`}`);
+      }
+      status.textContent = `Variável "${name}" salva no ambiente em uso.`;
+      status.className = "sf-hint sf-success";
+      await refreshStudioVars();
+      status.textContent = `Variável "${name}" salva no ambiente em uso.`;
+      status.className = "sf-hint sf-success";
+    } catch (error) {
+      status.textContent = error.message;
+      status.className = "sf-hint sf-error";
+    }
+  }
+  async function deleteStudioEnvVar(row) {
+    const name = row.dataset.originalVar;
+    if (!name || !window.confirm(`Excluir a variável "${name}" do ambiente em uso?`)) return;
+    try {
+      const response = await fetch("api/http/vars/delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      await refreshStudioVars();
+      document.getElementById("studio-vars-status").textContent = `Variável "${name}" excluída.`;
+    } catch (error) {
+      const status = document.getElementById("studio-vars-status");
+      status.textContent = error.message;
+      status.className = "sf-hint sf-error";
+    }
   }
 
   function closePopovers(except) {
@@ -3557,26 +3767,33 @@
 
   const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
-  // Painel lateral: um conteúdo de cada vez ("props" = Formatar, "chat" = Assistente)
+  // Painel lateral: Formatar, Assistente ou Variáveis
   function openPane(which, { toggle = false } = {}) {
     const pane = dom.inspectorSidebar;
-    const current = dom.tabPanelChat.classList.contains("active") ? "chat" : "props";
+    const current = dom.tabPanelChat.classList.contains("active") ? "chat" : dom.tabPanelVars.classList.contains("active") ? "vars" : "props";
     const visible = isMobile() ? pane.classList.contains("mobile-open") : !pane.classList.contains("collapsed");
     if (toggle && visible && current === which) return closePane();
     const chat = which === "chat";
+    const vars = which === "vars";
     dom.tabBtnChat.classList.toggle("active", chat);
-    dom.tabBtnProps.classList.toggle("active", !chat);
+    dom.tabBtnProps.classList.toggle("active", !chat && !vars);
+    dom.tabBtnVars.classList.toggle("active", vars);
+    dom.tabBtnChat.setAttribute("aria-selected", String(chat));
+    dom.tabBtnProps.setAttribute("aria-selected", String(!chat && !vars));
+    dom.tabBtnVars.setAttribute("aria-selected", String(vars));
     dom.tabPanelChat.classList.toggle("active", chat);
-    dom.tabPanelProps.classList.toggle("active", !chat);
+    dom.tabPanelProps.classList.toggle("active", !chat && !vars);
+    dom.tabPanelVars.classList.toggle("active", vars);
     pane.classList.remove("collapsed");
     if (isMobile()) {
       pane.classList.add("mobile-open");
       document.getElementById("slides-nav")?.classList.remove("mobile-open");
     }
     dom.btnToggleChat.classList.toggle("active", chat);
-    dom.btnPaneProps.classList.toggle("active", !chat);
+    dom.btnPaneProps.classList.toggle("active", !chat && !vars);
     store.set("pane", which);
     if (chat) setTimeout(() => dom.chatInput.focus(), 0);
+    if (vars) refreshStudioVars();
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
@@ -3619,6 +3836,17 @@
     popover(dom.btnLayoutGallery, dom.layoutPopover, loadLayoutPreviews);
     popover(dom.btnStoryArc, dom.storyArcPopover, updateStoryArc);
     document.getElementById("btn-api-slide").onclick = () => insertScene("api");
+    document.getElementById("advanced-density-select").addEventListener("change", async (event) => {
+      const slide = state.deck?.slides[state.currentSlideIndex];
+      if (!slide) return;
+      const value = event.currentTarget.value;
+      if (value) slide.density = value;
+      else delete slide.density;
+      await syncDeckToServer();
+      await renderCurrentSlide();
+      renderThumbnails();
+      showToast(value === "dense" ? "Mais conteúdo: texto preservado em um espaço mais compacto." : value === "compact" ? "Slide em modo compacto." : "Densidade padrão restaurada.");
+    });
     // Tom e Fundo: botões com prévia (o slide atual desenhado em cada opção)
     popover(document.getElementById("btn-tone"), variantPop, () => openVariantPicker("tone"));
     popover(document.getElementById("btn-deco"), variantPop, () => openVariantPicker("deco"));
@@ -3637,9 +3865,11 @@
     // painel lateral
     dom.tabBtnProps.onclick = () => openPane("props");
     dom.tabBtnChat.onclick = () => openPane("chat");
+    dom.tabBtnVars.onclick = () => openPane("vars");
     dom.btnToggleChat.onclick = () => openPane("chat", { toggle: true });
     dom.btnPaneProps.onclick = () => openPane("props", { toggle: true });
     dom.btnClosePane.onclick = closePane;
+    dom.btnAppTheme.onclick = () => setAppTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
     const pane = store.get("pane", "props");
     if (pane && !isMobile()) openPane(pane); else closePane();
 
@@ -3649,7 +3879,7 @@
     setNotesVisible(store.get("notes", true));
 
     // barra de status
-    dom.statusIssues.onclick = triggerAutofix;
+    dom.statusIssues.onclick = openIssueReview;
 
     // barra de formatação: mousedown não tira o foco nem a seleção do texto
     dom.formatBar.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
@@ -3704,11 +3934,57 @@
     document.getElementById("btn-close-api-envs").addEventListener("click", closeApiEnvs);
     document.getElementById("btn-api-envs-cancel").addEventListener("click", closeApiEnvs);
     document.getElementById("btn-api-envs-save").addEventListener("click", saveApiEnvs);
+    document.getElementById("btn-api-vars-studio").addEventListener("click", () => openPane("vars"));
+    document.getElementById("api-envs-text").addEventListener("input", scheduleApiEnvValidation);
+    document.getElementById("studio-var-add").addEventListener("click", () => {
+      const tbody = document.querySelector("#studio-env-vars .studio-var-table tbody");
+      if (!tbody) return;
+      const row = document.createElement("tr");
+      row.className = "studio-var-row";
+      row.innerHTML = `<td><input aria-label="Nome da variável" data-var-name placeholder="nome"></td><td><input aria-label="Valor da variável" data-var-value placeholder="valor"></td><td><div class="studio-var-actions"><button type="button" class="btn btn-secondary" data-save-studio-var>Salvar</button></div></td>`;
+      tbody.append(row);
+      row.querySelector("[data-var-name]").focus();
+    });
+    document.getElementById("tab-panel-vars").addEventListener("click", (event) => {
+      const row = event.target.closest(".studio-var-row");
+      if (!row) return;
+      if (event.target.closest("[data-save-studio-var]")) void saveStudioEnvVar(row);
+      if (event.target.closest("[data-delete-studio-var]")) void deleteStudioEnvVar(row);
+    });
+    document.getElementById("tab-panel-vars").addEventListener("dragstart", (event) => {
+      const row = event.target.closest("[data-studio-drag-var]");
+      if (!row || !event.dataTransfer) return;
+      const name = row.dataset.studioDragVar;
+      event.dataTransfer.setData("text/plain", `{{${name}}}`);
+      event.dataTransfer.effectAllowed = "copy";
+    });
+    document.getElementById("slide-fields-form").addEventListener("dragover", (event) => {
+      if (event.target.closest("input:not([type=password]), textarea") && event.dataTransfer?.types.includes("text/plain")) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }
+    });
+    document.getElementById("slide-fields-form").addEventListener("drop", (event) => {
+      const field = event.target.closest("input:not([type=password]), textarea");
+      if (!field || !event.dataTransfer?.types.includes("text/plain")) return;
+      const expression = event.dataTransfer.getData("text/plain");
+      if (!/^\{\{[A-Za-z_][A-Za-z0-9_.-]*\}\}$/.test(expression)) return;
+      try {
+        if (field.disabled || field.readOnly || typeof field.setRangeText !== "function") return;
+        const start = field.selectionStart, end = field.selectionEnd;
+        if (typeof start !== "number" || typeof end !== "number") return;
+        event.preventDefault();
+        field.focus();
+        field.setRangeText(expression, start, end, "end");
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      } catch { /* Some input types do not support text selection. */ }
+    });
 
     // tema da interface (claro/escuro/automático); o <head> já aplicou antes do primeiro desenho
     const themeSelect = document.getElementById("app-theme-select");
     themeSelect.value = store.get("appTheme", "system");
     themeSelect.addEventListener("change", () => setAppTheme(themeSelect.value));
+    setAppTheme(themeSelect.value);
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (store.get("appTheme", "system") === "system") setAppTheme("system");
     });
@@ -3720,6 +3996,13 @@
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     const sel = document.getElementById("app-theme-select");
     if (sel) sel.value = pref;
+    const themeButton = document.getElementById("btn-app-theme");
+    if (themeButton) {
+      const label = dark ? "Ativar tema claro" : "Ativar tema escuro";
+      themeButton.title = label;
+      themeButton.setAttribute("aria-label", label);
+      themeButton.setAttribute("aria-pressed", String(dark));
+    }
   }
 
   function setupEventListeners() {
@@ -3796,7 +4079,9 @@
     dom.chatAttachInput.onchange = () => { [...dom.chatAttachInput.files].forEach(addChatFile); dom.chatAttachInput.value = ""; };
 
     // Chips de Sugestões de Prompt do Chat
+    document.getElementById("chat-start-deck").addEventListener("click", openAiDeckModal);
     document.querySelectorAll(".chip-prompt").forEach((btn) => {
+      if (btn.id === "chat-start-deck") return;
       btn.onclick = () => {
         dom.chatInput.value = btn.dataset.prompt;
         handleChatSubmit();

@@ -350,6 +350,9 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
       assert.equal(await toggle.textContent(), "Reproduzir");
       await page.locator(".L-kinetic [data-lesson-next]").click();
       assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), "1");
+      assert.ok(await page.locator(".L-kinetic .kinetic-morph").count() > 0, "a frase anterior se move em direção à nova posição");
+      await page.waitForTimeout(800);
+      assert.equal(await page.locator(".L-kinetic .kinetic-morph").count(), 0, "o quadro de morph é removido ao fim da transição");
     });
 
     await t.test("sair do slide limpa o avanço automático", async () => {

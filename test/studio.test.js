@@ -42,6 +42,287 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
   }finally{await studio.close();await browser.close();}
 });
 
+test("guia Avançado: aplica densidade e insere uma página de consulta", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const tab = (name) => p.click(`.ribbon-tab[data-tab="${name}"]`);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    const deck = () => p.evaluate(async () => (await (await fetch("/api/deck")).json()).spec);
+    const index = 0;
+    await tab("avancado");
+    assert.ok(await p.getByRole("button", { name: "Página de consulta" }).isVisible());
+    const ribbon = await p.locator("#ribbon").boundingBox();
+    const queryButton = await p.getByRole("button", { name: "Página de consulta" }).boundingBox();
+    assert.ok(queryButton.y + queryButton.height <= ribbon.y + ribbon.height, "o atalho de página de consulta cabe na faixa");
+    const demosLink = p.getByRole("link", { name: "Abrir demos completos" });
+    assert.ok(await demosLink.isVisible());
+    assert.equal(new URL(await demosLink.getAttribute("href"), studio.url).searchParams.get("topic"), "Demos e modelos");
+    await tab("inicio");
+    await p.click("#btn-scenes");
+    await p.waitForSelector('.scene-card[data-scene="dossier"]');
+    assert.ok(await p.locator('.scene-card[data-scene="mosaic"]').isVisible());
+    assert.ok(await p.locator('.scene-card[data-scene="kinetic"]').isVisible());
+    const sceneSizes = await p.evaluate(() => {
+      const dialog = document.querySelector(".scene-dialog").getBoundingClientRect();
+      const grid = document.querySelector("#scene-grid").getBoundingClientRect();
+      const preview = document.querySelector(".scene-preview").getBoundingClientRect();
+      return { dialog: dialog.height, grid: grid.height, previewWidth: preview.width, ratio: preview.width / preview.height };
+    });
+    assert.ok(sceneSizes.grid > 250, "a galeria reserva altura suficiente para os exemplos");
+    assert.ok(sceneSizes.previewWidth >= 400, "as prévias ficam grandes o bastante para ler a composição");
+    assert.ok(Math.abs(sceneSizes.ratio - 16 / 9) < 0.02, "as prévias mantêm proporção 16:9");
+    await p.keyboard.press("Escape");
+    await tab("avancado");
+    await p.locator("#advanced-density-select").selectOption("dense");
+    await p.waitForFunction((i) => document.querySelector(`.thumb-card[data-idx="${i}"]`), index);
+    assert.equal(saved().slides[index].density, "dense");
+    assert.ok(await p.locator("#rendered-slide-container .slide.density-dense").count());
+    await p.locator("#advanced-density-select").selectOption("");
+    await p.waitForFunction(() => document.querySelector("#rendered-slide-container .slide:not(.density-dense)"));
+    assert.equal(saved().slides[index].density, undefined);
+    const before = (await deck()).slides.length;
+    await p.getByRole("button", { name: "Página de consulta" }).click();
+    await p.waitForFunction((n) => document.querySelectorAll(".thumb-card").length === n + 1, before);
+    assert.equal((await deck()).slides[index + 1].layout, "dossier");
+    assert.ok(await p.locator("#rendered-slide-container .adaptive").count());
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("guia Inserir oferece o slide de código simples", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click('.ribbon-tab[data-tab="inserir"]');
+    const button = p.locator('[data-add-scene="code"]');
+    assert.equal(await button.innerText(), "Código");
+    await button.click();
+    await p.waitForFunction(() => document.querySelector('.thumb-card.active')?.getAttribute("title").includes("Código"));
+    assert.match(await p.locator("#rendered-slide-container").innerText(), /def ola/);
+    const form = await p.locator("#slide-fields-form").innerText();
+    assert.match(form, /Nome do arquivo/);
+    assert.match(form, /Linguagem/);
+    assert.match(form, /Linhas destacadas \(a partir de 1\)/);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("tema e edição direta de objetos ficam integrados ao Studio", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const theme = p.locator("#btn-app-theme");
+    await theme.click();
+    assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
+    assert.equal(await theme.getAttribute("aria-label"), "Ativar tema claro");
+    assert.equal(await p.locator("#app-theme-select").inputValue(), "dark");
+    await theme.click();
+    assert.equal(await p.locator("html").getAttribute("data-theme"), "light");
+    assert.equal(await theme.getAttribute("aria-label"), "Ativar tema escuro");
+    await p.click('.ribbon-tab[data-tab="exibir"]');
+    await p.selectOption("#app-theme-select", "system");
+
+    await p.click('.ribbon-tab[data-tab="inserir"]');
+    assert.equal(await p.locator("#visual-tools").evaluate((el) => getComputedStyle(el).position), "static");
+    assert.equal(await p.locator("#btn-visual-edit").count(), 0);
+    for (const name of ["Texto", "Forma", "Imagem", "Desfazer objeto"]) {
+      assert.ok(await p.locator("#visual-tools").getByRole("button", { name, exact: true }).isVisible(), `${name} fica na faixa Inserir`);
+    }
+    const target = p.locator("#rendered-slide-container [data-vkey]").first();
+    await target.click();
+    assert.ok(await p.locator("#rendered-slide-container .visual-selected").count(), "clicar no próprio objeto o seleciona");
+    await p.keyboard.press("Escape");
+    assert.equal(await p.locator("#rendered-slide-container .visual-mode").count(), 0, "Escape sai do ajuste de objetos");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders sem expor segredos", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides = [
+    { layout: "api", title: "Criar tarefa", request: { method: "POST", url: "{{base}}/tasks" }, save: { task_id: "$.task.id" } },
+    { layout: "code", title: "Consultar tarefa", filename: "main.py", language: "python", code: "print('{{task_id}}')" },
+  ];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const envFile = process.env.SAGADECK_AMBIENTES;
+  fs.writeFileSync(envFile, YAML.stringify({
+    current: "dev",
+    environments: { dev: { vars: { base: "https://private-env-value.invalid", api_token: "PRIVATE_VAR_TOKEN" }, secrets: ["api_key"] } },
+  }), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click('.ribbon-tab[data-tab="inserir"]');
+    await p.click("#btn-api-vars-studio");
+    assert.equal(await p.locator("#modal-studio-vars").count(), 0, "variáveis não abrem em janela flutuante");
+    await p.waitForSelector("#tab-panel-vars.active");
+    await p.waitForSelector("#studio-env-vars .studio-var-row");
+    assert.deepEqual((await p.locator("#studio-env-vars thead th").allTextContents()).slice(0, 2), ["Nome", "Valor"]);
+    assert.equal(await p.locator("#studio-env-vars [data-var-name]").first().inputValue(), "base");
+    assert.equal(await p.locator('#studio-env-vars [data-var-value]').first().inputValue(), "https://private-env-value.invalid");
+    const tokenRow = p.locator('#studio-env-vars .studio-var-row[data-original-var="api_token"]');
+    assert.match(await tokenRow.locator("[data-var-value]").inputValue(), /oculto/);
+    assert.equal(await tokenRow.locator("[data-var-value]").isDisabled(), true, "valor com aparência de token não pode ser editado/exposto");
+    const secretRow = p.locator('#studio-env-vars .studio-var-row[data-studio-drag-var="secret.api_key"]');
+    assert.equal(await secretRow.count(), 1, "segredo fica disponível como placeholder sem expor valor");
+    assert.match(await secretRow.locator("[data-var-value]").inputValue(), /oculto/);
+    assert.doesNotMatch(await p.locator("#studio-env-vars").innerText(), /PRIVATE_SECRET_VALUE/);
+    assert.doesNotMatch(await p.locator("#studio-env-vars").innerText(), /PRIVATE_VAR_TOKEN/);
+    await p.click("#tab-btn-props");
+    const urlField = p.locator("#slide-fields-form .sf-field").filter({ hasText: "Endereço" }).locator("input");
+    await urlField.fill("https://api.example.test");
+    await p.click("#btn-api-vars-studio");
+    await p.waitForSelector("#tab-panel-vars.active");
+    await p.evaluate(() => {
+      const row = document.querySelector('#studio-env-vars [data-studio-drag-var="base"]');
+      const field = [...document.querySelectorAll("#slide-fields-form .sf-field")].find((item) => item.textContent.includes("Endereço"))?.querySelector("input");
+      const transfer = new DataTransfer();
+      row.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
+      field.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
+    });
+    assert.match(await urlField.inputValue(), /\{\{base\}\}/);
+    await p.locator('#studio-env-vars [data-var-value]').first().fill("https://new-api.example.test");
+    await p.locator("#studio-env-vars .studio-var-row").first().getByRole("button", { name: "Salvar" }).click();
+    await p.waitForFunction(() => document.getElementById("studio-vars-status").textContent.includes("salva"));
+    assert.match(fs.readFileSync(envFile, "utf8"), /https:\/\/new-api\.example\.test/);
+    await p.click("#studio-var-add");
+    const newRow = p.locator("#studio-env-vars .studio-var-row").last();
+    await newRow.locator("[data-var-name]").fill("workspace");
+    await newRow.locator("[data-var-value]").fill("dev");
+    await newRow.getByRole("button", { name: "Salvar" }).click();
+    await p.waitForFunction(() => [...document.querySelectorAll("#studio-env-vars [data-var-name]")].some((field) => field.value === "workspace"));
+    assert.match(fs.readFileSync(envFile, "utf8"), /workspace: dev/);
+    await p.click('.thumb-card[data-idx="1"]');
+    const savedVar = p.locator("#studio-saved-vars .studio-var-row").filter({ hasText: "task_id" });
+    await savedVar.waitFor();
+    assert.match(await savedVar.innerText(), /slide anterior/);
+    assert.match(await savedVar.innerText(), /\$\.task\.id/);
+    const content = await p.locator("#tab-panel-vars").innerText();
+    assert.doesNotMatch(content, /PRIVATE_SECRET_VALUE/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await studio.close(); await browser.close(); deckFile.cleanup();
+    fs.rmSync(envFile, { force: true });
+    fs.rmSync(`${envFile}.bak`, { force: true });
+  }
+});
+
+test("revisão do Studio sinaliza texto pequeno sem oferecer correção destrutiva", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.evaluate(() => {
+      const title = document.querySelector("#rendered-slide-container .ttl");
+      title.style.fontSize = "12px";
+      const checkbox = document.querySelector("#chk-inspect-overlay");
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await p.waitForFunction(() => document.querySelector("#fix-panel")?.textContent.includes("Texto pequeno (12px)"));
+    assert.equal(await p.locator('#fix-panel [data-fix="auto"]').count(), 0);
+    assert.match(await p.getAttribute("#status-issues", "title"), /revisão do slide/);
+    await p.click("#status-issues");
+    assert.ok(await p.locator("#tab-panel-props").evaluate((el) => el.classList.contains("active")));
+    assert.deepEqual(errors, []);
+  } finally {
+    await studio.close(); await browser.close(); deckFile.cleanup();
+  }
+});
+
+test("assistente oferece um caminho guiado para criar uma apresentação", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#tab-btn-chat");
+    assert.match(await p.locator("#chat-empty").innerText(), /assunto, público e duração/);
+    assert.ok(await p.getByRole("button", { name: "Preparar para consulta" }).isVisible());
+    await p.click("#chat-start-deck");
+    assert.ok(await p.locator("#modal-ai-deck").isVisible());
+    assert.ok(await p.locator("#ai-deck-briefing").isVisible());
+    assert.deepEqual(errors, []);
+  } finally {
+    await studio.close(); await browser.close(); deckFile.cleanup();
+  }
+});
+
+test("formulário API expõe as opções suportadas pelo runtime", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides = [{ layout: "api", title: "Opções da API", request: { method: "POST", url: "{{base}}/run", body: {} } }];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#tab-btn-props");
+    const form = "#slide-fields-form";
+    const field = (label) => `${form} .sf-field:has(> .sf-label:text-is("${label}"))`;
+    await p.locator(`${form} > details.sf-more > summary`).click();
+    await p.fill(`${field("Nome da variável do token no código")} input`, "WORKSHOP_TOKEN");
+    await p.fill(`${field("Título de cada etapa (caminho)")} input`, "$.service");
+    await p.fill(`${field("Parâmetros documentados")} textarea`, '{ "$.model": "Modelo usado" }');
+    await p.fill(`${field("Comparação por embeddings")} textarea`, '{ "reference": "entrada", "texts": ["alternativa"] }');
+    await p.fill(`${field("Abas de código")} textarea`, '["curl", "python"]');
+    const tabs = await p.locator(`${field("Aba aberta ao entrar")} select option`).evaluateAll((options) => options.map((option) => option.value));
+    assert.ok(tabs.includes("texts") && tabs.includes("log"), "a seleção inclui embeddings e mensagens de WebSocket");
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].tokenVar === "WORKSHOP_TOKEN");
+    await p.waitForTimeout(900);
+    let saved = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0];
+    assert.equal(saved.tokenVar, "WORKSHOP_TOKEN");
+    assert.equal(saved.stepTitle, "$.service");
+    assert.deepEqual(saved.fields, { "$.model": "Modelo usado" });
+    assert.deepEqual(saved.similarity, { reference: "entrada", texts: ["alternativa"] });
+    assert.deepEqual(saved.code, ["curl", "python"]);
+    await p.selectOption(`${field("Modo")} select`, "stream");
+    await p.waitForSelector(field("Leitura do texto no streaming"));
+    await p.fill(`${field("Leitura do texto no streaming")} textarea`, '{ "text": "$.delta.text" }');
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].stream?.text === "$.delta.text");
+    await p.waitForTimeout(900);
+    saved = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0];
+    assert.deepEqual(saved.stream, { text: "$.delta.text" });
+    await p.selectOption(`${field("Modo")} select`, "realtime");
+    await p.waitForSelector(field("Conexão (WebSocket)"));
+    await p.fill(`${field("Conexão (WebSocket)")} textarea`, '{ "url": "{{ws}}/realtime", "text": [{ "type": "input_text" }] }');
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].realtime?.url === "{{ws}}/realtime");
+    await p.waitForTimeout(900);
+    saved = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0];
+    assert.equal(saved.realtime.url, "{{ws}}/realtime");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("demo avançado: aparece no tópico de demonstrações da biblioteca", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + "/biblioteca");
+    const topic = await p.evaluate(async () => {
+      const response = await fetch("/api/library/topics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Demos e modelos" }) });
+      return response.json();
+    });
+    assert.ok(topic.id);
+    await p.goto(studio.url + "/biblioteca?topic=" + encodeURIComponent(topic.id));
+    await p.click("#btn-new");
+    await p.click('[data-new="model-avancado"]');
+    await p.waitForURL(/editor\?deck=/);
+    await p.waitForSelector(".thumb-card[data-idx='5']");
+    const data = await p.evaluate(async () => (await (await fetch("/api/deck")).json()));
+    assert.match(data.spec.title, /recursos avançados/i);
+    assert.deepEqual(data.spec.slides.map((slide) => slide.layout), ["cover", "code", "dossier", "mosaic", "statement", "end"]);
+    assert.equal(data.spec.slides[1].density, "dense");
+    assert.equal(data.spec.slides[4].add.aviso.tipo, "perigo");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); }
+});
+
 test('coleções: criar modelos e substituir foto preserva a composição', async t => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const studio = await startStudio(null);
@@ -362,6 +643,7 @@ test("studio", async (t) => {
     // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)
     const esperado = {
       inserir: ["Diagrama de texto"],
+      avancado: ["Página de consulta", "Grade adaptável", "Diagrama vivo", "Tipografia cinética"],
       design: ["Cabeçalho e rodapé"],
       ia: ["Deck com IA"],
       revisar: ["Última fileira", "Mapa de atenção"],
@@ -731,6 +1013,11 @@ test("studio", async (t) => {
     await p.waitForFunction(() => document.querySelector('.napkin-type[data-type="funnel"] .thumb-render')?.innerHTML.length > 50);
     assert.ok(await p.locator(".napkin-type").count() >= 12, "formatos");
     assert.ok(await p.locator(".napkin-example").count() >= 8, "exemplos");
+    const previewSize = await p.locator(".napkin-type .lc-prev").first().evaluate((el) => {
+      const { width, height } = el.getBoundingClientRect();
+      return { width, height };
+    });
+    assert.ok(previewSize.width >= 150 && previewSize.height >= 80, `miniaturas legíveis (${previewSize.width}×${previewSize.height})`);
     const h = await p.evaluate(() => document.querySelector("#napkin-input-text").getBoundingClientRect().height);
     assert.ok(h >= 200, `área de texto grande (${h}px)`);
     // exemplo gera e desenha
@@ -956,37 +1243,50 @@ test("studio", async (t) => {
     await tab("inserir");
     await p.click("#btn-api-envs");
     await p.waitForFunction(() => document.getElementById("api-envs-text").value.length > 50);
+    const modalSize = await p.locator("#modal-api-envs .api-envs-dialog").evaluate((el) => {
+      const { width, height } = el.getBoundingClientRect();
+      return { width, height };
+    });
+    assert.ok(modalSize.width >= 1000 && modalSize.height >= 600, `modal amplo (${modalSize.width}×${modalSize.height})`);
     assert.match(await p.inputValue("#api-envs-text"), /environments:/);
-    assert.match(await p.innerText("#api-envs-status"), /ainda não existe/);
+    assert.match(await p.innerText("#api-envs-status"), /ainda não existe|YAML válido/);
     assert.match(await p.innerText("#api-envs-file"), /ambientes-de-teste\.yaml/);
     assert.match(await p.innerText("#api-envs-list"), /ENSAIO/, "o ambiente embutido aparece");
     assert.match(await p.innerText("#api-envs-list"), /OPENROUTER/, "o ambiente OpenRouter aparece");
     // YAML quebrado: recusado, nada gravado
     await p.fill("#api-envs-text", "environments:\n  dev: [\n");
-    await p.click("#btn-api-envs-save");
-    await p.waitForFunction(() => /YAML inválido/.test(document.getElementById("api-envs-status").textContent));
+    await p.waitForFunction(() => /YAML inválido/.test(document.getElementById("api-envs-status").textContent) && document.getElementById("btn-api-envs-save").disabled);
     assert.equal(fs.existsSync(envFile), false);
     // lista com traços no lugar de nomes: recusado com explicação
     await p.fill("#api-envs-text", "environments:\n  - dev\n");
-    await p.click("#btn-api-envs-save");
-    await p.waitForFunction(() => /não uma lista com traços/.test(document.getElementById("api-envs-status").textContent));
+    await p.waitForFunction(() => /não uma lista com traços/.test(document.getElementById("api-envs-status").textContent) && document.getElementById("btn-api-envs-save").disabled);
+    await p.fill("#api-envs-text", 'environments:\n  dev:\n    secrets: "não é um mapa"\n');
+    await p.waitForFunction(() => /secrets do ambiente/.test(document.getElementById("api-envs-status").textContent) && document.getElementById("btn-api-envs-save").disabled);
     // válido: grava o texto como está (comentários inclusive) e os ambientes aparecem para escolher
     const text = '# meus ambientes\ncurrent: dev\nenvironments:\n  dev:\n    vars: { base: "https://api-dev.exemplo.com/v1" }\n  hom:\n    vars: { base: "https://api-hom.exemplo.com/v1" }\n';
     await p.fill("#api-envs-text", text);
     await p.click("#btn-api-envs-save");
     await p.waitForFunction(() => /Salvo/.test(document.getElementById("api-envs-status").textContent));
     assert.equal(fs.readFileSync(envFile, "utf8"), text);
+    assert.equal(fs.existsSync(`${envFile}.bak`), false, "primeiro salvamento não precisa de backup");
     assert.deepEqual(await p.$$eval("#api-envs-list .env-chip", (els) => els.map((e) => e.dataset.env)), ["dev", "hom", "ensaio", "openrouter"]);
     assert.equal(await p.getAttribute('#api-envs-list .env-chip.active', "data-env"), "dev");
     await p.click('#api-envs-list .env-chip[data-env="hom"]');
     await p.waitForSelector('#api-envs-list .env-chip.active[data-env="hom"]');
     assert.match(fs.readFileSync(envFile, "utf8"), /^current: hom/m, "a escolha fica no arquivo, com os comentários");
     assert.match(fs.readFileSync(envFile, "utf8"), /# meus ambientes/);
+    const beforeUpdate = fs.readFileSync(envFile, "utf8");
+    await p.fill("#api-envs-text", `${text}# atualização validada\n`);
+    await p.waitForFunction(() => document.getElementById("btn-api-envs-save").disabled === false);
+    await p.click("#btn-api-envs-save");
+    await p.waitForFunction(() => /cópia anterior/.test(document.getElementById("api-envs-status").textContent));
+    assert.equal(fs.readFileSync(`${envFile}.bak`, "utf8"), beforeUpdate);
     await p.click('#api-envs-list .env-chip[data-env="ensaio"]');
     await p.waitForSelector('#api-envs-list .env-chip.active[data-env="ensaio"]');
     assert.match(fs.readFileSync(envFile, "utf8"), /^current: hom/m, "o embutido não vai para o arquivo");
     await p.click("#btn-api-envs-cancel");
     assert.equal(await p.isVisible("#modal-api-envs"), false);
+    fs.rmSync(`${envFile}.bak`, { force: true });
   });
 
   await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

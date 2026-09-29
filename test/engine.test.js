@@ -48,7 +48,7 @@ test("layouts criativos desenham a estrutura própria", () => {
 });
 
 test("código guiado preserva código literal, destaques, etapas e resumo estático", () => {
-  const out = html({ layout: "codewalk", title: "Aula", code: "if (a < 2) {\n  return '<script>literal</script>';\n}", steps: [
+  const out = html({ layout: "codewalk", title: "Aula", filename: "main.js", code: "if (a < 2) {\n  return '<script>literal</script>';\n}", steps: [
     { title: "Condição", text: "Compare o valor", highlight: [1], output: "<resultado>" },
     { title: "Retorno", highlight: [2], output: "Final" },
   ] });
@@ -74,6 +74,19 @@ test("linguagens de código são inferidas pela extensão e aceitam aliases comu
   assert.equal(resolveCodeLanguage("", "main.py"), "Python");
   assert.equal(resolveCodeLanguage("cURL", "main.py"), "");
   assert.equal(displayCodeLanguage("cURL", "main.py"), "cURL");
+});
+
+test("slides de código simples usam o mesmo editor, tema e realce do código guiado", () => {
+  const simple = html({ layout: "code", filename: "main.py", code: "def hello():\n    return 'ok'", highlight: [2] });
+  const guided = html({ layout: "codewalk", filename: "main.py", code: "def hello():\n    return 'ok'", highlight: [2] });
+  for (const out of [simple, guided]) {
+    assert.match(out, /class="codewalk-editor"/);
+    assert.match(out, /class="codewalk-file f-mono">main\.py/);
+    assert.match(out, /class="codewalk-language f-label">Python/);
+    assert.match(out, /data-language="Python"/);
+    assert.match(out, /class="cl hl"><span class="cn">2<\/span>/);
+    assert.match(out, /class="tok tok-keyword">def/);
+  }
 });
 
 test("codewalk infere a linguagem, destaca sintaxe e escapa conteúdo do código", () => {
@@ -109,7 +122,8 @@ test("tipografia cinética normaliza batidas, limita opções e inclui resumo es
   assert.match(out, /data-lesson-count="3"/);
   assert.match(out, /data-kinetic-interval="5000"/);
   assert.match(out, /data-kinetic-autoplay="false"/);
-  assert.match(out, /data-style="neon" data-color="cyan" data-size="medium"/);
+  assert.match(out, /data-style="clean" data-color="cyan" data-size="medium"/);
+  assert.doesNotMatch(out, /data-style="neon"/);
   assert.match(out, /data-position="right"/);
   assert.match(out, /Agora/);
   assert.match(out, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
@@ -132,7 +146,7 @@ test("tipografia cinética usa título e ocupa a área inteira sem duplicar a fr
   assert.match(story, /Impulsionando a Eficiência/);
   assert.match(story, /do <mark>Desenvolvimento<\/mark>/);
   assert.match(story, /data-kinetic-autoplay="true"/);
-  assert.match(story, /data-style="editorial"/);
+  assert.match(story, /data-style="clean"/);
   assert.match(story, /data-position="left"/);
   assert.match(story, /data-size="medium"/);
   assert.doesNotMatch(story, /data-style="outline"/);
@@ -314,6 +328,10 @@ test("QR code: figura e campo qr do encerramento viram SVG; sem link, erro claro
   assert.match(html({ layout: "blocks", content: [{ qr: "https://exemplo.com", label: "Site" }] }), /qr-svg[\s\S]*Site/);
   assert.match(html({ layout: "end", title: "Obrigado", qr: "https://linkedin.com/in/x", qrLabel: "LinkedIn" }), /qr-svg/);
   assert.throws(() => html({ layout: "blocks", content: [{ qr: " " }] }), /informe o texto ou link/);
+});
+
+test("imagem opcional vazia em elemento extra não impede abrir a apresentação", () => {
+  assert.doesNotThrow(() => html({ layout: "code", title: "Exemplo", code: "print(1)", add: [{ image: "", fit: "cover" }] }));
 });
 
 test("markStyle vale também na apresentação/exportação (buildHTML), não só no editor", () => {

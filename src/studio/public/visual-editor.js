@@ -2,7 +2,7 @@
 (function () {
   let active = false, root, slide, commit, selected, history = [], host, toolbar, dragging, beforeDrag;
   const clone = x => JSON.parse(JSON.stringify(x));
-  const button = (label,fn) => { const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b; };
+  const button = (label,fn,className='rbtn rbtn-lg') => { const b=document.createElement('button');b.type='button';b.className=className;b.textContent=label;b.onclick=fn;return b; };
   function saveBefore() { history.push(clone(slide)); if(history.length>30)history.shift(); }
   function edit() { return (slide.visualEdits ||= {})[selected.dataset.vkey] ||= {}; }
   function finish() { commit?.(); }
@@ -23,10 +23,9 @@
     if(slide[list] && !Array.isArray(slide[list]))slide[list]=[slide[list]];
     (slide[list] ||= []).push(element); active=true;finish();
   }
-  function setMode(value) { active=value;root?.classList.toggle('visual-mode',active);host?.querySelector('[data-visual-toggle]')?.setAttribute('aria-pressed',String(active));if(!active)pick(null); }
+  function setMode(value) { active=value;root?.classList.toggle('visual-mode',active);if(!active)pick(null); }
   function setup(container) {
     host=container;
-    const toggle=button('Selecionar objetos',()=>setMode(!active));toggle.dataset.visualToggle='';toggle.id='btn-visual-edit';toggle.title='Arraste os elementos. Duplo clique no texto para escrever.';container.append(toggle);
     container.append(button('Texto',()=>insert({text:'Seu texto',x:180,y:200,w:650,h:100,size:64})),button('Forma',()=>insert({shape:'rect',x:230,y:320,w:360,h:200,bg:'hi',radius:24})));
     const file=document.createElement('input');file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;container.append(file);
     container.append(button('Imagem',()=>file.click()));
@@ -35,7 +34,7 @@
     toolbar=document.createElement('div');toolbar.className='visual-toolbar';toolbar.hidden=true;toolbar.ariaLabel='Objeto selecionado';
     const size=document.createElement('input');size.type='number';size.min='10';size.max='500';size.dataset.size='';size.ariaLabel='Tamanho do texto';size.onchange=()=>change(e=>e.size=Math.max(10,Math.min(500,Number(size.value))));
     const color=document.createElement('input');color.type='color';color.ariaLabel='Cor do texto';color.onchange=()=>change(e=>e.color=color.value);
-    toolbar.append(size,color,button('Frente',()=>change(e=>e.z=(e.z||0)+1)),button('Atrás',()=>change(e=>e.z=(e.z||0)-1)),button('Excluir',()=>change(e=>e.hidden=true)));container.append(toolbar);
+    toolbar.append(size,color,button('Frente',()=>change(e=>e.z=(e.z||0)+1),'visual-action-button'),button('Atrás',()=>change(e=>e.z=(e.z||0)-1),'visual-action-button'),button('Excluir',()=>change(e=>e.hidden=true),'visual-action-button'));container.append(toolbar);
     document.addEventListener('keydown',e=>{
       if(!active || e.target.closest('input,textarea,[contenteditable="true"],dialog') || document.querySelector('dialog[open]'))return;
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.stopImmediatePropagation();undo();return;}
@@ -52,9 +51,10 @@
     if(!root.dataset.visualEvents){
       root.dataset.visualEvents='true';
       root.addEventListener('pointerdown',e=>{
-        if(!active || e.button!==0 || e.target.closest('.science-plot,input,textarea'))return;
+        if(e.button!==0 || e.target.closest('.science-plot,input,textarea'))return;
         if(e.target.closest('[contenteditable="true"]')?.dataset.writing)return;
-        const el=e.target.closest('[data-vkey]');if(!el){pick(null);return;}
+        const el=e.target.closest('[data-vkey]');if(!el){if(active){pick(null);setMode(false);}return;}
+        if(!active)setMode(true);
         e.preventDefault();e.stopImmediatePropagation();
         root.querySelectorAll('[contenteditable]').forEach(n=>{n.contentEditable='false';delete n.dataset.writing;});document.activeElement?.blur();
         pick(el);const scale=root.querySelector('.slide').getBoundingClientRect().width/1920;const r=el.getBoundingClientRect();const value=clone(slide.visualEdits?.[el.dataset.vkey]||{});

@@ -217,8 +217,65 @@
   }
 
   // ---------- cenas de aula: o clique da apresentação também é a etapa da explicação ----------
+  function kineticMorph(root, source, target) {
+    if (reducedMotion() || !source) return;
+    const word = $(".kinetic-word", target);
+    const sequence = $(".kinetic-sequence", root);
+    if (!word || !sequence || typeof word.animate !== "function") return;
+    const rootRect = root.getBoundingClientRect(), fromRect = source.rect, toRect = word.getBoundingClientRect();
+    if (!rootRect.width || !rootRect.height || !fromRect.width || !toRect.width) return;
+    const scaleX = root.offsetWidth / rootRect.width, scaleY = root.offsetHeight / rootRect.height;
+    const ghost = source.element.cloneNode(true);
+    ghost.classList.add("kinetic-morph");
+    ghost.removeAttribute("data-fit");
+    ghost.setAttribute("aria-hidden", "true");
+    const style = source.style;
+    Object.assign(ghost.style, {
+      position: "absolute",
+      left: `${(fromRect.left - rootRect.left) * scaleX}px`,
+      top: `${(fromRect.top - rootRect.top) * scaleY}px`,
+      width: `${fromRect.width * scaleX}px`,
+      height: "auto",
+      maxHeight: "none",
+      margin: "0",
+      overflow: "visible",
+      transform: "none",
+      transformOrigin: "top left",
+      zIndex: "4",
+      pointerEvents: "none",
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+      lineHeight: style.lineHeight,
+      letterSpacing: style.letterSpacing,
+      textTransform: style.textTransform,
+      textAlign: style.textAlign,
+      color: style.color,
+      textShadow: style.textShadow,
+      background: style.background,
+      padding: style.padding,
+      borderRadius: style.borderRadius,
+      boxSizing: "border-box",
+    });
+    sequence.append(ghost);
+    const dx = (toRect.left - fromRect.left) * scaleX, dy = (toRect.top - fromRect.top) * scaleY;
+    const morphScale = Math.max(.72, Math.min(1.38, toRect.width / fromRect.width));
+    const animation = ghost.animate([
+      { opacity: .92, transform: "translate(0, 0) scale(1)", filter: "blur(0)" },
+      { opacity: .82, offset: .62, transform: `translate(${dx * .82}px, ${dy * .82}px) scale(${1 + (morphScale - 1) * .82})`, filter: "blur(0)" },
+      { opacity: 0, transform: `translate(${dx}px, ${dy}px) scale(${morphScale})`, filter: "blur(4px)" },
+    ], { duration: 720, easing: "cubic-bezier(.22,.78,.22,1)", fill: "both" });
+    animation.finished.then(() => ghost.remove(), () => ghost.remove());
+  }
+
   function renderLesson(root, requested) {
     const n = +root.dataset.lessonCount || 1, index = Math.max(0, Math.min(n - 1, +requested || 0));
+    const previous = Number(root.dataset.lessonIndex);
+    const oldPanel = root.dataset.lesson === "kinetic" && Number.isInteger(previous)
+      ? $(`[data-lesson-panel="${previous}"].active`, root) : null;
+    const oldWord = oldPanel && $(".kinetic-word", oldPanel);
+    const source = oldWord ? { element: oldWord, rect: oldWord.getBoundingClientRect(), style: getComputedStyle(oldWord) } : null;
     root.dataset.lessonIndex = String(index);
     $$("[data-lesson-panel]", root).forEach((panel, i) => {
       panel.classList.toggle("active", i === index);
@@ -238,7 +295,10 @@
       line.classList.toggle("hl", highlight.has(i + 1));
       line.classList.toggle("dim", highlight.size > 0 && !highlight.has(i + 1));
     });
-    if (root.dataset.lesson === "kinetic") window.SagadeckFit.fitText(root);
+    if (root.dataset.lesson === "kinetic") {
+      window.SagadeckFit.fitText(root);
+      if (previous !== index) kineticMorph(root, source, $(`[data-lesson-panel="${index}"]`, root));
+    }
   }
   function fitSpotlight(root) {
     const canvas = $(".spotlight-canvas", root), img = $(".spotlight-image img", root), regions = $(".spotlight-regions", root);

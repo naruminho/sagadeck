@@ -8,6 +8,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Guia Avançado e demonstrações visíveis — 28/09/2026
+
+- A aba **Avançado** do editor reúne o seletor de densidade do slide, inserção de página de consulta e atalhos
+  para grade adaptável, diagrama vivo e tipografia cinética. A seleção compacta o slide atual sem remover texto.
+- A galeria **Exemplos do SagaDeck** também inclui página de consulta, grade adaptável, cápsulas e tipografia
+  cinética; são cenas inseridas no deck em edição, não apresentações completas.
+- Biblioteca: **Abrir demos completos** leva ao tópico `Demos e modelos`; incluído `Demo: recursos avançados`
+  para mostrar texto denso, blocos de código, aviso, grade, diagrama e sequência cinética no deck inteiro.
+- Testes verificam seleção/persistência de densidade, inserção de página de consulta e renderização do demo.
+
 ## Frente D (preguiçoso): prévia de tema no hover, sem salvar — 28/09/2026
 
 - Passar o mouse no cartão do tema (aba Design) mostra o slide atual com aquele tema; tirar o mouse restaura.
