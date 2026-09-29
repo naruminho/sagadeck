@@ -75,12 +75,13 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       assert.ok(girou,'arrastar gira a câmera 3D');
     });
     await t.test('insere, arrasta, exclui com teclado e desfaz objeto',async()=>{
-      await p.getByRole('button',{name:'Texto',exact:true}).click();
+      await p.click('[data-tab="inserir"]');await p.getByRole('button',{name:'Texto',exact:true}).click();
       const object=p.locator('#rendered-slide-container [data-vkey]').filter({hasText:'Seu texto'});
       await object.waitFor();await object.click();
       const r=await object.boundingBox();await p.mouse.move(r.x+r.width/2,r.y+r.height/2);await p.mouse.down();await p.mouse.move(r.x+r.width/2+45,r.y+r.height/2+20,{steps:5});await p.mouse.up();await p.waitForTimeout(650);
       let sl=saved().slides.find(s=>s.layout==='science');assert.ok(Object.values(sl.visualEdits||{}).some(e=>e.dx>0));
-      await object.click();await p.keyboard.press('Delete');await p.waitForTimeout(600);
+      // continua selecionado depois de arrastar: Delete exclui (clicar de novo no texto entraria na escrita)
+      await p.keyboard.press('Delete');await p.waitForTimeout(600);
       sl=saved().slides.find(s=>s.layout==='science');assert.ok(Object.values(sl.visualEdits).some(e=>e.hidden));
       await p.keyboard.press('Control+z');await p.waitForTimeout(600);
       assert.ok(!Object.values(saved().slides.find(s=>s.layout==='science').visualEdits).some(e=>e.hidden));

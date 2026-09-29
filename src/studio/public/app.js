@@ -323,7 +323,7 @@
     dom.slideNotesInput.value = slide.notes || "";
     dom.slideTimeInput.value = slide.time || 1;
     syncThemeGallery();
-    document.getElementById("motion-select").value = state.deck.motion || "subtle";
+    syncMotionMenu();
 
     try {
       const res = await fetch("api/render-slide", {
@@ -2406,7 +2406,7 @@
     shotButton.className = "rbtn rbtn-lg";
     shotButton.innerHTML = '<i class="ic" data-ic="image"></i><span>Screenshot</span>';
     shotButton.title = "Cole uma imagem e marque onde olhar";
-    document.getElementById("btn-scenes").after(shotButton);
+    document.getElementById("btn-scenes").closest(".rsplit").after(shotButton); // depois do Novo slide dividido, não dentro dele
     hydrateIcons(shotButton);
     shotButton.onclick = () => editScreenshot();
     document.addEventListener("paste", e => {
@@ -2430,12 +2430,15 @@
       const first = document.querySelector("#scene-grid .scene-card:not([hidden])");
       if (first) { e.preventDefault(); insertScene(first.dataset.scene); }
     };
-    document.getElementById("motion-select").onchange = async e => {
+    // Animações da apresentação inteira (deck.motion), no menu Apresentar
+    document.querySelectorAll(".motion-opt").forEach((b) => b.onclick = async (e) => {
+      e.stopPropagation();
       if (!state.deck) return;
-      state.deck.motion = e.target.value;
+      state.deck.motion = b.dataset.motion;
+      syncMotionMenu();
       await syncDeckToServer();
-      showToast({ none: "Movimento essencial: entradas imediatas, cliques preservados.", subtle: "Movimento equilibrado: transições suaves.", expressive: "Modo palco: movimento e entradas expressivas." }[state.deck.motion]);
-    };
+      showToast({ none: "Sem animação: cada clique mostra o próximo item na hora.", subtle: "Animações suaves: entradas e transições discretas.", expressive: "Animações expressivas: movimento de palco." }[state.deck.motion]);
+    });
     window.addEventListener("resize", scaleScenePreviews);
     document.addEventListener("keydown", e => {
       if (sceneModal().classList.contains("hidden")) return;
@@ -3859,6 +3862,11 @@ ${ta.value}`;
   function closePopovers(except) {
     document.querySelectorAll(".popover.open").forEach((p) => { if (p !== except) p.classList.remove("open"); });
     document.querySelectorAll(".split-button.show, .file-menu-wrap.show").forEach((m) => { if (!m.contains(except)) m.classList.remove("show"); });
+  }
+
+  function syncMotionMenu() {
+    const cur = state.deck?.motion || "subtle";
+    document.querySelectorAll(".motion-opt").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.motion === cur)));
   }
 
   function selectRibbonTab(name) {

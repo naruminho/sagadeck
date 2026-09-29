@@ -35,7 +35,6 @@
       <kbd>Ctrl K</kbd>
     </button>
 
-    <label class="motion-control" title="Intensidade do movimento na apresentação inteira"><i class="ic" data-ic="sparkles"></i><select id="motion-select" aria-label="Movimento da apresentação"><option value="none">Essencial</option><option value="subtle" selected>Equilibrado</option><option value="expressive">Palco</option></select></label>
     <div class="split-button" id="present-split">
       <button id="btn-present" class="btn btn-primary" title="Apresentar a partir deste slide (F5)">
         <i class="ic" data-ic="play"></i><span class="lbl">Apresentar</span>
@@ -45,6 +44,11 @@
         <button class="menu-item" id="present-from-start"><i class="ic" data-ic="play"></i>Do início</button>
         <button class="menu-item" id="present-from-current"><i class="ic" data-ic="play"></i>Deste slide</button>
         <a class="menu-item" href="preview" target="_blank" rel="noopener"><i class="ic" data-ic="external-link"></i>Em uma nova aba</a>
+        <div class="menu-sep" role="separator"></div>
+        <div class="menu-head">Animações da apresentação</div>
+        <button class="menu-item motion-opt" role="menuitemradio" data-motion="none" aria-checked="false"><i class="ic" data-ic="check"></i><span><b>Sem animação</b><small>Cada clique mostra o próximo item na hora</small></span></button>
+        <button class="menu-item motion-opt" role="menuitemradio" data-motion="subtle" aria-checked="true"><i class="ic" data-ic="check"></i><span><b>Suaves</b><small>Entradas e transições discretas (padrão)</small></span></button>
+        <button class="menu-item motion-opt" role="menuitemradio" data-motion="expressive" aria-checked="false"><i class="ic" data-ic="check"></i><span><b>Expressivas</b><small>Movimento de palco, para abrir e fechar com impacto</small></span></button>
       </div>
     </div>
     <!-- mesmo lugar da biblioteca: canto direito do topo -->
@@ -87,8 +91,10 @@
     <div class="ribbon-panel active" data-panel="inicio">
       <div class="rgroup">
         <div class="rgroup-body">
-          <button id="btn-add-slide" class="rbtn rbtn-lg" title="Novo slide depois deste"><i class="ic" data-ic="plus"></i><span>Novo slide</span></button>
-          <button id="btn-scenes" class="rbtn rbtn-lg scene-launch" title="Novo slide de um tipo: código, gráfico, diagrama, status semanal, quiz… (galeria com todos)"><i class="ic" data-ic="layout-grid"></i><span>Escolher tipo</span></button>
+          <div class="rsplit" role="group" aria-label="Novo slide">
+            <button id="btn-add-slide" class="rsplit-main" title="Novo slide em branco depois deste" aria-label="Novo slide em branco"><i class="ic" data-ic="plus"></i></button>
+            <button id="btn-scenes" class="rsplit-more" aria-haspopup="dialog" title="Escolher o tipo do novo slide: código, gráfico, diagrama, status semanal, quiz…"><span>Novo slide</span><i class="ic caret" data-ic="chevron-down"></i></button>
+          </div>
           <div class="rstack">
             <button id="btn-dup-slide" class="rbtn" title="Duplicar este slide"><i class="ic" data-ic="copy"></i><span>Duplicar</span></button>
             <button id="btn-del-slide" class="rbtn" title="Excluir este slide"><i class="ic" data-ic="trash-2"></i><span>Excluir</span></button>
@@ -149,13 +155,7 @@
 
     <!-- INSERIR -->
     <div class="ribbon-panel" data-panel="inserir">
-      <!-- Inserir = o que entra no slide atual. Slide novo de um tipo (código, quiz, status semanal…) sai da galeria única. -->
-      <div class="rgroup">
-        <div class="rgroup-body">
-          <button class="rbtn rbtn-lg" data-open-scenes title="Novo slide de um tipo: código, gráfico, diagrama, status semanal, quiz… (galeria com todos)"><i class="ic" data-ic="layout-grid"></i><span>Novo slide <i class="ic caret" data-ic="chevron-down"></i></span></button>
-        </div>
-        <div class="rgroup-label">Slide</div>
-      </div>
+      <!-- Inserir = o que entra no slide atual. Slide novo (de qualquer tipo) sai de Início › Novo slide. -->
       <div class="rgroup">
         <div class="rgroup-body">
           <div id="visual-tools" class="rgroup-body visual-tools" aria-label="Inserir e ajustar objetos"></div>

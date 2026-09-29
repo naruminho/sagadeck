@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Seleção de objetos, IA local, Novo slide único e Animações — 29/09/2026
+
+- Seleção como no Google Slides/Canva (`visual-editor.js`): um clique em qualquer ponto do objeto seleciona (texto
+  também); clicar de novo no texto selecionado ou duplo clique escreve; retângulo numa área vazia seleciona vários
+  (o de fora ganha do de dentro); Shift+clique soma; arrastar, setas, Delete e a barra valem para todos. Bug que
+  motivou: caixa de texto livre movida não se deixava selecionar (o clique virava escrita). O retângulo converte a
+  escala do palco (zoom).
+- IA: o `sagadeck studio` em Node sobe o `modelrelay serve` junto (`src/ai/relay.js`), como o sagadeck do pip; nada
+  sobe com `SAGADECK_LLM_URL`, `SAGADECK_NO_RELAY=1`, `--multiuser` ou alguém já na 8765. Nesta máquina o modelrelay
+  não estava instalado: instalado editável do clone (0.2.0). Teste: `relay-autostart.test.js` (spawn falso).
+- "Novo slide" só no Início, botão dividido (em cima: em branco; embaixo: galeria de tipos); saiu do Inserir.
+- Essencial/Equilibrado/Palco saiu do topo: menu **Apresentar ▾ › Animações** (Sem animação, Suaves, Expressivas).
+
 ## Novo slide × Layout × Inserir, formas, faixas do Design — 29/09/2026
 
 - Decisão: **uma galeria só para criar slide** (a antiga "Modelos", agora "Escolher tipo" no Início e "Novo slide" no

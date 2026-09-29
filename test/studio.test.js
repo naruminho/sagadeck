@@ -93,6 +93,15 @@ test("galeria Novo slide: todos os tipos por categoria, busca acha o Status sema
     await p.locator("#advanced-density-select").selectOption("");
     await p.waitForFunction(() => document.querySelector("#rendered-slide-container .slide:not(.density-dense)"));
     assert.equal(saved().slides[index].density, undefined);
+    // Animações da apresentação: no menu Apresentar, com o que cada opção faz
+    await p.click("#btn-present-menu");
+    assert.equal(await p.locator('.motion-opt[data-motion="subtle"]').getAttribute("aria-checked"), "true", "Suaves é o padrão");
+    await p.click('.motion-opt[data-motion="none"]');
+    await p.waitForFunction(() => document.querySelector('.motion-opt[data-motion="none"]').getAttribute("aria-checked") === "true");
+    await p.waitForTimeout(700);
+    assert.equal(saved().motion, "none", "a escolha vai para o deck");
+    assert.equal(await p.locator("#titlebar .motion-control").count(), 0, "o seletor saiu do topo");
+    await p.keyboard.press("Escape"); await p.mouse.click(5, 300);
     // Status semanal pela galeria: entra depois do slide atual e salva no deck
     const before = (await deck()).slides.length;
     await tab("inicio");
@@ -181,10 +190,47 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     const edits = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].visualEdits || {};
     assert.ok(Object.values(edits).some((v) => v.dx > 0), `arrastar o texto move o objeto e salva no deck: ${JSON.stringify(edits)}`);
     await p.keyboard.press("Escape");
-    const again = p.locator('#rendered-slide-container [data-vkey][contenteditable="true"]').first();
+    // clique em qualquer ponto do texto seleciona; clicar de novo escreve (cursor no texto)
+    const again = await p.locator('#rendered-slide-container .t[data-vkey]').first().elementHandle();
     await again.click();
-    assert.equal(await p.locator("#rendered-slide-container.visual-mode").count(), 0, "clique simples no texto não vira ajuste de objeto");
-    assert.equal(await again.evaluate((el) => document.activeElement === el), true, "o cursor fica no texto");
+    assert.equal(await again.evaluate((el) => el.classList.contains("visual-selected")), true, "um clique no texto seleciona o objeto");
+    assert.equal(await again.evaluate((el) => document.activeElement === el), false, "o primeiro clique não entra na escrita");
+    await again.click();
+    assert.equal(await again.evaluate((el) => document.activeElement === el && el.isContentEditable), true, "o segundo clique escreve");
+    await p.keyboard.press("Escape"); await p.waitForTimeout(700);
+    // caixa de texto livre: criar, levar para o meio e clicar nela de novo seleciona (antes o clique virava escrita)
+    await p.click('.ribbon-tab[data-tab="inserir"]');
+    await p.locator("#visual-tools").getByRole("button", { name: "Texto", exact: true }).click();
+    const livre = p.locator("#rendered-slide-container .t[data-vkey]").filter({ hasText: "Seu texto" });
+    await livre.waitFor();
+    const lb = await livre.boundingBox();
+    await p.mouse.move(lb.x + 10, lb.y + lb.height / 2); await p.mouse.down();
+    await p.mouse.move(lb.x + 160, lb.y + lb.height / 2 + 80, { steps: 6 }); await p.mouse.up();
+    await p.waitForTimeout(900);
+    await p.keyboard.press("Escape");
+    const lb2 = await livre.boundingBox();
+    await p.mouse.click(lb2.x + lb2.width - 12, lb2.y + lb2.height - 8); // canto da caixa, longe da palavra
+    assert.equal(await livre.evaluate((el) => el.classList.contains("visual-selected")), true, "a caixa movida continua selecionável em qualquer ponto");
+    await p.keyboard.press("Escape");
+    // retângulo numa área vazia seleciona vários objetos; seta move todos juntos
+    const slideBox = await p.locator("#rendered-slide-container .slide").boundingBox();
+    // começa num ponto vazio do slide (fora de qualquer objeto) e vai até o canto oposto
+    const vazio = await p.evaluate(({ x, y, width, height }) => {
+      for (let fy = 0.02; fy < 0.5; fy += 0.02) for (let fx = 0.02; fx < 0.5; fx += 0.02) {
+        const px = x + width * fx, py = y + height * fy, el = document.elementFromPoint(px, py);
+        if (el?.closest(".slide") && !el.closest("[data-vkey]")) return [px, py];
+      }
+      return null;
+    }, slideBox);
+    assert.ok(vazio, "há área vazia no slide");
+    await p.mouse.move(vazio[0], vazio[1]); await p.mouse.down();
+    await p.mouse.move(slideBox.x + slideBox.width - 2, slideBox.y + slideBox.height - 2, { steps: 8 }); await p.mouse.up();
+    const varios = await p.locator("#rendered-slide-container .visual-selected").count();
+    assert.ok(varios >= 2, `o retângulo seleciona vários (${varios})`);
+    await p.keyboard.press("ArrowRight"); await p.waitForTimeout(900);
+    const movidos = Object.values(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].visualEdits || {}).filter((v) => v.dx);
+    assert.ok(movidos.length >= 2, "a seta move todos os selecionados");
+    await p.keyboard.press("Escape");
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
@@ -453,7 +499,7 @@ test("studio", async (t) => {
     assert.ok(await visivel("#btn-notes-toggle"), "o essencial continua");
     await tab("inserir");
     assert.ok(!(await visivel("#btn-api-slide")), "API ao vivo guardada");
-    assert.ok(await visivel("[data-open-scenes]"), "Novo slide continua no Inserir");
+    assert.ok(await visivel("#btn-insert-shape"), "Formas continua no Inserir");
     await p.click("#btn-more-options");
     assert.ok(await visivel("#btn-api-slide"), "Mais opções mostra");
     assert.equal(await p.textContent("#btn-more-options span"), "Menos opções");
@@ -814,8 +860,7 @@ test("studio", async (t) => {
     // um <br> escondido pelo CSS grudava as palavras ("Diagramade texto"); o teste lê o texto
     // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)
     const esperado = {
-      inserir: ["Novo slide", "Formas", "Diagrama de texto"],
-      inicio: ["Escolher tipo"],
+      inserir: ["Formas", "Diagrama de texto"],
       design: ["Cabeçalho e rodapé"],
       ia: ["Deck com IA"],
       revisar: ["Última fileira", "Mapa de atenção"],
@@ -1029,8 +1074,8 @@ test("studio", async (t) => {
 
   await t.test("edição direto no slide com barra de formatação (negrito + cor) preserva a marcação", async () => {
     const i = await go("cards");
-    const target = p.locator("#rendered-slide-container .card .t[contenteditable=true]").nth(2);
-    await target.click();
+    const target = await p.locator("#rendered-slide-container .card .t[contenteditable=true]").nth(2).elementHandle();
+    await target.click(); await target.click(); // o primeiro clique seleciona o objeto; o segundo escreve
     await p.evaluate(() => {
       const el = document.activeElement; const r = document.createRange(); const node = el.firstChild;
       r.setStart(node, 0); r.setEnd(node, Math.min(6, node.length)); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
