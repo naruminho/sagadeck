@@ -337,6 +337,13 @@ async function main() {
       const library = typeof flags.library === "string" ? path.resolve(flags.library) : defaultLibraryRoot();
       // --agentes=naru,ana: no multiusuário, só esses usuários podem deixar a IA rodar comandos (na máquina do servidor)
       const agentUsers = typeof flags.agentes === "string" ? flags.agentes.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
+      // IA: sobe o `modelrelay serve` junto, se ele estiver instalado e ninguém escutar na porta dele (como o sagadeck do pip)
+      const { startRelay } = await import("../src/ai/relay.js");
+      const relay = multiuser ? null : await startRelay();
+      if (relay) {
+        console.log(`✓ IA: modelrelay em ${relay.url} (configuração: http://127.0.0.1:8765/)`);
+        for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, () => { relay.stop(); if (sig !== "exit") process.exit(0); });
+      }
       const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers });
       server.listen(port, host, () => {
         const shown = host === "0.0.0.0" ? "localhost" : host;

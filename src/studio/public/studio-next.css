@@ -183,3 +183,23 @@
 /* seletor de Layout: as mesmas categorias da galeria */
 .lp-group { grid-column: 1 / -1; padding: 10px 2px 0; font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
 .lp-group:first-child { padding-top: 0; }
+
+/* Novo slide dividido (como no PowerPoint): em cima, em branco; embaixo, a galeria de tipos */
+.rsplit { display: flex; flex-direction: column; align-items: stretch; min-width: 64px; border-radius: 6px; }
+.rsplit-main, .rsplit-more { border: 1px solid transparent; background: none; color: var(--text); cursor: pointer; }
+.rsplit-main { height: 32px; display: grid; place-items: center; border-radius: 6px 6px 0 0; }
+.rsplit-main .ic { width: 20px; height: 20px; }
+.rsplit-more { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 6px; font-size: 11px; border-radius: 0 0 6px 6px; white-space: nowrap; }
+.rsplit-more .ic { width: 12px; height: 12px; }
+.rsplit:hover .rsplit-main, .rsplit:hover .rsplit-more { border-color: var(--ui-line); }
+.rsplit-main:hover, .rsplit-more:hover { background: var(--hover); }
+/* Animações no menu Apresentar */
+.menu-sep { height: 1px; margin: 6px 0; background: var(--ui-line); }
+.menu-head { padding: 4px 12px 2px; font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.motion-opt { align-items: flex-start; }
+.motion-opt > span { display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.motion-opt small { color: var(--text-3); font-size: 11px; }
+.motion-opt .ic { visibility: hidden; margin-top: 2px; }
+.motion-opt[aria-checked="true"] .ic { visibility: visible; color: var(--brand); }
+/* retângulo de seleção de vários objetos */
+.visual-marquee { position: absolute; z-index: 1000; border: 1px dashed #8060ed; background: #8060ed1f; pointer-events: none; }
