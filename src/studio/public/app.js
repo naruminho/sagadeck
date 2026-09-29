@@ -244,6 +244,15 @@
     setupCreativeTools();
     window.SagaVisual?.setup(document.getElementById("visual-tools"));
     hydrateIcons(document); // botões do Inserir e a barra flutuante do objeto
+    // Transformar em material de consulta: o mesmo deck, para distribuir e guardar (a IA decide como, pela referência)
+    document.getElementById("btn-ai-reference").onclick = async () => {
+      if (dom.chatSend.disabled) return;
+      await refreshAIStatus(true);
+      if (!state.ai.available) { openAISettings(); return; }
+      openPane("chat");
+      dom.chatInput.value = `Transforme esta apresentação em material de consulta (purpose: consulta), para o público guardar e consultar depois. Mantenha todo o conteúdo e a ordem. Traga a explicação das notas para os slides, em parágrafos curtos que explicam o porquê; complete os exemplos e o código (divida código com mais de ~16 linhas em slides de continuação); tire o que só faz sentido ao vivo (slides só de título de seção, quiz, enquete, perguntas para a plateia, números de impacto sem fonte). Se o tema for escuro e tiver versão clara, pode sugerir a clara para imprimir. Explique brevemente o que mudou.`;
+      handleChatSubmit();
+    };
     document.getElementById("btn-ai-review").onclick = async () => {
       if (dom.chatSend.disabled) return;
       await refreshAIStatus(true);
@@ -2120,6 +2129,12 @@
     const theme = slide.theme || state.deck?.theme || "sinal";
     const pal = slide.palette || state.deck?.palette || "tema";
     dom.themeGallery.querySelectorAll(".theme-card").forEach((c) => { c.classList.toggle("active", c.dataset.theme === theme); c.classList.toggle("slide-only", !!slide.theme && c.dataset.theme === theme); });
+    // tema com par claro/escuro (manual ↔ manual-noite): um botão troca para o outro, no deck inteiro
+    const pair = state.themeMeta?.[theme]?.pair, pairBtn = document.getElementById("btn-theme-pair");
+    if (pairBtn) {
+      pairBtn.hidden = !pair;
+      if (pair) { pairBtn.dataset.pair = pair; pairBtn.querySelector("span").textContent = state.themeMeta?.[pair]?.dark ? "Versão escura" : "Versão clara"; }
+    }
     document.querySelectorAll("#palette-gallery .palette-card").forEach((c) => { c.classList.toggle("active", c.dataset.palette === pal); c.classList.toggle("slide-only", !!slide.palette && c.dataset.palette === pal); });
   }
 
@@ -3124,7 +3139,8 @@
 
   function updateWordCount(slide) {
     const words = visibleWordCount(slide);
-    const limit = slide.maxWords || state.deck?.maxWords || 40;
+    // mesma conta de wordLimit (src/purpose.js): o propósito do material muda o limite
+    const limit = slide.maxWords || state.deck?.maxWords || Math.max({ consulta: 220, aula: 160, workshop: 110 }[state.deck?.purpose] || 0, { onepage: 120, status: 90 }[slide.layout] || 0) || 40;
     dom.wordCountNum.textContent = words;
     dom.antiSleepIndicator.className = `status-item ${words > limit ? "anti-sleep-warn" : "anti-sleep-ok"}`;
     dom.antiSleepIndicator.title = words > limit
@@ -3333,6 +3349,14 @@
     renderDeckMaterials();
   }
 
+  let aiDeckAnswer = "";
+  function showAiDeckQuestion(q) {
+    const box = dom.aiDeckStatus;
+    box.innerHTML = `<div class="ai-ask"><b></b><div class="ai-ask-opts"></div><div class="ai-ask-free"><input type="text" class="form-control" id="ai-deck-answer" placeholder="Ou responda com as suas palavras"><button class="btn btn-primary btn-sm" type="button" id="ai-deck-answer-go">Responder</button></div></div>`;
+    box.querySelector("b").textContent = q.question;
+    for (const o of q.options || []) { const b = document.createElement("button"); b.type = "button"; b.className = "btn btn-secondary btn-sm"; b.textContent = o; b.onclick = () => { aiDeckAnswer = o; runAiDeckGeneration(); }; box.querySelector(".ai-ask-opts").append(b); }
+    box.querySelector("#ai-deck-answer-go").onclick = () => { const v = box.querySelector("#ai-deck-answer").value.trim(); if (v) { aiDeckAnswer = v; runAiDeckGeneration(); } };
+  }
   async function runAiDeckGeneration() {
     const briefing = dom.aiDeckBriefing.value.trim();
     if (!briefing) {
@@ -3359,11 +3383,14 @@
         slides: Number(dom.aiDeckSlides.value) || undefined,
         duration: Number(dom.aiDeckMinutes.value) || undefined,
         materials: state.deckMaterials.map((a) => a.id),
+        answer: aiDeckAnswer || undefined,
       }, (ev) => {
         if (ev.type !== "progress") return;
         phase = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
         show();
       });
+      if (data.question) { clearInterval(tick); aiDeckAnswer = ""; showAiDeckQuestion(data.question); return; }
+      aiDeckAnswer = "";
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       state.deck = data.spec;
       state.file = data.file || null;
@@ -3933,6 +3960,15 @@ ${ta.value}`;
       { k: "texto.minTextPt", type: "num", unit: "pt", min: 6, max: 30, label: "Tamanho mínimo do texto ao encolher", hint: "Títulos e textos que se ajustam para caber não ficam menores que isto." },
       { k: "texto.wrapCode", type: "bool", label: "Quebrar linhas longas de código", hint: "Em vez de encolher o bloco todo por causa de uma linha comprida." },
     ] },
+    { id: "ia", title: "Inteligência artificial", items: [
+      { k: "ia.perguntar", type: "bool", label: "Perguntar quando o pedido não disser para que serve o material", hint: "Ex.: um workshop sem dizer se o pessoal vai guardar o material. Desligado, a IA decide sozinha." },
+      { k: "ia.imagens", type: "bool", label: "Gerar imagens quando o pedido pedir", hint: "Desligado: só ícones, gráficos e diagramas do sagadeck (sem custo de imagem)." },
+      { k: "ia.autor", type: "text", label: "Seu nome", hint: "Vai na capa e no rodapé das apresentações novas (no lugar de \"Seu Nome\")." },
+      { k: "ia.idioma", type: "select", options: [["auto", "O do pedido"], ["português do Brasil", "Português (Brasil)"], ["inglês", "Inglês"], ["espanhol", "Espanhol"]], label: "Idioma do conteúdo gerado" },
+    ] },
+    { id: "exportacao", title: "Exportação", items: [
+      { k: "exportacao.pdfClaro", type: "bool", label: "PDF na versão clara do tema", hint: "Tema escuro com par claro (ex.: Manual noite) sai claro no PDF, melhor para imprimir." },
+    ] },
     { id: "editor", title: "Editor (este navegador)", local: true, items: [
       { k: "editor.theme", type: "select", options: [["system", "Automática (do sistema)"], ["light", "Clara"], ["dark", "Escura"]], label: "Tema da interface", hint: "Só a interface do Studio; o slide mantém o tema dele.",
         get: () => document.getElementById("app-theme-select")?.value || "system", set: (v) => { const sel = document.getElementById("app-theme-select"); if (sel) { sel.value = v; sel.dispatchEvent(new Event("change", { bubbles: true })); } } },
@@ -4117,6 +4153,7 @@ ${ta.value}`;
     dom.btnClosePane.onclick = closePane;
     document.getElementById("btn-model-use").onclick = useModelAsBase;
     document.getElementById("btn-prefs").onclick = openPrefs;
+    document.getElementById("btn-theme-pair").onclick = (e) => { const to = e.currentTarget.dataset.pair; if (to) applyLook("theme", to); };
     document.getElementById("btn-close-prefs").onclick = () => document.getElementById("modal-prefs").classList.add("hidden");
     document.getElementById("modal-prefs").onclick = (e) => { if (e.target.id === "modal-prefs") e.target.classList.add("hidden"); };
     document.getElementById("prefs-search").oninput = filterPrefs;

@@ -2,7 +2,7 @@
 // Só roda com SAGADECK_LIVE=1 (lento, depende do modelo). Ex.: SAGADECK_LIVE=1 node --test test/ai-live.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { editDeck } from "../src/ai/deck-ai.js";
+import { editDeck, generateDeck } from "../src/ai/deck-ai.js";
 import { loadSpec } from "../src/build.js";
 import { plain } from "../src/markup.js";
 import { FIXTURE } from "./helpers.js";
@@ -112,3 +112,36 @@ for (const [label, extra, check] of [
     assert.ok(check(n, r.spec.slides.length), `${n} imagens em ${r.spec.slides.length} slides`);
   });
 }
+
+// Para que serve o material: o modelo decide (e pergunta quando não dá para saber)
+const PURPOSE = [
+  ["Apostila de Git para o meu time guardar e consultar depois: explique branches, rebase e conflitos com exemplos de comandos.", ["consulta", "aula"]],
+  ["Pitch de 5 minutos para a diretoria aprovar o orçamento do projeto de migração para a nuvem.", ["executiva", "palestra"]],
+];
+for (const [brief, ok] of PURPOSE) {
+  test(`purpose: "${brief.slice(0, 50)}…"`, { ...opts, timeout: 600000 }, async () => {
+    const r = await generateDeck(brief, { duration: 6, images: false });
+    assert.ok(ok.includes(r.spec.purpose), `purpose ${r.spec.purpose} (esperado ${ok.join(" ou ")})`);
+    if (ok.includes("consulta")) {
+      const media = r.spec.slides.reduce((n, s) => n + (JSON.stringify({ ...s, notes: undefined }).split(/\s+/).length), 0) / r.spec.slides.length;
+      assert.ok(media > 45, `material de consulta com pouco texto na tela (${Math.round(media)} palavras/slide)`);
+      assert.ok(!r.spec.slides.some((s) => ["question", "poll"].includes(s.layout)), "consulta sem quiz/enquete");
+    }
+  });
+}
+test('purpose ambíguo com "perguntar": "um workshop de docker pro time"', { ...opts, timeout: 300000 }, async () => {
+  const r = await generateDeck("um workshop de docker pro time", { duration: 30, images: false, ask: true });
+  assert.ok(r.question?.question, `a IA gerou sem perguntar (purpose ${r.spec?.purpose})`);
+});
+
+// O que a pessoa diz com todas as letras sobre a quantidade de texto vence o tipo de material (e não precisa perguntar)
+test('quantidade de texto explícita: "workshop… com bastante texto" não pergunta e aceita texto longo', { ...opts, timeout: 600000 }, async () => {
+  const r = await generateDeck("Workshop de Docker para o time, com bastante texto explicativo em cada slide porque o pessoal vai estudar depois.", { duration: 6, images: false, ask: true });
+  assert.ok(!r.question, `perguntou sem precisar: ${r.question?.question}`);
+  assert.ok((r.spec.maxWords || 0) >= 150 || ["aula", "consulta"].includes(r.spec.purpose), `limite ${r.spec.maxWords}, purpose ${r.spec.purpose}`);
+});
+test('quantidade de texto explícita: "aula… com pouco texto, só tópicos" fica enxuta', { ...opts, timeout: 600000 }, async () => {
+  const r = await generateDeck("Aula de Git para calouros, com pouco texto nos slides, só tópicos; eu explico falando.", { duration: 6, images: false, ask: true });
+  assert.ok(!r.question, `perguntou sem precisar: ${r.question?.question}`);
+  assert.ok((r.spec.maxWords && r.spec.maxWords <= 60) || ["palestra", "workshop"].includes(r.spec.purpose), `limite ${r.spec.maxWords}, purpose ${r.spec.purpose}`);
+});

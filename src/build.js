@@ -1,4 +1,5 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
+import { wordLimit } from "./purpose.js";
 import { barHTML } from "./chrome.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -138,8 +139,8 @@ export function buildHTML(rawSpec, opts = {}) {
     html += slideShell({ s, i, spec, theme: th, ctx: sctx, layout, tone, inner }) + "\n";
 
     const words = wordCount({ ...raw, notes: undefined });
-    // one-page e status são densos por natureza (uma página com tudo): limite próprio, maior
-    const limit = s.maxWords || spec.maxWords || { onepage: 120, status: 90 }[layout] || 40;
+    // limite pelo propósito do material (purpose: consulta/aula aceitam texto corrido) e pelo layout (one-page, status)
+    const limit = wordLimit(s, spec, layout);
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
     slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", time: s.time || 0, layout, words });

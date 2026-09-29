@@ -946,3 +946,4 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .studio-var-table .pg-del:hover { color: var(--err); }
 .studio-var-table .pg-del .ic { width: 13px; height: 13px; }
 .studio-vars-panel { padding: 10px 10px 20px; }
+.rbtn[hidden] { display: none !important; } /* botão da faixa que só aparece quando faz sentido (ex.: Versão clara/escura) */

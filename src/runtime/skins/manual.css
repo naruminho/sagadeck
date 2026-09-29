@@ -1,0 +1,14 @@
+/* Manual (documentação técnica): tudo alinhado à esquerda como numa página de docs; título com filete embaixo, chapéu
+   em mono como um caminho de arquivo, cartões e código com borda fina, sem ornamento. O par manual-noite usa o mesmo arranjo. */
+.th-manual{--doc-rule:color-mix(in srgb,var(--fg) 14%,transparent)}
+.th-manual .kicker{font-family:var(--font-mono,monospace);letter-spacing:.02em;text-transform:none;color:var(--em)}
+.th-manual .hd{align-items:flex-start;text-align:left;padding-bottom:22px;margin-bottom:40px;border-bottom:2px solid var(--doc-rule)}
+.th-manual .hd .ttl{text-align:left}
+.th-manual :is(.card:not(.card-hi),.stat-card,.adaptive-item){background:var(--surface);border:1px solid var(--doc-rule);box-shadow:none}
+.th-manual .code{border:1px solid var(--doc-rule)}
+.th-manual .L-cover:not(:has(.cv-fig)) .cv-main{align-items:flex-start;text-align:left;border-left:10px solid var(--em);padding-left:56px}
+.th-manual .L-section:not(:has(.sc-fig)){flex-direction:row;align-items:center;gap:48px;text-align:left}
+.th-manual .L-section .sc-num{font-family:var(--font-mono,monospace);font-size:96px;color:var(--em)}
+.th-manual .L-quote{border-left:8px solid var(--em);padding-left:60px}
+.th-manual .L-statement{align-items:flex-start;text-align:left}
+.th-manual .li-n{font-family:var(--font-mono,monospace);color:var(--em)}

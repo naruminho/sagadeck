@@ -498,3 +498,52 @@ test("executor: variáveis e segredos do ambiente chegam ao comando; a saída vo
     await assert.rejects(runCommand({ language: "javascript", code: "1" }, { cwd: path.join(cwd, "nao-existe") }), /Abra uma apresentação/);
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
+
+// Para que serve o material (purpose): quem decide é o modelo; aqui só o encanamento em volta da decisão.
+test("generateDeck: com 'perguntar' ligado, uma chamada curta decide o propósito e pode devolver a pergunta antes de gerar", async () => {
+  reply = () => '{"purpose": null, "texto": null, "why": "não diz se fica com o pessoal", "pergunta": "O pessoal vai guardar o material?", "opcoes": ["Sim, é para consulta", "Não, é só para a sessão"]}';
+  const n0 = llm.requests.length;
+  const r = await generateDeck("workshop de git", { direction: "x", ask: true });
+  assert.deepEqual(r.question, { question: "O pessoal vai guardar o material?", options: ["Sim, é para consulta", "Não, é só para a sessão"] });
+  assert.equal(r.spec, undefined, "não gera deck quando pergunta");
+  assert.equal(llm.requests.length - n0, 1, "só a chamada curta de decisão");
+  assert.match(llm.requests.at(-1).system, /PARA QUE SERVE/, "a chamada de decisão explica os tipos de material");
+  assert.match(llm.requests.at(-1).system, /quanto texto quer/, "o que a pessoa disser sobre a quantidade de texto resolve");
+  // decidido (sem pergunta): a decisão entra no pedido de geração, e o sistema traz as regras de purpose
+  let call = 0;
+  reply = () => (++call === 1 ? '{"purpose": "workshop", "texto": "muito", "why": "o pessoal vai estudar depois", "pergunta": null}'
+    : "```yaml\ntitle: Docker\npurpose: workshop\nslides:\n  - layout: cover\n    title: Docker\n  - layout: statement\n    text: Containers\n  - layout: end\n    title: Fim\n```");
+  const d = await generateDeck("workshop de docker com bastante texto", { direction: "x", ask: true });
+  const gen = llm.requests.at(-1);
+  assert.match(gen.system, /purpose:/, "o sistema explica para que serve o material");
+  assert.match(gen.system, /Nunca invente fatos/);
+  assert.match(gen.lastUser, /purpose: workshop/, "a decisão vai no pedido");
+  assert.equal(d.spec.maxWords, 200, "pediu muito texto: o limite do deck acompanha");
+  // com a resposta, gera direto (sem a regra de perguntar) e a resposta vai no pedido
+  reply = () => "```yaml\ntitle: Git\npurpose: consulta\nslides:\n  - layout: cover\n    title: Git\n  - layout: dossier\n    title: Consulta\n    items:\n      - title: A\n        text: B\n```";
+  const g = await generateDeck("workshop de git", { direction: "x", ask: false, answer: "Sim, é para consulta", author: "Ana Dev" });
+  const req2 = llm.requests.at(-1);
+  assert.match(req2.lastUser, /Resposta da pessoa à sua pergunta sobre o material: Sim, é para consulta/);
+  assert.doesNotMatch(req2.lastUser, /```pergunta/);
+  assert.equal(g.spec.purpose, "consulta");
+  assert.equal(g.spec.author, "Ana Dev", "autor das Preferências quando o deck não diz");
+  assert.equal(g.spec.date, new Date().toISOString().slice(0, 10), "a data é a de criação, nunca inventada");
+});
+
+test("generateDeck: material de consulta pula a rodada de 'variedade' (que trocaria explicação por slide de impacto)", async () => {
+  const repetido = (purpose) => `\`\`\`yaml\ntitle: Git\npurpose: ${purpose}\nslides:\n${Array.from({ length: 6 }, (_, i) => `  - layout: code\n    title: Passo ${i + 1}\n    code: git status\n`).join("")}\`\`\``;
+  let calls = 0;
+  reply = () => { calls++; return repetido("consulta"); };
+  await generateDeck("apostila de git", { direction: "x" });
+  assert.equal(calls, 1, "consulta: uma chamada só (sem reescrever para variar)");
+  calls = 0;
+  reply = () => { calls++; return repetido("palestra"); };
+  await generateDeck("palestra de git", { direction: "x" });
+  assert.ok(calls >= 2, "palestra repetitiva: pede para variar");
+});
+
+test("estilo Documentação técnica (Criar com IA): o par claro/escuro do tema manual", () => {
+  assert.equal(styleFor("manual").theme, "manual");
+  assert.equal(styleFor("manual-noite").theme, "manual-noite");
+  assert.match(styleFor("manual").direction, /Documentação técnica/);
+});

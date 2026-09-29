@@ -5,6 +5,7 @@
 // 3. Estouro de texto e fontes fora dos limites (horizontal/vertical overflow)
 // 4. Elementos fora das coordenadas do slide (0..1920, 0..1080)
 // 5. Excesso de texto anti-sono (move narrativa secundária para notes:)
+import { wordLimit } from "../purpose.js";
 import { normalizeSpec } from "./normalize.js";
 
 export function parseIssueText(text) {
@@ -230,7 +231,7 @@ function autofixSlideCore(slide, spec = {}, issues = []) {
 
   // Regra Anti-sono Inteligente: excesso de palavras no slide
   const words = countSlideWords(s);
-  const maxWords = s.maxWords || spec.maxWords || 40;
+  const maxWords = wordLimit(s, spec); // material de consulta/aula: o texto explicativo fica no slide
   if (words > maxWords) {
     let fixedWords = false;
 
