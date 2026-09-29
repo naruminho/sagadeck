@@ -84,7 +84,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `question` | `question, options: [texto ou {key, text, sub}], keys, cols, timer, hint, optionSize` | pergunta para a plateia (com timer) |
 | `poll` | `question, id, options, compare: outroId, hint` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete |
 | `video` | `title, url, label, figure, caption` | cartão que abre um vídeo |
-| `code` | `title, filename, language, code, highlight: [linhas], size, note` | código com linhas destacadas |
+| `code` | `title, filename, language, code, highlight: [linhas], size, note` | código com linhas destacadas; cabem ~16 linhas por slide a 10 pt (~12 no tamanho normal): mais que isso, divida em slides de continuação |
 | `codewalk` | `title, filename, language, code, highlight: [linhas], size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: usa o mesmo editor, tema e realce de sintaxe; cada etapa pode trocar as linhas destacadas e explicar uma saída simulada |
 | `spotlight` | `title, image` ou `figure`, `caption, hotspots: [{x, y, width, height, title, text}]` | foco guiado em regiões de screenshots, imagens ou diagramas |
 | `api` | `title, request: {method, url, body/form, headers, auth}, mode, answer, save, token, polling, stream, realtime, steps, file, mic, audio, similarity, fields, code, tokenVar, tab, portal` | requisição ao vivo (tipo Postman) com código curl/Python; ver [Slide api](#slide-api-requisição-ao-vivo) |
@@ -143,6 +143,8 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 ```
 
 No `spotlight`, `x` e `y` indicam o canto superior esquerdo da região; os quatro números são porcentagens da imagem. As regiões são limitadas à imagem, respeitam a proporção de screenshots verticais e podem ser clicadas diretamente. Também é possível usar `figure` com SVG ou diagrama no lugar de `image`. Prefira 2–4 etapas e explicações curtas para manter o slide legível. Em HTML sem JavaScript aparece a primeira etapa; PDF, impressão e exportação estática mostram um resumo de todas as etapas, sem controles. Imagens locais são embutidas no HTML para funcionar offline.
+
+O cabeçalho do deck aceita `fit: { minCodePt, minTextPt, wrapCode }`: até onde o ajuste para caber encolhe código e texto (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920; padrões 10 e 6, ou os das Preferências do Studio) e se linha longa de código quebra (padrão `true`). Código que não cabe nem no mínimo rola na apresentação e o fiscal avisa, com a opção de dividir em dois slides.
 
 O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`; no Studio, menu **Apresentar ▾ › Animações**: Sem animação, Suaves, Expressivas). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
 

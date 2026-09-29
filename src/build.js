@@ -222,6 +222,13 @@ export function buildFile(file, outFile) {
   return { ...r, spec, outFile };
 }
 
+// Padrões do ajuste para caber; o Studio troca pelos das Preferências (setFitDefaults). O deck (fit:) vence os dois.
+const FIT_DEFAULTS = { minCodePt: 10, minTextPt: 6, wrapCode: true };
+export function setFitDefaults(d = {}) {
+  for (const k of Object.keys(FIT_DEFAULTS)) if (d[k] !== undefined && d[k] !== null && d[k] !== "") FIT_DEFAULTS[k] = k === "wrapCode" ? d[k] !== false : Number(d[k]) || FIT_DEFAULTS[k];
+}
+export const fitDefaults = () => ({ ...FIT_DEFAULTS });
+
 // <section> de um slide: tom, textura, estilo do destaque, fundo, área, cabeçalho e rodapé.
 // Única montagem para o Studio (renderSlide) e para a apresentação/exportação (buildHTML).
 function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = false }) {
@@ -234,7 +241,10 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   const total = spec.slides?.length || i + 1;
   // navegação por caminhos: id (destino de goto/back/next), next (aonde o avanço leva no fim do slide), back (botão Voltar)
   const nav = (s.id != null && s.id !== "" ? ` id="s-${esc(s.id)}" data-id="${esc(s.id)}"` : "") + (s.next != null && s.next !== "" ? ` data-next="${esc(s.next)}"` : "");
-  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  // mínimos do ajuste para caber (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920): deck > Preferências > padrão
+  const fit = { ...FIT_DEFAULTS, ...(spec.fit || {}) };
+  const fitAttrs = ` data-min-code="${Math.round(Number(fit.minCodePt) * 2) || 20}" data-min-text="${Math.round(Number(fit.minTextPt) * 2) || 0}"${fit.wrapCode === false ? ' data-code-wrap="0"' : ""}`;
+  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
   // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
