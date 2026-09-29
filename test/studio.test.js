@@ -408,6 +408,61 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
   }
 });
 
+test("Preferências: busca, grava sozinho no arquivo desta máquina e o mínimo de código passa a valer no slide", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  const file = process.env.SAGADECK_PREFERENCIAS;
+  fs.rmSync(file, { force: true });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#btn-prefs");
+    await p.waitForSelector('#prefs-list [data-pref="texto.minCodePt"]');
+    assert.equal(await p.inputValue('#prefs-list [data-pref="texto.minCodePt"]'), "10", "padrão 10 pt");
+    assert.match(await p.textContent("#prefs-file"), /preferencias/);
+    // busca sem acento filtra as linhas e some a seção vazia
+    await p.fill("#prefs-search", "quebrar");
+    assert.equal(await p.locator("#prefs-list .pref-row:not([hidden])").count(), 1, "a busca filtra");
+    assert.equal(await p.locator('#prefs-list section[data-prefs-sec="editor"]').isHidden(), true);
+    await p.fill("#prefs-search", "");
+    // mudar grava sozinho (sem botão), dentro da faixa, e o slide passa a usar o mínimo novo
+    await p.fill('#prefs-list [data-pref="texto.minCodePt"]', "40"); await p.press('#prefs-list [data-pref="texto.minCodePt"]', "Tab");
+    await p.waitForFunction(() => document.getElementById("prefs-status").textContent === "Salvo");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).texto.minCodePt, 24, "fora da faixa: vai para o máximo");
+    assert.equal(await p.inputValue('#prefs-list [data-pref="texto.minCodePt"]'), "24", "a tela mostra o valor aceito");
+    await p.waitForFunction(() => document.querySelector("#rendered-slide-container .slide")?.dataset.minCode === "48");
+    // tema da interface (deste navegador) pela mesma tela
+    await p.selectOption('#prefs-list [data-pref="editor.theme"]', "dark");
+    assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
+    await p.click("#btn-close-prefs");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); fs.rmSync(file, { force: true }); }
+});
+
+test("fiscal: código que não coube nem no mínimo avisa e oferece dividir em dois slides (destaques acompanham)", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  const code = Array.from({ length: 40 }, (_, i) => `git commit -m "passo ${i + 1}: mensagem comprida de commit para ocupar a linha toda do bloco"`).join("\n");
+  spec.slides = [{ layout: "code", title: "Histórico", language: "bash", code, highlight: [3, 30] }, { layout: "end", title: "Fim" }];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForFunction(() => /Código não coube/.test(document.querySelector("#fix-panel")?.textContent || ""), null, { timeout: 15000 });
+    assert.ok(await p.locator('#rendered-slide-container .code[data-code-cut]').count(), "o bloco ficou marcado");
+    await p.click('#fix-panel [data-fix="split-code"]');
+    await p.waitForFunction(() => document.querySelectorAll(".thumb-card").length === 3);
+    await p.waitForTimeout(900);
+    const slides = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides;
+    assert.deepEqual(slides.map((s) => s.layout), ["code", "code", "end"]);
+    assert.equal(slides[0].code.split("\n").length, 20);
+    assert.equal(slides[1].code.split("\n").length, 20);
+    assert.equal(slides[1].title, "Histórico (continuação)");
+    assert.deepEqual(slides[0].highlight, [3]); assert.deepEqual(slides[1].highlight, [10]);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("revisão do Studio sinaliza texto pequeno sem oferecer correção destrutiva", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);

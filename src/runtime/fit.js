@@ -1,7 +1,7 @@
 // Ajuste para caber. O MESMO código roda na apresentação/exportação (build.js embute este arquivo antes do
 // runtime) e no Studio (editor e miniaturas, servido em /fit.js). Nada de cópias divergentes.
 //
-//   SagadeckFit.fitText(root)  reduz a fonte dos títulos marcados com data-fit até caberem
+//   SagadeckFit.fitText(root)  reduz a fonte dos títulos marcados com data-fit até caberem (e ajusta os blocos de código)
 //   SagadeckFit.shrink(slide)  se o conteúdo da área útil vaza (uma caixa por cima da outra, ou para
 //                              fora da área), reduz TUDO proporcionalmente até parar de vazar.
 //                              Devolve o fator (1 = nada mudou) e marca section[data-shrink].
@@ -30,7 +30,32 @@
         return false;
       };
       let guard = 0;
-      while (over() && fs > +el.dataset.fs0 * 0.3 && guard++ < 60) { fs *= 0.95; el.style.fontSize = fs.toFixed(1) + "px"; }
+      // não passa do mínimo de texto do deck (fit.minTextPt; data-min-text no slide, em px)
+      const floor = Math.max(+el.dataset.fs0 * 0.3, +(el.closest(".slide")?.dataset.minText || 0));
+      while (over() && fs > floor && guard++ < 60) { fs = Math.max(floor, fs * 0.95); el.style.fontSize = fs.toFixed(1) + "px"; }
+    });
+  }
+
+  // Bloco de código que não cabe: nunca corta calado. Primeiro quebra a linha comprida (fit.wrapCode), depois encolhe
+  // até o mínimo do deck (fit.minCodePt; data-min-code no slide, em px; padrão 10 pt = 20 px) e, se nem assim couber,
+  // ganha rolagem (na apresentação dá para ler tudo) e fica marcado com data-code-cut (o fiscal do Studio avisa).
+  function fitCode(root) {
+    root.querySelectorAll(".code").forEach((c) => {
+      // o da API ao vivo rola de propósito; o editor de código (code/codewalk) rola sem barra à vista e o PDF não rola:
+      // lá também encolhe e quebra antes. Escondido não mede.
+      if (c.closest(".api-code") || !c.getClientRects().length) return;
+      const slide = c.closest(".slide");
+      const min = +(slide?.dataset.minCode || 20), wrapOk = slide?.dataset.codeWrap !== "0";
+      if (!c.dataset.fs0) c.dataset.fs0 = parseFloat(getComputedStyle(c).fontSize);
+      let fs = +c.dataset.fs0;
+      c.style.fontSize = fs + "px";
+      c.classList.remove("code-wrap", "code-scroll");
+      c.removeAttribute("data-code-cut");
+      const overW = () => c.scrollWidth > c.clientWidth + 2, overH = () => c.scrollHeight > c.clientHeight + 2;
+      if (overW() && wrapOk) c.classList.add("code-wrap");
+      let guard = 0;
+      while ((overW() || overH()) && fs > min && guard++ < 80) { fs = Math.max(min, fs * 0.94); c.style.fontSize = fs.toFixed(1) + "px"; }
+      if (overW() || overH()) { c.classList.add("code-scroll"); c.dataset.codeCut = ""; }
     });
   }
 
@@ -69,7 +94,7 @@
       if (!r.width) continue;
       if (r.bottom - sr.bottom > tol || sr.top - r.top > tol || r.right - sr.right > tol) return true;
     }
-    for (const f of safe.querySelectorAll(".fig")) {
+    for (const f of safe.querySelectorAll(".fig, .card, .adaptive-item, .code")) {
       const r = f.getBoundingClientRect();
       if (r.width && (r.bottom - sr.bottom > tol || r.right - sr.right > tol)) return true;
     }
@@ -133,8 +158,9 @@
 
   function fitAllIn(root) {
     fitChartText(root);
+    fitCode(root);
     fitText(root);
   }
 
-  g.SagadeckFit = { fitText: fitAllIn, fitChartText, shrink };
+  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, shrink };
 })(typeof window !== "undefined" ? window : globalThis);

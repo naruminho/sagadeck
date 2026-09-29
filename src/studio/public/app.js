@@ -590,10 +590,15 @@
 
     // Selecionar blocos de texto e cartões visíveis
     const candidates = Array.from(
-      slideEl.querySelectorAll(".ttl, .sub, .kicker, .card, .st-line, .q-text, .nm-val, .figbox, .cp-col, .rf")
+      slideEl.querySelectorAll(".ttl, .sub, .kicker, .card, .st-line, .q-text, .nm-val, .figbox, .cp-col, .rf, .adaptive-item, .code")
     ).filter((e) => {
       const cs = window.getComputedStyle(e);
       return cs.display !== "none" && cs.visibility !== "hidden" && e.offsetWidth > 0;
+    });
+
+    // 0. Código que não coube nem no tamanho mínimo (fit.js marcou data-code-cut): na apresentação rola, no PDF corta
+    slideEl.querySelectorAll(".code[data-code-cut]").forEach((el) => {
+      state.issues.push({ kind: "codigo-cortado", text: label(el), px: Math.round(el.scrollHeight - el.clientHeight), logical: toLogical(R(el)) });
     });
 
     // 1. Checagem de Margem Segura (Safe Area: top 92, bottom 976, left 120, right 1800)
@@ -694,7 +699,7 @@
   }
 
   // Painel do fiscal: em vez de só um número vermelho, o que está errado e o que dá para fazer
-  const ISSUE_LABEL = { "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", "texto-pequeno": (i) => `Texto pequeno (${i.px}px)`, sobreposicao: () => "Elementos um em cima do outro" };
+  const ISSUE_LABEL = { "codigo-cortado": () => "Código não coube nem no tamanho mínimo: divida em dois slides ou reduza o mínimo em Preferências", "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", "texto-pequeno": (i) => `Texto pequeno (${i.px}px)`, sobreposicao: () => "Elementos um em cima do outro" };
   const fixKey = () => `${state.currentSlideIndex}:${JSON.stringify(state.deck?.slides?.[state.currentSlideIndex] || {})}`;
   state.ignoredFixes = state.ignoredFixes || new Set();
   function renderFixPanel() {
@@ -705,8 +710,10 @@
     const kinds = [...new Set(state.issues.map((i) => i.kind))];
     const lines = [...new Map(state.issues.map((i) => [i.kind + i.text, i])).values()].slice(0, 3)
       .map((i) => `<li>${escHtml((ISSUE_LABEL[i.kind] || (() => i.kind))(i))}${i.text ? `: <em>${escHtml(i.text)}</em>` : ""}</li>`).join("");
-    const overflow = kinds.some((k) => !["sobreposicao", "texto-pequeno"].includes(k));
+    const overflow = kinds.some((k) => !["sobreposicao", "texto-pequeno", "codigo-cortado"].includes(k));
+    const codeCut = kinds.includes("codigo-cortado") && ["code", "codewalk"].includes(slide.layout) && typeof slide.code === "string";
     const buttons = [
+      codeCut ? ["split-code", "copy", "Dividir em dois slides", "Metade do código fica aqui e a outra metade num slide de continuação"] : null,
       overflow ? ["auto", "wand", "Ajustar sozinho", "Diminui o texto ou reorganiza até caber"] : null,
       overflow && slide.density !== "compact" && slide.density !== "dense" ? ["compact", "minimize-2", "Modo compacto", "Menos espaço entre os elementos deste slide"] : null,
       state.ai?.available ? ["ai", "sparkles", "Pedir para a IA", "A IA arruma sem perder conteúdo (ou divide em dois slides)"] : null,
@@ -721,6 +728,21 @@
     const idx = state.currentSlideIndex, slide = state.deck.slides[idx];
     if (kind === "ignore") { state.ignoredFixes.add(fixKey()); renderFixPanel(); return; }
     if (kind === "auto") return triggerAutofix();
+    if (kind === "split-code") {
+      // código que não coube: metade aqui, metade num slide de continuação (os destaques de linha acompanham)
+      const lines = slide.code.split("\n"), half = Math.ceil(lines.length / 2);
+      const hl = [].concat(slide.highlight || []).map(Number).filter(Number.isFinite);
+      const next = JSON.parse(JSON.stringify(slide));
+      slide.code = lines.slice(0, half).join("\n");
+      next.code = lines.slice(half).join("\n");
+      if (hl.length) { slide.highlight = hl.filter((n) => n <= half); next.highlight = hl.filter((n) => n > half).map((n) => n - half); }
+      next.title = `${slide.title || "Código"} (continuação)`;
+      delete next.notes; delete next.visualEdits; delete next.id;
+      state.deck.slides.splice(idx + 1, 0, next);
+      syncDeckToServer(); renderThumbnails(); await renderCurrentSlide();
+      showToast(`Código dividido: ${half} linhas aqui, ${lines.length - half} no slide ${idx + 2}.`);
+      return;
+    }
     if (kind === "compact") {
       slide.density = "compact";
       syncDeckToServer(); await renderCurrentSlide(); renderThumbnails();
@@ -761,6 +783,7 @@
       if (issue.kind === "fora-do-slide") tagText = "Fora do Slide";
       if (issue.kind === "estouro-horizontal") tagText = "Texto Estourado";
       if (issue.kind === "texto-pequeno") tagText = `Texto pequeno (${issue.px}px)`;
+      if (issue.kind === "codigo-cortado") tagText = "Código não coube";
       tag.textContent = `${tagText}: ${issue.text}`;
       box.appendChild(tag);
 
@@ -3900,6 +3923,77 @@ ${ta.value}`;
     document.querySelectorAll(".split-button.show, .file-menu-wrap.show").forEach((m) => { if (!m.contains(except)) m.classList.remove("show"); });
   }
 
+  // ==========================================================================
+  // PREFERÊNCIAS (tela única, com busca): as desta máquina ficam em ~/.sagadeck/preferencias.json (servidor);
+  // as do editor, neste navegador. Cada linha diz o que faz; gravar é automático.
+  // ==========================================================================
+  const PREFS_UI = [
+    { id: "texto", title: "Texto e código", items: [
+      { k: "texto.minCodePt", type: "num", unit: "pt", min: 6, max: 24, label: "Tamanho mínimo do código ao encolher", hint: "Código que não cabe encolhe até aqui (10 pt ≈ 20 px no slide). Se nem assim couber, ele rola na apresentação e o fiscal avisa." },
+      { k: "texto.minTextPt", type: "num", unit: "pt", min: 6, max: 30, label: "Tamanho mínimo do texto ao encolher", hint: "Títulos e textos que se ajustam para caber não ficam menores que isto." },
+      { k: "texto.wrapCode", type: "bool", label: "Quebrar linhas longas de código", hint: "Em vez de encolher o bloco todo por causa de uma linha comprida." },
+    ] },
+    { id: "editor", title: "Editor (este navegador)", local: true, items: [
+      { k: "editor.theme", type: "select", options: [["system", "Automática (do sistema)"], ["light", "Clara"], ["dark", "Escura"]], label: "Tema da interface", hint: "Só a interface do Studio; o slide mantém o tema dele.",
+        get: () => document.getElementById("app-theme-select")?.value || "system", set: (v) => { const sel = document.getElementById("app-theme-select"); if (sel) { sel.value = v; sel.dispatchEvent(new Event("change", { bubbles: true })); } } },
+      { k: "editor.guides", type: "bool", label: "Mostrar as guias da área segura", hint: "O retângulo pontilhado onde o conteúdo cabe sem cortar.",
+        get: () => dom.chkGuides.checked, set: (v) => { dom.chkGuides.checked = v; dom.chkGuides.dispatchEvent(new Event("change", { bubbles: true })); } },
+      { k: "editor.inspect", type: "bool", label: "Marcar no slide os avisos do fiscal", hint: "Caixas em volta do texto fora da margem, código que não coube, sobreposição.",
+        get: () => dom.chkInspectOverlay.checked, set: (v) => { dom.chkInspectOverlay.checked = v; dom.chkInspectOverlay.dispatchEvent(new Event("change", { bubbles: true })); } },
+    ] },
+  ];
+  let prefsData = null, prefsTimer = null;
+  const prefGet = (key) => { const [sec, k] = key.split("."); return prefsData?.[sec]?.[k]; };
+  async function openPrefs() {
+    const modal = document.getElementById("modal-prefs");
+    modal.classList.remove("hidden");
+    try {
+      const r = await fetch("api/preferences"); const j = await r.json();
+      prefsData = j.prefs; document.getElementById("prefs-file").textContent = j.file || "";
+    } catch { prefsData = {}; }
+    renderPrefs();
+    const q = document.getElementById("prefs-search"); q.value = ""; q.focus();
+  }
+  function renderPrefs() {
+    const nav = document.getElementById("prefs-nav"), list = document.getElementById("prefs-list");
+    nav.innerHTML = PREFS_UI.map((sec) => `<button type="button" data-prefs-sec="${sec.id}">${escHtml(sec.title)}</button>`).join("");
+    list.innerHTML = PREFS_UI.map((sec) => `<section class="prefs-sec" data-prefs-sec="${sec.id}"><h4>${escHtml(sec.title)}</h4>${sec.items.map((it) => {
+      const v = it.get ? it.get() : prefGet(it.k);
+      const ctl = it.type === "bool" ? `<input type="checkbox" data-pref="${it.k}"${v ? " checked" : ""} aria-label="${escAttr(it.label)}">`
+        : it.type === "select" ? `<select class="form-control" data-pref="${it.k}" aria-label="${escAttr(it.label)}">${it.options.map(([ov, ol]) => `<option value="${ov}"${String(v) === ov ? " selected" : ""}>${escHtml(ol)}</option>`).join("")}</select>`
+        : it.type === "num" ? `<span class="pref-num"><input type="number" class="form-control" data-pref="${it.k}" value="${escAttr(v ?? "")}" min="${it.min}" max="${it.max}" step="1" aria-label="${escAttr(it.label)}"><span>${it.unit || ""}</span></span>`
+        : `<input type="text" class="form-control" data-pref="${it.k}" value="${escAttr(v ?? "")}" aria-label="${escAttr(it.label)}">`;
+      return `<div class="pref-row" data-search="${escAttr(fold(`${sec.title} ${it.label} ${it.hint || ""}`))}"><div class="pref-label"><b>${escHtml(it.label)}</b>${it.hint ? `<small>${escHtml(it.hint)}</small>` : ""}</div><div class="pref-ctl">${ctl}</div></div>`;
+    }).join("")}</section>`).join("");
+    nav.querySelectorAll("[data-prefs-sec]").forEach((b) => b.onclick = () => list.querySelector(`section[data-prefs-sec="${b.dataset.prefsSec}"]`)?.scrollIntoView({ block: "start" }));
+    list.querySelectorAll("[data-pref]").forEach((el) => el.addEventListener("change", () => changePref(el)));
+  }
+  function changePref(el) {
+    const key = el.dataset.pref, it = PREFS_UI.flatMap((s) => s.items).find((x) => x.k === key);
+    const value = el.type === "checkbox" ? el.checked : it.type === "num" ? Number(el.value) : el.value;
+    const status = document.getElementById("prefs-status");
+    if (it.set) { it.set(value); status.textContent = "Salvo neste navegador"; return; }
+    const [sec, k] = key.split(".");
+    (prefsData[sec] ||= {})[k] = value;
+    clearTimeout(prefsTimer);
+    status.textContent = "Salvando…";
+    prefsTimer = setTimeout(async () => {
+      try {
+        const r = await fetch("api/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prefs: { [sec]: prefsData[sec] } }) });
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status);
+        prefsData = j.prefs;
+        const shown = document.querySelector(`#prefs-list [data-pref="${key}"]`); if (shown && shown.type === "number") shown.value = prefGet(key); // voltou para a faixa aceita
+        status.textContent = "Salvo";
+        renderCurrentSlide(); renderThumbnails(); // os mínimos do ajuste para caber mudam o desenho
+      } catch (e) { status.textContent = "Não salvou: " + e.message; }
+    }, 250);
+  }
+  function filterPrefs() {
+    const q = fold(document.getElementById("prefs-search").value.trim());
+    document.querySelectorAll("#prefs-list .pref-row").forEach((r) => { r.hidden = !!q && !r.dataset.search.includes(q); });
+    document.querySelectorAll("#prefs-list .prefs-sec").forEach((sec) => { sec.hidden = !sec.querySelector(".pref-row:not([hidden])"); });
+  }
+
   function syncMotionMenu() {
     const cur = state.deck?.motion || "subtle";
     document.querySelectorAll(".motion-opt").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.motion === cur)));
@@ -4022,6 +4116,10 @@ ${ta.value}`;
     dom.btnPaneProps.onclick = () => openPane("props", { toggle: true });
     dom.btnClosePane.onclick = closePane;
     document.getElementById("btn-model-use").onclick = useModelAsBase;
+    document.getElementById("btn-prefs").onclick = openPrefs;
+    document.getElementById("btn-close-prefs").onclick = () => document.getElementById("modal-prefs").classList.add("hidden");
+    document.getElementById("modal-prefs").onclick = (e) => { if (e.target.id === "modal-prefs") e.target.classList.add("hidden"); };
+    document.getElementById("prefs-search").oninput = filterPrefs;
     dom.btnAppTheme.onclick = () => setAppTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
     const pane = store.get("pane", "props");
     if (pane && !isMobile()) openPane(pane); else closePane();

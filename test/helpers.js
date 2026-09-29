@@ -12,6 +12,8 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-"));
 // idem para os ambientes do slide "api" (~/.sagadeck/ambientes.yaml tem as credenciais de quem roda)
 process.env.SAGADECK_AMBIENTES = path.join(process.env.SAGADECK_HOME, "ambientes-de-teste.yaml");
+// e para as Preferências (~/.sagadeck/preferencias.json)
+process.env.SAGADECK_PREFERENCIAS = path.join(process.env.SAGADECK_HOME, "preferencias-de-teste.json");
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).

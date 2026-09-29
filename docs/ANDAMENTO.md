@@ -8,6 +8,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Fase 1 do SagaStudio: código nunca cortado, fiscal, Preferências — 29/09/2026
+
+- Achado do exercício (material de Git): o slide `code` usa o editor do codewalk, que tinha `overflow:auto` sem barra
+  à vista, e o PDF não rola: 18 de 28 linhas sumiam. Agora `fitCode` (`src/runtime/fit.js`) quebra linha longa,
+  encolhe até `fit.minCodePt` (pt; `data-min-code` no slide, em px) e, se nem assim couber, rola e marca
+  `data-code-cut`. O fiscal do Studio acusa ("Código não coube") e oferece **Dividir em dois slides** (destaques de
+  linha acompanham). A 10 pt cabem ~16 linhas num slide de código.
+- Vazamento: cartões, itens da grade adaptável e código passam a contar em `leakingIn` e no fiscal (o slide de grade
+  invadia o rodapé sem aviso).
+- Preferências (`src/preferences.js`, `~/.sagadeck/preferencias.json` ou `SAGADECK_PREFERENCIAS`; `/api/preferences`):
+  tela com busca, seções e gravação automática. Texto e código (mínimos em pt, quebrar linha) valem para o motor via
+  `setFitDefaults`; o deck (`fit:`) vence. Editor (tema da interface, guias, marcas do fiscal) neste navegador.
+- Próximas fases: IA decide o tipo de material (e pergunta), temas técnicos claro/escuro, Object Inspector.
+
 ## Marca, faixa sem "Mais opções", fonte que encolhia, grade de variáveis — 29/09/2026
 
 - Marca: "CREATIVE STUDIO" e um logotipo com significado (um deck, dois slides, com o "apresentar" no da frente) na

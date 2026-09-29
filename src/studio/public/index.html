@@ -51,6 +51,7 @@
         <button class="menu-item motion-opt" role="menuitemradio" data-motion="expressive" aria-checked="false"><i class="ic" data-ic="check"></i><span><b>Expressivas</b><small>Movimento de palco, para abrir e fechar com impacto</small></span></button>
       </div>
     </div>
+    <button id="btn-prefs" class="icon-btn theme-toggle" type="button" title="Preferências (tamanhos mínimos, editor, IA…)" aria-label="Preferências"><i class="ic" data-ic="settings"></i></button>
     <!-- mesmo lugar da biblioteca: canto direito do topo -->
     <button id="btn-app-theme" class="icon-btn theme-toggle" type="button" title="Alternar tema claro e escuro" aria-label="Alternar tema claro e escuro"><i class="ic" data-ic="sun-moon"></i></button>
   </header>
@@ -656,6 +657,15 @@
   </div>
 
   <!-- AMBIENTES DOS SLIDES DE API (~/.sagadeck/ambientes.yaml) -->
+  <!-- Preferências: como as Configurações do VS Code (busca, seções, grava sozinho) -->
+  <div id="modal-prefs" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box prefs-dialog" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+      <div class="modal-dialog-header"><h3 id="prefs-title">Preferências</h3><button id="btn-close-prefs" class="icon-btn" title="Fechar" aria-label="Fechar"><i class="ic" data-ic="x"></i></button></div>
+      <div class="prefs-top"><input id="prefs-search" type="search" class="form-control" placeholder="Buscar preferência…" aria-label="Buscar preferência"><span id="prefs-status" class="prefs-status" role="status"></span></div>
+      <div class="prefs-body"><nav id="prefs-nav" class="prefs-nav" aria-label="Seções"></nav><div id="prefs-list" class="prefs-list"></div></div>
+      <div class="prefs-foot">Grava sozinho. Arquivo desta máquina: <code id="prefs-file"></code></div>
+    </div>
+  </div>
   <div id="modal-api-envs" class="modal-dialog-overlay hidden">
     <div class="modal-dialog-box api-envs-dialog" role="dialog" aria-labelledby="api-envs-title">
       <div class="modal-dialog-header">

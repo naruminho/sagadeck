@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import YAML from "yaml";
 import JSZip from "jszip";
-import { buildHTML, renderSlide, loadSpec, inferLayout } from "../build.js";
+import { buildHTML, renderSlide, loadSpec, inferLayout, setFitDefaults } from "../build.js";
+import { loadPreferences, savePreferences, preferencesFile, PREF_SCHEMA } from "../preferences.js";
 import { THEMES, PALETTES } from "../themes.js";
 import { writeDeckFile } from "../deck-file.js";
 import "./public/merge-decks.js"; // globalThis.SagadeckMerge (o mesmo que o Studio usa no navegador)
@@ -64,6 +65,7 @@ const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u0
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function createStudioServer(deckPath = null, opts = {}) {
+  setFitDefaults(loadPreferences().texto); // mínimos do ajuste para caber (Preferências), valem no Studio e na exportação
   // Área de trabalho: o que cada pessoa tem aberto (deck, arquivo, última prévia) + a biblioteca dela.
   // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou ~/sagadeck.
   // Modo multiusuário (servidor atrás do BabsDeck): uma área por usuário, biblioteca <raiz>/usuarios/<usuário>.
@@ -510,6 +512,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
       // 3. API Endpoints
       // Identidades (fontes da empresa, arquivo local ~/.sagadeck/identidades.yaml; ver src/identity.js).
       // Ler vale sempre; criar o modelo e abrir a pasta, só no Studio local (é a máquina da pessoa).
+      // Preferências desta máquina (~/.sagadeck/preferencias.json): tela Preferências do Studio
+      if (pathname === "/api/preferences") {
+        const send = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        if (req.method === "GET") return send({ prefs: loadPreferences(), file: preferencesFile(), schema: PREF_SCHEMA });
+        if (req.method === "POST") {
+          const body = await readJSON(req);
+          const prefs = savePreferences(body.prefs || {});
+          setFitDefaults(prefs.texto);
+          return send({ prefs, file: preferencesFile() });
+        }
+      }
       if (pathname === "/api/identities" && req.method === "GET") {
         const { loadIdentities } = await import("../identity.js");
         const d = loadIdentities();

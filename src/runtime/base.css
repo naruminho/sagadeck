@@ -177,6 +177,7 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .cl.hl{background:color-mix(in srgb,var(--c-accent) 26%,transparent);box-shadow:inset 8px 0 0 var(--c-accent)}
 .cn{width:2.2em;color:#777;flex:none}
 .cc{white-space:pre}
+.code.code-wrap .cl{min-width:0!important}.code.code-wrap .cc{white-space:pre-wrap;overflow-wrap:anywhere;flex:1;min-width:0}.code.code-scroll{overflow:auto;scrollbar-width:thin}
 .tok-keyword{color:#c792ea}
 .tok-string{color:#c3e88d}
 .tok-number{color:#f78c6c}
