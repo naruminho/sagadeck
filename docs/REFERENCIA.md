@@ -609,6 +609,8 @@ No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, 
 
 Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
 
+Modelos e demos de **Modelo pronto** abrem em **prévia**: dá para navegar, apresentar e experimentar sem criar arquivo. A primeira mudança (ou o botão **Usar como base**) cria uma cópia na biblioteca, no tópico de onde veio (padrão `Modelos`), com as imagens; o modelo de fábrica nunca muda.
+
 ## Infográficos (`infographic`)
 
 As formas clássicas de slide de consultoria, desenhadas na hora para a quantidade de itens que vier (o desenho se reorganiza; o texto encolhe para caber). Uma cor por item, tirada do tema (numa paleta de família, os parentes dela); o texto é editável no PowerPoint. `build: true` revela um item por clique.

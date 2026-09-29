@@ -12,7 +12,7 @@ import { browserOrSkip, newPage, startStudio, tempDeck, readPptx, novoSlide } fr
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
-test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=>{
+test('modelos: abrem em prévia sem criar arquivo; a primeira mudança cria a cópia e o modelo continua igual',async t=>{
   const browser=await browserOrSkip(t);if(!browser)return;
   const studio=await startStudio(null);
   try{const {page:p,errors}=await newPage(browser,studio.url+'/biblioteca');
@@ -21,22 +21,49 @@ test('modelos: criar na biblioteca, editar grade e persistir conteúdo',async t=
       const bounds=await p.locator('.lmenu.open').boundingBox();assert.ok(bounds.y+bounds.height<=650,'menu sai da janela');
       await p.keyboard.press('Escape');
     });
-    await t.test('modelo lavanda cria arquivo completo na biblioteca',async()=>{
+    const decks=()=>fs.readdirSync(studio.library,{recursive:true}).filter(f=>String(f).endsWith('.yaml'));
+    await t.test('modelo lavanda abre em prévia: mostra tudo (imagens inclusive) e não cria arquivo',async()=>{
+      const antes=decks().length;
       await p.click('#btn-new');await p.click('#new-menu [data-new="gallery"]');await p.click('.vit-card[data-new="model-lavanda"]');
+      await p.waitForURL(/editor\?model=lavanda/);
       await p.waitForSelector('.thumb-card[data-idx="1"]');
+      assert.ok(await p.locator('#rendered-slide-container .fig-img img').count(),'a imagem do modelo aparece na prévia');
+      assert.equal(await p.locator('#rendered-slide-container .fig-missing').count(),0);
+      assert.ok(await p.isVisible('#preview-banner'),'faixa de prévia à vista');
+      assert.match(await p.textContent('#save-status'),/Prévia/);
       await p.click('.thumb-card[data-idx="1"]');await p.waitForSelector('#rendered-slide-container .adaptive');
       assert.equal(await p.locator('#rendered-slide-container .adaptive-item').count(),5);
+      await p.waitForTimeout(1500); // abrir, navegar e esperar não grava nada
       const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
-      assert.ok(data.file.startsWith(studio.library));assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].layout,'mosaic');
+      assert.equal(data.file,null);assert.equal(data.preview.kind,'lavanda');
+      assert.equal(decks().length,antes,'nenhum arquivo criado só por abrir');
     });
-    await t.test('alterar item pelo formulário salva no YAML',async()=>{
+    await t.test('alterar item pelo formulário cria a cópia na biblioteca e salva nela',async()=>{
       await p.click('#tab-btn-props');
       const toggles=p.locator('#slide-fields-form .sf-item-toggle');
       await toggles.first().click();
       const input=p.locator('#slide-fields-form .sf-field').filter({has:p.locator('.sf-label', {hasText:/^Título$/})}).locator('input').nth(1);
       await input.fill('Ideia revisada');await input.blur();await p.waitForTimeout(800);
+      await p.waitForURL(/editor\?deck=/);
       const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
-      assert.equal(YAML.parse(fs.readFileSync(data.file,'utf8')).slides[1].items[0].title,'Ideia revisada');
+      assert.ok(data.file.startsWith(studio.library));assert.equal(data.preview,null);
+      const copia=YAML.parse(fs.readFileSync(data.file,'utf8'));
+      assert.equal(copia.slides[1].layout,'mosaic');assert.equal(copia.slides[1].items[0].title,'Ideia revisada');
+      assert.ok(fs.existsSync(path.join(path.dirname(data.file),'imagens','lavanda-cover.jpg')),'a imagem vai junto na cópia');
+      assert.equal(await p.isVisible('#preview-banner'),false,'a faixa some');
+      assert.match(await p.textContent('#toast-notification'),/Cópia criada/);
+      // o modelo de fábrica continua igual: abrir de novo mostra o original
+      await p.goto(studio.url+'/editor?model=lavanda&topic=Modelos');await p.waitForSelector('.thumb-card[data-idx="1"]');
+      const orig=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.notEqual(orig.spec.slides[1].items[0].title,'Ideia revisada');assert.equal(orig.file,null);
+    });
+    await t.test('Usar como base cria a cópia sem precisar mudar nada',async()=>{
+      const antes=decks().length;
+      await p.goto(studio.url+'/editor?model=essencial&topic=Modelos');await p.waitForSelector('#preview-banner:not(.hidden)');
+      await p.click('#btn-model-use');await p.waitForURL(/editor\?deck=/);
+      const data=await p.evaluate(async()=>await(await fetch('/api/deck')).json());
+      assert.ok(data.file.startsWith(path.join(studio.library,'Modelos')),data.file);
+      assert.equal(decks().length,antes+1);
     });
     assert.deepEqual(errors,[]);
   }finally{await studio.close();await browser.close();}
@@ -56,7 +83,7 @@ test("galeria Novo slide: todos os tipos por categoria, busca acha o Status sema
     assert.equal(await p.locator('.ribbon-panel[data-panel="avancado"] [data-add-scene]').count(), 0, "Avançado sem atalhos de slide duplicados");
     const demosLink = p.getByRole("link", { name: "Abrir demos completos" });
     assert.ok(await demosLink.isVisible());
-    assert.equal(new URL(await demosLink.getAttribute("href"), studio.url).searchParams.get("topic"), "Demos e modelos");
+    assert.equal(new URL(await demosLink.getAttribute("href"), studio.url).searchParams.get("galeria"), "demo", "o link abre a vitrine de demos (em prévia)");
     await tab("inicio");
     await p.click("#btn-scenes");
     await p.waitForSelector('.scene-card[data-scene="dossier"]');
@@ -399,7 +426,7 @@ test("formulário API expõe as opções suportadas pelo runtime", async (t) => 
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
 
-test("demo avançado: aparece no tópico de demonstrações da biblioteca", async (t) => {
+test("demo avançado: abre em prévia pela vitrine, sem criar arquivo no tópico", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const studio = await startStudio(null);
   try {
@@ -413,9 +440,16 @@ test("demo avançado: aparece no tópico de demonstrações da biblioteca", asyn
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
     await p.click('.vit-card[data-new="model-avancado"]');
-    await p.waitForURL(/editor\?deck=/);
+    await p.waitForURL(/editor\?model=avancado/);
     await p.waitForSelector(".thumb-card[data-idx='5']");
     const data = await p.evaluate(async () => (await (await fetch("/api/deck")).json()));
+    assert.equal(data.file, null, "prévia: nenhum arquivo");
+    assert.equal(data.preview.topic, topic.id, "a cópia, se nascer, vai para o tópico de onde veio");
+    // biblioteca?galeria=demo (o link "Abrir demos completos") abre a vitrine já nas demonstrações
+    await p.goto(studio.url + "/biblioteca?galeria=demo");
+    await p.waitForSelector(".vit-card:not([hidden])");
+    const tipos = await p.locator(".vit-card:not([hidden])").evaluateAll((els) => [...new Set(els.map((e) => e.dataset.kind))]);
+    assert.deepEqual(tipos, ["demo"]);
     assert.match(data.spec.title, /recursos avançados/i);
     assert.deepEqual(data.spec.slides.map((slide) => slide.layout), ["cover", "code", "dossier", "mosaic", "statement", "end"]);
     assert.equal(data.spec.slides[1].density, "dense");
@@ -434,6 +468,7 @@ test('coleções: criar modelos e substituir foto preserva a composição', asyn
         await p.goto(studio.url + '/biblioteca');
         await p.click('#btn-new'); await p.click('#new-menu [data-new="gallery"]'); await p.click(`.vit-card[data-new="model-${kind}"]`);
         await p.waitForSelector('.thumb-card[data-idx="1"]');
+        await p.click('#btn-model-use'); await p.waitForURL(/editor\?deck=/); // prévia → cópia
         const data = await p.evaluate(async () => (await fetch('/api/deck')).json());
         const saved = YAML.parse(fs.readFileSync(data.file, 'utf8'));
         assert.ok(saved.slides.length >= 6);

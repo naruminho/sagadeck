@@ -24,7 +24,7 @@ test('coleções: fotos portáteis, texto editável e todos os slides renderizad
     const p = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
     const errors = []; p.on('pageerror', e => errors.push(e.message));
     for (const kind of Object.keys(COLLECTION_NAMES)) {
-      for (const asset of demoAssets(kind)) fs.copyFileSync(path.join(ROOT, 'src/studio/assets', asset), path.join(dir, 'imagens', asset));
+      for (const asset of demoAssets(kind)) fs.copyFileSync(path.join(ROOT, 'src/studio/assets/imagens', asset), path.join(dir, 'imagens', asset));
       const spec = demoDeck(kind); spec._dir = dir;
       assert.ok(spec.slides.length >= 6);
       const built = buildHTML(spec);

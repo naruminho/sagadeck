@@ -8,6 +8,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Modelos abrem em prévia (cópia só na primeira mudança) e limpeza da biblioteca — 29/09/2026
+
+- Decisão: modelo/demo de fábrica é **vitrine**, não arquivo. `Modelo pronto` abre `editor?model=<tipo>&topic=…`
+  (`/api/library/decks/model-preview`): o deck vive só na memória do Studio (`W.preview`, `W.file = null`), com as
+  imagens lidas de `src/studio/assets/imagens/` (movidas para lá). A primeira mudança que chega em `/api/deck` (ou
+  `/api/library/decks/model-use`, botão **Usar como base**, ou a IA indo gravar imagens) cria a cópia no tópico de
+  origem (padrão `Modelos`) com as imagens; a URL vira `?deck=<id>`. Abrir, navegar e apresentar não gravam nada.
+- "Abrir demos completos" (Avançado) abre `biblioteca?galeria=demo`, a vitrine filtrada nas demonstrações.
+- Limpeza: as cópias sem edição (iguais ao modelo de fábrica) foram para a Lixeira; as editadas ficaram.
+- Testes: `studio.test.js` (prévia sem arquivo e com imagem; primeira edição cria a cópia com a imagem; o modelo
+  continua igual; Usar como base; coleções via prévia; demo avançado e `?galeria=demo`).
+
 ## Seleção de objetos, IA local, Novo slide único e Animações — 29/09/2026
 
 - Seleção como no Google Slides/Canva (`visual-editor.js`): um clique em qualquer ponto do objeto seleciona (texto

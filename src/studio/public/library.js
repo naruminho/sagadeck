@@ -235,7 +235,8 @@
     if (key === "ai") return aiDialog(topic);
     if (key === "ai-file") return aiDialog(topic, { fromFile: true });
     if (key === "gallery") return galleryDialog(topic);
-    if (key.startsWith("model-")) return create("api/library/decks/model", { kind: key.slice(6) });
+    // modelo de fábrica: abre em prévia (vitrine); a cópia só nasce quando a pessoa muda algo ou clica "Usar como base"
+    if (key.startsWith("model-")) { location.href = `editor?model=${encodeURIComponent(key.slice(6))}&topic=${encodeURIComponent(topic || "Modelos")}`; return; }
     if (key.startsWith("exp-")) return create("api/library/experience", { experience: key.slice(4) });
     if (key === "example-cenario") return create("api/library/decks/example-cenario", {});
     if (key === "example-api") return create("api/library/decks/example", {});
@@ -260,7 +261,7 @@
     ["exemplo", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
   ];
   const GALLERY_KINDS = [["", "Todos"], ["colecao", "Coleções"], ["estilo", "Estilos prontos"], ["demo", "Demonstrações"], ["exemplo", "Exemplos"]];
-  async function galleryDialog(topic) {
+  async function galleryDialog(topic, kind = "") {
     let items = GALLERY;
     try {
       const { experiences } = await api("api/experiences");
@@ -278,6 +279,7 @@
         box.querySelectorAll(".vit-card").forEach((c) => { c.hidden = !!f.dataset.kind && c.dataset.kind !== f.dataset.kind; });
       });
       box.querySelectorAll(".vit-card").forEach((c) => c.onclick = () => { close(); startNew(c.dataset.new, topic); });
+      if (kind) box.querySelector(`.vit-filter[data-kind="${kind}"]`)?.click(); // biblioteca?galeria=demo
     });
   }
 
@@ -433,5 +435,9 @@
   document.addEventListener("click", (e) => { if (!e.target.closest(".lmenu, [data-more], #btn-new, #card-new, [data-empty-new], #topic-more")) closeMenus(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeMenus(); $("#dlg").classList.remove("open"); } });
   hydrate();
-  load().catch((e) => { $("#main").innerHTML = `<div class="empty"><h2>Não deu para abrir a biblioteca</h2><p>${esc(e.message)}</p></div>`; });
+  load().then(() => {
+    // biblioteca?galeria=demo: abre a vitrine Modelo pronto já filtrada (link "Abrir demos completos" do editor)
+    const g = new URLSearchParams(location.search).get("galeria");
+    if (g != null) galleryDialog(topicOf(view) ? view : "", g === "1" ? "" : g);
+  }).catch((e) => { $("#main").innerHTML = `<div class="empty"><h2>Não deu para abrir a biblioteca</h2><p>${esc(e.message)}</p></div>`; });
 })();

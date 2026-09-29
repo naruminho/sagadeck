@@ -34,6 +34,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const firstDir = (...dirs) => dirs.find((d) => fs.existsSync(d)) || dirs[0];
 const PUBLIC_DIR = firstDir(path.join(HERE, "public"), path.join(HERE, "studio", "public"));
 const RUNTIME_DIR = firstDir(path.join(HERE, "..", "runtime"), path.join(HERE, "runtime"));
+// imagens dos modelos de fábrica (em imagens/, como num deck): a prévia usa esta pasta direto, sem copiar nada
+const MODEL_ASSETS_DIR = firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets"));
 // templates de exemplo do pacote (repositório: ../../templates · motor empacotado: ./templates)
 const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve(HERE, "templates")];
 const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
@@ -213,6 +215,26 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Salva o deck atual no arquivo aberto — nunca por cima dos exemplos que vêm no pacote.
   // Grava o deck (src/deck-file.js): só o que mudou, preservando comentários e formatação, de forma atômica.
   // text: o YAML que a pessoa escreveu na gaveta vai para o arquivo exatamente como ela escreveu.
+  // Modelo de fábrica aberto em prévia (W.preview): nada é gravado até a pessoa mudar algo. A primeira mudança (ou
+  // "Usar como base") cria a cópia na biblioteca, com as imagens, e o Studio passa a gravar nela.
+  function copyModelAssets(L, id, kind) {
+    for (const asset of demoAssets(kind)) {
+      const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
+      fs.mkdirSync(dest, { recursive: true });
+      fs.copyFileSync(path.join(MODEL_ASSETS_DIR, "imagens", asset), path.join(dest, asset));
+    }
+  }
+  function materializePreview(W) {
+    if (!W.preview || W.file) return null;
+    const { kind, topic } = W.preview;
+    W.preview = null;
+    const clean = Object.fromEntries(Object.entries(W.spec || {}).filter(([k]) => !k.startsWith("_")));
+    const id = W.library.createDeck(topic, clean);
+    copyModelAssets(W.library, id, kind);
+    W.file = W.library.resolveId(id);
+    W.spec = loadSpec(W.file);
+    return { id, title: W.spec.title, topic };
+  }
   function persist(W, text = null) {
     if (!W.file || isBundledTemplate(W.file)) return;
     try {
@@ -223,6 +245,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
   // Onde a IA grava imagens geradas: pasta "imagens" ao lado do deck (ou na pasta atual, se o deck é um exemplo).
   function imageOptions(W, spec) {
+    materializePreview(W); // a IA vai gravar imagens: a prévia vira uma cópia antes
     const deckDir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : process.cwd();
     return { baseDir: spec._dir || deckDir, assetsDir: path.join(deckDir, "imagens") };
   }
@@ -489,6 +512,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           spec: W.spec,
           yaml: rawYaml,
           file: W.file,
+          preview: W.preview && !W.file ? { kind: W.preview.kind, title: W.spec?.title, topic: W.preview.topic } : null,
           themes: Object.keys(THEMES),
           // para a galeria de temas: nome curto + cores de fundo, texto e destaque
           themeMeta: Object.fromEntries(Object.entries(THEMES).map(([k, t]) => [k, {
@@ -528,10 +552,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
           // Esquece o arquivo anterior — senão as edições deste deck iam parar por cima daquele.
           W.file = null;
         }
+        if (body.filepath || body.source === "browser-file") W.preview = null;
+        const materialized = body.saveToFile !== false ? materializePreview(W) : null;
         if (body.saveToFile !== false) persist(W, body.yaml && body.source !== "browser-file" ? W.yamlText : null);
         W.yamlText = null;
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file }));
+        res.end(JSON.stringify({ ok: true, spec: W.spec, file: W.file, materialized }));
         return;
       }
 
@@ -1146,12 +1172,22 @@ export function createStudioServer(deckPath = null, opts = {}) {
             case "/api/library/decks/model": {
               // modelos de fábrica (src/studio/demo-decks.js): viram uma apresentação nova na biblioteca
               const id = L.createDeck(b.topic || "Modelos", demoDeck(b.kind));
-              for (const asset of demoAssets(b.kind)) {
-                const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
-                fs.mkdirSync(dest, { recursive: true });
-                fs.copyFileSync(path.join(firstDir(path.join(HERE, "assets"), path.join(HERE, "studio", "assets")), asset), path.join(dest, asset));
-              }
+              copyModelAssets(L, id, b.kind);
               return ok({ id });
+            }
+            case "/api/library/decks/model-preview": {
+              // abre o modelo sem criar arquivo: é a vitrine; a cópia só nasce na primeira mudança
+              W.spec = { ...demoDeck(b.kind), _dir: MODEL_ASSETS_DIR };
+              W.file = null;
+              W.preview = { kind: b.kind, topic: String(b.topic || "Modelos") };
+              W.chatHistory = [];
+              return ok({ spec: W.spec, preview: { kind: b.kind, title: W.spec.title, topic: W.preview.topic } });
+            }
+            case "/api/library/decks/model-use": {
+              // "Usar como base": cria a cópia agora, mesmo sem mudança
+              const made = materializePreview(W);
+              if (!made) throw new Error("Não há um modelo em prévia aberto.");
+              return ok(made);
             }
             case "/api/library/decks/example-cenario": {
               // demonstração do Texto no cenário: o YAML e as imagens de exemplo (fundo e recorte transparente)
@@ -1182,6 +1218,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             case "/api/library/decks/restore": return ok({ id: L.restoreDeck(b.slot) });
             case "/api/library/decks/purge": L.purgeDeck(b.slot); return ok();
             case "/api/library/open": {
+              W.preview = null;
               const file = L.resolveId(b.id);
               W.spec = loadSpec(file);
               W.file = file;

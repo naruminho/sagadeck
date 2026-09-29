@@ -255,9 +255,14 @@
     buildLayoutPicker();
     bindLookMenu();
     bindLookStrips();
-    // vindo da biblioteca: /editor?deck=<id>[&present=1]
+    // vindo da biblioteca: /editor?deck=<id>[&present=1], ou um modelo em prévia: /editor?model=<tipo>[&topic=…]
     const params = new URLSearchParams(location.search);
-    if (params.get("deck")) {
+    if (params.get("model")) {
+      try {
+        const r = await fetch("api/library/decks/model-preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: params.get("model"), topic: params.get("topic") || "Modelos" }) });
+        if (!r.ok) showToast("Não deu para abrir o modelo: " + ((await r.json().catch(() => ({}))).error || r.status), 6000);
+      } catch {}
+    } else if (params.get("deck")) {
       try {
         const r = await fetch("api/library/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: params.get("deck") }) });
         if (!r.ok) showToast("Não deu para abrir: " + ((await r.json().catch(() => ({}))).error || r.status), 6000);
@@ -288,6 +293,8 @@
       state.palettes = data.palettes || {};
       state.layouts = data.layouts || LAYOUT_NAMES;
       state.file = data.file || null;
+      state.preview = data.preview || null;
+      syncPreviewBanner();
 
       buildThemeGallery();
       dom.deckTitle.value = state.deck.title || "";
@@ -3018,6 +3025,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if ("file" in data) state.file = data.file;
+      if (data.materialized) previewMaterialized(data.materialized);
       updateSaveStatus(res.ok ? "saved" : "error");
     } catch (err) {
       console.warn("Erro ao sincronizar com servidor:", err);
@@ -3025,9 +3033,38 @@
     }
   }
 
+  // Prévia de modelo: faixa acima do slide; a primeira mudança (ou "Usar como base") cria a cópia na biblioteca
+  function syncPreviewBanner() {
+    const banner = document.getElementById("preview-banner");
+    banner.classList.toggle("hidden", !state.preview);
+    if (state.preview) document.getElementById("preview-banner-text").textContent =
+      `Prévia do modelo “${state.preview.title}”. Nada é salvo até você mudar algo: aí nasce uma cópia sua em “${state.preview.topic}”, e o modelo continua igual.`;
+  }
+  function previewMaterialized(made) {
+    state.preview = null;
+    syncPreviewBanner();
+    const params = new URLSearchParams(location.search);
+    params.delete("model"); params.delete("topic"); params.set("deck", made.id);
+    history.replaceState(null, "", `${location.pathname}?${params}`);
+    showToast(`Cópia criada em “${made.topic}”: ${made.title}. O modelo original continua igual.`, 6000);
+  }
+  async function useModelAsBase() {
+    try {
+      const r = await fetch("api/library/decks/model-use", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || r.status);
+      const res = await fetch("api/deck");
+      const d = await res.json();
+      state.deck = d.spec; state.file = d.file || null;
+      previewMaterialized(data);
+      updateSaveStatus();
+    } catch (e) { showToast("Não deu para criar a cópia: " + e.message, 6000); }
+  }
+
   // "Salvo" quando há um arquivo de verdade por trás; senão, avisa que as mudanças só vivem aqui.
   function updateSaveStatus(phase = "saved") {
     const el = dom.saveStatus;
+    if (state.preview && phase !== "saving") { el.classList.add("unsaved"); el.textContent = "Prévia · não salva"; el.title = "Modelo em prévia: mude algo ou clique em Usar como base para criar a sua cópia"; return; }
     const name = state.file ? state.file.split(/[\\/]/).pop() : "";
     el.classList.remove("unsaved");
     if (phase === "saving") {
@@ -3998,6 +4035,7 @@ ${ta.value}`;
     dom.btnToggleChat.onclick = () => openPane("chat", { toggle: true });
     dom.btnPaneProps.onclick = () => openPane("props", { toggle: true });
     dom.btnClosePane.onclick = closePane;
+    document.getElementById("btn-model-use").onclick = useModelAsBase;
     dom.btnAppTheme.onclick = () => setAppTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
     const pane = store.get("pane", "props");
     if (pane && !isMobile()) openPane(pane); else closePane();
