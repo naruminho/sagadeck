@@ -197,7 +197,7 @@
         <div class="rgroup-body rgroup-fields advanced-guide">
           <span>Para apresentar: prefira poucos pontos.</span>
           <span>Para consultar: Novo slide › Página de consulta.</span>
-          <a class="rbtn" href="biblioteca?topic=Demos%20e%20modelos" target="_blank" rel="noopener">Abrir demos completos</a>
+          <a class="rbtn" href="biblioteca?galeria=demo" target="_blank" rel="noopener" title="Abre a vitrine de modelos: os demos abrem em prévia, sem criar arquivo">Abrir demos completos</a>
         </div>
         <div class="rgroup-label">Quando usar</div>
       </div>
@@ -377,6 +377,12 @@
     </aside>
 
     <section id="canvas-stage-wrapper" class="editor">
+      <!-- modelo de fábrica em prévia: nada é salvo até mudar algo (aí nasce uma cópia na biblioteca) -->
+      <div id="preview-banner" class="preview-banner hidden" role="status">
+        <i class="ic" data-ic="eye"></i>
+        <span id="preview-banner-text"></span>
+        <button id="btn-model-use" class="btn btn-primary btn-sm" type="button">Usar como base</button>
+      </div>
       <div id="canvas-viewport" class="canvas-viewport">
         <div id="slide-stage" class="stage-16-9">
           <div id="safe-margin-guides" class="safe-guides-layer"><div class="safe-box"></div></div>

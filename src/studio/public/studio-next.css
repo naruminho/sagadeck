@@ -203,3 +203,10 @@
 .motion-opt[aria-checked="true"] .ic { visibility: visible; color: var(--brand); }
 /* retângulo de seleção de vários objetos */
 .visual-marquee { position: absolute; z-index: 1000; border: 1px dashed #8060ed; background: #8060ed1f; pointer-events: none; }
+
+/* prévia de modelo de fábrica */
+.preview-banner { display: flex; align-items: center; gap: 10px; margin: 8px 12px 0; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--brand) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--brand) 12%, var(--chrome)); color: var(--text); font-size: 12px; line-height: 1.4; }
+.preview-banner.hidden { display: none; }
+.preview-banner .ic { flex: none; width: 16px; height: 16px; color: var(--brand); }
+.preview-banner span { flex: 1; }
+.preview-banner .btn { flex: none; }
