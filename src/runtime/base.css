@@ -1523,6 +1523,65 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .algo-play-ic{width:0;height:0;border-left:14px solid currentColor;border-top:9px solid transparent;border-bottom:9px solid transparent}
 .L-algo.playing .algo-play-ic{width:14px;height:18px;border:0;border-left:5px solid currentColor;border-right:5px solid currentColor}
 .export .algo-play{display:none}
+/* ---------- execução rastreada (algo com program: ou do catálogo; src/trace-view.js) ---------- */
+.tr-row{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:36px}
+.tr-stage{container-type:inline-size}
+.tr-structs{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px}
+.tr-struct{position:relative;min-height:0;display:flex;flex-direction:column;gap:8px}
+.tr-k-bars,.tr-k-tree,.tr-k-graph{flex:1 1 0}
+.tr-k-bars .algo-bars{padding:36px 4px 40px}
+.tr-lab{font-size:18px;color:var(--muted);letter-spacing:.06em}
+.tr-seq{display:grid;grid-template-columns:120px minmax(0,1fr);align-items:start;gap:14px}
+.tr-seq+.tr-seq{margin-top:10px}
+.tr-seq .tr-lab{padding-top:clamp(8px,calc(30cqi / var(--c)),22px);text-align:right;overflow:hidden;text-overflow:ellipsis}
+.tr-seq-body{display:flex;flex-direction:column;gap:4px;min-width:0}
+.tr-grid-row{display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));gap:6px;max-width:calc(var(--c) * var(--cw,92px))}
+.tr-cell{display:flex;align-items:center;justify-content:center;min-width:0;height:clamp(40px,calc(80cqi / var(--c)),78px);border:2px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--fg) 5%,var(--bg));font:600 min(clamp(16px,calc(40cqi / var(--c)),36px),calc(var(--cw,92px) * 1.5 / var(--len,1)))/1 var(--font-display,sans-serif);color:var(--fg);transition:background .3s,border-color .3s;overflow:hidden;white-space:nowrap}
+.tr-cell.under{background:var(--bg);border-style:dashed;border-color:color-mix(in srgb,var(--fg) 35%,var(--bg))}
+.tr-cell.cmp{border-color:var(--em);background:color-mix(in srgb,var(--em) 20%,var(--bg))}
+.tr-cell.wr{border-color:var(--hi);background:color-mix(in srgb,var(--hi) 30%,var(--bg))}
+.tr-cell.eq{border-color:#2f9e5b;background:color-mix(in srgb,#2f9e5b 28%,var(--bg))}
+.tr-cell.ne{border-color:#d64545;background:color-mix(in srgb,#d64545 26%,var(--bg))}
+.dyn-frame.active .tr-cell:is(.wr,.eq,.ne){animation:tr-pop .45s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes tr-pop{from{transform:scale(.82)}to{transform:none}}
+.tr-empty{color:var(--muted);font-style:italic;font-size:20px;padding:10px 0}
+.tr-idx span{text-align:center;font-size:14px;color:var(--muted)}
+.tr-ptr{display:flex;flex-direction:column;align-items:center;font:700 18px/1.1 var(--font-mono,monospace);color:var(--hi);white-space:nowrap}
+.tr-ptr::before{content:"";width:0;height:0;margin-bottom:2px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:9px solid currentColor}
+.tr-ptrs{min-height:32px}
+.algo-bar .tr-ptr{position:absolute;top:100%;margin-top:4px}
+.tr-table{align-self:flex-start;border-collapse:separate;border-spacing:6px;font-size:24px}
+.tr-table th{font:600 18px var(--font-mono,monospace);color:var(--muted);padding:0 6px}
+.tr-table td.tr-cell{display:table-cell;height:56px;min-width:56px;padding:0 14px;text-align:center;vertical-align:middle;font:600 28px var(--font-display,sans-serif)}
+.tr-svg{flex:1;min-height:0;width:100%;height:100%;align-self:center;overflow:visible;color:color-mix(in srgb,var(--fg) 40%,var(--bg))}
+.tr-node circle{fill:var(--bg);stroke:color-mix(in srgb,var(--fg) 55%,var(--bg));stroke-width:4;transition:fill .3s,stroke .3s}
+.tr-node text{font:600 34px var(--font-display,sans-serif);text-anchor:middle;dominant-baseline:central;fill:var(--fg)}
+.tr-node.ok circle{fill:color-mix(in srgb,#2f9e5b 30%,var(--bg));stroke:#2f9e5b}
+.tr-node.queued circle{stroke-dasharray:10 6;stroke:var(--fg)}
+.tr-node.cmp circle{stroke:var(--em);fill:color-mix(in srgb,var(--em) 18%,var(--bg))}
+.tr-node.cur circle,.tr-node.wr circle{stroke:var(--hi);stroke-width:7}
+.dyn-frame.active .tr-node.new{animation:tr-pop .55s cubic-bezier(.3,1.5,.5,1) both;transform-box:fill-box;transform-origin:center}
+.tr-node .tr-node-tag{font:700 30px var(--font-mono,monospace);fill:var(--hi);paint-order:stroke;stroke:var(--bg);stroke-width:6px}
+.tr-edge{stroke:currentColor;stroke-width:4}
+.tr-edge.hot{stroke:var(--hi);stroke-width:7}
+.tr-weight{font:700 28px var(--font-mono,monospace);fill:var(--fg);text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:var(--bg);stroke-width:8px}
+.tr-side{gap:14px;min-height:0;overflow:hidden}
+.tr-side .algo-name{display:flex;justify-content:space-between;align-items:baseline}
+.tr-count{color:var(--muted);letter-spacing:0}
+.tr-code{flex:0 1 auto;min-height:0;max-height:60%;overflow:hidden;padding:12px 0;font-size:19px;line-height:1.45}
+.tr-vars{flex:1 1 0;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden}
+.tr-frame.many dl{grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr)}
+.tr-frame{border:1px solid var(--line);border-radius:12px;padding:8px 14px;opacity:.55}
+.tr-frame.now{opacity:1;border-color:color-mix(in srgb,var(--hi) 55%,var(--line))}
+.tr-fname{font-size:15px;color:var(--em);margin-bottom:4px}
+.tr-frame dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;margin:0;font:19px/1.35 var(--font-mono,monospace)}
+.tr-frame dt{color:var(--muted)}
+.tr-frame dd{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.tr-frame dd.chg{color:var(--hi);font-weight:700}
+.dyn-frame.active .tr-frame dd.chg{animation:tr-flash .7s ease both}
+@keyframes tr-flash{from{background:color-mix(in srgb,var(--hi) 30%,transparent)}to{background:transparent}}
+.tr-out{border-radius:12px;background:#101725;color:#c9d4e5;padding:8px 16px;font-size:18px;line-height:1.4}
+.tr-out .t{display:block;color:#5b6577;font-size:13px}
 /* retrato (deck.aspect mais alto que largo): o que era lado a lado vira pilha; grades com poucas colunas */
 html[data-orient="portrait"] .adaptive{--adaptive-cols:2!important}
 html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count="2"],[data-item-count="3"]){--adaptive-cols:1!important}

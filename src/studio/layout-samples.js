@@ -6,7 +6,7 @@ export const LAYOUT_INFO = {
   decisionlab: ["Laboratório de decisões", "Compare automação e revisão humana com premissas ajustáveis ao vivo"],
   solution: ["Exercício resolvido", "Enunciado e dados de um lado; cada clique revela o próximo passo da conta, até a resposta em destaque"],
   calc: ["Calculadora ao vivo", "Mexa nas entradas e veja as fórmulas, as faixas (\"laminar\", \"turbulento\"…) e a régua mudarem na hora"],
-  algo: ["Algoritmo animado", "Ordenação ou busca rodando de verdade: barras, a linha do código, contadores e o botão Tocar"],
+  algo: ["Algoritmo animado", "Qualquer algoritmo rodando de verdade (ordenação, busca em texto, grafo, árvore ou o seu código em Python): as estruturas desenhadas, a linha do código, as variáveis como num depurador e o botão Tocar"],
   carousel: ["Carrossel", "Um item por clique com foto e texto: roda em semicírculo que gira, ou a foto em anéis que giram e travam"],
   duel: ["Duelo de commits", "Duas pessoas no mesmo arquivo, um clique por jogada: o Git calcula push recusado, merge e conflito, e o grafo cresce"],
   terminals: ["Dois terminais", "Comandos digitados lado a lado; com o roteiro do duelo, a saída do Git (e o git log --graph) sai calculada"],

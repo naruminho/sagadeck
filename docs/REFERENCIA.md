@@ -605,6 +605,34 @@ No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.ya
 
 **`algo` — algoritmo animado.** `algorithm: bubble | insertion | selection | merge | quick | linear | binary`, `array: [5, 1, 4, 2]` (até 16 números), `target` (para as buscas). O sagadeck roda o algoritmo e gera os passos: barras (comparando, trocando, pivô, faixa, já ordenado, achou), o pseudocódigo com a linha da vez, a frase do passo e os contadores (comparações, trocas). Cada clique é um passo; o botão **Tocar** anda sozinho (`speed` em ms). `code` troca o pseudocódigo. Vetor com 6 a 8 números dá uma animação boa de acompanhar; busca binária precisa de vetor ordenado (o sagadeck ordena se não estiver).
 
+**`algo` com qualquer algoritmo (execução rastreada).** Para um algoritmo que não é dos clássicos (o que o professor inventou, uma árvore, um grafo, programação dinâmica…), escreva o programa em **Python simples** em `program:` e a chamada em `call:` (`call: meu_sort([5, 2, 9, 1])`). O sagadeck roda o código de verdade e mostra cada passo como num depurador: a linha atual, o painel de variáveis de cada chamada (o que mudou acende) e as estruturas desenhadas pelo tipo — lista de números lida por índice vira barras; texto, lista, fila (`deque`) e conjunto viram casas com os ponteiros embaixo (a variável inteira que indexa a estrutura: `i`, `j`, `meio`…); lista de listas vira grade; dicionário vira tabela; dicionário de vizinhos (`{A: [B, C]}` ou com peso `{A: [[B, 4]]}`) vira grafo, com os visitados (conjunto) em verde, a fila tracejada e a aresta da vez acesa; objeto com filhos (`class No` com `esq`/`dir`, `filhos` ou `prox`) vira árvore ou lista ligada. O que foi lido, escrito e comparado acende (igual em verde, diferente em vermelho).
+- Suporta: `def` (recursão), `class` com `__init__` e métodos, `if/elif/else`, `while`, `for … in`, `break/continue`, listas, tuplas, dicionários, conjuntos, fatias, compreensões, `lambda`, f-strings, `from collections import deque`, `import heapq`, `import math` e as funções de sempre (`len`, `range`, `min`, `max`, `sorted`, `enumerate`, `zip`, `print`…). Sem `input()`, arquivos ou bibliotecas de fora: os dados vêm na chamada.
+- **Legenda do passo:** comentário no fim da linha, com `{expressão}` trocada pelo valor: `j += 1  # casou: {j} letras`. Sem comentário, a frase sai sozinha com os valores (`v[j] > v[j + 1] → 5 > 3: sim.`).
+- `view:` escolhe o que desenhar e como (opcional; sem ele o sagadeck escolhe): `[{var: texto, pointers: ["i + j"]}, {var: padrao, under: texto, offset: i, pointers: [j]}, {var: pi, as: cells}, {var: raiz, from: monta, as: tree}]` — `as: bars | cells | grid | table | tree | graph`, `pointers` são expressões, `under`+`offset` alinham uma linha sob a outra (padrão sob o texto), `from` pega a variável de outra função da pilha.
+- Mantenha a entrada pequena (até ~120 passos; `maxSteps` muda): 6 a 10 elementos, textos de até ~25 letras.
+- **Catálogo pronto** (só os dados, sem escrever código): `algorithm: naive | kmp | quicksearch` (busca em texto: `text`, `pattern`), `bfs | dijkstra` (grafos: `graph`, `start`; Dijkstra com peso `{A: [[B, 4], [C, 1]]}`), `bst` (árvore binária de busca: `array` com os valores inseridos).
+
+```yaml
+- layout: algo
+  title: KMP não volta no texto
+  algorithm: kmp
+  text: abababcabababab
+  pattern: ababab
+- layout: algo
+  title: O meu algoritmo de ordenação
+  program: |
+    def meu_sort(v):
+        trocou = True
+        while trocou:
+            trocou = False
+            for i in range(len(v) - 1):
+                if v[i] > v[i + 1]:
+                    v[i], v[i + 1] = v[i + 1], v[i]  # troca {v[i + 1]} com {v[i]}
+                    trocou = True
+        return v
+  call: meu_sort([5, 2, 9, 1, 7])
+```
+
 ```yaml
 - layout: calc
   title: Qual é o regime?
