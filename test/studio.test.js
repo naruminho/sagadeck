@@ -69,6 +69,35 @@ test('modelos: abrem em prévia sem criar arquivo; a primeira mudança cria a c�
   }finally{await studio.close();await browser.close();}
 });
 
+test("faixa e painel: Avançado é a última aba, grupos do Início juntos, abas do painel sem corte", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const abas = await p.locator(".ribbon-tab[data-tab]").evaluateAll((els) => els.map((e) => e.dataset.tab));
+    assert.equal(abas.at(-1), "avancado", `Avançado por último: ${abas}`);
+    // Início: os grupos de especialista (Abrir, Tom/Fundo) vêm logo depois dos outros, sem um vão até a outra ponta
+    const vaos = await p.evaluate(() => {
+      const gs = [...document.querySelectorAll('.ribbon-panel[data-panel="inicio"] > .rgroup')].filter((g) => g.offsetParent).map((g) => g.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+      return gs.slice(1).map((g, i) => Math.round(g.left - gs[i].right));
+    });
+    assert.ok(vaos.every((v) => v < 40), `grupos do Início colados (vãos: ${vaos})`);
+    // as quatro abas do painel cabem; a aberta mostra o nome inteiro
+    for (const id of ["tab-btn-props", "tab-btn-inspect", "tab-btn-chat", "tab-btn-vars"]) {
+      await p.click(`#${id}`);
+      const m = await p.evaluate((id) => {
+        const seg = document.querySelector("#inspector-sidebar .segmented"), head = seg.closest(".pane-header").getBoundingClientRect();
+        const btns = [...seg.querySelectorAll(".seg")].map((b) => b.getBoundingClientRect());
+        const label = document.querySelector(`#${id} .seg-label`);
+        return { cabe: seg.scrollWidth <= seg.clientWidth + 1 && btns.every((b) => b.right <= head.right + 0.5), nome: label.scrollWidth <= label.clientWidth + 1 && label.getBoundingClientRect().width > 20 };
+      }, id);
+      assert.ok(m.cabe, `${id}: as abas cabem no painel`);
+      assert.ok(m.nome, `${id}: o nome da aba aberta aparece inteiro`);
+    }
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("galeria Novo slide: todos os tipos por categoria, busca acha o Status semanal; Avançado só com a densidade", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
@@ -393,6 +422,20 @@ test("Studio mostra variáveis em tabela, permite editar e arrastar placeholders
     await p.waitForFunction(() => document.querySelector('#studio-env-vars .studio-var-row[data-original-var="area"]'));
     assert.match(fs.readFileSync(envFile, "utf8"), /area: "?dev"?/);
     assert.doesNotMatch(fs.readFileSync(envFile, "utf8"), /workspace:/);
+    // Tipo: Normal ↔ Segredo move a variável (segredo nunca aparece na tela)
+    await p.selectOption('#studio-env-vars .studio-var-row[data-original-var="area"] select[data-var-type]', "segredo");
+    await p.waitForFunction(() => document.querySelector('#studio-env-vars .studio-var-row[data-studio-drag-var="secret.area"]'));
+    let doc = YAML.parse(fs.readFileSync(envFile, "utf8")).environments.dev;
+    assert.ok(doc.secrets.area && !("area" in doc.vars), "virou segredo");
+    assert.equal(await p.inputValue('#studio-env-vars .studio-var-row[data-studio-drag-var="secret.area"] [data-var-value]'), "", "segredo não aparece");
+    await p.selectOption('#studio-env-vars .studio-var-row[data-studio-drag-var="secret.area"] select[data-var-type]', "normal");
+    await p.waitForFunction(() => document.querySelector('#studio-env-vars .studio-var-row[data-studio-drag-var="area"]'));
+    doc = YAML.parse(fs.readFileSync(envFile, "utf8")).environments.dev;
+    assert.equal(doc.vars.area, "dev", "voltou a normal com o mesmo valor");
+    // é um sistema, não uma página: sem texto de manual, e a grade ocupa a aba
+    assert.equal(await p.locator("#tab-panel-vars .studio-vars-intro").count(), 0);
+    const alt = await p.evaluate(() => [document.querySelector("#studio-env-vars .studio-var-table-wrap").getBoundingClientRect().height, document.getElementById("tab-panel-vars").getBoundingClientRect().height]);
+    assert.ok(alt[0] > alt[1] * 0.45, `a grade ocupa a aba (${Math.round(alt[0])} de ${Math.round(alt[1])} px)`);
     await p.click('.thumb-card[data-idx="1"]');
     const savedVar = p.locator("#studio-saved-vars .studio-var-row").filter({ hasText: "task_id" });
     await savedVar.waitFor();
@@ -438,6 +481,61 @@ test("Preferências: busca, grava sozinho no arquivo desta máquina e o mínimo 
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); fs.rmSync(file, { force: true }); }
 });
 
+test("inspetor de propriedades: só o que faz sentido para o objeto; Slide e Apresentação sempre; tudo grava no deck", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const ins = "#inspector-body";
+    // sem seleção: dica + Slide + Apresentação
+    await p.click("#tab-btn-inspect");
+    await p.waitForSelector(`${ins} .ip-hint`);
+    assert.ok(await p.locator(`${ins} [data-sec="slide"]`).isVisible() && await p.locator(`${ins} [data-sec="deck"]`).isVisible());
+    // painel em Formatar + clique num texto: vai para Propriedades, só com as categorias de texto
+    await p.click("#tab-btn-props");
+    const texto = await p.locator("#rendered-slide-container .t[data-vkey]").first().elementHandle();
+    await texto.click();
+    await p.waitForSelector("#tab-panel-inspect.active");
+    const cats = await p.locator(`${ins} [data-sec="obj"] summary`).allTextContents();
+    assert.ok(cats.includes("Texto") && cats.includes("Posição e tamanho") && cats.includes("Animação"), cats.join(", "));
+    assert.ok(!cats.includes("Preenchimento e contorno"), "texto não mostra preenchimento de forma");
+    const key = await texto.evaluate((el) => el.dataset.vkey);
+    await p.selectOption(`${ins} [data-sec="obj"] select[data-k="weight"]`, "700"); await p.waitForTimeout(900);
+    assert.equal(saved().slides[0].visualEdits[key].weight, 700, "peso salvo no deck");
+    assert.equal(await p.locator(`#rendered-slide-container [data-vkey="${key}"]`).evaluate((el) => getComputedStyle(el).fontWeight), "700");
+    await p.fill(`${ins} [data-sec="obj"] input[data-k="step"]`, "2"); await p.press(`${ins} [data-sec="obj"] input[data-k="step"]`, "Enter"); await p.waitForTimeout(900);
+    assert.equal(saved().slides[0].visualEdits[key].step, 2, "aparece no clique 2");
+    // voltar ao padrão tira a propriedade
+    await p.click(`${ins} [data-sec="obj"] .ip-row[data-row="weight"] .ip-reset`); await p.waitForTimeout(900);
+    assert.equal(saved().slides[0].visualEdits[key].weight, undefined);
+    await p.keyboard.press("Escape");
+    // forma: preenchimento e contorno, sem Texto
+    await p.click('.ribbon-tab[data-tab="inserir"]'); await p.click("#btn-insert-shape"); await p.click('.shape-menu .shape-option[data-shape="star"]');
+    await p.waitForSelector("#rendered-slide-container .shape-star"); await p.waitForTimeout(700);
+    await p.keyboard.press("Escape");
+    await p.evaluate(() => window.SagaVisual.select([document.querySelector("#rendered-slide-container .shape-star")]));
+    const catsForma = await p.locator(`${ins} [data-sec="obj"] summary`).allTextContents();
+    assert.ok(catsForma.includes("Preenchimento e contorno") && !catsForma.includes("Texto"), catsForma.join(", "));
+    await p.keyboard.press("Escape");
+    await p.click("#tab-btn-inspect"); // soltar a seleção voltou para Formatar (a troca foi automática); agora é escolha da pessoa
+    // Slide e Apresentação
+    await p.selectOption(`${ins} [data-sec="slide"] select[data-k="density"]`, "compact"); await p.waitForTimeout(900);
+    assert.equal(saved().slides[0].density, "compact");
+    await p.selectOption(`${ins} [data-sec="deck"] select[data-k="purpose"]`, "consulta"); await p.waitForTimeout(900);
+    assert.equal(saved().purpose, "consulta");
+    await p.fill(`${ins} [data-sec="deck"] input[data-k="fit.minCodePt"]`, "12"); await p.press(`${ins} [data-sec="deck"] input[data-k="fit.minCodePt"]`, "Enter"); await p.waitForTimeout(900);
+    assert.equal(saved().fit.minCodePt, 12, "propriedade aninhada (fit) salva");
+    await p.click(`${ins} [data-sec="deck"] .ip-row[data-row="fit.minCodePt"] .ip-reset`); await p.waitForTimeout(900);
+    assert.equal(saved().fit, undefined, "voltar ao padrão tira o fit vazio");
+    // categoria recolhida fica recolhida
+    await p.click(`${ins} details[data-cat="deck"] > summary`);
+    await p.reload(); await p.waitForSelector(".thumb-card"); await p.click("#tab-btn-inspect");
+    assert.equal(await p.locator(`${ins} details[data-cat="deck"]`).evaluate((d) => d.open), false, "lembra o que foi recolhido");
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("tema com par: Design mostra Versão clara/escura só quando o tema tem par, e troca o deck inteiro", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck();
@@ -472,6 +570,18 @@ test("fiscal: código que não coube nem no mínimo avisa e oferece dividir em d
     const { page: p, errors } = await newPage(browser, studio.url);
     await p.waitForFunction(() => /Código não coube/.test(document.querySelector("#fix-panel")?.textContent || ""), null, { timeout: 15000 });
     assert.ok(await p.locator('#rendered-slide-container .code[data-code-cut]').count(), "o bloco ficou marcado");
+    // legível na interface escura (o fundo era branco fixo com o texto claro do tema escuro)
+    await p.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+    const contraste = await p.evaluate(() => {
+      // rgb(r, g, b) em 0–255 ou color(srgb r g b) em 0–1 (color-mix devolve assim)
+      const rgb = (c) => { const n = (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number); return c.startsWith("color(") ? n.map((v) => v * 255) : n; };
+      const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+      const panel = document.getElementById("fix-panel"), li = panel.querySelector("li");
+      const a = lum(rgb(getComputedStyle(li).color)), b = lum(rgb(getComputedStyle(panel).backgroundColor));
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    assert.ok(contraste >= 4.5, `aviso legível no tema escuro (contraste ${contraste.toFixed(2)})`);
+    await p.evaluate(() => { document.documentElement.dataset.theme = "light"; });
     await p.click('#fix-panel [data-fix="split-code"]');
     await p.waitForFunction(() => document.querySelectorAll(".thumb-card").length === 3);
     await p.waitForTimeout(900);

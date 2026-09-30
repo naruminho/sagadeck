@@ -5,6 +5,9 @@
 (function () {
   let active = false, root, slide, commit, sel = [], history = [], host, toolbar, dragging, beforeDrag, pendingWrite, marquee;
   const primary = () => sel[sel.length - 1] || null;
+  const listeners = []; // o inspetor do Studio acompanha a seleção
+  let restoring = false; // o slide redesenhou e a seleção voltou sozinha (não foi a pessoa que clicou)
+  const notify = () => listeners.forEach((fn) => { try { fn(sel.slice(), restoring ? "restore" : "user"); } catch {} });
   const clone = x => JSON.parse(JSON.stringify(x));
   const button = (label,fn,className='rbtn rbtn-lg',icon='') => { const b=document.createElement('button');b.type='button';b.className=className;if(icon){b.innerHTML=`<i class="ic" data-ic="${icon}"></i><span></span>`;b.querySelector('span').textContent=label;}else b.textContent=label;b.onclick=fn;return b; };
   // Formas do menu: as mesmas que o motor desenha (src/elements.js); a prévia usa o mesmo desenho 100×100
@@ -28,7 +31,7 @@
     root?.querySelectorAll('.visual-selected').forEach(n=>n.classList.remove('visual-selected'));
     root?.querySelectorAll('.visual-handle').forEach(h=>h.remove());
     sel=els; toolbar.hidden=!sel.length || !active;
-    if(!sel.length)return;
+    if(!sel.length){notify();return;}
     sel.forEach(el=>el.classList.add('visual-selected'));
     const el=primary();
     // só os controles que fazem sentido para o que está selecionado
@@ -43,6 +46,7 @@
     if(shapes)toolbar.querySelector('[data-fill]').value=toHex(fillOf(el));
     if(sel.length===1) { const h=document.createElement('button');h.type='button';h.className='visual-handle';h.ariaLabel='Redimensionar elemento';el.append(h); }
     placeToolbar();
+    notify();
   }
   const toHex=c=>{const m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return '#000000';return '#'+m.slice(0,3).map(v=>Math.round(+v).toString(16).padStart(2,'0')).join('');};
   // a barra do objeto flutua logo acima da seleção (embaixo, se não couber), em qualquer aba da faixa
@@ -186,7 +190,17 @@
       root.addEventListener('dblclick',e=>{const el=e.target.closest('.t[data-vkey]');if(!el||el.dataset.writing)return;startWriting(el,e.clientX,e.clientY);});
     }
     if(active)root.querySelectorAll('[contenteditable]').forEach(n=>n.contentEditable='false');
-    pick(keys.map(k=>root.querySelector(`[data-vkey="${CSS.escape(k)}"]`)));
+    restoring=true; try { pick(keys.map(k=>root.querySelector(`[data-vkey="${CSS.escape(k)}"]`))); } finally { restoring=false; }
   }
-  window.SagaVisual={setup,mount};
+  // Inspetor: lê a seleção e grava uma propriedade em todos os selecionados (com Desfazer); null apaga a propriedade
+  function setProp(key, value) {
+    change((e) => { if (value === null || value === undefined || value === '') delete e[key]; else e[key] = value; });
+  }
+  function clearEdits() { if(!sel.length)return;saveBefore();sel.forEach((n)=>{ if(slide.visualEdits) delete slide.visualEdits[n.dataset.vkey]; });finish(); }
+  window.SagaVisual={setup,mount,
+    selection:()=>sel.slice(),
+    edits:(el)=>({...(slide?.visualEdits?.[el.dataset.vkey]||{})}),
+    setProp, clearEdits,
+    onSelect:(fn)=>listeners.push(fn),
+    select:(els)=>{ if(!root)return; if(els?.length && !active)setMode(true); pick(els); }};
 })();

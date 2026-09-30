@@ -333,7 +333,8 @@ export function shape(e) {
     const fill = colorVal(e.fill || e.bg) || "var(--surface)";
     const stroke = colorVal(e.stroke);
     // --shape-fill: o Preenchimento do Studio (visualEdits.fill) troca a cor sem mexer no desenho
-    const paint = `fill="${fill}" style="fill:var(--shape-fill,${fill})"${stroke ? ` stroke="${stroke}" stroke-width="${e.strokeWidth || 4}" vector-effect="non-scaling-stroke" stroke-linejoin="round"` : ""}`;
+    // --shape-fill / --shape-stroke / --shape-sw: o inspetor do Studio troca cor e contorno sem mexer no desenho
+    const paint = `fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${e.strokeWidth || 4}"` : ""} vector-effect="non-scaling-stroke" stroke-linejoin="round" style="fill:var(--shape-fill,${fill});stroke:var(--shape-stroke,${stroke || "none"});stroke-width:var(--shape-sw,${e.strokeWidth || 4}px)"`;
     const d = SHAPE_PATHS[k];
     const svg = `<svg class="shape-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${d.startsWith("M") ? `<path d="${d}" ${paint}/>` : `<polygon points="${d}" ${paint}/>`}</svg>`;
     return `<div${attrs({ ...e, bg: undefined }, `shape shape-${k}`)}>${svg}${e.content ? `<div class="shape-content">${el(e.content)}</div>` : ""}</div>`;

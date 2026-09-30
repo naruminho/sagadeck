@@ -78,11 +78,11 @@
     </div>
     <button class="ribbon-tab active" role="tab" data-tab="inicio" aria-selected="true">Início</button>
     <button class="ribbon-tab" role="tab" data-tab="inserir">Inserir</button>
-    <button class="ribbon-tab" role="tab" data-tab="avancado">Avançado</button>
     <button class="ribbon-tab" role="tab" data-tab="design">Design</button>
     <button class="ribbon-tab" role="tab" data-tab="ia">IA</button>
     <button class="ribbon-tab" role="tab" data-tab="revisar">Revisar</button>
     <button class="ribbon-tab" role="tab" data-tab="exibir">Exibir</button>
+    <button class="ribbon-tab" role="tab" data-tab="avancado">Avançado</button>
   </nav>
 
   <div id="ribbon" class="ribbon">
@@ -420,13 +420,16 @@
     <aside id="inspector-sidebar" class="task-pane" aria-label="Painel lateral">
       <div class="pane-header">
         <div class="segmented" role="tablist">
-          <button id="tab-btn-props" class="seg active" role="tab">Formatar</button>
-          <button id="tab-btn-chat" class="seg" role="tab"><i class="ic" data-ic="sparkles"></i> Assistente<span id="chat-badge" class="chat-badge-dot"></span></button>
-          <button id="tab-btn-vars" class="seg" role="tab"><i class="ic" data-ic="braces"></i> Variáveis</button>
+          <!-- como no VS Code: a aba aberta mostra o nome; as outras, só o ícone (o nome fica na dica) -->
+          <button id="tab-btn-props" class="seg active" role="tab" title="Formatar: o conteúdo do slide"><i class="ic" data-ic="pencil"></i><span class="seg-label">Formatar</span></button>
+          <button id="tab-btn-inspect" class="seg" role="tab" title="Propriedades do objeto selecionado, do slide e da apresentação"><i class="ic" data-ic="sliders-horizontal"></i><span class="seg-label">Propriedades</span></button>
+          <button id="tab-btn-chat" class="seg" role="tab" title="Assistente de IA"><i class="ic" data-ic="sparkles"></i><span class="seg-label">Assistente</span><span id="chat-badge" class="chat-badge-dot"></span></button>
+          <button id="tab-btn-vars" class="seg" role="tab" title="Variáveis do ambiente"><i class="ic" data-ic="braces"></i><span class="seg-label">Variáveis</span></button>
         </div>
         <button id="btn-close-pane" class="icon-btn" title="Fechar painel"><i class="ic" data-ic="x"></i></button>
       </div>
 
+      <div id="tab-panel-inspect" class="tab-panel inspector-panel" role="tabpanel" aria-labelledby="tab-btn-inspect"><div id="inspector-body" class="ip-body"></div></div>
       <div id="tab-panel-props" class="tab-panel active">
         <div id="auto-banner" class="auto-banner" hidden></div>
         <div id="slide-fields-form" class="fields-form"></div>
@@ -468,16 +471,13 @@
       </div>
 
       <div id="tab-panel-vars" class="tab-panel studio-vars-panel" role="tabpanel" aria-labelledby="tab-btn-vars">
-        <p class="studio-vars-intro">Arraste um nome para um campo do slide: o SagaDeck escreve <code>{{nome}}</code>. Clique numa célula para editar (grava ao sair ou com Enter; Esc desfaz); a última linha cria uma variável. Segredos ficam ocultos.</p>
-        <div id="studio-vars-status" class="sf-hint" role="status"></div>
-        <section class="studio-var-section">
-          <div class="studio-var-section-head"><h4>Ambiente em uso</h4></div>
-          <div id="studio-env-vars"></div>
-        </section>
-        <section class="studio-var-section">
-          <h4>Guardadas por slides</h4>
+        <!-- grade de variáveis (Object Inspector): arraste o nome para um campo do slide para escrever {{nome}} -->
+        <div id="studio-env-vars" class="studio-env-grid" title="Clique numa célula para editar (Enter ou sair grava, Esc desfaz). Arraste o nome para um campo do slide: vira {{nome}}."></div>
+        <div id="studio-vars-status" class="sf-hint studio-vars-status" role="status"></div>
+        <details class="studio-var-section studio-saved" open>
+          <summary>Guardadas pelos slides de API (save:)</summary>
           <div id="studio-saved-vars"></div>
-        </section>
+        </details>
       </div>
     </aside>
   </main>
@@ -771,6 +771,7 @@
   <script src="diagram.js"></script>
   <script src="decision-lab.js"></script>
   <script src="visual-editor.js"></script>
+  <script src="inspector.js"></script>
   <script src="merge-decks.js"></script>
   <script src="app.js"></script>
 </body>

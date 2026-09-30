@@ -253,3 +253,33 @@
 .ai-ask-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-ask-free { display: flex; gap: 6px; }
 .ai-ask-free input { flex: 1; }
+/* Inspetor de propriedades: grade compacta (Object Inspector), categorias recolhíveis */
+.inspector-panel { overflow-y: auto; padding: 8px 10px 20px; }
+.ip-hint { margin: 4px 2px 10px; color: var(--text-3); font-size: 12px; line-height: 1.45; }
+.ip-sec { margin-bottom: 10px; }
+.ip-sec h4 { display: flex; align-items: center; gap: 6px; margin: 2px 2px 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+.ip-sec h4 .ic { width: 14px; height: 14px; color: var(--brand); }
+.ip-sec h4 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-cat { border: 1px solid var(--ui-line); border-radius: 7px; margin-bottom: 6px; overflow: hidden; background: var(--chrome); }
+.ip-cat > summary { padding: 5px 8px; font-size: 11px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); cursor: pointer; list-style: none; background: var(--chrome-2); user-select: none; }
+.ip-cat > summary::-webkit-details-marker { display: none; }
+.ip-cat > summary::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; vertical-align: 1px; }
+.ip-cat[open] > summary::before { transform: rotate(45deg); }
+.ip-row { display: grid; grid-template-columns: 44% 1fr 22px; align-items: center; min-height: 26px; border-top: 1px solid var(--ui-line); }
+.ip-l { padding: 0 8px; font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-v { min-width: 0; padding: 1px 4px 1px 0; }
+.ip-v input[type=number], .ip-v input[type=text], .ip-v select { width: 100%; height: 22px; padding: 0 5px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--text); font-size: 12px; }
+.ip-v input:hover, .ip-v select:hover { border-color: var(--ui-line); }
+.ip-v input:focus, .ip-v select:focus { border-color: var(--brand); background: var(--chrome); outline: none; }
+.ip-v select option { background: var(--chrome); color: var(--text); }
+.ip-num, .ip-color, .ip-range { display: flex; align-items: center; gap: 4px; }
+.ip-unit, .ip-hex { flex: none; font-size: 11px; color: var(--text-3); }
+.ip-color input[type=color] { width: 26px; height: 20px; padding: 0; border: 1px solid var(--ui-line); border-radius: 3px; background: none; cursor: pointer; }
+.ip-range input { flex: 1; min-width: 0; }
+.ip-ro { display: block; padding: 0 5px; font: 11px var(--font-mono); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-action { height: 22px; padding: 0 8px; border: 1px solid var(--ui-line); border-radius: 4px; background: none; color: var(--text-2); font-size: 11px; cursor: pointer; }
+.ip-action:hover { color: var(--err); border-color: var(--err); }
+.ip-reset { width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--text-3); cursor: pointer; }
+.ip-reset[hidden] { display: none; }
+.ip-reset:hover { color: var(--brand); }
+.ip-reset .ic { width: 12px; height: 12px; }

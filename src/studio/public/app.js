@@ -244,6 +244,23 @@
     setupCreativeTools();
     window.SagaVisual?.setup(document.getElementById("visual-tools"));
     hydrateIcons(document); // botões do Inserir e a barra flutuante do objeto
+    window.SagaInspector?.setup(document.getElementById("inspector-body"), {
+      state,
+      hydrate: hydrateIcons,
+      layouts: () => (state.layouts || LAYOUT_NAMES).map((n) => [n, layoutLabel(n)]),
+      themes: () => Object.entries(state.themeMeta || {}).map(([k, m]) => [k, m.label || k]),
+      palettes: () => Object.entries(state.palettes || {}).map(([k, m]) => [k, (m.label || k).replace(/\s*\(.*\)$/, "")]),
+      purposes: () => [["consulta", "Material de consulta"], ["aula", "Aula ou tutorial"], ["workshop", "Workshop"], ["palestra", "Palestra"], ["executiva", "Executiva"]],
+      changeLayout: (name) => changeCurrentLayout(name),
+      applyLook: (kind, name, scope) => applyLook(kind, name, scope),
+      commit: () => { syncDeckToServer(); renderCurrentSlide(); renderThumbnails(); },
+      // como no Figma: clicar num objeto com o painel em Formatar mostra as propriedades dele; soltar a seleção volta
+      onSelection: (els) => {
+        const open = !dom.inspectorSidebar.classList.contains("collapsed");
+        if (els.length && open && currentPane() === "props") { state.autoInspect = true; openPane("inspect"); }
+        else if (!els.length && state.autoInspect && currentPane() === "inspect") { state.autoInspect = false; openPane("props"); }
+      },
+    });
     // Transformar em material de consulta: o mesmo deck, para distribuir e guardar (a IA decide como, pela referência)
     document.getElementById("btn-ai-reference").onclick = async () => {
       if (dom.chatSend.disabled) return;
@@ -3818,20 +3835,23 @@ ${ta.value}`;
     return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(name)}"><td><code>${escHtml(name)}</code></td><td colspan="2">${escHtml(detail)}</td></tr>`;
   }
   // Grade de propriedades (como o Object Inspector do Delphi): clica na célula e digita; grava ao sair dela ou no
-  // Enter; Esc desfaz. Segredo e valor com cara de token nunca aparecem: a célula fica vazia e digitar troca o valor.
+  // Enter; Esc desfaz. Coluna Tipo: Normal ou Segredo (segredo é guardado cifrado e nunca aparece na tela).
+  // Valor com cara de token numa variável normal também não aparece: a célula fica vazia e digitar troca o valor.
+  const TYPE_SELECT = (secret) => `<select data-var-type aria-label="Tipo da variável" title="Normal: aparece na tela e no código gerado. Segredo: guardado cifrado nesta máquina, só o nome aparece"><option value="normal"${secret ? "" : " selected"}>Normal</option><option value="segredo"${secret ? " selected" : ""}>Segredo</option></select>`;
   function studioEnvVarRow(name, value, secret = false) {
     const safeName = secret ? `secret.${name}` : name;
     const hiddenValue = secret || /(?:secret|token|password|passwd|api.?key|credential|authorization)/i.test(name);
     const shown = hiddenValue ? "" : value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
     return `<tr class="studio-var-row" draggable="true" data-studio-drag-var="${escAttr(safeName)}" data-original-var="${escAttr(name)}"${secret ? ' data-secret="1"' : ""}>
-      <td><input aria-label="Nome da variável" data-var-name value="${escAttr(name)}" spellcheck="false" ${secret ? 'readonly title="Segredo: o nome não muda aqui (apague e crie de novo)"' : `title="${escAttr(name)}"`}></td>
-      <td><input aria-label="Valor da variável" data-var-value spellcheck="false" ${hiddenValue ? 'type="password" autocomplete="new-password" placeholder="•••••• (oculto) · digite para trocar" data-hidden-value="true"' : `value="${escAttr(shown)}" title="${escAttr(shown)}" data-original-value="${escAttr(shown)}"`}></td>
+      <td><input aria-label="Nome da variável" data-var-name value="${escAttr(name)}" spellcheck="false" title="${escAttr(`{{${safeName}}}`)}"${secret ? " readonly" : ""}></td>
+      <td><input aria-label="Valor da variável" data-var-value spellcheck="false" ${hiddenValue ? 'type="password" autocomplete="new-password" placeholder="•••••• oculto · digite para trocar" data-hidden-value="true"' : `value="${escAttr(shown)}" title="${escAttr(shown)}" data-original-value="${escAttr(shown)}"`}></td>
+      <td>${TYPE_SELECT(secret)}</td>
       <td class="pg-act"><button type="button" class="pg-del" data-delete-studio-var title="Excluir ${escAttr(name)}" aria-label="Excluir ${escAttr(name)}"><i class="ic" data-ic="trash-2"></i></button></td>
     </tr>`;
   }
-  const studioNewVarRow = () => `<tr class="studio-var-row studio-var-new"><td><input aria-label="Nome da nova variável" data-var-name placeholder="nova variável" spellcheck="false"></td><td><input aria-label="Valor da nova variável" data-var-value placeholder="valor" spellcheck="false"></td><td class="pg-act"></td></tr>`;
-  function studioVarTable(rows) {
-    return `<div class="studio-var-table-wrap"><table class="studio-var-table"><thead><tr><th>Nome</th><th>Valor</th><th aria-label="Ações"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const studioNewVarRow = () => `<tr class="studio-var-row studio-var-new"><td><input aria-label="Nome da nova variável" data-var-name placeholder="nova variável" spellcheck="false"></td><td><input aria-label="Valor da nova variável" data-var-value placeholder="valor" spellcheck="false"></td><td>${TYPE_SELECT(false)}</td><td class="pg-act"></td></tr>`;
+  function studioVarTable(rows, head = ["Nome", "Valor", "Tipo"]) {
+    return `<div class="studio-var-table-wrap"><table class="studio-var-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}<th aria-label="Ações"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   function renderStudioEnvVars(data) {
     const host = document.getElementById("studio-env-vars");
@@ -3852,7 +3872,7 @@ ${ta.value}`;
       ...secretNames.map((name) => studioEnvVarRow(name, "", true)),
       studioNewVarRow(),
     ];
-    host.innerHTML = `<div class="studio-env-group"><h5>${escHtml(String(env.name || "Ambiente").toUpperCase())}${env.name === data.current ? ' <span>em uso</span>' : ""}</h5>${studioVarTable(rows.join(""))}</div>${env.builtin ? '<p class="studio-var-empty">Ambiente de exemplo: ao editar, ele vira um ambiente seu (uma cópia no seu arquivo de ambientes).</p>' : ""}`;
+    host.innerHTML = `<div class="studio-env-head"><b>${escHtml(String(env.name || "Ambiente").toUpperCase())}</b>${env.name === data.current ? " <span>em uso</span>" : ""}${env.builtin ? '<small title="Ao editar, ele vira um ambiente seu (uma cópia no seu arquivo de ambientes)">exemplo</small>' : ""}</div>${studioVarTable(rows.join(""))}`;
     hydrateIcons(host);
   }
   function renderStudioSavedVars() {
@@ -3867,7 +3887,7 @@ ${ta.value}`;
         rows.push(studioSavedVarRow(name, `Slide ${index + 1} · ${relation} · ${String(path)}`));
       });
     });
-    host.innerHTML = rows.length ? studioVarTable(rows.join("")) : '<p class="studio-var-empty">Nenhum slide API declara variáveis em <code>save</code>. Ao guardar um campo da resposta, ele aparecerá aqui.</p>';
+    host.innerHTML = rows.length ? studioVarTable(rows.join(""), ["Nome", "Origem"]) : '<p class="studio-var-empty">Nenhum slide de API guarda variáveis (save:).</p>';
   }
   async function refreshStudioVars() {
     const status = document.getElementById("studio-vars-status");
@@ -3890,6 +3910,23 @@ ${ta.value}`;
       status.className = "sf-hint sf-error";
     }
   }
+  async function changeVarType(row, toSecret) {
+    const name = row.dataset.originalVar, status = document.getElementById("studio-vars-status");
+    if (!name) return; // linha nova: o tipo vale quando ela for gravada
+    try {
+      let value = row.querySelector("[data-var-value]").value;
+      if (!toSecret || !value || row.querySelector("[data-var-value]").dataset.hiddenValue) {
+        const r = await fetch("api/http/vars/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status);
+        value = j.value;
+      }
+      const r = await fetch("api/http/vars/set", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, value, protected: toSecret }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status);
+      await refreshStudioVars();
+      status.textContent = toSecret ? `"${name}" agora é segredo (cifrado nesta máquina).` : `"${name}" agora é uma variável normal.`;
+      status.className = "sf-hint sf-success";
+    } catch (e) { status.textContent = `Não deu para trocar o tipo: ${e.message}`; status.className = "sf-hint sf-error"; await refreshStudioVars(); }
+  }
   async function saveStudioEnvVar(row) {
     const name = row.querySelector("[data-var-name]").value.trim();
     const valueInput = row.querySelector("[data-var-value]");
@@ -3904,7 +3941,7 @@ ${ta.value}`;
       if (duplicate) throw new Error(`Já existe uma variável chamada "${name}" neste ambiente.`);
       const response = await fetch("api/http/vars/set", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, value, protected: row.dataset.secret === "1" }),
+        body: JSON.stringify({ name, value, protected: row.dataset.secret === "1" || row.querySelector("[data-var-type]")?.value === "segredo" }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -4049,32 +4086,35 @@ ${ta.value}`;
   const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
   // Painel lateral: Formatar, Assistente ou Variáveis
+  // abas do painel lateral: Formatar (conteúdo), Propriedades (inspetor), Assistente, Variáveis
+  const PANE_TABS = ["props", "inspect", "chat", "vars"];
+  const paneEls = (w) => ({ btn: document.getElementById(`tab-btn-${w}`), panel: document.getElementById(`tab-panel-${w}`) });
+  const currentPane = () => PANE_TABS.find((w) => paneEls(w).panel?.classList.contains("active")) || "props";
   function openPane(which, { toggle = false } = {}) {
     const pane = dom.inspectorSidebar;
-    const current = dom.tabPanelChat.classList.contains("active") ? "chat" : dom.tabPanelVars.classList.contains("active") ? "vars" : "props";
+    if (!PANE_TABS.includes(which)) which = "props";
+    const current = currentPane();
     const visible = isMobile() ? pane.classList.contains("mobile-open") : !pane.classList.contains("collapsed");
     if (toggle && visible && current === which) return closePane();
     const chat = which === "chat";
     const vars = which === "vars";
-    dom.tabBtnChat.classList.toggle("active", chat);
-    dom.tabBtnProps.classList.toggle("active", !chat && !vars);
-    dom.tabBtnVars.classList.toggle("active", vars);
-    dom.tabBtnChat.setAttribute("aria-selected", String(chat));
-    dom.tabBtnProps.setAttribute("aria-selected", String(!chat && !vars));
-    dom.tabBtnVars.setAttribute("aria-selected", String(vars));
-    dom.tabPanelChat.classList.toggle("active", chat);
-    dom.tabPanelProps.classList.toggle("active", !chat && !vars);
-    dom.tabPanelVars.classList.toggle("active", vars);
+    for (const w of PANE_TABS) {
+      const { btn, panel } = paneEls(w);
+      btn?.classList.toggle("active", w === which);
+      btn?.setAttribute("aria-selected", String(w === which));
+      panel?.classList.toggle("active", w === which);
+    }
     pane.classList.remove("collapsed");
     if (isMobile()) {
       pane.classList.add("mobile-open");
       document.getElementById("slides-nav")?.classList.remove("mobile-open");
     }
     dom.btnToggleChat.classList.toggle("active", chat);
-    dom.btnPaneProps.classList.toggle("active", !chat && !vars);
+    dom.btnPaneProps.classList.toggle("active", which === "props");
     store.set("pane", which);
     if (chat) setTimeout(() => dom.chatInput.focus(), 0);
     if (vars) refreshStudioVars();
+    if (which === "inspect") window.SagaInspector?.refresh();
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
@@ -4148,6 +4188,7 @@ ${ta.value}`;
     dom.tabBtnProps.onclick = () => openPane("props");
     dom.tabBtnChat.onclick = () => openPane("chat");
     dom.tabBtnVars.onclick = () => openPane("vars");
+    document.getElementById("tab-btn-inspect").onclick = () => { state.autoInspect = false; openPane("inspect"); }; // escolha da pessoa: fica
     dom.btnToggleChat.onclick = () => openPane("chat", { toggle: true });
     dom.btnPaneProps.onclick = () => openPane("props", { toggle: true });
     dom.btnClosePane.onclick = closePane;
@@ -4229,14 +4270,20 @@ ${ta.value}`;
     varsPanel.addEventListener("change", (event) => {
       const row = event.target.closest("#studio-env-vars .studio-var-row");
       if (!row) return;
-      if (row.classList.contains("studio-var-new") && !row.querySelector("[data-var-name]").value.trim()) return; // falta o nome
+      if (event.target.matches("[data-var-type]")) { void changeVarType(row, event.target.value === "segredo"); return; }
+      if (row.classList.contains("studio-var-new")) return; // a linha nova grava ao sair dela (ou no Enter)
       void saveStudioEnvVar(row);
+    });
+    const saveNewRow = (row) => { if (row?.classList.contains("studio-var-new") && row.querySelector("[data-var-name]").value.trim()) void saveStudioEnvVar(row); };
+    varsPanel.addEventListener("focusout", (event) => {
+      const row = event.target.closest("#studio-env-vars .studio-var-new");
+      if (row && !row.contains(event.relatedTarget)) saveNewRow(row);
     });
     varsPanel.addEventListener("keydown", (event) => {
       const input = event.target.closest("#studio-env-vars .studio-var-row input");
       if (!input) return;
       if (event.key === "Escape") { input.value = input.hasAttribute("data-var-name") ? input.closest("tr").dataset.originalVar || "" : input.dataset.originalValue || ""; input.blur(); }
-      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
+      if (event.key === "Enter") { event.preventDefault(); const row = input.closest(".studio-var-new"); if (row) saveNewRow(row); else input.blur(); }
     });
     varsPanel.addEventListener("click", (event) => {
       const row = event.target.closest(".studio-var-row");
