@@ -1,6 +1,6 @@
 // Transformar uma apresentação importada (src/ai/transform.js), com o LLM falso: ver → planejar → escrever → conferir
 // (fatos por código, desenho por visão) → montar. O chat decide iniciar (transform:); o Studio executa e mostra.
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,7 +9,7 @@ import pptxgen from "pptxgenjs";
 import { startMockLLM } from "./mock-llm.js";
 import { openLibrary } from "../src/library.js";
 import { mergeProgressive, isProgressive } from "../src/import/merge.js";
-import { factsOf, missingFacts } from "../src/ai/transform.js";
+import { factsOf, missingFacts, transformDeck, jobStatus } from "../src/ai/transform.js";
 import { browserOrSkip, startStudio } from "./helpers.js";
 
 process.env.SAGADECK_NO_OFFICE = "1";
@@ -152,4 +152,174 @@ test("chat: transform só para apresentação importada; noutra, a IA é avisada
     assert.ok(!r.transform);
     assert.match(llm.requests.at(-1).lastUser, /não veio de um PowerPoint importado/);
   } finally { await llm.close(); }
+});
+
+// ---- tarefa blindada: limites, retomada, parar, cache das figuras, omissão pendente, mapa de cobertura
+// (a conferência visual fotografa aqui mesmo, num navegador que fica aberto: fecha no fim)
+after(async () => { const { closeSnapshots } = await import("../src/studio/snapshot.js"); await closeSnapshots(); });
+async function imported() {
+  const home = tmp("sgd-tr-");
+  const lib = openLibrary(home);
+  const imp = await lib.importOffice(await lessonPptx(), "Aulas", "Hidrologia.pptx");
+  const dir = path.dirname(imp.file);
+  return { home, lib, file: imp.file, dir, spec: { ...YAML.parse(fs.readFileSync(imp.file, "utf8")), _dir: dir } };
+}
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+test("tarefa: o limite para com resultado parcial (o que não saiu fica como no original); pedir de novo retoma sem replanejar; mapa de cobertura", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler, seen } = script();
+  const llm = await startMockLLM(handler);
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const a = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", limits: { calls: 1 } });
+    assert.equal(a.report.status, "parcial");
+    assert.match(a.report.parou, /Limite de 1 chamadas/);
+    assert.deepEqual([seen.plan, seen.write], [1, 0]);
+    assert.equal(a.spec.slides[1].layout, "canvas", "o item que não chegou a ser escrito fica como no original");
+    assert.equal(a.spec.slides[1].original.slide, 2);
+    assert.ok(a.report.pendentes.some((x) => /não chegou a ser escrito/.test(x)));
+    assert.equal(jobStatus(d.dir, "melhorar").status, "parcial");
+    const b = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar" });
+    assert.ok(b.report.retomada);
+    assert.equal(seen.plan, 1, "retomou do plano guardado");
+    assert.equal(b.report.status, "concluido");
+    assert.equal(b.spec.slides[1].layout, "statement");
+    assert.ok(b.spec.slides.every((s) => s.uid), "todo slide com identidade");
+    // onde foi parar cada trecho do original
+    const cov = JSON.parse(fs.readFileSync(path.join(d.dir, "original", "cobertura-melhorar.json"), "utf8"));
+    assert.deepEqual(cov.find((c) => c.original === 2 && /Kirpich/.test(c.trecho)).onde, [2]);
+    assert.deepEqual(cov.find((c) => c.original === 5 && /TUCCI/.test(c.trecho)).onde, [5]);
+    assert.match(fs.readFileSync(path.join(d.dir, "original", "cobertura-melhorar.md"), "utf8"), /## Slide 2 do original/);
+    assert.equal(b.report.cobertura.arquivo, "original/cobertura-melhorar.md");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("tarefa: parar corta a chamada ao modelo na hora; o que ficou pronto fica guardado", async () => {
+  const { handler } = script();
+  const llm = await startMockLLM(async (req) => {
+    if (/Escreva os slides destes itens/.test(req.lastUser)) await new Promise((r) => setTimeout(r, 6000));
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  const ctl = new AbortController();
+  try {
+    const t0 = Date.now();
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", signal: ctl.signal,
+      onProgress: (ev) => { if (ev.phase === "transform-escrever") setTimeout(() => ctl.abort(), 200); } });
+    assert.ok(Date.now() - t0 < 4000, `parou em ${Date.now() - t0} ms (a resposta do modelo levaria 6 s)`);
+    assert.equal(r.report.status, "parcial");
+    assert.match(r.report.parou, /Parado a pedido/);
+    const st = jobStatus(d.dir, "melhorar");
+    assert.equal(st.status, "parcial");
+    assert.ok(st.feitos >= 3, "manter e juntar já ficaram guardados");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("tarefa: figuras vistas ficam em cache pelo conteúdo da foto; falha da visão não conta como vista", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  let looks = 0, broken = true;
+  const llm = await startMockLLM((req) => {
+    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"o_que":"curva","dados":"pico 42"}]}]}\n```'; }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "imagens", "curva.png"), PNG);
+    d.spec.slides[1].original.image = "original/foto-2.png";
+    d.spec.slides[1].elements.push({ image: "imagens/curva.png", x: 0, y: 0, w: 100, h: 100 });
+    const run = () => transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false, limits: { calls: 2 } });
+    const a = await run();
+    assert.equal(looks, 1);
+    assert.ok(a.report.problemas.some((p) => /não consegui ver as figuras/.test(p)));
+    broken = false;
+    await run();
+    assert.equal(looks, 2, "a falha não ficou no cache: olhou de novo");
+    await run();
+    assert.equal(looks, 2, "a mesma foto não é olhada de novo");
+    const plan = llm.requests.filter((r) => /Faça o PLANO/.test(r.lastUser)).at(-1).lastUser;
+    assert.match(plan, /ESPECÍFICA\] gráfico: curva — dados: pico 42/, "o que a visão viu vai para o plano");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("tarefa: faltou algo do original mesmo depois da correção: o original fica e a proposta vem pendente; aceitar e desfazer no Studio", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM((req) => {
+    if (/Conferi estes slides/.test(req.lastUser)) {
+      const asked = req.messages.find((m) => m.role === "user" && /Escreva os slides destes itens/.test(typeof m.content === "string" ? m.content : ""));
+      return handler({ ...req, lastUser: asked.content }); // "corrige" esquecendo de novo
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  let studio;
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar" });
+    assert.equal(r.report.status, "revisar");
+    assert.equal(r.report.pendentes.length, 1);
+    assert.match(r.report.pendentes[0], /0\.385/);
+    const kinds = r.spec.slides.map((s) => [s.layout, s.review?.status || "-"]);
+    assert.deepEqual(kinds.slice(0, 4), [["canvas", "-"], ["canvas", "-"], ["statement", "pendente"], ["question", "novo"]], JSON.stringify(kinds));
+    const [orig, prop] = [r.spec.slides[1], r.spec.slides[2]];
+    assert.deepEqual(prop.review.pair, [orig.uid]);
+    // no Studio: aceitar a proposta tira o original do par; desfazer tira a proposta
+    fs.writeFileSync(d.file, YAML.stringify({ ...r.spec }));
+    studio = await startStudio(d.file, { llmUrl: llm.url, library: d.home });
+    const post = async (body) => (await fetch(`${studio.url}/api/review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+    const acc = await post({ action: "accept", idx: 2 });
+    assert.deepEqual(acc.spec.slides.slice(0, 3).map((s) => s.layout), ["canvas", "statement", "question"]);
+    assert.ok(!acc.spec.slides[1].review);
+    assert.ok(!acc.spec.slides.some((s) => s.uid === orig.uid), "o original do par saiu");
+    await fetch(`${studio.url}/api/deck`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: r.spec }) });
+    const rej = await post({ action: "reject", idx: 2 });
+    assert.deepEqual(rej.spec.slides.slice(0, 3).map((s) => [s.layout, s.review?.status || "-"]), [["canvas", "-"], ["canvas", "-"], ["question", "novo"]]);
+    const saved = YAML.parse(fs.readFileSync(d.file, "utf8"));
+    assert.equal(saved.slides[1].original.slide, 2, "o deck salvo ficou com o original");
+  } finally { await studio?.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("Studio: Parar a transformação pelo chat; reabrir a página no meio acompanha até o fim e mostra o resultado", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const { handler } = script();
+  const llm = await startMockLLM(async (req) => {
+    if (/Escreva os slides destes itens/.test(req.lastUser)) await new Promise((r) => setTimeout(r, 3000));
+    return handler(req);
+  });
+  const d = await imported();
+  const studio = await startStudio(d.file, { llmUrl: llm.url, library: d.home });
+  try {
+    const { newPage } = await import("./helpers.js");
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(d.file, "utf8"));
+    const lastAI = () => p.evaluate(() => [...document.querySelectorAll("#chat-messages .ai-msg")].pop()?.innerText || "");
+    await p.click("#tab-btn-chat");
+    await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
+    await p.click("#chat-send");
+    await p.click(".work-stop", { timeout: 20000 });
+    await p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 30000 });
+    assert.match(await lastAI(), /Parei a pedido/);
+    assert.equal(saved().slides[1].layout, "canvas", "parar não mexe no deck");
+    // de novo; no meio, a página recarrega (fechou o navegador): o servidor segue e a página reaberta acompanha
+    await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
+    await p.click("#chat-send");
+    await p.waitForSelector(".work-stop", { timeout: 20000 });
+    await p.reload({ waitUntil: "networkidle" });
+    await p.click("#tab-btn-chat").catch(() => {});
+    await p.waitForFunction(() => /A transformação terminou/.test(document.querySelector("#chat-messages")?.innerText || ""), null, { timeout: 60000 });
+    assert.equal(saved().slides[1].layout, "statement");
+    assert.equal(await p.evaluate(() => document.querySelectorAll(".thumb-review").length) > 0, true, "o deck recarregado mostra as marcas");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });

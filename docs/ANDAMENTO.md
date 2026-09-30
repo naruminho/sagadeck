@@ -8,6 +8,36 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Relatório do GPT, 1º pacote: identidade persistente e transformação confiável — 30/09/2026
+
+- **Identidade**: todo slide tem `uid` (`src/uid.js`, dado no GET do deck e ao gravar; `data-uid` no HTML). A
+  chave do ajuste visual passou a ser pelo CONTEÚDO do objeto (`grupo~impressão`, `~2` para iguais), não pela
+  ordem: inserir, reordenar ou apagar outro objeto não passa o ajuste para quem não era. Chave antiga (`grupo-N`)
+  continua valendo e é convertida ao abrir (`src/studio/visual-keys.js`: `migrateLegacyKeys`); texto do objeto
+  mudou: o ajuste acompanha (`carryVisualEdits`, no POST do deck e no chat). A junção com a IA é por uid, campo a
+  campo, e os ajustes por chave (`merge-decks.js`). Teste: `test/identity.test.js`.
+- **Transformação** (`src/ai/transform.js`): tarefa persistente em `.sagadeck/transform/tarefa-<modo>.json` (salva a
+  cada etapa e bloco; pedir de novo retoma sem replanejar; o melhorar retomado parte de `original/original.yaml`);
+  Parar de verdade (signal até o `fetch` do modelo: `AbortSignal.any` no llm.js; botão Parar na bolha do chat;
+  `/api/ai/transform/cancel`); a tarefa segue no servidor se o navegador fechar e a página reaberta acompanha
+  (`/api/ai/transform/status`); limites de chamadas, tokens e minutos (`SAGADECK_TRANSFORM_CALLS/TOKENS/MINUTES`)
+  com resultado parcial (o que não saiu fica como no original); cache das figuras pela foto (sha1 + versão da
+  análise; falha não entra); conferência visual de novo depois de cada correção; faltou fato do original mesmo
+  depois da correção: o original fica e a proposta vem `review: pendente` (aceitar tira o original do par,
+  desfazer tira a proposta); problema de desenho: `revisar`; estados da tarefa concluido / parcial / revisar; mapa
+  de cobertura `original/cobertura-<modo>.md/.json` (cada texto, fórmula, tabela, imagem e nota do original e em
+  que slide novo foi parar). Recriar retomado atualiza a MESMA apresentação nova.
+- **Faixa Design** transbordava abaixo de ~1450 px (as duas galerias exigiam 3 cartões cada): agora encolhem até 1
+  cartão; dica "botão direito" saiu do rótulo (já está no tooltip do cartão); aviso das fontes limitado na janela
+  estreita. `test/ribbon-fit.test.js`: todas as abas de 1920 a 900 px (1093 = 1366 com zoom de 125%).
+- **Instância local única** (`src/studio/instance.js`): porta 3517 no CLI, `npm run dev` e `sagadeck.studio()`;
+  `/api/instance` diz app, versão, processo e biblioteca; `sagadeck studio` com um aberto na porta (mesma
+  biblioteca e versão) só mostra a URL dele (com `?deck=` se pediu um deck); outra biblioteca ou versão: avisa e
+  não sobe outro. Versão e processo no log de início. `test/instance.test.js`.
+- Falta do relatório (ordem): teste ao vivo Pro × Flash; depois
+  desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
+  paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
+
 ## Transformar a apresentação importada (melhorar / recriar) como tarefa agêntica — 30/09/2026
 
 - Pergunta da pessoa: "as apresentações foram geradas 100% pelo sagadeck? o modo agêntico ia visualizar e arrumar

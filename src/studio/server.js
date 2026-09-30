@@ -28,10 +28,13 @@ import { runCommand, envName } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
-import { transformDeck } from "../ai/transform.js";
+import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
+import { VERSION } from "./instance.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
 import { docxToHtml } from "../docx.js";
+import { ensureUids } from "../uid.js";
+import { migrateLegacyKeys, carryVisualEdits } from "./visual-keys.js";
 import { styleFromImport } from "../master.js";
 import { createRequire } from "node:module";
 // pdf.js do node_modules (já é dependência para ler PDF de contexto); sem ele, o explorador usa o leitor do navegador
@@ -79,6 +82,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou ~/sagadeck.
   // Modo multiusuário (servidor atrás do BabsDeck): uma área por usuário, biblioteca <raiz>/usuarios/<usuário>.
   const libraryRoot = path.resolve(opts.library || defaultLibraryRoot());
+  const STARTED = new Date().toISOString();
   const workspaces = new Map();
   function sampleSpec() {
     const samplePath = TEMPLATE_DIRS.map((d) => path.join(d, "exemplo.yaml")).find((f) => fs.existsSync(f)) || "";
@@ -176,6 +180,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return opts.multiuser ? !!W.user && AGENTS.has(W.user) : !apiBlocked(req);
   }
   const approvals = new Map(); // id -> { user, answer }
+  // transformações em andamento (continuam se o navegador fechar; o andamento e o Parar vêm pelas rotas /api/ai/transform/*)
+  const transforms = new Map(); // "<arquivo do deck>|<modo>" -> { controller, mode, progress, started }
   function commandRunner(req, emit, body, W) {
     if (!body.stream || !commandsAllowed(req, W) || !W.file || isBundledTemplate(W.file)) return null;
     const cwd = path.dirname(W.file);
@@ -277,6 +283,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   }
   function persist(W, text = null) {
     if (!W.file || isBundledTemplate(W.file)) return;
+    if (text == null && W.spec) ensureUids(W.spec); // decks antigos ganham uid aqui; slide novo (da pessoa ou da IA) também
     try {
       if (text != null) { const tmp = W.file + ".tmp-" + process.pid; fs.writeFileSync(tmp, text, "utf8"); fs.renameSync(tmp, W.file); }
       else writeDeckFile(W.file, W.spec);
@@ -572,7 +579,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // quem é esta instância (o CLI confere antes de abrir outra na mesma porta)
+      if (pathname === "/api/instance" && req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ app: "sagadeck-studio", version: VERSION, pid: process.pid, library: libraryRoot, started: STARTED, multiuser: !!opts.multiuser }));
+        return;
+      }
       if (pathname === "/api/deck" && req.method === "GET") {
+        if (W.spec) { ensureUids(W.spec); migrateLegacyKeys(W.spec); } // identidade dos slides e ajustes pelo conteúdo (gravados no próximo salvar)
         const rawYaml = toYaml(W.spec); // sem os campos internos (_dir, _file)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
@@ -596,6 +610,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/deck" && req.method === "POST") {
         const body = await readJSON(req);
+        const before = W.spec;
         if (body.yaml) {
           try {
             const parsed = YAML.parse(body.yaml);
@@ -612,6 +627,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         } else if (body.spec) {
           W.spec = body.spec;
         }
+        if (before && W.spec && before !== W.spec) carryVisualEdits(before, W.spec); // texto mudou: o ajuste vai junto
         if (body.filepath) {
           W.file = path.resolve(body.filepath);
         } else if (body.source === "browser-file") {
@@ -684,13 +700,20 @@ export function createStudioServer(deckPath = null, opts = {}) {
         try {
           const b = await readJSON(req);
           const slides = W.spec?.slides || [];
-          if (b.action === "acceptAll") slides.forEach((s) => delete s.review);
+          // proposta pendente (a transformação deixou o original ao lado, porque faltava algo dele): aceitar tira o
+          // original do par; desfazer tira a proposta
+          const acceptOne = (s) => {
+            const pair = new Set(s.review?.status === "pendente" && Array.isArray(s.review.pair) ? s.review.pair : []);
+            delete s.review;
+            if (pair.size) W.spec.slides = W.spec.slides.filter((x) => !pair.has(x.uid));
+          };
+          if (b.action === "acceptAll") [...slides].forEach((s) => s.review && acceptOne(s));
           else {
             const s = slides[b.idx];
             if (!s?.review) throw new Error("Este slide não tem mudança para validar.");
-            if (b.action === "accept") delete s.review;
+            if (b.action === "accept") acceptOne(s);
             else if (b.action === "reject") {
-              if (s.review.status === "novo") slides.splice(b.idx, 1);
+              if (s.review.status === "novo" || s.review.status === "pendente" || s.review.original == null) slides.splice(b.idx, 1);
               else {
                 const origFile = W.file && path.join(path.dirname(W.file), "original", "original.yaml");
                 if (!origFile || !fs.existsSync(origFile)) throw new Error("Não achei o original (original/original.yaml) para desfazer.");
@@ -1119,47 +1142,100 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         return;
       }
 
-      // melhorar / recriar a apresentação importada (src/ai/transform.js), a pedido do chat
+      // melhorar / recriar a apresentação importada (src/ai/transform.js), a pedido do chat. A tarefa segue no servidor
+      // mesmo se o navegador fechar (a página reaberta acompanha por /api/ai/transform/status); pedir de novo retoma.
+      const transformLimits = () => ({ calls: Number(process.env.SAGADECK_TRANSFORM_CALLS) || 0, tokens: Number(process.env.SAGADECK_TRANSFORM_TOKENS) || 0, minutes: Number(process.env.SAGADECK_TRANSFORM_MINUTES) || 0 });
       async function runTransform(W, spec, result, emit) {
         if (!W.file || isBundledTemplate(W.file)) return { ...result, reply: "Para transformar, a apresentação precisa estar salva na biblioteca.", spec, talk: true };
         const dir = path.dirname(W.file);
         const { mode, pedido } = result.transform;
-        emit({ phase: "transform", text: mode === "melhorar" ? "Vou melhorar a apresentação em etapas…" : "Vou recriar a apresentação em etapas…" });
-        const t = await transformDeck({ spec, dir, mode, request: pedido, onProgress: emit });
+        const key = `${W.file}|${mode}`;
+        if (transforms.has(key)) return { ...result, reply: `Já estou ${mode === "melhorar" ? "melhorando" : "recriando"} esta apresentação; o andamento aparece aqui no chat.`, spec, talk: true };
+        const job = { controller: new AbortController(), mode, progress: null, started: Date.now() };
+        transforms.set(key, job);
+        const tell = (ev) => { job.progress = ev; try { emit(ev); } catch {} };
+        // retomar o melhorar: a fonte é o original importado (o deck pode já ter a parte pronta aplicada)
+        const origFile = path.join(dir, "original", "original.yaml");
+        let source = spec;
+        const saved = jobStatus(dir, mode);
+        if (mode === "melhorar" && saved && saved.status !== "concluido" && fs.existsSync(origFile)) {
+          try { const o = YAML.parse(fs.readFileSync(origFile, "utf8")); if (sourceHash(o) === saved.srcHash) source = { ...o, _dir: dir }; } catch {}
+        }
+        tell({ phase: "transform", text: mode === "melhorar" ? "Vou melhorar a apresentação em etapas…" : "Vou recriar a apresentação em etapas…", mode });
+        let t;
+        try { t = await transformDeck({ spec: source, dir, mode, request: pedido, onProgress: (ev) => tell({ ...ev, mode }), signal: job.controller.signal, limits: transformLimits() }); }
+        catch (e) {
+          if (e.kind) return { ...result, reply: `Parei antes de terminar o plano (${e.message}). Peça de novo para continuar de onde parou.`, spec, talk: true };
+          throw e;
+        } finally { transforms.delete(key); }
         const r = t.report;
+        if (r.status === "parcial" && job.controller.signal.aborted) {
+          return { ...result, reply: `Parei a pedido. O que já estava pronto (${jobStatus(dir, mode)?.feitos || 0} de ${t.plan.slides.length} itens) ficou guardado: peça de novo para continuar de onde parou.`, spec, talk: true, transformReport: r };
+        }
         const count = (k) => t.plan.slides.filter((it) => it.acao === k).length;
         const cost = Object.entries(r.usage).map(([m, u]) => `${m}: ${u.calls} chamada(s), ${Math.round(u.in / 1000)} mil tokens de entrada e ${Math.round(u.out / 1000)} mil de saída`).join("; ");
+        const STATUS = { concluido: "Concluído.", revisar: "Concluído, com pontos para você revisar.", parcial: `Parcial (${r.parou}): o que não chegou a ser feito ficou como no original; peça de novo para continuar de onde parou.` };
         const lines = [
-          `${t.spec.slides.length} slides a partir dos ${(spec.slides || []).filter((s) => s.original).length} do original (${count("manter")} mantidos, ${count("juntar")} juntados, ${count("escrever")} reescritos, ${count("novo")} novos) em ${Math.round(r.seconds / 60)} min.`,
+          `${STATUS[r.status]}${r.retomada ? " (retomei de onde tinha parado)" : ""}`,
+          `${t.spec.slides.length} slides a partir dos ${(source.slides || []).filter((s) => s.original).length} do original (${count("manter")} mantidos, ${count("juntar")} juntados, ${count("escrever")} reescritos, ${count("novo")} novos) em ${Math.round(r.seconds / 60)} min.`,
           ...(r.alertas.length ? [`Possíveis erros no original (para você conferir): ${r.alertas.join(" · ")}`] : []),
-          ...(r.faltando.length ? [`Ficou faltando depois da correção: ${r.faltando.join(" · ")}`] : []),
+          ...(r.pendentes.length ? [`${r.pendentes.length} proposta(s) pendente(s): o original ficou ao lado, porque faltava algo dele (${r.pendentes.join(" · ")})`] : []),
+          ...(r.revisar.length ? [`${r.revisar.length} ponto(s) de desenho para conferir: ${r.revisar.join(" · ")}`] : []),
           ...(r.problemas.length ? [`Problemas: ${r.problemas.join(" · ")}`] : []),
+          `Onde foi parar cada trecho do original: ${r.cobertura.arquivo} (${r.cobertura.localizados} de ${r.cobertura.trechos} trechos encontrados como estavam; os outros foram reescritos).`,
           `Modelos: ${cost}.`,
         ];
         if (mode === "melhorar") {
-          const origFile = path.join(dir, "original", "original.yaml");
           if (!fs.existsSync(origFile)) { fs.mkdirSync(path.dirname(origFile), { recursive: true }); fs.writeFileSync(origFile, YAML.stringify(spec, { lineWidth: 0 })); }
           W.spec = { ...t.spec, _dir: dir };
           persist(W);
           return { ...result, reply: `Pronto. Cada slide mudado está marcado (Revisar › Mudanças) para você validar.\n${lines.join("\n")}`, spec: W.spec, actions: [...(result.actions || [])], transformReport: r };
         }
-        // recriar: apresentação nova no mesmo tópico, com as imagens que ela usa
+        // recriar: apresentação nova no mesmo tópico, com as imagens que ela usa. A retomada grava na MESMA
+        // apresentação nova (não cria outra a cada pedaço).
+        const side = path.join(dir, ".sagadeck", "transform", "recriar-deck.json");
+        let prev = null;
+        try { prev = JSON.parse(fs.readFileSync(side, "utf8")); } catch {}
         const id = W.library.idOf(W.file);
         const topic = id.split("/").length === 3 ? id.split("/")[0] : "";
         const title = t.spec.title || spec.title || "Recriada";
-        const newId = W.library.createDeck(topic, { ...t.spec, title });
-        const newFile = W.library.resolveId(newId), newDir = path.dirname(newFile);
+        let newId = null, newFile = null;
+        if (prev?.srcHash === sourceHash(spec)) { try { const f = W.library.resolveId(prev.id); if (fs.existsSync(f)) { newId = prev.id; newFile = f; } } catch {} }
+        if (newFile) writeDeckFile(newFile, { ...t.spec, title });
+        else { newId = W.library.createDeck(topic, { ...t.spec, title }); newFile = W.library.resolveId(newId); }
+        if (r.status === "parcial") fs.writeFileSync(side, JSON.stringify({ srcHash: sourceHash(spec), id: newId }));
+        else fs.rmSync(side, { force: true });
+        const newDir = path.dirname(newFile);
         const used = new Set();
         const walk = (v, k) => { if (k === "image" && typeof v === "string") used.add(v); else if (typeof v === "string" && k === "drawing") for (const m of v.matchAll(/href="media:([^"]+)"/g)) used.add(m[1]); else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) walk(vv, kk); };
         walk(t.spec);
-        for (const rel of used) {
+        for (const rel of [...used, r.cobertura.arquivo, r.cobertura.arquivo.replace(/\.md$/, ".json")]) {
           const src = path.resolve(dir, rel);
           if (!src.startsWith(dir) || !fs.existsSync(src)) continue;
           const dst = path.join(newDir, ...rel.split("/"));
           fs.mkdirSync(path.dirname(dst), { recursive: true });
           fs.copyFileSync(src, dst);
         }
-        return { ...result, reply: `Pronto: criei "${title}" na biblioteca, do zero.\n${lines.join("\n")}`, spec, talk: true, createdDeck: { id: newId, title }, transformReport: r };
+        return { ...result, reply: `Pronto: ${prev && newId === prev.id ? "atualizei" : "criei"} "${title}" na biblioteca, do zero.\n${lines.join("\n")}`, spec, talk: true, createdDeck: { id: newId, title }, transformReport: r };
+      }
+      if (pathname === "/api/ai/transform/status" && req.method === "GET") {
+        const dir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : null;
+        const running = ["melhorar", "recriar"].map((mode) => transforms.get(`${W.file}|${mode}`) && { mode, progress: transforms.get(`${W.file}|${mode}`).progress, started: transforms.get(`${W.file}|${mode}`).started }).filter(Boolean);
+        const jobs = dir ? ["melhorar", "recriar"].map((mode) => jobStatus(dir, mode)).filter(Boolean).map(({ srcHash, ...j }) => j) : [];
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ running, jobs }));
+        return;
+      }
+      if (pathname === "/api/ai/transform/cancel" && req.method === "POST") {
+        const body = await readJSON(req);
+        let n = 0;
+        for (const mode of ["melhorar", "recriar"]) {
+          const job = transforms.get(`${W.file}|${mode}`);
+          if (job && (!body.mode || body.mode === mode)) { job.controller.abort(); n++; }
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, stopped: n }));
+        return;
       }
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
@@ -1254,6 +1330,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           // o que a pessoa salvou enquanto a IA pensava não some: junção a três (base = o que foi para a IA)
           const merged = globalThis.SagadeckMerge.mergeDecks(spec, W.spec || spec, result.spec);
           W.spec = merged.deck;
+          carryVisualEdits(spec, W.spec); // a IA mudou o texto de um objeto ajustado: o ajuste acompanha
           persist(W);
           return { ...result, spec: W.spec, conflicts: merged.conflicts, kept: merged.kept };
         });

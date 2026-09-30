@@ -121,7 +121,10 @@ test("salvar pelo Studio preserva os comentários do arquivo e muda só o que mu
     assert.equal(r.status, 200);
     const after = fs.readFileSync(d.file, "utf8");
     assert.match(after, /^# Deck de teste da suíte/m, "o comentário do topo continua");
-    const changed = after.split("\n").filter((l, i) => l !== before.split("\n")[i]);
+    // a primeira gravação também escreve a identidade de cada slide (uid: uma linha a mais por slide, uma vez só)
+    const lines = after.split("\n").filter((l) => !/^\s+uid: s[a-z0-9]+$/.test(l));
+    assert.equal(after.split("\n").length - lines.length, YAML.parse(after).slides.length, "um uid por slide");
+    const changed = lines.filter((l, i) => l !== before.split("\n")[i]);
     assert.equal(changed.length, 1, changed.join("\n"));
     assert.match(changed[0], /Pilares revistos/);
     assert.doesNotMatch(after, /_dir|_file/, "campos internos não vão para o arquivo");

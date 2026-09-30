@@ -4,14 +4,39 @@ const SVG_SHAPES = ['triangle','diamond','hexagon','star','arrow','chevron','bub
 const ALIGN = ['left','center','right','justify'], ANIM = ['fade','pop','left','right','down','zoom','none'];
 const SHADOW = { suave: 'drop-shadow(0 8px 16px rgb(0 0 0 / .18))', forte: 'drop-shadow(0 18px 36px rgb(0 0 0 / .35))' };
 const HEX = /^#[0-9a-f]{6}$/i;
+// Chave de um objeto: o grupo (classes) + uma impressão do CONTEÚDO dele (o texto; na figura, a imagem ou o desenho),
+// e não a posição: inserir, reordenar ou apagar outro objeto não passa o ajuste para quem não era. Objetos iguais
+// no mesmo slide ganham ~2, ~3… A chave antiga (grupo-N, pela ordem) continua valendo para decks de antes; o Studio
+// converte na primeira vez que o slide abre (data-vkey-old).
+const hash = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+function innerOf(html, from, name) {
+  const re = new RegExp(`<(/?)${name}\\b[^>]*?(/?)>`, 'gi');
+  re.lastIndex = from;
+  let depth = 1, m;
+  while ((m = re.exec(html))) {
+    if (m[1]) { if (--depth === 0) return html.slice(from, m.index); }
+    else if (!m[2]) depth++;
+  }
+  return html.slice(from, from + 2000);
+}
+function fingerprint(inner) {
+  const src = inner.match(/<img[^>]*\bsrc="([^"]{0,4000})/)?.[1];
+  if (src) return hash(`img:${src.length}:${src.slice(0, 600)}:${src.slice(-200)}`);
+  const text = inner.replace(/<svg[\s\S]*?<\/svg>/gi, (s) => ` svg${hash(s.replace(/\s+id="[^"]*"|url\(#[^)]*\)/g, ''))} `).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return hash(text.slice(0, 400));
+}
 export function applyVisualEdits(html, edits = {}) {
-  const counts = new Map();
-  return html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls) => {
+  const counts = new Map(), seen = new Map();
+  return html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls,offset) => {
     const classes = cls.split(/\s+/);
     if (!classes.some(c=>['t','fig','shape','scene-sculpture'].includes(c))) return tag;
     const group = classes.filter(c=>c!=='e' && c!=='active').join('-').replace(/[^a-zA-Z0-9_-]/g,'');
     const n = counts.get(group) || 0; counts.set(group,n+1);
-    const key = `${group}-${n}`, e = edits[key] || {};
+    const legacy = `${group}-${n}`;
+    const base = `${group}~${fingerprint(innerOf(html, offset + tag.length, name))}`;
+    const dup = (seen.get(base) || 0) + 1; seen.set(base, dup);
+    const key = dup > 1 ? `${base}~${dup}` : base;
+    const e = edits[key] || edits[legacy] || {};
     const num = (v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
     let css = '';
     if (e.hidden) css += 'display:none!important;';
@@ -43,6 +68,6 @@ export function applyVisualEdits(html, edits = {}) {
     let extra = '';
     if (Number.isInteger(Number(e.step)) && Number(e.step) > 0) { attrs = attrs.replace(/\sdata-step="[^"]*"/, ''); extra += ` data-step="${Number(e.step)}"`; }
     if (ANIM.includes(e.anim)) { attrs = attrs.replace(/\sdata-anim="[^"]*"/, ''); extra += ` data-anim="${e.anim}"`; }
-    return `<${name}${attrs} data-vkey="${key}"${e.size != null ? ' data-vsize' : ''}${extra}>`;
+    return `<${name}${attrs} data-vkey="${key}"${edits[legacy] && !edits[key] ? ` data-vkey-old="${legacy}"` : ''}${e.size != null ? ' data-vsize' : ''}${extra}>`;
   });
 }

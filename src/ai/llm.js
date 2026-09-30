@@ -13,10 +13,11 @@
 //   SAGADECK_LLM_TIMEOUT  segundos por chamada   (padrão: 180)
 
 export class LLMError extends Error {
-  constructor(message, { status, cause } = {}) {
+  constructor(message, { status, cause, aborted } = {}) {
     super(message);
     this.name = "LLMError";
     this.status = status;
+    if (aborted) this.aborted = true;
     if (cause) this.cause = cause;
   }
 }
@@ -68,6 +69,9 @@ function withoutImages(messages) {
   }));
 }
 
+// cancelar (signal de quem chamou) ou esgotar o tempo: o que vier primeiro corta a chamada
+const withTimeout = (signal, ms) => (signal ? AbortSignal.any([signal, AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms));
+
 // Uma chamada de chat. Devolve { text, images: [{ mime, data: Buffer, url }], usage, model }.
 // Com `onDelta(pedaço, textoAtéAgora)`, pede streaming e avisa a cada pedaço de texto que chega.
 // Se o modelo não aceita imagem, refaz sem as imagens e marca `imagesDropped` (quem chamou avisa o usuário).
@@ -93,11 +97,11 @@ export async function chat(messages, opts = {}) {
   }
 }
 
-async function chatOnce(messages, { model, temperature, maxTokens, onDelta, cfg = llmConfig() } = {}) {
+async function chatOnce(messages, { model, temperature, maxTokens, onDelta, signal, cfg = llmConfig() } = {}) {
   const body = { model: model || cfg.textModel, messages };
   if (temperature !== undefined) body.temperature = temperature;
   if (maxTokens) body.max_tokens = maxTokens;
-  if (onDelta) return chatStream(body, onDelta, cfg);
+  if (onDelta) return chatStream(body, onDelta, cfg, signal);
 
   let res;
   try {
@@ -105,9 +109,10 @@ async function chatOnce(messages, { model, temperature, maxTokens, onDelta, cfg 
       method: "POST",
       headers: headers(cfg),
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(cfg.timeoutMs),
+      signal: withTimeout(signal, cfg.timeoutMs),
     });
   } catch (e) {
+    if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
     const why = e.name === "TimeoutError" ? `sem resposta em ${cfg.timeoutMs / 1000}s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
       "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });
@@ -132,16 +137,17 @@ async function chatOnce(messages, { model, temperature, maxTokens, onDelta, cfg 
   };
 }
 
-async function chatStream(body, onDelta, cfg) {
+async function chatStream(body, onDelta, cfg, signal) {
   let res;
   try {
     res = await fetch(`${cfg.url}/chat/completions`, {
       method: "POST",
       headers: headers(cfg),
       body: JSON.stringify({ ...body, stream: true }),
-      signal: AbortSignal.timeout(cfg.timeoutMs),
+      signal: withTimeout(signal, cfg.timeoutMs),
     });
   } catch (e) {
+    if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
     const why = e.name === "TimeoutError" ? `sem resposta em ${cfg.timeoutMs / 1000}s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
       "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });

@@ -54,7 +54,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
-  sagadeck studio [deck.yaml|x.sagadeck] [--port=3000] [--library=PASTA]  sem arquivo: abre a biblioteca
+  sagadeck studio [deck.yaml|x.sagadeck] [--port=3517] [--library=PASTA]  sem arquivo: abre a biblioteca; já aberto: usa o aberto
                                    (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
@@ -337,7 +337,8 @@ async function main() {
         deckFile = (await unpackDeck(fs.readFileSync(deckFile), dest)).file;
         console.log(`  extraído em ${dest}`);
       }
-      const port = Number(flags.port || process.env.PORT || 3000);
+      const { DEFAULT_PORT, VERSION, probeInstance, instanceDecision } = await import("../src/studio/instance.js");
+      const port = Number(flags.port || process.env.PORT || DEFAULT_PORT);
       // só esta máquina por padrão (no banco, 0.0.0.0 abriria a biblioteca para a rede); --host para mudar
       const host = typeof flags.host === "string" ? flags.host : "127.0.0.1";
       const multiuser = !!flags.multiuser;
@@ -348,6 +349,24 @@ async function main() {
       const { defaultLibraryRoot } = await import("../src/library.js");
       const library = typeof flags.library === "string" ? path.resolve(flags.library) : defaultLibraryRoot();
       // --agentes=naru,ana: no multiusuário, só esses usuários podem deixar a IA rodar comandos (na máquina do servidor)
+      // já tem um Studio nesta porta? mesma biblioteca e versão: usa o aberto (nada de dois servidores nos mesmos arquivos)
+      const shownHost = host === "0.0.0.0" ? "localhost" : host;
+      const found = await probeInstance(port, host);
+      const decision = instanceDecision(found, { library, version: VERSION });
+      if (decision.action === "reuse") {
+        let url = `http://${shownHost}:${port}/`;
+        if (deckFile) {
+          const rel = path.relative(library, deckFile);
+          if (!rel.startsWith("..") && !path.isAbsolute(rel)) url += `editor?deck=${encodeURIComponent(rel.split(path.sep).join("/"))}`;
+          else { console.error(`O Studio já está aberto em http://${shownHost}:${port} com a biblioteca ${library}, e este deck está fora dela. Use --port=OUTRA para abri-lo à parte.`); process.exit(1); }
+        }
+        console.log(`✓ O SagaDeck Studio ${found.version} já está aberto (processo ${found.pid}): ${url}`);
+        break;
+      }
+      if (decision.action === "conflict") {
+        console.error(`A porta ${port} já tem um SagaDeck Studio aberto com ${decision.why}. Use --port=OUTRA para abrir à parte.`);
+        process.exit(1);
+      }
       const agentUsers = typeof flags.agentes === "string" ? flags.agentes.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
       // IA: sobe o `modelrelay serve` junto, se ele estiver instalado e ninguém escutar na porta dele (como o sagadeck do pip)
       const { startRelay } = await import("../src/ai/relay.js");
@@ -357,9 +376,13 @@ async function main() {
         for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, () => { relay.stop(); if (sig !== "exit") process.exit(0); });
       }
       const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers });
+      server.on("error", (e) => {
+        if (e.code !== "EADDRINUSE") throw e;
+        console.error(`A porta ${port} está ocupada por outro programa. Use --port=OUTRA.`);
+        process.exit(1);
+      });
       server.listen(port, host, () => {
-        const shown = host === "0.0.0.0" ? "localhost" : host;
-        console.log(`✓ SagaDeck Studio em http://${shown}:${port}${deckFile ? "" : "  (biblioteca)"}`);
+        console.log(`✓ SagaDeck Studio ${VERSION} em http://${shownHost}:${port}${deckFile ? "" : "  (biblioteca)"}  (processo ${process.pid})`);
         console.log(multiuser ? `  multiusuário: bibliotecas em ${path.join(library, "usuarios")}` : `  biblioteca: ${library}`);
       });
       break;

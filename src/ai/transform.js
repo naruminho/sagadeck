@@ -7,6 +7,7 @@
 // CONFERIR (os fatos do original por código; o desenho por visão, lado a lado com a foto do original) → MONTAR.
 // O modelo de texto escreve; o de visão vê (llm.js: papel "vision"). Juntar slides progressivos é código, não IA.
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
 import { chat, llmConfig } from "./llm.js";
@@ -15,6 +16,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { plainOf } from "../import/pptx.js";
 import { styleFromImport } from "../master.js";
 import { mergeProgressive } from "../import/merge.js";
+import { ensureUids, newUid } from "../uid.js";
 
 const clip = (s, n) => (String(s ?? "").length > n ? String(s).slice(0, n - 1) + "…" : String(s ?? ""));
 const jsonOf = (text) => {
@@ -98,58 +100,106 @@ const MODE_RULES = {
 };
 
 // ------------------------------------------------------------------------------------------------ tarefa
-export async function transformDeck({ spec, dir, mode = "melhorar", request = "", onProgress = () => {}, textModel, visionModel, maxRounds = 1, signal, log = () => {} }) {
+// A tarefa é persistente: o estado vai para .sagadeck/transform/tarefa-<modo>.json a cada etapa e a cada bloco;
+// pedir de novo (mesmo modo, mesmo original) RETOMA de onde parou. Cancelar (signal) chega até a chamada ao modelo.
+// Limites de chamadas, tokens e tempo param com um resultado parcial aproveitável. Estados: concluido | parcial |
+// revisar (terminou, mas algo precisa do professor).
+export const ANALYSIS_VERSION = 2; // muda quando o pedido ao modelo de visão muda: o cache antigo não vale
+export class TransformStop extends Error { constructor(msg, kind) { super(msg); this.kind = kind; } }
+const sha1 = (buf) => crypto.createHash("sha1").update(buf).digest("hex");
+const DEFAULT_LIMITS = { calls: 300, tokens: 6_000_000, minutes: 120 };
+// impressão dos slides originais (o que a tarefa transforma): outra importação = outra tarefa
+export function sourceHash(spec) {
+  const originals = (spec?.slides || []).filter((s) => s.layout === "canvas" && s.original);
+  return sha1(JSON.stringify(originals.map((s) => ({ n: s.original.slide, e: s.elements, notes: s.notes }))));
+}
+// a tarefa guardada (para retomar e para mostrar o andamento): { status, stage, srcHash, feitos, itens, updated } | null
+export function jobStatus(dir, mode) {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, ".sagadeck", "transform", `tarefa-${mode}.json`), "utf8"));
+    return { mode, status: j.status, stage: j.stage, srcHash: j.srcHash, feitos: Object.keys(j.results || {}).length, itens: j.plan?.slides?.length || 0, calls: j.calls, updated: j.updated };
+  } catch { return null; }
+}
+
+export async function transformDeck({ spec, dir, mode = "melhorar", request = "", onProgress = () => {}, textModel, visionModel, maxRounds = 1, signal, limits = {}, log = () => {}, resume = true }) {
   if (!["melhorar", "recriar"].includes(mode)) throw new Error(`modo desconhecido: ${mode}`);
   const originals = (spec.slides || []).filter((s) => s.layout === "canvas" && s.original);
   if (!originals.length) throw new Error("Esta apresentação não veio de uma importação (importe o PowerPoint primeiro: Biblioteca › Importar apresentação).");
   const cfg = llmConfig();
   const T = textModel || cfg.textModel, V = visionModel || cfg.visionModel;
-  const started = Date.now();
-  const usage = {};
-  let calls = 0;
+  const lim = { ...DEFAULT_LIMITS, ...Object.fromEntries(Object.entries(limits || {}).filter(([, v]) => Number(v) > 0)) };
+  const cacheDir = path.join(dir, ".sagadeck", "transform");
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const srcHash = sourceHash(spec);
+  const jobFile = path.join(cacheDir, `tarefa-${mode}.json`);
+  let job = null;
+  if (resume) { try { const j = JSON.parse(fs.readFileSync(jobFile, "utf8")); if (j.srcHash === srcHash && j.status !== "concluido") job = j; } catch {} }
+  const resumed = !!job;
+  if (!job) job = { version: 1, mode, request, srcHash, status: "andamento", stage: "ver", plan: null, results: {}, checks: {}, usage: {}, calls: 0, spentMs: 0, created: new Date().toISOString() };
+  job.textModel = T; job.visionModel = V; job.request = request || job.request; job.status = "andamento";
+  const save = () => { job.updated = new Date().toISOString(); fs.writeFileSync(jobFile, JSON.stringify(job)); };
+  const t0 = Date.now(), spentBefore = job.spentMs || 0;
+  const tokens = () => Object.values(job.usage).reduce((a, u) => a + u.in + u.out, 0);
   const ask = async (messages, { model = T, maxTokens = 16000, temperature = 0.3 } = {}) => {
-    if (signal?.aborted) throw new Error("interrompido");
-    calls++;
-    const r = await chat(messages, { model, maxTokens, temperature });
-    const u = usage[r.model || model] || (usage[r.model || model] = { calls: 0, in: 0, out: 0 });
+    if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
+    if (job.calls >= lim.calls) throw new TransformStop(`Limite de ${lim.calls} chamadas.`, "limite");
+    if (tokens() >= lim.tokens) throw new TransformStop(`Limite de ${lim.tokens} tokens.`, "limite");
+    if (spentBefore + Date.now() - t0 >= lim.minutes * 60000) throw new TransformStop(`Limite de ${lim.minutes} minutos.`, "limite");
+    job.calls++;
+    let r;
+    try { r = await chat(messages, { model, maxTokens, temperature, signal }); }
+    catch (e) { if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado"); throw e; }
+    const u = job.usage[r.model || model] || (job.usage[r.model || model] = { calls: 0, in: 0, out: 0 });
     u.calls++; u.in += r.usage?.prompt_tokens || 0; u.out += r.usage?.completion_tokens || 0;
     log({ model: r.model || model, usage: r.usage });
     return r;
   };
   const progress = (phase, text, extra = {}) => onProgress({ phase: `transform-${phase}`, text, ...extra });
+  if (resumed) progress("retomar", `Retomando a tarefa de onde parou (${Object.keys(job.results).length} item(ns) já prontos).`);
   const orig = new Map(originals.map((s) => [s.original.slide, s]));
   const imgFile = (s) => s.original?.image && path.join(dir, s.original.image);
-
-  // imagens que se repetem em muitos slides (logos da moldura) não são conteúdo
   const imgCount = new Map();
   for (const s of originals) for (const e of s.elements) if (e.image) imgCount.set(e.image, (imgCount.get(e.image) || 0) + 1);
   const contentImages = (s) => [...new Set(s.elements.filter((e) => e.image && !e.deco && imgCount.get(e.image) <= Math.max(2, originals.length * 0.2)).map((e) => e.image))];
+  const report = { faltando: [], problemas: [], pendentes: [], revisar: [] };
+  let stop = null;
 
-  // ---- 1. VER: o modelo de visão descreve as figuras (genérica × específica, dados legíveis)
-  const cacheDir = path.join(dir, ".sagadeck", "transform");
-  fs.mkdirSync(cacheDir, { recursive: true });
+  // ---- 1. VER — cache pelo conteúdo da foto do slide (e pela versão da análise); falha não conta como feita
   const figFile = path.join(cacheDir, "figuras.json");
-  let figs = {};
-  try { figs = JSON.parse(fs.readFileSync(figFile, "utf8")); } catch {}
-  const needFig = originals.filter((s) => !figs[s.original.slide] && imgFile(s) && fs.existsSync(imgFile(s)) && (contentImages(s).length || s.elements.filter((e) => e.drawing && !e.deco).length >= 3 || s.elements.some((e) => e.table)));
-  if (needFig.length) {
-    const { imagesAsDataUrls } = await import("../import/crop.js");
-    const urls = await imagesAsDataUrls(needFig.map(imgFile), { width: 1024 });
-    for (let k = 0; k < needFig.length; k += 4) {
-      const batch = needFig.slice(k, k + 4);
-      progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
-      const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
+  let figCache = {};
+  try { figCache = JSON.parse(fs.readFileSync(figFile, "utf8")); } catch {}
+  const figKey = (s) => { const f = imgFile(s); return f && fs.existsSync(f) ? `${sha1(fs.readFileSync(f))}:v${ANALYSIS_VERSION}` : null; };
+  const figs = {};
+  const candidates = originals.filter((s) => imgFile(s) && fs.existsSync(imgFile(s)) && (contentImages(s).length || s.elements.filter((e) => e.drawing && !e.deco).length >= 3 || s.elements.some((e) => e.table)));
+  for (const s of candidates) { const k = figKey(s); if (k && figCache[k]) figs[s.original.slide] = figCache[k]; }
+  const needFig = candidates.filter((s) => !figs[s.original.slide]);
+  try {
+    if (needFig.length) {
+      const { imagesAsDataUrls } = await import("../import/crop.js");
+      const urls = await imagesAsDataUrls(needFig.map(imgFile), { width: 1024 });
+      for (let k = 0; k < needFig.length; k += 4) {
+        const batch = needFig.slice(k, k + 4);
+        progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
+        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
 Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
-      batch.forEach((s, j) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urls[k + j] } }));
-      try {
-        const r = await ask([{ role: "user", content }], { model: V, maxTokens: 6000 });
-        for (const it of jsonOf(r.text).slides || []) figs[it.n] = it;
-      } catch (e) { for (const s of batch) figs[s.original.slide] = { n: s.original.slide, erro: e.message }; }
-      fs.writeFileSync(figFile, JSON.stringify(figs, null, 1));
+        batch.forEach((s, j) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urls[k + j] } }));
+        try {
+          const r = await ask([{ role: "user", content }], { model: V, maxTokens: 6000 });
+          for (const it of jsonOf(r.text).slides || []) {
+            const s = orig.get(Number(it.n));
+            if (!s) continue;
+            figs[s.original.slide] = it;
+            const key = figKey(s); if (key) figCache[key] = it;
+          }
+        } catch (e) {
+          if (e instanceof TransformStop) throw e;
+          report.problemas.push(`não consegui ver as figuras dos slides ${batch.map((s) => s.original.slide).join(", ")} (${clip(e.message, 120)}): seguem só com o texto`);
+        }
+        fs.writeFileSync(figFile, JSON.stringify(figCache, null, 1));
+      }
     }
-  }
+  } catch (e) { if (e instanceof TransformStop) stop = e; else throw e; }
 
-  // o que cada slide original tem (texto, tabelas, notas, figuras, imagens), compacto
   const brief = (s) => {
     const n = s.original.slide;
     const f = figs[n]?.figuras?.length ? `\n  figuras: ${figs[n].figuras.map((x) => `[${x.generica ? "genérica" : "ESPECÍFICA"}] ${x.tipo}: ${x.o_que}${x.dados ? ` — dados: ${x.dados}` : ""}`).join(" | ")}` : "";
@@ -157,12 +207,14 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":tru
     return `### slide ${n}: ${s.title || ""}\n${textsOfSlide(s).map((t) => `  ${t.replace(/\n/g, "\n  ")}`).join("\n")}${f}${imgs.length ? `\n  imagens: ${imgs.join(", ")}` : ""}${s.notes ? `\n  notas: ${clip(s.notes, 1500)}` : ""}${figs[n]?.continua_anterior ? "\n  (parece continuação do slide anterior: o mesmo desenho com partes a mais)" : ""}`;
   };
 
-  // ---- 2. PLANEJAR
-  progress("plano", "Planejando o que fazer com cada slide…");
+  // ---- 2. PLANEJAR (fica salvo: retomar não replaneja)
   const style = mode === "melhorar" ? styleFromImport(spec) : null;
-  const planMsg = [
-    { role: "system", content: `${systemPrompt({ images: false })}\n\n${TOOLBOX}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}` },
-    { role: "user", content: `Pedido do professor: ${request || (mode === "melhorar" ? "melhore a apresentação mantendo o estilo" : "recrie a apresentação do zero")}
+  if (!job.plan && !stop) {
+    job.stage = "plano"; save();
+    progress("plano", "Planejando o que fazer com cada slide…");
+    const planMsg = [
+      { role: "system", content: `${systemPrompt({ images: false })}\n\n${TOOLBOX}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}` },
+      { role: "user", content: `Pedido do professor: ${request || (mode === "melhorar" ? "melhore a apresentação mantendo o estilo" : "recrie a apresentação do zero")}
 
 Apresentação original (${originals.length} slides; proporção ${spec.aspect || "16:9"}):
 ${originals.map(brief).join("\n\n")}
@@ -170,123 +222,222 @@ ${originals.map(brief).join("\n\n")}
 Faça o PLANO. Responda só com um bloco \`\`\`json:
 {"tema": "${mode === "recriar" ? "um dos temas do sagadeck" : "(ignorado no modo melhorar)"}", "titulo": "título da apresentação", "alertas": ["possível erro no conteúdo, com o slide"], "slides": [{"acao": "manter|juntar|escrever|novo", "de": [3], "ideia": "o que vai ter e qual layout/recurso", "imagens": ["imagens/…"]}]}
 Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mantenha "ideia" curta (1 a 2 frases).` },
-  ];
-  let plan;
-  for (let attempt = 1; attempt <= 3 && !plan; attempt++) {
-    const r = await ask(planMsg, { maxTokens: 24000 });
+    ];
     try {
-      const p = jsonOf(r.text);
-      if (!Array.isArray(p.slides) || !p.slides.length) throw new Error('o JSON precisa de "slides" com os itens do plano');
-      plan = p;
-    } catch (e) {
-      planMsg.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para ler o plano (${e.message}). Responda de novo só com o bloco \`\`\`json, completo.` });
+      for (let attempt = 1; attempt <= 3 && !job.plan; attempt++) {
+        const r = await ask(planMsg, { maxTokens: 24000 });
+        try {
+          const p = jsonOf(r.text);
+          if (!Array.isArray(p.slides) || !p.slides.length) throw new Error('o JSON precisa de "slides" com os itens do plano');
+          job.plan = p;
+        } catch (e) { planMsg.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para ler o plano (${e.message}). Responda de novo só com o bloco \`\`\`json, completo.` }); }
+      }
+    } catch (e) { if (e instanceof TransformStop) stop = e; else throw e; }
+    if (job.plan) {
+      // cobertura: todo slide original em algum item (o que faltar entra onde estava)
+      const covered = new Set(job.plan.slides.flatMap((it) => (it.de || []).map(Number)));
+      for (const n of originals.map((s) => s.original.slide).filter((n) => !covered.has(n))) {
+        const at = job.plan.slides.findIndex((it) => Math.min(...(it.de || [Infinity])) > n);
+        const item = { acao: mode === "melhorar" ? "manter" : "escrever", de: [n], ideia: "(o plano esqueceu este slide: entra aqui para não perder o conteúdo)", auto: true };
+        if (at < 0) job.plan.slides.push(item); else job.plan.slides.splice(at, 0, item);
+      }
+      if (mode === "recriar") job.plan.slides.forEach((it) => { if (it.acao === "manter") it.acao = "escrever"; });
+      save();
     }
   }
-  if (!plan) throw new Error("A IA não conseguiu fazer o plano.");
-  // cobertura: todo slide original em algum item (o que faltar entra onde estava, mantido ou para escrever)
-  const covered = new Set(plan.slides.flatMap((it) => (it.de || []).map(Number)));
-  const missing = originals.map((s) => s.original.slide).filter((n) => !covered.has(n));
-  for (const n of missing) {
-    const at = plan.slides.findIndex((it) => Math.min(...(it.de || [Infinity])) > n);
-    const item = { acao: mode === "melhorar" ? "manter" : "escrever", de: [n], ideia: "(o plano esqueceu este slide: entra aqui para não perder o conteúdo)", auto: true };
-    if (at < 0) plan.slides.push(item); else plan.slides.splice(at, 0, item);
+  if (!job.plan) {
+    job.status = "parcial"; job.spentMs = spentBefore + Date.now() - t0; save();
+    if (stop) throw stop;
+    throw new Error("A IA não conseguiu fazer o plano.");
   }
-  if (mode === "recriar") plan.slides.forEach((it) => { if (it.acao === "manter") it.acao = "escrever"; });
-  fs.writeFileSync(path.join(cacheDir, `plano-${mode}.json`), JSON.stringify(plan, null, 1));
+  const plan = job.plan;
 
-  // ---- 3. ESCREVER em blocos, 4. CONFERIR
+  // ---- 3. ESCREVER em blocos + 4. CONFERIR (fatos por código, desenho por visão, de novo depois de cada correção)
   const deckBase = mode === "melhorar"
     ? { title: spec.title, aspect: spec.aspect, theme: style.theme, master: style.master, footer: false, purpose: "palestra" }
     : { title: plan.titulo || spec.title, aspect: spec.aspect, theme: plan.tema && typeof plan.tema === "string" ? plan.tema : "oceano", purpose: "palestra" };
   if (typeof deckBase.theme === "string") { try { const { THEMES } = await import("../themes.js"); if (!THEMES[deckBase.theme]) deckBase.theme = "oceano"; } catch {} }
-  const results = plan.slides.map(() => null); // por item: slides prontos
-  const report = { faltando: [], problemas: [], itens: plan.slides.length };
   const writeSystem = `${systemPrompt({ images: false })}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
-  const writable = plan.slides.map((it, k) => ({ it, k })).filter(({ it }) => it.acao === "escrever" || it.acao === "novo");
-  // juntar e manter: código
+  const srcOf = (it) => (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
+  // manter e juntar: código (sem IA)
   plan.slides.forEach((it, k) => {
-    const src = (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
-    if (it.acao === "manter" && src.length) results[k] = src.map((s) => structuredClone(s));
+    if (job.results[k]) return;
+    const src = srcOf(it);
+    if (it.acao === "manter" && src.length) job.results[k] = { slides: src.map((s) => structuredClone(s)), state: "ok" };
     if (it.acao === "juntar" && src.length) {
       const merged = mergeProgressive(src);
       if (mode === "melhorar") merged.review = { status: "alterado", note: `Os slides ${src.map((s) => s.original.slide).join(", ")} viraram um só, que se monta por cliques (o mesmo desenho).`, original: src[0].original.slide };
-      results[k] = [merged];
+      job.results[k] = { slides: [merged], state: "ok" };
     }
   });
+  job.stage = "escrever"; save();
+  const factsFor = (it) => {
+    const facts = { numbers: new Set(), terms: new Set(), alts: new Map() };
+    for (const s of srcOf(it)) { const f = factsOf(s, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" ")); f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v)); }
+    return facts;
+  };
+  const siblingsOf = (k) => plan.slides.map((x, j) => (j !== k && (x.de || []).some((n) => (plan.slides[k].de || []).includes(n)) ? j : -1)).filter((j) => j >= 0);
+  const writable = plan.slides.map((it, k) => ({ it, k })).filter(({ it, k }) => (it.acao === "escrever" || it.acao === "novo") && !job.results[k]);
   const BATCH = 5;
-  for (let b = 0; b < writable.length; b += BATCH) {
+  for (let b = 0; b < writable.length && !stop; b += BATCH) {
     const batch = writable.slice(b, b + BATCH);
-    progress("escrever", `Escrevendo ${batch.length === 1 ? "o item" : "os itens"} ${batch.map(({ k }) => k + 1).join(", ")} de ${plan.slides.length}…`, { done: b, total: writable.length });
-    const itemsText = batch.map(({ it, k }) => {
-      const src = (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
-      return `## ITEM ${k + 1} — ${it.acao}: ${it.ideia}${it.imagens?.length ? `\nImagens para usar: ${it.imagens.join(", ")}` : ""}\nOriginal:\n${src.map(brief).join("\n\n") || "(nenhum)"}`;
-    }).join("\n\n");
-    const before = plan.slides.slice(Math.max(0, batch[0].k - 3), batch[0].k).map((it) => `- ${it.ideia}`).join("\n");
-    const messages = [
-      { role: "system", content: writeSystem },
-      { role: "user", content: `Deck: título "${deckBase.title}", tema ${typeof deckBase.theme === "string" ? deckBase.theme : "o do original (mestre já aplicado)"}.${before ? `\nLogo antes vêm:\n${before}` : ""}\n\nEscreva os slides destes itens do plano:\n\n${itemsText}` },
-    ];
-    let produced = null, lastErr = null;
-    for (let attempt = 1; attempt <= 3 && !produced; attempt++) {
-      const r = await ask(messages);
-      try { produced = parseProduced(r.text, batch, deckBase, dir); }
-      catch (e) { lastErr = e; messages.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para usar:\n${e.message}\nCorrija e responda de novo com o bloco \`\`\`yaml completo.` }); }
-    }
-    if (!produced) { report.problemas.push(`itens ${batch.map(({ k }) => k + 1).join(", ")}: não saíram (${lastErr?.message})`); continue; }
-    // conferir: fatos (código) e desenho (visão), uma rodada de correção
-    for (let round = 0; round <= maxRounds; round++) {
-      const issues = [];
-      for (const { it, k } of batch) {
-        const src = (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
-        if (!src.length || it.acao === "novo") continue;
-        const facts = { numbers: new Set(), terms: new Set() };
-        facts.alts = new Map();
-        for (const s of src) { const f = factsOf(s, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" ")); f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, k) => facts.alts.set(k, v)); }
-        // o que o item escreveu + o que os itens irmãos (mesmos slides de origem) escreveram
-        const mine = produced.filter((s) => s.origem === k + 1);
-        const sib = plan.slides.map((x, j) => (j !== k && (x.de || []).some((n) => (it.de || []).includes(n)) ? j : -1)).filter((j) => j >= 0);
-        const others = [...sib.flatMap((j) => results[j] || []), ...produced.filter((s) => sib.includes(s.origem - 1))];
-        const miss = missingFacts(facts, [...mine, ...others]);
-        const imgsWanted = (it.imagens || []).filter((p) => fs.existsSync(path.join(dir, p)));
-        const imgsLost = imgsWanted.filter((p) => !JSON.stringify(mine).includes(p));
-        if (miss.numbers.length || miss.terms.length || imgsLost.length) issues.push({ k, text: `ITEM ${k + 1}: faltou do original ${[miss.numbers.length ? `números ${miss.numbers.slice(0, 30).join(", ")}` : "", miss.terms.length ? `nomes/siglas ${miss.terms.slice(0, 20).join(", ")}` : "", imgsLost.length ? `imagens ${imgsLost.join(", ")}` : ""].filter(Boolean).join("; ")}` });
+    try {
+      progress("escrever", `Escrevendo ${batch.length === 1 ? "o item" : "os itens"} ${batch.map(({ k }) => k + 1).join(", ")} de ${plan.slides.length}…`, { done: Object.keys(job.results).length, total: plan.slides.length });
+      const itemsText = batch.map(({ it, k }) => `## ITEM ${k + 1} — ${it.acao}: ${it.ideia}${it.imagens?.length ? `\nImagens para usar: ${it.imagens.join(", ")}` : ""}\nOriginal:\n${srcOf(it).map(brief).join("\n\n") || "(nenhum)"}`).join("\n\n");
+      const before = plan.slides.slice(Math.max(0, batch[0].k - 3), batch[0].k).map((it) => `- ${it.ideia}`).join("\n");
+      const messages = [
+        { role: "system", content: writeSystem },
+        { role: "user", content: `Deck: título "${deckBase.title}", tema ${typeof deckBase.theme === "string" ? deckBase.theme : "o do original (mestre já aplicado)"}.${before ? `\nLogo antes vêm:\n${before}` : ""}\n\nEscreva os slides destes itens do plano:\n\n${itemsText}` },
+      ];
+      let produced = null, lastErr = null;
+      for (let attempt = 1; attempt <= 3 && !produced; attempt++) {
+        const r = await ask(messages);
+        try { produced = parseProduced(r.text, batch, deckBase, dir); }
+        catch (e) { lastErr = e; messages.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para usar:\n${e.message}\nCorrija e responda de novo com o bloco \`\`\`yaml completo.` }); }
       }
-      if (round < maxRounds) {
+      if (!produced) {
+        report.problemas.push(`itens ${batch.map(({ k }) => k + 1).join(", ")}: não saíram (${clip(lastErr?.message, 160)})`);
+        for (const { k } of batch) job.results[k] = { slides: null, state: "falhou" };
+        save(); continue;
+      }
+      // conferir → corrigir → conferir de novo (a última conferência também olha o desenho)
+      let issues = [];
+      for (let round = 0; ; round++) {
+        issues = [];
+        for (const { it, k } of batch) {
+          if (!srcOf(it).length || it.acao === "novo") continue;
+          const mine = produced.filter((s) => s.origem === k + 1);
+          const sib = siblingsOf(k);
+          const others = [...sib.flatMap((j) => job.results[j]?.slides || []), ...produced.filter((s) => sib.includes(s.origem - 1))];
+          const miss = missingFacts(factsFor(it), [...mine, ...others]);
+          const imgsLost = (it.imagens || []).filter((p) => fs.existsSync(path.join(dir, p)) && !JSON.stringify(mine).includes(p));
+          if (miss.numbers.length || miss.terms.length || imgsLost.length) issues.push({ k, kind: "fatos", miss, imgsLost, text: `ITEM ${k + 1}: faltou do original ${[miss.numbers.length ? `números ${miss.numbers.slice(0, 30).join(", ")}` : "", miss.terms.length ? `nomes/siglas ${miss.terms.slice(0, 20).join(", ")}` : "", imgsLost.length ? `imagens ${imgsLost.join(", ")}` : ""].filter(Boolean).join("; ")}` });
+        }
         try {
-          progress("conferir", `Conferindo o desenho dos itens ${batch.map(({ k }) => k + 1).join(", ")}…`);
-          for (const v of await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V })) issues.push(v);
-        } catch (e) { report.problemas.push(`conferência visual falhou: ${clip(e.message, 200)}`); }
+          progress("conferir", `Conferindo o desenho dos itens ${batch.map(({ k }) => k + 1).join(", ")}${round ? " (depois da correção)" : ""}…`);
+          for (const v of await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V })) issues.push({ ...v, kind: "desenho" });
+        } catch (e) {
+          if (e instanceof TransformStop) throw e;
+          report.problemas.push(`conferência visual dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`);
+        }
+        if (!issues.length || round >= maxRounds) break;
+        progress("corrigir", `Corrigindo ${issues.length} ponto(s) nos itens ${[...new Set(issues.map((x) => x.k + 1))].join(", ")}…`);
+        const fixMsg = [...messages, { role: "assistant", content: `\`\`\`yaml\n${YAML.stringify({ slides: produced })}\`\`\`` },
+          { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
+        try { const r = await ask(fixMsg); produced = parseProduced(r.text, batch, deckBase, dir); }
+        catch (e) { if (e instanceof TransformStop) throw e; report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`); break; }
       }
-      if (!issues.length) break;
-      if (round === maxRounds) { report.faltando.push(...issues.map((x) => x.text)); break; }
-      progress("corrigir", `Corrigindo ${issues.length} ponto(s) nos itens ${[...new Set(issues.map((x) => x.k + 1))].join(", ")}…`);
-      const fixMsg = [...messages, { role: "assistant", content: `\`\`\`yaml\n${YAML.stringify({ slides: produced })}\`\`\`` },
-        { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
-      try { const r = await ask(fixMsg); produced = parseProduced(r.text, batch, deckBase, dir); }
-      catch (e) { report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 200)}`); break; }
-    }
-    for (const { it, k } of batch) {
-      const mine = produced.filter((s) => s.origem === k + 1);
-      results[k] = mine.map((s) => {
-        const out = { ...s };
-        const why = out.mudou; delete out.origem; delete out.mudou;
-        if (mode === "melhorar") out.review = it.acao === "novo" || !(it.de || []).length ? { status: "novo", note: clip(why || it.ideia, 200) } : { status: "alterado", note: clip(why || it.ideia, 200), original: Number(it.de[0]) };
-        return out;
-      });
+      for (const { it, k } of batch) {
+        const mine = produced.filter((s) => s.origem === k + 1).map((s) => { const out = { ...s }; const why = out.mudou; delete out.origem; delete out.mudou; out._why = why; return out; });
+        const factIssue = issues.find((x) => x.k === k && x.kind === "fatos");
+        const drawIssues = issues.filter((x) => x.k === k && x.kind === "desenho").map((x) => x.text);
+        job.results[k] = { slides: mine, state: factIssue ? "pendente" : drawIssues.length ? "revisar" : "ok", missing: factIssue?.text || null, drawing: drawIssues };
+      }
+      save();
+    } catch (e) {
+      if (e instanceof TransformStop) { stop = e; break; }
+      throw e;
     }
   }
 
-  // ---- 5. MONTAR
-  // item que não saiu: o slide original entra como era (nada se perde) e a pessoa fica sabendo
-  const slides = results.flatMap((r, k) => {
-    if (r) return r;
-    const back = (plan.slides[k].de || []).map((n) => orig.get(Number(n))).filter(Boolean).map((s) => structuredClone(s));
-    if (back.length && mode === "recriar") report.problemas.push(`item ${k + 1} não saiu: entrou o slide original ${back.map((s) => s.original.slide).join(", ")} como era`);
-    return back;
+  // ---- 5. MONTAR — o que faltou conserva o original; a proposta fica pendente para o professor decidir
+  const slides = [];
+  const coverage = [];
+  plan.slides.forEach((it, k) => {
+    const res = job.results[k];
+    const src = srcOf(it);
+    const reviewFor = (why, state) => (mode === "melhorar" || state !== "ok")
+      ? (it.acao === "novo" || !src.length ? { status: state === "ok" ? "novo" : state, note: clip(why || it.ideia, 220) } : { status: state === "ok" ? "alterado" : state, note: clip(why || it.ideia, 220), original: Number(it.de[0]) })
+      : null;
+    if (!res?.slides) {
+      // não saiu (falhou, parou no limite, cancelado): o original como era
+      const back = src.map((s) => structuredClone(s));
+      if (back.length && it.acao !== "manter") report.pendentes.push(`item ${k + 1} (${it.ideia}): ${res?.state === "falhou" ? "não saiu" : "não chegou a ser escrito"}; ficou o original (slide ${src.map((s) => s.original.slide).join(", ")})`);
+      slides.push(...back);
+      return;
+    }
+    if (res.state === "pendente" && src.length) {
+      // omissão: o original fica, e a proposta vem logo depois, marcada para decidir
+      const back = src.map((s) => ({ ...structuredClone(s), uid: newUid() }));
+      slides.push(...back);
+      slides.push(...res.slides.map(({ _why, ...s }) => ({ ...s, review: { status: "pendente", note: clip(`Proposta para o slide ${src.map((x) => x.original.slide).join(", ")}: ${res.missing}. O original ficou antes desta; aceitar tira o original, desfazer tira a proposta.`, 300), original: Number(it.de[0]), pair: back.map((b) => b.uid) } })));
+      report.pendentes.push(res.missing);
+      return;
+    }
+    const state = res.state === "revisar" ? "revisar" : "ok";
+    if (state === "revisar") report.revisar.push(`item ${k + 1}: ${res.drawing.join(" · ")}`);
+    slides.push(...res.slides.map(({ _why, ...s }) => {
+      const rv = s.review || (it.acao === "manter" && state === "ok" ? null : reviewFor(state === "revisar" ? `${_why || it.ideia}. Conferir: ${res.drawing.join("; ")}` : _why, state));
+      return rv ? { ...s, review: rv } : s;
+    }));
   });
   const out = { ...deckBase, ...(mode === "melhorar" ? { import: spec.import, style: { name: style.name } } : { recreatedFrom: spec.import?.from || spec.title }), slides };
-  const seconds = Math.round((Date.now() - started) / 1000);
-  return { spec: out, plan, report: { ...report, mode, textModel: T, visionModel: V, calls, usage, seconds, alertas: plan.alertas || [] } };
+  ensureUids(out);
+  // mapa de cobertura: cada trecho do original e para onde foi
+  const itemOfSlide = new Map();
+  let cursor = 0;
+  // (recalcula a posição de cada item no deck montado)
+  plan.slides.forEach((it, k) => { const res = job.results[k]; const n = !res?.slides ? srcOf(it).length : res.state === "pendente" && srcOf(it).length ? srcOf(it).length + res.slides.length : res.slides.length; for (let j = 0; j < n; j++) itemOfSlide.set(cursor + j, k); cursor += n; });
+  for (const s of originals) {
+    for (const unit of unitsOf(s)) {
+      const where = [];
+      out.slides.forEach((ns, i) => { if (unitIn(unit, ns)) where.push(i + 1); });
+      const viaItem = [...itemOfSlide].filter(([, k]) => (plan.slides[k].de || []).map(Number).includes(s.original.slide)).map(([i]) => i + 1);
+      coverage.push({ original: s.original.slide, tipo: unit.kind, trecho: clip(unit.label, 120), onde: where, ...(where.length ? {} : { reescrito_em: viaItem }) });
+    }
+  }
+  fs.mkdirSync(path.join(dir, "original"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "original", `cobertura-${mode}.json`), JSON.stringify(coverage, null, 1));
+  fs.writeFileSync(path.join(dir, "original", `cobertura-${mode}.md`), coverageMarkdown(coverage, out));
+  const literal = coverage.filter((c) => c.onde.length).length;
+  job.spentMs = spentBefore + Date.now() - t0;
+  const status = stop ? "parcial" : report.pendentes.length || report.revisar.length ? "revisar" : "concluido";
+  job.status = status; job.stage = "montado"; save();
+  return {
+    spec: out, plan,
+    report: { ...report, status, parou: stop ? stop.message : null, retomada: resumed, mode, textModel: T, visionModel: V, calls: job.calls, usage: job.usage, seconds: Math.round(job.spentMs / 1000), alertas: plan.alertas || [], cobertura: { trechos: coverage.length, localizados: literal, reescritos: coverage.length - literal, arquivo: `original/cobertura-${mode}.md` } },
+  };
+}
+
+// trechos de um slide original: cada caixa de texto (parágrafos), tabela, fórmula, imagem de conteúdo, anotações
+function unitsOf(s) {
+  const out = [];
+  for (const e of s.elements || []) {
+    if (e.deco) continue;
+    if (e.textbox) {
+      const t = plainOf(e).trim();
+      if (!t || /^\d{1,3}$/.test(t)) continue;
+      const latex = e.textbox.paragraphs.flatMap((p) => p.runs || []).filter((r) => r.latex).map((r) => r.latex);
+      out.push({ kind: latex.length ? "fórmula" : "texto", label: t.replace(/\s+/g, " "), facts: factsOf({ elements: [e] }) });
+    } else if (e.tableData) out.push({ kind: "tabela", label: e.tableData.map((r) => r.join(" | ")).slice(0, 2).join(" / "), facts: factsOf({ elements: [e] }) });
+    else if (e.image && !e.fromOriginal) out.push({ kind: "imagem", label: e.image, image: e.image });
+    else if (e.image && e.fromOriginal) out.push({ kind: "figura", label: e.image, image: e.image });
+  }
+  if (s.notes) out.push({ kind: "notas", label: s.notes.replace(/\s+/g, " "), facts: factsOf({ elements: [] }, s.notes) });
+  return out;
+}
+function unitIn(unit, slide) {
+  if (unit.image) return JSON.stringify(slide).includes(unit.image);
+  const f = unit.facts;
+  if (!f || (!f.numbers.size && !f.terms.size)) {
+    // sem número nem nome: procura as primeiras palavras (as curtas não contam, dos dois lados)
+    const words = (t) => deaccent(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((w) => w.length > 3);
+    const probe = words(unit.label).slice(0, 6).join(" ");
+    return probe.length > 12 && ` ${words(textOfProduced([slide])).join(" ")} `.includes(` ${probe} `);
+  }
+  const miss = missingFacts(f, [slide]);
+  return !miss.numbers.length && !miss.terms.length;
+}
+function coverageMarkdown(coverage, deck) {
+  const title = (i) => { const s = deck.slides[i - 1]; return s ? (s.title || s.text || s.question || s.layout) : ""; };
+  const lines = ["# Onde ficou cada trecho do original", "", "Gerado pela transformação. \"Reescrito em\" = o trecho não aparece igual (foi reescrito), então vale conferir.", ""];
+  let last = null;
+  for (const c of coverage) {
+    if (c.original !== last) { lines.push(`## Slide ${c.original} do original`); last = c.original; }
+    const where = c.onde.length ? c.onde.map((i) => `slide ${i} (${clip(title(i), 50)})`).join(", ") : c.reescrito_em?.length ? `reescrito em ${c.reescrito_em.map((i) => `slide ${i}`).join(", ")}` : "NÃO ENCONTRADO";
+    lines.push(`- ${c.tipo}: "${c.trecho}" → ${where}`);
+  }
+  return lines.join("\n") + "\n";
 }
 
 // resposta do escritor → slides válidos (renderizam, só imagens que existem, origem de um item do bloco)
