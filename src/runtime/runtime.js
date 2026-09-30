@@ -325,11 +325,25 @@
     const scale = Math.min(canvas.clientWidth / img.naturalWidth, canvas.clientHeight / img.naturalHeight);
     const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
     regions.style.cssText = `width:${width}px;height:${height}px;left:${(canvas.clientWidth - width) / 2}px;top:${(canvas.clientHeight - height) / 2}px;`;
+    zoomSpotlight(root);
+  }
+  function zoomSpotlight(root) {
+    const canvas = $(".spotlight-canvas", root), layer = $(".spotlight-zoom", root), regions = $(".spotlight-regions", root);
+    const region = $(".spotlight-region.active", root);
+    if (!canvas || !layer || !regions) return;
+    const s = EXPORT ? 1 : +(region?.dataset.zoom || 1);
+    if (!(s > 1)) { layer.style.transform = ""; layer.style.setProperty("--zs", "1"); return; }
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    // centro do foco em pixels do canvas (as regiões são % da área real da imagem)
+    const rx = regions.offsetLeft + (region.offsetLeft + region.offsetWidth / 2), ry = regions.offsetTop + (region.offsetTop + region.offsetHeight / 2);
+    const tx = Math.min(0, Math.max(W - W * s, W / 2 - rx * s)), ty = Math.min(0, Math.max(H - H * s, H / 2 - ry * s));
+    layer.style.setProperty("--zs", String(s));
+    layer.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
   }
   function mountLessons() {
     slides.forEach((slide, si) => $$("[data-lesson]", slide).forEach((root) => {
       renderLesson(root, 0);
-      hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); });
+      hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); zoomSpotlight(root); });
       if (root.dataset.lesson === "kinetic") {
         let timer = null;
         let enabled = root.dataset.kineticAutoplay === "true" && !reducedMotion() && +root.dataset.lessonCount > 1;

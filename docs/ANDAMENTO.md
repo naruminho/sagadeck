@@ -8,6 +8,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Zoom lento no foco e animações menos secas — 30/09/2026
+
+- Spotlight: `zoom: true` (slide) ou `zoom: N` / `false` (foco). Camada `.spotlight-zoom` com imagem + regiões; o
+  runtime (`zoomSpotlight`) centraliza o foco sem mostrar fundo vazio, 1,8 s com aceleração suave; a borda do
+  destaque não engorda. PDF/export e "sem animação" ficam na imagem inteira.
+- Modo padrão (subtle) era só fade de 0,38 s e passos de 0,25 s sem movimento ("seco"). Agora: entrada sobe 14 px
+  com o desfoque sumindo (0,85 s, escalonado), cliques com o mesmo movimento, troca de slide com fade de 0,6 s e
+  assentamento de escala, painéis de etapa suaves. Export sem transformações.
+
 ## Carrossel em semicírculo e em anéis — 30/09/2026
 
 - `carousel` (`src/carousel.js`): um item por clique com foto e texto. `arc`: roda com o centro fora do slide gira até
