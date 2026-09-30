@@ -8,6 +8,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Dinâmicas a dois: duelo de commits, dois terminais, turnos — 30/09/2026
+
+- Pedido da pessoa (brainstorm de dinâmicas para aula de Git; a ideia 2, QR ao vivo, ficou de fora).
+- `src/dynamics/git-sim.js`: simulador (duas pessoas + origin/main + um arquivo). O slide só diz o que cada um faz;
+  ele calcula push recusado, fast-forward, merge automático, conflito (merge a três por linha, com marcadores),
+  commit de dois pais, `git log --graph` e o grafo em SVG. Linhas mudadas no turno por LCS.
+- `duel`, `terminals`, `turns` (`src/dynamics/layouts.js`): um quadro por clique (data-lesson). Aposta
+  (`bet:`) vira enquete antes do primeiro pull que decide; o quadro seguinte carimba "Deu conflito!". Terminal digita
+  o comando. Galeria: categoria "Dinâmicas a dois". Formulário com "Linhas que muda" (2: texto).
+
 ## Criar com IA = o mesmo caminho do chat — 30/09/2026
 
 - "Criar com IA" / "Deck com IA" saíam bem piores que pedir a mesma coisa no chat (teste da pessoa: "apresentação

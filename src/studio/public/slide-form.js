@@ -47,6 +47,7 @@
     els: (k, label, o = {}) => ({ k, label, type: "elements", ...o }),
     chart: (k, label, o = {}) => ({ k, label, type: "chart", ...o }),
     plot: (k, label, o = {}) => ({ k, label, type: "plot", ...o }),
+    lines: (k, label, o = {}) => ({ k, label, type: "linemap", ...o }), // {2: "texto", 5: null} <-> "2: texto" por linha
     sheet: (label, o = {}) => ({ k: ["data", "labels", "series", "parts"], label, type: "sheet", ...o }), // planilha dos dados do gráfico       // fórmulas, pontos e superfície (slide science)
     json: (k, label, o = {}) => ({ k, label, type: "json", ...o }),        // objeto editado como JSON validado
     more: (fields) => ({ type: "more", fields }),
@@ -58,6 +59,13 @@
   const obj = (fields, o = {}) => ({ fields, ...o });
   const textOrObj = (fields, o = {}) => ({ fields, textOrObj: true, ...o });
 
+  // dinâmicas a dois: quem fala/age e o roteiro do Git (o simulador calcula diff, push recusado, merge e conflito)
+  const WHO = f.select("who", "Quem", [["1", "Pessoa 1"], ["2", "Pessoa 2"]], { empty: false, default: "1", parse: Number });
+  const DUEL_FIELDS = [f.pair("people", "As duas pessoas", ["Ana", "Beto"]), f.text("file", "Arquivo", { placeholder: "soma.js" }), f.area("base", "Arquivo no começo (igual para os dois)", { mono: true, rows: 5 }),
+    f.list("turns", "Turnos (um por clique)", obj([WHO, f.lines("edit", "Linhas que muda", { hint: "Uma por linha: 2: novo texto (2: (apagar) apaga)" }), f.text("commit", "Commit (mensagem)"),
+      f.bool("push", "git push"), f.bool("pull", "git pull"), f.lines("resolve", "Resolve o conflito", { hint: "ours (fica a sua), theirs (a do remoto), both, ou as linhas: 2: texto final" }),
+      f.bool("log", "git log --graph"), f.more([f.text("say", "Explicação no lugar da automática"), f.text("note", "Nota embaixo")])]),
+      { addLabel: "Adicionar turno", newItem: () => ({ who: 1, commit: "" }) })];
   const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"),
     f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
   const STAT = [f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
@@ -187,6 +195,20 @@
         f.json("fields", "Parâmetros documentados", { placeholder: '{ "$.campo": "O que este campo faz" }', hint: "Exibe a aba Parâmetros com caminho, valor atual e explicação." }),
         f.json("similarity", "Comparação por embeddings", { placeholder: '{ "reference": "frase de referência", "texts": ["outra frase"], "vector": "$.data[0].embedding" }', hint: "O corpo deve usar {{text}}; compara cada frase com a referência." }),
         f.json("code", "Abas de código", { placeholder: '["curl", "javascript", "python", "python-comentado"]', hint: "Lista de linguagens: curl, javascript, javascript-comentado, python, python-comentado." })])],
+    // dinâmicas a dois (src/dynamics): um quadro por clique
+    duel: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...DUEL_FIELDS, f.text("bet", "Aposta antes do pull (enquete)", { placeholder: "Vai dar conflito?" })],
+    terminals: [f.text("kicker", "Chapéu"), f.text("title", "Título"),
+      f.list("steps", "Comandos (roteiro livre)", obj([WHO, f.text("cmd", "Comando", { mono: true }), f.area("out", "Saída", { mono: true, rows: 3 }), f.text("note", "Nota para a plateia")]),
+        { addLabel: "Adicionar comando", newItem: () => ({ who: 1, cmd: "git status", out: "" }), when: (s) => s.base == null }),
+      f.pair("panes", "Nomes dos terminais", ["Pessoa A", "Pessoa B"], { when: (s) => s.base == null }),
+      f.action("Usar o roteiro do duelo (o Git calcula a saída)", (s) => { s.base = s.base ?? "linha 1\nlinha 2\nlinha 3"; s.file = s.file || "arquivo.txt"; s.turns = s.turns || [{ who: 1, edit: { 2: "mudança da A" }, commit: "muda a linha 2" }, { who: 1, push: true }, { who: 2, pull: true }, { who: 2, log: true }]; delete s.steps; CTX.commit(true); }, { when: (s) => s.base == null }),
+      ...DUEL_FIELDS.map((x) => ({ ...x, when: (s) => s.base != null })), f.more([f.text("host", "Nome da máquina no prompt", { placeholder: "dev" }), f.num("keep", "Comandos visíveis por terminal")])],
+    turns: [f.text("kicker", "Chapéu"), f.text("title", "Título"),
+      f.list("people", "As duas pessoas", obj([f.text("name", "Nome"), f.text("role", "Papel", { placeholder: "revisor, cliente, servidor…" })]), { max: 2, addLabel: "Adicionar pessoa", newItem: () => ({ name: "Pessoa", role: "" }) }),
+      f.list("turns", "Falas (uma por clique)", obj([WHO, f.area("text", "Fala"), f.text("tag", "Etiqueta", { placeholder: "pergunta, aprovado, erro…" }),
+        f.more([f.text("method", "Método HTTP", { datalist: ["GET", "POST", "PUT", "PATCH", "DELETE"] }), f.text("url", "URL"), f.text("status", "Status da resposta"), f.area("code", "Código ou JSON", { mono: true, rows: 3 }), f.text("language", "Linguagem do código")])]),
+        { addLabel: "Adicionar fala", newItem: () => ({ who: 1, text: "" }) }),
+      f.more([f.num("keep", "Falas visíveis ao mesmo tempo")])],
     codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...CODE_SOURCE_FIELDS,
       f.list("steps", "Etapas da explicação", obj([f.text("title", "Título da etapa"), f.area("text", "Explicação"), f.nums("highlight", "Linhas destacadas (a partir de 1)"), f.area("output", "Saída esperada (simulação)", { mono: true, rows: 3 })]),
         { addLabel: "Adicionar etapa", newItem: () => ({ title: "Próximo passo", text: "", highlight: [1] }) }),
@@ -446,6 +468,7 @@
       case "chart": return chartField(o, spec, path);
       case "plot": return plotField(o, spec);
       case "sheet": return sheetField(o, spec);
+      case "linemap": return lineMapField(o, spec);
       case "json": return jsonField(o, spec);
       case "more": return moreGroup(o, spec.fields, path + ".more");
       case "action": {
@@ -964,6 +987,26 @@
       canMulti ? h("button", { class: "btn btn-small", type: "button", "data-sheet-add-series": "", onclick: () => { t.names.push(`Série ${t.names.length + 1}`); t.rows.forEach((r) => r.push(null)); save(true); } }, icon("plus"), " Série") : null,
       h("button", { class: "btn btn-small", type: "button", onclick: () => file.click() }, icon("upload"), " Importar CSV"), file);
     return fieldWrap({ label: spec.label, hint: "Copie as células no Excel (ou Google Planilhas) e cole aqui com Ctrl+V. A primeira coluna é o rótulo; cada coluna de números é uma série." }, h("div", { class: "sf-ctl" }, wrapEl, tools, status));
+  }
+
+  // ---- linhas de um arquivo: {2: "texto", 5: null} editado como "2: texto" por linha; ours/theirs/both passam direto ----
+  function lineMapField(o, spec) {
+    const cur = o[spec.k];
+    const toText = (v) => (typeof v === "string" ? v : v && typeof v === "object" ? Object.entries(v).map(([n, t]) => `${n}: ${t === null ? "(apagar)" : t}`).join("\n") : "");
+    const ta = h("textarea", { class: "form-control mono", rows: 2, spellcheck: "false", placeholder: "2: novo texto da linha 2" });
+    ta.value = toText(cur);
+    const err = h("div", { class: "sf-hint sf-error" });
+    ta.addEventListener("input", () => {
+      const raw = ta.value.trim();
+      if (!raw) { delete o[spec.k]; err.textContent = ""; commitSoon(); return; }
+      if (/^(ours|theirs|both)$/i.test(raw)) { o[spec.k] = raw.toLowerCase(); err.textContent = ""; commitSoon(); return; }
+      const map = {}, bad = [];
+      raw.split("\n").forEach((l) => { const m = l.match(/^\s*(\d+)\s*:\s?(.*)$/); if (!m) { if (l.trim()) bad.push(l.trim()); return; } map[m[1]] = /^\(apagar\)$/i.test(m[2].trim()) ? null : m[2]; });
+      err.textContent = bad.length ? `Use o número da linha e dois pontos: 2: texto ("${bad[0]}")` : "";
+      if (!bad.length) { o[spec.k] = map; commitSoon(); }
+    });
+    ta.addEventListener("change", () => { if (!err.textContent) commitNow(); });
+    return fieldWrap(spec, h("div", { class: "sf-ctl" }, ta, err));
   }
 
   // ---- gráfico de fórmulas (slide science): escreve a*sin(b*x) e plota; cada letra vira controle deslizante ----
