@@ -50,6 +50,11 @@
       { k: "opacity", label: "Opacidade", type: "range", unit: "%", scale: 100 },
       { k: "shadow", label: "Sombra", type: "select", options: SHADOWS },
     ];
+    if (is.image(els)) cats.push({ id: "obj-img", title: "Imagem", rows: [
+      { k: "__replace", label: "Arquivo", type: "action", text: "Trocar imagem" },
+      { k: "fit", label: "Encaixe", type: "select", options: [["", "Do slide"], ["cover", "Preencher (corta as bordas)"], ["contain", "Inteira"]] },
+      { k: "focus", label: "Ponto de foco", type: "select", hint: "Ao preencher, a parte da foto que nunca é cortada", options: [["", "Centro"], ["top", "Em cima"], ["bottom", "Embaixo"], ["left", "Esquerda"], ["right", "Direita"], ["top left", "Em cima, à esquerda"], ["top right", "Em cima, à direita"], ["bottom left", "Embaixo, à esquerda"], ["bottom right", "Embaixo, à direita"]] },
+    ] });
     if (is.image(els)) look.push({ k: "radius", label: "Cantos arredondados", type: "num", unit: "px", min: 0 }, { k: "stroke", label: "Borda", type: "color" }, { k: "strokeWidth", label: "Espessura da borda", type: "num", unit: "px", min: 0, max: 40 });
     cats.push({ id: "obj-look", title: "Aparência", rows: look });
     cats.push({ id: "obj-anim", title: "Animação", rows: [
@@ -58,6 +63,7 @@
     ] });
     cats.push({ id: "obj-adv", title: "Avançado", rows: [
       { k: "hidden", label: "Oculto", type: "bool" },
+      { k: "locked", label: "Travado", type: "bool", hint: "O clique no slide atravessa; selecione pela lista de objetos" },
       { k: "__key", label: "Identificador", type: "readonly" },
       { k: "__clear", label: "Ajustes deste objeto", type: "action", text: "Limpar tudo" },
     ] });
@@ -108,6 +114,7 @@
   const idOf = (catId, k) => `ip-${catId}-${k}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   function objValue(els, k) {
     if (k === "__key") return els.map((n) => n.dataset.vkey).join(", ");
+    if (k === "locked") { const v = els.map((n) => n.hasAttribute("data-locked")); return v.every((x) => x === v[0]) ? (v[0] || undefined) : "__varios"; }
     const vals = els.map((n) => window.SagaVisual.edits(n)[k]);
     return vals.every((v) => JSON.stringify(v) === JSON.stringify(vals[0])) ? vals[0] : "__varios";
   }
@@ -147,6 +154,32 @@
     return `<details class="ip-cat" data-cat="${cat.id}"${isOpen ? " open" : ""}><summary>${esc(cat.title)}</summary><div class="ip-rows">${rows}</div></details>`;
   }
 
+  // lista de objetos do slide (camadas): selecionar mesmo o que está travado ou escondido, mostrar/ocultar, travar
+  const kindOf = (n) => is.text([n]) ? ["Texto", "type"] : is.image([n]) ? ["Imagem", "image"] : is.shape([n]) ? ["Forma", "square"] : n.classList.contains("tbx") ? ["Texto do original", "type"] : n.classList.contains("drw") ? ["Desenho", "shapes"] : ["Objeto", "shapes"];
+  function layersHTML(els) {
+    const objs = window.SagaVisual?.objects?.() || [];
+    if (!objs.length) return "";
+    const rows = objs.map((n, i) => {
+      const [kind, icon] = kindOf(n);
+      const name = n.textContent.replace(/\s+/g, " ").trim().slice(0, 48) || kind;
+      const hidden = !!window.SagaVisual.edits(n).hidden, lk = n.hasAttribute("data-locked");
+      return `<div class="ip-layer${els.includes(n) ? " sel" : ""}${hidden ? " off" : ""}" data-layer="${i}" title="${esc(kind)}">${ic(icon)}<span class="ip-layer-name">${esc(name)}</span>`
+        + `<button type="button" data-layer-eye aria-label="${hidden ? "Mostrar" : "Ocultar"}" title="${hidden ? "Mostrar" : "Ocultar"}">${ic(hidden ? "eye-off" : "eye")}</button>`
+        + `<button type="button" data-layer-lock class="${lk ? "on" : ""}" aria-label="${lk ? "Destravar" : "Travar"}" title="${lk ? "Destravar" : "Travar (o clique no slide atravessa)"}">${ic(lk ? "lock" : "lock-open")}</button></div>`;
+    }).join("");
+    return `<section class="ip-sec" data-sec="layers"><details class="ip-cat" data-cat="layers"${openCats.layers !== false ? " open" : ""}><summary>Objetos do slide (${objs.length})</summary><div class="ip-layers">${rows}</div></details></section>`;
+  }
+  function bindLayers() {
+    const objs = window.SagaVisual?.objects?.() || [];
+    host.querySelectorAll(".ip-layer").forEach((row) => {
+      const n = objs[+row.dataset.layer];
+      if (!n) return;
+      row.onclick = (e) => { if (!e.target.closest("button")) window.SagaVisual.select([n]); };
+      row.querySelector("[data-layer-eye]").onclick = () => window.SagaVisual.setPropOn([n], "hidden", window.SagaVisual.edits(n).hidden ? null : true);
+      row.querySelector("[data-layer-lock]").onclick = () => window.SagaVisual.setPropOn([n], "locked", n.hasAttribute("data-locked") ? false : true);
+    });
+  }
+
   function render() {
     if (!host || !ctx?.state?.deck) return;
     if (host.contains(document.activeElement) && document.activeElement.matches("input[type=number], input[type=text]")) { pending = true; return; } // digitando: não redesenha
@@ -159,6 +192,7 @@
       const name = els.length > 1 ? `${els.length} objetos` : `${kind}${els[0].textContent.trim() ? `: “${els[0].textContent.trim().slice(0, 28)}”` : ""}`;
       html += `<section class="ip-sec" data-sec="obj"><h4>${ic(kind === "Texto" ? "type" : kind === "Forma" ? "square" : kind === "Imagem" ? "image" : "shapes")}<span>${esc(name)}</span></h4>${objectCats(els).map((c) => catHTML(c, (k) => objValue(els, k))).join("")}</section>`;
     }
+    html += layersHTML(els);
     // o conteúdo do slide (itens do carrossel, fotos, destaques do screenshot, dados do gráfico…) mora no Formatar
     html += `<button type="button" class="ip-content" data-open-content>${ic("pencil")}<span>Editar o conteúdo do slide</span></button>`;
     const [sc, dc] = slideCats();
@@ -167,6 +201,7 @@
     host.innerHTML = html;
     ctx.hydrate(host);
     bind(els);
+    bindLayers();
   }
 
   function rowOf(k, secId) {
@@ -178,6 +213,8 @@
   function apply(sec, row, value) {
     if (sec === "obj") {
       if (row.k === "__clear") { window.SagaVisual.clearEdits(); return; }
+      if (row.k === "__replace") { window.SagaVisual.replaceImage(); return; }
+      if (row.k === "locked") { window.SagaVisual.setProp("locked", value ? true : false); return; } // decoração do original vem travada: destravar grava false
       window.SagaVisual.setProp(row.k, value ?? null); // grava, com Desfazer, em todos os selecionados
       return;
     }

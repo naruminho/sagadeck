@@ -4,6 +4,9 @@ const SVG_SHAPES = ['triangle','diamond','hexagon','star','arrow','chevron','bub
 const ALIGN = ['left','center','right','justify'], ANIM = ['fade','pop','left','right','down','zoom','none'];
 const SHADOW = { suave: 'drop-shadow(0 8px 16px rgb(0 0 0 / .18))', forte: 'drop-shadow(0 18px 36px rgb(0 0 0 / .35))' };
 const HEX = /^#[0-9a-f]{6}$/i;
+// imagem trocada no Studio: caminho relativo da pasta do deck (ou imagem colada em data:), enquadramento e foco
+const FOCUS = ['center','top','bottom','left','right','top left','top right','bottom left','bottom right'];
+const IMG_PATH = /^(?![a-z]+:)(?!\/)(?!.*\.\.)[\w .\/-]+\.(png|jpe?g|webp|gif|svg)$/i, IMG_DATA = /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i;
 // Chave de um objeto: o grupo (classes) + uma impressão do CONTEÚDO dele (o texto; na figura, a imagem ou o desenho),
 // e não a posição: inserir, reordenar ou apagar outro objeto não passa o ajuste para quem não era. Objetos iguais
 // no mesmo slide ganham ~2, ~3… A chave antiga (grupo-N, pela ordem) continua valendo para decks de antes; o Studio
@@ -25,11 +28,12 @@ function fingerprint(inner) {
   const text = inner.replace(/<svg[\s\S]*?<\/svg>/gi, (s) => ` svg${hash(s.replace(/\s+id="[^"]*"|url\(#[^)]*\)/g, ''))} `).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
   return hash(text.slice(0, 400));
 }
-export function applyVisualEdits(html, edits = {}) {
-  const counts = new Map(), seen = new Map();
-  return html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls,offset) => {
+export function applyVisualEdits(html, edits = {}, { src = (p) => p } = {}) {
+  const counts = new Map(), seen = new Map(), imgs = [];
+  const out = html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls,offset) => {
     const classes = cls.split(/\s+/);
-    if (!classes.some(c=>['t','fig','shape','scene-sculpture'].includes(c))) return tag;
+    // tbx / tbx-table / drw: texto, tabela e desenho que vieram de um PowerPoint (também se ajustam no Studio)
+    if (!classes.some(c=>['t','fig','shape','scene-sculpture','tbx','tbx-table','drw'].includes(c))) return tag;
     const group = classes.filter(c=>c!=='e' && c!=='active').join('-').replace(/[^a-zA-Z0-9_-]/g,'');
     const n = counts.get(group) || 0; counts.set(group,n+1);
     const legacy = `${group}-${n}`;
@@ -68,6 +72,28 @@ export function applyVisualEdits(html, edits = {}) {
     let extra = '';
     if (Number.isInteger(Number(e.step)) && Number(e.step) > 0) { attrs = attrs.replace(/\sdata-step="[^"]*"/, ''); extra += ` data-step="${Number(e.step)}"`; }
     if (ANIM.includes(e.anim)) { attrs = attrs.replace(/\sdata-anim="[^"]*"/, ''); extra += ` data-anim="${e.anim}"`; }
+    // travado pela pessoa (no Studio, o clique atravessa); decoração do original já vem travada do motor
+    if (e.locked === true && !/\sdata-locked/.test(attrs)) extra += ' data-locked="1"';
+    if (e.locked === false) attrs = attrs.replace(/\sdata-locked="[^"]*"/, '');
+    // imagem trocada, foco e encaixe: valem na <img> de dentro (segunda passada, abaixo)
+    const img = { src: typeof e.image === 'string' && (IMG_PATH.test(e.image) || IMG_DATA.test(e.image)) ? src(e.image) : null, focus: FOCUS.includes(e.focus) ? e.focus : null, fit: ['cover','contain'].includes(e.fit) ? e.fit : null };
+    if (img.src || img.focus || img.fit) { extra += ` data-vimg="${imgs.length}"`; imgs.push(img); }
     return `<${name}${attrs} data-vkey="${key}"${edits[legacy] && !edits[key] ? ` data-vkey-old="${legacy}"` : ''}${e.size != null ? ' data-vsize' : ''}${extra}>`;
   });
+  if (!imgs.length) return out;
+  let res = out;
+  imgs.forEach((img, n) => {
+    const mark = ` data-vimg="${n}"`, at = res.indexOf(mark);
+    if (at < 0) return;
+    res = res.slice(0, at) + res.slice(at + mark.length);
+    const i = res.indexOf('<img', at), end = i < 0 ? -1 : res.indexOf('>', i);
+    if (end < 0) return;
+    let tag = res.slice(i, end);
+    const esc = (v) => String(v).replace(/"/g, '&quot;');
+    if (img.src) tag = /\ssrc="/.test(tag) ? tag.replace(/\ssrc="[^"]*"/, ` src="${esc(img.src)}"`) : `${tag} src="${esc(img.src)}"`;
+    const css = `${img.fit ? `object-fit:${img.fit};` : ''}${img.focus ? `object-position:${img.focus};` : ''}`;
+    if (css) tag = /\sstyle="/.test(tag) ? tag.replace(/\sstyle="([^"]*)"/, (_, old) => ` style="${old};${css}"`) : `${tag} style="${css}"`;
+    res = res.slice(0, i) + tag + res.slice(end);
+  });
+  return res;
 }

@@ -11,7 +11,7 @@ import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
 import { LAYOUTS, SCENES } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
-import { el } from "./elements.js";
+import { el, imageSrc } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
 import { esc, notesHTML, plain, md } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
@@ -259,7 +259,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
-  html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits)}</div>`;
+  html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p })}</div>`;
   if (bars) html += barHTML("footer", spec, i, total);
   if (s.back != null && s.back !== "") {
     const alvo = (spec.slides || []).find((x) => x && String(x.id) === String(s.back));
