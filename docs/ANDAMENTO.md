@@ -8,6 +8,24 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Algoritmo rastreado genérico: qualquer código, como num depurador — 30/09/2026
+
+- Pedido: além dos clássicos, mostrar um algoritmo qualquer (o que o professor inventou, árvore, grafo) com o
+  "inspect" das variáveis. Decisão: um núcleo genérico (execução rastreada) + catálogo por área crescendo em cima.
+- `src/pytrace.js`: Python simples interpretado em JS, sem eval (def/recursão, class, if/while/for, listas,
+  tuplas, dict, set, fatias, compreensões, lambda, f-string, deque, heapq, math). Grava cada passo: linha, variáveis
+  de cada chamada, leituras/escritas por índice e atributo, comparações igual/diferente, print, expressões
+  observadas (`watch`). Comentário no fim da linha vira legenda (`{expr}` troca pelo valor); sem ele, a frase sai
+  com os valores (`v[j] > v[j + 1] → 5 > 3: sim.`), sem recalcular nada com efeito colateral.
+- `src/trace-view.js`: desenho pelo tipo (barras, casas com ponteiros aprendidos, padrão alinhado sob o texto,
+  grade, tabela, grafo em camadas com visitados/fila/aresta da vez, árvore e lista ligada), código com a linha e
+  painel de variáveis por chamada (o que mudou acende). `view:` escolhe quando precisar.
+- `src/algo-catalog.js`: naive, kmp, quicksearch (texto), bfs, dijkstra (grafos), bst (árvore). Algoritmo novo no
+  catálogo = mais um programa + a chamada com os dados do slide.
+- Studio: o formulário do `algo` ganhou o catálogo e "Meu código (Python)" (programa + chamada).
+- Teste: `test/trace.test.js` (interpretador, erros com linha, rastro, catálogo contra a busca ingênua em 40
+  textos, desenho de cada tipo, apresentação com Tocar, Studio gravando o programa).
+
 ## Proporção do slide: 16:9, 4:3, retrato e qualquer L:A — 30/09/2026
 
 - `deck.aspect` (src/aspect.js): largura lógica fixa em 1920 e a altura acompanha (4:3 → 1440; 9:16 → 3413).

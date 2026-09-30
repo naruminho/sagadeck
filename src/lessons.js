@@ -95,7 +95,11 @@ export function calcHTML(s, ctx, head) {
 
 // ------------------------------------------------------------------------------------------------ algo
 import { traceAlgorithm, ALGO_CODE, ALGO_NAMES } from "./algo-trace.js";
+import { tracePlan, traceHTML } from "./trace-view.js";
 export function algoHTML(s, ctx, head) {
+  // programa do professor (program:) ou do catálogo (kmp, bfs…): execução rastreada genérica (src/pytrace.js)
+  const plan = tracePlan(s);
+  if (plan) return traceHTML(s, plan, ctx, head, panel);
   const algorithm = String(s.algorithm || "bubble");
   let steps;
   try { steps = traceAlgorithm(algorithm, s.array || [5, 1, 4, 2, 8, 3], { target: s.target }); }
