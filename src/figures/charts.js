@@ -2,6 +2,7 @@
 //
 //   { chart: bar,    data: [{label: "Médicos", value: 74}, …], suffix: "%", highlight: [2] }
 //   { chart: column, data: […], max: 100 }
+//   { chart: column, labels: [2024, 2025], series: [{name: "Receita", values: [10, 14]}, {name: "Custo", values: [8, 9]}] }  (agrupado; bar também)
 //   { chart: line,   labels: [...], series: [{name, values: [...]}], annotations: [{at: 5, text: "lanche"}], min: 0, max: 80 }
 //   { chart: donut,  value: 79, label: "menos acidentes" }            (ou parts: [{label, value}])
 //   { chart: waffle, total: 100, cols: 10, groups: [{count: 21, label: "…"}, {count: 79, label: "…"}] }
@@ -24,8 +25,21 @@ const fmt = (v, o) => {
 const norm = (o) => {
   if (Array.isArray(o.data)) return o.data.map((d) => (typeof d === "number" ? { label: "", value: d } : d));
   if (o.labels && o.values) return o.labels.map((l, i) => ({ label: l, value: o.values[i] }));
+  if (o.labels && o.series?.length === 1) return o.labels.map((l, i) => ({ label: l, value: o.series[0].values?.[i] ?? 0 }));
   return [];
 };
+// várias séries (colada do Excel com mais de uma coluna de números): barras/colunas agrupadas
+const grouped = (o) => !Array.isArray(o.data) && Array.isArray(o.labels) && Array.isArray(o.series) && o.series.length > 1;
+const seriesColor = (s, i) => (s.color ? cvar(s.color) : `var(--s${(i % 5) + 1})`);
+function legendSVG(series, W, y = 30) {
+  let x = W, g = "";
+  [...series].reverse().forEach((s, ri) => {
+    const i = series.length - 1 - ri, name = String(s.name || `Série ${i + 1}`);
+    x -= textW(name, 24) + 60;
+    g += `<rect x="${x}" y="${y - 20}" width="24" height="24" rx="5" style="fill:${seriesColor(s, i)}"/><text x="${x + 34}" y="${y}" class="f-label" font-size="24" style="fill:var(--muted)">${esc(name)}</text>`;
+  });
+  return g;
+}
 const isHL = (o, d, i) => {
   const h = o.highlight;
   if (h == null) return false;
@@ -66,6 +80,7 @@ const wrap = (w, h, inner, o, type) =>
 
 // especificação usada pelo exportador de PPTX para montar gráfico nativo
 function nativeSpec(o, type) {
+  if ((type === "bar" || type === "column") && grouped(o)) return { type, labels: o.labels, series: o.series.map((s) => ({ name: s.name || "", values: s.values })), suffix: o.suffix || "", prefix: o.prefix || "", max: o.max };
   if (type === "bar" || type === "column") {
     const d = norm(o);
     return { type, labels: d.map((x) => x.label), values: d.map((x) => x.value), suffix: o.suffix || "", prefix: o.prefix || "", max: o.max, highlight: d.map((x, i) => !!isHL(o, x, i)) };
@@ -75,7 +90,51 @@ function nativeSpec(o, type) {
   return { type: "image" };
 }
 
+function barGrouped(o, W, H) {
+  const { labels, series } = o, k = series.length;
+  const all = series.flatMap((s) => s.values).filter((v) => v != null);
+  const max = o.max ?? Math.max(...all) * 1.08, top = 50;
+  const fs0 = o.fontSize || 34;
+  const lw = o.labelWidth ?? Math.round(Math.min(W * 0.4, Math.max(W * 0.18, Math.max(0, ...labels.map((l) => textW(l, fs0))) + 40)));
+  const vw = 140, rowH = (H - top) / labels.length, bh = Math.min(o.barHeight || 60, (rowH * 0.78) / k);
+  let g = legendSVG(series, W);
+  const lbls = sameSize(labels.map((l) => fitLabel(l, lw - 30, fs0)));
+  labels.forEach((_, i) => {
+    const y0 = top + i * rowH + (rowH - bh * k) / 2;
+    g += labelSVG(lbls[i], lw - 24, y0 + (bh * k) / 2 + 12, `text-anchor="end" class="f-heading" style="fill:var(--fg)"`);
+    series.forEach((s, j) => {
+      const v = s.values[i]; if (v == null) return;
+      const y = y0 + j * bh, bw = Math.max(4, ((W - lw - vw) * v) / max);
+      g += `<rect class="gx" style="--i:${i};fill:${seriesColor(s, j)}" x="${lw}" y="${y}" width="${bw}" height="${bh - 4}" rx="${Math.min(6, bh / 4)}"/>`;
+      g += `<text class="fade-in f-display" style="--i:${i};fill:var(--fg)" x="${lw + bw + 14}" y="${y + bh / 2 + 10}" font-size="${o.valueSize || Math.min(34, bh * 0.8)}">${esc(fmt(v, o))}</text>`;
+    });
+  });
+  return wrap(W, H, g, o, "bar");
+}
+
+function columnGrouped(o, W, H) {
+  const { labels, series } = o, k = series.length;
+  const all = series.flatMap((s) => s.values).filter((v) => v != null);
+  const max = o.max ?? Math.max(...all) * 1.12;
+  const top = 110, bottom = 90, ch = H - top - bottom, slot = W / labels.length;
+  const bw = Math.min(o.barWidth || 120, (slot * 0.8) / k);
+  let g = legendSVG(series, W) + `<line x1="0" y1="${top + ch}" x2="${W}" y2="${top + ch}" style="stroke:var(--line)" stroke-width="3"/>`;
+  const lbls = sameSize(labels.map((l) => fitLabel(l, slot * 0.94, o.fontSize || 30)));
+  labels.forEach((_, i) => {
+    const x0 = i * slot + (slot - bw * k) / 2;
+    series.forEach((s, j) => {
+      const v = s.values[i]; if (v == null) return;
+      const bh = Math.max(4, (ch * v) / max), X = x0 + j * bw, Y = top + ch - bh;
+      g += `<rect class="gy" style="--i:${i};fill:${seriesColor(s, j)}" x="${X + 3}" y="${Y}" width="${bw - 6}" height="${bh}" rx="5"/>`;
+      g += `<text class="fade-in f-display" style="--i:${i};fill:var(--fg)" x="${X + bw / 2}" y="${Y - 14}" text-anchor="middle" font-size="${o.valueSize || Math.min(40, Math.max(20, bw * 0.4))}">${esc(fmt(v, o))}</text>`;
+    });
+    g += labelSVG(lbls[i], i * slot + slot / 2, top + ch + 52, `text-anchor="middle" class="f-heading" style="fill:var(--fg)"`, false);
+  });
+  return wrap(W, H, g, o, "column");
+}
+
 function bar(o, W, H) {
+  if (grouped(o)) return barGrouped(o, W, H);
   const d = norm(o);
   const max = o.max ?? Math.max(...d.map((x) => x.value)) * 1.08;
   const fs0 = o.fontSize || 36;
@@ -98,6 +157,7 @@ function bar(o, W, H) {
 }
 
 function column(o, W, H) {
+  if (grouped(o)) return columnGrouped(o, W, H);
   const d = norm(o);
   const max = o.max ?? Math.max(...d.map((x) => x.value)) * 1.1;
   const n = d.length, top = 80, bottom = 90, ch = H - top - bottom;

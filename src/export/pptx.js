@@ -425,8 +425,9 @@ function addNativeChart(pres, slide, it, geo, name, fmap) {
   const base = { ...geo, objectName: name, fontFace: font, catAxisLabelColor: it.fg, valAxisLabelColor: it.fg, dataLabelColor: it.fg, showLegend: false,
     valGridLine: { style: "none" }, catGridLine: { style: "none" }, catAxisLabelFontSize: 16, dataLabelFontSize: 20, dataLabelFontFace: font, catAxisLabelFontFace: font };
   if (s.type === "bar" || s.type === "column") {
-    slide.addChart(pres.ChartType.bar, [{ name: "série", labels: s.labels, values: s.values }], {
-      ...base, barDir: s.type === "bar" ? "bar" : "col", chartColors: it.colors.length ? it.colors : ["888888"], barGapWidthPct: 50,
+    const data = s.series ? s.series.map((x) => ({ name: x.name, labels: s.labels, values: x.values.map((v) => (v == null ? "" : v)) })) : [{ name: "série", labels: s.labels, values: s.values }];
+    slide.addChart(pres.ChartType.bar, data, {
+      ...base, barDir: s.type === "bar" ? "bar" : "col", chartColors: it.colors.length ? it.colors : ["888888"], barGapWidthPct: 50, barGrouping: "clustered", showLegend: !!s.series, legendPos: "t",
       showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: `"${s.prefix || ""}"0"${s.suffix || ""}"`, valAxisHidden: true,
       valAxisMaxVal: s.max, catAxisOrientation: s.type === "bar" ? "maxMin" : "minMax", catAxisLineShow: false,
     });

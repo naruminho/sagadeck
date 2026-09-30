@@ -209,7 +209,7 @@ ${html}
 <script>${read("runtime/runtime.js")}</script>
 ${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}
 ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/vendor/mermaid.min.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/diagram.js")}</script>` : ""}
-${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/science.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script>` : ""}
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };

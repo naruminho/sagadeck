@@ -624,3 +624,85 @@ test("inspetor (visualEdits): cada propriedade vira o CSS ou o atributo certo, n
   const lixo = buildHTML({ slides: [{ layout: "canvas", elements: [{ text: "x", x: 0, y: 0 }], visualEdits: { "t-f-body-r-body-0": { align: "red;}", anim: "<x>", weight: "900;x" } } }] }).html;
   assert.doesNotMatch(lixo, /red;\}|<x>|900;x/);
 });
+
+test("fórmulas e funções: a fórmula vira curva, letra vira controle, pontos do Excel e CSV ao lado do deck", async () => {
+  const { plotHTML, plotModel, plotData, parseTable } = await import("../src/science.js");
+  const F = globalThis.SagaFormula;
+  const val = (s, v, vars) => F.compile(s, vars).eval(v);
+  // o que a pessoa escreve de verdade
+  assert.equal(val("y = x² - 2x + 1", { x: 3 }), 4);
+  assert.equal(val("2(x+1)(x-1)", { x: 2 }), 6);
+  assert.equal(val("-x^2", { x: 3 }), -9, "potência antes do sinal");
+  assert.equal(val("3sin x", { x: Math.PI / 2 }), 3);
+  assert.equal(val("0,5x", { x: 4 }), 2, "vírgula decimal");
+  assert.equal(val("e^x", { x: 1 }), Math.E);
+  assert.equal(val("1/x", { x: 0 }), null, "divisão por zero vira buraco, não erro");
+  assert.deepEqual(F.compile("a*sin(b*x) + c").params, ["a", "b", "c"]);
+  assert.throws(() => F.compile("sin(x"), /parêntese/);
+  assert.throws(() => F.compile("x @ 2"), /não entendido/);
+  // nada de acessar JS pela fórmula: nome desconhecido vira produto de letras (parâmetros), nunca propriedade
+  assert.ok(!F.compile("constructor(x)").params.includes("constructor"));
+  assert.equal(F.compile("toString").eval({}), null);
+  // letra vira controle deslizante: com os limites dados ou o padrão
+  const m = plotModel({ functions: ["a*sin(b*x)"], params: { b: { value: 2, min: 0, max: 4, label: "frequência" } } });
+  assert.deepEqual(m.params.a, { value: 1, min: -5, max: 5, step: 0.1 });
+  assert.equal(m.params.b.label, "frequência");
+  const html = plotHTML({ functions: ["a*sin(b*x)"], params: { b: 2 } });
+  assert.match(html, /type="range" data-param="a"/);
+  assert.match(html, /data-param="b"[^>]*value="2"/);
+  assert.match(html, /<svg class="science-preview"[\s\S]*<path d="M/, "prévia desenhada: a miniatura e o PDF mostram a curva");
+  // pontos colados do Excel (tab, vírgula decimal, cabeçalho) e CSV com ponto e vírgula
+  assert.deepEqual(parseTable("x\tmedida\n0\t1,5\n1\t2,8"), [["x", "medida"], ["0", "1,5"], ["1", "2,8"]]);
+  const pts = plotModel({ points: "x\tmedida\n0\t1,5\n1\t2,8" }).points;
+  assert.deepEqual([pts.x, pts.y, pts.name], [[0, 1], [1.5, 2.8], "medida"]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sd-pts-"));
+  fs.mkdirSync(path.join(dir, "dados")); fs.writeFileSync(path.join(dir, "dados", "m.csv"), "x;y\n1;10\n2;20\n");
+  assert.deepEqual(plotModel({ points: "dados/m.csv" }, { baseDir: dir, warnings: [] }).points.y, [10, 20], "CSV ao lado do deck");
+  const warnings = [];
+  assert.equal(plotModel({ points: "dados/nao-tem.csv" }, { baseDir: dir, warnings }).points, undefined);
+  assert.match(warnings[0], /não encontrado/);
+  // fórmula com erro: o slide sai, o gráfico diz o erro e o fiscal recebe o aviso
+  const w2 = [];
+  assert.match(plotHTML({ functions: ["sin(x"] }, { warnings: w2 }), /Fórmula com erro: .*parêntese/);
+  assert.match(w2[0], /gráfico: fórmula 1/);
+  // exemplo antigo continua funcionando, agora como fórmula; Plotly bruto ainda manda
+  assert.equal(plotData({ preset: "parabola" })[0].y[0], 16);
+  assert.deepEqual(plotData({ data: [{ type: "bar", x: [1], y: [2] }] }), [{ type: "bar", x: [1], y: [2] }]);
+  assert.match(plotHTML({ surface: "sin(x)*cos(y)", x: [-3, 3] }), /<rect/);
+  // o slide inteiro: sem equações, o gráfico ocupa a largura toda
+  const slide = renderSlide({ layout: "science", title: "Curva", plot: { functions: ["x^2"] } }, 0, { theme: "sinal", slides: [] }).html;
+  assert.match(slide, /science-body plot-only/);
+});
+
+test("fórmulas: nome com número (h0, v0) é um parâmetro só", () => {
+  const F = globalThis.SagaFormula;
+  const c = F.compile("h0 - g*x^2/2");
+  assert.deepEqual(c.params, ["h0", "g"]);
+  assert.equal(c.eval({ x: 2, h0: 20, g: 10 }), 0);
+  assert.deepEqual(F.compile("v0x").params, ["v0"], "v0x = v0·x");
+});
+
+test("gráfico de dados: várias séries viram colunas/barras agrupadas (com legenda e nativo no PPTX) e csv: lê o arquivo ao lado do deck", async () => {
+  const { chart } = await import("../src/figures/charts.js");
+  const { figureHTML } = await import("../src/elements.js");
+  const o = { chart: "column", labels: ["2024", "2025"], series: [{ name: "Receita", values: [10, 14] }, { name: "Custo", values: [8, 9] }] };
+  const svg = chart(o);
+  assert.equal((svg.match(/class="gy"/g) || []).length, 4, "duas séries × dois rótulos");
+  assert.match(svg, />Receita</); assert.match(svg, />Custo</);
+  const native = JSON.parse(svg.match(/data-chart='([^']*)'/)[1].replace(/&quot;/g, '"'));
+  assert.deepEqual(native.series.map((s) => s.name), ["Receita", "Custo"], "PowerPoint recebe as duas séries");
+  assert.equal((chart({ ...o, chart: "bar" }).match(/class="gx"/g) || []).length, 4);
+  assert.equal((chart({ chart: "column", labels: ["a", "b"], series: [{ values: [1, 2] }] }).match(/class="gy"/g) || []).length, 2, "uma série com labels continua simples");
+  // CSV ao lado do deck: com cabeçalho, ponto e vírgula e vírgula decimal
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sd-csv-"));
+  fs.mkdirSync(path.join(dir, "dados"));
+  fs.writeFileSync(path.join(dir, "dados", "vendas.csv"), "Mês;Norte;Sul\nJan;10,5;7\nFev;12;9\nMar;15;8\n");
+  const ctx = { baseDir: dir, warnings: [] };
+  const line = figureHTML({ chart: "line", csv: "dados/vendas.csv" }, ctx, 1200, 600);
+  assert.match(line, />Norte</); assert.match(line, />Sul</);
+  assert.match(line, />Mar</, "rótulos do eixo vêm do arquivo");
+  fs.writeFileSync(path.join(dir, "dados", "um.csv"), "Time,Gols\nA,3\nB,5\n");
+  assert.equal((figureHTML({ chart: "column", csv: "dados/um.csv" }, ctx, 1200, 600).match(/class="gy"/g) || []).length, 2);
+  assert.match(figureHTML({ chart: "bar", csv: "dados/nao.csv", data: [{ label: "x", value: 1 }] }, ctx, 1200, 600), /class="gx"/, "arquivo sumido: ficam os dados do slide");
+  assert.match(ctx.warnings.at(-1), /não encontrado/);
+});

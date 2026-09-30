@@ -967,3 +967,35 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .studio-saved > summary { padding: 5px 8px; font-size: 11px; font-weight: 650; color: var(--text-2); cursor: pointer; background: var(--chrome-2); }
 .studio-saved .studio-var-table-wrap { border: 0; border-radius: 0; }
 .studio-saved .studio-var-empty { margin: 6px 8px; }
+
+/* gráfico de fórmulas no Formatar: "y =" + fórmula + excluir; parâmetros numa gradinha */
+.sf-plot-fns { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.sf-plot-fn { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
+.sf-plot-fn .sf-error { grid-column: 2 / -1; margin: 0; }
+.sf-plot-fn .sf-error:empty { display: none; }
+.sf-plot-y { color: var(--text-3); font-size: 12px; }
+.sf-plot-params { width: 100%; border-collapse: collapse; font-size: 11px; }
+.sf-plot-params th { color: var(--text-3); font-weight: 600; text-align: left; padding: 0 3px 3px; }
+.sf-plot-params tbody th { color: var(--brand); font-size: 13px; padding-right: 6px; }
+.sf-plot-params td { padding: 2px; }
+.sf-plot-params input { height: 26px; padding: 0 5px; font-size: 12px; min-width: 0; width: 100%; }
+.sf-plot .btn-small .ic { width: 13px; height: 13px; }
+
+/* planilha do gráfico de dados: cara de planilha (células coladas, cabeçalho fixo), cola do Excel */
+.sf-sheet-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--chrome); }
+.sf-sheet { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.sf-sheet th, .sf-sheet td { border-bottom: 1px solid var(--ui-line); border-right: 1px solid var(--ui-line); padding: 0; }
+.sf-sheet thead th { position: sticky; top: 0; z-index: 1; background: var(--chrome-2); font-weight: 600; color: var(--text-2); }
+.sf-sheet-corner { text-align: left; padding: 0 7px !important; font-size: 11px; width: 38%; }
+.sf-sheet-th { display: flex; align-items: center; }
+.sf-sheet-th .icon-btn { flex: none; width: 20px; height: 20px; }
+.sf-sheet-in { width: 100%; min-width: 0; height: 26px; padding: 0 7px; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
+.sf-sheet-in.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sf-sheet-in:focus { box-shadow: inset 0 0 0 2px var(--brand); background: var(--selected); }
+.sf-sheet-in.invalid { box-shadow: inset 0 0 0 2px var(--danger, #c0392b); }
+.sf-sheet-name { font-weight: 600; color: var(--text-2); }
+.sf-sheet-act { width: 26px; border-right: 0 !important; text-align: center; }
+.sf-sheet-act .icon-btn { width: 22px; height: 22px; opacity: .55; }
+.sf-sheet tr:hover .sf-sheet-act .icon-btn { opacity: 1; }
+.sf-sheet-tools { display: flex; gap: 6px; margin-top: 6px; }
+.sf-sheet-tools .ic { width: 13px; height: 13px; }

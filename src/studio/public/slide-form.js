@@ -46,6 +46,8 @@
     el: (k, label, o = {}) => ({ k, label, type: "element", ...o }),
     els: (k, label, o = {}) => ({ k, label, type: "elements", ...o }),
     chart: (k, label, o = {}) => ({ k, label, type: "chart", ...o }),
+    plot: (k, label, o = {}) => ({ k, label, type: "plot", ...o }),
+    sheet: (label, o = {}) => ({ k: ["data", "labels", "series", "parts"], label, type: "sheet", ...o }), // planilha dos dados do gráfico       // fórmulas, pontos e superfície (slide science)
     json: (k, label, o = {}) => ({ k, label, type: "json", ...o }),        // objeto editado como JSON validado
     more: (fields) => ({ type: "more", fields }),
     action: (label, run, o = {}) => ({ type: "action", label, run, ...o }),
@@ -204,7 +206,7 @@
         { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }), max: 8 }),
       f.text("caption", "Legenda")],
     diagram: [f.text("kicker", "Texto menor"), f.text("title", "Título"), f.area("mermaid", "Diagrama (Mermaid: flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, mindmap…)", { mono: true, rows: 12 }), f.text("caption", "Legenda")],
-    science: [f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={preset:"wave"};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.obj("plot", "Gráfico interativo", [f.select("preset", "Exemplo", [["wave","Onda 2D"],["parabola","Parábola 2D"],["surface","Superfície 3D"]]), f.json("data", "Dados Plotly (opcional)", {hint:"Array de traces Plotly. Deixe vazio para usar o exemplo."}), f.json("layout", "Eixos e aparência (opcional)")], {when:s=>s.plot!==false}), f.text("caption", "Nota")],
+    science: [f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={functions:["a*sin(b*x)"]};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.plot("plot", "Gráfico", {when:s=>s.plot!==false}), f.text("caption", "Nota")],
     scenography: [f.select("scene", "Composição", [["stage","Palco e profundidade"],["floor","Chão em perspectiva"],["signs","Placas na cidade"],["terminal","Terminal hacker"],["cafe","Lousa de café"],["travel","Cartão de embarque"],["ticker","Pregão financeiro"],["marquee","Letreiro de cinema"],["blueprint","Planta técnica"],["magazine","Capa de revista"],["orbit","Órbita"],["synthwave","Neon anos 80"],["gallery","Parede de galeria"]]), f.area("title", "Texto no cenário", {rows:2}), f.text("kicker", "Texto menor"), f.text("subtitle", "Subtítulo"), f.text("caption", "Assinatura"), f.text("image", "Imagem de fundo (arquivo ou link)"), f.num("imageOpacity", "Transparência do fundo (0 a 1; padrão 0.85)", { placeholder: "0.85" }), f.text("foreground", "Recorte em primeiro plano (PNG transparente)"), f.num("titleSize", "Tamanho do texto (px)")],
     kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
       f.area("text", "Frase", { rows: 2 }),
@@ -352,14 +354,14 @@
   const CHART_TYPES = [["bar", "Barras"], ["column", "Colunas"], ["line", "Linhas"], ["donut", "Rosca"], ["waffle", "Waffle"], ["isotype", "Ícones"], ["stacked", "Empilhado"]];
   const DATA_ITEM = obj([f.text("label", "Rótulo"), f.num("value", "Valor"), f.color("color", "Cor")]);
   const CHART_FIELDS = {
-    bar: [f.list("data", "Dados", DATA_ITEM, { newItem: () => ({ label: "Novo", value: 0 }) }), f.text("suffix", "Unidade"), f.num("max", "Máximo"), f.nums("highlight", "Destacar (posições)")],
-    column: [f.list("data", "Dados", DATA_ITEM, { newItem: () => ({ label: "Novo", value: 0 }) }), f.text("suffix", "Unidade"), f.num("max", "Máximo"), f.nums("highlight", "Destacar (posições)")],
-    stacked: [f.list("data", "Dados", DATA_ITEM, { newItem: () => ({ label: "Novo", value: 0 }) }), f.text("suffix", "Unidade")],
-    line: [f.list("labels", "Rótulos do eixo", T), f.list("series", "Séries", obj([f.text("name", "Nome"), f.nums("values", "Valores (vírgula; vazio = sem dado)", { allowNull: true }), f.color("color", "Cor")]), { newItem: () => ({ name: "Série", values: [] }) }),
+    bar: [f.sheet("Dados"), f.text("suffix", "Unidade"), f.num("max", "Máximo"), f.nums("highlight", "Destacar (posições)")],
+    column: [f.sheet("Dados"), f.text("suffix", "Unidade"), f.num("max", "Máximo"), f.nums("highlight", "Destacar (posições)")],
+    stacked: [f.sheet("Dados", { single: true }), f.text("suffix", "Unidade")],
+    line: [f.sheet("Dados", { multi: true }),
       f.num("min", "Mínimo"), f.num("max", "Máximo"), f.nums("ticks", "Marcas do eixo (valores)"), f.text("suffix", "Unidade"), f.bool("area", "Preencher área"), f.bool("markers", "Marcadores", { default: true }), f.bool("axis", "Eixo", { default: true }),
       f.list("bands", "Faixas", obj([f.num("at", "Posição"), f.text("text", "Texto")]), { newItem: () => ({ at: 0, text: "Faixa" }) }),
       f.list("annotations", "Anotações", obj([f.num("at", "Posição"), f.text("text", "Texto")]), { newItem: () => ({ at: 0, text: "Nota" }) })],
-    donut: [f.num("value", "Valor (%)"), f.text("center", "Texto no centro"), f.list("parts", "Partes (no lugar do valor)", DATA_ITEM, { newItem: () => ({ label: "Parte", value: 10 }) })],
+    donut: [f.num("value", "Valor (%)"), f.text("center", "Texto no centro"), f.sheet("Partes (no lugar do valor)", { single: true, key: "parts" })],
     waffle: [f.num("total", "Total de quadrados"), f.num("cols", "Colunas"), f.list("groups", "Grupos", obj([f.num("count", "Quantidade"), f.text("label", "Rótulo"), f.color("color", "Cor")]), { newItem: () => ({ count: 10, label: "Grupo" }) })],
     isotype: [f.num("total", "Total"), f.num("highlight", "Destacados"), f.icon("icon", "Ícone")],
   };
@@ -442,6 +444,8 @@
       case "element": return elementField(o, spec, path);
       case "elements": return elementsField(o, spec, path);
       case "chart": return chartField(o, spec, path);
+      case "plot": return plotField(o, spec);
+      case "sheet": return sheetField(o, spec);
       case "json": return jsonField(o, spec);
       case "more": return moreGroup(o, spec.fields, path + ".more");
       case "action": {
@@ -831,6 +835,210 @@
     const extra = genericFields(c, new Set(chartKeys(c)), `${path}.chart.other`);
     if (extra) fs.append(extra);
     return fs;
+  }
+
+  // ---- planilha do gráfico de dados: Rótulo + uma coluna por série; cola do Excel como no Excel ----
+  // Uma série: data: [{label, value}] (ou parts, na rosca). Várias: labels + series [{name, values}] (linhas, barras e
+  // colunas agrupadas). Colar em qualquer célula preenche a partir dela; a primeira linha com texto vira o nome das séries.
+  const cellNum = (c) => {
+    const t = String(c ?? "").trim().replace(/\s/g, "").replace(/^R\$/, "").replace(/%$/, "");
+    if (!t) return null;
+    const n = Number(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const parseCells = (text) => {
+    const lines = String(text ?? "").replace(/\r/g, "").split("\n");
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    const sep = lines.some((l) => l.includes("\t")) ? "\t" : lines.some((l) => l.includes(";")) ? ";" : ",";
+    return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"(.*)"$/, "$1")));
+  };
+  function sheetRead(c, spec) {
+    const key = spec.key || "data";
+    if (Array.isArray(c.series) && Array.isArray(c.labels) && !spec.single)
+      return { names: c.series.map((x, i) => x.name ?? `Série ${i + 1}`), rows: c.labels.map((l, i) => [String(l ?? ""), ...c.series.map((x) => x.values?.[i] ?? null)]), colors: c.series.map((x) => x.color) };
+    const d = (Array.isArray(c[key]) ? c[key] : []).map((x) => (typeof x === "number" ? { label: "", value: x } : x || {}));
+    return { names: [spec.single ? "Valor" : c.seriesName || "Valor"], rows: d.map((x) => [String(x.label ?? ""), x.value ?? null]), colors: [], itemColors: d.map((x) => x.color) };
+  }
+  function sheetWrite(c, spec, t) {
+    const key = spec.key || "data";
+    const rows = t.rows.filter((r) => String(r[0] ?? "").trim() || r.slice(1).some((v) => v != null));
+    const multi = !spec.single && (spec.multi || t.names.length > 1);
+    delete c.data; delete c.parts; delete c.values;
+    if (multi) {
+      c.labels = rows.map((r) => r[0]);
+      c.series = t.names.map((name, j) => ({ name, values: rows.map((r) => r[j + 1] ?? null), ...(t.colors?.[j] ? { color: t.colors[j] } : {}) }));
+    } else {
+      delete c.labels; delete c.series;
+      c[key] = rows.map((r, i) => ({ label: r[0], value: r[1] ?? 0, ...(t.itemColors?.[i] ? { color: t.itemColors[i] } : {}) }));
+    }
+  }
+  function sheetField(c, spec) {
+    const t = sheetRead(c, spec);
+    t.rows.push(["", ...t.names.map(() => null)]); // sempre uma linha em branco no fim: digitar nela cria a próxima
+    const canMulti = !spec.single;
+    const wrapEl = h("div", { class: "sf-sheet-wrap" });
+    const status = h("div", { class: "sf-hint", "data-sheet-status": "" });
+    const save = (structure) => { sheetWrite(c, spec, t); structure ? commitStructure() : commitSoon(); };
+    const draw = () => {
+      const width = t.names.length + 1;
+      t.rows.forEach((r) => { while (r.length < width) r.push(null); r.length = width; });
+      const head = h("tr", {}, h("th", { class: "sf-sheet-corner", text: "Rótulo" }), ...t.names.map((name, j) => {
+        const inp = h("input", { class: "sf-sheet-in sf-sheet-name", value: name, "aria-label": `Nome da série ${j + 1}`, "data-sheet-name": String(j), spellcheck: "false" });
+        inp.addEventListener("input", () => { t.names[j] = inp.value; save(false); });
+        const del = t.names.length > 1 ? h("button", { class: "icon-btn icon-btn-sm", type: "button", title: `Remover a série ${name}`, onclick: () => { t.names.splice(j, 1); t.colors?.splice(j, 1); t.rows.forEach((r) => r.splice(j + 1, 1)); save(true); } }, icon("x")) : null;
+        return h("th", {}, h("div", { class: "sf-sheet-th" }, inp, del));
+      }), h("th", { class: "sf-sheet-act" }));
+      const body = t.rows.map((r, i) => h("tr", {}, ...r.map((v, j) => {
+        const inp = h("input", { class: `sf-sheet-in${j ? " num" : ""}`, value: v == null ? "" : j ? String(v).replace(".", ",") : v, "aria-label": j ? `${t.names[j - 1]}, linha ${i + 1}` : `Rótulo da linha ${i + 1}`, "data-cell": `${i},${j}`, spellcheck: "false", inputmode: j ? "decimal" : "text" });
+        inp.addEventListener("input", () => {
+          if (j === 0) r[0] = inp.value;
+          else { const n = cellNum(inp.value); inp.classList.toggle("invalid", Number.isNaN(n)); if (Number.isNaN(n)) return; r[j] = n; }
+          if (i === t.rows.length - 1 && inp.value.trim()) { t.rows.push(Array(r.length).fill(null)); t.rows.at(-1)[0] = ""; save(false); draw(); focusCell(i, j, false); return; }
+          save(false);
+        });
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); focusCell(i + 1, j); }
+          else if (e.key === "ArrowDown") { e.preventDefault(); focusCell(i + 1, j); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); focusCell(i - 1, j); }
+        });
+        return h("td", {}, inp);
+      }), h("td", { class: "sf-sheet-act" }, t.rows.length > 1 ? h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Remover linha", onclick: () => { t.rows.splice(i, 1); save(true); } }, icon("trash-2")) : null)));
+      const table = h("table", { class: "sf-sheet" }, h("thead", {}, head), h("tbody", {}, body));
+      wrapEl.replaceChildren(table);
+      CTX.hydrate?.(wrapEl);
+    };
+    const focusCell = (i, j, select = true) => { const el = wrapEl.querySelector(`[data-cell="${i},${j}"]`); if (!el) return; el.focus(); if (select) el.select(); else el.setSelectionRange(el.value.length, el.value.length); };
+    // colar do Excel: a partir da célula onde a pessoa colou (no cabeçalho, com nomes das séries)
+    const paste = (text, i0, j0) => {
+      const cells = parseCells(text);
+      if (!cells.length) return false;
+      let start = 0;
+      const valueCols = cells[0].slice(j0 === 0 ? 1 : 0);
+      if (i0 === 0 && valueCols.length && valueCols.every((v) => v === "" || Number.isNaN(cellNum(v)) || cellNum(v) == null) && cells.length > 1) {
+        // primeira linha é cabeçalho: nomes das séries
+        const names = valueCols.map((v, k) => v || `Série ${k + 1}`);
+        const need = (j0 === 0 ? 0 : j0 - 1) + names.length;
+        if (canMulti) while (t.names.length < need) t.names.push(`Série ${t.names.length + 1}`);
+        names.forEach((n, k) => { const at = (j0 === 0 ? 0 : j0 - 1) + k; if (at < t.names.length) t.names[at] = n; });
+        start = 1;
+      }
+      const body = cells.slice(start);
+      const width = Math.max(...body.map((r) => r.length));
+      const needCols = j0 + width - 1;
+      if (canMulti) while (t.names.length < needCols) t.names.push(`Série ${t.names.length + 1}`);
+      let dropped = 0;
+      body.forEach((row, k) => {
+        const i = i0 + k;
+        while (t.rows.length <= i) t.rows.push(Array(t.names.length + 1).fill(null).map((v, q) => (q ? null : "")));
+        row.forEach((val, q) => {
+          const j = j0 + q;
+          if (j > t.names.length) { dropped++; return; }
+          if (j === 0) t.rows[i][0] = val;
+          else { const n = cellNum(val); t.rows[i][j] = Number.isNaN(n) ? null : n; }
+        });
+      });
+      // valores com % colados e sem unidade: a unidade vira %
+      if (!c.suffix && /%/.test(text) && spec.key !== "parts") c.suffix = "%";
+      t.rows = t.rows.filter((r, idx) => idx === t.rows.length - 1 || String(r[0] ?? "").trim() || r.slice(1).some((v) => v != null));
+      if (String(t.rows.at(-1)[0] ?? "").trim() || t.rows.at(-1).slice(1).some((v) => v != null)) t.rows.push(Array(t.names.length + 1).fill(null).map((v, q) => (q ? null : "")));
+      status.textContent = dropped ? `Este tipo de gráfico usa uma coluna de valores: ${dropped} célula(s) ficaram de fora. Linhas ou Colunas aceitam várias séries.` : `Colado: ${body.length} linha(s).`;
+      save(true);
+      return true;
+    };
+    wrapEl.addEventListener("paste", (e) => {
+      const text = e.clipboardData?.getData("text/plain") || "";
+      if (!/[\t\n;]/.test(text.trim())) return; // um valor só: cola normal na célula
+      const cell = e.target.closest("[data-cell]"), name = e.target.closest("[data-sheet-name]");
+      const [i0, j0] = cell ? cell.dataset.cell.split(",").map(Number) : name ? [0, Number(name.dataset.sheetName) + 1] : [0, 0];
+      e.preventDefault();
+      paste(text, i0, j0);
+    });
+    draw();
+    const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,text/csv", hidden: true });
+    file.addEventListener("change", async () => {
+      const text = await file.files[0]?.text(); if (text == null) return;
+      t.rows = [["", null]]; t.names = [t.names[0] || "Valor"];
+      paste(text, 0, 0);
+    });
+    const tools = h("div", { class: "sf-sheet-tools" },
+      canMulti ? h("button", { class: "btn btn-small", type: "button", "data-sheet-add-series": "", onclick: () => { t.names.push(`Série ${t.names.length + 1}`); t.rows.forEach((r) => r.push(null)); save(true); } }, icon("plus"), " Série") : null,
+      h("button", { class: "btn btn-small", type: "button", onclick: () => file.click() }, icon("upload"), " Importar CSV"), file);
+    return fieldWrap({ label: spec.label, hint: "Copie as células no Excel (ou Google Planilhas) e cole aqui com Ctrl+V. A primeira coluna é o rótulo; cada coluna de números é uma série." }, h("div", { class: "sf-ctl" }, wrapEl, tools, status));
+  }
+
+  // ---- gráfico de fórmulas (slide science): escreve a*sin(b*x) e plota; cada letra vira controle deslizante ----
+  const PLOT_PRESETS = { wave: { functions: ["sin(x)"], x: [-6.3, 6.3] }, parabola: { functions: ["x^2"], x: [-4, 4] }, surface: { surface: "sin(sqrt(x^2+y^2))", x: [-4, 4] } };
+  function plotField(o, spec) {
+    if (!o[spec.k] || typeof o[spec.k] !== "object") o[spec.k] = {};
+    const pl = o[spec.k];
+    // exemplo antigo (preset) vira fórmula editável
+    if (pl.preset && PLOT_PRESETS[pl.preset]) { const pre = PLOT_PRESETS[pl.preset]; delete pl.preset; for (const [k, v] of Object.entries(pre)) if (pl[k] == null) pl[k] = v; }
+    const F = window.SagaFormula;
+    const check = (src, vars) => { try { return { params: F.compile(src, vars).params }; } catch (e) { return { error: e.message }; } };
+    const box = h("fieldset", { class: "sf-object sf-plot" }, h("legend", { text: spec.label }));
+    pl.functions = [].concat(pl.functions ?? []).map((x) => (typeof x === "string" ? x : x?.fn ?? ""));
+    // fórmulas: uma por linha; o erro aparece embaixo enquanto digita
+    const list = h("div", { class: "sf-plot-fns" });
+    const drawFns = () => {
+      list.replaceChildren(...pl.functions.map((src, i) => {
+        const input = h("input", { type: "text", class: "form-control mono", placeholder: "a*sin(b*x)", spellcheck: "false", "aria-label": `Fórmula ${i + 1}`, "data-plot-fn": String(i) });
+        input.value = src;
+        const err = h("div", { class: "sf-hint sf-error" });
+        const validate = () => { const r = input.value.trim() ? check(input.value, ["x"]) : {}; err.textContent = r.error ? `Não entendi: ${r.error}` : ""; input.classList.toggle("invalid", !!r.error); return r; };
+        validate();
+        input.addEventListener("input", () => { pl.functions[i] = input.value; if (!validate().error) commitSoon(); });
+        // ao sair do campo: letra nova vira controle deslizante (o formulário se refaz)
+        input.addEventListener("change", () => { pl.functions = pl.functions.filter((x) => x.trim()); commitStructure(); });
+        const del = h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Remover fórmula", onclick: () => { pl.functions.splice(i, 1); commitStructure(); } }, icon("trash-2"));
+        return h("div", { class: "sf-plot-fn" }, h("span", { class: "sf-plot-y mono", text: "y =" }), input, del, err);
+      }));
+      CTX.hydrate?.(list);
+    };
+    drawFns();
+    const add = h("button", { class: "btn btn-small", type: "button", "data-plot-add": "", onclick: () => { pl.functions.push(""); drawFns(); list.lastElementChild?.querySelector("input")?.focus(); } }, icon("plus"), " Adicionar fórmula");
+    box.append(fieldWrap({ label: "Fórmulas", hint: "Ex.: a*sin(b*x), x^2 - 2x + 1, e^(-x^2). Letra que não é x vira controle deslizante na apresentação." }, h("div", { class: "sf-ctl" }, list, add)));
+    const range = pairField(pl, { k: "x", label: "Intervalo de x", labels: ["de (-10)", "até (10)"] });
+    range.addEventListener("input", () => { if (Array.isArray(pl.x)) pl.x = pl.x.map((v) => (String(v).trim() === "" ? "" : Number(String(v).replace(",", ".")))); });
+    box.append(range);
+    // parâmetros: os que aparecem nas fórmulas; valor inicial, mínimo, máximo e nome
+    const names = new Set();
+    pl.functions.forEach((src) => { if (src.trim()) (check(src, ["x"]).params || []).forEach((n) => names.add(n)); });
+    if (String(pl.surface || "").trim()) (check(pl.surface, ["x", "y"]).params || []).forEach((n) => names.add(n));
+    if (names.size) {
+      if (!pl.params || typeof pl.params !== "object") pl.params = {};
+      const rows = [...names].map((n) => {
+        const cur = typeof pl.params[n] === "number" ? { value: pl.params[n] } : pl.params[n] || {};
+        const cell = (k, ph) => {
+          const input = h("input", { type: "text", inputmode: k === "label" ? "text" : "decimal", class: "form-control", placeholder: ph, "aria-label": `${n}: ${k}`, "data-plot-param": `${n}.${k}` });
+          input.value = cur[k] ?? "";
+          input.addEventListener("input", () => {
+            const raw = input.value.trim();
+            const v = raw === "" ? null : k === "label" ? raw : Number(raw.replace(",", "."));
+            const p = (pl.params[n] = pl.params[n] && typeof pl.params[n] === "object" ? pl.params[n] : {});
+            if (v == null || Number.isNaN(v)) delete p[k]; else p[k] = v;
+            if (!Object.keys(p).length) delete pl.params[n];
+            if (!Object.keys(pl.params).length) delete pl.params;
+            commitSoon();
+          });
+          return input;
+        };
+        return h("tr", {}, h("th", { class: "mono", text: n }), h("td", {}, cell("value", "1")), h("td", {}, cell("min", "-5")), h("td", {}, cell("max", "5")), h("td", {}, cell("label", "nome")));
+      });
+      box.append(fieldWrap({ label: "Controles deslizantes" }, h("table", { class: "sf-plot-params" },
+        h("thead", {}, h("tr", {}, ["", "Valor", "Mín.", "Máx.", "Nome"].map((t) => h("th", { text: t })))), h("tbody", {}, rows))));
+    }
+    // pontos: colar do Excel (x e y), CSV, ou o nome de um arquivo .csv ao lado do deck
+    const pts = h("textarea", { class: "form-control mono", rows: 4, placeholder: "Cole do Excel: coluna x e coluna y", spellcheck: "false", "data-plot-points": "" });
+    pts.value = Array.isArray(pl.points) ? pl.points.map((q) => (Array.isArray(q) ? q : [q.x, q.y]).join("\t")).join("\n") : pl.points ?? "";
+    pts.addEventListener("input", () => { setKey(pl, "points", pts.value.trim() ? pts.value : null); commitSoon(); });
+    const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,text/csv", hidden: true });
+    file.addEventListener("change", async () => { const t = await file.files[0]?.text(); if (t != null) { pts.value = t; setKey(pl, "points", t); commitNow(); } });
+    box.append(fieldWrap({ label: "Pontos medidos (opcional)", hint: "Aparecem como bolinhas junto das curvas. Também aceita o nome de um arquivo ao lado do deck, como dados/medidas.csv." },
+      h("div", { class: "sf-ctl" }, pts, h("button", { class: "btn btn-small", type: "button", onclick: () => file.click() }, icon("upload"), " Importar CSV"), file)));
+    box.append(moreGroup(pl, [f.text("surface", "Superfície 3D: z =", { placeholder: "sin(x)*cos(y)", hint: "Usa x e y no mesmo intervalo; troca as curvas por uma superfície que gira." }),
+      f.pair("y", "Eixo y fixo", ["de", "até"]), f.text("pointsName", "Nome dos pontos"),
+      f.json("data", "Dados Plotly (avançado)", { hint: "Array de traces Plotly: substitui fórmulas e pontos." }), f.json("layout", "Eixos e aparência Plotly (avançado)")], "slide.plot.more"));
+    return box;
   }
 
   // ---- genérico: qualquer campo que o formulário não conhece ----
