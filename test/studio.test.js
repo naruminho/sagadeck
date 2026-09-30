@@ -520,9 +520,10 @@ test("inspetor de propriedades: só o que faz sentido para o objeto; Slide e Apr
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
     const ins = "#inspector-body";
-    // sem seleção: dica + Slide + Apresentação
+    // sem seleção: atalho para o conteúdo do slide + Slide + Apresentação (sem texto de manual)
     await p.click("#tab-btn-inspect");
-    await p.waitForSelector(`${ins} .ip-hint`);
+    await p.waitForSelector(`${ins} [data-open-content]`);
+    assert.equal(await p.locator(`${ins} .ip-hint`).count(), 0);
     assert.ok(await p.locator(`${ins} [data-sec="slide"]`).isVisible() && await p.locator(`${ins} [data-sec="deck"]`).isVisible());
     // painel em Formatar + clique num texto: vai para Propriedades, só com as categorias de texto
     await p.click("#tab-btn-props");

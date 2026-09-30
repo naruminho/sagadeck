@@ -8,6 +8,25 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Painel, menus de botão direito, "Deixar assim" que dura, dois usos do material — 30/09/2026
+
+- "Deixar assim" grava `fiscalOk` (impressão digital do conteúdo do slide) no deck: sem aviso, contador nem
+  marcação até o slide mudar, inclusive depois de recarregar.
+- `purpose` passa a ter dois usos na tela e na IA: `palestra` (para apresentar: letra grande, pouco texto) e
+  `consulta` (para estudar depois: conteúdo denso). aula/workshop/executiva de decks antigos continuam valendo.
+- Painel direito abre no chat; fora dele, um atalho flutuante (direita, no meio) volta, com um ponto quando a IA
+  respondeu. `paneOnLoad` só existe para os testes antigos (que esperam o Formatar).
+- Bug: trocar de slide com um objeto selecionado deixava o painel preso em Propriedades (sem os campos do carrossel,
+  do screenshot etc.). Seleção vazia por qualquer motivo volta ao Formatar; duplo clique fora do texto abre o
+  conteúdo; Propriedades tem "Editar o conteúdo do slide".
+- Botão direito: no slide (conteúdo, IA, layout, arrumar, novo, duplicar, apresentar, excluir), no objeto
+  (propriedades, frente/trás, excluir) e na miniatura (mover, duplicar…). Escuta no documento pelo ponto do clique
+  (a pílula de texto flutua por cima e o editor redesenha ao apertar).
+- Árvore no estilo VS Code: renomear e criar no próprio item (sem prompt), ações ao passar o mouse, setas/Enter/
+  F2/Delete, apagar sem pergunta (lixeira do projeto + Desfazer), menu com copiar caminho e enviar para cá.
+- Carrossel em roda com fotos maiores (300 px; a ativa 1,8×); a IA pode gerar as fotos (`image_prompt` por item).
+- Bug achado nos testes: o observador do selo do chat mexia na própria classe e travava a página em laço.
+
 ## Projeto no estilo VS Code, planilhas estilo JMP, esvaziar lixeira, demo de novidades — 30/09/2026
 
 - Projeto = a pasta do deck (`src/studio/project.js`): `<nome>.yaml`, `imagens/`, `contexto/` (anexos, prints,

@@ -37,10 +37,9 @@ function systemPrompt({ images = false, maxImages = 3 } = {}) {
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
 
 Regras de qualidade:
-- Leia PARA QUE SERVE o material e grave em \`purpose:\` no deck. Quanto texto vai na tela depende disso:
-  - \`palestra\` e \`executiva\` (para apresentar): uma ideia por slide, pouco texto na tela (o fiscal "anti-sono" reclama de textão), o detalhe vai em \`notes\`. Executiva: sóbria, recomendação, números e decisão.
-  - \`workshop\` (mão na massa, hands-on): passos, comandos e exercícios na tela; se o pessoal vai guardar o material, explique mais no próprio slide.
-  - \`aula\` (tutorial, curso, treinamento) e \`consulta\` (apostila, documentação, guia, material para distribuir, guardar ou consultar depois): a explicação fica NO SLIDE, em parágrafos curtos (2 a 4 frases, o porquê e não só o quê), com exemplos e código completo para copiar. Use \`dossier\`, \`code\`/\`codewalk\`, \`split\` com texto corrido, \`compare\` e \`aviso\`; \`density: dense\` onde precisar. Sem slide só de título de seção, sem quiz, enquete ou pergunta para a plateia, sem "número de impacto"; \`notes\` curtas e opcionais. Letra menor é aceitável (o ajuste para caber cuida). Código com mais de ~16 linhas: divida em slides de continuação.
+- Leia PARA QUE SERVE o material e grave em \`purpose:\` no deck. São só dois usos, e quanto texto vai na tela depende disso:
+  - \`palestra\` (PARA APRESENTAR: alguém fala e a plateia assiste — palestra, reunião, pitch, aula expositiva, workshop): letra grande, respiro, uma ideia por slide, pouco texto na tela para a apresentação ficar dinâmica e não dar sono (o fiscal "anti-sono" reclama de textão); o detalhe vai em \`notes\`. Em reunião de decisão, sóbrio: recomendação, números e decisão.
+  - \`consulta\` (PARA ESTUDAR DEPOIS: o material vai ser enviado e a audiência usa como fonte de estudo — apostila, documentação, guia, curso para guardar): a explicação fica NO SLIDE, em parágrafos curtos (2 a 4 frases, o porquê e não só o quê), com exemplos e código completo para copiar. Use \`dossier\`, \`code\`/\`codewalk\`, \`split\` com texto corrido, \`compare\` e \`aviso\`; \`density: dense\` onde precisar. Sem slide só de título de seção, sem quiz, enquete ou pergunta para a plateia, sem "número de impacto"; \`notes\` curtas e opcionais. Letra menor é aceitável (o ajuste para caber cuida). Código com mais de ~16 linhas: divida em slides de continuação.
 - O que a pessoa disser com todas as letras sobre QUANTO texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos") vence o tipo de material: siga e grave \`maxWords\` no deck (muito texto: ~200; pouco: ~35), qualquer que seja o \`purpose\`.
 - Nunca invente fatos: nada de número, estatística, pesquisa, data, nome ou citação que não esteja no pedido ou no material. Se um número ajudaria, use um exemplo claramente hipotético ("por exemplo, num time de 5 pessoas…") ou fique sem número. Não invente \`author\` nem \`date\` (nem "Seu Nome"): omita se o pedido não disser.
 - Prefira figuras geradas (icon, picto, diagram, chart) a listas de bullets. Ícones são do Lucide, nomes em inglês kebab-case (ex.: rocket, shield-check, trending-up).
@@ -70,14 +69,11 @@ ${reference()}`;
 // Para que serve o material: o modelo decide (JSON curto) e diz se falta informação para decidir
 export async function decidePurpose(briefing, materials = []) {
   const res = await chat([
-    { role: "system", content: `Você decide PARA QUE SERVE um material de apresentação, lendo o pedido. Opções:
-- palestra: para apresentar falando (pouco texto na tela).
-- executiva: reunião de decisão com diretoria (recomendação, números).
-- workshop: mão na massa na sessão (passos e comandos na tela).
-- aula: tutorial, curso ou treinamento com explicação na tela.
-- consulta: apostila, documentação, guia, material para distribuir, guardar ou consultar depois.
-Se o pedido já disser com todas as letras quanto texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos"), isso resolve: não pergunte, escolha o tipo que combina (muito texto: aula ou consulta; pouco: palestra ou workshop) e diga em "texto": "muito" ou "pouco".
-Se o pedido não permitir decidir com segurança E a escolha mudar muito o resultado — típico: workshop, treinamento, hands-on ou "uma apresentação sobre X" sem dizer se o material é só para a sessão ou para o pessoal guardar e consultar depois —, NÃO suponha: faça UMA pergunta curta com 2 a 4 opções curtas.
+    { role: "system", content: `Você decide PARA QUE SERVE um material de apresentação, lendo o pedido. São só dois usos:
+- palestra: PARA APRESENTAR — alguém fala e a plateia assiste (palestra, reunião, pitch, aula expositiva, workshop). Letra grande, respiro, pouco texto na tela, para não dar sono.
+- consulta: PARA ESTUDAR DEPOIS — o material vai ser enviado e a audiência usa como fonte de estudo (apostila, documentação, guia, curso para guardar). Conteúdo denso, com bastante texto no slide.
+Se o pedido já disser com todas as letras quanto texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos"), isso resolve: não pergunte, escolha (muito texto: consulta; pouco: palestra) e diga em "texto": "muito" ou "pouco".
+Se o pedido não permitir decidir com segurança — típico: workshop, treinamento ou "uma apresentação sobre X" sem dizer se o material é só para a sessão ou se vai ser enviado para o pessoal estudar depois —, NÃO suponha: faça UMA pergunta curta com 2 opções curtas (apresentar × estudar depois).
 Responda só com JSON: {"purpose": "…" ou null, "texto": "muito" | "pouco" | null, "why": "motivo curto", "pergunta": "…" ou null, "opcoes": ["…"]}` },
     { role: "user", content: `${materials.length ? `(há ${materials.length} material(is) anexado(s))\n` : ""}Pedido:\n"""\n${briefing}\n"""` },
   ], { temperature: 0.1 });
@@ -532,7 +528,7 @@ export function applyPatch(base, patch) {
 // Os campos válidos são os que a referência documenta (a mesma que vai no prompt) mais os do Studio.
 // Campos de código/dados (code, request, svg…) podem conter qualquer coisa.
 // ---------------------------------------------------------------------------------------------
-const STUDIO_KEYS = ["layout", "notes", "time", "id", "visualEdits", "auto", "image_prompt", "density", "deco", "theme", "palette", "tone",
+const STUDIO_KEYS = ["layout", "notes", "time", "id", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
 const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
 const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);

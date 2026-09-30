@@ -545,3 +545,14 @@ test("vírgula dentro de texto em { } não vira campo novo (o modelo escreve ass
   assert.deepEqual(st[0], { title: "Aqueça", text: "Manteiga derretida, mas sem fumaça saindo" });
   assert.deepEqual(st[1], { title: "Quebre", text: "Na borda, com coragem, sem medo" });
 });
+
+test("carrossel pelo chat: cada item com image_prompt vira foto gerada (a referência ensina a IA)", async () => {
+  const { reference } = await import("../src/ai/deck-ai.js");
+  assert.match(reference(), /cada item aceita `image_prompt: "descrição fotográfica realista/);
+  reply = (req) => (/^Generate an image/.test(req.lastUser) ? "sem imagem (mock)"
+    : "Montei o carrossel.\n```yaml\nedit:\n  1:\n    layout: carousel\n    items:\n      - { title: Montanha, image_prompt: \"a misty mountain at sunrise, realistic photo\" }\n      - { title: Mar, image_prompt: \"calm ocean at noon, realistic photo\" }\n```");
+  const n = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "faça um carrossel com fotos realistas", targetSlide: 0, images: true, imageOptions: { baseDir: process.cwd(), assetsDir: "imagens-teste-nao-cria" } });
+  const asked = llm.requests.slice(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", ""));
+  assert.deepEqual(asked.sort(), ["a misty mountain at sunrise, realistic photo", "calm ocean at noon, realistic photo"]);
+});

@@ -80,7 +80,7 @@
       { k: "palette", label: "Paleta só neste slide", type: "select", options: [["", "A da apresentação"], ...ctx.palettes()] },
       { k: "bg", label: "Cor de fundo", type: "color" },
     ] }, { id: "deck", title: "Apresentação", target: "deck", rows: [
-      { k: "purpose", label: "Para que serve", type: "select", options: [["", "Palestra (padrão)"], ...ctx.purposes()] },
+      { k: "purpose", label: "Uso do material", type: "select", hint: "Para apresentar: letra grande, pouco texto, para não dar sono. Para estudar depois: o material vai ser enviado e usado como fonte de estudo, então cabe bastante texto no slide.", options: [["", "Para apresentar: letra grande, pouco texto"], ...ctx.purposes()] },
       { k: "maxWords", label: "Limite de palavras por slide", type: "num", min: 10, max: 600, step: 10, hint: "vazio = o do tipo de material" },
       { k: "theme", label: "Tema", type: "select", options: ctx.themes(), noEmpty: true },
       { k: "palette", label: "Paleta", type: "select", options: [["", "A do tema"], ...ctx.palettes()] },
@@ -157,9 +157,9 @@
       const kind = is.text(els) ? "Texto" : is.shape(els) ? "Forma" : is.image(els) ? "Imagem" : "Objeto";
       const name = els.length > 1 ? `${els.length} objetos` : `${kind}${els[0].textContent.trim() ? `: “${els[0].textContent.trim().slice(0, 28)}”` : ""}`;
       html += `<section class="ip-sec" data-sec="obj"><h4>${ic(kind === "Texto" ? "type" : kind === "Forma" ? "square" : kind === "Imagem" ? "image" : "shapes")}<span>${esc(name)}</span></h4>${objectCats(els).map((c) => catHTML(c, (k) => objValue(els, k))).join("")}</section>`;
-    } else {
-      html += `<p class="ip-hint">Selecione um objeto no slide para ver as propriedades dele. Slide e Apresentação ficam sempre aqui.</p>`;
     }
+    // o conteúdo do slide (itens do carrossel, fotos, destaques do screenshot, dados do gráfico…) mora no Formatar
+    html += `<button type="button" class="ip-content" data-open-content>${ic("pencil")}<span>Editar o conteúdo do slide</span></button>`;
     const [sc, dc] = slideCats();
     html += `<section class="ip-sec" data-sec="slide">${catHTML(sc, (k) => { const v = getPath(slide, k); return v === undefined ? undefined : typeof v === "boolean" ? String(v) : v; })}</section>`;
     html += `<section class="ip-sec" data-sec="deck">${catHTML(dc, (k) => { const v = getPath(S.deck, k); return v === undefined ? undefined : typeof v === "boolean" ? String(v) : v; })}</section>`;
@@ -195,6 +195,7 @@
   }
 
   function bind() {
+    host.querySelector("[data-open-content]")?.addEventListener("click", () => ctx.openContent?.());
     // grava já no clique (o evento toggle chega depois, e um recarregamento logo em seguida o perderia)
     host.querySelectorAll("details.ip-cat").forEach((d) => {
       d.querySelector(":scope > summary").addEventListener("click", () => { openCats[d.dataset.cat] = !d.open; saveOpen(); });
@@ -219,7 +220,7 @@
 
   function setup(container, context) {
     host = container; ctx = context;
-    window.SagaVisual?.onSelect((els, why) => { if (why === "user") ctx.onSelection?.(els); render(); });
+    window.SagaVisual?.onSelect((els, why) => { ctx.onSelection?.(els, why); render(); });
     render();
   }
   window.SagaInspector = { setup, refresh: render };

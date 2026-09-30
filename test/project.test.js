@@ -114,10 +114,12 @@ test("Studio: aba Arquivos, texto da apresentação ao vivo, .md que grava, prin
     await p.fill("#deck-text-editor", yaml.replace(/^title: .*$/m, "title: Mudei pelo texto"));
     for (let k = 0; k < 40 && saved().title !== "Mudei pelo texto"; k++) await p.waitForTimeout(100);
     assert.equal(saved().title, "Mudei pelo texto");
-    // 2) .md novo em contexto/: grava sozinho
-    p.once("dialog", (d) => d.accept("roteiro.md"));
+    // 2) .md novo em contexto/, com o nome digitado na própria árvore (como no VS Code): grava sozinho
     await p.click('.ex-row[data-path="contexto"]'); await p.click('.ex-row[data-path="contexto"]'); // seleciona (e deixa aberta)
     await p.click("#ex-new-file");
+    await p.waitForSelector("#project-tree .ex-new .ex-edit");
+    await p.fill("#project-tree .ex-edit", "roteiro.md");
+    await p.keyboard.press("Enter");
     await p.waitForSelector('.doc-tab.active:has-text("roteiro.md")');
     await p.locator(".dv-text").fill("# Roteiro\n\n- abrir com a pergunta");
     const mdFile = path.join(deckFile.dir, "contexto", "roteiro.md");
@@ -153,9 +155,24 @@ test("Studio: aba Arquivos, texto da apresentação ao vivo, .md que grava, prin
     await p.getByRole("button", { name: "Atualizar da planilha" }).click();
     for (let k = 0; k < 40 && saved().slides.find((s) => s.from)?.chart.series[0].values[0] !== 20; k++) await p.waitForTimeout(100);
     assert.deepEqual(saved().slides.find((s) => s.from).chart.series[0].values, [20, 22, 25], "Atualizar da planilha relê o arquivo");
-    // 5) apagar vai para a lixeira do projeto, com Desfazer; .sagadeck não se apaga
-    p.once("dialog", (d) => d.accept());
-    await p.click('.ex-row[data-path="contexto/roteiro.md"]');
+    // 5) renomear com F2 (no lugar), apagar com Delete (sem pergunta: vai para a lixeira do projeto, com Desfazer)
+    await p.click('.doc-tab[data-doc="__deck__"]');
+    await p.click('.ex-row[data-path="contexto/roteiro.md"] .ex-name');
+    await p.keyboard.press("F2");
+    await p.waitForSelector('#project-tree .ex-row.editing .ex-edit');
+    assert.equal(await p.evaluate(() => { const i = document.querySelector("#project-tree .ex-edit"); return i.value.slice(i.selectionStart, i.selectionEnd); }), "roteiro", "seleciona o nome sem a extensão");
+    await p.keyboard.type("plano");
+    await p.keyboard.press("Enter");
+    await p.waitForSelector('.ex-row[data-path="contexto/plano.md"]');
+    assert.ok(fs.existsSync(path.join(deckFile.dir, "contexto", "plano.md")) && !fs.existsSync(mdFile));
+    fs.renameSync(path.join(deckFile.dir, "contexto", "plano.md"), mdFile);
+    await p.click("#ex-refresh");
+    await p.waitForSelector('.ex-row[data-path="contexto/roteiro.md"]');
+    // botão direito na árvore: o menu com as ações
+    await p.click('.ex-row[data-path="contexto/roteiro.md"]', { button: "right" });
+    assert.deepEqual(await p.locator(".ctx-menu .ctx-item span").allTextContents(), ["Abrir", "Novo arquivo", "Nova pasta", "Enviar arquivos para cá", "Renomear", "Copiar caminho", "Apagar"]);
+    await p.keyboard.press("Escape");
+    await p.click('.ex-row[data-path="contexto/roteiro.md"] .ex-name');
     await p.keyboard.press("Delete");
     await p.waitForFunction(() => !document.querySelector('.ex-row[data-path="contexto/roteiro.md"]'));
     assert.ok(!fs.existsSync(mdFile));

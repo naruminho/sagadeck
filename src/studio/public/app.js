@@ -246,6 +246,7 @@
     hydrateIcons(document); // botões do Inserir e a barra flutuante do objeto
     window.SagaProject?.setup({
       hydrate: hydrateIcons,
+      contextMenu: (e, items) => contextMenu(e, items),
       toast: showToast,
       highlightYaml,
       relayout: () => requestAnimationFrame(() => { if (state.autoFit) updateCanvasScale(); }),
@@ -271,16 +272,19 @@
       layouts: () => (state.layouts || LAYOUT_NAMES).map((n) => [n, layoutLabel(n)]),
       themes: () => Object.entries(state.themeMeta || {}).map(([k, m]) => [k, m.label || k]),
       palettes: () => Object.entries(state.palettes || {}).map(([k, m]) => [k, (m.label || k).replace(/\s*\(.*\)$/, "")]),
-      purposes: () => [["consulta", "Material de consulta"], ["aula", "Aula ou tutorial"], ["workshop", "Workshop"], ["palestra", "Palestra"], ["executiva", "Executiva"]],
+      // dois usos; deck antigo (aula, workshop, executiva) mostra o que tem até a pessoa escolher um dos dois
+      purposes: () => [["consulta", "Para estudar depois: conteúdo denso"], ...({ aula: [["aula", "Aula (antigo: conta como estudar depois)"]], workshop: [["workshop", "Workshop (antigo)"]], executiva: [["executiva", "Executiva (antigo)"]] }[state.deck?.purpose] || [])],
       changeLayout: (name) => changeCurrentLayout(name),
       applyLook: (kind, name, scope) => applyLook(kind, name, scope),
       commit: () => { syncDeckToServer(); renderCurrentSlide(); renderThumbnails(); },
       // como no Figma: clicar num objeto com o painel em Formatar mostra as propriedades dele; soltar a seleção volta
-      onSelection: (els) => {
+      onSelection: (els, why) => {
         const open = !dom.inspectorSidebar.classList.contains("collapsed");
-        if (els.length && open && currentPane() === "props") { state.autoInspect = true; openPane("inspect"); }
+        if (els.length && why === "user" && open && currentPane() === "props") { state.autoInspect = true; openPane("inspect"); }
+        // soltou a seleção, trocou de slide com algo selecionado: o conteúdo do slide volta a ficar à mão
         else if (!els.length && state.autoInspect && currentPane() === "inspect") { state.autoInspect = false; openPane("props"); }
       },
+      openContent: () => { state.autoInspect = false; openPane("props"); },
     });
     // Transformar em material de consulta: o mesmo deck, para distribuir e guardar (a IA decide como, pela referência)
     document.getElementById("btn-ai-reference").onclick = async () => {
@@ -721,6 +725,9 @@
       }
     }
 
+    // "Deixar assim": a pessoa aceitou o slide como está; enquanto ele não mudar, nada de aviso nem marcação
+    const accepted = state.deck?.slides?.[state.currentSlideIndex];
+    if (accepted?.fiscalOk && accepted.fiscalOk === slideFingerprint(accepted)) state.issues = [];
     // Atualizar badge do fiscal (faixa Revisar) e a barra de status
     const count = state.issues.length;
     dom.fiscalBadge.textContent = count;
@@ -747,13 +754,18 @@
 
   // Painel do fiscal: em vez de só um número vermelho, o que está errado e o que dá para fazer
   const ISSUE_LABEL = { "codigo-cortado": () => "Código não coube nem no tamanho mínimo: divida em dois slides ou reduza o mínimo em Preferências", "passa-da-margem-inferior": (i) => `Texto fora da margem (+${i.px}px)`, "fora-do-slide": () => "Texto fora do slide", "estouro-horizontal": () => "Texto estourando a largura", "texto-pequeno": (i) => `Texto pequeno (${i.px}px)`, sobreposicao: () => "Elementos um em cima do outro" };
-  const fixKey = () => `${state.currentSlideIndex}:${JSON.stringify(state.deck?.slides?.[state.currentSlideIndex] || {})}`;
-  state.ignoredFixes = state.ignoredFixes || new Set();
+  // impressão digital do conteúdo do slide (sem anotações, tempo e a própria marca): mudou algo, muda a impressão
+  function slideFingerprint(slide) {
+    const { fiscalOk, notes, time, auto, ...rest } = slide || {};
+    let h = 5381;
+    for (const ch of JSON.stringify(rest)) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
+    return (h >>> 0).toString(36);
+  }
   function renderFixPanel() {
     const panel = document.getElementById("fix-panel");
     if (!panel) return;
     const slide = state.deck?.slides?.[state.currentSlideIndex];
-    if (!state.issues.length || !slide || state.ignoredFixes.has(fixKey())) { panel.classList.add("hidden"); panel.innerHTML = ""; return; }
+    if (!state.issues.length || !slide) { panel.classList.add("hidden"); panel.innerHTML = ""; return; }
     const kinds = [...new Set(state.issues.map((i) => i.kind))];
     const lines = [...new Map(state.issues.map((i) => [i.kind + i.text, i])).values()].slice(0, 3)
       .map((i) => `<li>${escHtml((ISSUE_LABEL[i.kind] || (() => i.kind))(i))}${i.text ? `: <em>${escHtml(i.text)}</em>` : ""}</li>`).join("");
@@ -764,7 +776,7 @@
       overflow ? ["auto", "wand", "Ajustar sozinho", "Diminui o texto ou reorganiza até caber"] : null,
       overflow && slide.density !== "compact" && slide.density !== "dense" ? ["compact", "minimize-2", "Modo compacto", "Menos espaço entre os elementos deste slide"] : null,
       state.ai?.available ? ["ai", "sparkles", "Pedir para a IA", "A IA arruma sem perder conteúdo (ou divide em dois slides)"] : null,
-      ["ignore", "x", "Deixar assim", "Esconde o aviso até o slide mudar"],
+      ["ignore", "x", "Deixar assim", "O slide está bom: some o aviso e a marcação até o slide mudar"],
     ].filter(Boolean);
     panel.innerHTML = `<div class="fix-head"><i class="ic" data-ic="circle-alert"></i><b>${state.issues.length === 1 ? "1 aviso de layout ou leitura" : `${state.issues.length} avisos de layout ou leitura`} neste slide</b></div><ul>${lines}</ul><div class="fix-actions">${buttons.map(([k, ic, label, title]) => `<button type="button" class="fix-btn${k === "auto" ? " primary" : ""}" data-fix="${k}" title="${title}"><i class="ic" data-ic="${ic}"></i><span>${label}</span></button>`).join("")}</div>`;
     panel.classList.remove("hidden");
@@ -773,7 +785,14 @@
   }
   async function applyFix(kind) {
     const idx = state.currentSlideIndex, slide = state.deck.slides[idx];
-    if (kind === "ignore") { state.ignoredFixes.add(fixKey()); renderFixPanel(); return; }
+    if (kind === "ignore") {
+      slide.fiscalOk = slideFingerprint(slide); // vai no deck: vale depois de recarregar, até o slide mudar
+      syncDeckToServer();
+      state.issues = [];
+      dom.inspectorOverlay.innerHTML = "";
+      await renderCurrentSlide();
+      return;
+    }
     if (kind === "auto") return triggerAutofix();
     if (kind === "split-code") {
       // código que não coube: metade aqui, metade num slide de continuação (os destaques de linha acompanham)
@@ -1139,6 +1158,8 @@
     try {
       const { history } = await (await fetch("api/chat/history")).json();
       state.chatHistory = Array.isArray(history) ? history : [];
+      state.loadingHistory = true; // conversa guardada não é resposta nova (o atalho do chat não acende)
+      setTimeout(() => { state.loadingHistory = false; });
       // o que ficou entre parênteses no fim ("opções: …") é para o modelo; na tela, só a mensagem
       for (const m of state.chatHistory) appendChatMessage(m.role === "user" ? "user" : "ai", String(m.text).replace(/\n\((opções|versões): [^\n]*\)$/, ""));
     } catch { state.chatHistory = []; }
@@ -1231,6 +1252,8 @@
 
   function appendChatMessage(sender, text, actions = []) {
     dom.chatEmpty?.remove();
+    // resposta da IA com o chat fora da vista: o atalho flutuante acende (some quando o chat abre)
+    if (sender !== "user" && !state.loadingHistory && currentPane() !== "chat") document.getElementById("chat-badge")?.classList.add("show");
     const msgDiv = document.createElement("div");
     msgDiv.className = sender === "user" ? "user-msg" : "ai-msg";
 
@@ -4128,6 +4151,36 @@ ${ta.value}`;
   const PANE_TABS = ["props", "inspect", "chat", "vars"];
   const paneEls = (w) => ({ btn: document.getElementById(`tab-btn-${w}`), panel: document.getElementById(`tab-panel-${w}`) });
   const currentPane = () => PANE_TABS.find((w) => paneEls(w).panel?.classList.contains("active")) || "props";
+  // menu de botão direito genérico (itens: { label, ic, fn, danger, disabled } ou { sep: true })
+  function contextMenu(e, items) {
+    document.querySelector(".ctx-menu")?.remove();
+    const m = document.createElement("div");
+    m.className = "ctx-menu";
+    m.setAttribute("role", "menu");
+    m.innerHTML = items.map((it, i) => it.sep ? '<div class="ctx-sep" role="separator"></div>'
+      : `<button type="button" role="menuitem" class="ctx-item${it.danger ? " danger" : ""}" data-i="${i}"${it.disabled ? " disabled" : ""}><i class="ic" data-ic="${it.ic || "chevron-right"}"></i><span>${escHtml(it.label)}</span>${it.key ? `<kbd class="ctx-key">${escHtml(it.key)}</kbd>` : ""}</button>`).join("");
+    document.body.append(m);
+    hydrateIcons(m);
+    const r = m.getBoundingClientRect();
+    m.style.left = `${Math.min(e.clientX, innerWidth - r.width - 8)}px`;
+    m.style.top = `${Math.min(e.clientY, innerHeight - r.height - 8)}px`;
+    const close = () => { m.remove(); document.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", esc, true); };
+    const outside = (ev) => { if (!m.contains(ev.target)) close(); };
+    const esc = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+    window.addEventListener("keydown", esc, true); // Esc fecha antes dos outros atalhos
+    setTimeout(() => document.addEventListener("pointerdown", outside, true));
+    m.onclick = (ev) => { const b = ev.target.closest("[data-i]"); if (!b || b.disabled) return; close(); items[+b.dataset.i].fn(); };
+    m.querySelector(".ctx-item:not([disabled])")?.focus();
+  }
+  function syncChatFab() {
+    const fab = document.getElementById("chat-fab");
+    if (!fab) return;
+    const visible = isMobile() ? dom.inspectorSidebar.classList.contains("mobile-open") : !dom.inspectorSidebar.classList.contains("collapsed");
+    fab.classList.toggle("hidden", visible && currentPane() === "chat");
+    const badge = document.getElementById("chat-badge");
+    if (visible && currentPane() === "chat" && badge?.classList.contains("show")) badge.classList.remove("show"); // só se precisar: o observador do selo chama esta função
+    fab.classList.toggle("has-news", !!document.getElementById("chat-badge")?.classList.contains("show"));
+  }
   function openPane(which, { toggle = false } = {}) {
     const pane = dom.inspectorSidebar;
     if (!PANE_TABS.includes(which)) which = "props";
@@ -4150,6 +4203,7 @@ ${ta.value}`;
     dom.btnToggleChat.classList.toggle("active", chat);
     dom.btnPaneProps.classList.toggle("active", which === "props");
     store.set("pane", which);
+    queueMicrotask(syncChatFab);
     if (chat) setTimeout(() => dom.chatInput.focus(), 0);
     if (vars) refreshStudioVars();
     if (which === "inspect") window.SagaInspector?.refresh();
@@ -4162,6 +4216,7 @@ ${ta.value}`;
     dom.btnToggleChat.classList.remove("active");
     dom.btnPaneProps.classList.remove("active");
     store.set("pane", null);
+    queueMicrotask(syncChatFab);
     requestAnimationFrame(() => state.autoFit && updateCanvasScale());
   }
 
@@ -4237,8 +4292,72 @@ ${ta.value}`;
     document.getElementById("modal-prefs").onclick = (e) => { if (e.target.id === "modal-prefs") e.target.classList.add("hidden"); };
     document.getElementById("prefs-search").oninput = filterPrefs;
     dom.btnAppTheme.onclick = () => setAppTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
-    const pane = store.get("pane", "props");
-    if (pane && !isMobile()) openPane(pane); else closePane();
+    // ao abrir, o painel começa no chat (a não ser que a pessoa tenha fechado o painel); paneOnLoad só para testes
+    const pane = store.get("pane", "chat");
+    if (pane && !isMobile()) openPane(store.get("paneOnLoad", "chat")); else closePane();
+
+    // atalho flutuante do chat (lado direito, no meio da tela)
+    document.getElementById("chat-fab").onclick = () => openPane("chat");
+    syncChatFab();
+    new MutationObserver(syncChatFab).observe(document.getElementById("chat-badge"), { attributes: true, attributeFilter: ["class"] });
+
+    // duplo clique fora de um texto (fotos do carrossel, screenshot, gráfico…): abre o conteúdo do slide
+    dom.renderedSlideContainer.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".t[data-vkey], [data-writing]")) return; // no texto, duplo clique edita o texto
+      state.autoInspect = false; openPane("props");
+    });
+    // botão direito: ações rápidas
+    const askAI = (text) => { openPane("chat"); dom.chatInput.value = text; autoGrowChat(); dom.chatInput.focus(); dom.chatInput.setSelectionRange(text.length, text.length); };
+    const slideMenu = () => [
+      { label: "Editar o conteúdo do slide", ic: "pencil", fn: () => { state.autoInspect = false; openPane("props"); } },
+      { label: "Pedir à IA para melhorar este slide", ic: "sparkles", fn: () => askAI(`Melhore o slide ${state.currentSlideIndex + 1}: `) },
+      { label: "Trocar layout…", ic: "layout-grid", fn: () => dom.btnLayoutGallery.click() },
+      { label: "Arrumar layout", ic: "wand", fn: () => triggerAutofix() },
+      { sep: true },
+      { label: "Novo slide depois deste", ic: "plus", fn: () => openSceneLibrary() },
+      { label: "Duplicar slide", ic: "copy", fn: () => duplicateCurrentSlide() },
+      { label: "Apresentar a partir daqui", ic: "play", fn: () => startPresentation() },
+      { sep: true },
+      { label: "Excluir slide", ic: "trash-2", danger: true, fn: () => deleteCurrentSlide() },
+    ];
+    // no documento (e pelo ponto do clique): apertar o botão direito seleciona o objeto e o editor redesenha o slide,
+    // então o elemento do evento pode já ter saído da página
+    document.addEventListener("contextmenu", (e) => {
+      // o que está no slide debaixo do cursor (a pílula de ações de texto e as alças flutuam por cima)
+      const top = document.elementFromPoint(e.clientX, e.clientY);
+      if (!top || top.closest("dialog, .modal, .ctx-menu, .task-pane, .slide-rail, .doc-view, .ribbon")) return;
+      const hit = document.elementsFromPoint(e.clientX, e.clientY).find((el) => dom.renderedSlideContainer.contains(el));
+      if (!hit) return;
+      if (hit.closest("[data-writing]")) return; // escrevendo no texto: o menu do navegador (copiar, colar)
+      e.preventDefault();
+      const obj = hit.closest("[data-vkey]");
+      const V = window.SagaVisual;
+      const act = (a) => () => { V?.select([obj]); document.querySelector(`.visual-toolbar [data-act="${a}"]`)?.click(); };
+      const items = obj && V ? [
+        { label: "Propriedades do objeto", ic: "sliders-horizontal", fn: () => { V.select([obj]); state.autoInspect = false; openPane("inspect"); } },
+        { label: "Trazer para frente", ic: "bring-to-front", fn: act("front") },
+        { label: "Enviar para trás", ic: "send-to-back", fn: act("back") },
+        { label: "Excluir objeto", ic: "trash-2", danger: true, fn: act("delete") },
+        { sep: true }, ...slideMenu(),
+      ] : slideMenu();
+      contextMenu(e, items);
+    });
+    dom.thumbnailsList.addEventListener("contextmenu", (e) => {
+      const card = e.target.closest(".thumb-card"); if (!card) return;
+      e.preventDefault();
+      const idx = +card.dataset.idx;
+      selectSlide(idx);
+      contextMenu(e, [
+        { label: "Novo slide depois deste", ic: "plus", fn: () => openSceneLibrary() },
+        { label: "Duplicar slide", ic: "copy", fn: () => duplicateCurrentSlide() },
+        { label: "Mover para cima", ic: "arrow-up", disabled: idx === 0, fn: () => moveSlide(idx, -1) },
+        { label: "Mover para baixo", ic: "arrow-down", disabled: idx === state.deck.slides.length - 1, fn: () => moveSlide(idx, 1) },
+        { label: "Pedir à IA para melhorar este slide", ic: "sparkles", fn: () => askAI(`Melhore o slide ${idx + 1}: `) },
+        { label: "Apresentar a partir daqui", ic: "play", fn: () => startPresentation() },
+        { sep: true },
+        { label: "Excluir slide", ic: "trash-2", danger: true, fn: () => deleteCurrentSlide() },
+      ]);
+    });
 
     // anotações
     dom.btnNotesToggle.onclick = () => setNotesVisible(dom.notesBar.classList.contains("hidden"));
