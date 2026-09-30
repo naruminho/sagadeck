@@ -94,6 +94,39 @@ test("faixa e painel: Avançado é a última aba, grupos do Início juntos, abas
       assert.ok(m.cabe, `${id}: as abas cabem no painel`);
       assert.ok(m.nome, `${id}: o nome da aba aberta aparece inteiro`);
     }
+    // miniaturas do trilho: o slide inteiro cabe no quadro (a escala acompanha a largura, nada cortado)
+    await p.waitForSelector(".thumb-screen .thumb-render .slide");
+    const quadros = await p.locator(".thumb-screen:has(.thumb-render)").evaluateAll((els) => els.map((s) => [s.clientWidth, s.querySelector(".thumb-render").getBoundingClientRect().width]));
+    assert.ok(quadros.length && quadros.every(([q, r]) => Math.abs(q - r) <= 1), `slide do tamanho do quadro: ${JSON.stringify(quadros)}`);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("Revisar: um botão só (Arrumar layout) que diz o que fez e se desfaz", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides = [{ layout: "list", title: "Um título bem comprido que passa dos cinquenta e cinco caracteres fácil", items: ["um", "dois"] }, { layout: "end", title: "Fim" }];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click('.ribbon-tab[data-tab="revisar"]');
+    assert.equal(await p.locator("#btn-smart-tidy").count(), 0, "sem o Arrumar repetido");
+    assert.match(await p.locator("#btn-autofix").innerText(), /Arrumar layout/);
+    await p.click("#btn-autofix");
+    await p.waitForFunction(() => /titleSize/.test(document.getElementById("toast-notification")?.textContent || ""));
+    await p.waitForTimeout(500);
+    assert.equal(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].titleSize, 68, "arrumou no deck salvo");
+    await p.click("#toast-notification [data-toast-undo]");
+    await p.waitForFunction(async () => !(await (await fetch("/api/deck")).json()).spec.slides[0].titleSize);
+    await p.waitForTimeout(700);
+    assert.equal(YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0].titleSize, undefined, "Desfazer volta no deck salvo");
+    // slide já em ordem: diz isso, sem inventar que alinhou alguma coisa
+    await p.click("#btn-autofix");
+    await p.waitForFunction(() => /titleSize/.test(document.getElementById("toast-notification")?.textContent || ""));
+    await p.click("#btn-autofix");
+    await p.waitForFunction(() => /em ordem/.test(document.getElementById("toast-notification")?.textContent || ""));
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
@@ -145,7 +178,7 @@ test("galeria Novo slide: todos os tipos por categoria, busca acha o Status sema
     await p.locator("#advanced-density-select").selectOption("dense");
     await p.waitForFunction((i) => document.querySelector(`.thumb-card[data-idx="${i}"]`), index);
     assert.equal(saved().slides[index].density, "dense");
-    assert.ok(await p.locator("#rendered-slide-container .slide.density-dense").count());
+    await p.waitForSelector("#rendered-slide-container .slide.density-dense"); // o redesenho vem logo depois da gravação
     await p.locator("#advanced-density-select").selectOption("");
     await p.waitForFunction(() => document.querySelector("#rendered-slide-container .slide:not(.density-dense)"));
     assert.equal(saved().slides[index].density, undefined);

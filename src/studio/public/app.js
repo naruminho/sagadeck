@@ -163,7 +163,6 @@
     btnSpotlight: document.getElementById("btn-spotlight"),
     btnSquint: document.getElementById("btn-squint"),
     btnHeatmap: document.getElementById("btn-heatmap"),
-    btnSmartTidy: document.getElementById("btn-smart-tidy"),
     btnYamlDrawer: document.getElementById("btn-yaml-drawer"),
     btnAudioToggle: document.getElementById("btn-audio-toggle"),
     heatmapOverlay: document.getElementById("heatmap-overlay"),
@@ -820,9 +819,11 @@
   // ==========================================================================
   // AUTO-CORREÇÃO AUTOMÁTICA ("corrigir sozinho")
   // ==========================================================================
+  // Arrumar layout: o fiscal corrige o slide atual (sobreposição, margem, título comprido, texto demais) e diz o que fez
   async function triggerAutofix() {
     try {
       const idx = state.currentSlideIndex;
+      const before = structuredClone(state.deck.slides[idx]);
       const res = await fetch("api/autofix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -837,10 +838,11 @@
         state.deck.slides[idx] = data.slide;
         await renderCurrentSlide();
         renderThumbnails();
-        const actionMsg = data.actions && data.actions.length
-          ? data.actions.join("; ")
-          : "Layout otimizado e perfeitamente seguro!";
-        showToast(`Auto-correção: ${actionMsg}`);
+        if (!data.actions?.length) { showToast("Nada para arrumar: o slide já está em ordem."); return; }
+        showToast(`Arrumado: ${data.actions.join("; ")}`, 9000, { label: "Desfazer", fn: () => {
+          state.deck.slides[idx] = before;
+          syncDeckToServer(); renderCurrentSlide(); renderThumbnails();
+        } });
       }
     } catch (err) {
       showToast("Erro ao auto-corrigir: " + err.message);
@@ -1561,17 +1563,6 @@
     });
   }
 
-  function smartTidy() {
-    playHaptic("pop");
-    dom.slideStage.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
-    dom.slideStage.style.transform = `scale(${state.zoomScale * 1.02})`;
-    setTimeout(() => {
-      dom.slideStage.style.transform = `scale(${state.zoomScale})`;
-    }, 180);
-    triggerAutofix();
-    showToast("Arrumar a Casa: elementos alinhados e espaçamentos equilibrados!");
-  }
-
   // ==========================================================================
   // PÍLULA DE ALQUIMIA FLUTUANTE
   // ==========================================================================
@@ -1839,8 +1830,7 @@
     { title: "Trocar tema", cat: "Design", ic: "palette", fn: () => selectRibbonTab("design") },
     { title: "Nova apresentação com IA", cat: "IA", ic: "wand-sparkles", fn: () => openAiDeckModal() },
     { title: "Abrir assistente", cat: "IA", ic: "bot", fn: () => openPane("chat") },
-    { title: "Corrigir layout do slide", cat: "Revisar", ic: "wand", fn: () => triggerAutofix() },
-    { title: "Arrumar elementos", cat: "Revisar", ic: "layout-dashboard", fn: () => smartTidy() },
+    { title: "Arrumar layout do slide", cat: "Revisar", ic: "wand", fn: () => triggerAutofix() },
     { title: "Teste da última fileira", cat: "Revisar", ic: "scan-eye", fn: () => toggleSquintTest() },
     { title: "Mapa de atenção", cat: "Revisar", ic: "flame", fn: () => toggleHeatmap() },
     { title: "Ritmo narrativo", cat: "Revisar", ic: "activity", fn: () => { selectRibbonTab("revisar"); dom.btnStoryArc.click(); } },
@@ -2180,6 +2170,10 @@
   };
   const thumbKey = (idx, slide) => `${deckLook()}|${idx}|${JSON.stringify(slide)}`;
   let thumbObserver = null;
+  // o slide (1920×1080) encolhe para a largura do quadro da miniatura, qualquer que seja a do trilho
+  const thumbScaleObserver = new ResizeObserver((entries) => {
+    entries.forEach(({ target }) => { if (target.clientWidth) target.style.setProperty("--thumb-scale", String(target.clientWidth / 1920)); });
+  });
   const thumbQueue = [];
   let thumbActive = 0;
 
@@ -2189,6 +2183,7 @@
   function renderThumbnails() {
     if (!state.deck || !state.deck.slides) return;
     thumbObserver?.disconnect();
+    thumbScaleObserver.disconnect();
     thumbQueue.length = 0;
     bindSlideListKeys();
     dom.thumbnailsList.innerHTML = "";
@@ -2218,6 +2213,7 @@
         screen.appendChild(fb);
       }
       card.appendChild(screen);
+      thumbScaleObserver.observe(screen);
 
       if (Array.isArray(slide.auto) && slide.auto.length) {
         const badge = document.createElement("span");
@@ -4731,7 +4727,6 @@ ${ta.value}`;
     // Recursos UX Inovadores
     dom.btnSquint.onclick = toggleSquintTest;
     dom.btnHeatmap.onclick = toggleHeatmap;
-    dom.btnSmartTidy.onclick = smartTidy;
     dom.btnYamlDrawer.onclick = toggleYamlDrawer;
     dom.btnCloseYamlDrawer.onclick = toggleYamlDrawer;
     dom.yamlLiveEditor.addEventListener("input", onYamlEditorInput);
