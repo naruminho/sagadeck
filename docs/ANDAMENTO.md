@@ -8,6 +8,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Carrossel em semicírculo e em anéis — 30/09/2026
+
+- `carousel` (`src/carousel.js`): um item por clique com foto e texto. `arc`: roda com o centro fora do slide gira até
+  o item (que cresce); o texto sai pela esquerda e o novo entra da esquerda, sobrepondo. `rings`: a foto em anel
+  externo (anti-horário) e disco interno (horário) que travam formando a foto; o texto sobe junto.
+- Runtime: `renderLesson` põe `--lesson-i` no slide e `active`/`past` em `[data-lesson-k]` (genérico).
+- Sem foto: paisagens desenhadas em SVG (offline). Foto da pessoa: `image:` ou Escolher foto no Formatar.
+
 ## Dinâmicas a dois: duelo de commits, dois terminais, turnos — 30/09/2026
 
 - Pedido da pessoa (brainstorm de dinâmicas para aula de Git; a ideia 2, QR ao vivo, ficou de fora).

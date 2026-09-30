@@ -999,3 +999,9 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .sf-sheet tr:hover .sf-sheet-act .icon-btn { opacity: 1; }
 .sf-sheet-tools { display: flex; gap: 6px; margin-top: 6px; }
 .sf-sheet-tools .ic { width: 13px; height: 13px; }
+
+/* foto de um item (carrossel): miniatura redonda + Escolher foto */
+.sf-photo { display: flex; align-items: center; gap: 8px; }
+.sf-photo-thumb { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1px solid var(--ui-line); }
+.sf-photo-empty { font-size: 11px; color: var(--text-3); }
+.sf-photo .ic { width: 13px; height: 13px; }

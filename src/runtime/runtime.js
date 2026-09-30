@@ -288,6 +288,13 @@
     const oldWord = oldPanel && $(".kinetic-word", oldPanel);
     const source = oldWord ? { element: oldWord, rect: oldWord.getBoundingClientRect(), style: getComputedStyle(oldWord) } : null;
     root.dataset.lessonIndex = String(index);
+    // peças que acompanham o quadro sem serem painéis (carrossel): o CSS gira/desliza com --lesson-i e active/past
+    root.style.setProperty("--lesson-i", String(index));
+    $$("[data-lesson-k]", root).forEach((el) => {
+      const k = +el.dataset.lessonK;
+      el.classList.toggle("active", k === index);
+      el.classList.toggle("past", k < index);
+    });
     $$("[data-lesson-panel]", root).forEach((panel, i) => {
       panel.classList.toggle("active", i === index);
       panel.setAttribute("aria-hidden", String(i !== index));

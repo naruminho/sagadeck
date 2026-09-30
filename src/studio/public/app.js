@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "duel", "terminals", "turns",
+    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -43,7 +43,7 @@
     timeline: "Linha do tempo", chart: "Gráfico de dados", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
-    duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois",
+    duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     hub: "Mapa de caminhos", status: "Status semanal", onepage: "One-page", headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -2359,7 +2359,7 @@
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
     ["codigo", "Código e API", ["code", "codewalk", "api"]],
-    ["visual", "Imagem e movimento", ["image", "full", "spotlight", "video", "scenography", "kinetic"]],
+    ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "scenography", "kinetic"]],
     ["plateia", "Plateia", ["question", "poll"]],
     ["dinamicas", "Dinâmicas a dois", ["duel", "terminals", "turns"]],
     ["livre", "Montar do zero", ["blocks", "canvas"]],

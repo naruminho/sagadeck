@@ -47,6 +47,7 @@
     els: (k, label, o = {}) => ({ k, label, type: "elements", ...o }),
     chart: (k, label, o = {}) => ({ k, label, type: "chart", ...o }),
     plot: (k, label, o = {}) => ({ k, label, type: "plot", ...o }),
+    photo: (k, label, o = {}) => ({ k, label, type: "photo", ...o }),     // foto da pessoa (arquivo escolhido) ou vazia = de demonstração
     lines: (k, label, o = {}) => ({ k, label, type: "linemap", ...o }), // {2: "texto", 5: null} <-> "2: texto" por linha
     sheet: (label, o = {}) => ({ k: ["data", "labels", "series", "parts"], label, type: "sheet", ...o }), // planilha dos dados do gráfico       // fórmulas, pontos e superfície (slide science)
     json: (k, label, o = {}) => ({ k, label, type: "json", ...o }),        // objeto editado como JSON validado
@@ -195,6 +196,9 @@
         f.json("fields", "Parâmetros documentados", { placeholder: '{ "$.campo": "O que este campo faz" }', hint: "Exibe a aba Parâmetros com caminho, valor atual e explicação." }),
         f.json("similarity", "Comparação por embeddings", { placeholder: '{ "reference": "frase de referência", "texts": ["outra frase"], "vector": "$.data[0].embedding" }', hint: "O corpo deve usar {{text}}; compara cada frase com a referência." }),
         f.json("code", "Abas de código", { placeholder: '["curl", "javascript", "python", "python-comentado"]', hint: "Lista de linguagens: curl, javascript, javascript-comentado, python, python-comentado." })])],
+    carousel: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.select("style", "Estilo", [["arc", "Roda em semicírculo"], ["rings", "Foto em anéis que giram"]], { empty: false, default: "arc" }),
+      f.list("items", "Itens (um por clique)", obj([f.photo("image", "Foto"), f.text("title", "Título"), f.area("text", "Texto"), f.text("label", "Chapéu do item", { placeholder: "01 / 05" })]),
+        { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }) })],
     // dinâmicas a dois (src/dynamics): um quadro por clique
     duel: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...DUEL_FIELDS, f.text("bet", "Aposta antes do pull (enquete)", { placeholder: "Vai dar conflito?" })],
     terminals: [f.text("kicker", "Chapéu"), f.text("title", "Título"),
@@ -469,6 +473,7 @@
       case "plot": return plotField(o, spec);
       case "sheet": return sheetField(o, spec);
       case "linemap": return lineMapField(o, spec);
+      case "photo": return photoField(o, spec);
       case "json": return jsonField(o, spec);
       case "more": return moreGroup(o, spec.fields, path + ".more");
       case "action": {
@@ -987,6 +992,15 @@
       canMulti ? h("button", { class: "btn btn-small", type: "button", "data-sheet-add-series": "", onclick: () => { t.names.push(`Série ${t.names.length + 1}`); t.rows.forEach((r) => r.push(null)); save(true); } }, icon("plus"), " Série") : null,
       h("button", { class: "btn btn-small", type: "button", onclick: () => file.click() }, icon("upload"), " Importar CSV"), file);
     return fieldWrap({ label: spec.label, hint: "Copie as células no Excel (ou Google Planilhas) e cole aqui com Ctrl+V. A primeira coluna é o rótulo; cada coluna de números é uma série." }, h("div", { class: "sf-ctl" }, wrapEl, tools, status));
+  }
+
+  // ---- foto de um item (carrossel): miniatura + Escolher foto; sem foto, o slide usa uma de demonstração ----
+  function photoField(o, spec) {
+    const cur = o[spec.k];
+    const thumb = cur ? h("img", { class: "sf-photo-thumb", src: /^(data:|https?:)/.test(cur) ? cur : "", alt: "" }) : h("span", { class: "sf-photo-empty", text: "de demonstração" });
+    const pick = h("button", { class: "btn btn-small", type: "button", "data-photo-pick": "", onclick: () => CTX.chooseImage?.(o) }, icon("image"), cur ? " Trocar foto" : " Escolher foto");
+    const clear = cur ? h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Voltar para a foto de demonstração", onclick: () => { delete o[spec.k]; delete o.alt; commitStructure(); } }, icon("trash-2")) : null;
+    return fieldWrap(spec, h("div", { class: "sf-ctl sf-photo" }, thumb, pick, clear));
   }
 
   // ---- linhas de um arquivo: {2: "texto", 5: null} editado como "2: texto" por linha; ours/theirs/both passam direto ----
