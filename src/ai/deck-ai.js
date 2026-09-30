@@ -31,7 +31,7 @@ export function reference() {
   return referenceCache;
 }
 
-function systemPrompt({ images = false, maxImages = 3 } = {}) {
+export function systemPrompt({ images = false, maxImages = 3 } = {}) {
   const themes = Object.entries(THEMES).map(([k, t]) => `${k}${t.label ? ` (${t.label})` : ""}`).join(", ");
   return `Você é o motor de IA do sagadeck, que gera apresentações a partir de YAML.
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
@@ -121,6 +121,22 @@ function publicSpec(spec) {
   for (const k of Object.keys(copy)) if (k.startsWith("_")) delete copy[k];
   return copy;
 }
+// o deck como vai no prompt do chat (só para ler; o que se grava é sempre o deck inteiro)
+function promptSpec(spec) {
+  const copy = publicSpec(spec);
+  // slide que veio de um PowerPoint importado (canvas com original:): vai resumido — o texto e o que tem, sem os
+  // elementos (desenho, posições), que são muitos e não ajudam a decidir
+  copy.slides = (copy.slides || []).map((sl) => (sl && sl.layout === "canvas" && sl.original && Array.isArray(sl.elements) ? importedSummary(sl) : sl));
+  if (copy.master) copy.master = { resumo: `moldura do estilo com ${(copy.master.elements || []).length} elemento(s) (logos, faixas, número); área e título definidos` };
+  return copy;
+}
+function importedSummary(sl) {
+  const els = sl.elements.filter((e) => !e.deco);
+  const texts = els.filter((e) => e.textbox).map((e) => e.textbox.paragraphs.map((p) => (p.runs || []).map((r) => r.t ?? (r.latex ? `$${r.latex}$` : "")).join("")).join("\n").trim()).filter((t) => t && !/^\d{1,3}$/.test(t));
+  const tables = els.filter((e) => e.tableData).map((e) => e.tableData.map((r) => r.join(" | ")).join("\n"));
+  const { elements, ...rest } = sl;
+  return { ...rest, importado: { textos: texts, ...(tables.length ? { tabelas: tables } : {}), imagens: els.filter((e) => e.image).map((e) => e.image), formas: els.filter((e) => e.drawing).length } };
+}
 
 // Converte o texto do LLM num deck válido ou lança um erro descritivo (que volta para o LLM).
 // Erro clássico de LLM: `text: **negrito** resto` (o * vira alias de YAML). Põe aspas nesses valores,
@@ -161,7 +177,7 @@ function rejoinFlowCommas(node) {
   return out;
 }
 
-function parseYaml(src) {
+export function parseYaml(src) {
   try {
     return rejoinFlowCommas(YAML.parse(src));
   } catch (first) {
@@ -193,7 +209,7 @@ function parseSlideText(text, deck) {
   return { slide, prose };
 }
 
-function validateSlides(spec) {
+export function validateSlides(spec) {
   const errors = [];
   spec.slides.forEach((s, i) => {
     try {
@@ -282,7 +298,7 @@ async function askUntilValid(messages, parse, opts = {}) {
       // Correção só de formato: a explicação que vale é a da 1ª resposta (não o "desculpe, corrigi").
       // Revisão de conteúdo (soft): o que foi aplicado é a última resposta, então vale a explicação dela.
       if (attempt > 1 && firstProse && !lastError?.soft) parsed.prose = firstProse;
-      return { ...parsed, attempts: attempt, imagesDropped: !!res.imagesDropped, commands };
+      return { ...parsed, attempts: attempt, imagesDropped: !!res.imagesDropped, visionRouted: res.visionRouted || null, commands };
     } catch (e) {
       lastError = e;
       if (process.env.SAGADECK_AI_DEBUG) console.error(`[ia] tentativa ${attempt} inválida: ${e.message}`);
@@ -439,6 +455,17 @@ insert:            # slides novos; after = número do slide depois do qual entra
 delete: [7]        # números (atuais) dos slides a remover
 test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
 \`\`\`
+TRANSFORMAR A APRESENTAÇÃO INTEIRA (só quando o deck atual veio de um PowerPoint importado, com \`import:\` no deck e slides
+com \`importado:\`): se a pessoa pedir para MELHORAR a apresentação toda mantendo o estilo do original, ou para RECRIAR do zero,
+não faça patch: responda uma frase dizendo o que vai fazer e um bloco yaml só com
+\`\`\`yaml
+transform:
+  mode: melhorar        # ou recriar
+  pedido: "o pedido da pessoa, com todos os detalhes que ela deu (o que pode mudar, o que não pode, o que incluir)"
+\`\`\`
+O sagadeck faz o trabalho em etapas (vê as figuras do original, planeja, escreve em blocos e confere cada bloco), mostrando o
+andamento aqui. No modo recriar nasce uma apresentação nova na biblioteca; no melhorar, cada slide mudado fica marcado para
+a pessoa validar. Para mexer em poucos slides, continue usando o patch normal.
 Cuidado com a escrita (o deck é da pessoa):
 - Mude SÓ o que foi pedido. Para ajustar um texto, um campo ou uma lista, use \`edit\` com apenas esses campos: não reescreva o
   slide inteiro (reescrever cria erro de digitação e estraga o que estava bom). \`slides\` só para trocar layout/estrutura.
@@ -655,6 +682,13 @@ function parseEditText(text, base) {
   const raw = parseYaml(yaml);
   if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete (ou variants).");
   if (raw.variants) return parseVariants(raw.variants, base, prose);
+  if (raw.transform) {
+    const t = raw.transform || {};
+    const mode = String(t.mode || t.modo || "").toLowerCase();
+    if (!["melhorar", "recriar"].includes(mode)) throw new Error('transform.mode precisa ser "melhorar" ou "recriar".');
+    if (!base.import && !(base.slides || []).some((sl) => sl?.original)) throw Object.assign(new Error("FATO DO DECK: esta apresentação não veio de um PowerPoint importado; transform só vale para apresentação importada. Para melhorar este deck, use o patch normal (ou peça para a pessoa importar o original)."), { soft: true });
+    return { spec: base, prose, changed: [], transform: { mode, pedido: String(t.pedido || t.request || "") } };
+  }
   if (Array.isArray(raw.slides)) { // devolveu o deck inteiro: aceita, valida tudo
     const { spec } = parseDeckText(text, base);
     const changed = spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(base.slides[i]) ? i : -1)).filter((i) => i >= 0);
@@ -685,7 +719,7 @@ function commandEnvNames(apiContext) {
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
   visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages }) {
-  const deck = publicSpec(spec);
+  const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
   const focus = typeof targetSlide === "number"
@@ -730,7 +764,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, test = [], commands = [] } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
       if (parsed.variants) await checkDrawings({ slides: parsed.variants.options.map((o) => o.slide) }, parsed.variants.options.map((_, k) => k), drawCheck, drawWarned);
@@ -744,9 +778,12 @@ Antes de responder, verifique (e siga as Regras de edição):
   const actions = [];
   commands.forEach((c, i) => actions.push(c.result?.denied ? `Comando ${i + 1} não autorizado: ${c.why || c.language}`
     : `Comando ${i + 1} (${c.language}): ${c.why || ""}${c.result?.timedOut ? " (tempo esgotado)" : c.result?.exitCode === 0 ? " (ok)" : ` (saída ${c.result?.exitCode ?? "erro"})`}`));
+  if (visionRouted) actions.push(`O modelo de texto não enxerga imagens: para ver o slide, esta resposta veio do modelo de visão (${visionRouted}).`);
   if (imagesDropped) actions.push("O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, use um modelo com visão em [apps.sagadeck.models] do modelrelay.");
   // conversa: nada muda (a resposta pode trazer opções clicáveis)
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
+  // transformar a apresentação inteira: quem executa é o servidor (src/ai/transform.js), com o andamento no chat
+  if (transform) return { reply: prose || "Vou transformar a apresentação.", spec, actions, targetSlide, transform };
   // versões para escolher: nada muda até a pessoa escolher uma
   if (variants) return { reply: prose || `${variants.options.length} versões para você escolher.`, spec, actions, targetSlide, variants };
   if (attempts > 1) actions.push(`YAML corrigido após ${attempts - 1} tentativa(s) inválida(s)`);

@@ -1059,6 +1059,15 @@
         tag.innerHTML = '<i class="ic" data-ic="message-square-text"></i> Conversa — nada mudou nos slides'; hydrateIcons(tag);
         msg.querySelector(".ai-content").prepend(tag);
         renderChatOptions(msg, data.options);
+        // a IA criou uma apresentação nova (recriar): um clique para abrir
+        if (data.createdDeck?.id) {
+          tag.innerHTML = '<i class="ic" data-ic="presentation"></i> Apresentação nova na biblioteca'; hydrateIcons(tag);
+          const open = document.createElement("button");
+          open.type = "button"; open.className = "btn btn-primary btn-sm chat-open-deck";
+          open.innerHTML = '<i class="ic" data-ic="folder-open"></i> Abrir a apresentação nova'; hydrateIcons(open);
+          open.onclick = () => { location.href = `editor?deck=${encodeURIComponent(data.createdDeck.id)}`; };
+          msg.querySelector(".ai-content").append(open);
+        }
         updateBrainstormApply();
         if (data.mode === "off") refreshAIStatus(); // o selo "IA ligada/desligada" acompanha
         return;

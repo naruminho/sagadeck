@@ -2,6 +2,32 @@
 // que o sagadeck não desenha igual (equação antiga em WMF com fontes de símbolo, SmartArt…).
 import fs from "node:fs";
 
+// fotos reduzidas (JPEG) para mandar ao modelo de visão: menos tokens, a mesma leitura
+export async function imagesAsDataUrls(files, { width = 1024, quality = 0.82 } = {}) {
+  if (!files.length) return [];
+  const { findBrowser } = await import("../export/browser.js");
+  const { chromium } = await import("playwright-core");
+  const browser = await chromium.launch({ executablePath: findBrowser() });
+  try {
+    const page = await browser.newPage();
+    await page.setContent("<body></body>");
+    const out = [];
+    for (const f of files) {
+      if (!f || !fs.existsSync(f)) { out.push(null); continue; }
+      const ext = f.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+      const data = `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
+      out.push(await page.evaluate(async ([data, width, quality]) => {
+        const img = new Image(); img.src = data; await img.decode();
+        const w = Math.min(width, img.width), h = Math.round((img.height * w) / img.width);
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+        return c.toDataURL("image/jpeg", quality);
+      }, [data, width, quality]));
+    }
+    return out;
+  } finally { await browser.close(); }
+}
+
 export async function cropRegions(jobs) {
   if (!jobs.length) return [];
   const { findBrowser } = await import("../export/browser.js");

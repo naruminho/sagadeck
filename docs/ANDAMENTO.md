@@ -8,6 +8,25 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Transformar a apresentação importada (melhorar / recriar) como tarefa agêntica — 30/09/2026
+
+- Pergunta da pessoa: "as apresentações foram geradas 100% pelo sagadeck? o modo agêntico ia visualizar e arrumar
+  como você fez?" Resposta: não existiam ainda, e o ciclo ver → comparar → corrigir precisava ser do sagadeck.
+- O chat decide (`transform: { mode, pedido }` no PATCH_FORMAT; só para deck importado — senão objeção soft).
+  `src/ai/transform.js`: VER (modelo de visão descreve as figuras: genérica × específica, dados legíveis; cache em
+  `.sagadeck/transform/`) → PLANEJAR (manter / juntar / escrever / novo; cobertura garantida por código) →
+  ESCREVER em blocos de 5 (cada slide com `origem` e `mudou`; imagens só as que existem; todo item precisa sair) →
+  CONFERIR (fatos por código: números nas duas leituras 0,385/0.385 e 10.000, siglas, nomes, imagens específicas;
+  desenho por visão: slide novo ao lado da foto do original) com uma rodada de correção → MONTAR (melhorar: estilo
+  extraído no mestre, `review` em cada mudança, `original/original.yaml`; recriar: deck novo no tópico, imagens
+  copiadas; item que não saiu entra como o original era).
+- `src/import/merge.js`: juntar slides progressivos num que se monta por cliques (step/exit), sem IA.
+- Modelos: papel `vision` no llm.js (chamada com imagem para o modelo de visão quando o de texto não enxerga).
+  modelrelay do sagadeck: text = deepseek/deepseek-v4-pro (escreve), vision = deepseek/deepseek-v4.1-flash (vê).
+- O chat mostra o prompt dos slides importados resumido (`promptSpec`): o deck inteiro passaria de 300 mil tokens.
+- Teste: `test/transform.test.js` (LLM falso roteado por etapa). Próximo: rodar os dois testes da Aula 1 de verdade,
+  com Pro e com Flash no texto, e comparar.
+
 ## Estilo da pessoa (mestre) e revisão das mudanças — 30/09/2026
 
 - `master:` no deck (src/master.js): moldura em todo slide (`elements`, `cover` para capa/seção/fim), área do conteúdo,

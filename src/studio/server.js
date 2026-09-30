@@ -28,6 +28,7 @@ import { runCommand, envName } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
+import { transformDeck } from "../ai/transform.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
 import { docxToHtml } from "../docx.js";
@@ -1118,6 +1119,48 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         return;
       }
 
+      // melhorar / recriar a apresentação importada (src/ai/transform.js), a pedido do chat
+      async function runTransform(W, spec, result, emit) {
+        if (!W.file || isBundledTemplate(W.file)) return { ...result, reply: "Para transformar, a apresentação precisa estar salva na biblioteca.", spec, talk: true };
+        const dir = path.dirname(W.file);
+        const { mode, pedido } = result.transform;
+        emit({ phase: "transform", text: mode === "melhorar" ? "Vou melhorar a apresentação em etapas…" : "Vou recriar a apresentação em etapas…" });
+        const t = await transformDeck({ spec, dir, mode, request: pedido, onProgress: emit });
+        const r = t.report;
+        const count = (k) => t.plan.slides.filter((it) => it.acao === k).length;
+        const cost = Object.entries(r.usage).map(([m, u]) => `${m}: ${u.calls} chamada(s), ${Math.round(u.in / 1000)} mil tokens de entrada e ${Math.round(u.out / 1000)} mil de saída`).join("; ");
+        const lines = [
+          `${t.spec.slides.length} slides a partir dos ${(spec.slides || []).filter((s) => s.original).length} do original (${count("manter")} mantidos, ${count("juntar")} juntados, ${count("escrever")} reescritos, ${count("novo")} novos) em ${Math.round(r.seconds / 60)} min.`,
+          ...(r.alertas.length ? [`Possíveis erros no original (para você conferir): ${r.alertas.join(" · ")}`] : []),
+          ...(r.faltando.length ? [`Ficou faltando depois da correção: ${r.faltando.join(" · ")}`] : []),
+          ...(r.problemas.length ? [`Problemas: ${r.problemas.join(" · ")}`] : []),
+          `Modelos: ${cost}.`,
+        ];
+        if (mode === "melhorar") {
+          const origFile = path.join(dir, "original", "original.yaml");
+          if (!fs.existsSync(origFile)) { fs.mkdirSync(path.dirname(origFile), { recursive: true }); fs.writeFileSync(origFile, YAML.stringify(spec, { lineWidth: 0 })); }
+          W.spec = { ...t.spec, _dir: dir };
+          persist(W);
+          return { ...result, reply: `Pronto. Cada slide mudado está marcado (Revisar › Mudanças) para você validar.\n${lines.join("\n")}`, spec: W.spec, actions: [...(result.actions || [])], transformReport: r };
+        }
+        // recriar: apresentação nova no mesmo tópico, com as imagens que ela usa
+        const id = W.library.idOf(W.file);
+        const topic = id.split("/").length === 3 ? id.split("/")[0] : "";
+        const title = t.spec.title || spec.title || "Recriada";
+        const newId = W.library.createDeck(topic, { ...t.spec, title });
+        const newFile = W.library.resolveId(newId), newDir = path.dirname(newFile);
+        const used = new Set();
+        const walk = (v, k) => { if (k === "image" && typeof v === "string") used.add(v); else if (typeof v === "string" && k === "drawing") for (const m of v.matchAll(/href="media:([^"]+)"/g)) used.add(m[1]); else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) walk(vv, kk); };
+        walk(t.spec);
+        for (const rel of used) {
+          const src = path.resolve(dir, rel);
+          if (!src.startsWith(dir) || !fs.existsSync(src)) continue;
+          const dst = path.join(newDir, ...rel.split("/"));
+          fs.mkdirSync(path.dirname(dst), { recursive: true });
+          fs.copyFileSync(src, dst);
+        }
+        return { ...result, reply: `Pronto: criei "${title}" na biblioteca, do zero.\n${lines.join("\n")}`, spec, talk: true, createdDeck: { id: newId, title }, transformReport: r };
+      }
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         const prompt = body.message || "";
@@ -1170,6 +1213,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               runCommand: commandRunner(req, emit, body, W),
             });
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
+            // a IA decidiu transformar a apresentação inteira (transform:): o trabalho em etapas, com o andamento aqui
+            if (result.transform) return await runTransform(W, withBase(W, spec), result, emit);
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
             const convo = [...history, { role: "user", text: prompt }]

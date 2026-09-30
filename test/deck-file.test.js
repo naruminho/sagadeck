@@ -192,7 +192,7 @@ test("nenhum código regrava um deck existente com YAML inteiro (use writeDeckFi
   const PERMITIDO = { // arquivo -> quantas gravações de deck novo ele tem (e por quê)
     "src/library.js": 2,        // createDeck e importOffice: pasta nova, nome único (nunca regrava um deck)
     "src/mcp/server.js": 2,     // create/scaffold: newDeckPath({ unique: true })
-    "src/studio/server.js": 1,  // deck gerado pela IA (editor e biblioteca): pasta nova da biblioteca (generateIntoLibrary)
+    "src/studio/server.js": 2,  // deck gerado pela IA (generateIntoLibrary) e original/original.yaml (cópia do original importado, para o Desfazer da revisão)
     "bin/sagadeck.js": 3,       // napkin -o, scaffold e new: arquivo novo
   };
   const achados = {};
