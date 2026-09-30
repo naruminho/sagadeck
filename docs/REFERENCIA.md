@@ -588,6 +588,40 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
   deco: none
 ```
 
+## Dinâmicas a dois (`duel`, `terminals`, `turns`)
+
+Duas pessoas, **um clique por jogada** (cada clique troca o quadro inteiro; funciona com controle remoto e modo apresentador; o PDF mostra o último quadro).
+
+**`duel` — Duelo de commits.** Dois editores do mesmo arquivo, o comando da vez com a saída do Git e o grafo de commits crescendo (trilhas da pessoa 1, main e pessoa 2; etiqueta `origin/main`). Você só escreve o que cada um FAZ; o simulador calcula o resto: push recusado quando o remoto está na frente, fast-forward, merge automático quando as mudanças não se tocam e **conflito** (merge a três por linha) com os marcadores `<<<<<<<`/`=======`/`>>>>>>>` no editor de quem puxou.
+- `file` (nome, define a coloração), `base` (o arquivo no começo, igual para os dois), `people: [Ana, Beto]`.
+- `turns`: `{ who: 1|2, edit: {2: "nova linha 2", 5: null}, commit: "mensagem", push: true, pull: true, resolve: ours | theirs | both | {2: "linha final"}, log: true, say: "explicação no lugar da automática", note: "texto embaixo" }`. Num turno pode haver edit + commit juntos. Linha além do fim acrescenta; `null` apaga.
+- `bet: "Vai dar conflito?"` põe uma **enquete** (a plateia vota) antes do primeiro pull que decide, e o quadro do pull revela o resultado ("Deu conflito!" ou "Sem conflito"). `betOptions` troca as opções.
+- Roteiro impossível (commit com conflito aberto, pull com mudança sem commit) vira aviso do fiscal e o slide mostra o erro.
+
+**`terminals` — Dois terminais.** Comandos digitados letra a letra, lado a lado. Roteiro livre: `steps: [{ who, cmd, out, note }]`, `panes: [Ana, Beto]`. Ou o **mesmo roteiro do duelo** (`base` + `turns`): os comandos e a saída vêm do simulador, e `log: true` imprime o `git log --graph --oneline --all` calculado. `keep` = comandos visíveis por terminal (padrão 6); `host` = nome da máquina no prompt.
+
+**`turns` — Turnos a dois.** Code review, cliente × servidor de API, debate, role-play, pair programming. `people: [{name, role}, {name, role}]` e `turns: [{ who, text, tag, code, language, method, url, status }]` (método/URL/status desenham uma requisição e o código de resposta). Uma fala por clique, alternando os lados; as mais velhas sobem e somem (`keep`, padrão 4).
+
+```yaml
+- layout: duel
+  title: Duelo de commits
+  file: soma.js
+  base: |
+    function soma(a, b) {
+      return a + b;
+    }
+  people: [Ana, Beto]
+  bet: Vai dar conflito?
+  turns:
+    - { who: 1, edit: { 2: "  return a + b + 0;" }, commit: ajusta soma }
+    - { who: 2, edit: { 2: "  return b + a;" }, commit: inverte a ordem }
+    - { who: 1, push: true }
+    - { who: 2, push: true }        # recusado: o remoto está na frente
+    - { who: 2, pull: true }        # conflito na linha 2
+    - { who: 2, resolve: { 2: "  return a + b;" }, commit: resolve o conflito }
+    - { who: 2, push: true }
+```
+
 ## Fórmulas e funções (`science`)
 
 Para plotar a função de verdade (aula, engenharia, finanças): a pessoa escreve a fórmula e ela vira curva. Até cinco `equations` (`latex` + `label`, desenhadas por KaTeX) ao lado do gráfico; sem `equations`, o gráfico ocupa o slide. `plot: false` deixa só as equações.
