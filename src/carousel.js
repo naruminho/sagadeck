@@ -46,7 +46,7 @@ export function carouselHTML(s, ctx, head) {
   const alt = (it) => esc(it.alt || it.title || "");
   let visual;
   if (style === "arc") {
-    const step = Math.max(24, Math.min(40, 200 / Math.max(1, Math.min(n, 6))));
+    const step = Math.max(24, Math.min(34, 200 / Math.max(1, Math.min(n, 6)))); // fotos grandes: vizinhos sem encostar
     visual = `<div class="car-wheel" style="--step:${step}deg" aria-hidden="true"><div class="car-track"></div>${items.map((it, k) => `<div class="car-item${k === 0 ? " active" : ""}" data-lesson-k="${k}" style="--k:${k}"><div class="car-photo"><img src="${srcs[k]}" alt="${alt(it)}"></div></div>`).join("")}</div>`;
   } else {
     visual = `<div class="car-disc">${items.map((it, k) => `<div class="car-slide${k === 0 ? " active" : ""}" data-lesson-k="${k}"><div class="car-ring-out"><img src="${srcs[k]}" alt="${alt(it)}"></div><div class="car-ring-in"><img src="${srcs[k]}" alt=""></div></div>`).join("")}<div class="car-lock" aria-hidden="true"></div></div>

@@ -54,6 +54,7 @@ test("fiscal: painel com opções de correção aparece sozinho e cada opção f
       await p.waitForTimeout(1500);
       if (await p.isVisible("#fix-panel")) {
         await p.click('#fix-panel [data-fix="ignore"]');
+        await p.waitForSelector("#fix-panel.hidden", { state: "attached" }); // grava a marca no deck e redesenha
         assert.equal(await p.isVisible("#fix-panel"), false);
       }
     });

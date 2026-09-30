@@ -60,7 +60,7 @@ export async function browserOrSkip(t) {
 }
 
 // Página que coleciona erros de JS/console — todo teste de UI termina exigindo zero erros.
-export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }) {
+export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props" } = {}) {
   const page = await browser.newPage({ viewport });
   page.setDefaultTimeout(8000); // falha rápido em vez de travar a suíte
   const errors = [];
@@ -68,7 +68,8 @@ export async function newPage(browser, url, viewport = { width: 1440, height: 10
   page.on("console", (m) => m.type() === "error" && !/status of 400/.test(m.text()) && errors.push(m.text()));
   if (url) {
     await page.goto(url, { waitUntil: "networkidle" });
-    await page.evaluate(() => localStorage.clear());
+    // os testes antigos contam com o Formatar aberto; o padrão de verdade (chat) tem teste próprio (pane: null)
+    await page.evaluate((pane) => { localStorage.clear(); if (pane) localStorage.setItem("sagadeck.paneOnLoad", JSON.stringify(pane)); }, pane);
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForTimeout(600);
   }

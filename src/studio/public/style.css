@@ -1102,3 +1102,36 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .sh-card-body p { margin: 4px 0 8px; color: var(--text-2); line-height: 1.4; }
 .sh-card-body .btn .ic { width: 13px; height: 13px; }
 .sh-ai { margin-left: 6px; padding: 1px 6px; border-radius: 99px; background: var(--brand); color: #fff; font-size: 9px; }
+
+/* atalho flutuante do chat: lado direito, no meio da tela, quando a aba do chat não está à vista */
+.chat-fab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 60; display: grid; place-items: center; width: 34px; height: 44px; border: 1px solid var(--ui-line); border-right: 0; border-radius: 10px 0 0 10px; background: var(--chrome); color: var(--brand); box-shadow: var(--shadow-2); cursor: pointer; transition: width .2s, background .2s; }
+.chat-fab:hover { width: 42px; background: var(--selected); }
+.chat-fab .ic, .chat-fab .ic svg { width: 18px; height: 18px; }
+.chat-fab.hidden { display: none; }
+.chat-fab-dot { position: absolute; top: 7px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); display: none; }
+.chat-fab.has-news .chat-fab-dot { display: block; }
+/* menu de botão direito */
+.ctx-menu { position: fixed; z-index: 9999; min-width: 230px; padding: 4px; border: 1px solid var(--ui-line); border-radius: 9px; background: var(--chrome); box-shadow: var(--shadow-2); }
+.ctx-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 6px 10px; border-radius: 6px; font-size: 12.5px; color: var(--text); text-align: left; }
+.ctx-item .ic, .ctx-item .ic svg { width: 15px; height: 15px; color: var(--text-2); }
+.ctx-item:hover:not([disabled]), .ctx-item:focus-visible { background: var(--hover); outline: none; }
+.ctx-item[disabled] { opacity: .4; cursor: default; }
+.ctx-item.danger { color: var(--danger, #c0392b); }
+.ctx-item.danger .ic { color: inherit; }
+.ctx-sep { height: 1px; margin: 4px 6px; background: var(--ui-line); }
+/* Propriedades: atalho para o conteúdo do slide (que mora no Formatar) */
+.ip-content { display: flex; align-items: center; gap: 8px; width: calc(100% - 16px); margin: 8px; padding: 7px 10px; border: 1px dashed var(--ui-line-strong); border-radius: 7px; color: var(--brand); font-size: 12px; font-weight: 600; }
+.ip-content:hover { background: var(--selected); border-style: solid; }
+.ip-content .ic { width: 14px; height: 14px; }
+
+/* árvore: ações ao passar o mouse, nome editável no lugar */
+.ex-row { position: relative; }
+.ex-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ex-acts { display: none; gap: 2px; margin-left: auto; }
+.ex-row:hover .ex-acts, .ex-row.sel .ex-acts { display: inline-flex; }
+.ex-acts .ic { width: 20px; height: 20px; padding: 3px; border-radius: 4px; color: var(--text-3); cursor: pointer; }
+.ex-acts .ic:hover { background: var(--hover); color: var(--text); }
+.ex-acts [data-act="delete"]:hover { color: var(--danger, #c0392b); }
+.ex-edit { flex: 1; min-width: 0; height: 20px; padding: 0 5px; border: 1px solid var(--brand); border-radius: 3px; background: var(--chrome); color: var(--text); font: inherit; outline: none; }
+.ex-tree:focus-visible .ex-row.sel { outline: 1px solid var(--brand); outline-offset: -1px; }
+.ctx-key { margin-left: auto; color: var(--text-3); font-size: 11px; }

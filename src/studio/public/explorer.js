@@ -33,38 +33,66 @@
     host.innerHTML = `<div class="ex-root" title="${esc(treeData.name)}"><i class="ic" data-ic="folder-open"></i><b>${esc(treeData.name)}</b></div>${renderEntries(treeData.entries, 0)}`;
     ctx.hydrate(host);
   }
+  const rowActions = (e) => e.protected ? "" : `<span class="ex-acts"><i class="ic" data-ic="pencil" data-act="rename" role="button" aria-label="Renomear ${esc(e.name)}" title="Renomear (F2)"></i><i class="ic" data-ic="trash-2" data-act="delete" role="button" aria-label="Apagar ${esc(e.name)}" title="Apagar (Delete)"></i></span>`;
   function renderEntries(list, depth) {
     return list.map((e) => {
       const pad = `style="padding-left:${10 + depth * 14}px"`;
+      const sel = selected === e.path ? " sel" : "";
       if (e.type === "dir") {
         const open = expanded.has(e.path);
-        return `<div class="ex-row ex-dir${e.protected ? " ex-protected" : ""}" data-path="${esc(e.path)}" data-type="dir" draggable="${!e.protected}" ${pad} title="${e.protected ? "Pasta do Studio (conversa, cache e lixeira do projeto): só some junto com o projeto" : esc(e.path)}"><i class="ic ex-caret" data-ic="${open ? "chevron-down" : "chevron-right"}"></i><i class="ic" data-ic="folder"></i><span>${esc(e.name)}</span></div>${open ? renderEntries(e.children || [], depth + 1) : ""}`;
+        return `<div class="ex-row ex-dir${e.protected ? " ex-protected" : ""}${sel}" data-path="${esc(e.path)}" data-type="dir" draggable="${!e.protected}" ${pad} title="${e.protected ? "Pasta do Studio (conversa, cache e lixeira do projeto): só some junto com o projeto" : esc(e.path)}"><i class="ic ex-caret" data-ic="${open ? "chevron-down" : "chevron-right"}"></i><i class="ic" data-ic="folder"></i><span class="ex-name">${esc(e.name)}</span>${rowActions(e)}</div>${open ? renderEntries(e.children || [], depth + 1) : ""}`;
       }
-      return `<div class="ex-row ex-file${e.protected ? " ex-protected" : ""}${active === e.path ? " active" : ""}" data-path="${esc(e.path)}" data-type="file" data-kind="${e.kind}" draggable="${!e.protected}" ${pad} title="${esc(e.path)}"><i class="ic" data-ic="${KIND_ICON[e.kind] || "file"}"></i><span>${esc(e.name)}</span></div>`;
+      return `<div class="ex-row ex-file${e.protected ? " ex-protected" : ""}${active === e.path ? " active" : ""}${sel}" data-path="${esc(e.path)}" data-type="file" data-kind="${e.kind}" draggable="${!e.protected}" ${pad} title="${esc(e.path)}"><i class="ic" data-ic="${KIND_ICON[e.kind] || "file"}"></i><span class="ex-name">${esc(e.name)}</span>${rowActions(e)}</div>`;
     }).join("");
   }
   const findEntry = (p, list = treeData?.entries || []) => { for (const e of list) { if (e.path === p) return e; if (e.children) { const f = findEntry(p, e.children); if (f) return f; } } return null; };
   const dirOf = (p) => { const e = findEntry(p); return !p ? "" : e?.type === "dir" ? p : p.split("/").slice(0, -1).join("/"); };
   let selected = "";
+  const rowOf = (p) => $(`#project-tree .ex-row[data-path="${CSS.escape(p)}"]`);
+  function select(p, { focus = true } = {}) {
+    selected = p;
+    $("#project-tree").querySelectorAll(".ex-row.sel").forEach((r) => r.classList.remove("sel"));
+    const row = rowOf(p);
+    row?.classList.add("sel");
+    row?.scrollIntoView({ block: "nearest" });
+    if (focus) $("#project-tree").focus({ preventScroll: true });
+  }
+  function openRow(row) {
+    if (row.dataset.type === "dir") { expanded.has(row.dataset.path) ? expanded.delete(row.dataset.path) : expanded.add(row.dataset.path); refreshTree(); }
+    else openFile(row.dataset.path, row.dataset.kind);
+  }
 
   function bindTree() {
     const host = $("#project-tree");
     host.addEventListener("click", (ev) => {
+      if (ev.target.closest(".ex-edit")) return;
       const row = ev.target.closest(".ex-row"); if (!row) return;
-      selected = row.dataset.path;
-      host.querySelectorAll(".ex-row.sel").forEach((r) => r.classList.remove("sel")); row.classList.add("sel");
-      if (row.dataset.type === "dir") { expanded.has(selected) ? expanded.delete(selected) : expanded.add(selected); refreshTree(); }
-      else openFile(selected, row.dataset.kind);
+      const act = ev.target.closest("[data-act]")?.dataset.act;
+      select(row.dataset.path);
+      if (act === "rename") return renameEntry(row.dataset.path);
+      if (act === "delete") return deleteEntry(row.dataset.path);
+      openRow(row);
     });
+    // teclado como no VS Code: setas andam, Enter abre, F2 renomeia, Delete apaga
     host.addEventListener("keydown", (ev) => {
-      if (!selected) return;
-      if (ev.key === "F2") { ev.preventDefault(); renameEntry(selected); }
-      if (ev.key === "Delete") { ev.preventDefault(); deleteEntry(selected); }
+      if (ev.target.closest(".ex-edit")) return;
+      const rows = [...host.querySelectorAll(".ex-row")], i = rows.findIndex((r) => r.dataset.path === selected);
+      const row = rows[i];
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); const n = rows[Math.max(0, Math.min(rows.length - 1, i + (ev.key === "ArrowDown" ? 1 : -1)))]; if (n) select(n.dataset.path); return; }
+      if (!row) return;
+      if (ev.key === "ArrowRight" && row.dataset.type === "dir" && !expanded.has(selected)) { ev.preventDefault(); expanded.add(selected); refreshTree(); }
+      else if (ev.key === "ArrowLeft" && row.dataset.type === "dir" && expanded.has(selected)) { ev.preventDefault(); expanded.delete(selected); refreshTree(); }
+      else if (ev.key === "Enter") { ev.preventDefault(); openRow(row); }
+      else if (ev.key === "F2") { ev.preventDefault(); renameEntry(selected); }
+      else if (ev.key === "Delete") { ev.preventDefault(); deleteEntry(selected); }
     });
     host.addEventListener("contextmenu", (ev) => {
-      const row = ev.target.closest(".ex-row"); if (!row) return;
-      ev.preventDefault(); selected = row.dataset.path; menuAt(ev.clientX, ev.clientY, row);
+      ev.preventDefault();
+      const row = ev.target.closest(".ex-row");
+      if (row) select(row.dataset.path, { focus: false });
+      menuAt(ev, row);
     });
+    host.addEventListener("dblclick", (ev) => { const row = ev.target.closest(".ex-row.ex-file"); if (row && !row.classList.contains("ex-protected") && ev.target.closest(".ex-name")) renameEntry(row.dataset.path); });
     // arrastar: arquivo do computador para uma pasta (envia) ou item da árvore para outra pasta (move)
     host.addEventListener("dragstart", (ev) => { const row = ev.target.closest(".ex-row"); if (row) ev.dataTransfer.setData("text/x-saga-path", row.dataset.path); });
     host.addEventListener("dragover", (ev) => { ev.preventDefault(); host.querySelectorAll(".drop").forEach((r) => r.classList.remove("drop")); ev.target.closest(".ex-dir")?.classList.add("drop"); });
@@ -81,43 +109,94 @@
       } catch (e) { ctx.toast(e.message); }
     });
   }
-  function menuAt(x, y, row) {
-    document.querySelector(".ex-menu")?.remove();
-    const p = row.dataset.path, prot = row.classList.contains("ex-protected"), isDir = row.dataset.type === "dir";
-    const m = document.createElement("div");
-    m.className = "ex-menu menu";
-    m.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:9999`;
+  // botão direito: o mesmo menu do resto do Studio
+  function menuAt(ev, row) {
+    const p = row?.dataset.path || "", prot = !!row?.classList.contains("ex-protected"), isDir = row ? row.dataset.type === "dir" : true;
+    const here = row ? (isDir ? p : dirOf(p)) : "";
     const items = [
-      !isDir && ["Abrir", () => openFile(p, row.dataset.kind)],
-      isDir && ["Novo arquivo aqui", () => newFile(p)], isDir && !prot && ["Nova pasta aqui", () => newFolder(p)],
-      !prot && ["Renomear (F2)", () => renameEntry(p)], !prot && ["Apagar (Delete)", () => deleteEntry(p)],
+      row && !isDir && { label: "Abrir", ic: "folder-open", fn: () => openFile(p, row.dataset.kind) },
+      !prot && { label: "Novo arquivo", ic: "file-plus", fn: () => newFile(here || "contexto") },
+      !prot && { label: "Nova pasta", ic: "folder-plus", fn: () => newFolder(here) },
+      !prot && { label: "Enviar arquivos para cá", ic: "upload", fn: () => { uploadTarget = here || "contexto"; $("#ex-upload-input").click(); } },
+      row && { sep: true },
+      row && !prot && { label: "Renomear", ic: "pencil", key: "F2", fn: () => renameEntry(p) },
+      row && { label: "Copiar caminho", ic: "copy", fn: () => navigator.clipboard?.writeText(p).then(() => ctx.toast(`Copiado: ${p}`)) },
+      row && !isDir && row.dataset.kind === "image" && { label: "Usar num slide", ic: "plus", fn: () => ctx.insertSlide({ layout: "image", image: p, title: p.split("/").pop().replace(/\.[a-z0-9]+$/i, "") }) },
+      row && !prot && { sep: true },
+      row && !prot && { label: "Apagar", ic: "trash-2", key: "Delete", danger: true, fn: () => deleteEntry(p) },
     ].filter(Boolean);
-    m.innerHTML = items.map(([t], i) => `<button type="button" class="mi" data-i="${i}">${esc(t)}</button>`).join("");
-    m.onclick = (ev) => { const b = ev.target.closest("[data-i]"); if (b) { m.remove(); items[+b.dataset.i][1](); } };
-    document.body.append(m);
-    setTimeout(() => document.addEventListener("click", () => m.remove(), { once: true }));
+    ctx.contextMenu(ev, items);
   }
+  // campo de nome dentro da árvore (renomear e criar), como no VS Code: Enter confirma, Esc desiste
+  function inlineName(anchorRow, initial, { depth = 0, icon = "file", create = false } = {}) {
+    return new Promise((resolve) => {
+      const input = Object.assign(document.createElement("input"), { className: "ex-edit", value: initial, spellcheck: false });
+      input.setAttribute("aria-label", create ? "Nome do novo item" : "Novo nome");
+      let row = anchorRow, holder;
+      if (create || !row) {
+        holder = document.createElement("div");
+        holder.className = "ex-row ex-new";
+        holder.style.paddingLeft = `${10 + depth * 14}px`;
+        holder.innerHTML = `<i class="ic" data-ic="${icon}"></i>`;
+        holder.append(input);
+        (anchorRow ? anchorRow.after(holder) : $("#project-tree").append(holder));
+        ctx.hydrate(holder);
+      } else {
+        row.classList.add("editing");
+        row.querySelector(".ex-name").replaceWith(input);
+      }
+      input.focus();
+      const dot = initial.lastIndexOf(".");
+      input.setSelectionRange(0, dot > 0 ? dot : initial.length); // como no VS Code: seleciona o nome sem a extensão
+      let done = false;
+      const finish = (value) => { if (done) return; done = true; holder?.remove(); resolve(value); };
+      input.addEventListener("keydown", (ev) => {
+        ev.stopPropagation();
+        if (ev.key === "Enter") { ev.preventDefault(); finish(input.value.trim() || null); }
+        if (ev.key === "Escape") { ev.preventDefault(); finish(null); refreshTree(); }
+      });
+      input.addEventListener("blur", () => finish(input.value.trim() || null));
+    });
+  }
+  const depthOf = (p) => (p ? p.split("/").length : 0);
   async function newFile(dir = dirOf(selected) || "contexto") {
-    const name = prompt("Nome do arquivo (ex.: anotações.md)", "anotações.md"); if (!name) return;
-    try { const r = await api("api/project/create", { dir, name, text: "" }); expanded.add(dir); await refreshTree(); openFile(r.path); } catch (e) { ctx.toast(e.message); }
+    expanded.add(dir); await refreshTree();
+    const name = await inlineName(dir ? rowOf(dir) : null, "anotações.md", { depth: depthOf(dir), icon: "file-text", create: true });
+    if (!name) return refreshTree();
+    try { const r = await api("api/project/create", { dir, name, text: "" }); await refreshTree(); select(r.path); openFile(r.path); } catch (e) { ctx.toast(e.message); refreshTree(); }
   }
   async function newFolder(dir = dirOf(selected)) {
-    const name = prompt("Nome da pasta", "nova pasta"); if (!name) return;
-    try { await api("api/project/mkdir", { dir, name }); expanded.add(dir); refreshTree(); } catch (e) { ctx.toast(e.message); }
+    if (dir) { expanded.add(dir); await refreshTree(); }
+    const name = await inlineName(dir ? rowOf(dir) : null, "nova pasta", { depth: depthOf(dir), icon: "folder", create: true });
+    if (!name) return refreshTree();
+    try { const r = await api("api/project/mkdir", { dir, name }); expanded.add(r.path); await refreshTree(); select(r.path); } catch (e) { ctx.toast(e.message); refreshTree(); }
   }
   async function renameEntry(p) {
-    const cur = p.split("/").pop(), name = prompt("Novo nome", cur); if (!name || name === cur) return;
-    try { const r = await api("api/project/rename", { path: p, name }); const t = openTabs.find((x) => x.path === p); if (t) { t.path = r.path; t.name = r.path.split("/").pop(); if (active === p) active = r.path; renderTabs(); } refreshTree(); } catch (e) { ctx.toast(e.message); }
+    const row = rowOf(p); if (!row || row.classList.contains("ex-protected")) return;
+    const cur = p.split("/").pop(), name = await inlineName(row, cur);
+    if (!name || name === cur) return refreshTree();
+    try {
+      const r = await api("api/project/rename", { path: p, name });
+      const t = openTabs.find((x) => x.path === p);
+      if (t) { t.path = r.path; t.name = r.path.split("/").pop(); if (active === p) active = r.path; renderTabs(); }
+      if (expanded.has(p)) { expanded.delete(p); expanded.add(r.path); }
+      await refreshTree(); select(r.path);
+    } catch (e) { ctx.toast(e.message); refreshTree(); }
   }
+  // apagar: sem pergunta (vai para a lixeira do projeto) e com Desfazer
   async function deleteEntry(p) {
-    if (!confirm(`Apagar "${p}"? Vai para a lixeira do projeto (.sagadeck/lixeira), de onde dá para restaurar.`)) return;
+    const row = rowOf(p); if (!row || row.classList.contains("ex-protected")) return;
+    const rows = [...$("#project-tree").querySelectorAll(".ex-row")], i = rows.indexOf(row);
     try {
       const r = await api("api/project/delete", { path: p });
       closeTab(p, true);
       await refreshTree();
-      ctx.toast("Na lixeira do projeto.", 8000, { label: "Desfazer", fn: async () => { await api("api/project/restore", { path: r.trashed }); refreshTree(); } });
+      const next = rows[i + 1] || rows[i - 1];
+      if (next && rowOf(next.dataset.path)) select(next.dataset.path);
+      ctx.toast(`"${p.split("/").pop()}" foi para a lixeira do projeto.`, 8000, { label: "Desfazer", fn: async () => { await api("api/project/restore", { path: r.trashed }); await refreshTree(); select(p); } });
     } catch (e) { ctx.toast(e.message); }
   }
+  let uploadTarget = null;
   async function uploadFile(file, dir = "contexto") {
     const r = await api("api/project/upload", { dir, name: file.name, dataUrl: await readAsDataUrl(file) });
     expanded.add(dir);
@@ -315,7 +394,7 @@
     $("#ex-refresh").onclick = () => refreshTree();
     const up = $("#ex-upload-input");
     $("#ex-upload").onclick = () => up.click();
-    up.onchange = async () => { try { for (const f of up.files) await uploadFile(f, dirOf(selected) || "contexto"); up.value = ""; refreshTree(); ctx.toast("Arquivo no projeto."); } catch (e) { ctx.toast(e.message); } };
+    up.onchange = async () => { try { const dir = uploadTarget ?? (dirOf(selected) || "contexto"); uploadTarget = null; for (const f of up.files) await uploadFile(f, dir); up.value = ""; refreshTree(); ctx.toast("Arquivo no projeto."); } catch (e) { ctx.toast(e.message); } };
     bindTree(); bindTabs(); renderTabs();
     // Ctrl+V de print em qualquer lugar do editor (fora de campo de texto): vai para contexto/
     document.addEventListener("paste", async (ev) => {
