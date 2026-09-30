@@ -2,9 +2,12 @@
    e cada arquivo abre numa aba no centro.
    - Apresentação (sempre a primeira aba): o slide, como sempre.
    - texto da apresentação (.yaml): editor à esquerda e o slide à direita, atualizando enquanto digita.
-   - .md / .txt / .csv como texto: editor (o .md com a prévia ao lado).
-   - planilha (.csv, .xlsx): a grade com o tipo de cada coluna e sugestões de gráfico com prévia (regras ou IA);
-     "Inserir no slide" cria o gráfico ligado à planilha (from:, com Atualizar).
+   - texto e código (.md, .txt, .json, .yaml, .py, .js, .css, .html…): editor com números de linha e realce
+     (viewers.js); o .md com a prévia ao lado.
+   - planilha (.csv, .tsv, .xlsx): grade como no Excel (separador descoberto; csv/tsv editáveis, gravam no mesmo
+     formato), o tipo de cada coluna e sugestões de gráfico com prévia (regras ou IA); "Inserir no slide" cria o
+     gráfico ligado à planilha (from:, com Atualizar). "Texto" mostra o arquivo cru, cada coluna de uma cor.
+   - PDF: as páginas (pdf.js do próprio Studio). DOCX: o documento para ler (edição fica no Word).
    - imagem: a prévia e "Usar num slide".
    Ctrl+V de um print (fora de um campo de texto) guarda em contexto/. Tudo o que está em contexto/ vai para a IA. */
 (function () {
@@ -21,7 +24,8 @@
     if (!r.ok || j.error) throw new Error(j.error || `erro ${r.status}`);
     return j;
   };
-  const KIND_ICON = { deck: "presentation", md: "file-text", text: "file-code", sheet: "file-spreadsheet", image: "file-image", pdf: "file-text", doc: "file-text", other: "file" };
+  const KIND_ICON = { deck: "presentation", md: "file-text", text: "file-code", sheet: "file-spreadsheet", image: "file-image", pdf: "file-text", docx: "file-text", pptx: "presentation", other: "file" };
+  const LANG_LABEL = { json: "JSON", yaml: "YAML", md: "Markdown", js: "JavaScript", py: "Python", css: "CSS", html: "HTML", xml: "XML", sql: "SQL", sh: "Shell", ini: "Config", csv: "CSV", tsv: "TSV", c: "C / Java", m: "MATLAB", tex: "LaTeX", plain: "Texto" };
   const fileUrl = (p) => `api/project/file?path=${encodeURIComponent(p)}&t=${Date.now()}`;
   const readAsDataUrl = (file) => new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = bad; fr.readAsDataURL(file); });
 
@@ -249,9 +253,11 @@
     editor.classList.add(t.kind === "deck" ? "doc-side" : "doc-full");
     try {
       if (t.kind === "deck") await showDeckText(view, t);
-      else if (t.kind === "md" || t.kind === "text") await showText(view, t);
+      else if (t.kind === "md" || t.kind === "text" || (t.kind === "sheet" && t.asText)) await showText(view, t);
       else if (t.kind === "sheet") await showSheet(view, t);
       else if (t.kind === "image") showImage(view, t);
+      else if (t.kind === "pdf") await showPdf(view, t);
+      else if (t.kind === "docx") await showDocx(view, t);
       else view.innerHTML = `<div class="dv-info"><i class="ic" data-ic="file"></i><b>${esc(t.name)}</b><p>O texto deste arquivo vai como material para a IA.</p><a class="btn btn-small" href="${fileUrl(t.path)}" download="${esc(t.name)}">Baixar</a></div>`;
     } catch (e) { view.innerHTML = `<div class="dv-info">${esc(e.message)}</div>`; }
     ctx.hydrate(view);
@@ -259,23 +265,11 @@
   }
 
   // ------------------------------------------------------------------ editores de texto
-  function editorBox(text, { highlight } = {}) {
-    const wrap = document.createElement("div");
-    wrap.className = "dv-code";
-    wrap.innerHTML = `${highlight ? '<pre class="yaml-hl dv-hl" aria-hidden="true"></pre>' : ""}<textarea class="yaml-editor dv-text" spellcheck="false" wrap="${highlight ? "off" : "soft"}"></textarea>`;
-    const ta = wrap.querySelector("textarea"), hl = wrap.querySelector("pre");
-    ta.value = text;
-    const paint = () => { if (hl) { hl.innerHTML = highlight(ta.value); hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; } };
-    ta.addEventListener("scroll", () => { if (hl) { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; } });
-    ta.addEventListener("input", paint);
-    paint();
-    return { wrap, ta, paint };
-  }
   let deckTimer = 0;
   async function showDeckText(view, t) {
     const r = await (await fetch("api/deck")).json();
     view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="presentation"></i><b>${esc(t.name)}</b><span class="dv-status" id="dv-status">o slide ao lado atualiza enquanto você digita</span></div>`;
-    const { wrap, ta, paint } = editorBox(r.yaml || "", { highlight: ctx.highlightYaml });
+    const { wrap, ta, paint } = window.SagaViewers.codeEditor({ text: r.yaml || "", highlighter: (v) => ctx.highlightYaml(v).replace(/\n$/, "") });
     ta.id = "deck-text-editor";
     view.append(wrap);
     ta.addEventListener("input", () => {
@@ -314,9 +308,13 @@
   async function showText(view, t) {
     const text = t.text ?? (await (await fetch(fileUrl(t.path))).text());
     const md = t.kind === "md";
-    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="${KIND_ICON[t.kind]}"></i><b>${esc(t.name)}</b><span class="dv-status" id="dv-status">grava sozinho</span></div><div class="dv-split${md ? "" : " one"}"></div>`;
+    const lang = window.SagaViewers.langOf(t.name);
+    const asGrid = t.kind === "sheet" ? `<button type="button" class="btn btn-small" data-as-grid title="Ver como planilha"><i class="ic" data-ic="table"></i> Planilha</button>` : "";
+    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="${KIND_ICON[t.kind]}"></i><b>${esc(t.name)}</b><span class="dv-lang">${esc(LANG_LABEL[lang] || lang)}</span><span class="dv-status" id="dv-status">grava sozinho</span>${asGrid}</div><div class="dv-split${md ? "" : " one"}"></div>`;
+    view.querySelector("[data-as-grid]")?.addEventListener("click", () => { t.asText = false; t.text = undefined; activate(t.path); });
     const split = view.querySelector(".dv-split");
-    const { wrap, ta } = editorBox(text);
+    const { wrap, ta } = window.SagaViewers.codeEditor({ text, lang });
+    ta.classList.add("dv-text");
     ta.dataset.path = t.path;
     split.append(wrap);
     const prev = md ? Object.assign(document.createElement("div"), { className: "dv-md" }) : null;
@@ -340,20 +338,50 @@
   // ------------------------------------------------------------------ planilha + sugestões de gráfico
   const TYPE_LABEL = { number: "número", percent: "porcentagem", date: "tempo", category: "categoria", text: "texto" };
   async function showSheet(view, t) {
-    const data = await api(`api/project/sheet?path=${encodeURIComponent(t.path)}`);
+    const data = await api(`api/project/sheet?path=${encodeURIComponent(t.path)}&all=1`);
     const sheet = data.sheets.find((s) => s.name === t.sheet) || data.sheets[0];
     t.sheet = sheet.name;
+    const complete = sheet.rows.length >= sheet.total;
+    const editable = data.editable && complete;
     const tabs = data.sheets.length > 1 ? `<div class="sh-tabs">${data.sheets.map((s) => `<button type="button" class="sh-tab${s.name === sheet.name ? " active" : ""}" data-sheet="${esc(s.name)}">${esc(s.name)}</button>`).join("")}</div>` : "";
-    const cols = sheet.columns, rows = sheet.hasHeader ? sheet.rows.slice(1) : sheet.rows;
-    const shown = rows.slice(0, 300);
-    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="file-spreadsheet"></i><b>${esc(t.name)}</b><span class="dv-status">${sheet.total - (sheet.hasHeader ? 1 : 0)} linhas · ${cols.length} colunas</span></div>${tabs}
-      <div class="sh-body"><div class="sh-grid-wrap"><table class="sh-grid"><thead><tr><th class="sh-n"></th>${cols.map((c) => `<th><div class="sh-col">${esc(c.name)}</div><span class="sh-type t-${c.type}" data-col-type="${esc(c.name)}">${TYPE_LABEL[c.type] || c.type}</span></th>`).join("")}</tr></thead>
-      <tbody>${shown.map((r, i) => `<tr><td class="sh-n">${i + 1}</td>${cols.map((c) => `<td class="${c.type === "number" || c.type === "percent" ? "num" : ""}">${esc(r[c.index] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table>${rows.length > shown.length ? `<div class="sh-more">mostrando ${shown.length} de ${rows.length} linhas</div>` : ""}</div>
+    const cols = sheet.columns;
+    const DELIM = { ",": "vírgula", ";": "ponto e vírgula", "\t": "tab", "|": "barra" };
+    const sepInfo = data.delimiter ? ` · separado por ${DELIM[data.delimiter] || data.delimiter}` : "";
+    const asText = /\.(csv|tsv)$/i.test(t.name) ? `<button type="button" class="btn btn-small" data-as-text title="Ver o arquivo como texto"><i class="ic" data-ic="file-code"></i> Texto</button>` : "";
+    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="file-spreadsheet"></i><b>${esc(t.name)}</b><span class="dv-status" id="dv-status">${sheet.total} linhas · ${cols.length} colunas${sepInfo}${editable ? "" : " · só leitura"}</span>${asText}<button type="button" class="btn btn-small" data-toggle-suggest title="Gráficos que fazem sentido com estes dados"><i class="ic" data-ic="chart-column"></i> Gráficos</button></div>${tabs}
+      <div class="sh-body${t.hideSuggest ? " no-suggest" : ""}"><div class="sh-grid-wrap" id="sh-grid"></div>
       <aside class="sh-suggest"><div class="sh-suggest-head"><b>Gráficos que fazem sentido</b><button type="button" class="btn btn-small" data-ai-suggest title="A IA confere o tipo das colunas e sugere gráficos, títulos e nomes dos eixos"><i class="ic" data-ic="sparkles"></i> Sugerir com IA</button></div><div class="sh-cards" id="sh-cards"><div class="ex-empty">Olhando as colunas…</div></div></aside></div>`;
+    const types = [];
+    for (const c of cols) types[c.index] = { type: c.type, label: TYPE_LABEL[c.type] || c.type };
+    let timer = 0;
+    window.SagaViewers.sheetGrid(view.querySelector("#sh-grid"), {
+      rows: sheet.rows, editable, hasHeader: sheet.hasHeader, types,
+      onChange: (rows) => {
+        const st = $("#dv-status"); st.textContent = "gravando…"; t.dirty = true; renderTabs();
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          try { await api("api/project/sheet-write", { path: t.path, rows }); t.dirty = false; renderTabs(); st.textContent = `gravado${sepInfo}`; st.classList.remove("error"); }
+          catch (e) { st.textContent = e.message; st.classList.add("error"); }
+        }, 500);
+      },
+    });
     view.querySelectorAll("[data-sheet]").forEach((b) => b.onclick = () => { t.sheet = b.dataset.sheet; activate(t.path); });
+    view.querySelector("[data-as-text]")?.addEventListener("click", () => { t.asText = true; t.text = undefined; activate(t.path); });
+    view.querySelector("[data-toggle-suggest]").onclick = () => { t.hideSuggest = !t.hideSuggest; view.querySelector(".sh-body").classList.toggle("no-suggest", t.hideSuggest); };
     view.querySelector("[data-ai-suggest]").onclick = (ev) => loadSuggestions(t, true, ev.currentTarget);
     ctx.hydrate(view);
     loadSuggestions(t, false);
+  }
+  async function showPdf(view, t) {
+    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="file-text"></i><b>${esc(t.name)}</b><a class="btn btn-small" href="${fileUrl(t.path)}" download="${esc(t.name)}" title="Baixar o PDF"><i class="ic" data-ic="download"></i></a></div><div class="pv" id="pv-host"></div>`;
+    ctx.hydrate(view);
+    await window.SagaViewers.pdfView(view.querySelector("#pv-host"), fileUrl(t.path), { name: t.name });
+    ctx.hydrate(view);
+  }
+  async function showDocx(view, t) {
+    const { html } = await api(`api/project/docx?path=${encodeURIComponent(t.path)}`);
+    view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="file-text"></i><b>${esc(t.name)}</b><span class="dv-status">só leitura (edite no Word)</span><a class="btn btn-small" href="${fileUrl(t.path)}" download="${esc(t.name)}" title="Baixar o documento"><i class="ic" data-ic="download"></i></a></div><div class="dx" id="dx-host"></div>`;
+    window.SagaViewers.docxView(view.querySelector("#dx-host"), html);
   }
   async function loadSuggestions(t, ai, btn) {
     const host = $("#sh-cards"); if (!host) return;
@@ -395,6 +423,7 @@
     const up = $("#ex-upload-input");
     $("#ex-upload").onclick = () => up.click();
     up.onchange = async () => { try { const dir = uploadTarget ?? (dirOf(selected) || "contexto"); uploadTarget = null; for (const f of up.files) await uploadFile(f, dir); up.value = ""; refreshTree(); ctx.toast("Arquivo no projeto."); } catch (e) { ctx.toast(e.message); } };
+    window.SagaViewers.contextMenu = (ev, items) => ctx.contextMenu(ev, items);
     bindTree(); bindTabs(); renderTabs();
     // Ctrl+V de print em qualquer lugar do editor (fora de campo de texto): vai para contexto/
     document.addEventListener("paste", async (ev) => {

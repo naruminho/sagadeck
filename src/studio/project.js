@@ -9,14 +9,16 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import JSZip from "jszip";
-import { parseTable, toNum as rawNum } from "../science.js";
+import { toNum as rawNum } from "../science.js";
+import { parseCSV, toCSV } from "../csv.js";
 import { extractDocText } from "../ai/context.js";
 
 // número de planilha: 1.234,5 · 40% · R$ 10 · -3
 const toNum = (v) => rawNum(String(v ?? "").trim().replace(/^R\$\s*/i, "").replace(/\s*%$/, ""));
 export const META = ".sagadeck";
 export const CONTEXT = "contexto";
-const TEXT_EXT = new Set(["md", "markdown", "txt", "csv", "tsv", "json", "yaml", "yml", "css", "js", "html", "svg"]);
+const TEXT_EXT = new Set(["md", "markdown", "txt", "csv", "tsv", "json", "yaml", "yml", "css", "js", "mjs", "cjs", "jsx", "ts", "tsx", "html", "htm", "svg", "xml",
+  "py", "r", "m", "sql", "sh", "bash", "bat", "ps1", "ini", "toml", "cfg", "java", "c", "h", "cpp", "cs", "go", "rs", "tex", "bib", "log"]);
 const SHEET_EXT = new Set(["csv", "tsv", "xlsx"]);
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const extOf = (f) => (String(f).match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
@@ -28,7 +30,8 @@ export const kindOf = (name, isMain) => {
   if (e === "md" || e === "markdown") return "md";
   if (TEXT_EXT.has(e)) return "text";
   if (e === "pdf") return "pdf";
-  if (["docx", "pptx"].includes(e)) return "doc";
+  if (e === "docx") return "docx";
+  if (e === "pptx") return "pptx";
   return "other";
 };
 
@@ -172,7 +175,10 @@ const unxml = (s) => String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").repla
 const colIndex = (ref) => { const L = String(ref).match(/^[A-Z]+/)?.[0] || "A"; let n = 0; for (const c of L) n = n * 26 + (c.charCodeAt(0) - 64); return n - 1; };
 export async function readSheet(abs) {
   const ext = extOf(abs);
-  if (ext === "csv" || ext === "tsv") return { sheets: [{ name: path.basename(abs), rows: parseTable(fs.readFileSync(abs, "utf8")) }] };
+  if (ext === "csv" || ext === "tsv") {
+    const csv = parseCSV(fs.readFileSync(abs, "utf8"), ext === "tsv" ? "\t" : undefined);
+    return { sheets: [{ name: path.basename(abs), rows: csv.rows }], editable: true, delimiter: csv.delimiter };
+  }
   if (ext !== "xlsx") throw new Error("Planilha: use .csv, .tsv ou .xlsx.");
   const zip = await JSZip.loadAsync(fs.readFileSync(abs));
   const shared = [];
@@ -208,6 +214,21 @@ export async function readSheet(abs) {
   }
   if (!sheets.length) throw new Error("xlsx sem planilhas.");
   return { sheets };
+}
+
+// grava a planilha editada no mesmo formato do arquivo (separador, fim de linha, BOM, linha sep=)
+export function writeSheet(P, rel, rows) {
+  const abs = resolveIn(P, rel);
+  const ext = extOf(abs);
+  if (ext !== "csv" && ext !== "tsv") throw new Error("Só .csv e .tsv se editam aqui (xlsx abre só para ler).");
+  if (!Array.isArray(rows) || rows.some((r) => !Array.isArray(r))) throw new Error("Planilha inválida.");
+  const old = fs.existsSync(abs) ? parseCSV(fs.readFileSync(abs, "utf8"), ext === "tsv" ? "\t" : undefined) : { delimiter: ext === "tsv" ? "\t" : ",", eol: "\n" };
+  const tmp = abs + ".tmp";
+  const clean = rows.map((r) => r.map((c) => String(c ?? "")));
+  while (clean.length > 1 && clean.at(-1).every((c) => c === "")) clean.pop(); // linha vazia no fim (o cursor passou dela) não vai para o arquivo
+  fs.writeFileSync(tmp, toCSV(clean, old));
+  fs.renameSync(tmp, abs);
+  return { path: relOf(P, abs), delimiter: old.delimiter };
 }
 
 // ---- tipos das colunas (sem IA: o que dá para ver pelos valores) ----

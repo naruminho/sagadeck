@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Arquivos do projeto como no VS Code: código com realce, CSV como o Excel, PDF e DOCX — 30/09/2026
+
+- Pedido: ver e editar .txt/.md/.json/.yaml com realce; ver PDF; ler .docx (editar só formato nativo, sem pesar);
+  CSV igual ao Excel, descobrindo vírgula, ponto e vírgula ou tab.
+- `src/csv.js`: separador descoberto pela consistência das colunas (e a linha `sep=` do Excel), aspas com
+  separador/quebra de linha, BOM e fim de linha preservados ao gravar. O motor (`parseTable`) usa o mesmo leitor.
+- `src/studio/public/viewers.js`: editor com números de linha, Tab/Shift+Tab e realce (json, yaml, md, js/ts, py,
+  css, html/xml/svg, sql, sh, ini, csv com cada coluna de uma cor); grade tipo Excel (letras/números, editar
+  digitando, Enter/Tab/setas, colar bloco do Excel, Ctrl+Z/Y, menu de linhas/colunas) que grava em
+  `/api/project/sheet-write` no formato original; PDF pelo pdf.js servido em `/vendor/` (sem ele, o leitor do
+  navegador); DOCX convertido pelo servidor (`src/docx.js`: títulos, listas, negrito, links, tabelas, imagens).
+- Teste: `test/viewers.test.js`.
+
 ## Algoritmo rastreado genérico: qualquer código, como num depurador — 30/09/2026
 
 - Pedido: além dos clássicos, mostrar um algoritmo qualquer (o que o professor inventou, árvore, grafo) com o
