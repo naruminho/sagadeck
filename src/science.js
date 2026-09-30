@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import katex from 'katex';
 import { esc } from './markup.js';
+import { parseCSV } from './csv.js';
 import './runtime/formula.js';
 
 const F = globalThis.SagaFormula;
@@ -26,11 +27,9 @@ const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Num
 const range = (r, d) => (Array.isArray(r) && r.length === 2 && r.every((v) => Number.isFinite(Number(v))) && Number(r[0]) < Number(r[1]) ? [Number(r[0]), Number(r[1])] : d);
 
 // tabela colada do Excel/CSV (tab, ponto e vírgula ou vírgula) -> linhas de células; vírgula decimal vira ponto
+// tabela colada ou lida de arquivo: separador descoberto (vírgula, ponto e vírgula, tab), aspas respeitadas (src/csv.js)
 export function parseTable(text) {
-  const lines = String(text ?? '').replace(/\r/g, '').split('\n').filter((l) => l.trim());
-  if (!lines.length) return [];
-  const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
-  return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"(.*)"$/, '$1')));
+  return parseCSV(text).rows.filter((r) => r.some((c) => c.trim())).map((r) => r.map((c) => c.trim()));
 }
 // número de planilha: 40% · R$ 10 · 1.234,5 · -3
 const toNum = (c) => { const s = String(c ?? '').trim().replace(/^R\$/i, '').replace(/%$/, '').replace(/\s/g, ''); const n = Number(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(',', '.')); return s !== '' && Number.isFinite(n) ? n : null; };

@@ -30,6 +30,10 @@ import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
+import { docxToHtml } from "../docx.js";
+import { createRequire } from "node:module";
+// pdf.js do node_modules (já é dependência para ler PDF de contexto); sem ele, o explorador usa o leitor do navegador
+const PDFJS_DIR = (() => { try { return path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/build/pdf.min.mjs")); } catch { return null; } })();
 import { parseAspect, convertAspect, slideSize } from "../aspect.js";
 import { chat as llmChat } from "../ai/llm.js";
 
@@ -486,12 +490,24 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/plotly.min.js" ? "vendor/plotly.min.js" : pathname.slice(1))));
         return;
       }
+      if (pathname === "/vendor/pdf.min.mjs" || pathname === "/vendor/pdf.worker.min.mjs") { // leitor de PDF do explorador (sem internet)
+        const file = PDFJS_DIR && path.join(PDFJS_DIR, pathname.split("/").pop());
+        if (!file || !fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
+        res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "max-age=86400" });
+        res.end(fs.readFileSync(file));
+        return;
+      }
+      if (pathname === "/csv.js") { // o mesmo leitor de CSV do motor (src/csv.js), para o realce e a planilha
+        res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+        res.end(fs.readFileSync(path.join(path.dirname(RUNTIME_DIR), "csv.js")));
+        return;
+      }
       if (pathname === "/fit.js") { // o mesmo ajuste da apresentação (src/runtime/fit.js)
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/merge-decks.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -935,13 +951,20 @@ export function createStudioServer(deckPath = null, opts = {}) {
           }
           if (pathname === "/api/project/sheet" && req.method === "GET") {
             const rel = url.searchParams.get("path");
-            const { sheets } = await Project.readSheet(Project.resolveIn(P, rel));
-            return done({ sheets: sheets.map((sh) => { const info = Project.inferColumns(sh.rows); return { name: sh.name, rows: sh.rows.slice(0, 1000), total: sh.rows.length, columns: info.columns, hasHeader: info.hasHeader }; }) });
+            const { sheets, editable, delimiter } = await Project.readSheet(Project.resolveIn(P, rel));
+            const all = url.searchParams.get("all") === "1";
+            return done({ editable: !!editable, delimiter, sheets: sheets.map((sh) => { const info = Project.inferColumns(sh.rows); return { name: sh.name, rows: all ? sh.rows.slice(0, 20000) : sh.rows.slice(0, 1000), total: sh.rows.length, columns: info.columns, hasHeader: info.hasHeader }; }) });
+          }
+          if (pathname === "/api/project/docx" && req.method === "GET") {
+            const abs = Project.resolveIn(P, url.searchParams.get("path"));
+            if (!/\.docx$/i.test(abs) || !fs.existsSync(abs)) return done({ error: "Arquivo .docx não existe." }, 404);
+            return done({ html: await docxToHtml(fs.readFileSync(abs)) });
           }
           if (req.method !== "POST") return done({ error: "método não suportado" }, 405);
           const b = await readJSON(req);
           switch (pathname) {
             case "/api/project/write": return done(Project.writeText(P, b.path, b.text));
+            case "/api/project/sheet-write": return done(Project.writeSheet(P, b.path, b.rows));
             case "/api/project/create": return done(Project.createFile(P, b.dir || "", b.name, b.text || ""));
             case "/api/project/mkdir": return done(Project.mkdir(P, b.dir || "", b.name));
             case "/api/project/rename": return done(Project.rename(P, b.path, b.name));
