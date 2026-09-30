@@ -606,6 +606,18 @@ Um `.pptx` importado (Biblioteca › Importar apresentação, ou `sagadeck impor
 - `image` com `crop: { l, t, r, b }` (recorte em fração de cada lado), `fit: fill`; `fromOriginal: true` = recortado da foto do original (equação antiga, SmartArt).
 Para melhorar ou recriar, leia o conteúdo (títulos, textos, `tableData`, notas) e o que a imagem mostra, e troque o slide por layouts do sagadeck; os números, nomes, fórmulas e fontes do original não podem se perder.
 
+## Estilo da pessoa (mestre: moldura, título, área)
+
+Como o slide mestre do PowerPoint: `master:` no deck desenha em todo slide o que é do padrão (logos, faixas, linha do título, número da página) e diz onde o conteúdo e o título ficam. Com `theme:` (cores e fontes), é o **estilo** que o professor usa para seguir o padrão da universidade.
+- `master: { elements: [...], cover: [...], area: { top, left, right, bottom }, coverArea, title: { font, size, color, bold, align, gap }, text: { font } }`: `elements` são elementos do canvas (x, y, w, h) em todo slide de conteúdo; `cover` na capa, seção e encerramento; `area` é onde o conteúdo fica (fora da moldura); `title` é a cara do título (o `gap` é o espaço até o conteúdo). Num texto do mestre, o trecho com `field: slidenum` mostra o número do slide.
+- O slide `canvas` e o `master: false` ficam sem moldura. `style: { id, name }` diz de qual estilo salvo o deck veio.
+- Estilos salvos ficam na biblioteca (Design › **Estilo**: aplicar, salvar o desta apresentação, tirar). De um PowerPoint importado, o sagadeck tira o estilo sozinho: o que se repete na mesma posição (mesmo copiado slide a slide) vira a moldura, e o título, o corpo e as cores vêm do original.
+- Para **seguir o estilo de um deck** (imitar o original, converter para o padrão da universidade), use os layouts do sagadeck com o `master` e o `theme` do estilo; não recrie a moldura dentro de cada slide.
+
+## Revisão das mudanças (`review`)
+
+Quando melhorar ou reescrever uma apresentação que já existia (principalmente uma importada), marque cada slide que mudou para a pessoa validar: `review: { status: alterado, note: "o que mudou, em uma frase", original: 7 }` (`original` = o número do slide no original) ou `review: { status: novo, note: "por que entrou" }` para slide que não existia. O Studio mostra um selo na miniatura, uma faixa no slide com **Ver original**, **Aceitar** e **Desfazer** (volta ao slide de `original/original.yaml`; slide novo sai) e a lista em Revisar › **Mudanças**. A apresentação e a exportação não mostram as marcas. Nunca apague dados do original: números, nomes, fórmulas, fontes e figuras específicas (um mapa, um experimento de uma cidade) continuam, só mais claros.
+
 ## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado (`solution`, `calc`, `algo`)
 
 **`solution` — exercício resolvido passo a passo.** À esquerda, `problem` (enunciado), `givens` (dados: `{symbol, value, unit, label}` ou `{latex, label}`; vírgula decimal pode) e `find` (o que se pede, LaTeX). À direita, a conta: o primeiro quadro pergunta `prompt` (padrão "Por onde você começaria?"); cada clique revela o próximo `steps: [{text, latex, note}]` (os anteriores ficam compactos); o último mostra `answer: {latex, text, label}` em destaque. Mantenha cada passo curto (uma ideia, uma linha de conta); de 3 a 6 passos. Use para qualquer matéria com conta: física, engenharia, finanças, estatística.

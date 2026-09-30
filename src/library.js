@@ -17,6 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
+import * as MASTER from "./master.js";
 import { unpackDeck } from "./package.js";
 import { writeDeckFile } from "./deck-file.js";
 
@@ -311,7 +312,59 @@ export function openLibrary(root) {
     return { id: idOf(file), file, slides: r.spec.slides.length, snapshots: r.snapshots, snapBy: r.snapBy, converted: r.converted, warnings: r.warnings };
   }
 
+  // ---- estilos da pessoa (tema + mestre), reutilizáveis: <biblioteca>/.estilos/<slug>/estilo.yaml + imagens
+  const stylesRoot = path.join(root, ".estilos");
+  const slug = (n) => safeName(String(n || "estilo")).toLowerCase().replace(/\s+/g, "-");
+  function listStyles() {
+    if (!fs.existsSync(stylesRoot)) return [];
+    return fs.readdirSync(stylesRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && fs.existsSync(path.join(stylesRoot, d.name, "estilo.yaml"))).map((d) => {
+      try { const st = YAML.parse(fs.readFileSync(path.join(stylesRoot, d.name, "estilo.yaml"), "utf8")); return { id: d.name, name: st.name || d.name, from: st.from || null, accent: st.theme?.colors?.accent || null, paper: st.theme?.colors?.paper || null }; }
+      catch { return null; }
+    }).filter(Boolean).sort((x, y) => x.name.localeCompare(y.name, "pt-BR"));
+  }
+  function saveStyle(style, fromDir, { replace = false } = {}) {
+    const { masterImages } = MASTER;
+    let id = slug(style.name);
+    if (!replace) { const base = id; for (let n = 2; fs.existsSync(path.join(stylesRoot, id)); n++) id = `${base}-${n}`; }
+    const dir = path.join(stylesRoot, id);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const rel of masterImages(style.master)) {
+      const src = path.resolve(fromDir, rel);
+      if (!src.startsWith(path.resolve(fromDir)) || !fs.existsSync(src)) continue;
+      const dst = path.join(dir, ...rel.split("/"));
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.copyFileSync(src, dst);
+    }
+    fs.writeFileSync(path.join(dir, "estilo.yaml"), YAML.stringify(style, { indent: 2, lineWidth: 0 }));
+    return { id, name: style.name };
+  }
+  function loadStyle(id) {
+    const dir = path.join(stylesRoot, slug(id));
+    if (!dir.startsWith(stylesRoot) || !fs.existsSync(path.join(dir, "estilo.yaml"))) throw new Error("estilo não encontrado");
+    return { style: YAML.parse(fs.readFileSync(path.join(dir, "estilo.yaml"), "utf8")), dir, id: slug(id) };
+  }
+  // aplica num deck (spec + pasta): as imagens da moldura vão para imagens/estilo/<id>/ e o deck fica portátil
+  function applyStyleTo(spec, deckDir, id) {
+    const { style, dir } = loadStyle(id);
+    const { masterImages } = MASTER;
+    const map = new Map();
+    for (const rel of masterImages(style.master)) {
+      const src = path.join(dir, ...rel.split("/"));
+      if (!fs.existsSync(src)) continue;
+      const to = `imagens/estilo/${slug(id)}/${path.basename(rel)}`;
+      const dst = path.join(deckDir, ...to.split("/"));
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.copyFileSync(src, dst);
+      map.set(rel, to);
+    }
+    const master = structuredClone(style.master);
+    const fix = (list) => (list || []).forEach((e) => { if (e.image && map.has(e.image)) e.image = map.get(e.image); if (e.drawing) e.drawing = String(e.drawing).replace(/href="media:([^"]+)"/g, (m, r) => `href="media:${map.get(r) || r}"`); });
+    fix(master.elements); fix(master.cover);
+    return { ...spec, theme: style.theme, master, footer: false, style: { id: slug(id), name: style.name } };
+  }
+
   return {
+    listStyles, saveStyle, loadStyle, applyStyleTo,
     importOffice,
     root, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,
