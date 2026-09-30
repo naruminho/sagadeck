@@ -34,7 +34,7 @@
     "mermaid": "^11.17.2"
   },
   "scripts": {
-    "dev": "node bin/sagadeck.js studio --port=3000",
+    "dev": "node bin/sagadeck.js studio",
     "bundle": "node scripts/bundle.mjs",
     "build:py": "node scripts/bundle.mjs && python -m build",
     "test:live": "node tools/test-live.mjs",

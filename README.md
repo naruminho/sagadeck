@@ -33,7 +33,7 @@ Comandos:
 
 ```
 sagadeck new <nome> [--topic=T] [--theme=x]  cria um deck de exemplo na biblioteca
-sagadeck studio [deck.yaml] [--port=3000]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA
+sagadeck studio [deck.yaml] [--port=3517]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA (já aberto: usa o aberto)
 sagadeck ensaio-api [--port=3000]            exemplo de slides de API rodando contra uma API de mentira
 sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
 sagadeck build <deck.yaml>                   gera o .html
@@ -66,7 +66,7 @@ Se o código de uma ferramenta em Python quiser chamar o sagadeck diretamente (s
 import sagadeck
 sagadeck.autofix("palestra.yaml")               # corrige sobreposições e margens automaticamente
 sagadeck.studio()                               # abre a biblioteca (~/sagadeck)
-sagadeck.studio("palestra.yaml", port=3000)     # abre direto o editor de um deck
+sagadeck.studio("palestra.yaml", port=3517)     # abre direto o editor de um deck
 sagadeck.export("palestra.yaml", out="saida")   # {'html': …, 'pptx': …, 'pdf': …, 'roteiro': …}
 print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
 contexto = sagadeck.reference()                  # referência do YAML para colocar no prompt

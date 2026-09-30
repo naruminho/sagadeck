@@ -329,6 +329,7 @@
     }
     refreshAIStatus();
     setInterval(refreshAIStatus, 30000);
+    watchTransform();
     updateCanvasScale();
     window.addEventListener("resize", () => {
       if (state.autoFit) updateCanvasScale();
@@ -2277,8 +2278,9 @@
 
       if (slide.review?.status) {
         const rv = document.createElement("span");
-        rv.className = `thumb-review rv-${slide.review.status === "novo" ? "new" : "changed"}`;
-        rv.innerHTML = `<i class="ic" data-ic="${slide.review.status === "novo" ? "plus" : "pencil"}"></i><span>${slide.review.status === "novo" ? "novo" : "alterado"}</span>`;
+        const k = reviewKind(slide.review);
+        rv.className = `thumb-review rv-${k.cls}`;
+        rv.innerHTML = `<i class="ic" data-ic="${k.icon}"></i><span>${k.tag}</span>`;
         hydrateIcons(rv);
         rv.title = slide.review.note || "";
         card.appendChild(rv);
@@ -2951,6 +2953,14 @@
     return n ? `original/slide-${String(n).padStart(2, "0")}.png` : null;
   };
   const reviewCount = () => (state.deck?.slides || []).filter((s) => s.review?.status).length;
+  // marca de revisão: novo, alterado, pendente (proposta ao lado do original), revisar (conferir o desenho)
+  const REVIEW_KIND = {
+    novo: { cls: "new", icon: "plus", tag: "novo", title: "Slide novo", reject: "Tira este slide" },
+    alterado: { cls: "changed", icon: "pencil", tag: "alterado", title: "Alterado", reject: "Volta este slide ao original" },
+    pendente: { cls: "pending", icon: "git-compare", tag: "pendente", title: "Proposta pendente", reject: "Tira a proposta (o original, logo antes, fica)", accept: "Fica a proposta; o original ao lado sai" },
+    revisar: { cls: "check", icon: "scan-eye", tag: "revisar", title: "Conferir o desenho", reject: "Volta este slide ao original" },
+  };
+  const reviewKind = (rv) => REVIEW_KIND[rv?.status] || REVIEW_KIND.alterado;
   function syncReviewBadge() {
     const b = document.getElementById("review-badge");
     if (!b) return;
@@ -2965,11 +2975,12 @@
     orig.classList.add("hidden");
     if (!rv?.status) { bar.classList.add("hidden"); bar.innerHTML = ""; return; }
     const img = reviewImage(slide);
-    bar.className = `review-bar rv-${rv.status === "novo" ? "new" : "changed"}`;
-    bar.innerHTML = `<i class="ic" data-ic="${rv.status === "novo" ? "plus" : "pencil"}"></i><b>${rv.status === "novo" ? "Slide novo" : `Alterado${rv.original ? ` (era o ${rv.original})` : ""}`}</b><span class="rb-note"></span>
+    const k = reviewKind(rv);
+    bar.className = `review-bar rv-${k.cls}`;
+    bar.innerHTML = `<i class="ic" data-ic="${k.icon}"></i><b>${k.title}${rv.status !== "novo" && rv.original ? ` (${rv.status === "pendente" ? "para o" : "era o"} ${rv.original})` : ""}</b><span class="rb-note"></span>
       ${img ? '<button type="button" class="btn btn-sm" data-rv="orig" title="Mostra o slide original por cima (clique de novo para voltar)"><i class="ic" data-ic="eye"></i> Ver original</button>' : ""}
-      <button type="button" class="btn btn-sm" data-rv="reject" title="${rv.status === "novo" ? "Tira este slide" : "Volta este slide ao original"}"><i class="ic" data-ic="rotate-ccw"></i> Desfazer</button>
-      <button type="button" class="btn btn-primary btn-sm" data-rv="accept" title="Fica assim; a marca sai"><i class="ic" data-ic="check"></i> Aceitar</button>`;
+      <button type="button" class="btn btn-sm" data-rv="reject" title="${k.reject}"><i class="ic" data-ic="rotate-ccw"></i> Desfazer</button>
+      <button type="button" class="btn btn-primary btn-sm" data-rv="accept" title="${k.accept || "Fica assim; a marca sai"}"><i class="ic" data-ic="check"></i> Aceitar</button>`;
     bar.querySelector(".rb-note").textContent = rv.note || "";
     hydrateIcons(bar);
     // a foto do original só carrega quando a pessoa pede (e pode não existir: importado sem PowerPoint)
@@ -3003,7 +3014,7 @@
     const fill = () => {
       const list = (state.deck?.slides || []).map((s, i) => ({ s, i })).filter(({ s }) => s.review?.status);
       dlg.innerHTML = `<header><b>Mudanças para validar</b><span class="rv-count">${list.length}</span><span class="grow"></span>${list.length ? '<button type="button" class="btn btn-sm" data-all>Aceitar todas</button>' : ""}<button type="button" class="btn btn-sm" data-close title="Fechar"><i class="ic" data-ic="x"></i></button></header>
-        <div class="rv-list">${list.length ? list.map(({ s, i }) => `<div class="rv-item" data-i="${i}"><span class="thumb-review rv-${s.review.status === "novo" ? "new" : "changed"}">${s.review.status === "novo" ? "novo" : "alterado"}</span><b class="rv-num">${i + 1}</b><span class="rv-text"><span class="rv-title"></span><span class="rv-note"></span></span><button type="button" class="btn btn-sm" data-go>Ver</button><button type="button" class="btn btn-sm" data-reject>Desfazer</button><button type="button" class="btn btn-primary btn-sm" data-accept>Aceitar</button></div>`).join("") : '<div class="rv-empty">Nada para validar: todas as mudanças foram aceitas.</div>'}</div>`;
+        <div class="rv-list">${list.length ? list.map(({ s, i }) => `<div class="rv-item" data-i="${i}"><span class="thumb-review rv-${reviewKind(s.review).cls}">${reviewKind(s.review).tag}</span><b class="rv-num">${i + 1}</b><span class="rv-text"><span class="rv-title"></span><span class="rv-note"></span></span><button type="button" class="btn btn-sm" data-go>Ver</button><button type="button" class="btn btn-sm" data-reject>Desfazer</button><button type="button" class="btn btn-primary btn-sm" data-accept>Aceitar</button></div>`).join("") : '<div class="rv-empty">Nada para validar: todas as mudanças foram aceitas.</div>'}</div>`;
       dlg.querySelectorAll(".rv-item").forEach((row) => {
         const i = +row.dataset.i, s = state.deck.slides[i];
         row.querySelector(".rv-title").textContent = plainTitle(s, i);
@@ -3291,6 +3302,13 @@
       const data = await res.json().catch(() => ({}));
       if ("file" in data) state.file = data.file;
       if (data.materialized) previewMaterialized(data.materialized);
+      // o servidor dá identidade a slide novo (uid) e leva o ajuste visual junto quando um texto muda: o Studio adota
+      (data.spec?.slides || []).forEach((srv, i) => {
+        const mine = state.deck?.slides?.[i];
+        if (!mine || !srv || (mine.uid && srv.uid && mine.uid !== srv.uid)) return;
+        if (!mine.uid && srv.uid) mine.uid = srv.uid;
+        if (srv.visualEdits && JSON.stringify(srv.visualEdits) !== JSON.stringify(mine.visualEdits || {})) mine.visualEdits = srv.visualEdits;
+      });
       updateSaveStatus(res.ok ? "saved" : "error");
       if (res.ok) window.SagaProject?.deckChanged();
     } catch (err) {
@@ -3686,6 +3704,24 @@
   }
 
   // Bolha de "trabalhando": etapa atual, segundos, caracteres recebidos e o começo da resposta.
+  // A página abriu (ou reabriu) com uma transformação rodando no servidor: acompanha e, no fim, recarrega o deck
+  async function watchTransform() {
+    let st;
+    try { st = await (await fetch("api/ai/transform/status")).json(); } catch { return; }
+    if (!st.running?.length) return;
+    const work = createProgressBubble(st.running[0].progress?.text || "Transformando a apresentação…");
+    const tick = async () => {
+      try { st = await (await fetch("api/ai/transform/status")).json(); } catch { st = { running: [] }; }
+      const run = st.running?.[0];
+      if (run) { work.update({ type: "progress", ...(run.progress || {}), phase: run.progress?.phase || "transform", mode: run.mode, text: run.progress?.text || "Transformando…" }); setTimeout(tick, 3000); return; }
+      work.done();
+      const job = st.jobs?.[0];
+      appendChatMessage("ai", job?.status === "parcial" ? "A transformação parou antes do fim; o que ficou pronto está guardado e pedir de novo continua de onde parou." : "A transformação terminou.");
+      await loadDeck();
+    };
+    tick();
+  }
+
   function createProgressBubble(initial) {
     const el = appendChatMessage("ai", "");
     el.classList.add("ai-working");
@@ -3705,6 +3741,15 @@
       update(ev) {
         if (ev.type !== "progress") return;
         text.textContent = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
+        // transformação da apresentação inteira: pode levar muitos minutos, então dá para parar (o feito fica guardado)
+        if (String(ev.phase || "").startsWith("transform") && !content.querySelector(".work-stop")) {
+          const stop = document.createElement("button");
+          stop.type = "button"; stop.className = "btn btn-ghost btn-sm work-stop";
+          stop.title = "Parar; o que já ficou pronto fica guardado e pedir de novo continua de onde parou";
+          stop.innerHTML = '<i class="ic" data-ic="square"></i> Parar'; hydrateIcons(stop);
+          stop.onclick = async () => { stop.disabled = true; await fetch("api/ai/transform/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: ev.mode }) }).catch(() => {}); };
+          content.querySelector(".work-line").append(stop);
+        }
         if (ev.preview) preview.textContent = ev.preview;
         dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
       },

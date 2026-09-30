@@ -126,7 +126,8 @@ function promptSpec(spec) {
   const copy = publicSpec(spec);
   // slide que veio de um PowerPoint importado (canvas com original:): vai resumido — o texto e o que tem, sem os
   // elementos (desenho, posições), que são muitos e não ajudam a decidir
-  copy.slides = (copy.slides || []).map((sl) => (sl && sl.layout === "canvas" && sl.original && Array.isArray(sl.elements) ? importedSummary(sl) : sl));
+  copy.slides = (copy.slides || []).map((sl) => (sl && sl.layout === "canvas" && sl.original && Array.isArray(sl.elements) ? importedSummary(sl) : sl))
+    .map((sl) => { if (sl && typeof sl === "object" && "uid" in sl) { const { uid, ...rest } = sl; return rest; } return sl; }); // identidade é do Studio
   if (copy.master) copy.master = { resumo: `moldura do estilo com ${(copy.master.elements || []).length} elemento(s) (logos, faixas, número); área e título definidos` };
   return copy;
 }
@@ -494,7 +495,7 @@ function mergePatch(target, patch) {
 
 // Campos que a IA costuma esquecer ao reescrever um slide inteiro e que não são dela: o roteiro, o tempo, os
 // ajustes feitos à mão no Studio, o histórico da auto-correção. Para tirar, ela usa edit com null.
-const KEEP_ON_REPLACE = ["notes", "time", "id", "visualEdits", "auto"];
+const KEEP_ON_REPLACE = ["notes", "time", "id", "uid", "visualEdits", "auto"];
 
 // Aplica um patch {deck, edit, slides, insert, delete} ao deck; devolve { spec, changed: [índices no deck novo] }.
 //   edit:   { N: { campo: valor | null } }  só os campos que mudam (merge patch); o resto do slide fica idêntico
@@ -555,7 +556,7 @@ export function applyPatch(base, patch) {
 // Os campos válidos são os que a referência documenta (a mesma que vai no prompt) mais os do Studio.
 // Campos de código/dados (code, request, svg…) podem conter qualquer coisa.
 // ---------------------------------------------------------------------------------------------
-const STUDIO_KEYS = ["layout", "notes", "time", "id", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "density", "deco", "theme", "palette", "tone",
+const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
 const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
 const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);
