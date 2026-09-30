@@ -147,14 +147,28 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
     if (spentBefore + Date.now() - t0 >= lim.minutes * 60000) throw new TransformStop(`Limite de ${lim.minutes} minutos.`, "limite");
     job.calls++;
     let r;
-    try { r = await chat(messages, { model, maxTokens, temperature, signal }); }
-    catch (e) { if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado"); throw e; }
+    // em streaming (os cabeçalhos chegam logo; chamada longa não cai no limite de 300 s do fetch) e mostrando o texto
+    // chegando; erro passageiro (rede, 5xx) tenta de novo uma vez
+    let shown = 0;
+    const onDelta = (_, all) => { if (all.length - shown > 1500) { shown = all.length; onProgress({ ...lastProgress, chars: all.length }); } };
+    for (let attempt = 1; ; attempt++) {
+      try { r = await chat(messages, { model, maxTokens, temperature, signal, onDelta }); break; }
+      catch (e) {
+        if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
+        const transient = !e.status || e.status >= 500 || e.status === 429;
+        if (attempt >= 2 || !transient) throw e;
+        log({ retry: e.message });
+        await new Promise((ok) => setTimeout(ok, 3000));
+      }
+    }
     const u = job.usage[r.model || model] || (job.usage[r.model || model] = { calls: 0, in: 0, out: 0 });
     u.calls++; u.in += r.usage?.prompt_tokens || 0; u.out += r.usage?.completion_tokens || 0;
     log({ model: r.model || model, usage: r.usage });
     return r;
   };
-  const progress = (phase, text, extra = {}) => onProgress({ phase: `transform-${phase}`, text, ...extra });
+  let lastProgress = {};
+  const progress = (phase, text, extra = {}) => { lastProgress = { phase: `transform-${phase}`, text, ...extra }; onProgress(lastProgress); };
+  if (resumed) for (const [k, r] of Object.entries(job.results)) if (r.state === "falhou") delete job.results[k]; // tenta de novo o que não saiu
   if (resumed) progress("retomar", `Retomando a tarefa de onde parou (${Object.keys(job.results).length} item(ns) já prontos).`);
   const orig = new Map(originals.map((s) => [s.original.slide, s]));
   const imgFile = (s) => s.original?.image && path.join(dir, s.original.image);
@@ -336,7 +350,10 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       save();
     } catch (e) {
       if (e instanceof TransformStop) { stop = e; break; }
-      throw e;
+      // o bloco não saiu (o modelo falhou mesmo depois de tentar de novo): fica registrado e a tarefa segue;
+      // esses itens entram como o original e pedir de novo tenta só eles
+      report.problemas.push(`itens ${batch.map(({ k }) => k + 1).join(", ")}: ${clip(e.message, 160)}`);
+      save();
     }
   }
 
@@ -391,11 +408,12 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   fs.writeFileSync(path.join(dir, "original", `cobertura-${mode}.md`), coverageMarkdown(coverage, out));
   const literal = coverage.filter((c) => c.onde.length).length;
   job.spentMs = spentBefore + Date.now() - t0;
-  const status = stop ? "parcial" : report.pendentes.length || report.revisar.length ? "revisar" : "concluido";
+  const missingItems = plan.slides.filter((it, k) => !job.results[k]?.slides && (it.acao !== "manter" || !srcOf(it).length)).length;
+  const status = stop || missingItems ? "parcial" : report.pendentes.length || report.revisar.length ? "revisar" : "concluido";
   job.status = status; job.stage = "montado"; save();
   return {
     spec: out, plan,
-    report: { ...report, status, parou: stop ? stop.message : null, retomada: resumed, mode, textModel: T, visionModel: V, calls: job.calls, usage: job.usage, seconds: Math.round(job.spentMs / 1000), alertas: plan.alertas || [], cobertura: { trechos: coverage.length, localizados: literal, reescritos: coverage.length - literal, arquivo: `original/cobertura-${mode}.md` } },
+    report: { ...report, status, parou: stop ? stop.message : missingItems ? `${missingItems} item(ns) não saíram` : null, retomada: resumed, mode, textModel: T, visionModel: V, calls: job.calls, usage: job.usage, seconds: Math.round(job.spentMs / 1000), alertas: plan.alertas || [], cobertura: { trechos: coverage.length, localizados: literal, reescritos: coverage.length - literal, arquivo: `original/cobertura-${mode}.md` } },
   };
 }
 

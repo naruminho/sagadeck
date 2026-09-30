@@ -109,6 +109,15 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.ok(lastReq(/kicker novo/).hasImages);
     });
 
+    await t.test("a mudança da IA se desfaz num passo (e se refaz)", async () => {
+      assert.match(await p.getAttribute("#btn-undo", "title"), /Desfazer: Assistente de IA/);
+      const kicker = (await deck()).slides[0].kicker;
+      await p.click("#btn-undo"); await p.waitForTimeout(900);
+      assert.notEqual(saved().slides[0].kicker, kicker, "desfeito no arquivo");
+      await p.click("#btn-redo"); await p.waitForTimeout(900);
+      assert.equal(saved().slides[0].kicker, kicker, "refeito no arquivo");
+    });
+
     await t.test("imagem colada no chat chega ao modelo", async () => {
       await p.setInputFiles("#chat-attach-input", { name: "ref.png", mimeType: "image/png", buffer: PNG_1PX });
       await p.waitForSelector("#chat-attachments .chat-att img");

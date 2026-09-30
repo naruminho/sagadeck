@@ -253,6 +253,7 @@
       reloadDeck: async () => {
         const data = await (await fetch("api/deck")).json();
         state.deck = data.spec;
+        trackDeck("Arquivo do projeto");
         state.currentSlideIndex = Math.min(state.currentSlideIndex, state.deck.slides.length - 1);
         renderThumbnails();
         await renderCurrentSlide();
@@ -330,6 +331,19 @@
     refreshAIStatus();
     setInterval(refreshAIStatus, 30000);
     watchTransform();
+    // Ctrl+Z / Ctrl+Y (e Ctrl+Shift+Z): o histórico do deck; dentro de um campo de texto vale o desfazer do campo
+    document.getElementById("btn-undo")?.addEventListener("click", () => stepHistory(-1));
+    document.getElementById("btn-redo")?.addEventListener("click", () => stepHistory(1));
+    syncUndoButtons();
+    document.addEventListener("keydown", (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      const t = e.target;
+      if (t?.closest?.("input, textarea, select, [contenteditable=''], [contenteditable='true'], .cm-editor")) return;
+      e.preventDefault();
+      stepHistory(k === "y" || e.shiftKey ? 1 : -1);
+    });
     updateCanvasScale();
     window.addEventListener("resize", () => {
       if (state.autoFit) updateCanvasScale();
@@ -342,6 +356,8 @@
       const res = await fetch("api/deck");
       const data = await res.json();
       state.deck = data.spec;
+      state.file = data.file || null;
+      trackDeck("Apresentação recarregada");
       state.themes = data.themes || [];
       state.themeMeta = data.themeMeta || {};
       state.palettes = data.palettes || {};
@@ -1079,6 +1095,7 @@
       // (junção a três: base = o deck quando o pedido saiu; ver merge-decks.js)
       const merged = window.SagadeckMerge.mergeDecks(baseDeck, state.deck, data.spec);
       state.deck = merged.deck;
+      trackDeck("Assistente de IA");
       if (JSON.stringify(merged.deck) !== JSON.stringify(data.spec)) syncDeckToServer();
       const conflicts = [...(data.conflicts || []), ...merged.conflicts];
       if (merged.kept || data.kept) showToast("Você reorganizou os slides enquanto a IA trabalhava: mantive a sua versão. Peça de novo se quiser a mudança dela.", 7000);
@@ -1859,6 +1876,7 @@
         dom.yamlStatus.textContent = "Aplicado";
         dom.yamlStatus.classList.remove("error");
         state.deck = data.spec;
+        trackDeck("YAML");
         if (state.currentSlideIndex >= state.deck.slides.length) state.currentSlideIndex = state.deck.slides.length - 1;
         renderCurrentSlide();
         renderThumbnails();
@@ -1879,6 +1897,8 @@
   // ==========================================================================
   // Busca de comandos (Ctrl+K). "ic" = ícone Lucide; "cat" = aba da faixa onde o comando também mora.
   const PALETTE_COMMANDS = [
+    { title: "Desfazer", cat: "Início", ic: "undo-2", fn: () => stepHistory(-1) },
+    { title: "Refazer", cat: "Início", ic: "redo-2", fn: () => stepHistory(1) },
     { title: "Novo slide", cat: "Início", ic: "plus", fn: () => addNewSlide() },
     { title: "Duplicar slide", cat: "Início", ic: "copy", fn: () => duplicateCurrentSlide() },
     { title: "Excluir slide", cat: "Início", ic: "trash-2", fn: () => deleteCurrentSlide() },
@@ -2905,7 +2925,7 @@
         body: JSON.stringify({ index: state.currentSlideIndex }),
       });
       const data = await res.json();
-      if (data.spec) state.deck = data.spec;
+      if (data.spec) { state.deck = data.spec; trackDeck("Imagem gerada"); }
       showToast(data.ok ? "Imagem gerada" : `Não deu para gerar a imagem: ${data.error || "erro"}`, data.ok ? 2500 : 6000);
     } catch (e) {
       showToast(`Não deu para gerar a imagem: ${e.message}`, 6000);
@@ -3004,6 +3024,7 @@
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
       state.deck = j.spec;
+      trackDeck(action === "accept" ? "Aceitar mudança" : action === "acceptAll" ? "Aceitar todas as mudanças" : "Desfazer mudança da revisão");
       if (state.currentSlideIndex >= state.deck.slides.length) state.currentSlideIndex = state.deck.slides.length - 1;
       renderThumbnails(); await renderCurrentSlide();
       document.getElementById("review-dialog")?.dispatchEvent(new Event("refresh"));
@@ -3043,7 +3064,7 @@
     let data;
     try { data = await (await fetch("api/styles")).json(); } catch { data = { styles: [] }; }
     const post = async (url, body) => { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }); const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`); return j; };
-    const reload = async (spec) => { state.deck = spec; applyAspect(); renderThumbnails(); await renderCurrentSlide(); };
+    const reload = async (spec) => { state.deck = spec; trackDeck("Estilo"); applyAspect(); renderThumbnails(); await renderCurrentSlide(); };
     const items = (data.styles || []).map((st) => ({ label: st.name, ic: data.current?.id === st.id ? "check" : "stamp", fn: async () => { try { const j = await post("api/styles/apply", { id: st.id }); await reload(j.spec); showToast(`Estilo "${st.name}" aplicado a todos os slides.`); } catch (e) { showToast(e.message); } } }));
     if (!items.length) items.push({ label: "Nenhum estilo salvo ainda", ic: "stamp", disabled: true, fn: () => {} });
     items.push({ sep: true });
@@ -3060,6 +3081,7 @@
     const j = await r.json();
     if (!r.ok) return showToast(j.error || "Proporção inválida");
     state.deck = j.spec;
+    trackDeck("Proporção do slide");
     applyAspect(); renderThumbnails(); await renderCurrentSlide();
     showToast(`Slides em ${j.label}. O que tinha posição livre foi reescalado; confira os avisos do fiscal.`);
   }
@@ -3291,7 +3313,41 @@
   // ==========================================================================
   // SINCRONIZAÇÃO E EVENT LISTENERS
   // ==========================================================================
+  // Desfazer / refazer único (history.js): todo caminho que muda o deck passa por trackDeck, com o rótulo da origem
+  const deckHistory = window.SagaHistory.createHistory();
+  function trackDeck(label = "Edição") {
+    if (state.applyingHistory || !state.deck) return;
+    deckHistory.note(state.deck, label, state.file || "(sem arquivo)");
+    syncUndoButtons();
+  }
+  function syncUndoButtons() {
+    const u = document.getElementById("btn-undo"), r = document.getElementById("btn-redo");
+    if (!u || !r) return;
+    u.disabled = !deckHistory.canUndo; r.disabled = !deckHistory.canRedo;
+    u.title = deckHistory.canUndo ? `Desfazer: ${deckHistory.undoLabel} (Ctrl+Z)` : "Nada para desfazer";
+    r.title = deckHistory.canRedo ? `Refazer: ${deckHistory.redoLabel} (Ctrl+Y)` : "Nada para refazer";
+  }
+  async function stepHistory(dir) {
+    if (dir < 0) trackDeck("Edição"); // o que ainda não foi gravado (arrasto, digitação) entra antes de voltar
+    const e = dir < 0 ? deckHistory.undo() : deckHistory.redo();
+    if (!e) return showToast(dir < 0 ? "Nada para desfazer." : "Nada para refazer.", 2000);
+    state.applyingHistory = true;
+    try {
+      state.deck = e.deck;
+      if (state.currentSlideIndex >= state.deck.slides.length) state.currentSlideIndex = state.deck.slides.length - 1;
+      // o que a barra mostra fora dos slides também volta (senão o valor velho do campo regravaria o deck)
+      dom.deckTitle.value = state.deck.title || "";
+      if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
+      buildThemeGallery?.();
+      applyAspect(); renderThumbnails(); await renderCurrentSlide();
+      await syncDeckToServer();
+    } finally { state.applyingHistory = false; }
+    syncUndoButtons();
+    showToast(`${dir < 0 ? "Desfeito" : "Refeito"}: ${e.label}`, 2200);
+  }
+
   async function syncDeckToServer() {
+    trackDeck("Edição");
     updateSaveStatus("saving");
     try {
       const res = await fetch("api/deck", {
@@ -3303,12 +3359,14 @@
       if ("file" in data) state.file = data.file;
       if (data.materialized) previewMaterialized(data.materialized);
       // o servidor dá identidade a slide novo (uid) e leva o ajuste visual junto quando um texto muda: o Studio adota
+      let adopted = false;
       (data.spec?.slides || []).forEach((srv, i) => {
         const mine = state.deck?.slides?.[i];
         if (!mine || !srv || (mine.uid && srv.uid && mine.uid !== srv.uid)) return;
-        if (!mine.uid && srv.uid) mine.uid = srv.uid;
-        if (srv.visualEdits && JSON.stringify(srv.visualEdits) !== JSON.stringify(mine.visualEdits || {})) mine.visualEdits = srv.visualEdits;
+        if (!mine.uid && srv.uid) { mine.uid = srv.uid; adopted = true; }
+        if (srv.visualEdits && JSON.stringify(srv.visualEdits) !== JSON.stringify(mine.visualEdits || {})) { mine.visualEdits = srv.visualEdits; adopted = true; }
       });
+      if (adopted && !state.applyingHistory) deckHistory.rebase(state.deck);
       updateSaveStatus(res.ok ? "saved" : "error");
       if (res.ok) window.SagaProject?.deckChanged();
     } catch (err) {
@@ -3339,7 +3397,7 @@
       if (!r.ok) throw new Error(data.error || r.status);
       const res = await fetch("api/deck");
       const d = await res.json();
-      state.deck = d.spec; state.file = d.file || null;
+      state.deck = d.spec; state.file = d.file || null; trackDeck("Cópia do modelo");
       previewMaterialized(data);
       updateSaveStatus();
     } catch (e) { showToast("Não deu para criar a cópia: " + e.message, 6000); }
@@ -3640,6 +3698,7 @@
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       state.deck = data.spec;
       state.file = data.file || null;
+      trackDeck("Apresentação criada com IA");
       updateSaveStatus();
       dom.deckTitle.value = state.deck.title || "Apresentação";
       if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
@@ -4815,6 +4874,7 @@ ${ta.value}`;
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         state.deck = data.spec;
         state.file = data.file;
+        trackDeck("Apresentação aberta");
         updateSaveStatus();
         dom.deckTitle.value = state.deck.title || file.name;
         if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
@@ -4843,6 +4903,7 @@ ${ta.value}`;
         }
         state.deck = data.spec;
         state.file = null;
+        trackDeck("Apresentação aberta");
         updateSaveStatus();
         dom.deckTitle.value = state.deck.title || file.name.replace(/\.(ya?ml)$/i, "");
         if (state.deck.theme) dom.themeSelect.value = state.deck.theme;
@@ -4870,6 +4931,7 @@ ${ta.value}`;
         }
         state.deck = data.spec;
         state.file = data.file || null;
+        trackDeck("Apresentação aberta");
         updateSaveStatus();
         dom.deckTitle.value = state.deck.title || pathStr;
         if (state.deck.theme) dom.themeSelect.value = state.deck.theme;

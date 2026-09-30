@@ -113,6 +113,9 @@ async function chatOnce(messages, { model, temperature, maxTokens, onDelta, sign
     });
   } catch (e) {
     if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
+    // o fetch do Node desiste se os cabeçalhos não chegam em 300 s (modelo que pensa muito antes de responder):
+    // em streaming eles chegam logo, e o limite passa a ser o SAGADECK_LLM_TIMEOUT
+    if (e.cause?.code === "UND_ERR_HEADERS_TIMEOUT") return chatStream(body, () => {}, cfg, signal);
     const why = e.name === "TimeoutError" ? `sem resposta em ${cfg.timeoutMs / 1000}s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
       "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });
@@ -143,7 +146,7 @@ async function chatStream(body, onDelta, cfg, signal) {
     res = await fetch(`${cfg.url}/chat/completions`, {
       method: "POST",
       headers: headers(cfg),
-      body: JSON.stringify({ ...body, stream: true }),
+      body: JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } }),
       signal: withTimeout(signal, cfg.timeoutMs),
     });
   } catch (e) {
