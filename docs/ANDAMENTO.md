@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Estilo da pessoa (mestre) e revisão das mudanças — 30/09/2026
+
+- `master:` no deck (src/master.js): moldura em todo slide (`elements`, `cover` para capa/seção/fim), área do conteúdo,
+  cara do título; `field: slidenum` numera. Slide `canvas` e `master: false` ficam sem.
+- `styleFromImport`: a moldura é o que se repete na mesma posição (mesmo copiado slide a slide — a Aula 1 faz assim);
+  aulas misturam fontes, então vale o que aparece em ≥20% dos slides; título/corpo pelos placeholders ou, sem eles, a
+  maior fonte no terço de cima; tema com as cores e fontes do original. Importação passou a deduplicar mídias.
+- Biblioteca: `.estilos/<id>/estilo.yaml` + imagens (`saveStyle`, `listStyles`, `applyStyleTo` copia para
+  `imagens/estilo/<id>/`). Studio: Design › Estilo (aplicar / salvar o desta / tirar).
+- `review: { status: novo|alterado, note, original }`: selo na miniatura, faixa com Ver original (a foto de
+  `original/slide-NN.png`), Aceitar e Desfazer (volta de `original/original.yaml`), Revisar › Mudanças com a lista.
+- Teste: `test/style.test.js`.
+
 ## Importar PowerPoint fielmente (fase 1 do plano de importação) — 30/09/2026
 
 - Casos reais (locais, fora do repositório): `Aula 1 - Conceitos Básico - 2026.pptx` (83 slides, 16:9, hidrologia,

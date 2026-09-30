@@ -18,6 +18,7 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-k
 .slide.current{opacity:1;visibility:visible;transition:opacity .5s var(--ease)}
 .slide[data-tr="cut"]{transition:none}
 .safe{position:absolute;left:120px;right:120px;top:92px;bottom:104px;display:flex;flex-direction:column;isolation:isolate}
+.master{position:absolute;inset:0;pointer-events:none;z-index:0}
 .free{position:absolute;inset:0;isolation:isolate}
 .bgfig{position:absolute;inset:0;pointer-events:none}
 .bgfig>*{width:100%;height:100%}

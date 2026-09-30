@@ -31,6 +31,7 @@ import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
 import { docxToHtml } from "../docx.js";
+import { styleFromImport } from "../master.js";
 import { createRequire } from "node:module";
 // pdf.js do node_modules (já é dependência para ler PDF de contexto); sem ele, o explorador usa o leitor do navegador
 const PDFJS_DIR = (() => { try { return path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/build/pdf.min.mjs")); } catch { return null; } })();
@@ -676,6 +677,60 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // revisão: aceitar (a marca sai) ou desfazer (slide novo sai; alterado volta ao original de original/original.yaml)
+      if (pathname === "/api/review" && req.method === "POST") {
+        const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        try {
+          const b = await readJSON(req);
+          const slides = W.spec?.slides || [];
+          if (b.action === "acceptAll") slides.forEach((s) => delete s.review);
+          else {
+            const s = slides[b.idx];
+            if (!s?.review) throw new Error("Este slide não tem mudança para validar.");
+            if (b.action === "accept") delete s.review;
+            else if (b.action === "reject") {
+              if (s.review.status === "novo") slides.splice(b.idx, 1);
+              else {
+                const origFile = W.file && path.join(path.dirname(W.file), "original", "original.yaml");
+                if (!origFile || !fs.existsSync(origFile)) throw new Error("Não achei o original (original/original.yaml) para desfazer.");
+                const orig = YAML.parse(fs.readFileSync(origFile, "utf8"));
+                const back = orig.slides?.[Number(s.review.original) - 1];
+                if (!back) throw new Error(`O original não tem o slide ${s.review.original}.`);
+                slides[b.idx] = back;
+              }
+            } else throw new Error("ação desconhecida");
+          }
+          persist(W);
+          return reply(200, { ok: true, spec: W.spec });
+        } catch (e) { return reply(400, { error: e.message }); }
+      }
+      // estilos da pessoa (tema + mestre: src/master.js), guardados na biblioteca e aplicáveis em qualquer deck
+      if (pathname.startsWith("/api/styles")) {
+        const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        try {
+          if (pathname === "/api/styles" && req.method === "GET") return reply(200, { styles: W.library.listStyles(), current: W.spec?.style || null, canExtract: !!(W.spec?.master || W.spec?.import) });
+          const b = await readJSON(req);
+          if (!W.file) throw new Error("Abra uma apresentação da biblioteca primeiro.");
+          const dir = path.dirname(W.file);
+          if (pathname === "/api/styles/save") {
+            const name = String(b.name || W.spec.style?.name || W.spec.import?.from?.replace(/\.[a-z]+$/i, "") || W.spec.title || "Meu estilo").slice(0, 80);
+            const style = W.spec.master ? { name, theme: W.spec.theme, master: W.spec.master, from: W.spec.import?.from || null } : styleFromImport(W.spec, { name });
+            return reply(200, W.library.saveStyle(style, dir));
+          }
+          if (pathname === "/api/styles/apply") {
+            W.spec = W.library.applyStyleTo(W.spec, dir, b.id);
+            persist(W);
+            return reply(200, { ok: true, spec: W.spec });
+          }
+          if (pathname === "/api/styles/remove") {
+            delete W.spec.master; delete W.spec.style;
+            if (b.theme) W.spec.theme = b.theme;
+            persist(W);
+            return reply(200, { ok: true, spec: W.spec });
+          }
+          return reply(404, { error: "rota de estilo desconhecida" });
+        } catch (e) { return reply(400, { error: e.message }); }
+      }
       if (pathname === "/api/aspect" && req.method === "POST") {
         const b = await readJSON(req);
         if (!parseAspect(b.aspect)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Proporção "${b.aspect}" não entendida. Use 16:9, 4:3, 1:1, 9:16 ou largura:altura.` })); return; }
@@ -942,11 +997,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
           const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
           if (!P) return done({ error: W.preview ? "Modelo em prévia: a pasta do projeto nasce na primeira mudança." : "Esta apresentação não tem uma pasta só dela (abra pela biblioteca)." }, 409);
           if (pathname === "/api/project/tree" && req.method === "GET") return done(Project.tree(P));
-          if (pathname === "/api/project/file" && req.method === "GET") {
+          if (pathname === "/api/project/file" && (req.method === "GET" || req.method === "HEAD")) {
             const abs = Project.resolveIn(P, url.searchParams.get("path"));
             if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return done({ error: "Arquivo não existe." }, 404);
             res.writeHead(200, { "Content-Type": mimeOf(abs) || "application/octet-stream", "Cache-Control": "no-store" });
-            res.end(fs.readFileSync(abs));
+            res.end(req.method === "HEAD" ? undefined : fs.readFileSync(abs));
             return;
           }
           if (pathname === "/api/project/sheet" && req.method === "GET") {

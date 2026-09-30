@@ -239,6 +239,12 @@
         </div>
         <div class="rgroup-label">Páginas</div>
       </div>
+      <div class="rgroup">
+        <div class="rgroup-body">
+          <button id="btn-styles" class="rbtn rbtn-lg" title="O visual de uma apresentação (moldura com logos, cores, fontes, título) para usar em outras: aplicar um estilo seu ou salvar o desta"><i class="ic" data-ic="swatch-book"></i><span>Estilo</span></button>
+        </div>
+        <div class="rgroup-label">Seu padrão</div>
+      </div>
       <div class="rgroup rgroup-gallery">
         <div class="rgroup-body">
           <div class="look-strip">
@@ -293,6 +299,7 @@
           <button id="btn-autofix" class="rbtn rbtn-lg" title="Arruma este slide: sobreposições, margens, título comprido e texto que não coube (dá para desfazer)">
             <i class="ic" data-ic="wand"></i><span>Arrumar layout</span><b id="fiscal-badge" class="fiscal-badge clean">0</b>
           </button>
+          <button id="btn-review-changes" class="rbtn rbtn-lg" title="O que mudou em relação ao original: aceitar ou desfazer slide a slide"><i class="ic" data-ic="git-compare"></i><span>Mudanças</span><b id="review-badge" class="fiscal-badge clean">0</b></button>
           <button id="btn-ai-review" class="rbtn rbtn-lg" title="A IA recebe uma imagem do slide, avalia a composição e aplica melhorias. Usa tokens."><i class="ic" data-ic="scan-eye"></i><span>Revisar com IA</span></button>
         </div>
         <div class="rgroup-label">Layout</div>
@@ -390,8 +397,11 @@
         <span id="preview-banner-text"></span>
         <button id="btn-model-use" class="btn btn-primary btn-sm" type="button">Usar como base</button>
       </div>
+      <!-- revisão: o que a IA (ou a pessoa) mudou neste slide, para validar -->
+      <div id="review-bar" class="review-bar hidden" role="status"></div>
       <div id="canvas-viewport" class="canvas-viewport">
         <div id="slide-stage" class="stage-16-9">
+          <div id="review-original" class="review-original hidden" aria-hidden="true"><img alt=""><span class="ro-tag">Original</span></div>
           <div id="safe-margin-guides" class="safe-guides-layer"><div class="safe-box"></div></div>
           <div id="inspector-overlay" class="inspector-layer"></div>
           <div id="heatmap-overlay" class="heatmap-layer hidden"></div>

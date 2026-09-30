@@ -2,6 +2,7 @@
 // (WMF/EMF viram PNG), guarda uma cópia do original e a foto de cada slide em original/ (PowerPoint ou LibreOffice,
 // se houver) e devolve o deck. Cada slide lembra de onde veio (original: { slide, image }).
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import JSZip from "jszip";
 import { importPptx, plainOf } from "./pptx.js";
@@ -31,12 +32,27 @@ export async function importToDir(buf, dir, { fileName = "original.pptx", snapsh
     fs.writeFileSync(abs, await f.async("nodebuffer"));
     if (["wmf", "emf", "tif", "tiff"].includes(m.ext)) convert.push({ src: abs, dst: abs.replace(/\.[a-z]+$/i, ".png"), from: m.name });
   }
+  // mídia repetida (o mesmo logo gravado uma vez por slide): fica um arquivo só
+  const seen = new Map();
+  for (const m of res.media) {
+    const abs = path.join(dir, ...m.name.split("/"));
+    if (!fs.existsSync(abs)) continue;
+    const h = crypto.createHash("sha1").update(fs.readFileSync(abs)).digest("hex");
+    if (seen.has(h)) { rename.set(m.name, seen.get(h)); fs.rmSync(abs, { force: true }); const i = convert.findIndex((c) => c.from === m.name); if (i >= 0) convert.splice(i, 1); }
+    else seen.set(h, m.name);
+  }
   if (convert.length) {
     log(`convertendo ${convert.length} figura(s) WMF/EMF`);
     const done = new Set(metafilesToPng(convert.map(({ src, dst }) => ({ src, dst }))));
     for (const c of convert) if (done.has(c.dst)) { rename.set(c.from, c.from.replace(/\.[a-z]+$/i, ".png")); fs.rmSync(c.src, { force: true }); }
   }
-  const fix = (e) => { if (e?.image && rename.has(e.image)) e.image = rename.get(e.image); return e; };
+  // repetida → a primeira; WMF/EMF → o PNG convertido (em cadeia)
+  const resolve = (n) => { let v = n; for (let k = 0; k < 4 && rename.has(v); k++) v = rename.get(v); return v; };
+  const fix = (e) => {
+    if (e?.image) e.image = resolve(e.image);
+    if (e?.drawing) e.drawing = String(e.drawing).replace(/href="media:([^"]+)"/g, (m, r) => `href="media:${resolve(r)}"`);
+    return e;
+  };
   // original e fotos
   const origDir = path.join(dir, "original");
   fs.mkdirSync(origDir, { recursive: true });
@@ -57,13 +73,13 @@ export async function importToDir(buf, dir, { fileName = "original.pptx", snapsh
     }
   }
   // o que não sai igual (equação OLE em WMF/EMF, SmartArt): recorte da foto fiel do slide, na mesma posição
-  const metaFrom = new Set(convert.map((c) => c.from));
+  const isMeta = (n) => /\.(wmf|emf)$/i.test(n || "");
   const jobs = [];
   for (const s of res.slides) {
     const snap = path.join(origDir, `slide-${String(s.n).padStart(2, "0")}.png`);
     const has = snaps.length && fs.existsSync(snap);
     s.elements.forEach((e, k) => {
-      if (!(e.fromSnapshot || (e.ole && metaFrom.has(e.image)))) return;
+      if (!(e.fromSnapshot || (e.ole && isMeta(e.image)))) return;
       if (!has) return;
       const rel = `imagens/original/recorte-${String(s.n).padStart(2, "0")}-${k + 1}.png`;
       jobs.push({ src: snap, dst: path.join(dir, ...rel.split("/")), x: e.x, y: e.y, w: e.w, h: e.h, e, rel });
@@ -85,10 +101,10 @@ export async function importToDir(buf, dir, { fileName = "original.pptx", snapsh
     const bgColor = s.background?.color && s.background.color.toUpperCase() !== "FFFFFF" ? s.background.color : undefined;
     const out = { layout: "canvas", title: s.title || `Slide ${s.n}` };
     if (bgColor) out.bg = bgColor;
-    if (s.background?.image) out.background = { image: rename.get(s.background.image) || s.background.image, fit: "fill" };
+    if (s.background?.image) out.background = { image: resolve(s.background.image), fit: "fill" };
     out.elements = s.elements.map((e) => { const c = fix({ ...e }); delete c.kind; return c; });
     if (s.notes) out.notes = s.notes;
-    out.original = { slide: s.n, ...(snapOf(s.n) ? { image: snapOf(s.n) } : {}) };
+    out.original = { slide: s.n, ...(snapOf(s.n) ? { image: snapOf(s.n) } : {}), ...(s.layoutName ? { layout: s.layoutName } : {}) };
     if (s.hidden) out.hidden = true;
     return out;
   });
@@ -98,7 +114,7 @@ export async function importToDir(buf, dir, { fileName = "original.pptx", snapsh
     ...(aspectOf(res.cx, res.cy) ? { aspect: aspectOf(res.cx, res.cy) } : {}),
     theme: "manual",
     footer: false,
-    import: { from: path.basename(fileName), slides: slides.length, fonts: res.fonts, ...(snapBy ? { snapshots: snapBy } : {}), ...(res.warnings.length ? { warnings: res.warnings.slice(0, 40) } : {}) },
+    import: { from: path.basename(fileName), slides: slides.length, fonts: res.fonts, colors: res.scheme, ...(snapBy ? { snapshots: snapBy } : {}), ...(res.warnings.length ? { warnings: res.warnings.slice(0, 40) } : {}) },
     slides,
   };
   return { spec, media: res.media.length, converted: rename.size, snapshots: snaps.length, snapBy, warnings: res.warnings };

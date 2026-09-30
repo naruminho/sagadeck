@@ -2,6 +2,7 @@
 import { slideSize } from "./aspect.js";
 import { wordLimit } from "./purpose.js";
 import { barHTML } from "./chrome.js";
+import { masterApplies, masterElements, masterCSS, isCoverLayout } from "./master.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,7 +60,7 @@ export function wordCount(s) {
   const walk = (v, k) => {
     if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
     // o que veio de um PowerPoint importado: desenho, fontes, cores, estilos e a origem não são palavras
-    if (k === "drawing" || k === "font" || k === "color" || k === "sym" || k === "style" || k === "image" || k === "link" || k === "original" || k === "tableData" || k === "fill" || k === "border" || k === "borders") return;
+    if (k === "drawing" || k === "font" || k === "color" || k === "sym" || k === "style" || k === "image" || k === "link" || k === "original" || k === "tableData" || k === "fill" || k === "border" || k === "borders" || k === "review") return;
     if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }
     else if (Array.isArray(v)) v.forEach((x) => walk(x));
     else if (v && typeof v === "object" && !v.svg && !v.chart && !v.html) for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
@@ -83,7 +84,7 @@ export function deckThemeCSS(spec, deckTheme) {
   }
   let css = themeCSS(deckTheme);
   for (const t of looks.values()) { css += "\n" + scopedThemeCSS(t, { faces: !names.has(t.name) }); names.add(t.name); }
-  return css + "\n" + [...names].map(skinCSS).join("\n");
+  return css + "\n" + [...names].map(skinCSS).join("\n") + "\n" + masterCSS(spec);
 }
 
 // Fontes dos temas (OFL) embutidas: só as famílias que o CSS da apresentação cita (runtime/fonts, scripts/vendor-fonts.mjs)
@@ -250,8 +251,11 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   // mínimos do ajuste para caber (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920): deck > Preferências > padrão
   const fit = { ...FIT_DEFAULTS, ...(spec.fit || {}) };
   const fitAttrs = ` data-min-code="${Math.round(Number(fit.minCodePt) * 2) || 20}" data-min-text="${Math.round(Number(fit.minTextPt) * 2) || 0}"${fit.wrapCode === false ? ' data-code-wrap="0"' : ""}`;
-  let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  const withMaster = masterApplies(spec, s, layout);
+  let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;
+  // mestre do deck (logos, faixas, número da página: src/master.js), atrás do conteúdo
+  if (withMaster) html += `<div class="master" aria-hidden="true">${masterElements(spec, layout, i).map((e) => el(e, ctx)).join("")}</div>`;
   // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
