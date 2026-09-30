@@ -8,6 +8,21 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Fase 3 do SagaStudio: inspetor de propriedades — 29/09/2026
+
+- `src/studio/public/inspector.js` (aba **Propriedades**): grade compacta com categorias recolhíveis (lembradas no
+  navegador). Objeto: só o que faz sentido (texto, forma desenhada ou reta, imagem); vários selecionados mostram o
+  valor comum ou "vários" e a edição vale para todos. Slide e Apresentação sempre (layout, tom, textura, densidade,
+  tempo, transição, limite de palavras, rodapé, tema/paleta só do slide, fundo; purpose, tema, paleta, destaque,
+  animações, duração, autor, data, `fit`). Cada linha alterada tem "voltar ao padrão". Selecionar um objeto com o
+  painel em Formatar leva para Propriedades (como no Figma).
+- Motor (`src/visual-edits.js`): novas chaves de `visualEdits` (peso, itálico, alinhamento, entrelinha, espaçamento,
+  maiúsculas, rotação, opacidade, sombra, cantos, contorno, `step`, `anim`), só valores de lista ou números. Formas
+  desenhadas leem `--shape-fill/--shape-stroke/--shape-sw`.
+- Editor visual: `SagaVisual.selection/edits/setProp/clearEdits/onSelect/select` para o inspetor (com Desfazer).
+- Bug: painel de avisos do fiscal e menu dos temas usavam `var(--panel, #fff)` (variável inexistente): fundo branco
+  com texto claro no tema escuro. Agora `var(--chrome)`; teste de contraste no tema escuro.
+
 ## Fase 2 do SagaStudio: a IA sabe para que serve o material — 29/09/2026
 
 - Causa do "material de consulta que saiu palestra": o prompt de geração era só de palestra ("pouco texto, detalhe

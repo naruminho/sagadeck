@@ -605,3 +605,22 @@ test("tema com par claro/escuro: o PDF pode sair no claro (manual-noite → manu
   assert.equal(lightVariant({ theme: "manual", slides: [{ layout: "statement", text: "a" }] }), null, "já é claro: nada a trocar");
   assert.equal(lightVariant({ theme: "noite", slides: [{ layout: "statement", text: "a" }] }), null, "escuro sem par: fica como está");
 });
+
+test("inspetor (visualEdits): cada propriedade vira o CSS ou o atributo certo, no Studio e no HTML exportado", () => {
+  const edits = { weight: 700, italic: true, align: "center", lineHeight: 1.3, letterSpacing: 0.05, uppercase: true, rotate: 12, opacity: 0.5, shadow: "forte", radius: 24, step: 2, anim: "zoom" };
+  const html = buildHTML({ slides: [{ layout: "canvas", elements: [{ text: "Olá", x: 0, y: 0, w: 400, h: 100, step: 1 }], visualEdits: { "t-f-body-r-body-0": edits } }] }).html;
+  const tag = html.match(/<div[^>]*data-vkey="t-f-body-r-body-0"[^>]*>/)[0];
+  for (const css of ["font-weight:700!important", "font-style:italic!important", "text-align:center!important", "line-height:1.3!important", "letter-spacing:0.05em!important", "text-transform:uppercase!important", "rotate:12deg", "opacity:0.5", "drop-shadow", "border-radius:24px!important"]) assert.ok(tag.includes(css), `${css} em ${tag}`);
+  assert.match(tag, /data-step="2"/, "aparece no clique 2 (troca o do elemento)");
+  assert.doesNotMatch(tag, /data-step="1"/);
+  assert.match(tag, /data-anim="zoom"/);
+  // contorno: desenho usa --shape-stroke; forma reta ganha borda
+  const star = buildHTML({ slides: [{ layout: "canvas", elements: [{ shape: "star", x: 0, y: 0, w: 100, h: 100 }], visualEdits: { "shape-shape-star-0": { stroke: "#112233", strokeWidth: 6 } } }] }).html;
+  assert.match(star, /shape-star"[^>]*--shape-stroke:#112233;--shape-sw:6px/);
+  assert.match(star, /stroke:var\(--shape-stroke/, "o desenho lê o contorno do inspetor");
+  const rect = buildHTML({ slides: [{ layout: "canvas", elements: [{ shape: "rect", x: 0, y: 0, w: 100, h: 100 }], visualEdits: { "shape-shape-rect-0": { stroke: "#112233", strokeWidth: 6 } } }] }).html;
+  assert.match(rect, /shape-rect"[^>]*border:6px solid #112233!important/);
+  // valores fora do esperado são ignorados (nada de CSS injetado)
+  const lixo = buildHTML({ slides: [{ layout: "canvas", elements: [{ text: "x", x: 0, y: 0 }], visualEdits: { "t-f-body-r-body-0": { align: "red;}", anim: "<x>", weight: "900;x" } } }] }).html;
+  assert.doesNotMatch(lixo, /red;\}|<x>|900;x/);
+});
