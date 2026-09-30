@@ -45,6 +45,7 @@ test("trocar o tema muda o arranjo, não só a cor: capa e seção têm geometri
     const assinatura = async (theme, slide) => {
       await p.setContent(buildHTML({ theme, slides: [slide] }).html);
       return p.evaluate(() => {
+        document.getAnimations().forEach((an) => an.finish()); // mede o arranjo final, não a entrada animada no meio
         const s = document.querySelector(".slide"), r = (e) => e && e.getBoundingClientRect(), q = (sel) => s.querySelector(sel);
         const ttl = r(q(".ttl")), k = q(".kicker"), cs = (e) => e && getComputedStyle(e);
         const orn = [...s.querySelectorAll(".orn i")].filter((i) => cs(i).display !== "none" && r(i).width * r(i).height > 0).length;

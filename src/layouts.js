@@ -338,10 +338,13 @@ export const LAYOUTS = {
       const point = p.kind === "point";
       const x = percent(p.x, 10, 0, point ? 100 : 96), y = percent(p.y, 10, 0, point ? 100 : 96);
       const w = percent(p.width, 28, 4, 100 - x), h = percent(p.height, 24, 4, 100 - y);
-      return `<button type="button" class="spotlight-region${point ? " spotlight-point" : ""}${i === 0 ? " active" : ""}" data-lesson-go="${i}" data-spotlight-region="${i}" aria-label="Detalhe ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}" style="left:${x}%;top:${y}%;${point ? "" : `width:${w}%;height:${h}%`}"><span>${i + 1}</span></button>`;
+      // zoom lento no foco (opcional): o do foco vence o do slide; false = imagem inteira neste foco
+      const zoomOf = (z) => (z === true ? 1.8 : Number.isFinite(Number(z)) && Number(z) > 1 ? Math.min(4, Number(z)) : z === false ? 1 : null);
+      const zoom = zoomOf(p.zoom) ?? zoomOf(s.zoom) ?? 1;
+      return `<button type="button" class="spotlight-region${point ? " spotlight-point" : ""}${i === 0 ? " active" : ""}" data-lesson-go="${i}" data-spotlight-region="${i}"${zoom > 1 ? ` data-zoom="${zoom}"` : ""} aria-label="Detalhe ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}" style="left:${x}%;top:${y}%;${point ? "" : `width:${w}%;height:${h}%`}"><span>${i + 1}</span></button>`;
     }).join("");
     const visual = s.figure || (s.image ? { image: s.image, alt: s.caption || s.title || "Imagem em análise", fit: "contain" } : { diagram: "flow", steps: ["Entrada", "Processamento", "Resultado"] });
-    return `<div class="L-spotlight" data-lesson="spotlight" data-lesson-count="${spots.length}">${head(s)}<div class="lesson-row"><div class="spotlight-visual"><div class="spotlight-canvas"><div class="spotlight-image">${el(visual, ctx, 1100, 660)}</div><div class="spotlight-regions">${regions}</div></div>${s.caption ? text(s.caption, "small", { class: "spotlight-caption", size: 24 }) : ""}</div><aside class="lesson-aside">${lessonPanels(spots)}${lessonSummary(spots)}${lessonControls(spots)}</aside></div></div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-spotlight" data-lesson="spotlight" data-lesson-count="${spots.length}">${head(s)}<div class="lesson-row"><div class="spotlight-visual"><div class="spotlight-canvas"><div class="spotlight-zoom"><div class="spotlight-image">${el(visual, ctx, 1100, 660)}</div><div class="spotlight-regions">${regions}</div></div></div>${s.caption ? text(s.caption, "small", { class: "spotlight-caption", size: 24 }) : ""}</div><aside class="lesson-aside">${lessonPanels(spots)}${lessonSummary(spots)}${lessonControls(spots)}</aside></div></div>${src(s)}${add(s, ctx)}`;
   },
 
   kinetic(s, ctx) {

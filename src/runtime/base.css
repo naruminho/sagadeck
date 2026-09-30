@@ -1424,3 +1424,20 @@ html[data-motion="none"] .dyn-frame.active,html[data-motion="none"] .dyn-frame.a
 .car-dot.active{background:var(--em);transform:scale(1.3)}
 .export .L-carousel *,html[data-motion="none"] .L-carousel *{animation:none!important;transition:none!important}
 @media (prefers-reduced-motion:reduce){.L-carousel *{animation:none!important;transition-duration:.01s!important}}
+/* ---------- zoom lento no foco (spotlight com zoom:) — sem pressa, sem solavanco ---------- */
+.spotlight-zoom{position:absolute;inset:0;transform-origin:0 0;transition:transform 1.8s cubic-bezier(.45,0,.12,1);will-change:transform}
+.spotlight-zoom .spotlight-region{border-width:calc(4px / var(--zs,1))}
+.spotlight-zoom .spotlight-region span{transform:scale(calc(1 / var(--zs,1)));transform-origin:0 0;transition:transform 1.8s cubic-bezier(.45,0,.12,1)}
+.export .spotlight-zoom,html[data-motion="none"] .spotlight-zoom{transition:none}
+@media (prefers-reduced-motion:reduce){.spotlight-zoom{transition-duration:.01s}}
+/* ---------- animações menos secas no modo padrão (subtle): sobe um pouco e o desfoque some, com calma ---------- */
+@keyframes enter-soft{from{opacity:0;transform:translateY(14px);filter:blur(6px)}60%{filter:blur(0)}to{opacity:1;transform:none;filter:none}}
+html[data-motion="subtle"] .slide.current .e{animation-name:enter-soft;animation-duration:.85s;animation-timing-function:cubic-bezier(.22,.61,.36,1);animation-delay:calc(var(--d,0) * 70ms + 60ms)}
+html[data-motion="subtle"] [data-step]{transition:opacity .6s cubic-bezier(.22,.61,.36,1),transform .8s cubic-bezier(.22,.61,.36,1),filter .6s ease}
+html[data-motion="subtle"] [data-step]:not(.in){transform:translateY(14px);filter:blur(4px)}
+html[data-motion="subtle"] .slide{transition:opacity .6s cubic-bezier(.4,0,.2,1),visibility 0s linear .6s}
+html[data-motion="subtle"] .slide.current{transition:opacity .6s cubic-bezier(.4,0,.2,1),transform 1.1s cubic-bezier(.22,.61,.36,1)}
+html[data-motion="subtle"] .slide:not(.current){transform:scale(1.012)}
+html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-bezier(.22,.61,.36,1) both}
+@keyframes lesson-soft{from{opacity:0;transform:translateY(10px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.export .slide,.export .slide.current,.export [data-step]{transform:none!important;filter:none!important}
