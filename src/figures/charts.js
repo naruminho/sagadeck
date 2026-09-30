@@ -30,6 +30,8 @@ const norm = (o) => {
 };
 // várias séries (colada do Excel com mais de uma coluna de números): barras/colunas agrupadas
 const grouped = (o) => !Array.isArray(o.data) && Array.isArray(o.labels) && Array.isArray(o.series) && o.series.length > 1;
+// nomes dos eixos (xLabel embaixo, yLabel na vertical à esquerda): cabem nas margens que o gráfico reserva
+const axisTitles = (o, W, H, left = 0) => `${o.xLabel ? `<text x="${left + (W - left) / 2}" y="${H - 6}" text-anchor="middle" class="ch-axis f-label" font-size="22" style="fill:var(--muted)">${esc(o.xLabel)}</text>` : ""}${o.yLabel ? `<text x="0" y="0" transform="translate(22 ${H / 2}) rotate(-90)" text-anchor="middle" class="ch-axis f-label" font-size="22" style="fill:var(--muted)">${esc(o.yLabel)}</text>` : ""}`;
 const seriesColor = (s, i) => (s.color ? cvar(s.color) : `var(--s${(i % 5) + 1})`);
 function legendSVG(series, W, y = 30) {
   let x = W, g = "";
@@ -116,7 +118,7 @@ function columnGrouped(o, W, H) {
   const { labels, series } = o, k = series.length;
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   const max = o.max ?? Math.max(...all) * 1.12;
-  const top = 110, bottom = 90, ch = H - top - bottom, slot = W / labels.length;
+  const top = 110, bottom = o.xLabel ? 130 : 90, ch = H - top - bottom, slot = W / labels.length;
   const bw = Math.min(o.barWidth || 120, (slot * 0.8) / k);
   let g = legendSVG(series, W) + `<line x1="0" y1="${top + ch}" x2="${W}" y2="${top + ch}" style="stroke:var(--line)" stroke-width="3"/>`;
   const lbls = sameSize(labels.map((l) => fitLabel(l, slot * 0.94, o.fontSize || 30)));
@@ -130,7 +132,7 @@ function columnGrouped(o, W, H) {
     });
     g += labelSVG(lbls[i], i * slot + slot / 2, top + ch + 52, `text-anchor="middle" class="f-heading" style="fill:var(--fg)"`, false);
   });
-  return wrap(W, H, g, o, "column");
+  return wrap(W, H, g + axisTitles(o, W, H), o, "column");
 }
 
 function bar(o, W, H) {
@@ -160,7 +162,7 @@ function column(o, W, H) {
   if (grouped(o)) return columnGrouped(o, W, H);
   const d = norm(o);
   const max = o.max ?? Math.max(...d.map((x) => x.value)) * 1.1;
-  const n = d.length, top = 80, bottom = 90, ch = H - top - bottom;
+  const n = d.length, top = 80, bottom = o.xLabel ? 130 : 90, ch = H - top - bottom;
   const slot = W / n, bw = Math.min(o.barWidth || 220, slot * 0.62);
   let g = `<line x1="0" y1="${top + ch}" x2="${W}" y2="${top + ch}" style="stroke:var(--line)" stroke-width="3"/>`;
   const lbls = sameSize(d.map((x) => fitLabel(x.label, slot * 0.94, o.fontSize || 32)));
@@ -173,7 +175,7 @@ function column(o, W, H) {
     g += `<text class="fade-in f-display" style="--i:${i};fill:var(--fg)" x="${X + bw / 2}" y="${Y - 18}" text-anchor="middle" font-size="${o.valueSize || 56}">${esc(fmt(x.value, o))}</text>`;
     g += labelSVG(lbls[i], X + bw / 2, top + ch + 52, `text-anchor="middle" class="f-heading" style="fill:var(--fg)"`, false);
   });
-  return wrap(W, H, g, o, "column");
+  return wrap(W, H, g + axisTitles(o, W, H), o, "column");
 }
 
 function line(o, W, H) {
@@ -181,7 +183,7 @@ function line(o, W, H) {
   const labels = o.labels || series[0].values.map((_, i) => String(i + 1));
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   const min = o.min ?? Math.min(0, ...all), max = o.max ?? Math.max(...all) * 1.1;
-  const L = o.axis === false ? 10 : 90, R = 40, T = 50, B = 70;
+  const L = (o.axis === false ? 10 : 90) + (o.yLabel ? 40 : 0), R = 40, T = 50, B = o.xLabel ? 110 : 70;
   const cw = W - L - R, ch = H - T - B, n = labels.length;
   const X = (i) => L + (n === 1 ? cw / 2 : (cw * i) / (n - 1));
   const Y = (v) => T + ch - ((v - min) / (max - min)) * ch;
@@ -204,7 +206,7 @@ function line(o, W, H) {
   sameSize(axis.filter(Boolean).map((a) => a.lbl));
   axis.forEach((a) => {
     if (!a) return;
-    g += labelSVG(a.lbl, a.x, H - 24 - (a.lbl.lines.length - 1) * a.lbl.fs * 1.12, `text-anchor="${a.anchor}" class="f-label" style="fill:var(--muted)"`, false);
+    g += labelSVG(a.lbl, a.x, H - (o.xLabel ? 64 : 24) - (a.lbl.lines.length - 1) * a.lbl.fs * 1.12, `text-anchor="${a.anchor}" class="f-label" style="fill:var(--muted)"`, false);
   });
   (o.bands || []).forEach((b) => {
     g += `<line x1="${X(b.at)}" x2="${X(b.at)}" y1="${T - 20}" y2="${T + ch}" style="stroke:var(--em)" stroke-width="3" stroke-dasharray="10 10"/>`;
@@ -241,7 +243,7 @@ function line(o, W, H) {
     g += `<g class="fade-in" style="--i:${6 + i}"><line x1="${x}" y1="${y}" x2="${x}" y2="${y + dy + 14}" style="stroke:var(--fg)" stroke-width="2"/>
       <text x="${x}" y="${y + dy}" text-anchor="${a.anchor || "middle"}" class="f-heading" font-size="${a.size || 30}" style="fill:var(--fg)">${esc(a.text)}</text></g>`;
   });
-  return wrap(W, H, g, o, "line");
+  return wrap(W, H, g + axisTitles(o, W, H, L), o, "line");
 }
 
 function donut(o, W, H) {

@@ -25,10 +25,12 @@ import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { runCommand, envName } from "../ai/commands.js";
-import { demoDeck, demoAssets } from "./demo-decks.js";
+import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
+import * as Project from "./project.js";
+import { chat as llmChat } from "../ai/llm.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Caminhos que existem no repositório (src/studio/…) OU no motor empacotado do pip (engine/studio/…, engine/runtime/…)
@@ -224,6 +226,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
       const dest = path.join(path.dirname(L.resolveId(id)), "imagens");
       fs.mkdirSync(dest, { recursive: true });
       fs.copyFileSync(path.join(MODEL_ASSETS_DIR, "imagens", asset), path.join(dest, asset));
+    }
+    // arquivos do projeto do modelo (ex.: contexto/vendas.csv da demo de novidades)
+    for (const rel of demoProjectFiles(kind)) {
+      const dest = path.join(path.dirname(L.resolveId(id)), ...rel.split("/"));
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(path.join(MODEL_ASSETS_DIR, ...rel.split("/")), dest);
     }
   }
   // Tudo o que a vitrine "Modelo pronto" oferece, por chave (model-*, exp-*, example-*): o deck, a pasta de onde a
@@ -482,7 +490,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/merge-decks.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/merge-decks.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -900,10 +908,95 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      // Projeto (a pasta da apresentação, como no VS Code): árvore, arquivos, planilhas e sugestões de gráfico
+      if (pathname.startsWith("/api/project/")) {
+        const done = (obj = {}, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(code === 200 ? { ok: true, ...obj } : obj)); };
+        try {
+          const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
+          if (!P) return done({ error: W.preview ? "Modelo em prévia: a pasta do projeto nasce na primeira mudança." : "Esta apresentação não tem uma pasta só dela (abra pela biblioteca)." }, 409);
+          if (pathname === "/api/project/tree" && req.method === "GET") return done(Project.tree(P));
+          if (pathname === "/api/project/file" && req.method === "GET") {
+            const abs = Project.resolveIn(P, url.searchParams.get("path"));
+            if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return done({ error: "Arquivo não existe." }, 404);
+            res.writeHead(200, { "Content-Type": mimeOf(abs) || "application/octet-stream", "Cache-Control": "no-store" });
+            res.end(fs.readFileSync(abs));
+            return;
+          }
+          if (pathname === "/api/project/sheet" && req.method === "GET") {
+            const rel = url.searchParams.get("path");
+            const { sheets } = await Project.readSheet(Project.resolveIn(P, rel));
+            return done({ sheets: sheets.map((sh) => { const info = Project.inferColumns(sh.rows); return { name: sh.name, rows: sh.rows.slice(0, 1000), total: sh.rows.length, columns: info.columns, hasHeader: info.hasHeader }; }) });
+          }
+          if (req.method !== "POST") return done({ error: "método não suportado" }, 405);
+          const b = await readJSON(req);
+          switch (pathname) {
+            case "/api/project/write": return done(Project.writeText(P, b.path, b.text));
+            case "/api/project/create": return done(Project.createFile(P, b.dir || "", b.name, b.text || ""));
+            case "/api/project/mkdir": return done(Project.mkdir(P, b.dir || "", b.name));
+            case "/api/project/rename": return done(Project.rename(P, b.path, b.name));
+            case "/api/project/move": return done(Project.move(P, b.path, b.dir || ""));
+            case "/api/project/delete": return done(Project.remove(P, b.path));
+            case "/api/project/restore": return done(Project.restore(P, b.path));
+            case "/api/project/upload": {
+              const m = String(b.dataUrl || "").match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/);
+              if (!m) throw new Error("Arquivo inválido.");
+              const buf = m[2] ? Buffer.from(m[3], "base64") : Buffer.from(decodeURIComponent(m[3]), "utf8");
+              return done(Project.upload(P, b.dir ?? Project.CONTEXT, b.name, buf));
+            }
+            case "/api/project/chart-suggestions": {
+              const { sheets } = await Project.readSheet(Project.resolveIn(P, b.path));
+              const sh = sheets.find((x) => x.name === b.sheet) || sheets[0];
+              const info = Project.inferColumns(sh.rows);
+              const where = { file: b.path, ...(sheets.length > 1 ? { sheet: sh.name } : {}) };
+              let list = Project.suggestCharts(info, where), ai = null;
+              if (b.ai) {
+                // a IA classifica as colunas e escolhe os gráficos que respondem a perguntas de verdade, com título e eixos
+                if (!(await llmAvailable({ force: true }))) throw new Error(`A IA está desligada (nenhum LLM em ${llmConfig().url}).`);
+                const r = await llmChat([
+                  { role: "system", content: `Você é analista de dados e monta gráficos para slides. Recebe as colunas de uma planilha (nome, tipo visto pelos valores, exemplos e faixa). Corrija o tipo quando o nome mostrar outra coisa (ex.: "ano" é tempo; "código" é categoria, não número) e proponha de 2 a 4 gráficos que respondam a perguntas úteis. Tipos: line (tendência no tempo), bar (comparar categorias, ordenado), column (poucas categorias ou várias séries lado a lado), donut (partes de um todo, até 6), scatter (relação entre dois números). Título: a conclusão ou a pergunta, curto, em português. Eixos: nomes claros com unidade quando der.
+Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|numero|porcentagem|texto"}], "graficos": [{"tipo": "line|bar|column|donut|scatter", "x": "coluna", "y": ["coluna"], "titulo": "…", "eixoX": "…", "eixoY": "…", "porque": "…"}]}` },
+                  { role: "user", content: `Planilha "${b.path}"${sh.name ? `, aba "${sh.name}"` : ""} (${info.rows.length} linhas):\n${Project.columnsSummary(info)}` },
+                ], { temperature: 0.2 });
+                const j = JSON.parse(String(r.text || "").match(/\{[\s\S]*\}/)?.[0] || "{}");
+                ai = { columns: Array.isArray(j.colunas) ? j.colunas : [] };
+                const made = (Array.isArray(j.graficos) ? j.graficos : []).slice(0, 4).map((g, i) => {
+                  try { const slide = Project.buildChart(info, { type: g.tipo, x: g.x, ys: g.y, title: g.titulo, xLabel: g.eixoX, yLabel: g.eixoY }, where); return { id: `ia-${i + 1}`, title: slide.title, why: String(g.porque || ""), slide, ai: true }; }
+                  catch { return null; }
+                }).filter(Boolean);
+                if (made.length) list = [...made, ...list.filter((x) => !made.some((m) => m.slide.chart?.chart === x.slide.chart?.chart && m.slide.layout === x.slide.layout))];
+              }
+              // prévia de cada sugestão: o slide desenhado com o tema do deck
+              const deck = withBase(W, W.spec);
+              const previews = list.slice(0, 6).map((x) => { try { return { ...x, html: renderSlide(x.slide, 0, deck).html }; } catch (e) { return { ...x, error: e.message }; } });
+              return done({ suggestions: previews, columns: info.columns, ai });
+            }
+            case "/api/project/refresh-chart": {
+              // gráfico que veio de planilha (from:): relê o arquivo e troca os dados, mantendo o resto do slide
+              const i = Number(b.index), slide = W.spec.slides[i];
+              if (!slide?.from?.file) throw new Error("Este slide não veio de uma planilha.");
+              const { sheets } = await Project.readSheet(Project.resolveIn(P, slide.from.file));
+              const sh = sheets.find((x) => x.name === slide.from.sheet) || sheets[0];
+              const [x, ...ys] = slide.from.columns || [];
+              const type = slide.layout === "science" ? "scatter" : slide.from.type || slide.chart?.chart;
+              const fresh = Project.buildChart(Project.inferColumns(sh.rows), { type, x, ys, title: slide.title, xLabel: slide.chart?.xLabel, yLabel: slide.chart?.yLabel }, { file: slide.from.file, sheet: slide.from.sheet });
+              const next = slide.layout === "science" ? { ...slide, plot: { ...slide.plot, points: fresh.plot.points, x: fresh.plot.x } } : { ...slide, chart: { ...slide.chart, ...fresh.chart } };
+              if (next.chart?.series) { delete next.chart.data; delete next.chart.parts; } else if (next.chart?.data) { delete next.chart.labels; delete next.chart.series; }
+              W.spec.slides[i] = next;
+              persist(W);
+              return done({ slide: next });
+            }
+          }
+          return done({ error: "rota do projeto desconhecida" }, 404);
+        } catch (e) {
+          return done({ error: e.message }, 400);
+        }
+      }
+
       // Conversa do chat: uma por apresentação, num arquivo ao lado do deck (<deck>.conversa.json). Deck sem arquivo
       // (aberto pelo navegador, exemplo embutido): só na memória desta sessão.
       if (pathname === "/api/chat/history") {
-        const file = W.file && !isBundledTemplate(W.file) ? W.file.replace(/\.ya?ml$/i, ".conversa.json") : null;
+        const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
+        const file = P ? Project.conversationFile(P) : W.file && !isBundledTemplate(W.file) ? W.file.replace(/\.ya?ml$/i, ".conversa.json") : null;
         if (req.method === "GET") {
           let history = W.chatHistory || [];
           if (file) try { history = JSON.parse(fs.readFileSync(file, "utf8")).history || []; } catch { history = []; }
@@ -965,6 +1058,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
             for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
               if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
             }
+            // arquivos do projeto (contexto/): material para a IA, junto com os anexos da mensagem
+            const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
+            if (P) for (const doc of await Project.contextMaterials(P)) if (!materials.some((m) => m.name === doc.name || m.name === doc.name.split("/").pop())) materials.push(doc);
             // links colados na mensagem: o servidor lê sozinho e conta nas ações
             const linkActions = [];
             for (const doc of await readPastedLinks(W, prompt, linkActions)) materials.push(doc);
@@ -1273,6 +1369,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             case "/api/library/decks/trash": return ok({ slot: L.trashDeck(b.id) });
             case "/api/library/decks/restore": return ok({ id: L.restoreDeck(b.slot) });
             case "/api/library/decks/purge": L.purgeDeck(b.slot); return ok();
+            case "/api/library/trash/empty": return ok({ purged: L.emptyTrash() });
             case "/api/library/open": {
               W.preview = null;
               const file = L.resolveId(b.id);

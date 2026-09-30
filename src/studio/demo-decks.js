@@ -1,9 +1,12 @@
 // Modelos de fábrica são código; as apresentações criadas ficam somente na biblioteca.
 import { COLLECTION_NAMES, COLLECTION_ASSETS, collectionDeck } from './template-collections.js';
-export function demoAssets(kind) { return kind === 'lavanda' ? ['lavanda-cover.jpg'] : COLLECTION_ASSETS[kind] || []; }
+import { LAYOUT_SAMPLES } from './layout-samples.js';
+export function demoAssets(kind) { return kind === 'lavanda' || kind === 'novidades' ? ['lavanda-cover.jpg'] : COLLECTION_ASSETS[kind] || []; }
+// arquivos do projeto que o modelo traz (fora de imagens/): a planilha e as anotações da demo de novidades
+export function demoProjectFiles(kind) { return kind === 'novidades' ? ['contexto/vendas.csv', 'contexto/leia-me.md'] : []; }
 const item=(title,text,extra={})=>({title,text,...extra});
 const route='flowchart LR\n  A([Pedido]):::hi --> B{Dados válidos?}\n  B -->|sim| C[Executar tarefa]\n  B -.->|não| D[Informar erro]:::vazado\n  C ==> E[Guardar resultado]:::em';
-export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',...COLLECTION_NAMES};
+export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',novidades:'Demo — novidades',...COLLECTION_NAMES};
 export function demoDeck(kind) {
   if(Object.hasOwn(COLLECTION_NAMES,kind))return collectionDeck(kind);
   if(!DEMO_NAMES[kind])throw Error('Modelo não encontrado.');
@@ -28,6 +31,31 @@ export function demoDeck(kind) {
     {layout:'statement',kicker:'AVISO · SEGURANÇA',text:'Não coloque tokens no código ou na apresentação.',add:{aviso:{tipo:'perigo',titulo:'Segredo exposto',texto:'Use Ambientes para guardar chaves na sua máquina. Elas não devem entrar no YAML do deck.'}}},
     end,
   ];
+  // um slide de cada recurso novo; a pasta do projeto já traz contexto/vendas.csv (aba Arquivos › planilha)
+  if(kind==='novidades'){
+    const vendas={labels:['jan','fev','mar','abr','mai','jun'],series:[{name:'Norte',values:[10.5,12,15,17,16,19]},{name:'Sul',values:[7,9,8,11,13,14]}]};
+    slides=[
+      {...cover,subtitle:'Carrossel, gráficos do Excel, fórmulas vivas, dinâmicas a dois e a pasta do projeto.',kicker:'SAGADECK · NOVIDADES'},
+      {layout:'dossier',title:'Onde está cada novidade',items:[
+        item('Pasta do projeto','Aba Arquivos, à esquerda: a pasta da apresentação, com contexto/ para anexos, prints e planilhas.',{icon:'folder-tree'}),
+        item('Planilha → gráfico','Abra contexto/vendas.csv: o Studio lê os tipos das colunas e sugere gráficos, com ou sem IA.',{icon:'table'}),
+        item('Colar do Excel','No gráfico de dados, Formatar › Dados: Ctrl+V de uma tabela preenche a planilha.',{icon:'clipboard-paste'}),
+        item('Fórmulas vivas','Fórmulas e funções: escreva a fórmula; cada letra vira um controle deslizante.',{icon:'sigma'}),
+        item('Dinâmicas a dois','Duelo de commits, dois terminais e turnos: um quadro por clique.',{icon:'users'}),
+        item('Carrossel e zoom','Carrossel em roda ou em anéis; o Foco guiado aproxima devagar de cada detalhe.',{icon:'sparkles'})]},
+      {...LAYOUT_SAMPLES.carousel,title:'Carrossel em roda'},
+      {...LAYOUT_SAMPLES.carousel,title:'Carrossel em anéis',style:'rings'},
+      {layout:'chart',title:'Vendas por região, direto da planilha',chart:{chart:'line',csv:'contexto/vendas.csv',...vendas,xLabel:'Mês',yLabel:'R$ milhões'},side:'Este gráfico lê **contexto/vendas.csv**. Mude um número lá (aba Arquivos) e ele acompanha.'},
+      {layout:'chart',title:'Colado do Excel: colunas agrupadas',chart:{chart:'column',...vendas,xLabel:'Mês'},side:'No Formatar, a planilha do gráfico aceita **Ctrl+V** de uma tabela do Excel: a primeira linha vira o nome das séries.'},
+      {...LAYOUT_SAMPLES.science},
+      {layout:'science',title:'Queda livre: medida × teoria',plot:{functions:[{fn:'h0 - g*x^2/2',name:'teoria'}],x:[0,2],params:{h0:{value:20,min:5,max:40,label:'altura'},g:{value:9.8,min:1,max:25,label:'gravidade'}},points:'t\tmedido\n0\t20\n0,5\t18,9\n1\t15,2\n1,5\t8,8\n1,9\t2,1',pointsName:'medido'}},
+      {...LAYOUT_SAMPLES.duel},
+      {...LAYOUT_SAMPLES.terminals,turns:[...LAYOUT_SAMPLES.terminals.turns]},
+      {...LAYOUT_SAMPLES.turns},
+      {layout:'spotlight',title:'Foco guiado com zoom lento',image:'imagens/lavanda-cover.jpg',zoom:true,hotspots:[{title:'A imagem inteira',text:'O primeiro passo mostra tudo.',x:0,y:0,width:100,height:100,zoom:false},{title:'Um detalhe',text:'A imagem aproxima devagar do ponto da vez.',x:30,y:25,width:30,height:35},{title:'Outro detalhe',text:'Cada foco pode ter o seu zoom.',x:60,y:55,width:25,height:30,zoom:2.4}]},
+      end,
+    ];
+  }
   if(kind==='lavanda')slides[0]={...cover,tone:'light',title:'Ideias que\nganham forma.',subtitle:'Estúdio lavanda · um modelo para explorar',figure:{image:'imagens/lavanda-cover.jpg',fit:'cover',radius:100}};
   return {...common,slides};
 }

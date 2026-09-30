@@ -361,13 +361,29 @@
   <main id="app-workspace" class="workspace">
     <aside id="slides-nav" class="slide-rail" aria-label="Slides">
       <div class="rail-header">
-        <span>Slides <span id="slide-count" class="muted">0</span></span>
+        <div class="rail-tabs" role="tablist">
+          <button id="rail-tab-slides" class="rail-tab active" type="button" role="tab" title="Slides"><i class="ic" data-ic="layers"></i><span>Slides</span><span id="slide-count" class="muted">0</span></button>
+          <button id="rail-tab-files" class="rail-tab" type="button" role="tab" title="Arquivos do projeto (a pasta da apresentação)"><i class="ic" data-ic="folder-tree"></i><span>Arquivos</span></button>
+        </div>
         <button id="btn-add-slide-mini" class="icon-btn" title="Novo slide"><i class="ic" data-ic="plus"></i></button>
       </div>
       <div id="thumbnails-list" class="thumb-list"></div>
+      <div id="project-explorer" class="explorer hidden">
+        <div class="ex-tools">
+          <button id="ex-new-file" class="icon-btn icon-btn-sm" type="button" title="Novo arquivo (.md)"><i class="ic" data-ic="file-plus"></i></button>
+          <button id="ex-new-folder" class="icon-btn icon-btn-sm" type="button" title="Nova pasta"><i class="ic" data-ic="folder-plus"></i></button>
+          <button id="ex-upload" class="icon-btn icon-btn-sm" type="button" title="Enviar arquivos (vão para contexto/)"><i class="ic" data-ic="upload"></i></button>
+          <button id="ex-refresh" class="icon-btn icon-btn-sm" type="button" title="Atualizar"><i class="ic" data-ic="refresh-cw"></i></button>
+          <input id="ex-upload-input" type="file" multiple hidden>
+        </div>
+        <div id="project-tree" class="ex-tree" tabindex="0"></div>
+      </div>
     </aside>
 
     <section id="canvas-stage-wrapper" class="editor">
+      <!-- abas como no VS Code: a apresentação sempre; cada arquivo do projeto aberto numa aba -->
+      <div id="doc-tabs" class="doc-tabs" role="tablist"></div>
+      <div id="doc-view" class="doc-view hidden"></div>
       <!-- modelo de fábrica em prévia: nada é salvo até mudar algo (aí nasce uma cópia na biblioteca) -->
       <div id="preview-banner" class="preview-banner hidden" role="status">
         <i class="ic" data-ic="eye"></i>
@@ -763,6 +779,7 @@
   <script src="decision-lab.js"></script>
   <script src="visual-editor.js"></script>
   <script src="inspector.js"></script>
+  <script src="explorer.js"></script>
   <script src="merge-decks.js"></script>
   <script src="app.js"></script>
 </body>

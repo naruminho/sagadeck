@@ -244,6 +244,27 @@
     setupCreativeTools();
     window.SagaVisual?.setup(document.getElementById("visual-tools"));
     hydrateIcons(document); // botões do Inserir e a barra flutuante do objeto
+    window.SagaProject?.setup({
+      hydrate: hydrateIcons,
+      toast: showToast,
+      highlightYaml,
+      relayout: () => requestAnimationFrame(() => { if (state.autoFit) updateCanvasScale(); }),
+      reloadDeck: async () => {
+        const data = await (await fetch("api/deck")).json();
+        state.deck = data.spec;
+        state.currentSlideIndex = Math.min(state.currentSlideIndex, state.deck.slides.length - 1);
+        renderThumbnails();
+        await renderCurrentSlide();
+      },
+      insertSlide: async (slide) => {
+        const at = state.currentSlideIndex + 1;
+        state.deck.slides.splice(at, 0, slide);
+        state.currentSlideIndex = at;
+        await syncDeckToServer();
+        renderThumbnails();
+        await renderCurrentSlide();
+      },
+    });
     window.SagaInspector?.setup(document.getElementById("inspector-body"), {
       state,
       hydrate: hydrateIcons,
@@ -1192,6 +1213,7 @@
   }
   function addChatFile(file) {
     if (!file) return;
+    window.SagaProject?.uploadFile(file, "contexto").then(() => window.SagaProject.refreshTree()).catch(() => {}); // sem projeto: só na conversa
     if (file.type.startsWith("image/")) addChatImage(file);
     else addChatDoc(file);
   }
@@ -2471,8 +2493,14 @@
     shotButton.onclick = () => editScreenshot();
     document.addEventListener("paste", e => {
       if (document.querySelector("dialog[open]") || e.target.closest("input, textarea, [contenteditable='true']")) return;
+      if (window.SagaProject?.wantsPaste()) return; // na aba Arquivos (ou com um arquivo aberto) o print só vai para contexto/
       const item = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith("image/"));
-      if (item) { e.preventDefault(); editScreenshot(null, item.getAsFile()); }
+      if (item) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        window.SagaProject?.savePastedImage(file).catch(() => {}); // também fica no projeto (contexto/), para a IA
+        editScreenshot(null, file);
+      }
     });
     dom.renderedSlideContainer.addEventListener("dragover", e => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
     dom.renderedSlideContainer.addEventListener("drop", e => {
@@ -2764,6 +2792,16 @@
     const scroll = pane.scrollTop;
     window.SlideForm.render(dom.slideFieldsForm, slide, {
       commit: formCommit,
+      refreshFrom: async () => {
+        try {
+          const r = await fetch("api/project/refresh-chart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index: state.currentSlideIndex }) });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error);
+          state.deck.slides[state.currentSlideIndex] = j.slide;
+          renderThumbnails(); await renderCurrentSlide();
+          showToast("Dados atualizados da planilha.");
+        } catch (e) { showToast(`Não deu para atualizar: ${e.message}`); }
+      },
       hydrate: hydrateIcons,
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
@@ -3081,6 +3119,7 @@
       if ("file" in data) state.file = data.file;
       if (data.materialized) previewMaterialized(data.materialized);
       updateSaveStatus(res.ok ? "saved" : "error");
+      if (res.ok) window.SagaProject?.deckChanged();
     } catch (err) {
       console.warn("Erro ao sincronizar com servidor:", err);
       updateSaveStatus("error");
