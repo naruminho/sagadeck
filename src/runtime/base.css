@@ -132,6 +132,12 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .fig>svg{width:100%;height:100%;overflow:visible}
 .fig-icon>svg{width:auto;height:auto}
 .fig-img img{width:100%;height:100%;display:block}
+/* importado de PowerPoint (src/import): recorte da imagem, desenho das formas, caixas de texto e tabelas */
+.fig-crop{overflow:hidden}.fig-crop img{position:absolute;max-width:none;object-fit:fill}
+.drw{position:absolute;overflow:visible}.drw>svg{pointer-events:none}
+.tbx{overflow:visible;color:#000;overflow-wrap:break-word}.tbx p{white-space:pre-wrap}.tbx-bu{white-space:nowrap}
+.tbx .tbx-math .katex{font-size:1em}
+.tbx-table{overflow:visible}.tbx-table table{height:100%}.tbx-table td p{white-space:pre-wrap}
 .figbox{display:flex}
 .card{background:var(--surface);border-radius:var(--radius);padding:44px}
 .card-hi{background:var(--hi);color:var(--on-hi);--fg:var(--on-hi);--muted:color-mix(in srgb,var(--on-hi) 70%,var(--hi))}

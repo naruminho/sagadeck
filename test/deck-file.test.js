@@ -190,7 +190,7 @@ test("junção: o que a pessoa mexeu durante a resposta fica; o que só a IA mex
 // writeFileSync só é permitido para deck NOVO, nestes lugares conhecidos. Se este teste falhar, use writeDeckFile.
 test("nenhum código regrava um deck existente com YAML inteiro (use writeDeckFile)", () => {
   const PERMITIDO = { // arquivo -> quantas gravações de deck novo ele tem (e por quê)
-    "src/library.js": 1,        // createDeck: pasta nova, nome único
+    "src/library.js": 2,        // createDeck e importOffice: pasta nova, nome único (nunca regrava um deck)
     "src/mcp/server.js": 2,     // create/scaffold: newDeckPath({ unique: true })
     "src/studio/server.js": 1,  // deck gerado pela IA (editor e biblioteca): pasta nova da biblioteca (generateIntoLibrary)
     "bin/sagadeck.js": 3,       // napkin -o, scaffold e new: arquivo novo

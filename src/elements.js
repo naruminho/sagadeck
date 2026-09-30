@@ -2,6 +2,7 @@
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
 // anim (up|fade|pop|left|right|zoom|none), w, h, flex, align, class, style, card.
 import { qrSVG } from "./figures/qr.js";
+import katex from "katex";
 import fs from "node:fs";
 import path from "node:path";
 import { md, esc } from "./markup.js";
@@ -89,7 +90,14 @@ export function figureHTML(el, ctx, w, h) {
   if (el.image) {
     const src = imageSrc(el.image, ctx);
     if (!src) return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="Imagem não encontrada: ${esc(el.image)}"><div class="fp-in"><span class="fp-tag f-label">imagem não encontrada</span><span class="fp-text f-body">${esc(el.image)}</span></div></div>`;
-    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${el.fit || "cover"};${el.radius ? `border-radius:${el.radius}px;` : ""}"></div>`;
+    const flip = el.flipH || el.flipV ? `transform:scale(${el.flipH ? -1 : 1},${el.flipV ? -1 : 1});` : "";
+    // recorte (crop: l/t/r/b em fração do lado, como o srcRect do PowerPoint): a imagem cresce e a caixa corta
+    if (el.crop) {
+      const c = { l: +el.crop.l || 0, t: +el.crop.t || 0, r: +el.crop.r || 0, b: +el.crop.b || 0 };
+      const fw = Math.max(0.01, 1 - c.l - c.r), fh = Math.max(0.01, 1 - c.t - c.b);
+      return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
+    }
+    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${el.fit || "cover"};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
 }
@@ -132,6 +140,9 @@ export function el(e, ctx, w, h) {
     return `<div${attrs(e, "fig fig-pending")}><div class="fp-in"><span class="fp-tag f-label">imagem a gerar</span><span class="fp-text f-body">${esc(String(e.image_prompt).slice(0, 180))}</span></div></div>`;
   }
   if (isFigure(e)) return figureHTML(e, ctx, w, h);
+  if (e.textbox) return textbox(e, ctx);
+  if (e.table && e.table.cells) return importedTable(e, ctx);
+  if (e.drawing) return `<div${attrs(e, "drw")}>${String(e.drawing).replace(/href="media:([^"]+)"/g, (m, p) => `href="${imageSrc(p, ctx) || ""}"`)}</div>`;
   if (e.text != null) return text(e.text, e.as || "body", e);
   if (e.row) return `<div${attrs(e, "row", `gap:${px(e.gap ?? 48)};align-items:${e.valign || "stretch"};justify-content:${e.justify || "flex-start"};`)}>${e.row.map((x) => el(x, ctx)).join("")}</div>`;
   if (e.col) return `<div${attrs(e, "col", `gap:${px(e.gap ?? 28)};justify-content:${e.justify || "flex-start"};align-items:${e.items || "stretch"};`)}>${e.col.map((x) => el(x, ctx)).join("")}</div>`;
@@ -159,6 +170,108 @@ export function el(e, ctx, w, h) {
     if (e[r] != null && typeof e[r] !== "object") return text(e[r], r, e);
   }
   throw new Error(`Elemento não reconhecido: ${JSON.stringify(e).slice(0, 160)}`);
+}
+
+// ------------------------------------------------------------------------------------------------ texto importado
+// Caixa de texto que veio de um PowerPoint (src/import/pptx.js) com a formatação original: parágrafos com recuo,
+// marcador, alinhamento e espaçamento; trechos com fonte, tamanho, negrito, itálico, sublinhado, cor e equação.
+const FONT_FALLBACK = "Calibri, Carlito, 'Segoe UI', Arial, sans-serif";
+const fontStack = (f) => (f ? `'${String(f).replace(/'/g, "")}', ${FONT_FALLBACK}` : FONT_FALLBACK);
+// marcadores de Wingdings/Symbol desenhados (o caractere do PowerPoint só existe naquela fonte)
+// caractere de fonte de símbolo (Wingdings/Symbol, inclusive na faixa F0xx que o Office grava): desenho ou o
+// equivalente comum; null = não sei (fica o caractere)
+const SYMBOL_FONT = { 0xae: 0x2192, 0xac: 0x2190, 0xad: 0x2191, 0xaf: 0x2193, 0xde: 0x21d2, 0xdc: 0x21d0, 0xdb: 0x21d4, 0xab: 0x2194, 0xb3: 0x2265, 0xa3: 0x2264, 0xb9: 0x2260, 0xb1: 0xb1, 0xb4: 0xd7, 0xb8: 0xf7, 0xb0: 0xb0, 0xd6: 0x221a, 0xa5: 0x221e, 0xbb: 0x2248, 0xb6: 0x2202, 0x44: 0x394, 0x61: 0x3b1, 0x62: 0x3b2, 0x67: 0x3b3, 0x64: 0x3b4, 0x6d: 0x3bc, 0x70: 0x3c0, 0x72: 0x3c1, 0x73: 0x3c3, 0x53: 0x3a3, 0x71: 0x3b8, 0x6c: 0x3bb, 0x77: 0x3c9, 0x57: 0x3a9, 0xe5: 0x2211, 0xf2: 0x222b }; // código do Symbol para o código Unicode
+function symbolGlyph(code, font, c, px) {
+  if (code >= 0xf000 && code <= 0xf0ff) code -= 0xf000;
+  const f = String(font || "").toLowerCase();
+  const s = Math.round(px * 0.62);
+  const svg = (inner) => `<svg viewBox="0 0 10 10" width="${s}" height="${s}" style="vertical-align:${-Math.round(s * 0.06)}px" aria-hidden="true">${inner}</svg>`;
+  const arrow = (rot) => svg(`<g transform="rotate(${rot} 5 5)"><path d="M0.8 5H8.4M5.6 2L8.8 5L5.6 8" fill="none" stroke="${c}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></g>`);
+  if (f.includes("wingdings")) {
+    if (code === 0xd8) return svg(`<path d="M1 1L9.5 5L1 9L3.2 5Z" fill="${c}"/>`);
+    if (code === 0xe0 || code === 0xe8) return arrow(0);
+    if (code === 0xdf || code === 0xe7) return arrow(180);
+    if (code === 0xe1 || code === 0xe9) return arrow(-90);
+    if (code === 0xe2 || code === 0xea) return arrow(90);
+    if (code === 0xf0) return svg(`<path d="M0.8 3.6H5.4V1.5L9.2 5L5.4 8.5V6.4H0.8Z" fill="none" stroke="${c}" stroke-width="0.9" stroke-linejoin="round"/>`);
+    if (code === 0xfc || code === 0xfe) return svg(`<path d="M1.5 5.4L4 8L8.6 2" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`);
+    if (code === 0xfb || code === 0xfd) return svg(`<path d="M2 2L8 8M8 2L2 8" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`);
+    if (code === 0xa7 || code === 0x6e) return svg(`<rect x="2.5" y="2.5" width="5" height="5" fill="${c}"/>`);
+    if (code === 0x71 || code === 0x6f || code === 0xa8) return svg(`<rect x="2" y="2" width="6" height="6" fill="none" stroke="${c}" stroke-width="1"/>`);
+    if (code === 0x76) return svg(`<path d="M5 0.5L6.4 3.6L9.5 5L6.4 6.4L5 9.5L3.6 6.4L0.5 5L3.6 3.6Z" fill="${c}"/>`);
+    if (code === 0x75) return svg(`<path d="M5 0.8L9.2 5L5 9.2L0.8 5Z" fill="${c}"/>`);
+    if (code === 0x6c || code === 0x9f || code === 0xa1) return svg(`<circle cx="5" cy="5" r="2.6" fill="${c}"/>`);
+    return svg(`<circle cx="5" cy="5" r="2.4" fill="${c}"/>`);
+  }
+  if (f.includes("symbol")) {
+    if (code === 0xb7) return svg(`<circle cx="5" cy="5" r="2.4" fill="${c}"/>`);
+    if (SYMBOL_FONT[code]) return `<span style="font-family:'Cambria Math','Segoe UI Symbol',sans-serif;color:${c}">${String.fromCodePoint(SYMBOL_FONT[code])}</span>`;
+  }
+  return null;
+}
+function bulletHTML(b, size, color) {
+  if (b.num) return esc(b.num);
+  const ch = String(b.char || ""), c = b.color || color || "currentColor";
+  const g = symbolGlyph(ch.codePointAt(0) || 0, b.font, c, size * (b.scale || 1));
+  if (g) return g;
+  return `<span style="font-family:${esc(fontStack(b.font))};color:${esc(c)}">${esc(ch)}</span>`;
+}
+function runHTML(r) {
+  if (r.br) return "<br>";
+  if (r.latex != null) return `<span class="tbx-math" style="font-size:${r.size || 36}px">${katex.renderToString(String(r.latex), { throwOnError: false, trust: false, maxExpand: 1000 })}</span>`;
+  let st = `font-size:${r.sup || r.sub ? Math.round((r.size || 36) * 0.7) : r.size || 36}px;font-family:${fontStack(r.font)};`;
+  if (r.b) st += "font-weight:700;";
+  if (r.i) st += "font-style:italic;";
+  if (r.u || r.s) st += `text-decoration:${[r.u && "underline", r.s && "line-through"].filter(Boolean).join(" ")};`;
+  if (r.color) st += `color:${r.color};`;
+  if (r.sup) st += "vertical-align:super;";
+  if (r.sub) st += "vertical-align:sub;";
+  // symPua: só os caracteres da faixa de símbolos (F0xx) são da fonte de símbolo; o resto é texto comum
+  const txt = r.sym ? [...String(r.t ?? "")].map((ch) => { const cp = ch.codePointAt(0); return (!r.symPua || (cp >= 0xf000 && cp <= 0xf0ff)) ? symbolGlyph(cp, r.sym, r.color || "currentColor", r.size || 36) || esc(ch) : esc(ch); }).join("") : esc(r.t ?? "");
+  const body = `<span style="${esc(st)}">${txt}</span>`;
+  return r.link && /^(https?:|mailto:)/i.test(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${body}</a>` : body;
+}
+// altura de linha "simples" de cada fonte (o PowerPoint usa a medida da própria fonte, não um fator fixo)
+const LINE = [[/calibri|carlito/i, 1.22], [/times|tinos|liberation serif/i, 1.15], [/cambria/i, 1.17], [/arial|helvetica|liberation sans|arimo/i, 1.15], [/segoe/i, 1.33], [/georgia/i, 1.14], [/verdana|tahoma/i, 1.21], [/source sans/i, 1.26], [/montserrat/i, 1.22], [/century gothic/i, 1.23]];
+const lineOf = (font) => (LINE.find(([re]) => re.test(font || "")) || [null, 1.2])[1];
+function paragraphHTML(p, idx = 1) {
+  const size = p.runs?.find((r) => r.size)?.size || p.size || 36;
+  const factor = lineOf(p.runs?.find((r) => r.font)?.font);
+  const lh = p.lineHeight == null ? factor : p.lineHeight <= 5 ? +(p.lineHeight * factor).toFixed(3) : `${p.lineHeight}px`;
+  let st = `margin:0;font-size:${size}px;line-height:${lh};`;
+  if (p.marL) st += `padding-left:${p.marL}px;`;
+  if (p.indent) st += `text-indent:${p.indent}px;`;
+  if (p.align) st += `text-align:${p.align};`;
+  if (p.spaceBefore && idx > 0) st += `margin-top:${p.spaceBefore}px;`; // o PowerPoint ignora o espaço antes do 1º parágrafo
+  if (p.spaceAfter) st += `margin-bottom:${p.spaceAfter}px;`;
+  if (p.empty) return `<p style="${st}">&nbsp;</p>`;
+  const firstColor = p.runs?.find((r) => r.color)?.color;
+  const bu = p.bullet ? `<span class="tbx-bu" style="display:inline-block;text-indent:0;min-width:${Math.max(0, -(p.indent || 0))}px;${(p.indent || 0) >= 0 ? "margin-right:0.4em;" : ""}">${bulletHTML(p.bullet, size, firstColor)}</span>` : "";
+  return `<p style="${esc(st)}">${bu}${(p.runs || []).map(runHTML).join("")}</p>`;
+}
+export function textbox(e) {
+  const tb = e.textbox || {};
+  const [pl, pt, pr, pb] = tb.pad || [0, 0, 0, 0];
+  const jc = tb.anchor === "middle" ? "center" : tb.anchor === "bottom" ? "flex-end" : "flex-start";
+  let st = `display:flex;flex-direction:column;justify-content:${jc};padding:${pt}px ${pr}px ${pb}px ${pl}px;box-sizing:border-box;`;
+  if (tb.nowrap) st += "white-space:nowrap;";
+  if (tb.vertical) st += `writing-mode:vertical-rl;${tb.vertical === "up" ? "transform:rotate(180deg);" : ""}`;
+  const body = (tb.paragraphs || []).map((p, i) => paragraphHTML(p, i)).join("");
+  return `<div${attrs(e, "tbx", st)}>${tb.columns ? `<div style="column-count:${+tb.columns}">${body}</div>` : body}</div>`;
+}
+// tabela importada: colunas e alturas na medida, preenchimento e bordas por célula
+export function importedTable(e) {
+  const t = e.table;
+  const cols = (t.cols || []).map((w) => `<col style="width:${w}px">`).join("");
+  const rows = (t.cells || []).map((row, ri) => `<tr style="height:${t.heights?.[ri] || 0}px">${(row || []).map((c) => {
+    if (!c) return "";
+    const [pl, pt, pr, pb] = c.pad || [9, 5, 9, 5];
+    let st = `padding:${pt}px ${pr}px ${pb}px ${pl}px;vertical-align:${c.anchor === "ctr" ? "middle" : c.anchor === "b" ? "bottom" : "top"};border:${t.border || "1px solid #999"};`;
+    if (c.fill) st += `background:${c.fill};`;
+    for (const [side, v] of Object.entries(c.borders || {})) st += `border-${side}:${v};`;
+    return `<td${c.span > 1 ? ` colspan="${c.span}"` : ""}${c.rowSpan > 1 ? ` rowspan="${c.rowSpan}"` : ""} style="${esc(st)}">${(c.tb?.paragraphs || []).map((p, i) => paragraphHTML(p, i)).join("")}</td>`;
+  }).join("")}</tr>`).join("");
+  return `<div${attrs(e, "tbx-table")}><table style="border-collapse:collapse;table-layout:fixed;width:100%"><colgroup>${cols}</colgroup>${rows}</table></div>`;
 }
 
 export function counter(e) {

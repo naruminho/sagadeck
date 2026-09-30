@@ -58,6 +58,8 @@ export function wordCount(s) {
   const txt = [];
   const walk = (v, k) => {
     if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
+    // o que veio de um PowerPoint importado: desenho, fontes, cores, estilos e a origem não são palavras
+    if (k === "drawing" || k === "font" || k === "color" || k === "sym" || k === "style" || k === "image" || k === "link" || k === "original" || k === "tableData" || k === "fill" || k === "border" || k === "borders") return;
     if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }
     else if (Array.isArray(v)) v.forEach((x) => walk(x));
     else if (v && typeof v === "object" && !v.svg && !v.chart && !v.html) for (const [kk, vv] of Object.entries(v)) walk(vv, kk);
@@ -179,7 +181,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${fontsCSSFor(read("runtime/base.css") + deckThemeCSS(spec, theme) + customCSS)}
 ${read("runtime/base.css")}
-${spec.slides.some(s => ["science", "solution", "calc"].includes(s.layout)) ? read("runtime/vendor/katex.css") : ""}
+${spec.slides.some(s => ["science", "solution", "calc"].includes(s.layout) || (s.layout === "canvas" && JSON.stringify(s.elements || []).includes('"latex"'))) ? read("runtime/vendor/katex.css") : ""}
 ${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">

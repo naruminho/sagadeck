@@ -63,6 +63,8 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    o deck fica na biblioteca (Sem tópico/Ensaio APIs de IA ao vivo); se já existir, reabre
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
   sagadeck unpack <x.sagadeck> [pasta]         extrai um .sagadeck (ou .zip) numa pasta
+  sagadeck importar <arquivo.pptx> [--topico=X] [--titulo=Y] [--sem-fotos]
+                                               traz um PowerPoint para a biblioteca, fiel ao original
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
   sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
@@ -303,6 +305,16 @@ async function main() {
       fs.writeFileSync(out, zip);
       console.log(`✓ ${out} (${(zip.length / 1024).toFixed(0)} KB · ${files.length} arquivo(s) junto)`);
       missing.forEach((m) => console.log(`  ✗ não encontrado (listado em FALTANDO.txt): ${m}`));
+      break;
+    }
+    case "importar": case "import": {
+      const src = path.resolve(args[0] || "");
+      if (!fs.existsSync(src)) { console.error(`não achei ${src}`); process.exit(1); }
+      const { openLibrary, defaultLibraryRoot } = await import("../src/library.js");
+      const lib = openLibrary(flags.library || defaultLibraryRoot());
+      const r = await lib.importOffice(fs.readFileSync(src), flags.topico || flags.topic, path.basename(src), { title: flags.titulo || flags.title, snapshots: !flags["sem-fotos"], log: (m) => console.log(`  ${m}`) });
+      console.log(`importado: ${r.slides} slides${r.snapshots ? ` · fotos do original pelo ${r.snapBy}` : ""}${r.converted ? ` · ${r.converted} figura(s) WMF/EMF convertidas` : ""}
+  ${r.file}`);
       break;
     }
     case "unpack": {
