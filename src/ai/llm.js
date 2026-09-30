@@ -8,6 +8,8 @@
 //   SAGADECK_LLM_KEY      bearer token opcional  (ex.: chave do OpenRouter se apontar direto)
 //   SAGADECK_TEXT_MODEL   modelo de texto        (padrão: "text"  — apelido no [models] do modelrelay)
 //   SAGADECK_IMAGE_MODEL  modelo de imagem       (padrão: "image" — idem)
+//   SAGADECK_VISION_MODEL modelo que vê imagens  (padrão: "vision" — quando o de texto não enxerga, a chamada com
+//                         imagem vai para ele em vez de perder a imagem; quem configura o relay decide qual é)
 //   SAGADECK_LLM_TIMEOUT  segundos por chamada   (padrão: 180)
 
 export class LLMError extends Error {
@@ -25,6 +27,7 @@ export function llmConfig(env = process.env) {
     key: env.SAGADECK_LLM_KEY || "",
     textModel: env.SAGADECK_TEXT_MODEL || "text",
     imageModel: env.SAGADECK_IMAGE_MODEL || "image",
+    visionModel: env.SAGADECK_VISION_MODEL || "vision",
     timeoutMs: Number(env.SAGADECK_LLM_TIMEOUT || 180) * 1000,
     // o modelrelay escolhe os modelos deste app em [apps.sagadeck.models] (o resto vem de [models])
     app: env.SAGADECK_APP || "sagadeck",
@@ -71,15 +74,22 @@ function withoutImages(messages) {
 export async function chat(messages, opts = {}) {
   const cfg = opts.cfg || llmConfig();
   const key = `${cfg.url}|${cfg.app}|${opts.model || cfg.textModel}`;
+  // o modelo de texto não enxerga: a chamada com imagem vai para o modelo de visão (se o relay tiver um)
+  const viaVision = async () => {
+    const vision = cfg.visionModel;
+    if (!vision || vision === (opts.model || cfg.textModel) || noVision.has(`${cfg.url}|${cfg.app}|${vision}`)) return null;
+    try { return { ...(await chatOnce(messages, { ...opts, model: vision, cfg })), visionRouted: vision }; }
+    catch (e) { if (refusesImages(e) || e.status === 400 || e.status === 404) { noVision.add(`${cfg.url}|${cfg.app}|${vision}`); return null; } throw e; }
+  };
   if (hasImageParts(messages) && noVision.has(key)) {
-    return { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
+    return (await viaVision()) || { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
   }
   try {
     return await chatOnce(messages, { ...opts, cfg });
   } catch (e) {
     if (!hasImageParts(messages) || !refusesImages(e)) throw e;
     noVision.add(key);
-    return { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
+    return (await viaVision()) || { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
   }
 }
 

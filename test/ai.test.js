@@ -226,15 +226,31 @@ test("prompt do sistema: slide denso usa takeaway e aviso", async () => {
   assert.match(llm.requests[n].system, /takeaway/);
 });
 
-test("modelo sem visão (ex.: DeepSeek V4 Flash): refaz sem imagens, avisa e não insiste", async () => {
+test("modelo de texto sem visão (ex.: DeepSeek Pro): a chamada com imagem vai para o modelo de visão do relay", async () => {
   const NO_VISION = { status: 404, error: "HTTP 404: No endpoints found that support image input" };
+  process.env.SAGADECK_VISION_MODEL = "vision-ok";
+  try {
+    reply = (req) => (req.body.model === "vision-ok" ? "Vi a foto: o título está cortado." : req.hasImages ? NO_VISION : "sem imagem");
+    const visuals = [{ label: "slide 2 renderizado", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }];
+    const n = llm.requests.length;
+    const r = await editDeck({ spec: base(), instruction: "o que você acha?", targetSlide: 1, visuals });
+    assert.match(r.reply, /Vi a foto/);
+    assert.deepEqual(llm.requests.slice(n).map((q) => [q.body.model, q.hasImages]), [["text", true], ["vision-ok", true]], "texto recusou, visão viu");
+    assert.ok(r.actions.some((a) => /modelo de visão \(vision-ok\)/.test(a)), r.actions.join("; "));
+  } finally { delete process.env.SAGADECK_VISION_MODEL; }
+});
+
+test("modelo sem visão (ex.: DeepSeek V4 Flash) e sem modelo de visão no relay: refaz sem imagens, avisa e não insiste", async (t) => {
+  const NO_VISION = { status: 404, error: "HTTP 404: No endpoints found that support image input" };
+  process.env.SAGADECK_TEXT_MODEL = "texto-sem-visao"; process.env.SAGADECK_VISION_MODEL = "visao-inexistente";
+  t.after(() => { delete process.env.SAGADECK_TEXT_MODEL; delete process.env.SAGADECK_VISION_MODEL; });
   reply = (req) => (req.hasImages ? NO_VISION : "Vi pelo YAML: o título está ok.");
   const visuals = [{ label: "slide 2 renderizado", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }];
   const n = llm.requests.length;
   const r = await editDeck({ spec: base(), instruction: "o que você acha?", targetSlide: 1, visuals });
   assert.match(r.reply, /título está ok/);
   assert.ok(r.actions.some((a) => /não enxerga imagens/.test(a)), r.actions.join("; "));
-  assert.deepEqual(llm.requests.slice(n).map((q) => q.hasImages), [true, false], "tentou com imagem, refez sem");
+  assert.deepEqual(llm.requests.slice(n).map((q) => q.hasImages), [true, true, false], "tentou com imagem, tentou o modelo de visão, refez sem");
   // da próxima vez, nem tenta mandar imagem para esse modelo
   const m = llm.requests.length;
   const r2 = await editDeck({ spec: base(), instruction: "e agora?", targetSlide: 1, visuals });
