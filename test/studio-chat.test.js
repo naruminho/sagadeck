@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import YAML from "yaml";
 import { startMockLLM } from "./mock-llm.js";
 import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
@@ -14,10 +15,12 @@ test("chat: conversa por deck que sobrevive a recarregar, memória longa e nada 
   const llm = await startMockLLM((req) => reply(req));
   const deckFile = tempDeck();
   // uma conversa longa já guardada: a primeira mensagem tem um pedido que não pode ser esquecido
-  const convFile = deckFile.file.replace(/\.ya?ml$/i, ".conversa.json");
+  // conversa antiga (ao lado do deck): ao abrir, passa para dentro do projeto (.sagadeck/conversa.json)
+  const legacy = deckFile.file.replace(/\.ya?ml$/i, ".conversa.json");
+  const convFile = path.join(deckFile.dir, ".sagadeck", "conversa.json");
   const antiga = [{ role: "user", text: "Regra: o público é a DIRETORIA-DO-BANCO." }];
   for (let i = 0; i < 30; i++) antiga.push({ role: i % 2 ? "user" : "assistant", text: `troca antiga ${i}` });
-  fs.writeFileSync(convFile, JSON.stringify({ history: antiga }));
+  fs.writeFileSync(legacy, JSON.stringify({ history: antiga }));
   const studio = await startStudio(deckFile.file, { llmUrl: llm.url });
   try {
     const { page: p, errors } = await newPage(browser, `${studio.url}/editor`);
@@ -32,6 +35,7 @@ test("chat: conversa por deck que sobrevive a recarregar, memória longa e nada 
     await t.test("ao abrir, a conversa guardada do deck volta para a tela", async () => {
       await p.waitForFunction(() => /troca antiga 29/.test(document.getElementById("chat-messages").textContent), null, { timeout: 8000 });
       assert.ok(await p.locator("#chat-messages .user-msg").count() >= 15);
+      assert.ok(fs.existsSync(convFile) && !fs.existsSync(legacy), "a conversa mudou para .sagadeck/ (nada solto ao lado do deck)");
     });
 
     await t.test("o que a pessoa disse lá no começo chega ao modelo; a conversa nova é gravada ao lado do deck", async () => {

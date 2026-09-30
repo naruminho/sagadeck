@@ -100,7 +100,7 @@
     const match = (d) => !q || d.title.toLowerCase().includes(q);
     const main = $("#main");
     if (view === "lixeira") {
-      main.innerHTML = `<div class="head"><div><h1>Lixeira</h1><div class="sub">Fica aqui por 30 dias; depois é apagado de vez.</div></div></div>` +
+      main.innerHTML = `<div class="head"><div><h1>Lixeira</h1><div class="sub">Fica aqui por 30 dias; depois é apagado de vez.</div></div>${data.trash.length ? `<button class="lib-btn ghost danger" data-empty-trash>${ic("trash-2")}Esvaziar lixeira</button>` : ""}</div>` +
         (data.trash.length ? data.trash.map((t) => `<div class="trash-row"><div class="t"><b>${esc(t.title)}</b><div class="sub">Era de ${esc(t.topic || NO_TOPIC.name)} · ${t.slides || 0} slides · excluída ${ago(t.deleted)}</div></div>
           <button class="lib-btn ghost" data-restore="${esc(t.id)}">${ic("rotate-ccw")}Restaurar</button><button class="lib-btn ghost danger" data-purge="${esc(t.id)}">Excluir de vez</button></div>`).join("")
           : `<div class="empty"><div class="big">${ic("trash-2")}</div><h2>Lixeira vazia</h2></div>`);
@@ -147,6 +147,8 @@
       c.onkeydown = (e) => { if (e.key === "Enter") openEditor(id); };
     });
     main.querySelectorAll("[data-restore]").forEach((b) => b.onclick = () => act(() => api("api/library/decks/restore", { slot: b.dataset.restore }), "Restaurada"));
+    const empty = main.querySelector("[data-empty-trash]");
+    if (empty) empty.onclick = () => { if (confirm(`Apagar de vez ${data.trash.length === 1 ? "a apresentação" : `as ${data.trash.length} apresentações`} da lixeira? Não dá para desfazer.`)) act(() => api("api/library/trash/empty", {}), "Lixeira esvaziada"); };
     main.querySelectorAll("[data-purge]").forEach((b) => b.onclick = () => { if (confirm("Apagar de vez? Não dá para desfazer.")) act(() => api("api/library/decks/purge", { slot: b.dataset.purge }), "Apagada de vez"); });
     main.querySelectorAll("[data-empty-new], #card-new").forEach((b) => b.onclick = () => openNewMenu(b));
     main.querySelectorAll("[data-empty-topic]").forEach((b) => b.onclick = () => topicDialog());
@@ -256,6 +258,7 @@
     ["visual", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
     ["visual", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
     ["visual", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
+    ["recurso", "model-novidades", "Novidades", "Carrossel, gráfico do Excel e da planilha do projeto, fórmulas vivas, duelo de commits, terminais e zoom", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
     ["recurso", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
     ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],

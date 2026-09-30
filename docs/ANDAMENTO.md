@@ -8,6 +8,27 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Projeto no estilo VS Code, planilhas estilo JMP, esvaziar lixeira, demo de novidades — 30/09/2026
+
+- Projeto = a pasta do deck (`src/studio/project.js`): `<nome>.yaml`, `imagens/`, `contexto/` (anexos, prints,
+  planilhas, `.md`) e `.sagadeck/` (conversa.json, cache/, lixeira/). `.sagadeck` e o `.yaml` são protegidos
+  (não se apagam nem renomeiam pelo Studio); caminho fora da pasta é recusado; apagar vai para
+  `.sagadeck/lixeira` com Desfazer. Deck solto numa pasta com outros decks não vira projeto. A conversa passou de
+  `<deck>.conversa.json` para `.sagadeck/conversa.json` (migra sozinha). O pacote `.sagadeck` continua levando só o
+  que o deck usa.
+- Studio: barra da esquerda alterna Slides | Arquivos (árvore com criar, renomear F2, apagar Delete, enviar,
+  arrastar para mover/enviar). Abas no centro: Apresentação fixa; o `.yaml` abre com o slide ao lado e atualiza
+  enquanto digita; `.md` com prévia; imagem com "Usar num slide". Ctrl+V de print: na aba Arquivos só guarda em
+  `contexto/`; nos Slides abre o editor de screenshot e também guarda. Anexo do chat também vai para `contexto/`.
+  O texto de `contexto/` (md, csv, xlsx, pdf, docx…) vai para a IA como material (cache em `.sagadeck/cache`).
+- Planilha (CSV/TSV/XLSX, várias abas, sem biblioteca: o xlsx é lido como zip): grade com o tipo de cada coluna
+  (tempo, número, porcentagem, categoria, texto) e sugestões com prévia (linha no tempo, barras ordenadas, rosca
+  de partes, colunas agrupadas, dispersão). "Sugerir com IA": o modelo recebe só o resumo das colunas, corrige tipos
+  e escolhe gráficos, títulos e eixos. "Inserir no slide" grava `from:`; "Atualizar da planilha" relê o arquivo.
+  Gráficos ganharam `xLabel`/`yLabel`; números de planilha entendem `40%` e `R$ 1.234,5`.
+- Biblioteca: "Esvaziar lixeira" (com confirmação). Vitrine: "Novidades" (`model-novidades`), um slide de cada
+  recurso novo; a cópia traz `contexto/vendas.csv` e `contexto/leia-me.md`.
+
 ## Zoom lento no foco e animações menos secas — 30/09/2026
 
 - Spotlight: `zoom: true` (slide) ou `zoom: N` / `false` (foco). Camada `.spotlight-zoom` com imagem + regiões; o

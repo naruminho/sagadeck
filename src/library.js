@@ -279,6 +279,12 @@ export function openLibrary(root) {
   function purgeDeck(slotId) {
     fs.rmSync(path.join(root, TRASH, path.basename(slotId)), { recursive: true, force: true });
   }
+  // esvaziar a lixeira: tudo de uma vez (a pessoa confirma antes, no Studio)
+  function emptyTrash() {
+    const all = listTrash();
+    all.forEach((t) => purgeDeck(t.id));
+    return all.length;
+  }
   function purgeOld(now = Date.now()) {
     for (const t of listTrash()) if (now - t.deleted > TRASH_DAYS * 864e5) purgeDeck(t.id);
   }
@@ -295,7 +301,7 @@ export function openLibrary(root) {
     root, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,
     createDeck, moveDeck, renameDeck, duplicateDeck,
-    trashDeck, restoreDeck, purgeDeck, purgeOld, listTrash,
+    trashDeck, restoreDeck, purgeDeck, purgeOld, listTrash, emptyTrash,
     importPackage,
   };
 }

@@ -32,7 +32,8 @@ export function parseTable(text) {
   const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
   return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"(.*)"$/, '$1')));
 }
-const toNum = (c) => { const s = String(c ?? '').trim().replace(/\s/g, ''); const n = Number(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(',', '.')); return s !== '' && Number.isFinite(n) ? n : null; };
+// número de planilha: 40% · R$ 10 · 1.234,5 · -3
+const toNum = (c) => { const s = String(c ?? '').trim().replace(/^R\$/i, '').replace(/%$/, '').replace(/\s/g, ''); const n = Number(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) ? s.replace(/\./g, '').replace(',', '.') : s.replace(',', '.')); return s !== '' && Number.isFinite(n) ? n : null; };
 export { toNum };
 
 function readPoints(points, ctx) {
@@ -135,7 +136,7 @@ function previewSVG(m) {
   const lab = (v) => (Math.abs(v) >= 100 ? Math.round(v) : +v.toFixed(2)).toLocaleString('pt-BR');
   g += `<text x="${L}" y="${H - 12}" class="sp-tick">${lab(m.x[0])}</text><text x="${W - R}" y="${H - 12}" text-anchor="end" class="sp-tick">${lab(m.x[1])}</text>`;
   g += `<text x="${L - 8}" y="${T + 12}" text-anchor="end" class="sp-tick">${lab(y1)}</text><text x="${L - 8}" y="${H - B}" text-anchor="end" class="sp-tick">${lab(y0)}</text>`;
-  return `<svg class="science-preview" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
+  return `<svg class="science-preview" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${g}</svg>`;
 }
 
 function slidersHTML(params) {

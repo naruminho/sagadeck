@@ -507,6 +507,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 { chart: stacked, data: [{label, value}, …] }
 ```
 `null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
+`xLabel` / `yLabel` dão nome aos eixos (linhas e colunas). `from: { file, sheet, columns: [rótulo, série…] }` num slide de gráfico diz de que planilha do projeto os dados vieram (o Studio põe ao inserir uma sugestão; "Atualizar da planilha" relê o arquivo). Não invente `from`.
 `csv:` (qualquer tipo com dados) troca `data`/`labels`/`series` pelo conteúdo do arquivo (`;`, `,` ou tab; vírgula decimal; cabeçalho vira o nome das séries): atualizou o arquivo, o slide atualiza. Arquivo sumido: ficam os dados do slide e o fiscal avisa. No Studio, os dados ficam numa **planilha** no Formatar: cola do Excel (Ctrl+V em qualquer célula preenche a partir dela), importa CSV e ganha colunas de série.
 
 **Mapa do Brasil por UF** (em grade: cada estado é um quadrado na posição aproximada; a cor mais forte é o maior
@@ -589,6 +590,10 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
   caption: WORKSHOP / BRIDGE
   deco: none
 ```
+
+## Projeto: a pasta da apresentação
+
+No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.yaml`, `imagens/`, `contexto/` (anexos, prints colados, planilhas, anotações `.md`) e `.sagadeck/` (a conversa do chat, o cache e a lixeira do projeto, do próprio Studio). O texto do que está em `contexto/` chega a você junto do pedido, como material anexado (com o caminho, ex.: `contexto/vendas.csv`): use os números e fatos de lá. Uma planilha de `contexto/` pode alimentar um gráfico com `csv: contexto/vendas.csv` (CSV) ou pela sugestão de gráficos da planilha no Studio (que grava `from:`).
 
 ## Carrossel (`carousel`)
 

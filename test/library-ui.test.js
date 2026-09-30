@@ -69,6 +69,23 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
       assert.deepEqual(l.topics.map((x) => [x.name, x.count]).sort(), [["Palestras", 1], ["Trabalho", 1]]);
     });
 
+    await t.test("lixeira: esvaziar tudo de uma vez (com confirmação)", async () => {
+      const id1 = await p.evaluate(async () => (await (await fetch("/api/library/decks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Some 1" }) })).json()).id);
+      const id2 = await p.evaluate(async () => (await (await fetch("/api/library/decks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Some 2" }) })).json()).id);
+      for (const id of [id1, id2]) await p.evaluate(async (id) => fetch("/api/library/decks/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }), id);
+      const antes = (await lib()).trash.length;
+      assert.ok(antes >= 2);
+      await p.reload(); await p.click('[data-view="lixeira"]');
+      p.once("dialog", (d) => { assert.match(d.message(), /Não dá para desfazer/); d.dismiss(); });
+      await p.click("[data-empty-trash]"); await settle(400);
+      assert.equal((await lib()).trash.length, antes, "cancelar não apaga nada");
+      p.once("dialog", (d) => d.accept());
+      await p.click("[data-empty-trash]"); await settle(700);
+      assert.equal((await lib()).trash.length, 0);
+      assert.equal(fs.readdirSync(path.join(studio.library, ".lixeira")).filter((f) => !f.startsWith(".")).length, 0, "as pastas saíram do disco");
+      assert.equal(await p.locator("[data-empty-trash]").count(), 0, "lixeira vazia: sem o botão");
+    });
+
     await t.test("lixeira: excluir e restaurar", async () => {
       await p.click('[data-view="Trabalho"]');
       await p.click(".card[data-id] [data-more]"); await p.click('[data-a="trash"]'); await settle(700);
@@ -365,7 +382,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      assert.deepEqual(visiveis, ["model-novidades", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/), p.click('.vit-card[data-new="exp-executivo"]')]);
       await p.waitForSelector("#rendered-slide-container .slide");

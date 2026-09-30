@@ -152,7 +152,7 @@
     timeline: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("events", "Eventos", obj(TIMELINE_EV), { addLabel: "Adicionar evento", newItem: () => ({ when: "2025", title: "Evento" }) }),
       f.text("after", "Frase final (depois de um clique)"),
       f.more([f.nums("highlight", "Destacar eventos (posições, a partir de 0)"), f.bool("build", "Um por clique"), f.num("afterStep", "Frase final no clique")])],
-    chart: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.chart("chart", "Gráfico"), f.el("side", "Ao lado", { stringAs: "text" }),
+    chart: [f.action("Atualizar da planilha", () => CTX.refreshFrom?.(), { when: (s) => s.from?.file }), f.text("kicker", "Chapéu"), f.text("title", "Título"), f.chart("chart", "Gráfico"), f.el("side", "Ao lado", { stringAs: "text" }),
       f.more([f.num("chartHeight", "Altura do gráfico (px)"), f.num("chartStep", "Gráfico no clique"), f.num("sideStep", "Lado no clique")])],
     compare: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.obj("left", "Lado A", COMPARE_SIDE), f.text("vs", "Entre os lados", { placeholder: "×" }),
       f.obj("right", "Lado B", COMPARE_SIDE), f.text("after", "Frase final (depois de um clique)"),
@@ -232,7 +232,7 @@
         { addLabel: "Adicionar item", newItem: () => ({ title: "Novo item", text: "" }), max: 8 }),
       f.text("caption", "Legenda")],
     diagram: [f.text("kicker", "Texto menor"), f.text("title", "Título"), f.area("mermaid", "Diagrama (Mermaid: flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, mindmap…)", { mono: true, rows: 12 }), f.text("caption", "Legenda")],
-    science: [f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={functions:["a*sin(b*x)"]};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.plot("plot", "Gráfico", {when:s=>s.plot!==false}), f.text("caption", "Nota")],
+    science: [f.action("Atualizar da planilha", () => CTX.refreshFrom?.(), { when: (s) => s.from?.file }), f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={functions:["a*sin(b*x)"]};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.plot("plot", "Gráfico", {when:s=>s.plot!==false}), f.text("caption", "Nota")],
     scenography: [f.select("scene", "Composição", [["stage","Palco e profundidade"],["floor","Chão em perspectiva"],["signs","Placas na cidade"],["terminal","Terminal hacker"],["cafe","Lousa de café"],["travel","Cartão de embarque"],["ticker","Pregão financeiro"],["marquee","Letreiro de cinema"],["blueprint","Planta técnica"],["magazine","Capa de revista"],["orbit","Órbita"],["synthwave","Neon anos 80"],["gallery","Parede de galeria"]]), f.area("title", "Texto no cenário", {rows:2}), f.text("kicker", "Texto menor"), f.text("subtitle", "Subtítulo"), f.text("caption", "Assinatura"), f.text("image", "Imagem de fundo (arquivo ou link)"), f.num("imageOpacity", "Transparência do fundo (0 a 1; padrão 0.85)", { placeholder: "0.85" }), f.text("foreground", "Recorte em primeiro plano (PNG transparente)"), f.num("titleSize", "Tamanho do texto (px)")],
     kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
       f.area("text", "Frase", { rows: 2 }),
@@ -270,7 +270,7 @@
         f.more([f.el("figure", "Figura (no lugar do ícone)")])]), { addLabel: "Adicionar bloco", newItem: () => ({ title: "Bloco", icon: "star" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
   };
-  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto", "density", "visualEdits"]);
+  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto", "density", "visualEdits", "from"]); // from: de que planilha veio o gráfico (Atualizar da planilha)
 
   // ---------------------------------------------------------------------------------------------
   // Elementos (src/elements.js): tipos, como reconhecer e campos

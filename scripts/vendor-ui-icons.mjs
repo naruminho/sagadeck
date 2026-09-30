@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const DIR = path.join(path.dirname(require.resolve("lucide-static/package.json")), "icons");
 
 const NAMES = [
+  "folder-tree", "file-spreadsheet", "file-image", "table", "refresh-cw", "file", "wand-sparkles",
   "chart-column",
   "layers", "clapperboard", "crosshair", "terminal", "image", "circle-help",
   "plus", "copy", "trash-2", "layout-template", "palette", "sun-moon", "grid-3x3", "sparkles", "wand-sparkles",
