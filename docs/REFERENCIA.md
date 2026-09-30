@@ -496,6 +496,8 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 ```yaml
 { chart: bar,    data: [{label: A, value: 10}, …], suffix: "%", highlight: [2] }
 { chart: column, data: […], max: 100 }
+{ chart: column, labels: [2024, 2025], series: [{name: Receita, values: [10, 14]}, {name: Custo, values: [8, 9]}] }   # agrupadas, com legenda (bar também)
+{ chart: line,   csv: dados/vendas.csv }            # lê o arquivo ao lado do deck: 1ª coluna rótulo, cada coluna de números uma série
 { chart: line,   labels: [...], series: [{name, values: [..., null, ...]}], bands: [{at: 6, text: LANCHE}], annotations: [{at: 3, text: "pico"}], min: 0, max: 100, axis: false, markers: false, area: true }
 { chart: donut,  value: 65, center: "65%" }            # ou parts: [{label, value, color}]
 { chart: waffle, total: 100, cols: 10, groups: [{count: 21, label: "…", color: em}, {count: 79, label: "…"}] }
@@ -503,6 +505,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 { chart: stacked, data: [{label, value}, …] }
 ```
 `null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
+`csv:` (qualquer tipo com dados) troca `data`/`labels`/`series` pelo conteúdo do arquivo (`;`, `,` ou tab; vírgula decimal; cabeçalho vira o nome das séries): atualizou o arquivo, o slide atualiza. Arquivo sumido: ficam os dados do slide e o fiscal avisa. No Studio, os dados ficam numa **planilha** no Formatar: cola do Excel (Ctrl+V em qualquer célula preenche a partir dela), importa CSV e ganha colunas de série.
 
 **Mapa do Brasil por UF** (em grade: cada estado é um quadrado na posição aproximada; a cor mais forte é o maior
 valor): `{ ufmap: { SP: 320, RJ: 140, MG: 150 }, suffix: " mil", prefix: "R$ ", highlight: [SP], legend: "cadastros", showValues: true }`.
@@ -585,20 +588,33 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
   deco: none
 ```
 
-## Equações e gráficos (`science`)
+## Fórmulas e funções (`science`)
 
-Até cinco `equations` com `latex` e `label`, renderizadas por KaTeX (sem executar comandos confiáveis). `plot.preset`: `wave`, `parabola` ou `surface`. `plot.data` substitui o exemplo por um array de traces Plotly; `plot.layout` configura títulos, eixos e intervalos. `plot: false` deixa apenas equações. HTML inclui fontes e Plotly: zoom, hover numérico, arraste e rotação 3D funcionam offline. PDF e PPTX são estáticos. Fórmulas longas podem exigir reduzir conteúdo ou dividir o slide.
+Para plotar a função de verdade (aula, engenharia, finanças): a pessoa escreve a fórmula e ela vira curva. Até cinco `equations` (`latex` + `label`, desenhadas por KaTeX) ao lado do gráfico; sem `equations`, o gráfico ocupa o slide. `plot: false` deixa só as equações.
+
+- `plot.functions`: lista de fórmulas em `x` (texto simples, sem LaTeX): `a*sin(b*x)`, `x^2 - 2x + 1`, `e^(-x^2)`, `sqrt(x)`, `ln(x)`, `abs(x)`. Aceita multiplicação implícita (`2x`, `3sin(x)`), `^`, `pi`, `e`, vírgula decimal e `y = …` na frente. Item também pode ser `{fn, name, color}`.
+- **Letra que não é `x` vira controle deslizante** na apresentação (a curva redesenha ao arrastar). `plot.params: {a: {value, min, max, step, label}}` dá valor inicial, limites e nome; sem isso, valor 1, de -5 a 5.
+- `plot.x: [de, até]` (padrão -10 a 10); `plot.y: [de, até]` fixa o eixo y.
+- `plot.points`: pontos medidos (bolinhas junto das curvas): tabela colada do Excel ou CSV em texto (coluna x e coluna y; tab, `;` ou `,`; vírgula decimal), lista `[[x, y], …]` ou o nome de um arquivo ao lado do deck (`dados/medidas.csv`). `plot.pointsName` dá o nome na legenda.
+- `plot.surface`: superfície 3D `z = f(x, y)` (ex.: `sin(x)*cos(y)`), com x e y no intervalo de `plot.x`; gira com o mouse.
+- `plot.data` (array de traces Plotly) substitui tudo isso; `plot.layout` configura eixos e títulos. `plot.preset` (`wave`, `parabola`, `surface`) ainda funciona, mas prefira fórmulas.
+
+Fórmula com erro não quebra o slide: o gráfico mostra o erro e o fiscal avisa. O slide traz uma prévia desenhada da curva (miniaturas, PDF, PPTX); no HTML, Plotly com zoom, valores ao passar o mouse e controles deslizantes, tudo offline.
 
 ```yaml
 - layout: science
-  title: Superfície de uma onda
+  title: Mexa no a e no b
   equations:
-    - label: Distância à origem
-      latex: 'r = \sqrt{x^2 + y^2}'
-    - label: Altura
-      latex: 'z = \sin(r)'
+    - label: A função
+      latex: 'f(x) = a\sin(bx)'
+    - label: A derivada
+      latex: "f'(x) = ab\\cos(bx)"
   plot:
-    preset: surface
+    functions: ["a*sin(b*x)", "a*b*cos(b*x)"]
+    x: [-6.3, 6.3]
+    params:
+      a: {value: 1.5, min: 0, max: 3, label: amplitude}
+      b: {value: 1, min: 0.5, max: 3, label: frequência}
 ```
 
 ## Grades adaptáveis (`mosaic`, `ribbon`, `dossier`)

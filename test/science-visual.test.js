@@ -14,7 +14,8 @@ test('equações, cena e ajustes persistem no HTML offline',()=>{
   const slide={layout:'science',equations:[{latex:'x^2'}],plot:{preset:'surface'}};
   const {html}=buildHTML({slides:[slide]});
   assert.match(html,/Plotly/);assert.match(html,/data:font\/woff2;base64/);
-  assert.match(html,/"type":"surface"/);
+  assert.match(html,/"surface":"sin\(sqrt\(x\^2\+y\^2\)\)"/,'o exemplo antigo vira fórmula de superfície');
+  assert.match(html,/class="science-preview"[\s\S]*<rect/,'prévia desenhada da superfície');
   for(const scene of ['stage','floor','signs'])assert.match(renderSlide({layout:'scenography',scene,title:'CENA'}).html,new RegExp('scene-'+scene));
   assert.match(applyVisualEdits('<div class="t">Oi</div>',{'t-0':{dx:42,hidden:true}}),/display:none!important;translate:42px 0px/);
 });
@@ -48,17 +49,19 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       await p.waitForSelector('#rendered-slide-container .science-plot[data-mounted="ready"]',{timeout:25000});
       assert.equal(await p.locator('#rendered-slide-container .katex').count(),2);
       assert.ok(await p.locator('#rendered-slide-container .js-plotly-plot').count());
-      assert.equal(saved().slides.find(s=>s.layout==='science').plot.preset,'wave');
+      assert.deepEqual(saved().slides.find(s=>s.layout==='science').plot.functions,['a*sin(b*x)','a*b*cos(b*x)']);
       const latex=p.locator('#slide-fields-form textarea').first();
       // abrir a primeira equação, caso o formulário a apresente recolhida
       await p.locator('#slide-fields-form .sf-item-toggle').filter({hasText:'A função'}).click();
       await latex.fill('E = mc^2');await latex.blur();await p.waitForTimeout(1000);
       assert.equal(saved().slides.find(s=>s.layout==='science').equations[0].latex,'E = mc^2');
-      const preset=p.locator('#slide-fields-form select').filter({has:p.locator('option[value="surface"]')});
-      await preset.selectOption('surface');
+      // superfície 3D: em Mais opções do gráfico, z = f(x, y)
+      await p.locator('#slide-fields-form .sf-plot details.sf-more > summary').click();
+      const surf=p.locator('#slide-fields-form .sf-plot .sf-field').filter({hasText:'Superfície 3D'}).locator('input');
+      await surf.fill('sin(sqrt(x^2+y^2))');await surf.blur();
       await p.waitForFunction(()=>document.querySelector('#rendered-slide-container .science-plot-target')?.data?.[0]?.type==='surface',null,{timeout:25000});
-      await p.waitForFunction(async()=> (await (await fetch('/api/deck')).json()).spec.slides.find(s=>s.layout==='science').plot.preset==='surface');
-      assert.equal(saved().slides.find(s=>s.layout==='science').plot.preset,'surface');
+      await p.waitForFunction(async()=> (await (await fetch('/api/deck')).json()).spec.slides.find(s=>s.layout==='science').plot.surface==='sin(sqrt(x^2+y^2))');
+      assert.equal(saved().slides.find(s=>s.layout==='science').plot.surface,'sin(sqrt(x^2+y^2))');
       assert.equal(await p.locator('#rendered-slide-container .science-plot-target').evaluate(el=>el.data[0].type),'surface');
       await p.waitForSelector('#rendered-slide-container .science-plot[data-mounted="ready"]',{timeout:25000});
       const target=p.locator('#rendered-slide-container .science-plot-target');

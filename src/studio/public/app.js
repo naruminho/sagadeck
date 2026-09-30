@@ -40,9 +40,9 @@
   const LAYOUT_LABELS = {
     cover: "Capa", section: "Seção", statement: "Frase de impacto", quote: "Citação", number: "Número grande",
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
-    timeline: "Linha do tempo", chart: "Gráfico", compare: "Comparação", matrix: "Matriz 2×2",
+    timeline: "Linha do tempo", chart: "Gráfico de dados", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Equações e gráficos", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     hub: "Mapa de caminhos", status: "Status semanal", onepage: "One-page", headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -2762,6 +2762,7 @@
     const scroll = pane.scrollTop;
     window.SlideForm.render(dom.slideFieldsForm, slide, {
       commit: formCommit,
+      hydrate: hydrateIcons,
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
       generateImage: (element, btn) => {

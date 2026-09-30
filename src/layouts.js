@@ -563,7 +563,7 @@ export const LAYOUTS = {
   },
 
   science(s, ctx) {
-    return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {})}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
+    return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : !(s.equations || []).length ? ' plot-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {}, ctx)}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
   },
   scenography(s, ctx) {
     const scene = Object.hasOwn(SCENES, s.scene) ? s.scene : 'stage';

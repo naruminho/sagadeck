@@ -472,9 +472,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/diagram.js" ? "diagram.js" : "vendor/mermaid.min.js")));
         return;
       }
-      if (["/science.js", "/plotly.min.js"].includes(pathname)) {
+      if (["/science.js", "/formula.js", "/plotly.min.js"].includes(pathname)) {
         res.writeHead(200, {"Content-Type":"application/javascript; charset=utf-8"});
-        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/science.js" ? "science.js" : "vendor/plotly.min.js")));
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/plotly.min.js" ? "vendor/plotly.min.js" : pathname.slice(1))));
         return;
       }
       if (pathname === "/fit.js") { // o mesmo ajuste da apresentação (src/runtime/fit.js)

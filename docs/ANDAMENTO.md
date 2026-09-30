@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Gráficos de verdade: fórmula livre, planilha que cola do Excel, CSV — 30/09/2026
+
+- A pessoa reclamou (com razão) que o brainstorm dos gráficos ficou no papel e que o slide científico só plotava duas
+  curvas prontas; e que até elas sumiam (a galeria e as miniaturas não montam o Plotly: o quadro ficava vazio).
+- **Fórmulas e funções** (`science`, novo nome): `plot.functions` com a fórmula em texto (`a*sin(b*x)`, `x² - 2x + 1`,
+  `h0 - g*x^2/2`). Compilador próprio em `src/runtime/formula.js` (sem eval; tabelas sem protótipo; roda na
+  apresentação e no Node). Letra que não é x vira **controle deslizante** que redesenha a curva ao vivo
+  (`plot.params` dá valor, limites e nome). `plot.points` (colado do Excel, CSV em texto ou arquivo ao lado do deck),
+  `plot.surface` (z = f(x, y)). O slide traz uma **prévia desenhada** em SVG (miniatura, galeria, PDF); o Plotly
+  entra por cima. Fórmula com erro: o gráfico diz o erro e o fiscal recebe o aviso. `preset` antigo vira fórmula.
+- **Gráfico de dados** (`chart`, novo nome): planilha no Formatar (Rótulo + uma coluna por série); Ctrl+V do Excel em
+  qualquer célula preenche a partir dela, primeira linha com texto vira nome de série; número brasileiro (1.234,5);
+  Importar CSV. Várias séries em barras/colunas = **agrupadas** com legenda (nativo no PPTX). `csv: dados/x.csv`
+  lê o arquivo ao lado do deck.
+- Falta do brainstorm: gráfico sugerido pela IA a partir de tabela colada no chat (hoje o chat já monta `chart`, mas
+  sem sugestão de tipo com prévia).
+
 ## Miniaturas inteiras, Arrumar layout único, abas do painel — 29/09/2026
 
 - Miniaturas do trilho cortavam o slide: a escala era fixa (0,09 = 173 px) num quadro de 156 px. Agora um

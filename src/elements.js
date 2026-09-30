@@ -9,6 +9,7 @@ import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
 import { chart } from "./figures/charts.js";
+import { parseTable, toNum } from "./science.js";
 import { ufmap } from "./figures/ufmap.js";
 import { highlightCode } from "./code-highlight.js";
 import { resolveCodeLanguage } from "./code-language.js";
@@ -55,6 +56,24 @@ export function text(t, as = "body", el = {}) {
   return `<div${attrs(el, `t f-${face} r-${role}`, style)}${fit}>${md(t)}</div>`;
 }
 
+// gráfico que lê um CSV ao lado do deck (csv: dados/vendas.csv): atualizou o arquivo, o slide atualiza.
+// Primeira coluna = rótulo; uma coluna de números = data; várias = labels + series (linhas, colunas agrupadas).
+function csvChart(el, ctx) {
+  if (typeof el.csv !== "string" || !el.csv.trim()) return el;
+  const file = path.resolve(ctx?.baseDir || process.cwd(), el.csv.trim());
+  let text;
+  try { text = fs.readFileSync(file, "utf8"); }
+  catch { ctx?.warnings?.push(`gráfico: "${el.csv}" não encontrado ao lado do deck — ficaram os dados do slide`); return el; }
+  const rows = parseTable(text);
+  const head = rows[0] && rows[0].slice(1).some((c) => toNum(c) == null) ? rows.shift() : null;
+  if (!rows.length) return el;
+  const cols = Math.max(...rows.map((r) => r.length)) - 1;
+  const names = Array.from({ length: cols }, (_, j) => head?.[j + 1] || `Série ${j + 1}`);
+  const { data, labels, series, csv, ...rest } = el;
+  if (cols === 1 && el.chart !== "line") return { ...rest, data: rows.map((r) => ({ label: r[0], value: toNum(r[1]) ?? 0 })) };
+  return { ...rest, labels: rows.map((r) => r[0]), series: names.map((name, j) => ({ name, values: rows.map((r) => toNum(r[j + 1])) })) };
+}
+
 export function figureHTML(el, ctx, w, h) {
   if (el.qr) {
     const size = el.size || 360;
@@ -64,7 +83,7 @@ export function figureHTML(el, ctx, w, h) {
   if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${colorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
-  if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(el, el.cw || w || 1200, el.ch || h || 620)}</div>`;
+  if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(csvChart(el, ctx), el.cw || w || 1200, el.ch || h || 620)}</div>`;
   if (el.ufmap) return `<div${attrs(el, "fig fig-ufmap")}>${ufmap({ cw: w, ...el }, ctx?.warnings)}</div>`;
   if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
   if (el.image) {

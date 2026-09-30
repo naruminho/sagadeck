@@ -1999,3 +1999,96 @@ test("multiusuário: comandos só para quem está em --agentes; ninguém respond
     await llm.close();
   }
 });
+
+test("fórmulas e funções: escrever a fórmula plota, a letra vira controle deslizante e a miniatura mostra a curva", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    // a galeria mostra a curva (antes o quadro do gráfico ficava vazio)
+    await p.click('.ribbon-tab[data-tab="inicio"]'); await p.click("#btn-scenes");
+    const card = p.locator('#scene-grid .scene-card[data-scene="science"]');
+    await card.waitFor();
+    assert.match(await card.innerText(), /Fórmulas e funções/);
+    assert.ok(await card.locator(".science-preview path").count(), "prévia com a curva na galeria");
+    assert.match(await p.locator('#scene-grid .scene-card[data-scene="chart"]').innerText(), /Gráfico de dados/);
+    await card.click();
+    await p.waitForSelector("#scene-modal.hidden", { state: "attached" });
+    const idx = saved().slides.findIndex((s) => s.layout === "science");
+    assert.ok(idx >= 0);
+    // troca a fórmula: escreve, sai do campo, aparece o controle da letra nova
+    const fn = p.locator('#slide-fields-form [data-plot-fn="0"]');
+    await fn.fill("k*x^2 - 3");
+    await fn.press("Tab");
+    await p.waitForSelector('#slide-fields-form [data-plot-param="k.value"]');
+    await p.fill('#slide-fields-form [data-plot-param="k.value"]', "0,5");
+    await p.fill('#slide-fields-form [data-plot-param="k.max"]', "2");
+    await p.waitForTimeout(900);
+    let plot = saved().slides[idx].plot;
+    assert.equal(plot.functions[0], "k*x^2 - 3");
+    assert.deepEqual(plot.params.k, { value: 0.5, max: 2 });
+    // erro de digitação aparece na hora, sem estragar o slide
+    await fn.fill("k*x^2 - (3");
+    await p.waitForFunction(() => /Não entendi: .*parêntese/.test(document.querySelector("#slide-fields-form .sf-plot-fn .sf-error")?.textContent || ""));
+    await fn.fill("k*x^2 - 3"); await fn.press("Tab");
+    // pontos colados do Excel
+    await p.fill('#slide-fields-form [data-plot-points]', "x\tmedido\n0\t-2,9\n1\t-2,4\n2\t-1");
+    await p.waitForTimeout(900);
+    plot = saved().slides[idx].plot;
+    assert.match(plot.points, /0\t-2,9/);
+    // no slide: controle deslizante do k, e mexer nele redesenha a curva
+    const slider = p.locator('#rendered-slide-container input[type="range"][data-param="k"]');
+    await slider.waitFor();
+    assert.equal(await slider.getAttribute("max"), "2");
+    await p.waitForFunction(() => document.querySelector("#rendered-slide-container .science-plot")?.dataset.mounted === "ready", null, { timeout: 20000 });
+    const yAt = () => p.evaluate(() => { const t = document.querySelector("#rendered-slide-container .science-plot-target"); return t.data[0].y.at(-1); });
+    const before = await yAt();
+    await slider.evaluate((el) => { el.value = "2"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+    await p.waitForFunction((b) => document.querySelector("#rendered-slide-container .science-plot-target").data[0].y.at(-1) !== b, before);
+    assert.equal(Math.round(await yAt()), Math.round(2 * 6.3 ** 2 - 3), "k = 2 no fim do intervalo do exemplo (x = 6,3)");
+    assert.equal(await p.locator("#rendered-slide-container .science-plot-target").evaluate((t) => t.data.length), 3, "as duas curvas do exemplo + os pontos");
+    // a miniatura mostra a curva desenhada (sem Plotly)
+    await p.waitForSelector(`.thumb-card[data-idx="${idx}"] .science-preview path`);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
+test("gráfico de dados: planilha no Formatar, colar do Excel com cabeçalho vira duas séries, digitar 1.234,5 grava número", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    await novoSlide(p, "chart");
+    const idx = saved().slides.findIndex((s) => s.layout === "chart");
+    // a gravação vem uns 750 ms depois de digitar: espera o arquivo, não um tempo fixo
+    const gravou = async (ok) => { for (let k = 0; k < 40 && !ok(saved().slides[idx].chart); k++) await p.waitForTimeout(100); return saved().slides[idx].chart; };
+    const colar = (sel, text) => p.locator(sel).evaluate((el, text) => {
+      const dt = new DataTransfer(); dt.setData("text/plain", text);
+      el.focus(); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, text);
+    // cópia do Excel: cabeçalho + 3 linhas, duas colunas de números (vírgula decimal)
+    await colar('#slide-fields-form [data-cell="0,0"]', "Ano\tReceita\tCusto\n2024\t10,5\t8\n2025\t14\t9\n2026\t18\t11,2\n");
+    let ch = await gravou((c) => c.series?.length === 2);
+    assert.deepEqual(ch.labels, ["2024", "2025", "2026"]);
+    assert.deepEqual(ch.series.map((s) => [s.name, s.values]), [["Receita", [10.5, 14, 18]], ["Custo", [8, 9, 11.2]]]);
+    assert.equal(ch.data, undefined, "duas séries: labels + series, sem data");
+    // o slide desenha as colunas agrupadas com legenda
+    await p.waitForFunction(() => document.querySelectorAll("#rendered-slide-container svg.chart rect.gy").length === 6);
+    assert.match(await p.locator("#rendered-slide-container svg.chart").innerHTML(), /Receita[\s\S]*Custo|Custo[\s\S]*Receita/);
+    // digitar na célula: número brasileiro; digitar na última linha cria outra
+    await p.fill('#slide-fields-form [data-cell="1,2"]', "1.234,5");
+    await p.locator('#slide-fields-form [data-cell="3,0"]').pressSequentially("2027");
+    await p.waitForSelector('#slide-fields-form [data-cell="4,0"]');
+    ch = await gravou((c) => c.labels?.[3] === "2027" && c.series?.[1].values[1] === 1234.5);
+    assert.equal(ch.series[1].values[1], 1234.5);
+    assert.equal(ch.labels[3], "2027", "a linha nova entrou sem perder o que foi digitado");
+    // remover uma série: volta a ser uma série só (data)
+    await p.click('#slide-fields-form .sf-sheet thead th:nth-child(3) .icon-btn');
+    ch = await gravou((c) => !c.series);
+    assert.deepEqual(ch.data?.slice(0, 2), [{ label: "2024", value: 10.5 }, { label: "2025", value: 14 }]);
+    assert.equal(ch.series, undefined);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
