@@ -4005,7 +4005,7 @@ ${ta.value}`;
     ] },
     { id: "editor", title: "Editor (este navegador)", local: true, items: [
       { k: "editor.theme", type: "select", options: [["system", "Automática (do sistema)"], ["light", "Clara"], ["dark", "Escura"]], label: "Tema da interface", hint: "Só a interface do Studio; o slide mantém o tema dele.",
-        get: () => document.getElementById("app-theme-select")?.value || "system", set: (v) => { const sel = document.getElementById("app-theme-select"); if (sel) { sel.value = v; sel.dispatchEvent(new Event("change", { bubbles: true })); } } },
+        get: () => store.get("appTheme", "system"), set: (v) => setAppTheme(v) },
       { k: "editor.guides", type: "bool", label: "Mostrar as guias da área segura", hint: "O retângulo pontilhado onde o conteúdo cabe sem cortar.",
         get: () => dom.chkGuides.checked, set: (v) => { dom.chkGuides.checked = v; dom.chkGuides.dispatchEvent(new Event("change", { bubbles: true })); } },
       { k: "editor.inspect", type: "bool", label: "Marcar no slide os avisos do fiscal", hint: "Caixas em volta do texto fora da margem, código que não coube, sobreposição.",
@@ -4315,11 +4315,9 @@ ${ta.value}`;
       } catch { /* Some input types do not support text selection. */ }
     });
 
-    // tema da interface (claro/escuro/automático); o <head> já aplicou antes do primeiro desenho
-    const themeSelect = document.getElementById("app-theme-select");
-    themeSelect.value = store.get("appTheme", "system");
-    themeSelect.addEventListener("change", () => setAppTheme(themeSelect.value));
-    setAppTheme(themeSelect.value);
+    // tema da interface (claro/escuro/automático): o botão do topo alterna; "automático" fica nas Preferências.
+    // O <head> já aplicou antes do primeiro desenho.
+    setAppTheme(store.get("appTheme", "system"));
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (store.get("appTheme", "system") === "system") setAppTheme("system");
     });
@@ -4329,8 +4327,6 @@ ${ta.value}`;
     store.set("appTheme", pref);
     const dark = pref === "dark" || (pref === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    const sel = document.getElementById("app-theme-select");
-    if (sel) sel.value = pref;
     const themeButton = document.getElementById("btn-app-theme");
     if (themeButton) {
       const label = dark ? "Ativar tema claro" : "Ativar tema escuro";

@@ -63,7 +63,6 @@
       <div class="grow"></div>
       <div class="side-foot">
         <button class="nav ${view === "lixeira" ? "active" : ""}" data-view="lixeira">${ic("trash-2")}<span class="name">Lixeira</span><span class="count">${data.trash.length || ""}</span></button>
-        <div class="where" title="${esc(data.root)}">Tudo fica em <code>${esc(data.root)}</code>. Um tópico é uma pasta.</div>
       </div>`;
     hydrate($("#side"));
     $("#side").querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { view = b.dataset.view; store.set("libView", view); render(); });

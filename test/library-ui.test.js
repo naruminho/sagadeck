@@ -17,9 +17,9 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     const settle = (ms = 500) => p.waitForTimeout(ms);
     const dlgOk = async (value) => { await p.fill("#dlg-name", value); await p.click("#dlg-ok"); await settle(700); };
 
-    await t.test("biblioteca vazia explica o que fazer e mostra onde fica a pasta", async () => {
+    await t.test("biblioteca vazia explica o que fazer (sem texto de manual com o caminho da pasta)", async () => {
       assert.match(await p.innerText("#main"), /Sua biblioteca está vazia/);
-      assert.match(await p.innerText("#side"), new RegExp(path.basename(studio.library)));
+      assert.doesNotMatch(await p.innerText("#side"), new RegExp(path.basename(studio.library)));
       assert.equal(await p.isVisible("#user"), false, "sem multiusuário, sem o chip de usuário");
     });
 
