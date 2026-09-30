@@ -8,6 +8,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Miniaturas inteiras, Arrumar layout único, abas do painel — 29/09/2026
+
+- Miniaturas do trilho cortavam o slide: a escala era fixa (0,09 = 173 px) num quadro de 156 px. Agora um
+  `ResizeObserver` põe `--thumb-scale` pela largura do quadro.
+- Revisar: "Corrigir layout" e "Arrumar" eram o mesmo `triggerAutofix` (o Arrumar só somava uma animação e um aviso
+  que prometia alinhar). Ficou um botão, **Arrumar layout**, que diz o que fez, tem Desfazer e avisa quando não há
+  nada a arrumar.
+- Abas do painel lateral: a aberta mostra o nome, as outras só o ícone (as quatro cabem). Avançado é a última aba da
+  faixa; os grupos de especialista do Início vêm logo depois dos outros (não vão mais para a outra ponta).
+- Variáveis: grade ocupando a aba, sem texto de manual, coluna **Tipo** (Normal/Segredo) que move a variável entre
+  `vars:` e `secrets:`.
+
 ## Fase 3 do SagaStudio: inspetor de propriedades — 29/09/2026
 
 - `src/studio/public/inspector.js` (aba **Propriedades**): grade compacta com categorias recolhíveis (lembradas no
