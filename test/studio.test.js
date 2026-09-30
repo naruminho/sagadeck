@@ -230,12 +230,11 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     await theme.click();
     assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
     assert.equal(await theme.getAttribute("aria-label"), "Ativar tema claro");
-    assert.equal(await p.locator("#app-theme-select").inputValue(), "dark");
+    assert.equal(await p.locator("#app-theme-select").count(), 0, "sem o seletor Interface repetido na faixa (o botão do topo resolve)");
     await theme.click();
     assert.equal(await p.locator("html").getAttribute("data-theme"), "light");
     assert.equal(await theme.getAttribute("aria-label"), "Ativar tema escuro");
     await p.click('.ribbon-tab[data-tab="exibir"]');
-    await p.selectOption("#app-theme-select", "system");
     // no editor o botão de tema fica onde fica na biblioteca: canto direito do topo, depois do Apresentar
     const [themeBox, presentBox] = await Promise.all([theme.boundingBox(), p.locator("#present-split").boundingBox()]);
     assert.ok(themeBox.x > presentBox.x + presentBox.width - 1, "tema claro/escuro à direita do Apresentar");
