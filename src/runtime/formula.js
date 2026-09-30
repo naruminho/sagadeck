@@ -131,9 +131,11 @@
   }
 
   // valores das amostras: n pontos no intervalo [a, b]; saltos grandes (tan, 1/x) viram buraco na linha
-  function sample(c, [a, b] = [-10, 10], values = {}, n = 400) {
+  // log: pontos espaçados em escala logarítmica (eixo x log, ex.: diagrama de Moody)
+  function sample(c, [a, b] = [-10, 10], values = {}, n = 400, log = false) {
     const xs = [], ys = [];
-    for (let i = 0; i < n; i++) { const x = a + ((b - a) * i) / (n - 1); xs.push(+x.toFixed(6)); ys.push(c.eval({ ...values, x })); }
+    const la = Math.log10(Math.max(a, 1e-12)), lb = Math.log10(Math.max(b, 1e-12));
+    for (let i = 0; i < n; i++) { const x = log ? Math.pow(10, la + ((lb - la) * i) / (n - 1)) : a + ((b - a) * i) / (n - 1); xs.push(+x.toPrecision(8)); ys.push(c.eval({ ...values, x })); }
     const fin = ys.filter((y) => y != null).sort((p, q) => p - q);
     if (fin.length > 10) {
       const lo = fin[Math.floor(fin.length * 0.02)], hi = fin[Math.ceil(fin.length * 0.98) - 1], span = (hi - lo) || 1;

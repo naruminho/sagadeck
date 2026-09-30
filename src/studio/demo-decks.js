@@ -6,12 +6,16 @@ export function demoAssets(kind) { return kind === 'lavanda' || kind === 'novida
 export function demoProjectFiles(kind) { return kind === 'novidades' ? ['contexto/vendas.csv', 'contexto/leia-me.md'] : []; }
 const item=(title,text,extra={})=>({title,text,...extra});
 const route='flowchart LR\n  A([Pedido]):::hi --> B{Dados válidos?}\n  B -->|sim| C[Executar tarefa]\n  B -.->|não| D[Informar erro]:::vazado\n  C ==> E[Guardar resultado]:::em';
-export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',novidades:'Demo — novidades',...COLLECTION_NAMES};
+export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',novidades:'Demo — novidades',hidraulica:'Aula de hidráulica',algoritmos:'Aula de algoritmos',...COLLECTION_NAMES};
 export function demoDeck(kind) {
   if(Object.hasOwn(COLLECTION_NAMES,kind))return collectionDeck(kind);
   if(!DEMO_NAMES[kind])throw Error('Modelo não encontrado.');
-  const common={title:DEMO_NAMES[kind],theme:kind==='lavanda'?'bauhaus':kind==='executivo'?'prata':kind==='workshop'?'sinal':'editorial',palette:kind==='executivo'?'corporativo':'lavanda',duration:15,maxWords:140};
-  const cover={layout:'cover',title:DEMO_NAMES[kind],subtitle:'Um modelo para adaptar ao seu conteúdo',kicker:'SAGADECK · MODELOS',tone:'dark'};
+  // cada demo com a sua cara (tema, tom e figura da capa): na vitrine, as capas não podem parecer a mesma
+  const LOOK={lavanda:['bauhaus','lavanda'],executivo:['prata','corporativo'],workshop:['sinal','lavanda'],compacto:['manual'],avancado:['terminal'],diagramas:['oceano'],novidades:['pop'],hidraulica:['oceano'],algoritmos:['noite']};
+  const [theme,palette]=LOOK[kind]||['editorial','lavanda'];
+  const common={title:DEMO_NAMES[kind],theme,...(palette?{palette}:{}),duration:15,maxWords:140};
+  const COVER_FIG={compacto:{icon:'book-open',size:300},avancado:{icon:'terminal',size:300},diagramas:{icon:'workflow',size:320},novidades:{icon:'sparkles',size:320},hidraulica:{icon:'waves',size:340},algoritmos:{icon:'chart-bar',size:320}};
+  const cover={layout:'cover',title:DEMO_NAMES[kind],subtitle:'Um modelo para adaptar ao seu conteúdo',kicker:'SAGADECK · MODELOS',tone:{compacto:'light',diagramas:'accent',novidades:'light',hidraulica:'light'}[kind]||'dark',...(COVER_FIG[kind]?{figure:COVER_FIG[kind]}:{})};
   const end={layout:'end',title:'O próximo passo\ncomeça aqui.',subtitle:'Duplique este modelo na biblioteca e adapte os textos.'};
   const items=[item('Descobrir','Comece pela pergunta certa.',{icon:'search'}),item('Experimentar','Teste uma hipótese com dados.',{icon:'flask-conical'}),item('Construir','Transforme o aprendizado em produto.',{icon:'blocks'}),item('Observar','Acompanhe o uso e os resultados.',{icon:'chart-column'}),item('Evoluir','Use o que aprendeu para melhorar.',{icon:'sparkles'})];
   let slides;
@@ -56,6 +60,35 @@ export function demoDeck(kind) {
       end,
     ];
   }
+  // aula de engenharia: equações, curva que se mexe, calculadora ao vivo, exercício resolvido passo a passo
+  if(kind==='hidraulica')slides=[
+    {...cover,kicker:'HIDRÁULICA · AULA 3',title:'Escoamento em tubos:\ndo laminar ao turbulento',subtitle:'Navier–Stokes, número de Reynolds e perda de carga, com contas e um exercício resolvido.'},
+    {layout:'dossier',title:'Três ideias para hoje',items:[item('Viscosidade','A resistência do fluido a escoar. Água a 20 °C: ν ≈ 1,0 × 10⁻⁶ m²/s.',{icon:'droplet'}),item('Número de Reynolds','Compara a inércia com a viscosidade: Re = VD/ν. Abaixo de ~2300 o escoamento é laminar.',{icon:'waves'}),item('Perda de carga','A energia que o atrito com a parede consome: h_f = f (L/D) V²/2g.',{icon:'trending-down'})]},
+    {layout:'science',title:'As equações de Navier–Stokes (incompressível)',equations:[{label:'Continuidade: o que entra sai',latex:'\\nabla \\cdot \\mathbf{u} = 0'},{label:'Quantidade de movimento',latex:'\\rho\\left(\\frac{\\partial \\mathbf{u}}{\\partial t} + \\mathbf{u}\\cdot\\nabla\\mathbf{u}\\right) = -\\nabla p + \\mu \\nabla^2 \\mathbf{u} + \\rho \\mathbf{g}'},{label:'Inércia ÷ viscosidade',latex:'Re = \\frac{\\rho V D}{\\mu} = \\frac{V D}{\\nu}'}],plot:false},
+    {layout:'science',title:'Laminar: o perfil de velocidade é uma parábola',equations:[{label:'Hagen–Poiseuille',latex:'u(r) = u_{max}\\left(1 - \\frac{r^2}{R^2}\\right)'},{label:'Velocidade média',latex:'V = \\frac{u_{max}}{2}'}],plot:{functions:[{fn:'umax*(1 - (x/R)^2)',name:'u(r)'}],x:[-0.05,0.05],params:{umax:{value:2,min:0.5,max:4,label:'u máx (m/s)'},R:{value:0.05,min:0.01,max:0.05,step:0.005,label:'raio (m)'}}}},
+    {layout:'calc',title:'Qual é o regime? Mexa na velocidade e no diâmetro',inputs:{V:{label:'Velocidade',latex:'V',value:1.5,min:0.01,max:4,step:0.01,unit:'m/s'},D:{label:'Diâmetro',latex:'D',value:0.05,min:0.005,max:0.3,step:0.005,unit:'m'},nu:{label:'Viscosidade cinemática (água, 20 °C)',latex:'\\nu = 1{,}004\\times10^{-6}\\ \\mathrm{m^2/s}',value:0.000001004,fixed:true},eps:{label:'Rugosidade (PVC)',latex:'\\varepsilon = 0{,}05\\ \\mathrm{mm}',value:0.00005,fixed:true}},
+      outputs:[{name:'Re',label:'Número de Reynolds',latex:'Re = \\frac{VD}{\\nu}',fn:'V*D/nu',decimals:0},{name:'regime',label:'Regime',of:'Re',cases:[{below:2300,text:'Laminar',color:'s3'},{below:4000,text:'Transição',color:'em'},{text:'Turbulento',color:'hi'}],scale:{min:100,max:1000000,log:true}},{name:'f',label:'Fator de atrito',latex:'f = \\frac{64}{Re}\\ \\text{ou Swamee–Jain}',of:'Re',cases:[{below:2300,fn:'64/Re'},{fn:'0.25/(log10(eps/(3.7*D) + 5.74/Re^0.9))^2'}],decimals:4}],note:'Abaixo de 2300 vale f = 64/Re; acima de 4000, Swamee–Jain (explícita, no lugar de Colebrook).'},
+    {layout:'solution',title:'Exercício: perda de carga num tubo de PVC',problem:'Água a 20 °C escoa a 1,5 m/s num tubo de PVC de 50 mm. Qual é o regime e quanto de carga se perde em 100 m?',givens:[{symbol:'V',value:'1,5',unit:'m/s',label:'velocidade'},{symbol:'D',value:'0,05',unit:'m',label:'diâmetro'},{symbol:'L',value:'100',unit:'m',label:'comprimento'},{latex:'\\nu = 1{,}004\\times10^{-6}\\ \\mathrm{m^2/s}',label:'viscosidade'},{latex:'\\varepsilon = 0{,}05\\ \\mathrm{mm}',label:'rugosidade'}],find:'Re,\\ f,\\ h_f',
+      steps:[{text:'Reynolds decide o regime',latex:'Re = \\frac{VD}{\\nu} = \\frac{1{,}5 \\cdot 0{,}05}{1{,}004\\times10^{-6}} \\approx 74\\,700'},{text:'Re > 4000: turbulento. A rugosidade relativa entra na conta',latex:'\\varepsilon/D = \\frac{0{,}05}{50} = 0{,}001'},{text:'Fator de atrito (Swamee–Jain)',latex:'f = \\frac{0{,}25}{\\left[\\log\\left(\\frac{\\varepsilon}{3{,}7D} + \\frac{5{,}74}{Re^{0{,}9}}\\right)\\right]^2} \\approx 0{,}0230'},{text:'Darcy–Weisbach',latex:'h_f = f\\,\\frac{L}{D}\\,\\frac{V^2}{2g} = 0{,}0230 \\cdot \\frac{100}{0{,}05} \\cdot \\frac{1{,}5^2}{2 \\cdot 9{,}81}'}],
+      answer:{latex:'h_f \\approx 5{,}3\\ \\mathrm{m}',text:'Turbulento; perde cerca de 5,3 m de coluna d’água em 100 m.'}},
+    {layout:'science',title:'Diagrama de Moody (versão explícita)',equations:[{label:'Laminar',latex:'f = 64/Re'},{label:'Turbulento (Swamee–Jain)',latex:'f = 0{,}25\\,/\\,[\\log(\\varepsilon/3{,}7D + 5{,}74/Re^{0{,}9})]^2'}],plot:{functions:[{fn:'64/x',name:'laminar: 64/Re'},{fn:'0.25/(log10(r/3.7 + 5.74/x^0.9))^2',name:'turbulento'}],x:[600,10000000],xlog:true,ylog:true,params:{r:{value:0.001,min:0.00001,max:0.05,step:0.00001,label:'ε/D'}},layout:{xaxis:{title:{text:'Re'}},yaxis:{title:{text:'f'}}}}},
+    {layout:'compare',title:'Laminar × turbulento',left:{label:'Laminar',title:'Camadas que deslizam',text:'Re < 2300: perfil parabólico; o atrito depende só de Re.',items:['f = 64/Re','perda ∝ V']},right:{label:'Turbulento',title:'Redemoinhos que misturam',text:'Re > 4000: perfil achatado; a rugosidade da parede pesa.',items:['f por Colebrook / Moody','perda ∝ V² (aprox.)'],hl:true}},
+    {layout:'question',question:'Água a 0,5 m/s num tubo de 4 mm: qual é o regime?',options:['Laminar','Transição','Turbulento'],hint:'Re = VD/ν ≈ 2000.'},
+    end,
+  ];
+  // aula de computação: o algoritmo rodando de verdade (barras, código e contadores) e a complexidade
+  if(kind==='algoritmos')slides=[
+    {...cover,kicker:'ALGORITMOS · AULA 5',title:'Ordenar e buscar:\nvendo o algoritmo pensar',subtitle:'Cada clique é um passo. O botão Tocar anda sozinho.'},
+    {layout:'algo',title:'Bubble sort: o maior sobe como bolha',algorithm:'bubble',array:[5,1,4,2,8,3]},
+    {layout:'algo',title:'Insertion sort: como organizar cartas na mão',algorithm:'insertion',array:[5,1,4,2,8,3]},
+    {layout:'algo',title:'Quicksort: escolhe um pivô e divide',algorithm:'quick',array:[7,2,9,4,3,8,1,6]},
+    {layout:'science',title:'Por que isso importa: n² × n log n',equations:[{label:'Bubble, insertion, selection',latex:'O(n^2)'},{label:'Merge sort, quicksort (médio)',latex:'O(n \\log n)'}],plot:{functions:[{fn:'x^2',name:'n²'},{fn:'x*log2(x)',name:'n log n'}],x:[1,64],layout:{xaxis:{title:{text:'n (tamanho do vetor)'}},yaxis:{title:{text:'operações'}}}}},
+    {layout:'algo',title:'Busca linear: olha um por um',algorithm:'linear',array:[2,5,8,12,16,23,38,56,72,91],target:23},
+    {layout:'algo',title:'Busca binária: descarta metade a cada passo',algorithm:'binary',array:[2,5,8,12,16,23,38,56,72,91],target:23},
+    {layout:'question',question:'Numa lista ordenada de 1 milhão de nomes, quantas comparações a busca binária faz no pior caso?',options:['Cerca de 20','Cerca de 1.000','Cerca de 500.000'],hint:'log₂(1.000.000) ≈ 20.'},
+    {layout:'codewalk',title:'A busca binária em Python',language:'python',code:'def busca_binaria(v, alvo):\n    ini, fim = 0, len(v) - 1\n    while ini <= fim:\n        meio = (ini + fim) // 2\n        if v[meio] == alvo:\n            return meio\n        if v[meio] < alvo:\n            ini = meio + 1\n        else:\n            fim = meio - 1\n    return -1',steps:[{title:'Os limites',text:'ini e fim marcam a faixa onde o alvo ainda pode estar.',highlight:[2]},{title:'O meio',text:'Divisão inteira: // descarta a parte fracionária.',highlight:[4]},{title:'Metade fora',text:'Cada volta descarta metade da faixa.',highlight:[7,8,9,10]},{title:'Não achou',text:'A faixa ficou vazia: devolve -1.',highlight:[11]}]},
+    end,
+  ];
   if(kind==='lavanda')slides[0]={...cover,tone:'light',title:'Ideias que\nganham forma.',subtitle:'Estúdio lavanda · um modelo para explorar',figure:{image:'imagens/lavanda-cover.jpg',fit:'cover',radius:100}};
   return {...common,slides};
 }

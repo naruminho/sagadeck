@@ -12,7 +12,7 @@ export const PURPOSES = {
   executiva: { label: "Executiva (antigo)", hint: "", maxWords: 40, dense: false, legacy: true },
 };
 
-const LAYOUT_WORDS = { onepage: 120, status: 90 }; // densos por natureza (uma página com tudo)
+const LAYOUT_WORDS = { onepage: 120, status: 90, solution: 140, calc: 90, algo: 60 }; // densos por natureza (uma página com tudo; exercício resolvido se revela aos poucos)
 
 // Limite de palavras na tela de um slide: o do slide > o do deck > o do propósito (ou do layout, se maior) > 40
 export function wordLimit(s = {}, spec = {}, layout = s.layout) {

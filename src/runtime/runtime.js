@@ -343,6 +343,24 @@
   function mountLessons() {
     slides.forEach((slide, si) => $$("[data-lesson]", slide).forEach((root) => {
       renderLesson(root, 0);
+      // botão Tocar (algoritmo animado e afins): avança os passos sozinho; clicar de novo, trocar de slide ou chegar ao fim para
+      $$("[data-autoplay]", root).forEach((btn) => {
+        let timer = null;
+        const ms = Math.max(250, +root.dataset.autoplayMs || 900);
+        const stop = () => { clearInterval(timer); timer = null; root.classList.remove("playing"); btn.setAttribute("aria-pressed", "false"); };
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (timer) return stop();
+          if (+root.dataset.lessonIndex >= +root.dataset.lessonCount - 1) goto(si, 0);
+          root.classList.add("playing"); btn.setAttribute("aria-pressed", "true");
+          timer = setInterval(() => {
+            const i = +root.dataset.lessonIndex;
+            if (cur !== si || i >= +root.dataset.lessonCount - 1) return stop();
+            goto(si, i + 1);
+          }, ms);
+        });
+        hooks[si].leave.push(stop);
+      });
       hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); zoomSpotlight(root); });
       if (root.dataset.lesson === "kinetic") {
         let timer = null;

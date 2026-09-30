@@ -12,6 +12,7 @@ import { mathHTML, plotHTML } from "./science.js";
 import { infographicHTML } from "./infographic.js";
 import { duelHTML, terminalsHTML, turnsHTML } from "./dynamics/layouts.js";
 import { carouselHTML } from "./carousel.js";
+import { solutionHTML, calcHTML, algoHTML } from "./lessons.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
 const plainTitle = (s) => String(s.title || s.kicker || s.layout || "").replace(/[*=^~`]/g, "").slice(0, 40);
@@ -572,6 +573,10 @@ export const LAYOUTS = {
   terminals(s, ctx) { return `${terminalsHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
   turns(s, ctx) { return `${turnsHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
   carousel(s, ctx) { return `${carouselHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
+  // aula: exercício resolvido passo a passo, calculadora ao vivo, algoritmo animado (src/lessons.js)
+  solution(s, ctx) { return `${solutionHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
+  calc(s, ctx) { return `${calcHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
+  algo(s, ctx) { return `${algoHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
 
   science(s, ctx) {
     return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : !(s.equations || []).length ? ' plot-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {}, ctx)}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;

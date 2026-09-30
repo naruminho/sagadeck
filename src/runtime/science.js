@@ -20,7 +20,7 @@
     const F = window.SagaFormula, col = palette(p), out = [];
     if (!m.surface) m.functions.forEach((f, i) => { // com superfície 3D, só ela (curva 2D e 3D juntas não combinam)
       if (!f.ok) return;
-      const s = F.sample(F.compile(f.fn, ['x']), m.x, values);
+      const s = F.sample(F.compile(f.fn, ['x']), m.x, values, 400, m.xlog);
       out.push({ type: 'scatter', mode: 'lines', name: f.name, x: s.x, y: s.y, line: { width: 4, color: f.color ? col.named(f.color) : col.series[i % 5] } });
     });
     if (m.points && !m.surface) out.push({ type: 'scatter', mode: 'markers', name: m.points.name, x: m.points.x, y: m.points.y, marker: { size: 11, color: col.series[out.length % 5] } });
@@ -43,7 +43,12 @@
         const formula = m.kind === 'formula';
         const data = formula ? formulaTraces(m, valuesOf(p), p) : m.data;
         const layout = {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{size:20,color:getComputedStyle(p).color},margin:{t:35,b:65,l:75,r:40},showlegend:data.length > 1,legend:{orientation:'h',y:1.08},
-          ...(formula ? {xaxis:{range:m.x,zeroline:true}, ...(m.y ? {yaxis:{range:m.y}} : {})} : {}), ...m.layout, autosize:true};
+          ...m.layout, autosize:true};
+        // eixos: os do modelo (log, faixa) juntam com o que o deck pôs em layout (títulos), sem um apagar o outro
+        if (formula) {
+          layout.xaxis = { ...(m.xlog ? { type: 'log', range: m.x.map((v) => Math.log10(v)) } : { range: m.x, zeroline: true }), ...(m.layout.xaxis || {}) };
+          layout.yaxis = { ...(m.ylog ? { type: 'log' } : {}), ...(m.y ? { range: m.ylog ? m.y.map((v) => Math.log10(v)) : m.y } : {}), ...(m.layout.yaxis || {}) };
+        }
         if (formula && !data.length) return void (p.dataset.mounted = 'ready'); // nada para desenhar: fica a dica
         target.replaceChildren(); // sai a prévia desenhada, entra o gráfico que se explora
         await window.Plotly.newPlot(target,data,layout,{responsive:true,displaylogo:false,scrollZoom:true});

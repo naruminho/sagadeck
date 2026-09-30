@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns",
+    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -43,7 +43,7 @@
     timeline: "Linha do tempo", chart: "Gráfico de dados", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
-    duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel",
+    duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     hub: "Mapa de caminhos", status: "Status semanal", onepage: "One-page", headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -399,6 +399,7 @@
       window.SagaScience?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
+      window.SagaCalc?.mount(dom.renderedSlideContainer); // calculadora ao vivo: os controles funcionam no editor também
       window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
       applyEditorStep(idx);
@@ -2407,6 +2408,7 @@
     ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "scenography", "kinetic"]],
     ["plateia", "Plateia", ["question", "poll"]],
     ["dinamicas", "Dinâmicas a dois", ["duel", "terminals", "turns"]],
+    ["aula", "Aula: exercícios e algoritmos", ["solution", "calc", "algo"]],
     ["livre", "Montar do zero", ["blocks", "canvas"]],
   ];
   const groupOf = (layout) => SLIDE_GROUPS.find(([, , ids]) => ids.includes(layout))?.[0] || "livre";
@@ -3218,7 +3220,7 @@
   function updateWordCount(slide) {
     const words = visibleWordCount(slide);
     // mesma conta de wordLimit (src/purpose.js): o propósito do material muda o limite
-    const limit = slide.maxWords || state.deck?.maxWords || Math.max({ consulta: 220, aula: 160, workshop: 110 }[state.deck?.purpose] || 0, { onepage: 120, status: 90 }[slide.layout] || 0) || 40;
+    const limit = slide.maxWords || state.deck?.maxWords || Math.max({ consulta: 220, aula: 160, workshop: 110 }[state.deck?.purpose] || 0, { onepage: 120, status: 90, solution: 140, calc: 90, algo: 60 }[slide.layout] || 0) || 40;
     dom.wordCountNum.textContent = words;
     dom.antiSleepIndicator.className = `status-item ${words > limit ? "anti-sleep-warn" : "anti-sleep-ok"}`;
     dom.antiSleepIndicator.title = words > limit

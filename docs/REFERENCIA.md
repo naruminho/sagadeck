@@ -595,6 +595,30 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
 
 No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.yaml`, `imagens/`, `contexto/` (anexos, prints colados, planilhas, anotações `.md`) e `.sagadeck/` (a conversa do chat, o cache e a lixeira do projeto, do próprio Studio). O texto do que está em `contexto/` chega a você junto do pedido, como material anexado (com o caminho, ex.: `contexto/vendas.csv`): use os números e fatos de lá. Uma planilha de `contexto/` pode alimentar um gráfico com `csv: contexto/vendas.csv` (CSV) ou pela sugestão de gráficos da planilha no Studio (que grava `from:`).
 
+## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado (`solution`, `calc`, `algo`)
+
+**`solution` — exercício resolvido passo a passo.** À esquerda, `problem` (enunciado), `givens` (dados: `{symbol, value, unit, label}` ou `{latex, label}`; vírgula decimal pode) e `find` (o que se pede, LaTeX). À direita, a conta: o primeiro quadro pergunta `prompt` (padrão "Por onde você começaria?"); cada clique revela o próximo `steps: [{text, latex, note}]` (os anteriores ficam compactos); o último mostra `answer: {latex, text, label}` em destaque. Mantenha cada passo curto (uma ideia, uma linha de conta); de 3 a 6 passos. Use para qualquer matéria com conta: física, engenharia, finanças, estatística.
+
+**`calc` — calculadora ao vivo.** `inputs: { nome: {label, value, min, max, step, unit, latex, decimals} }` viram controles deslizantes (`fixed: true` = constante, mostrada com `latex`). `outputs: [{name, label, fn, latex, unit, decimals}]` são calculados na ordem (um usa os anteriores e as entradas pelo nome, inclusive nomes longos como `nu`, `eps`); `fn` é fórmula em texto (as mesmas regras de `plot.functions`: `V*D/nu`, `0.25/(log10(eps/(3.7*D) + 5.74/Re^0.9))^2`; `log` e `log10` são base 10, `ln` é natural). Faixas: `of: Re, cases: [{below: 2300, text: Laminar, color: s3}, {below: 4000, text: Transição, color: em}, {text: Turbulento, color: hi}]` — mostra o selo da faixa; cada faixa pode ter a sua `fn` (f = 64/Re abaixo de 2300, outra acima). `scale: {min, max, log}` desenha a régua com as faixas e o ponteiro. Tudo recalcula enquanto a pessoa arrasta; PDF mostra os valores iniciais.
+
+**`algo` — algoritmo animado.** `algorithm: bubble | insertion | selection | merge | quick | linear | binary`, `array: [5, 1, 4, 2]` (até 16 números), `target` (para as buscas). O sagadeck roda o algoritmo e gera os passos: barras (comparando, trocando, pivô, faixa, já ordenado, achou), o pseudocódigo com a linha da vez, a frase do passo e os contadores (comparações, trocas). Cada clique é um passo; o botão **Tocar** anda sozinho (`speed` em ms). `code` troca o pseudocódigo. Vetor com 6 a 8 números dá uma animação boa de acompanhar; busca binária precisa de vetor ordenado (o sagadeck ordena se não estiver).
+
+```yaml
+- layout: calc
+  title: Qual é o regime?
+  inputs:
+    V: {label: Velocidade, value: 1.5, min: 0.01, max: 4, step: 0.01, unit: m/s}
+    D: {label: Diâmetro, value: 0.05, min: 0.005, max: 0.3, step: 0.005, unit: m}
+    nu: {label: Viscosidade, latex: '\nu = 1{,}0\times10^{-6}\ \mathrm{m^2/s}', value: 0.000001, fixed: true}
+  outputs:
+    - {name: Re, label: Reynolds, latex: 'Re = \frac{VD}{\nu}', fn: V*D/nu, decimals: 0}
+    - {name: regime, label: Regime, of: Re, cases: [{below: 2300, text: Laminar, color: s3}, {text: Turbulento, color: hi}], scale: {min: 100, max: 1000000, log: true}}
+- layout: algo
+  title: Quicksort
+  algorithm: quick
+  array: [7, 2, 9, 4, 3, 8, 1, 6]
+```
+
 ## Carrossel (`carousel`)
 
 Um item por clique, cada um com foto e texto: `items: [{ title, text, label, image, alt }]`. `image` é a foto da pessoa (caminho relativo ao deck, link ou a escolhida no Studio); **sem `image`, o item usa uma foto de demonstração desenhada** (paisagens, funcionam offline).
@@ -652,7 +676,7 @@ Para plotar a função de verdade (aula, engenharia, finanças): a pessoa escrev
 
 - `plot.functions`: lista de fórmulas em `x` (texto simples, sem LaTeX): `a*sin(b*x)`, `x^2 - 2x + 1`, `e^(-x^2)`, `sqrt(x)`, `ln(x)`, `abs(x)`. Aceita multiplicação implícita (`2x`, `3sin(x)`), `^`, `pi`, `e`, vírgula decimal e `y = …` na frente. Item também pode ser `{fn, name, color}`.
 - **Letra que não é `x` vira controle deslizante** na apresentação (a curva redesenha ao arrastar). `plot.params: {a: {value, min, max, step, label}}` dá valor inicial, limites e nome; sem isso, valor 1, de -5 a 5.
-- `plot.x: [de, até]` (padrão -10 a 10); `plot.y: [de, até]` fixa o eixo y.
+- `plot.x: [de, até]` (padrão -10 a 10); `plot.y: [de, até]` fixa o eixo y. `plot.xlog: true` / `plot.ylog: true`: eixos em escala logarítmica (ex.: diagrama de Moody, `x: [600, 10000000]`), com a curva amostrada em escala log.
 - `plot.points`: pontos medidos (bolinhas junto das curvas): tabela colada do Excel ou CSV em texto (coluna x e coluna y; tab, `;` ou `,`; vírgula decimal), lista `[[x, y], …]` ou o nome de um arquivo ao lado do deck (`dados/medidas.csv`). `plot.pointsName` dá o nome na legenda.
 - `plot.surface`: superfície 3D `z = f(x, y)` (ex.: `sin(x)*cos(y)`), com x e y no intervalo de `plot.x`; gira com o mouse.
 - `plot.data` (array de traces Plotly) substitui tudo isso; `plot.layout` configura eixos e títulos. `plot.preset` (`wave`, `parabola`, `surface`) ainda funciona, mas prefira fórmulas.
