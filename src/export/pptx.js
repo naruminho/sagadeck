@@ -321,7 +321,9 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
   // apelidos CSS (ex.: SagaDIN -> Bahnschrift) declarados em fontFaces do tema
   const aliases = Object.fromEntries((theme.fontFaces || []).map((f) => [f.family, (f.src.match(/local\(['"]?([^'")]+)/) || [])[1]]).filter((x) => x[1]));
   const pres = new PptxGenJS();
-  pres.layout = "LAYOUT_WIDE";
+  const size = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 });
+  if (size.h === 1080) pres.layout = "LAYOUT_WIDE";
+  else { pres.defineLayout({ name: "SAGADECK", width: 13.333, height: +(13.333 * size.h / size.w).toFixed(3) }); pres.layout = "SAGADECK"; } // deck.aspect
   pres.title = meta.title || "";
   pres.author = meta.author || "";
   const n = await page.evaluate(() => window.sagadeck.n);

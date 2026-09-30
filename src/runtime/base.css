@@ -6,7 +6,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b0b0b}
 body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-kerning:normal}
 :root{--ease:cubic-bezier(.2,.8,.2,1);--ease-out:cubic-bezier(.16,1,.3,1)}
 #viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;transition:background .4s}
-#stage{position:relative;width:1920px;height:1080px;flex:none;transform-origin:center center}
+#stage{position:relative;width:1920px;height:var(--sh,1080px);flex:none;transform-origin:center center}
 
 /* tons derivados */
 [class*="tone-"]{--ca:var(--fg);--cb:color-mix(in srgb,var(--fg) 22%,var(--bg));--s1:var(--ca);--s2:var(--em);--s3:var(--muted);--s4:var(--hi);--s5:var(--line)}
@@ -469,7 +469,7 @@ body.laser #laser{display:block}
 body.laser{cursor:none}
 
 /* ===== caneta e anotações ao vivo (live drawing) ===== */
-#draw-canvas{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;z-index:45;touch-action:none}
+#draw-canvas{position:absolute;inset:0;width:1920px;height:var(--sh,1080px);pointer-events:none;z-index:45;touch-action:none}
 body.drawing #draw-canvas{pointer-events:auto;cursor:crosshair}
 .draw-toolbar{position:fixed;left:24px;bottom:24px;z-index:92;background:rgba(18,18,22,.94);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 32px rgba(0,0,0,.6);border-radius:999px;padding:6px 14px;display:flex;align-items:center;gap:8px}
 .draw-btn{background:transparent;border:none;color:#ddd;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;outline:none}
@@ -489,9 +489,9 @@ body.blank #blank{display:block}
 body.white #blank{display:block;background:#fff}
 #overview{position:fixed;inset:0;z-index:80;background:#111;overflow:auto;display:none;padding:40px}
 body.ov #overview{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:26px;align-content:start}
-.ov-item{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:10px;cursor:pointer;outline:3px solid transparent;background:#222}
+.ov-item{position:relative;aspect-ratio:var(--aspect,16/9);overflow:hidden;border-radius:10px;cursor:pointer;outline:3px solid transparent;background:#222}
 .ov-item.cur{outline-color:#ffc20e}
-.ov-item .ov-scale{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;pointer-events:none}
+.ov-item .ov-scale{position:absolute;left:0;top:0;width:1920px;height:var(--sh,1080px);transform-origin:0 0;pointer-events:none}
 .ov-item .ov-scale .slide{opacity:1;visibility:visible;transition:none}
 .ov-item .ov-n{position:absolute;left:10px;top:8px;z-index:3;font:600 16px/1 system-ui;color:#fff;background:rgba(0,0,0,.6);padding:5px 8px;border-radius:6px}
 #help{position:fixed;right:24px;bottom:24px;z-index:90;background:rgba(10,10,10,.92);color:#eee;font:15px/1.6 system-ui;padding:22px 26px;border-radius:12px;display:none;max-width:420px}
@@ -521,9 +521,9 @@ body.presenter #viewport{display:none}
 .pv-cur,.pv-next{position:relative;background:#000;border-radius:10px;overflow:hidden}
 .pv-cur{grid-row:2/4}
 .pv-side{display:grid;grid-template-rows:auto auto 1fr;gap:14px;min-height:0}
-.pv-next{aspect-ratio:16/9}
+.pv-next{aspect-ratio:var(--aspect,16/9)}
 .pv-lbl{font:600 13px system-ui;letter-spacing:.14em;text-transform:uppercase;color:#888}
-.pv-box .pv-scale{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.pv-box .pv-scale{position:absolute;left:0;top:0;width:1920px;height:var(--sh,1080px);transform-origin:0 0}
 .pv-box .slide{opacity:1;visibility:visible;transition:none}
 .pv-notes{overflow:auto;background:#181818;border-radius:10px;padding:20px 24px;font-size:22px;line-height:1.5}
 .pv-notes p{margin:0 0 12px}
@@ -1523,3 +1523,12 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .algo-play-ic{width:0;height:0;border-left:14px solid currentColor;border-top:9px solid transparent;border-bottom:9px solid transparent}
 .L-algo.playing .algo-play-ic{width:14px;height:18px;border:0;border-left:5px solid currentColor;border-right:5px solid currentColor}
 .export .algo-play{display:none}
+/* retrato (deck.aspect mais alto que largo): o que era lado a lado vira pilha; grades com poucas colunas */
+html[data-orient="portrait"] .adaptive{--adaptive-cols:2!important}
+html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count="2"],[data-item-count="3"]){--adaptive-cols:1!important}
+html[data-orient="portrait"] .cards{grid-template-columns:1fr!important}
+html[data-orient="portrait"] :is(.L-split,.ch-row,.cp-row,.cd-row){flex-direction:column!important}
+html[data-orient="portrait"] .L-split.rev{flex-direction:column-reverse!important}
+html[data-orient="portrait"] :is(.lesson-row,.sol-row,.calc-body,.algo-row,.dyn-row,.tm-row,.science-body){grid-template-columns:1fr!important}
+html[data-orient="portrait"] :is(.adaptive,.cards){grid-auto-rows:auto!important;align-content:center!important;grid-template-rows:none!important}
+html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count="2"],[data-item-count="3"],[data-item-count="4"]) .adaptive-item{zoom:1.8}

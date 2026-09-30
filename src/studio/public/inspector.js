@@ -80,6 +80,7 @@
       { k: "palette", label: "Paleta só neste slide", type: "select", options: [["", "A da apresentação"], ...ctx.palettes()] },
       { k: "bg", label: "Cor de fundo", type: "color" },
     ] }, { id: "deck", title: "Apresentação", target: "deck", rows: [
+      { k: "aspect", label: "Proporção do slide", type: "select", hint: "16:9, 4:3, retrato… ou personalizada (L:A). Ao trocar, os layouts se ajustam sozinhos e o que tem posição livre é reescalado.", options: ctx.aspects?.() || [["", "16:9"]] },
       { k: "purpose", label: "Uso do material", type: "select", hint: "Para apresentar: letra grande, pouco texto, para não dar sono. Para estudar depois: o material vai ser enviado e usado como fonte de estudo, então cabe bastante texto no slide.", options: [["", "Para apresentar: letra grande, pouco texto"], ...ctx.purposes()] },
       { k: "maxWords", label: "Limite de palavras por slide", type: "num", min: 10, max: 600, step: 10, hint: "vazio = o do tipo de material" },
       { k: "theme", label: "Tema", type: "select", options: ctx.themes(), noEmpty: true },
@@ -187,6 +188,11 @@
       if (row.k === "theme" || row.k === "palette") return value === undefined ? ctx.applyLook(row.k, slide[row.k], "reset") : ctx.applyLook(row.k, value, "slide");
       setPath(slide, row.k, row.k === "bg" && value ? value.replace("#", "") : value);
     } else {
+      if (row.k === "aspect") {
+        const v = value === "__custom" ? window.prompt("Proporção personalizada (largura:altura), ex.: 5:4 ou 1200:900", "5:4") : value;
+        if (v == null) return render();
+        return ctx.changeAspect(v || "16:9");
+      }
       if (row.k === "theme") return ctx.applyLook("theme", value, "all");
       if (row.k === "palette") return ctx.applyLook("palette", value ?? "tema", "all");
       setPath(S.deck, row.k, value);

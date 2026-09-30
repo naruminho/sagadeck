@@ -8,6 +8,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Proporção do slide: 16:9, 4:3, retrato e qualquer L:A — 30/09/2026
+
+- `deck.aspect` (src/aspect.js): largura lógica fixa em 1920 e a altura acompanha (4:3 → 1440; 9:16 → 3413).
+  CSS usa `--sh`/`--aspect` (no `<html>` da apresentação e no Studio); runtime, desenho, fotos, PDF (página do
+  tamanho do slide) e PPTX (layout próprio, 13,333 pol de largura) leem o tamanho do deck.
+- Trocar a proporção (Propriedades › Apresentação, com "Personalizada…") passa por `convertAspect`: o layout `canvas`
+  (y, h) e os deslocamentos do Studio (`visualEdits.dy`) são reescalados; o resto se ajusta sozinho.
+- Retrato (`data-orient="portrait"`): o que era lado a lado vira pilha; grades com poucos itens ampliadas.
+- Próximo: etapa 1 do plano de importar PPTX/PDF (leitura fiel + foto pelo PowerPoint / leitor de PDF do Windows).
+
 ## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado; demos de hidráulica e algoritmos — 30/09/2026
 
 - Exercício da pessoa: professor de hidráulica (Navier–Stokes, laminar → turbulento) e de computação (ordenação e

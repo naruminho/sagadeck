@@ -288,13 +288,13 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .thumb-num { grid-column: 1; font-size: 11px; color: var(--text-3); text-align: right; padding-top: 2px; }
 .thumb-badge { display: none; }
 .thumb-screen {
-  grid-column: 2; position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+  grid-column: 2; position: relative; aspect-ratio: var(--aspect, 16 / 9); overflow: hidden;
   background: #fff; border-radius: 3px; box-shadow: var(--shadow-1); outline: 2px solid transparent; outline-offset: 1px;
 }
 .thumb-card:hover .thumb-screen { outline-color: var(--ui-line-strong); }
 .thumb-card.active .thumb-screen { outline-color: var(--brand); }
 .thumb-card.active .thumb-num { color: var(--brand); font-weight: 700; }
-.thumb-render { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; transform: scale(var(--thumb-scale, .09)); pointer-events: none; }
+.thumb-render { position: absolute; left: 0; top: 0; width: 1920px; height: var(--sh, 1080px); transform-origin: 0 0; transform: scale(var(--thumb-scale, .09)); pointer-events: none; }
 .thumb-render .slide { opacity: 1 !important; visibility: visible !important; }
 .thumb-render mark { background-size: 100% 92% !important; transition: none !important; }
 .thumb-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; font-size: 11px; color: var(--text-3); text-align: center; }
@@ -307,7 +307,7 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .canvas-viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: auto; background: var(--canvas-bg); min-height: 0; }
 .stage-16-9 {
-  position: absolute; width: 1920px; height: 1080px; transform-origin: center center;
+  position: absolute; width: 1920px; height: var(--sh, 1080px); transform-origin: center center;
   background: #fff; overflow: hidden; box-shadow: 0 2px 6px rgba(0, 0, 0, .12), 0 8px 32px rgba(0, 0, 0, .10);
 }
 #rendered-slide-container { position: relative; width: 100%; height: 100%; }
@@ -718,7 +718,7 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .layout-card { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 6px; border: 2px solid transparent; text-align: left; }
 .layout-card:hover { background: var(--hover); }
 .layout-card.active { border-color: var(--brand); background: var(--selected); }
-.lc-prev { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 4px; background: #fff; box-shadow: var(--shadow-1); --thumb-scale: .12; }
+.lc-prev { position: relative; aspect-ratio: var(--aspect, 16 / 9); overflow: hidden; border-radius: 4px; background: #fff; box-shadow: var(--shadow-1); --thumb-scale: .12; }
 .lc-prev .thumb-render { transform: scale(var(--thumb-scale)); }
 .lc-name { font-size: 12px; font-weight: 600; }
 .lc-desc { font-size: 11px; color: var(--text-3); line-height: 1.3; min-height: 2.6em; }
@@ -768,7 +768,7 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .napkin-example { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--chrome); color: inherit; text-align: left; font-size: 12px; }
 .napkin-example:hover { border-color: var(--brand); }
 .napkin-example span { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.napkin-stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: var(--canvas-bg); box-shadow: var(--shadow-1); --thumb-scale: .28; }
+.napkin-stage { position: relative; aspect-ratio: var(--aspect, 16 / 9); overflow: hidden; border-radius: 6px; background: var(--canvas-bg); box-shadow: var(--shadow-1); --thumb-scale: .28; }
 .napkin-stage .thumb-render { transform: scale(var(--thumb-scale)); }
 .napkin-stage.loading::after { content: "Gerando…"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--chrome) 70%, transparent); font-weight: 600; }
 .napkin-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; padding: 20px; text-align: center; }
@@ -808,7 +808,7 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .variants { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
 .variant { border: 1px solid var(--ui-line); border-radius: 6px; overflow: hidden; background: var(--chrome); }
 .variant.chosen { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
-.variant-prev { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--canvas-bg); --thumb-scale: .14; }
+.variant-prev { position: relative; aspect-ratio: var(--aspect, 16 / 9); overflow: hidden; background: var(--canvas-bg); --thumb-scale: .14; }
 .variant-prev .thumb-render { transform: scale(var(--thumb-scale)); }
 .variant-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; font-size: 12px; }
 .arc-problems { margin: 6px 0 8px; padding-left: 16px; font-size: 12px; color: var(--text-2); }

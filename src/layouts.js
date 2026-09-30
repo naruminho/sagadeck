@@ -12,6 +12,7 @@ import { mathHTML, plotHTML } from "./science.js";
 import { infographicHTML } from "./infographic.js";
 import { duelHTML, terminalsHTML, turnsHTML } from "./dynamics/layouts.js";
 import { carouselHTML } from "./carousel.js";
+import { slideSize } from "./aspect.js";
 import { solutionHTML, calcHTML, algoHTML } from "./lessons.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
@@ -319,7 +320,7 @@ export const LAYOUTS = {
   },
 
   image(s, ctx) {
-    return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, 1080)}</div>
+    return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>
       ${s.title || s.caption ? `<div class="im-cap">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl" }) : ""}${s.caption ? text(s.caption, "body") : ""}</div>` : ""}</div>${add(s, ctx)}`;
   },
 
@@ -369,7 +370,7 @@ export const LAYOUTS = {
         ${beat.tag ? `<div class="kinetic-tag">${md(beat.tag)}</div>` : ""}
       </article>`;
     }).join("");
-    const scene = s.figure ? el(s.figure, ctx, 1920, 1080) : "";
+    const scene = s.figure ? el(s.figure, ctx, 1920, slideSize(ctx.spec).h) : "";
     const interval = Math.max(450, Math.min(5000, Number(s.interval) || 1000));
     const autoplay = s.autoplay !== false && beats.length > 1;
     const summary = `<div class="kinetic-summary" aria-label="Frases da sequência">${beats.map((beat) => `<span>${md(beat.text || "")}</span>`).join("")}</div>`;
@@ -414,7 +415,7 @@ export const LAYOUTS = {
     const pos = s.overlay || (hasText ? "bottom" : "none");
     // figura desenhada (gráfico, ícone, diagrama) com texto à esquerda: vai para a direita em vez de ficar por baixo do texto
     const drawn = fig && !(fig.image || fig.image_prompt || fig.video);
-    return `<div class="L-full${drawn && pos === "left" ? " fl-shift" : ""}">${fig ? `<div class="fl-fig">${el(fig, ctx, 1920, 1080)}</div>` : ""}
+    return `<div class="L-full${drawn && pos === "left" ? " fl-shift" : ""}">${fig ? `<div class="fl-fig">${el(fig, ctx, 1920, slideSize(ctx.spec).h)}</div>` : ""}
       ${hasText && pos !== "none" ? `<div class="fl-over fl-${pos}"><div class="fl-txt">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl e", style: "--d:1;", fit: true, size: s.titleSize }) : ""}${s.caption ? text(s.caption, "lead", { class: "e", style: "--d:2;" }) : ""}</div></div>` : ""}</div>`;
   },
 
@@ -585,6 +586,6 @@ export const LAYOUTS = {
     const scene = Object.hasOwn(SCENES, s.scene) ? s.scene : 'stage';
     const op = s.imageOpacity == null || s.imageOpacity === '' ? 0.85 : Math.max(0, Math.min(1, Number(s.imageOpacity) || 0));
     const props = SCENES[scene].props?.() || '';
-    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image" style="opacity:${op}">${el({image:s.image},ctx,1920,1080)}</div>` : ''}${props ? `<div class="scene-props" aria-hidden="true">${props}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || SCENES[scene].size})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
+    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image" style="opacity:${op}">${el({image:s.image},ctx,1920,slideSize(ctx.spec).h)}</div>` : ''}${props ? `<div class="scene-props" aria-hidden="true">${props}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || SCENES[scene].size})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
   },
 };

@@ -1,4 +1,5 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
+import { slideSize } from "./aspect.js";
 import { wordLimit } from "./purpose.js";
 import { barHTML } from "./chrome.js";
 import fs from "node:fs";
@@ -166,11 +167,12 @@ export function buildHTML(rawSpec, opts = {}) {
   const hasApi = slidesMeta.some((m) => m.layout === "api");
   const apiScripts = hasApi ? `<script type="application/json" id="sagadeck-api-rec">${JSON.stringify(readRecordings(spec._file)).replace(/</g, "\\u003c")}</script>
 <script>${read("runtime/api-core.js")}</script>` : "";
-  const data = { id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
+  const size = slideSize(spec);
+  const data = { size: { w: size.w, h: size.h }, id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
 
   const doc = `<!doctype html>
-<html lang="${spec.lang || "pt-BR"}"><head><meta charset="utf-8">
+<html lang="${spec.lang || "pt-BR"}" style="--sh:${size.h}px;--aspect:${size.ratio}"${size.h > size.w ? ' data-orient="portrait"' : ""}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="generator" content="sagadeck">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23c43e1c%22/%3E%3Cpath d=%22M12 9l12 7-12 7z%22 fill=%22white%22/%3E%3C/svg%3E">
@@ -183,7 +185,7 @@ ${customCSS}</style></head>
 <body class="theme-${theme.name}">
 <div id="viewport"><div id="stage">
 ${html}
-<canvas id="draw-canvas" width="1920" height="1080"></canvas>
+<canvas id="draw-canvas" width="1920" height="${size.h}"></canvas>
 </div></div>
 <div id="draw-toolbar" class="draw-toolbar" style="display:none">
   <button id="draw-btn-pen" class="draw-btn active" title="Caneta (D)">${drawIcon("pencil")}</button>
@@ -247,7 +249,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current = fal
   const fit = { ...FIT_DEFAULTS, ...(spec.fit || {}) };
   const fitAttrs = ` data-min-code="${Math.round(Number(fit.minCodePt) * 2) || 20}" data-min-text="${Math.round(Number(fit.minTextPt) * 2) || 0}"${fit.wrapCode === false ? ' data-code-wrap="0"' : ""}`;
   let html = `<section class="slide${current ? " current" : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}" data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
-  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, 1080)}</div>`;
+  if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;
   // ornamentos da pele do tema (fitas, molduras, faixas...): desenhados em CSS, atrás do conteúdo
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
