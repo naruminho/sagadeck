@@ -83,7 +83,7 @@ export function plotModel(plot = {}, ctx) {
     kind: 'formula', errors,
     functions: fns.map((f, i) => ({ fn: String(f.fn), name: String(f.name || `y = ${f.fn}`), ...(f.color ? { color: String(f.color) } : {}), ok: !!compiled[i] })),
     surface: surf ? surface : '',
-    x: range(p.x, [-10, 10]), ...(range(p.y, null) ? { y: range(p.y, null) } : {}),
+    x: range(p.x, [-10, 10]), ...(range(p.y, null) ? { y: range(p.y, null) } : {}), ...(p.xlog ? { xlog: true } : {}), ...(p.ylog ? { ylog: true } : {}),
     params, ...(points ? { points: { x: points.x, y: points.y, name: String(p.pointsName || points.head || 'dados') } } : {}),
     layout: p.layout || {}, _compiled: compiled, _surf: surf,
   };
@@ -94,7 +94,7 @@ export function plotData(plot = {}, ctx) {
   const m = plotModel(plot, ctx);
   if (m.kind === 'plotly') return m.data;
   const vals = Object.fromEntries(Object.entries(m.params).map(([k, v]) => [k, v.value]));
-  const out = m._compiled.map((c, i) => c && { type: 'scatter', mode: 'lines', name: m.functions[i].name, ...F.sample(c, m.x, vals) }).filter(Boolean);
+  const out = m._compiled.map((c, i) => c && { type: 'scatter', mode: 'lines', name: m.functions[i].name, ...F.sample(c, m.x, vals, 400, m.xlog) }).filter(Boolean);
   if (m.points) out.push({ type: 'scatter', mode: 'markers', name: m.points.name, x: m.points.x, y: m.points.y });
   return out;
 }
@@ -117,12 +117,15 @@ function previewSVG(m) {
     });
     return `<svg class="science-preview" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${cells.join('')}</svg>`;
   }
-  const series = m._compiled.map((c, i) => c && { i, ...F.sample(c, m.x, vals, 160) }).filter(Boolean);
+  const series = m._compiled.map((c, i) => c && { i, ...F.sample(c, m.x, vals, 160, m.xlog) }).filter(Boolean);
   const ys = [...series.flatMap((s) => s.y), ...(m.points?.y || [])].filter((v) => v != null).sort((a, b) => a - b);
   let [y0, y1] = m.y || (ys.length ? [ys[Math.floor(ys.length * 0.02)], ys[Math.ceil(ys.length * 0.98) - 1]] : [-1, 1]);
   if (y0 === y1) { y0 -= 1; y1 += 1; }
   const pad = m.y ? 0 : (y1 - y0) * 0.08; y0 -= pad; y1 += pad;
-  const X = (x) => L + ((x - m.x[0]) / (m.x[1] - m.x[0])) * (W - L - R), Y = (y) => T + (1 - (y - y0) / (y1 - y0)) * (H - T - B);
+  const lg = (v) => Math.log10(Math.max(v, 1e-12));
+  if (m.ylog) { const pos = ys.filter((v) => v > 0); if (pos.length) { y0 = Math.min(...pos); y1 = Math.max(...pos); } }
+  const X = (x) => L + (m.xlog ? (lg(x) - lg(m.x[0])) / (lg(m.x[1]) - lg(m.x[0])) : (x - m.x[0]) / (m.x[1] - m.x[0])) * (W - L - R);
+  const Y = (y) => T + (1 - (m.ylog ? (lg(y) - lg(y0)) / ((lg(y1) - lg(y0)) || 1) : (y - y0) / (y1 - y0))) * (H - T - B);
   let g = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" class="sp-axis"/><line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" class="sp-axis"/>`;
   if (y0 < 0 && y1 > 0) g += `<line x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}" class="sp-zero"/>`;
   if (m.x[0] < 0 && m.x[1] > 0) g += `<line x1="${X(0)}" x2="${X(0)}" y1="${T}" y2="${H - B}" class="sp-zero"/>`;

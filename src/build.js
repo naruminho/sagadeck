@@ -177,7 +177,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${fontsCSSFor(read("runtime/base.css") + deckThemeCSS(spec, theme) + customCSS)}
 ${read("runtime/base.css")}
-${spec.slides.some(s => s.layout === "science") ? read("runtime/vendor/katex.css") : ""}
+${spec.slides.some(s => ["science", "solution", "calc"].includes(s.layout)) ? read("runtime/vendor/katex.css") : ""}
 ${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">
@@ -210,6 +210,7 @@ ${html}
 ${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}
 ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/vendor/mermaid.min.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/diagram.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script>` : ""}
 </body></html>`;
   return { html: doc, warnings, meta: data, planned, theme, slidesMeta };

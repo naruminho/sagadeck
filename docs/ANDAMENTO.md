@@ -8,6 +8,26 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado; demos de hidráulica e algoritmos — 30/09/2026
+
+- Exercício da pessoa: professor de hidráulica (Navier–Stokes, laminar → turbulento) e de computação (ordenação e
+  busca). O que já dava: equações, curvas com controles, comparação, código guiado, gráfico de complexidade. O que
+  frustraria: resolver o exercício passo a passo, uma calculadora para a turma mexer e ver o algoritmo rodando.
+- `solution` (src/lessons.js): enunciado + dados + "pede-se"; um passo da conta por clique (os anteriores compactos,
+  a lista ancorada embaixo); resposta em destaque. Dado numérico vira LaTeX com vírgula decimal, milhar e 10 elevado.
+- `calc` (src/lessons.js + src/runtime/calc.js, a mesma conta no motor e na apresentação): entradas com controle,
+  saídas por fórmula (nomes longos como `nu`, `eps` valem), `cases` por faixa (texto, cor e fórmula por faixa) e
+  régua (`scale`, log). Bug de caminho: rótulos da régua eram `.t` e se encostavam; o ajuste encolhia o slide a 61%.
+- `algo` (src/algo-trace.js): o motor roda bubble/insertion/selection/merge/quick e busca linear/binária e grava os
+  passos (comparar, trocar, escrever, pivô, faixa, achou) + pseudocódigo com a linha da vez + contadores. Botão
+  Tocar genérico no runtime (`[data-autoplay]`).
+- Fórmulas: `plot.xlog`/`ylog` (amostragem e eixos log; diagrama de Moody). Os títulos de eixo do deck não apagam
+  mais o tipo/faixa do eixo.
+- Limite de palavras próprio: solution 140, calc 90, algo 60. Galeria: "Aula: exercícios e algoritmos".
+- Demos "Aula de hidráulica" e "Aula de algoritmos"; cada demo da vitrine com tema, tom e figura de capa próprios
+  (antes todas iguais). Barra da esquerda abre sempre nos slides.
+- Teste ao vivo: pedindo as duas aulas ao modelo, ele usou `solution`, `calc` e `algo` sozinho.
+
 ## Painel, menus de botão direito, "Deixar assim" que dura, dois usos do material — 30/09/2026
 
 - "Deixar assim" grava `fiscalOk` (impressão digital do conteúdo do slide) no deck: sem aviso, contador nem

@@ -405,9 +405,7 @@
       try { const p = await savePastedImage(img.getAsFile()); ctx.toast(`Print guardado em ${p}. A IA vê o que está em contexto/.`, 6000, { label: "Abrir", fn: () => { setView("files"); openFile(p, "image"); } }); }
       catch (e) { ctx.toast(e.message); }
     });
-    let saved = "slides";
-    try { saved = localStorage.getItem("sagadeck.railView") || "slides"; } catch {}
-    setView(saved === "files" ? "files" : "slides");
+    setView("slides"); // ao abrir, a barra da esquerda mostra os slides (Arquivos é um clique)
   }
   // o deck mudou por outro caminho (formulário, IA, arrastar): a aba do texto da apresentação acompanha
   function deckChanged() { openTabs.find((t) => t.kind === "deck")?.refresh?.(); }
