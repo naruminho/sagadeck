@@ -123,32 +123,34 @@ const deckYaml = (layouts) => "```yaml\n" + YAML.stringify({ title: "Fraudes", t
 const BORING = ["cover", "cards", "cards", "cards", "cards", "cards", "cards", "end"];
 const VARIED = ["cover", "headline", "cards", "number", "question", "cards", "headline", "end"];
 
-test("gerar deck: direção criativa no prompt e revisão quando sai repetitivo", async () => {
+test("Criar com IA usa o MESMO caminho do chat: uma chamada, regras de edição e conversa, sem direção sorteada nem reescritas", async () => {
   const n = llm.requests.length;
-  reply = (req) => (/Ficou repetitivo/.test(req.lastUser) ? deckYaml(VARIED) : deckYaml(BORING));
-  const r = await generateDeck("fraudes no pix", { direction: "Keynote minimalista: teste." });
+  reply = () => deckYaml(BORING); // mesmo repetitivo: não há rodada de "variedade" por cima (o chat não tem)
+  const r = await generateDeck("apresentação bem humorada de como fritar um ovo como um chef");
   const reqs = llm.requests.slice(n);
-  assert.match(reqs[0].lastUser, /Direção criativa deste deck: Keynote minimalista: teste\./);
-  assert.match(reqs[0].lastUser, /Nunca 3 slides seguidos com o mesmo layout/);
-  const rev = reqs.find((q) => /Ficou repetitivo/.test(q.lastUser));
-  assert.ok(rev, "pediu revisão de ritmo");
-  assert.match(rev.lastUser, /slides seguidos no mesmo layout/);
-  assert.deepEqual(r.spec.slides.map((s) => s.layout), VARIED);
-  assert.equal(r.direction, "Keynote minimalista: teste.");
-});
-
-test("gerar deck: revisão que não melhora é descartada", async () => {
-  reply = () => deckYaml(BORING); // a revisão devolve igual
-  const r = await generateDeck("fraudes", { direction: "x" });
+  assert.equal(reqs.length, 1, "uma chamada só, como no chat");
+  assert.match(reqs[0].system, /Regras de edição:/, "o sistema do chat (editDeck)");
+  assert.match(reqs[0].system, /Como responder \(você decide/);
+  assert.match(reqs[0].lastUser, /Deck atual \(1 slides\)/, "parte de um deck em branco");
+  assert.match(reqs[0].lastUser, /fritar um ovo como um chef/);
+  assert.doesNotMatch(reqs[0].lastUser, /Direção criativa deste deck|Nunca 3 slides seguidos/);
   assert.deepEqual(r.spec.slides.map((s) => s.layout), BORING);
-  assert.equal(r.variety.ok, false);
+  assert.equal(r.spec.title, "Fraudes");
 });
 
-test("gerar deck: deck já variado não gasta revisão", async () => {
-  reply = () => deckYaml(VARIED);
-  const n = llm.requests.length;
-  await generateDeck("fraudes", { direction: "x" });
-  assert.equal(llm.requests.slice(n).filter((q) => /Ficou repetitivo/.test(q.lastUser)).length, 0);
+test("Criar com IA: se a IA preferir perguntar (como no chat), a pergunta volta com as opções e nada é gerado", async () => {
+  reply = () => "É para apresentar ao vivo ou para o pessoal ler depois?\n```opcoes\nAo vivo\nPara ler depois\n```";
+  const r = await generateDeck("um material de git");
+  assert.deepEqual(r.question, { question: "É para apresentar ao vivo ou para o pessoal ler depois?", options: ["Ao vivo", "Para ler depois"] });
+  assert.equal(r.spec, undefined);
+});
+
+test("Criar com IA: patch sobre o deck em branco também vale (troca o slide 1 e insere o resto)", async () => {
+  reply = () => "Pronto.\n```yaml\ndeck:\n  title: Ovo de chef\n  theme: bauhaus\nslides:\n  1:\n    layout: cover\n    title: Ovo de chef\ninsert:\n  - after: 1\n    slide: { layout: statement, text: Frigideira quente }\n  - after: 1\n    slide: { layout: end, title: Bom apetite }\n```";
+  const r = await generateDeck("ovo frito de chef", { images: false });
+  assert.equal(r.spec.title, "Ovo de chef");
+  assert.equal(r.spec.theme, "bauhaus");
+  assert.deepEqual(r.spec.slides.map((s) => s.layout), ["cover", "statement", "end"]);
 });
 
 test("slidesForMinutes: ~1 slide a cada 1,5 min, entre 3 e 40", () => {
@@ -530,20 +532,16 @@ test("generateDeck: com 'perguntar' ligado, uma chamada curta decide o propósit
   assert.equal(g.spec.date, new Date().toISOString().slice(0, 10), "a data é a de criação, nunca inventada");
 });
 
-test("generateDeck: material de consulta pula a rodada de 'variedade' (que trocaria explicação por slide de impacto)", async () => {
-  const repetido = (purpose) => `\`\`\`yaml\ntitle: Git\npurpose: ${purpose}\nslides:\n${Array.from({ length: 6 }, (_, i) => `  - layout: code\n    title: Passo ${i + 1}\n    code: git status\n`).join("")}\`\`\``;
-  let calls = 0;
-  reply = () => { calls++; return repetido("consulta"); };
-  await generateDeck("apostila de git", { direction: "x" });
-  assert.equal(calls, 1, "consulta: uma chamada só (sem reescrever para variar)");
-  calls = 0;
-  reply = () => { calls++; return repetido("palestra"); };
-  await generateDeck("palestra de git", { direction: "x" });
-  assert.ok(calls >= 2, "palestra repetitiva: pede para variar");
-});
-
 test("estilo Documentação técnica (Criar com IA): o par claro/escuro do tema manual", () => {
   assert.equal(styleFor("manual").theme, "manual");
   assert.equal(styleFor("manual-noite").theme, "manual-noite");
   assert.match(styleFor("manual").direction, /Documentação técnica/);
+});
+
+test("vírgula dentro de texto em { } não vira campo novo (o modelo escreve assim e o texto se partia)", async () => {
+  reply = () => "Pronto.\n```yaml\ntitle: Ovo\nslides:\n  - layout: cover\n    title: Ovo\n  - layout: steps\n    title: Ritual\n    steps:\n      - { title: Aqueça, text: Manteiga derretida, mas sem fumaça saindo }\n      - { title: Quebre, text: Na borda, com coragem, sem medo }\n  - layout: end\n    title: Fim\n```";
+  const r = await generateDeck("ovo", { images: false });
+  const st = r.spec.slides[1].steps;
+  assert.deepEqual(st[0], { title: "Aqueça", text: "Manteiga derretida, mas sem fumaça saindo" });
+  assert.deepEqual(st[1], { title: "Quebre", text: "Na borda, com coragem, sem medo" });
 });

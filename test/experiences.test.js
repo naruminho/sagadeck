@@ -75,22 +75,18 @@ test("direções: dois ciclos usam todas as opções e não repetem na fronteira
   assert.notEqual(first.at(-1), second[0]);
 });
 
-test("geração: quatro decks consecutivos recebem direções distintas e a escolha explícita prevalece", async () => {
+test("geração: sem direção sorteada (é o caminho do chat); o estilo que a pessoa escolheu vai no pedido", async () => {
   const spec = { title: "Teste", theme: "prata", slides: [{ layout: "cover", title: "Teste" }, { layout: "statement", text: "Uma ideia" }, { layout: "end", title: "Fim" }] };
   const llm = await startMockLLM(() => `\`\`\`yaml\n${YAML.stringify(spec)}\`\`\``);
   const previousUrl = process.env.SAGADECK_LLM_URL;
   process.env.SAGADECK_LLM_URL = llm.url;
   try {
-    const directions = [];
-    for (let i = 0; i < 4; i++) {
-      const generated = await generateDeck("Uma apresentação sóbria para a diretoria.", { images: false });
-      directions.push(generated.direction);
-      assert.ok(llm.requests.at(-1).lastUser.includes(generated.direction));
-    }
-    assert.equal(new Set(directions).size, 4, "a direção não é sorteada com repetição");
+    const plain = await generateDeck("Uma apresentação sóbria para a diretoria.", { images: false });
+    assert.equal(plain.direction, undefined);
+    assert.doesNotMatch(llm.requests.at(-1).lastUser, /Direção criativa|Estilo que a pessoa escolheu/);
     const explicit = await generateDeck("Uma apresentação de produto.", { images: false, direction: "Minha direção específica." });
     assert.equal(explicit.direction, "Minha direção específica.");
-    assert.match(llm.requests.at(-1).lastUser, /público e o nível de sobriedade pedidos no briefing têm precedência/);
+    assert.match(llm.requests.at(-1).lastUser, /Estilo que a pessoa escolheu: Minha direção específica\./);
   } finally {
     if (previousUrl === undefined) delete process.env.SAGADECK_LLM_URL;
     else process.env.SAGADECK_LLM_URL = previousUrl;
