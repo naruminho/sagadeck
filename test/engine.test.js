@@ -179,7 +179,7 @@ test("títulos preservam palavras inteiras sem hifenização automática", () =>
     lang: "pt-BR",
     slides: [{ layout: "cover", title: "Revolucionando o Código" }],
   }).html;
-  assert.match(out, /<html lang="pt-BR">/);
+  assert.match(out, /<html lang="pt-BR"[ >]/);
   assert.match(out, /\.ttl\{[^}]*word-break:normal;overflow-wrap:normal;hyphens:none;text-wrap:balance/);
 });
 

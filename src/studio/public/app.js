@@ -273,6 +273,8 @@
       themes: () => Object.entries(state.themeMeta || {}).map(([k, m]) => [k, m.label || k]),
       palettes: () => Object.entries(state.palettes || {}).map(([k, m]) => [k, (m.label || k).replace(/\s*\(.*\)$/, "")]),
       // dois usos; deck antigo (aula, workshop, executiva) mostra o que tem até a pessoa escolher um dos dois
+      aspects: () => [["", "16:9 (padrão)"], ["4:3", "4:3"], ["16:10", "16:10"], ["3:2", "3:2"], ["1:1", "1:1 (quadrado)"], ["9:16", "9:16 (retrato)"], ["a4", "A4 deitado"], ...(state.deck?.aspect && !["4:3", "16:10", "3:2", "1:1", "9:16", "a4", "16:9"].includes(String(state.deck.aspect)) ? [[String(state.deck.aspect), `${state.deck.aspect} (personalizada)`]] : []), ["__custom", "Personalizada…"]],
+      changeAspect: (v) => changeAspect(v),
       purposes: () => [["consulta", "Para estudar depois: conteúdo denso"], ...({ aula: [["aula", "Aula (antigo: conta como estudar depois)"]], workshop: [["workshop", "Workshop (antigo)"]], executiva: [["executiva", "Executiva (antigo)"]] }[state.deck?.purpose] || [])],
       changeLayout: (name) => changeCurrentLayout(name),
       applyLook: (kind, name, scope) => applyLook(kind, name, scope),
@@ -364,6 +366,7 @@
   let renderSeq = 0;
   async function renderCurrentSlide() {
     if (!state.deck || !state.deck.slides || state.deck.slides.length === 0) return;
+    applyAspect();
     const seq = ++renderSeq;
     const rebuildForm = !state.skipFormRebuild;
     state.skipFormRebuild = false;
@@ -670,7 +673,7 @@
       }
 
       // Estouro Fora do Slide (1920x1080)
-      if (r.right > 1920 + 2 || r.bottom > 1080 + 2 || r.left < -2 || r.top < -2) {
+      if (r.right > 1920 + 2 || r.bottom > slideH() + 2 || r.left < -2 || r.top < -2) {
         state.issues.push({
           kind: "fora-do-slide",
           text: label(el),
@@ -2904,6 +2907,33 @@
   // ==========================================================================
   // AUTO-FIT E ESCALA DO CANVAS 16:9
   // ==========================================================================
+  // proporção do slide (deck.aspect; mesma conta de src/aspect.js): largura 1920, altura acompanha
+  const ASPECTS = { "16:9": [16, 9], "4:3": [4, 3], "16:10": [16, 10], "1:1": [1, 1], "9:16": [9, 16], "3:2": [3, 2], "21:9": [21, 9], a4: [297, 210] };
+  function slideH(deck = state.deck) {
+    const a = deck?.aspect;
+    let wh = [16, 9];
+    if (a && typeof a === "object") wh = [Number(a.w ?? a.width), Number(a.h ?? a.height)];
+    else if (a != null && a !== "") { const s = String(a).trim().toLowerCase().replace(",", "."); const m = s.match(/^(\d+(?:\.\d+)?)\s*[:/x×]\s*(\d+(?:\.\d+)?)$/); wh = ASPECTS[s] || (m ? [+m[1], +m[2]] : /^\d+(\.\d+)?$/.test(s) ? [+s, 1] : [16, 9]); }
+    if (!(wh[0] > 0 && wh[1] > 0)) wh = [16, 9];
+    return Math.round(Math.min(3600, Math.max(540, (1920 * wh[1]) / wh[0])));
+  }
+  function applyAspect() {
+    const h = slideH();
+    if (state.appliedH === h) return;
+    state.appliedH = h;
+    document.documentElement.style.setProperty("--sh", `${h}px`);
+    document.documentElement.style.setProperty("--aspect", `1920 / ${h}`);
+    if (h > 1920) document.documentElement.dataset.orient = "portrait"; else delete document.documentElement.dataset.orient;
+    requestAnimationFrame(() => { if (state.autoFit) updateCanvasScale(); });
+  }
+  async function changeAspect(aspect) {
+    const r = await fetch("api/aspect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aspect }) });
+    const j = await r.json();
+    if (!r.ok) return showToast(j.error || "Proporção inválida");
+    state.deck = j.spec;
+    applyAspect(); renderThumbnails(); await renderCurrentSlide();
+    showToast(`Slides em ${j.label}. O que tinha posição livre foi reescalado; confira os avisos do fiscal.`);
+  }
   function updateCanvasScale() {
     const vp = dom.canvasViewport;
     const isMobile = window.innerWidth <= 900;
@@ -2914,7 +2944,7 @@
 
     if (state.autoFit) {
       const scaleW = availW / 1920;
-      const scaleH = availH / 1080;
+      const scaleH = availH / slideH();
       state.zoomScale = Math.min(scaleW, scaleH);
       dom.zoomLevel.textContent = `${Math.round(state.zoomScale * 100)}%`;
     }

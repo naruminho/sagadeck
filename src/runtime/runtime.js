@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   const DATA = JSON.parse(document.getElementById("sagadeck-data").textContent);
+  const SW = 1920, SH = (DATA.size && DATA.size.h) || 1080; // tamanho lógico do slide (deck.aspect)
   const KEY = "sagadeck:" + DATA.id;
   const EXPORT = /[?&]export/.test(location.search) || location.hash === "#export";
   const PRESENTER = location.hash.startsWith("#presenter");
@@ -139,7 +140,7 @@
 
   // ---------- escala ----------
   function scale() {
-    const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    const k = Math.min(innerWidth / SW, innerHeight / SH);
     stage.style.transform = `scale(${k})`;
   }
 
@@ -459,7 +460,7 @@
   function getDrawCoords(e) {
     const rect = drawCanvas.getBoundingClientRect();
     const sx = 1920 / rect.width;
-    const sy = 1080 / rect.height;
+    const sy = SH / rect.height;
     return {
       x: (e.clientX - rect.left) * sx,
       y: (e.clientY - rect.top) * sy,
@@ -498,7 +499,7 @@
 
   function redrawSlideDrawings(slideIdx) {
     if (!drawCtx) return;
-    drawCtx.clearRect(0, 0, 1920, 1080);
+    drawCtx.clearRect(0, 0, SW, SH);
     const strokes = slideDrawings[slideIdx] || [];
     for (const s of strokes) {
       renderStroke(s);
@@ -516,7 +517,7 @@
 
   function clearDrawing() {
     slideDrawings[cur] = [];
-    if (drawCtx) drawCtx.clearRect(0, 0, 1920, 1080);
+    if (drawCtx) drawCtx.clearRect(0, 0, SW, SH);
     toast("Anotações do slide limpas");
   }
 
@@ -687,7 +688,7 @@
     const root = document.createElement("div"); root.id = "pv";
     root.innerHTML = `<div class="pv-top"><span class="pv-clock">00:00</span><span class="pv-el">decorrido <b class="pv-elv">00:00</b> / ${DATA.duration || "?"}:00</span><span class="pv-pace">no ritmo</span><span class="pv-pace" style="background:#1e293b;color:#38bdf8;border:1px solid rgba(56,189,248,0.3);" title="Anti-Bloqueio corporativo ativo: a tela não será bloqueada por inatividade do Windows">Anti-bloqueio</span>
       <button class="pv-start">Iniciar</button><button class="pv-reset">Zerar</button><button class="pv-black">Tela preta (B)</button><span class="pv-title"></span></div>
-      <div><div class="pv-lbl">Agora</div><div class="pv-cur pv-box" style="aspect-ratio:16/9"><div class="pv-scale"></div></div></div>
+      <div><div class="pv-lbl">Agora</div><div class="pv-cur pv-box" style="aspect-ratio:${SW}/${SH}"><div class="pv-scale"></div></div></div>
       <div class="pv-side"><div><div class="pv-lbl pv-nextlbl">Próximo</div><div class="pv-next pv-box"><div class="pv-scale"></div></div></div><div class="pv-lbl">Notas / roteiro</div><div class="pv-notes"></div></div>`;
     document.body.appendChild(root);
     const fmt = (ms) => { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
@@ -775,7 +776,7 @@
     window.sagadeck = {
       n: N, steps: (j) => STEPS[j], get cur() { return cur; }, get step() { return step; },
       goto: (j, kk, all) => { goto(j, kk, { instant: true, force: true, all }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); },
-      fit: fitAll, data: DATA,
+      fit: fitAll, data: DATA, size: { w: SW, h: SH },
     };
   }
   init();

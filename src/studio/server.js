@@ -30,6 +30,7 @@ import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
+import { parseAspect, convertAspect, slideSize } from "../aspect.js";
 import { chat as llmChat } from "../ai/llm.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -659,6 +660,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      if (pathname === "/api/aspect" && req.method === "POST") {
+        const b = await readJSON(req);
+        if (!parseAspect(b.aspect)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Proporção "${b.aspect}" não entendida. Use 16:9, 4:3, 1:1, 9:16 ou largura:altura.` })); return; }
+        W.spec = convertAspect(W.spec, String(b.aspect) === "16:9" ? undefined : b.aspect);
+        if (W.spec.aspect === undefined) delete W.spec.aspect;
+        persist(W);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, spec: W.spec, label: slideSize(W.spec).label }));
+        return;
+      }
       if (pathname === "/api/slide-yaml" && req.method === "GET") {
         const i = Number(url.searchParams.get("i"));
         const slide = W.spec?.slides?.[i];

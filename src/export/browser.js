@@ -28,6 +28,9 @@ export async function openDeck(htmlFile, { scale = 1 } = {}) {
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(pathToFileURL(htmlFile).href + "?export=1");
   await page.waitForFunction(() => window.sagadeck && window.sagadeck.cur >= 0 && document.fonts.status === "loaded");
+  // a janela com o tamanho do slide (deck.aspect: 4:3 → 1920 × 1440): foto, PDF e PPTX sem faixa nem corte
+  const size = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 });
+  if (size.h !== 1080) { await page.setViewportSize({ width: size.w, height: size.h }); await page.waitForTimeout(80); }
   await page.evaluate(() => window.SagaScienceReady);
   await page.evaluate(() => window.SagaDiagramsReady);
     await page.evaluate(() => document.fonts.ready);

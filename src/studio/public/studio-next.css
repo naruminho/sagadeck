@@ -115,8 +115,8 @@
 .scene-card { cursor: pointer; }
 .scene-card:hover { border-color: var(--brand); box-shadow: 0 6px 20px #23123312; }
 .scene-card[hidden] { display: none; }
-.scene-preview { width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden; background: var(--chrome-2); pointer-events: none; }
-.scene-render { width: 1920px; height: 1080px; position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.scene-preview { width: 100%; aspect-ratio: var(--aspect, 16/9); position: relative; overflow: hidden; background: var(--chrome-2); pointer-events: none; }
+.scene-render { width: 1920px; height: var(--sh, 1080px); position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .scene-render .slide { opacity: 1 !important; visibility: visible !important; }
 .scene-render .slide .e, .scene-render .slide [data-step] { opacity: 1 !important; transform: none !important; visibility: visible !important; }
 .scene-insert { position: absolute; bottom: 10px; right: 10px; padding: 7px 12px; background: var(--chrome); color: var(--brand); border-radius: 20px; font-size: 11px; opacity: 0; box-shadow: 0 2px 10px #0002; }

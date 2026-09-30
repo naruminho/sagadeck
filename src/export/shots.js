@@ -59,8 +59,9 @@ export async function pdf(htmlFile, outFile) {
   }
   // cada página é a foto do slide; por cima, áreas clicáveis nos itens com goto (o PDF pula para a página do destino)
   const hit = (l) => `<a href="#p${l.to}" style="position:absolute;left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px"></a>`;
-  await page.setContent(`<style>@page{size:1920px 1080px;margin:0}body{margin:0}.pg{position:relative;width:1920px;height:1080px;page-break-after:always;overflow:hidden}img{width:1920px;height:1080px;display:block}</style>${imgs.map((b, i) => `<div class="pg" id="p${i}"><img src="data:image/jpeg;base64,${b}">${links[i].map(hit).join("")}</div>`).join("")}`);
-  await page.pdf({ path: outFile, width: "1920px", height: "1080px", printBackground: true });
+  const { w: W, h: H } = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 }); // deck.aspect
+  await page.setContent(`<style>@page{size:${W}px ${H}px;margin:0}body{margin:0}.pg{position:relative;width:${W}px;height:${H}px;page-break-after:always;overflow:hidden}img{width:${W}px;height:${H}px;display:block}</style>${imgs.map((b, i) => `<div class="pg" id="p${i}"><img src="data:image/jpeg;base64,${b}">${links[i].map(hit).join("")}</div>`).join("")}`);
+  await page.pdf({ path: outFile, width: `${W}px`, height: `${H}px`, printBackground: true });
   await browser.close();
 }
 
@@ -98,7 +99,7 @@ function inPageCheck(i) {
     if (e.scrollWidth > e.clientWidth + 3) issues.push({ kind: "estouro-horizontal", text: label(e) });
     const fsz = parseFloat(getComputedStyle(e).fontSize);
     if (getComputedStyle(e).maxHeight !== "none" && e.scrollHeight > e.clientHeight + fsz * 0.3) issues.push({ kind: "estouro-vertical", text: label(e) });
-    if (r.right > 1920 + 2 || r.bottom > 1080 + 2 || r.left < -2 || r.top < -2) issues.push({ kind: "fora-do-slide", text: label(e) });
+    if (r.right > 1920 + 2 || r.bottom > (window.sagadeck?.size?.h || 1080) + 2 || r.left < -2 || r.top < -2) issues.push({ kind: "fora-do-slide", text: label(e) });
     if (safe && !e.closest(".foot, .headbar") && r.bottom > R(safe).bottom + 24) issues.push({ kind: "passa-da-margem-inferior", text: label(e), px: Math.round(r.bottom - R(safe).bottom) });
     const fs = fsz;
     if (fs < 19 && !e.closest(".foot, .headbar")) issues.push({ kind: "fonte-pequena", text: label(e), px: Math.round(fs) });

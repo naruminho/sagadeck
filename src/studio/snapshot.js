@@ -1,6 +1,7 @@
 // sagadeck Studio · "olhos" da IA: fotografa um slide renderizado de verdade (runtime completo, com
 // fontes e figuras) para mandar ao modelo junto com o pedido. Um Chrome headless fica aberto e é
 // reusado entre pedidos (a primeira foto demora ~1-2 s; as seguintes, bem menos).
+import { slideSize } from "../aspect.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +33,7 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
   const file = path.join(os.tmpdir(), `sagadeck-snap-${process.pid}-${Date.now()}.html`);
   fs.writeFileSync(file, html);
   const b = await browser();
-  const page = await b.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: width / 1920 });
+  const page = await b.newPage({ viewport: { width: 1920, height: slideSize(spec).h }, deviceScaleFactor: width / 1920 }); // deck.aspect
   try {
     // ?export: sem animações de entrada e sem HUD — a foto mostra o estado final de cada clique
     await page.goto(`${pathToFileURL(file).href}?export#${index + 1}`, { waitUntil: "load" });
