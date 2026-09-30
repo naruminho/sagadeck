@@ -284,3 +284,20 @@
 .ip-reset[hidden] { display: none; }
 .ip-reset:hover { color: var(--brand); }
 .ip-reset .ic { width: 12px; height: 12px; }
+/* alinhar / distribuir, guias do arrasto, objeto travado, lista de objetos */
+.visual-toolbar .vt-group { display: inline-flex; align-items: center; gap: 2px; }
+.visual-toolbar .vt-btn:disabled { opacity: .35; cursor: default; }
+.visual-guide { position: absolute; z-index: 1001; background: #e5487d; pointer-events: none; }
+.visual-mode [data-locked] { cursor: default !important; }
+.visual-mode [data-locked]:hover { outline: none; }
+.visual-mode .visual-selected[data-locked] { outline-style: dashed !important; }
+.ip-layers { display: flex; flex-direction: column; gap: 1px; max-height: 240px; overflow: auto; padding: 4px 0; }
+.ip-layer { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 6px; border-radius: 5px; font-size: 12px; color: var(--text); cursor: pointer; }
+.ip-layer:hover { background: var(--hover); }
+.ip-layer.sel { background: var(--selected); color: var(--brand); }
+.ip-layer.off .ip-layer-name { opacity: .45; text-decoration: line-through; }
+.ip-layer .ic { width: 14px; height: 14px; flex: none; }
+.ip-layer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-layer button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-3); cursor: pointer; }
+.ip-layer button:hover { background: var(--chrome-2); color: var(--text); }
+.ip-layer button.on { color: var(--brand); }

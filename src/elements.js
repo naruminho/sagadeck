@@ -44,6 +44,7 @@ export function attrs(el = {}, extraCls = "", extraStyle = "") {
   if (el.anim) a += ` data-anim="${el.anim}"`;
   if (el.id) a += ` id="${esc(el.id)}"`;
   if (el.goto != null && el.goto !== "") a += ` data-goto="${esc(el.goto)}"`;
+  if (el.deco) a += ` data-locked="deco"`; // moldura/logos do original: no Studio o clique atravessa (destrava na lista de objetos)
   return a;
 }
 
@@ -102,7 +103,7 @@ export function figureHTML(el, ctx, w, h) {
   return "";
 }
 
-function imageSrc(p, ctx) {
+export function imageSrc(p, ctx) {
   if (/^(https?:|data:)/.test(p)) return p;
   const f = path.resolve(ctx.baseDir, p);
   if (!fs.existsSync(f)) {

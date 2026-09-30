@@ -43,6 +43,12 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   não chegam em 300 s. Agora a transformação chama em streaming (e mostra os caracteres chegando), a chamada comum
   refaz em streaming nesse caso, erro passageiro (rede, 5xx, 429) tenta de novo uma vez e um bloco que não sai fica
   registrado sem derrubar a tarefa (parcial; pedir de novo faz só ele).
+- **Editor visual sem YAML** (`visual-editor.js`, `inspector.js`, `visual-edits.js`): alinhar (6) e distribuir;
+  copiar/colar estilo (Ctrl+Alt+C/V); travar (clique atravessa; `deco` do PowerPoint já vem travado); lista
+  **Objetos do slide** no inspetor (seleciona o travado, oculta, trava); guias magnéticas no arrasto (bordas e
+  centro do slide e dos objetos; Alt solta); trocar imagem com encaixe e ponto de foco (a chave do objeto não muda);
+  clique sem arrastar num dos selecionados fica só com ele. Texto, tabela e desenho importados do PowerPoint
+  (`tbx`, `tbx-table`, `drw`) passaram a ser objetos ajustáveis. `test/editor-tools.test.js`.
 - Falta do relatório (ordem): teste ao vivo Pro × Flash (em curso); depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
