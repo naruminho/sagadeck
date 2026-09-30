@@ -597,6 +597,15 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
 
 No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.yaml`, `imagens/`, `contexto/` (anexos, prints colados, planilhas, anotações `.md`) e `.sagadeck/` (a conversa do chat, o cache e a lixeira do projeto, do próprio Studio). O texto do que está em `contexto/` chega a você junto do pedido, como material anexado (com o caminho, ex.: `contexto/vendas.csv`): use os números e fatos de lá. Uma planilha de `contexto/` pode alimentar um gráfico com `csv: contexto/vendas.csv` (CSV) ou pela sugestão de gráficos da planilha no Studio (que grava `from:`).
 
+## Apresentação importada de PowerPoint
+
+Um `.pptx` importado (Biblioteca › Importar apresentação, ou `sagadeck importar arquivo.pptx`) chega **fiel ao original**: cada slide é um `canvas` com os elementos na mesma posição, e o deck tem `import: { from, slides, fonts, snapshots }` e `footer: false` (o original tem o próprio rodapé). Cada slide traz `original: { slide: 7, image: original/slide-07.png }` (a foto do slide original, quando o PowerPoint ou o LibreOffice estavam disponíveis) e a pasta `original/` guarda a cópia do arquivo. Elementos que só aparecem em slides importados:
+- `textbox: { paragraphs: [{ runs: [{ t, size, font, b, i, u, color, sup, sub, latex, link }], bullet: { char, font, num }, marL, indent, align, lineHeight, spaceBefore }], pad, anchor }`: caixa com a formatação original; `deco: true` = veio do mestre/layout (logo, faixa, número da página); `ph: title|body…` = o papel no layout original.
+- `drawing: "<svg…>"`: forma desenhada (retângulo, seta, desenho livre).
+- `table: { cols, heights, cells }` com `tableData` (o texto das células, para você ler e usar).
+- `image` com `crop: { l, t, r, b }` (recorte em fração de cada lado), `fit: fill`; `fromOriginal: true` = recortado da foto do original (equação antiga, SmartArt).
+Para melhorar ou recriar, leia o conteúdo (títulos, textos, `tableData`, notas) e o que a imagem mostra, e troque o slide por layouts do sagadeck; os números, nomes, fórmulas e fontes do original não podem se perder.
+
 ## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado (`solution`, `calc`, `algo`)
 
 **`solution` — exercício resolvido passo a passo.** À esquerda, `problem` (enunciado), `givens` (dados: `{symbol, value, unit, label}` ou `{latex, label}`; vírgula decimal pode) e `find` (o que se pede, LaTeX). À direita, a conta: o primeiro quadro pergunta `prompt` (padrão "Por onde você começaria?"); cada clique revela o próximo `steps: [{text, latex, note}]` (os anteriores ficam compactos); o último mostra `answer: {latex, text, label}` em destaque. Mantenha cada passo curto (uma ideia, uma linha de conta); de 3 a 6 passos. Use para qualquer matéria com conta: física, engenharia, finanças, estatística.

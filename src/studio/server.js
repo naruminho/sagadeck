@@ -1333,7 +1333,10 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             return;
           }
           if (pathname === "/api/library/import" && req.method === "POST") {
-            const id = await L.importPackage(await readBody(req), url.searchParams.get("topic") || "", url.searchParams.get("name") || "Importada");
+            const name = url.searchParams.get("name") || "Importada";
+            // PowerPoint: importação fiel (src/import); .sagadeck/.zip: pacote do sagadeck
+            if (/\.pptx$/i.test(name)) { const r = await L.importOffice(await readBody(req), url.searchParams.get("topic") || "", name); return ok({ id: r.id, slides: r.slides, snapshots: r.snapshots, snapBy: r.snapBy }); }
+            const id = await L.importPackage(await readBody(req), url.searchParams.get("topic") || "", name);
             return ok({ id });
           }
           if (req.method !== "POST") return fail(new Error("método não suportado"), 405);

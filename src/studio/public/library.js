@@ -120,7 +120,7 @@
           <div class="actions"><button class="lib-btn primary" data-empty-new>${ic("plus")}Nova apresentação</button></div></div>`;
       } else if (!data.decks.length && !q) {
         main.innerHTML += `<div class="empty"><div class="big">${ic("library")}</div><h2>Sua biblioteca está vazia</h2>
-          <p>Crie um tópico (ex.: Palestras, Trabalho) e comece uma apresentação — em branco, com IA ou importando um .sagadeck.</p>
+          <p>Crie um tópico (ex.: Palestras, Trabalho) e comece uma apresentação — em branco, com IA ou importando um .sagadeck ou um PowerPoint (.pptx).</p>
           <div class="actions"><button class="lib-btn ghost" data-empty-topic>${ic("folder-plus")}Novo tópico</button><button class="lib-btn primary" data-empty-new>${ic("plus")}Nova apresentação</button></div></div>`;
       } else if (!list.length) {
         main.innerHTML += `<div class="empty"><div class="big">${ic("search")}</div><h2>Nada encontrado</h2><p>Nenhuma apresentação com "${esc(q)}".</p></div>`;
@@ -449,7 +449,7 @@
       const r = await fetch(`api/library/import?topic=${encodeURIComponent(e.target.dataset.topic || "")}&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
-      toast(`"${f.name}" importada`);
+      toast(/\.pptx$/i.test(f.name) ? `"${f.name}" importada: ${j.slides} slides${j.snapshots ? `, com a foto de cada slide do original (${j.snapBy})` : ""}` : `"${f.name}" importada`, 6000);
       await load();
     } catch (err) { toast("Não deu para importar: " + err.message, 6000); }
   };

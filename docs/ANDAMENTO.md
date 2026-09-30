@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Importar PowerPoint fielmente (fase 1 do plano de importação) — 30/09/2026
+
+- Casos reais (locais, fora do repositório): `Aula 1 - Conceitos Básico - 2026.pptx` (83 slides, 16:9, hidrologia,
+  ciclo desenhado com ~90 formas, texturas, tabelas, OLE, OMML) e `Intro01.pptx` (23 slides, 4:3, 4 mestres).
+  Comparados lado a lado com a foto do PowerPoint: praticamente iguais.
+- `src/import/pptx.js` (leitor puro): herança slide > layout > mestre > txStyles > defaultTextStyle, tema por mestre,
+  cores com lumMod/tint/alpha, auto-ajuste (fontScale), marcadores (Wingdings/Symbol desenhados, inclusive dentro do
+  texto na faixa F0xx), formas prontas + desenho livre em SVG, texturas (blipFill em padrão) e hachuras, grupos
+  achatados, imagens com recorte e contorno, tabelas com estilo do arquivo ou embutido (Light/Medium Style), callouts,
+  gráficos simples, OLE (prévia), OMML → LaTeX (`src/import/omml.js`), anotações.
+- `src/import/index.js`: grava mídias (WMF/EMF → PNG pelo Windows, `office.js`), cópia em `original/`, fotos do
+  original (PowerPoint numa cópia só leitura; ou LibreOffice → PDF → pdf.js, `pdf-render.js`) e recorta da foto o
+  que não sai igual (`crop.js`). `outlineOf` dá o roteiro para a IA.
+- Entradas: `sagadeck importar arquivo.pptx`, Biblioteca › Importar apresentação (.pptx), `library.importOffice`.
+- Elementos novos no motor: `textbox`, `table` (importada), `drawing`, `image.crop/flipH`.
+- Teste: `test/import.test.js`. Próximo: estilo do usuário (mestre), marcas de mudança e os dois desafios da aula.
+
 ## Arquivos do projeto como no VS Code: código com realce, CSV como o Excel, PDF e DOCX — 30/09/2026
 
 - Pedido: ver e editar .txt/.md/.json/.yaml com realce; ver PDF; ler .docx (editar só formato nativo, sem pesar);
