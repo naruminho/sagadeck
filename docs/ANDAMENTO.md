@@ -8,6 +8,17 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Criar com IA = o mesmo caminho do chat — 30/09/2026
+
+- "Criar com IA" / "Deck com IA" saíam bem piores que pedir a mesma coisa no chat (teste da pessoa: "apresentação
+  bem humorada de como fritar um ovo como um chef"). A geração tinha caminho próprio: direção criativa sorteada,
+  regras rígidas de ritmo, temperatura 0,7, rodadas de enxugamento e de variedade, `autofixDeck` por cima.
+- Agora `generateDeck` chama `editDeck` sobre um deck em branco (as mesmas regras, a mesma temperatura, uma chamada).
+  Ficam: pergunta de propósito (Preferências), autor, idioma, data, imagens (geradas depois), estilo escolhido e
+  materiais. Se a IA preferir perguntar, a pergunta volta com as opções.
+- Bug achado no teste ao vivo (vale para o chat também): `{ text: Manteiga, mas sem fumaça }` partia o texto na
+  vírgula; chave com espaço e valor vazio volta a ser o fim do texto anterior (`rejoinFlowCommas`).
+
 ## Gráficos de verdade: fórmula livre, planilha que cola do Excel, CSV — 30/09/2026
 
 - A pessoa reclamou (com razão) que o brainstorm dos gráficos ficou no papel e que o slide científico só plotava duas

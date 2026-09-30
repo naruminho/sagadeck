@@ -1,19 +1,19 @@
 // sagadeck · IA de verdade: editar deck pelo chat, texto -> slide (Napkin), gerar deck do zero e imagens.
 // Toda saída do LLM passa por: extrair YAML -> normalizar -> renderizar cada slide (validação) ->
 // se falhar, devolve o erro ao LLM e tenta de novo -> auto-cura geométrica.
-import { wordLimit, isDense, PURPOSES } from "../purpose.js";
+import { PURPOSES } from "../purpose.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { renderSlide, wordCount } from "../build.js";
+import { renderSlide } from "../build.js";
 import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
-import { autofixDeck, autofixSlide } from "../fiscal/autofix.js";
+import { autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
-import { varietyReport, nextDirection } from "./variety.js";
+import { varietyReport } from "./variety.js";
 import { materialsBlock } from "./context.js";
 import { COLLECTION_STYLE } from "../studio/template-collections.js";
 import { COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
@@ -113,12 +113,6 @@ function cleanProse(s) {
   return s.split("\n").map((l) => l.replace(/^\s*\d+[.)]\s+/, "")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-// Slides acima do limite "anti-sono" do fiscal (mesma conta do build).
-function wordySlides(spec) {
-  return spec.slides
-    .map((s, i) => ({ n: i + 1, words: wordCount({ ...s, notes: undefined }), limit: wordLimit(s, spec) }))
-    .filter((x) => x.words > x.limit);
-}
 
 function privateKeys(spec) {
   const out = {};
@@ -155,11 +149,27 @@ export function repairYaml(src) {
   }).join("\n");
 }
 
+// Outro erro clássico: `{ title: A, text: Manteiga derretida, mas sem fumaça }` — num mapa entre chaves a vírgula
+// separa campos, e "mas sem fumaça" vira uma chave vazia. Nome de campo nunca tem espaço: essa chave volta a ser
+// o fim do texto anterior.
+function rejoinFlowCommas(node) {
+  if (Array.isArray(node)) return node.map(rejoinFlowCommas);
+  if (!node || typeof node !== "object") return node;
+  const out = {};
+  let prev = null;
+  for (const [k, v] of Object.entries(node)) {
+    if (v === null && /\s/.test(k.trim()) && prev && typeof out[prev] === "string") { out[prev] += `, ${k.trim()}`; continue; }
+    out[k] = rejoinFlowCommas(v);
+    prev = k;
+  }
+  return out;
+}
+
 function parseYaml(src) {
   try {
-    return YAML.parse(src);
+    return rejoinFlowCommas(YAML.parse(src));
   } catch (first) {
-    try { return YAML.parse(repairYaml(src)); } catch { throw new Error(`YAML inválido: ${first.message}`); }
+    try { return rejoinFlowCommas(YAML.parse(repairYaml(src))); } catch { throw new Error(`YAML inválido: ${first.message}`); }
   }
 }
 
@@ -678,7 +688,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [] }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages }) {
   const deck = publicSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -716,7 +726,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     : text;
   const convo = conversationFor(history);
   const messages = [
-    { role: "system", content: `${systemPrompt({ images })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? `${COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
+    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? `${COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
     // a conversa deste deck: o que a pessoa disse lá atrás (compactado) + as últimas trocas inteiras
     ...(convo.memory ? [{ role: "user", content: convo.memory }, { role: "assistant", content: "Certo, levo isso em conta." }] : []),
     ...convo.recent,
@@ -748,7 +758,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   // Imagens: só as pedidas nos slides que a IA alterou agora. Pedidos pendentes em outros slides ficam
   // como estão (nem geram custo nem somem); se a geração falhar, o pedido fica como placeholder.
   const touched = { ...edited, slides: changed.map((i) => edited.slides[i]).filter(Boolean) }; // mesmos objetos: gera no lugar
-  const nImgs = images ? countImagePrompts(touched) : 0;
+  const nImgs = images && !deferImages ? countImagePrompts(touched) : 0; // deferImages: quem chamou gera depois (Criar com IA)
   const imgs = nImgs
     ? await materializeImages(touched, { ...imageOptions, keepFailed: true,
       onProgress: (m) => onProgress?.({ phase: "images", text: `${m[0].toUpperCase()}${m.slice(1)} (${nImgs} no total)…` }) })
@@ -828,7 +838,9 @@ export function styleFor(kind) {
   return s ? { theme: s.theme, direction: s.direction } : null;
 }
 
-// Gera um deck inteiro a partir de um briefing.
+// Gera um deck inteiro a partir de um briefing. É o MESMO caminho do chat (editDeck): o pedido vai como uma conversa
+// sobre um deck em branco, com as mesmas regras e a mesma temperatura. Antes havia um caminho próprio (direção
+// criativa sorteada, regras rígidas de ritmo, rodadas de reescrita) que saía bem pior que pedir a mesma coisa no chat.
 export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, ask = false, answer = "", author = "", language = "" } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
@@ -836,108 +848,52 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
   if (st && !theme) theme = st.theme;
   if (st && !direction) direction = st.direction;
   if (!slides && duration) slides = slidesForMinutes(duration);
-  const wishes = [
-    theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
-    slides ? `Cerca de ${slides} slides.` : "Entre 8 e 14 slides.",
-    duration ? `Duração planejada: ${duration} minutos (campo duration).` : "",
-  ].filter(Boolean).join(" ");
-  const dir = direction || nextDirection();
-  // "perguntar quando não souber" (Preferências): o modelo decide se o propósito do material está claro
-  const askRule = ask && !answer
-    ? `\n\nANTES DE GERAR, confira se dá para saber PARA QUE SERVE o material (quanto texto vai na tela depende disso). Workshop, treinamento, hands-on ou "uma apresentação sobre X" que não dizem se o material é só para a sessão (rápido, pouco texto) ou para o pessoal guardar e consultar depois (explicação completa no slide): NÃO suponha — responda só com um bloco \`\`\`pergunta contendo JSON {"pergunta": "…", "opcoes": ["…", "…"]} (uma pergunta curta, 2 a 4 opções curtas) e nada mais. Se o briefing já disser (apostila, material de consulta, para distribuir; pitch, palestra, reunião executiva), gere direto, sem perguntar.`
-    : "";
-  // Antes de gerar (com "perguntar" ligado): uma chamada curta só para o modelo decidir para que serve o material e
-  // se precisa perguntar. No meio do pedido longo de geração ele tende a supor; focado, pergunta quando não dá para saber.
+  // "perguntar quando não souber" (Preferências): uma chamada curta decide para que serve o material (e se precisa perguntar)
   let decided = null;
   if (ask && !answer) {
     say("entendendo para que serve o material…");
     decided = await decidePurpose(briefing, materials).catch(() => null);
     if (decided?.question) return { question: decided.question };
   }
-  const extras = [
+  const wishes = [
+    theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
+    slides ? `Cerca de ${slides} slides.` : "",
+    duration ? `Duração planejada: ${duration} minutos (grave duration e o time de cada slide).` : "",
+    direction ? `Estilo que a pessoa escolheu: ${direction}` : "",
     decided?.purpose ? `Para que serve o material (já decidido): purpose: ${decided.purpose}${decided.why ? ` — ${decided.why}` : ""}.` : "",
     decided?.texto ? `A pessoa disse quanto texto quer: ${decided.texto} texto na tela (grave maxWords: ${decided.texto === "muito" ? 200 : 35}).` : "",
     answer ? `Resposta da pessoa à sua pergunta sobre o material: ${answer}` : "",
     author ? `Autor: ${author} (use em author).` : "",
     language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
   ].filter(Boolean).join("\n");
-  const messages = [
-    { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
-    { role: "user", content: `${materialsBlock(materials) ? materialsBlock(materials) + "\n\n" : ""}Crie uma apresentação completa sobre o briefing abaixo. ${wishes}
-Decida o \`purpose\` pelo briefing (regras do sistema) e grave no deck. Palestra, executiva e workshop: arco narrativo (gancho, desenvolvimento, fechamento), notas do apresentador (notes) e ao menos uma interação com a plateia quando fizer sentido. Aula e consulta: ordem didática (do conceito ao avançado) e a explicação no slide, sem interação com a plateia. Em todos: o tempo em minutos (time) em cada slide, somando a duração total.
+  const starter = { title: "Nova apresentação", ...(theme ? { theme } : {}), slides: [{ layout: "cover", title: "Nova apresentação" }] };
+  const instruction = `Crie a apresentação inteira que a pessoa pediu abaixo. O deck atual é só um começo em branco: troque o slide 1 e insira os outros (ou devolva o deck completo). Grave no deck o title, o theme, o purpose e, se o pedido disser a ocasião, o context.
+${wishes}
 
-Direção criativa deste deck: ${dir}
-Use a direção como ponto de partida: o tema escolhido, o público e o nível de sobriedade pedidos no briefing têm precedência.
-Se o briefing disser a ocasião (quantas pessoas, presencial/online/gravado, executivo/informal, objetivo), grave em context: no deck e respeite: online ou gravado sem interação ao vivo e com letra maior; executivo com visual sóbrio. Varie também a abertura, a escala tipográfica, a composição e o papel das imagens; trocar só a cor não cria uma apresentação diferente.
-Ritmo visual (a plateia enjoa de slides iguais; vale para palestra, executiva e workshop. Em aula e consulta a clareza vem antes: repetir \`code\` ou \`dossier\` em sequência é normal):
-- Nunca 3 slides seguidos com o mesmo layout; use pelo menos metade de layouts diferentes (manchete, número grande, página inteira, mosaico, funil, pirâmide, comparação, matriz, linha do tempo, pergunta, enquete…).
-- No máximo ~40% de listas/cartões; alterne com slides de impacto (headline, number, statement, full, quote, question).
-- Alterne o tom (dark/accent) nos momentos-chave: virada, dado forte, pergunta.
-
-Briefing:
+Pedido da pessoa:
 """
 ${briefing}
 """
-${extras}${askRule}
 
-Responda só com o deck completo num bloco \`\`\`yaml (com title, theme, duration, purpose e slides).` },
-  ];
+Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o que ela quer.`;
   say("pedindo o deck ao LLM…");
-  const drawWarned = new Set();
-  const parseDrawn = async (t) => { const r = parseDeckText(t); await checkDrawings(r.spec, r.spec.slides.map((_, i) => i), drawCheck, drawWarned); return r; };
-  // na primeira resposta o modelo pode preferir perguntar para que serve o material (Preferências › perguntar)
-  const parseFirst = async (t) => { const q = askRule ? extractQuestion(t) : null; return q ? { question: q } : parseDrawn(t); };
-  let { spec, attempts, question } = await askUntilValid(messages, parseFirst, { temperature: 0.7, onProgress: onEvent });
-  if (question) return { question };
-  if (attempts > 1) say(`YAML corrigido após ${attempts - 1} tentativa(s)`);
-
-  // Uma rodada de enxugamento se o fiscal anti-sono reclamaria de algum slide.
-  const wordy = wordySlides(spec);
-  if (wordy.length) {
-    say(`enxugando ${wordy.length} slide(s) com texto demais…`);
-    try {
-      ({ spec } = await askUntilValid([
-        { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
-        { role: "user", content: `Deck:\n\`\`\`yaml\n${toYaml(spec)}\`\`\`
-O fiscal anti-sono reclama destes slides (palavras na tela, sem contar notes):
-${wordy.map((w) => `- slide ${w.n}: ${w.words} palavras (limite ${w.limit})`).join("\n")}
-
-${isDense(spec) ? "É material de consulta/aula: NÃO mova a explicação para \`notes\`; divida o slide em dois (continuação) ou use \`dossier\` com \`density: dense\`." : "Enxugue esses slides para no máximo ~75% do limite (ex.: 30 palavras se o limite é 40): frases curtas, menos itens, detalhe movido para \`notes\` — ou divida um slide em dois."} Não mexa nos outros slides.
-Responda só com o deck completo num bloco \`\`\`yaml.` },
-      ], parseDrawn, { onProgress: onEvent }));
-    } catch (e) {
-      say(`não consegui enxugar (${e.message}); mantive a versão anterior`);
-    }
+  const r = await editDeck({ spec: starter, instruction, images, maxImages: 8, deferImages: true, drawCheck, materials, onProgress: onEvent });
+  // a IA preferiu perguntar (como faria no chat): a pergunta volta para a pessoa
+  if (r.talk) return { question: { question: r.reply, options: r.options || [] } };
+  let spec = r.spec;
+  if (r.variants) { // não pedimos versões; se vierem, fica a primeira
+    const i = Math.max(0, (r.variants.slide || 1) - 1);
+    spec = { ...spec, slides: spec.slides.map((x, k) => (k === i ? r.variants.options[0].slide : x)) };
   }
-  // Uma rodada de variedade se ficou repetitivo; a versão nova só vale se melhorar.
-  // material de consulta/aula: a clareza vem antes da variedade (a rodada trocaria explicação por slide de impacto)
-  const before = varietyReport(spec);
-  if (!before.ok && !isDense(spec)) {
-    say(`deixando menos repetitivo (${before.problems.length} problema(s) de ritmo)…`);
-    try {
-      const { spec: varied } = await askUntilValid([
-        { role: "system", content: systemPrompt({ images, maxImages: 8 }) },
-        { role: "user", content: `Deck:\n\`\`\`yaml\n${toYaml(spec)}\`\`\`
-Ficou repetitivo — a plateia vai enjoar:
-${before.problems.map((p) => `- ${p}`).join("\n")}
-
-Reescreva variando os layouts, o ritmo e o tom, SEM perder conteúdo nem a ordem da narrativa (direção criativa: ${dir}).
-Troque slides de lista/cartões por formatos de impacto onde fizer sentido; mantenha notes e time.
-Responda só com o deck completo num bloco \`\`\`yaml.` },
-      ], parseDrawn, { onProgress: onEvent });
-      if (varietyReport(varied).problems.length < before.problems.length) spec = varied;
-      else say("a revisão de ritmo não melhorou; mantive a versão anterior");
-    } catch (e) {
-      say(`não consegui variar (${e.message}); mantive a versão anterior`);
-    }
-  }
+  if (spec.slides.length < 2 && spec.slides[0]?.title === "Nova apresentação") throw new Error("A IA não criou a apresentação. Tente de novo ou descreva com mais detalhe.");
+  (r.actions || []).filter((x) => /corrigido|não enxerga/.test(x)).forEach(say);
   // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
   if (author && !spec.author) spec.author = author;
   if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
+  if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
-  const fixed = autofixDeck(spec, []);
-  return { spec: publicSpec(fixed.spec), images: imgs, direction: dir, variety: varietyReport(fixed.spec) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec) };
 }
 
 export function toYaml(spec) {

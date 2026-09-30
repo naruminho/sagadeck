@@ -21,7 +21,7 @@ const NEW_DECK = ["```yaml", "title: Deck gerado", "theme: bauhaus", "duration: 
 // comandos: pede para rodar, recebe o resultado (ou a recusa) e só então edita
 const RUN_CONTA = "Vou conferir antes.\n```yaml\nrun:\n  language: javascript\n  why: conferir a conta de 6 x 7\n  code: |\n    import fs from 'node:fs';\n    fs.writeFileSync('rodou.txt', 'sim');\n    console.log(6 * 7);\n```";
 function script(req) {
-  if (/Crie uma apresentação completa/.test(req.lastUser)) return NEW_DECK;
+  if (/Crie a apresentação inteira/.test(req.lastUser)) return NEW_DECK;
   if (/Resultado do comando 1/.test(req.lastUser)) return `Conferi.\n\`\`\`yaml\nedit:\n  1:\n    kicker: "Conta ${/\b42\b/.test(req.lastUser) ? "42" : "?"}"\n\`\`\``;
   if (/NÃO autorizou/.test(req.lastUser)) return "Tudo bem, não rodei nada.";
   const p = pedido(req);
@@ -217,7 +217,7 @@ test("studio + IA (LLM falso)", async (t) => {
       await p.fill("#ai-deck-briefing", "Palestra curta sobre fraudes. Você decide onde ilustrar.");
       await p.click("#btn-run-ai-deck");
       await p.waitForFunction(() => document.querySelector("#modal-ai-deck")?.classList.contains("hidden"), null, { timeout: 60000 });
-      const req = llm.requests.findLast((r) => /Crie uma apresentação completa/.test(r.lastUser));
+      const req = llm.requests.findLast((r) => /Crie a apresentação inteira/.test(r.lastUser));
       assert.match(req.lastUser, /Você decide onde ilustrar/);
       assert.match(req.system, /Você PODE pedir ilustrações/);
       assert.equal((await deck()).title, "Deck gerado");
