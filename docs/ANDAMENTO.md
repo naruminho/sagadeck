@@ -34,7 +34,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   `/api/instance` diz app, versão, processo e biblioteca; `sagadeck studio` com um aberto na porta (mesma
   biblioteca e versão) só mostra a URL dele (com `?deck=` se pediu um deck); outra biblioteca ou versão: avisa e
   não sobe outro. Versão e processo no log de início. `test/instance.test.js`.
-- Falta do relatório (ordem): teste ao vivo Pro × Flash; depois
+- **Desfazer / refazer único** (`src/studio/public/history.js`): toda mudança do deck (formulário, tela, YAML,
+  assistente de IA, revisão, estilo, proporção, imagem gerada) é um passo com rótulo da origem; botões na barra de
+  título, Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z e na busca de comandos; dentro de campo de texto vale o do campo; digitação
+  no mesmo campo junta num passo (mesmos caminhos no deck, 1,5 s), arrastar e apagar são dois; o editor visual
+  deixou de ter um desfazer próprio. `test/undo.test.js` e o passo da IA em `studio-ai.test.js`.
+- **Ao vivo (Aula 1, 83 slides)**: o Flash caiu aos 5 min numa chamada: o `fetch` do Node desiste se os cabeçalhos
+  não chegam em 300 s. Agora a transformação chama em streaming (e mostra os caracteres chegando), a chamada comum
+  refaz em streaming nesse caso, erro passageiro (rede, 5xx, 429) tenta de novo uma vez e um bloco que não sai fica
+  registrado sem derrubar a tarefa (parcial; pedir de novo faz só ele).
+- Falta do relatório (ordem): teste ao vivo Pro × Flash (em curso); depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
 

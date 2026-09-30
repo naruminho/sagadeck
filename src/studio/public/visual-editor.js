@@ -3,7 +3,7 @@
    no texto selecionado (ou duplo clique) escreve; arrastar numa área vazia desenha um retângulo que seleciona vários;
    Shift+clique soma. Arrastar, setas, Delete e a barra valem para todos os selecionados. */
 (function () {
-  let active = false, root, slide, commit, sel = [], history = [], host, toolbar, dragging, beforeDrag, pendingWrite, marquee;
+  let active = false, root, slide, commit, sel = [], host, toolbar, dragging, beforeDrag, pendingWrite, marquee;
   const primary = () => sel[sel.length - 1] || null;
   const listeners = []; // o inspetor do Studio acompanha a seleção
   let restoring = false; // o slide redesenhou e a seleção voltou sozinha (não foi a pessoa que clicou)
@@ -20,11 +20,10 @@
     ['chevron','Chevron','<polygon points="4,14 68,14 96,50 68,86 4,86 30,50"/>'],['bubble','Balão','<path d="M12,10 H88 Q96,10 96,18 V62 Q96,70 88,70 H42 L24,92 L28,70 H12 Q4,70 4,62 V18 Q4,10 12,10 Z"/>'],
   ];
   const shapeSize = k => k==='line' ? {w:420,h:8,thickness:8} : k==='circle' ? {w:280,h:280} : k==='pill' ? {w:380,h:120} : {w:320,h:240};
-  function saveBefore() { history.push(clone(slide)); if(history.length>30)history.shift(); }
+  function saveBefore() {} // o desfazer é o do Studio (history.js): cada gravação vira um passo
   function edit(el = primary()) { return (slide.visualEdits ||= {})[el.dataset.vkey] ||= {}; }
   function finish() { commit?.(); }
   function change(fn) { if(!sel.length)return;saveBefore();sel.forEach(el=>fn(edit(el)));finish(); }
-  function undo() { const old=history.pop();if(!old)return;Object.keys(slide).forEach(k=>delete slide[k]);Object.assign(slide,old);finish(); }
   // els: lista de elementos selecionados (vazia = nenhum). A alça de redimensionar só aparece com um único objeto.
   function pick(els) {
     els = (Array.isArray(els) ? els : els ? [els] : []).filter(Boolean);
@@ -111,7 +110,7 @@
     addEventListener('resize',placeToolbar);document.addEventListener('scroll',placeToolbar,true);
     document.addEventListener('keydown',e=>{
       if(!active || e.target.closest('input,textarea,[contenteditable="true"],dialog') || document.querySelector('dialog[open]'))return;
-      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.stopImmediatePropagation();undo();return;}
+      // Ctrl+Z / Ctrl+Y: o desfazer único do Studio (history.js), o mesmo do resto da tela
       if(!sel.length)return;
       if(['Delete','Backspace'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();change(v=>v.hidden=true);pick(null);return;}
       if(e.key==='Escape'){pick(null);setMode(false);return;}
@@ -143,7 +142,7 @@
     return hit.filter(n=>!hit.some(o=>o!==n&&o.contains(n)));
   }
   function mount(container,s,onCommit) {
-    if(slide!==s){history=[];sel=[];}
+    if(slide!==s){sel=[];}
     const keys=sel.map(n=>n.dataset.vkey);
     root=container;slide=s;commit=onCommit;root.classList.toggle('visual-mode',active);
     if(!root.dataset.visualEvents){
@@ -184,7 +183,7 @@
         const w=pendingWrite;pendingWrite=null;
         if(!dragging)return;const d=dragging;dragging=null;
         if(w&&!d.moved){startWriting(w.el,e.clientX,e.clientY);return;}
-        if(JSON.stringify(beforeDrag)!==JSON.stringify(slide)){history.push(beforeDrag);finish();}
+        if(JSON.stringify(beforeDrag)!==JSON.stringify(slide)){finish();}
       };
       root.addEventListener('pointerup',up);root.addEventListener('pointercancel',up);
       root.addEventListener('dblclick',e=>{const el=e.target.closest('.t[data-vkey]');if(!el||el.dataset.writing)return;startWriting(el,e.clientX,e.clientY);});

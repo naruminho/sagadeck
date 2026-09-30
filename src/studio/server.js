@@ -516,7 +516,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -1166,7 +1166,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         try { t = await transformDeck({ spec: source, dir, mode, request: pedido, onProgress: (ev) => tell({ ...ev, mode }), signal: job.controller.signal, limits: transformLimits() }); }
         catch (e) {
           if (e.kind) return { ...result, reply: `Parei antes de terminar o plano (${e.message}). Peça de novo para continuar de onde parou.`, spec, talk: true };
-          throw e;
+          console.error("[Studio] transformação:", e.message);
+          return { ...result, reply: `A transformação parou por um erro (${e.message}). Nada mudou na apresentação; o que ficou pronto está guardado e pedir de novo continua de onde parou.`, spec, talk: true };
         } finally { transforms.delete(key); }
         const r = t.report;
         if (r.status === "parcial" && job.controller.signal.aborted) {

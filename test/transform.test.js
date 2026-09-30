@@ -323,3 +323,35 @@ test("Studio: Parar a transformação pelo chat; reabrir a página no meio acomp
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+test("tarefa: erro passageiro do modelo tenta de novo; bloco que não sai não derruba a tarefa, e pedir de novo faz só ele", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  let fail = 1, writes = 0;
+  const llm = await startMockLLM((req) => {
+    if (/Escreva os slides destes itens/.test(req.lastUser)) { writes++; if (fail-- > 0) return { status: 502, error: "upstream caiu" }; }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const a = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.equal(writes, 2, "tentou de novo uma vez");
+    assert.equal(a.report.status, "concluido");
+    // agora o modelo falha sempre na escrita: o resto sai, o bloco fica como o original, a tarefa fica parcial
+    fail = 99;
+    const b = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.equal(b.report.status, "parcial");
+    assert.match(b.report.parou, /não saíram/);
+    assert.ok(b.report.problemas.some((p) => /itens 2, 3: .*upstream caiu/.test(p)), JSON.stringify(b.report.problemas));
+    assert.equal(b.spec.slides[1].original.slide, 2, "o item que não saiu fica como no original");
+    assert.ok(b.spec.slides.some((s) => s.original?.merged), "o que é código (juntar) saiu");
+    // o modelo voltou: pedir de novo retoma e faz só o que faltou
+    fail = 0; writes = 0;
+    const c = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar" });
+    assert.ok(c.report.retomada);
+    assert.equal(c.report.status, "concluido");
+    assert.equal(c.spec.slides[1].layout, "statement");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
