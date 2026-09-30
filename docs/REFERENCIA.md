@@ -588,6 +588,22 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
   deco: none
 ```
 
+## Carrossel (`carousel`)
+
+Um item por clique, cada um com foto e texto: `items: [{ title, text, label, image, alt }]`. `image` é a foto da pessoa (caminho relativo ao deck, link ou a escolhida no Studio); **sem `image`, o item usa uma foto de demonstração desenhada** (paisagens, funcionam offline).
+- `style: arc` (padrão): roda em semicírculo com as fotos; a cada clique ela gira até o item da vez, que cresce; o texto atual sai pela esquerda e o novo entra da esquerda para a direita, sobrepondo.
+- `style: rings`: a foto em anéis — o de fora chega girando no sentido anti-horário, o de dentro no horário, e travam no lugar formando a foto; o texto sobe junto com o giro.
+Use de 3 a 8 itens. `label` troca o "01 / 05" em cima do título.
+
+```yaml
+- layout: carousel
+  title: Cinco lugares, cinco lições
+  style: rings
+  items:
+    - { title: Montanha, text: Subir devagar é o jeito mais rápido de chegar., image: imagens/montanha.jpg }
+    - { title: Mar, text: Tudo o que é fundo começa raso. }
+```
+
 ## Dinâmicas a dois (`duel`, `terminals`, `turns`)
 
 Duas pessoas, **um clique por jogada** (cada clique troca o quadro inteiro; funciona com controle remoto e modo apresentador; o PDF mostra o último quadro).
