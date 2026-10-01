@@ -329,9 +329,17 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     }
   });
   job.stage = "escrever"; save();
-  const factsFor = (it) => {
+  // fatos do original: o texto do slide e, para cada figura que NÃO foi mantida no novo, o que a visão leu nela (eixos,
+  // rótulos). Figura mantida (a mesma imagem no slide novo) já carrega os números dela: não cobra de novo no texto.
+  const factsFor = (it, produced = []) => {
     const facts = { numbers: new Set(), terms: new Set(), alts: new Map() };
-    for (const s of srcOf(it)) { const f = factsOf(s, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" ")); f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v)); }
+    const used = JSON.stringify(produced);
+    const add = (f) => { f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v)); };
+    for (const s of srcOf(it)) {
+      add(factsOf(s));
+      const kept = contentImages(s).length && contentImages(s).every((im) => used.includes(im));
+      if (!kept) add(factsOf({ elements: [] }, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" ")));
+    }
     return facts;
   };
   const siblingsOf = (k) => plan.slides.map((x, j) => (j !== k && (x.de || []).some((n) => (plan.slides[k].de || []).includes(n)) ? j : -1)).filter((j) => j >= 0);
@@ -367,7 +375,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
           const mine = produced.filter((s) => s.origem === k + 1);
           const sib = siblingsOf(k);
           const others = [...sib.flatMap((j) => job.results[j]?.slides || []), ...produced.filter((s) => sib.includes(s.origem - 1))];
-          const miss = missingFacts(factsFor(it), [...mine, ...others]);
+          const miss = missingFacts(factsFor(it, [...mine, ...others]), [...mine, ...others]);
           const imgsLost = (it.imagens || []).filter((p) => fs.existsSync(path.join(dir, p)) && !JSON.stringify(mine).includes(p));
           if (miss.numbers.length || miss.terms.length || imgsLost.length) issues.push({ k, kind: "fatos", miss, imgsLost, text: `ITEM ${k + 1}: faltou do original ${[miss.numbers.length ? `números ${miss.numbers.slice(0, 30).join(", ")}` : "", miss.terms.length ? `nomes/siglas ${miss.terms.slice(0, 20).join(", ")}` : "", imgsLost.length ? `imagens ${imgsLost.join(", ")}` : ""].filter(Boolean).join("; ")}` });
         }
