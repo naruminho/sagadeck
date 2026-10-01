@@ -480,6 +480,25 @@ test("recriar: o original que fica no deck novo (pendente ou que não saiu) vem 
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("correção que volta só com o item corrigido: vale; os outros itens do bloco ficam como estavam", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler, seen } = script();
+  const llm = await startMockLLM((req) => {
+    if (/Conferi estes slides/.test(req.lastUser)) { seen.fix++; return '```yaml\nslides:\n  - layout: statement\n    origem: 2\n    text: "Kirpich: bacias menores que 0,5 km²; coeficiente 57, expoente 0,385."\n```'; } // só o item 2
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!r.report.problemas.some((p) => /correção/.test(p)), JSON.stringify(r.report.problemas));
+    assert.match(r.spec.slides[1].text, /0,385/, "a correção entrou");
+    assert.ok(r.spec.slides.some((s) => s.layout === "question"), "o item que não voltou na correção ficou como estava");
+    assert.equal(r.report.status, "concluido");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("primeiro slide do bloco sem origem: é do primeiro item (a IA escreve na ordem)", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();

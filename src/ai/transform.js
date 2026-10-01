@@ -382,7 +382,13 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         progress("corrigir", `Corrigindo ${issues.length} ponto(s) nos itens ${[...new Set(issues.map((x) => x.k + 1))].join(", ")}…`);
         const fixMsg = [...messages, { role: "assistant", content: `\`\`\`yaml\n${YAML.stringify({ slides: produced })}\`\`\`` },
           { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
-        try { const r = await ask(fixMsg); produced = parseProduced(r.text, batch, deckBase, dir); }
+        // a correção pode vir só com os itens corrigidos: os que não vieram ficam como estavam
+        try {
+          const r = await ask(fixMsg);
+          const fixed = parseProduced(r.text, batch, deckBase, dir, { partial: true });
+          const got = new Set(fixed.map((x) => x.origem));
+          produced = batch.flatMap(({ k }) => (got.has(k + 1) ? fixed.filter((x) => x.origem === k + 1) : produced.filter((x) => x.origem === k + 1)));
+        }
         catch (e) { if (e instanceof TransformStop) throw e; report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`); break; }
       }
       for (const { it, k } of batch) {
@@ -524,7 +530,7 @@ export function nearImage(rel, dir) {
 }
 
 // resposta do escritor → slides válidos (renderizam, só imagens que existem, origem de um item do bloco)
-function parseProduced(text, batch, deckBase, dir) {
+function parseProduced(text, batch, deckBase, dir, { partial = false } = {}) {
   const { yaml } = extractYaml(text);
   let raw = parseYaml(yaml);
   if (Array.isArray(raw)) raw = { slides: raw };
@@ -542,7 +548,7 @@ function parseProduced(text, batch, deckBase, dir) {
     return { ...s, origem };
   });
   const missingItems = [...allowed].filter((n) => !slides.some((s) => s.origem === n));
-  if (missingItems.length) throw new Error(`Faltou escrever ${missingItems.length === 1 ? "o item" : "os itens"} ${missingItems.join(", ")} (cada item precisa de pelo menos um slide com origem: N).`);
+  if (missingItems.length && !partial) throw new Error(`Faltou escrever ${missingItems.length === 1 ? "o item" : "os itens"} ${missingItems.join(", ")} (cada item precisa de pelo menos um slide com origem: N).`);
   const clean = normalizeSpec({ ...deckBase, slides: slides.map(({ origem, mudou, ...rest }) => rest) });
   // imagens que não existem na pasta do deck: erro (volta para a IA)
   const bad = [];
