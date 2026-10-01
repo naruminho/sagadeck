@@ -127,10 +127,14 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
 - Fórmula vai em LaTeX (\`$…$\` no texto, \`equations\` no \`science\`, \`latex\` no \`solution\`), nunca como imagem: a imagem de equação do original (recorte do OLE) só entra se a visão não conseguiu transcrever; transcrita, não repita a imagem. Uma fórmula importante por slide, grande; a explicação das variáveis em lista ao lado ou embaixo.
 - \`full\` (imagem de fundo com texto por cima) só para FOTO; gráfico, esquema, mapa e tabela nunca vão em \`full\` (o texto cobre os dados): use \`split\` (texto ao lado) ou \`image\`.
-- É para APRESENTAR (palestra): letra que se lê do fundo da sala. Não use \`dossier\` (página de consulta, letra pequena) nem encha um slide; o que é para ler depois vai em \`consulta\` (material de estudo) ou em outro slide.
 - Escreva em português, no tom do material (aula).`;
+// o uso do material (o plano escolhe pelo pedido: "proposito"); vale para quem escreve
+const PURPOSE_RULES = {
+  palestra: "- É para APRESENTAR (palestra): letra que se lê do fundo da sala. Não use \`dossier\` (página de consulta, letra pequena) nem encha um slide; o que é para ler depois vai em \`consulta\` (material de estudo) ou em outro slide.",
+  consulta: "- É material para ESTUDAR depois (consulta): a explicação fica no slide, em parágrafos curtos, com toda a informação (o aluno lê sozinho); letra legível, nada de \`dossier\` de letra miúda; sem slide só de título, sem \"número de impacto\"; código e contas completos.",
+};
 const MODE_RULES = {
-  melhorar: `MODO MELHORAR: o estilo é o do original (a moldura dele — faixa, logos, linha do título, número — já está no mestre do deck; use os layouts do sagadeck normalmente, sem redesenhar a moldura). Na capa, a moldura já traz os logos e o texto institucional do original: a capa nova leva só título, subtítulo, autor e data (não repita logo nem instituição). O título dos slides de conteúdo vai na faixa do título da moldura: uma linha curta, como no original. O aprofundamento que não cabe no slide de palestra vai em \`consulta\` (material de estudo). Mantenha a ORDEM do original; inclusões entram perto do assunto. Melhore onde ganha: estrutura, clareza, interação, exercícios, redesenho de figura genérica. Slide que já está bom: "manter". Cada slide que mudar vai ser marcado para o professor validar.`,
+  melhorar: `MODO MELHORAR: o estilo é o do original (a moldura dele — faixa, logos, linha do título, número — já está no mestre do deck; use os layouts do sagadeck normalmente, sem redesenhar a moldura). Na capa, a moldura já traz os logos e o texto institucional do original: a capa nova leva só título, subtítulo, autor e data (não repita logo nem instituição). O título dos slides de conteúdo vai na faixa do título da moldura: uma linha curta, como no original. O aprofundamento que não cabe no slide vai em \`consulta\` (material de estudo). Mantenha a ORDEM do original; inclusões entram perto do assunto. Melhore onde ganha: estrutura, clareza, interação, exercícios, redesenho de figura genérica. Slide que já está bom: "manter". Cada slide que mudar vai ser marcado para o professor validar.`,
   recriar: `MODO RECRIAR: uma apresentação nova, do zero, com o melhor que o sagadeck faz (escolha o tema em "tema"). A ordem pode mudar se a didática ganhar (seções, uma ideia por slide, exercícios no ponto certo). "manter" não vale; use "juntar", "escrever" e "novo". Todo slide original precisa ir para algum item (o conteúdo dele não pode sumir).`,
 };
 
@@ -285,7 +289,7 @@ Apresentação original (${originals.length} slides; proporção ${spec.aspect |
 ${originals.map(brief).join("\n\n")}
 
 Faça o PLANO. Responda só com um bloco \`\`\`json:
-{"tema": "${mode === "recriar" ? "um dos temas do sagadeck" : "(ignorado no modo melhorar)"}", "titulo": "título da apresentação", "alertas": ["possível erro no conteúdo, com o slide"], "slides": [{"acao": "manter|juntar|escrever|novo", "de": [3], "ideia": "o que vai ter e qual layout/recurso", "imagens": ["imagens/…"]}]}
+{"tema": "${mode === "recriar" ? "um dos temas do sagadeck" : "(ignorado no modo melhorar)"}", ${mode === "recriar" ? '"paleta": "uma das paletas do sagadeck, se o pedido ou o assunto pedir (senão omita)", ' : ""}"proposito": "palestra (para apresentar; o padrão) ou consulta (para o aluno estudar depois), pelo pedido", "titulo": "título da apresentação", "alertas": ["possível erro no conteúdo, com o slide"], "slides": [{"acao": "manter|juntar|escrever|novo", "de": [3], "ideia": "o que vai ter e qual layout/recurso", "imagens": ["imagens/…"]}]}
 Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mantenha "ideia" curta (1 a 2 frases).` },
     ];
     try {
@@ -319,10 +323,16 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
 
   // ---- 3. ESCREVER em blocos + 4. CONFERIR (fatos por código, desenho por visão, de novo depois de cada correção)
   const deckBase = mode === "melhorar"
-    ? { title: spec.title, aspect: spec.aspect, theme: style.theme, master: style.master, footer: false, purpose: "palestra" }
-    : { title: plan.titulo || spec.title, aspect: spec.aspect, theme: plan.tema && typeof plan.tema === "string" ? plan.tema : "oceano", purpose: "palestra" };
-  if (typeof deckBase.theme === "string") { try { const { THEMES } = await import("../themes.js"); if (!THEMES[deckBase.theme]) deckBase.theme = "oceano"; } catch {} }
-  const writeSystem = `${systemPrompt({ images: false })}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
+    ? { title: spec.title, aspect: spec.aspect, theme: style.theme, master: style.master, footer: false }
+    : { title: plan.titulo || spec.title, aspect: spec.aspect, theme: plan.tema && typeof plan.tema === "string" ? plan.tema : "oceano" };
+  // para que é (o que o pedido disse: o plano escolhe) e, no recriar, a paleta; o que não existe fica no padrão
+  deckBase.purpose = PURPOSE_RULES[plan.proposito] ? plan.proposito : "palestra";
+  try {
+    const { THEMES, PALETTES } = await import("../themes.js");
+    if (typeof deckBase.theme === "string" && !THEMES[deckBase.theme]) deckBase.theme = "oceano";
+    if (mode === "recriar" && typeof plan.paleta === "string" && PALETTES[plan.paleta]) deckBase.palette = plan.paleta;
+  } catch {}
+  const writeSystem = `${systemPrompt({ images: false })}\n\n${CONTENT_RULES}\n${PURPOSE_RULES[deckBase.purpose]}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
   const srcOf = (it) => (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
   // manter e juntar: código (sem IA)
   plan.slides.forEach((it, k) => {

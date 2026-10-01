@@ -676,3 +676,37 @@ test("tarefa: as figuras do original são olhadas em lotes paralelos", async (t)
     assert.ok(Object.keys(cache).length >= 1, "o que foi visto ficou no cache");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+test("recriar: a paleta e o propósito que o plano escolheu pelo pedido valem no deck novo (antes: sem paleta e sempre palestra)", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const run = async (extra) => {
+    const llm = await startMockLLM((req) => {
+      if (/Faça o PLANO/.test(req.lastUser)) {
+        const plan = JSON.parse(handler(req).replace(/^```json\n|\n```$/g, ""));
+        return "```json\n" + JSON.stringify({ ...plan, ...extra }) + "\n```";
+      }
+      return handler(req);
+    });
+    process.env.SAGADECK_LLM_URL = llm.url;
+    const d = await imported();
+    try {
+      const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+      const writer = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser));
+      return { spec: r.spec, system: writer.messages.find((m) => m.role === "system").content, plan: llm.requests.find((q) => /Faça o PLANO/.test(q.lastUser)).lastUser };
+    } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+  };
+  const a = await run({ tema: "manual", paleta: "mar", proposito: "consulta" });
+  assert.match(a.plan, /"paleta":/, "o plano pergunta a paleta");
+  assert.match(a.plan, /"proposito":/, "e o propósito");
+  assert.equal(a.spec.theme, "manual");
+  assert.equal(a.spec.palette, "mar");
+  assert.equal(a.spec.purpose, "consulta");
+  assert.match(a.system, /material para ESTUDAR depois \(consulta\)/, "quem escreve recebe a regra da consulta");
+  assert.doesNotMatch(a.system, /É para APRESENTAR \(palestra\)/);
+  const b = await run({ paleta: "nao-existe" });
+  assert.equal(b.spec.palette, undefined, "paleta que não existe fica no padrão do tema");
+  assert.equal(b.spec.purpose, "palestra", "sem pedido de consulta: palestra");
+  assert.match(b.system, /É para APRESENTAR \(palestra\)/);
+});
