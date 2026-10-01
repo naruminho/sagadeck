@@ -113,6 +113,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
     if (!workspaces.has(u || "")) workspaces.set(u || "", newWorkspace(u || null));
     return workspaces.get(u || "").library;
   } });
+  // A aba diz qual arquivo está vendo (expectFile). O Studio tem uma apresentação aberta para todas as abas e aparelhos:
+  // se outra aba (ou um script) abriu outra, o que esta manda gravar (salvar, YAML, chat) iria parar no arquivo errado.
+  // Recusa e avisa para recarregar.
+  const sameFile = (a, b) => { const n = (x) => path.resolve(String(x)); return process.platform === "win32" ? n(a).toLowerCase() === n(b).toLowerCase() : n(a) === n(b); };
+  function staleTab(body, W, res) {
+    if (!body?.expectFile || !W.file || sameFile(body.expectFile, W.file)) return false;
+    res.writeHead(409, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "Outra aba ou aparelho abriu outra apresentação neste Studio. Recarregue a página para continuar; esta mudança não foi gravada.", stale: true, file: W.file }));
+    return true;
+  }
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
@@ -608,6 +618,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       if (pathname === "/api/deck" && req.method === "POST") {
         const body = await readJSON(req);
+        if (staleTab(body, W, res)) return;
         const before = W.spec;
         if (body.yaml) {
           try {
@@ -714,6 +725,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
       if (pathname === "/api/slide-yaml" && req.method === "POST") {
         const body = await readJSON(req);
+        if (staleTab(body, W, res)) return;
         const i = Number(body.index);
         let slide;
         try {
@@ -1185,6 +1197,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       }
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
+        if (staleTab(body, W, res)) return;
         const prompt = body.message || "";
         const spec = body.spec || W.spec;
         const issues = body.issues || [];
