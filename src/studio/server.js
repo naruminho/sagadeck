@@ -1155,9 +1155,12 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       const transformLimits = () => ({ calls: Number(process.env.SAGADECK_TRANSFORM_CALLS) || 0, tokens: Number(process.env.SAGADECK_TRANSFORM_TOKENS) || 0, minutes: Number(process.env.SAGADECK_TRANSFORM_MINUTES) || 0 });
       async function runTransform(W, spec, result, emit) {
         if (!W.file || isBundledTemplate(W.file)) return { ...result, reply: "Para transformar, a apresentação precisa estar salva na biblioteca.", spec, talk: true };
-        const dir = path.dirname(W.file);
+        // o deck da tarefa fica guardado: a pessoa pode abrir outra apresentação durante os minutos de trabalho, e o
+        // resultado tem de ir para ESTE arquivo (W.file passa a ser o outro)
+        const file = W.file;
+        const dir = path.dirname(file);
         const { mode, pedido } = result.transform;
-        const key = `${W.file}|${mode}`;
+        const key = `${file}|${mode}`;
         if (transforms.has(key)) return { ...result, reply: `Já estou ${mode === "melhorar" ? "melhorando" : "recriando"} esta apresentação; o andamento aparece aqui no chat.`, spec, talk: true };
         const job = { controller: new AbortController(), mode, progress: null, started: Date.now() };
         transforms.set(key, job);
@@ -1196,8 +1199,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         ];
         if (mode === "melhorar") {
           if (!fs.existsSync(origFile)) { fs.mkdirSync(path.dirname(origFile), { recursive: true }); fs.writeFileSync(origFile, YAML.stringify(spec, { lineWidth: 0 })); }
-          W.spec = { ...t.spec, _dir: dir };
-          persist(W);
+          if (W.file === file) { W.spec = { ...t.spec, _dir: dir }; persist(W); }
+          else { writeDeckFile(file, t.spec); return { ...result, reply: `Pronto: "${W.library.idOf(file)}" foi melhorada (você está em outra apresentação agora). Cada slide mudado está marcado para validar.\n${lines.join("\n")}`, spec: W.spec, talk: true, transformReport: r }; }
           return { ...result, reply: `Pronto. Cada slide mudado está marcado (Revisar › Mudanças) para você validar.\n${lines.join("\n")}`, spec: W.spec, actions: [...(result.actions || [])], transformReport: r };
         }
         // recriar: apresentação nova no mesmo tópico, com as imagens que ela usa. A retomada grava na MESMA
@@ -1205,7 +1208,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         const side = path.join(dir, ".sagadeck", "transform", "recriar-deck.json");
         let prev = null;
         try { prev = JSON.parse(fs.readFileSync(side, "utf8")); } catch {}
-        const id = W.library.idOf(W.file);
+        const id = W.library.idOf(file);
         const topic = id.split("/").length === 3 ? id.split("/")[0] : "";
         const title = t.spec.title || spec.title || "Recriada";
         let newId = null, newFile = null;
