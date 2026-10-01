@@ -12,6 +12,16 @@ test("$fórmula$ vira matemática desenhada; R$ 10, $5 e $6 continuam texto; o C
   assert.match(md("Use $$Q = C i A$$ assim"), /katex-display/);
   assert.equal(md("Custa R$ 10 e $5 ou $6"), "Custa R$ 10 e $5 ou $6");
   assert.match(md("**forte** com $x^2$ e ==marca=="), /<b>forte<\/b> com <span class="katex">[\s\S]*<mark>marca<\/mark>/);
+  // fórmula quebrada (chave a mais): aparece a própria fórmula, marcada, e não "undefined"
+  const bad = md(String.raw`antes $$ S_1 = \frac{a}}{L} $$ depois`);
+  assert.doesNotMatch(bad, /undefined/);
+  assert.match(bad, /class="f-mono tex-error"[^>]*>S_1 = \\frac\{a\}\}\{L\}</);
   const { html } = buildHTML({ title: "t", theme: "sinal", slides: [{ layout: "statement", text: "Kirpich: $t_c = 57 (L^3/H)^{0,385}$" }] });
   assert.match(html, /\.katex\{/);
+});
+
+test("a IA recebe de volta a fórmula que não compila (validateSlides)", async () => {
+  const { validateSlides } = await import("../src/ai/deck-ai.js");
+  assert.throws(() => validateSlides({ slides: [{ layout: "statement", text: String.raw`S = $\frac{a}}{L}$ ok` }] }), /fórmula que não compila: \$\\frac\{a\}\}\{L\}\$/);
+  validateSlides({ slides: [{ layout: "statement", text: String.raw`S = $\frac{a}{L}$ ok` }] });
 });

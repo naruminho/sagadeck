@@ -16,7 +16,10 @@ export function md(s) {
   if (s == null) return "";
   const maths = [];
   const raw = String(s).trim().replace(INLINE_MATH, (_, block, inline) => {
-    maths.push(katex.renderToString(block ?? inline, { displayMode: block != null, throwOnError: false, trust: false, maxExpand: 1000, maxSize: 20 }));
+    const tex = (block ?? inline).trim();
+    // fórmula que não compila (chave a mais, comando errado): aparece o texto dela, marcado, para corrigir; nunca "undefined"
+    try { maths.push(katex.renderToString(tex, { displayMode: block != null, throwOnError: true, strict: "ignore", trust: false, maxExpand: 1000, maxSize: 20 })); }
+    catch (e) { maths.push(`<code class="f-mono tex-error" title="${esc(String(e.message || e).slice(0, 200))}">${esc(tex)}</code>`); }
     return `\u0001${maths.length - 1}\u0001`;
   });
   let h = esc(raw);
