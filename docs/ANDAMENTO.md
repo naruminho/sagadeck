@@ -89,7 +89,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   (Design › Estilo › Usar em toda apresentação nova). Já estava feito: Plotly/Mermaid só entram no HTML quando o
   deck usa (deck simples ~200 KB). Não feito, com motivo: ESLint/Prettier (reformataria o repositório inteiro,
   com o GPT na mesma pasta), link público na nuvem (precisa de infraestrutura; o uso no banco é offline).
-- Falta do relatório (ordem): retomar o recriar ao vivo (Pro × Flash); depois
+- **Recriar ao vivo, concluído** (retomado 2–3 vezes; a retomada funcionou): Flash 86 slides, 63 min, 6
+  pendentes, 5 alertas certos, redesenho mais uniforme (tabelas reais, gráficos dos dados, calculadoras ao vivo de
+  Kirpich, Watt e Chow e da IDF de São Carlos); Pro 88 slides, 75 min, 12 pendentes (várias falsas, de títulos em
+  caixa alta), mais slides originais mantidos. Correções vindas disso: LaTeX com barras a mais/a menos no YAML,
+  `origem` ausente/extra, figura que cortava informação (`cover` → `contain` quando a proporção não bate),
+  tabela que encolhia por culpa de outro texto (`data-fit-self`), equações do `science` maiores, regras (fórmula
+  em LaTeX sem repetir a imagem; gráfico nunca em `full`), frase em caixa alta não vira sigla, original sem a
+  moldura antiga no recriar, resultado no deck certo mesmo trocando de apresentação no meio, painel do token que
+  redesenhava sozinho (falhava no CI do Windows), teste do Python em UTF-8 (era a falha "conhecida" do Windows).
+- **Biblioteca, tópico "Aula 1 — Manejo de Águas Pluviais"**: original importado + 4 versões (melhorada/recriada
+  × Pro/Flash). O melhorar foi refeito com o código atual (a 1ª rodada era de antes das correções).
+- Falta: P1 (quebrar `app.js`/`server.js`; só a exportação saiu), comparar as 4 versões ao vivo e relatar; depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
 
