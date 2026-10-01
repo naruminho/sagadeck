@@ -54,7 +54,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   comandos, `sagadeck estudo deck.yaml [--html]`; cada slide inteiro (tudo revelado) + o texto de consulta, sem as
   notas do apresentador. A referência pede para a IA pôr o aprofundamento em `consulta` numa palestra.
   `test/estudo.test.js`.
-- Falta do relatório (ordem): teste ao vivo Pro × Flash (em curso); depois
+- **Ao vivo, melhorar a Aula 1 pelo chat** (text = Pro × Flash; visão = Flash): Pro 47 min, 78 slides, 13
+  pendentes, 1 alerta; Flash 30 min (com queda e retomada), 85 slides, 6 pendentes, 5 alertas (achou a fórmula de
+  São Carlos do slide 68 e o Kf que não fecha nas unidades). Os dois: 394 e 402 de 454 trechos do original achados
+  como estavam. Defeitos do sagadeck achados e corrigidos: visão cortando o JSON (16 mil tokens, leitura tolerante,
+  refaz um a um); "MÁXIMA" virando sigla "XIMA"; palavra comum tomada por nome próprio; caminho de imagem com erro
+  de digitação; slide que quebra por formato sem dizer o que o layout espera; **linha do título do mestre cortando o
+  título e o texto** (faixa do título: `titleBand` em `src/master.js`, o cabeçalho vai acima do fio e o conteúdo
+  começa abaixo, vale para deck já gerado); capa repetindo logo e instituição da moldura e `dossier` (letra miúda)
+  numa palestra (regras no prompt; aprofundamento em `consulta`).
+- Falta do relatório (ordem): recriar ao vivo (Pro × Flash) com o código novo; depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
 

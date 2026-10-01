@@ -6,7 +6,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const DEFAULT_PORT = 3517;
-export const VERSION = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8")).version;
+// a versão: o package.json mais perto (no repositório, dois níveis acima; no motor empacotado do pip, ao lado)
+export const VERSION = (() => {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let k = 0; k < 4; k++, dir = path.dirname(dir)) {
+    try { const v = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version; if (v) return v; } catch {}
+  }
+  return "0.0.0";
+})();
 
 // quem está na porta: { app: "sagadeck-studio", version, pid, library, ... } | null (ninguém ou outra coisa)
 export async function probeInstance(port, host = "127.0.0.1") {
