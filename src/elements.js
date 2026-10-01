@@ -107,7 +107,14 @@ export function figureHTML(el, ctx, w, h) {
       const box = w && h ? w / h : 0, img = sz && sz.h ? sz.w / sz.h : 0;
       fit = box && img && Math.max(box / img, img / box) > 1.5 ? "contain" : "cover";
     }
-    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
+    // imagem solta no fluxo, sem tamanho (num add, numa row): ganha a proporção do arquivo, cabe inteira e não passa de
+    // 420 px de altura (senão aparecia no tamanho natural do arquivo, enorme e cortada)
+    let flow = "";
+    if (!w && !h && el.w == null && el.h == null && el.x == null) {
+      const sz = imageSize(el.image, ctx);
+      if (sz && sz.w && sz.h) { flow = `aspect-ratio:${sz.w}/${sz.h};width:min(100%, ${Math.round((420 * sz.w) / sz.h)}px);`; if (!el.fit) fit = "contain"; }
+    }
+    return `<div${attrs(el, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
 }
