@@ -3069,7 +3069,7 @@
     try { data = await (await fetch("api/styles")).json(); } catch { data = { styles: [] }; }
     const post = async (url, body) => { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }); const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`); return j; };
     const reload = async (spec) => { state.deck = spec; trackDeck("Estilo"); applyAspect(); renderThumbnails(); await renderCurrentSlide(); };
-    const items = (data.styles || []).map((st) => ({ label: st.name, ic: data.current?.id === st.id ? "check" : "stamp", fn: async () => { try { const j = await post("api/styles/apply", { id: st.id }); await reload(j.spec); showToast(`Estilo "${st.name}" aplicado a todos os slides.`); } catch (e) { showToast(e.message); } } }));
+    const items = (data.styles || []).map((st) => ({ label: `${st.name}${st.default ? " (padrão)" : ""}`, ic: data.current?.id === st.id ? "check" : "stamp", fn: async () => { try { const j = await post("api/styles/apply", { id: st.id }); await reload(j.spec); showToast(`Estilo "${st.name}" aplicado a todos os slides.`); } catch (e) { showToast(e.message); } } }));
     if (!items.length) items.push({ label: "Nenhum estilo salvo ainda", ic: "stamp", disabled: true, fn: () => {} });
     items.push({ sep: true });
     items.push({ label: "Salvar o estilo desta apresentação", ic: "save", disabled: !data.canExtract, fn: async () => {
@@ -3077,6 +3077,11 @@
       if (!name) return;
       try { const j = await post("api/styles/save", { name }); showToast(`Estilo "${j.name}" salvo. Use em qualquer apresentação por Design › Estilo.`, 6000); } catch (e) { showToast(e.message); }
     } });
+    // Brand Kit: o estilo desta apresentação vira o das novas (em branco ou com IA, sem tema escolhido)
+    const cur = (data.styles || []).find((st) => st.id === data.current?.id);
+    if (cur && !cur.default) items.push({ label: `Usar "${cur.name}" em toda apresentação nova`, ic: "stamp", fn: async () => { try { await post("api/styles/default", { id: cur.id }); showToast(`As apresentações novas já nascem no estilo "${cur.name}".`, 5000); } catch (e) { showToast(e.message); } } });
+    const def = (data.styles || []).find((st) => st.default);
+    if (def) items.push({ label: `Novas apresentações sem estilo padrão (hoje: "${def.name}")`, ic: "rotate-ccw", fn: async () => { try { await post("api/styles/default", { id: null }); showToast("As apresentações novas voltam a nascer sem estilo."); } catch (e) { showToast(e.message); } } });
     if (data.current) items.push({ label: "Tirar o estilo", ic: "rotate-ccw", fn: async () => { try { const j = await post("api/styles/remove", { theme: "manual" }); await reload(j.spec); } catch (e) { showToast(e.message); } } });
     contextMenu({ clientX: anchor.left, clientY: anchor.bottom + 4 }, items);
   }

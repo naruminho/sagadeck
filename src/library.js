@@ -315,10 +315,30 @@ export function openLibrary(root) {
   // ---- estilos da pessoa (tema + mestre), reutilizáveis: <biblioteca>/.estilos/<slug>/estilo.yaml + imagens
   const stylesRoot = path.join(root, ".estilos");
   const slug = (n) => safeName(String(n || "estilo")).toLowerCase().replace(/\s+/g, "-");
+  // estilo padrão (Brand Kit): toda apresentação nova (em branco ou com IA, sem tema escolhido) já nasce com ele.
+  // Guardado na própria biblioteca (.estilos/padrao.json): vale para quem usar esta biblioteca, em qualquer máquina.
+  const defaultFile = path.join(stylesRoot, "padrao.json");
+  function defaultStyle() {
+    try { const id = JSON.parse(fs.readFileSync(defaultFile, "utf8")).id; return id && fs.existsSync(path.join(stylesRoot, slug(id), "estilo.yaml")) ? slug(id) : null; } catch { return null; }
+  }
+  function setDefaultStyle(id) {
+    if (!id) { fs.rmSync(defaultFile, { force: true }); return null; }
+    loadStyle(id); // existe?
+    fs.mkdirSync(stylesRoot, { recursive: true });
+    fs.writeFileSync(defaultFile, JSON.stringify({ id: slug(id) }));
+    return slug(id);
+  }
+  // apresentação nova: com o padrão, se houver e se ela ainda não tem estilo próprio
+  function withDefaultStyle(spec, deckDir) {
+    const id = defaultStyle();
+    if (!id || spec?.master || spec?.style) return spec;
+    try { return applyStyleTo(spec, deckDir, id); } catch { return spec; }
+  }
+
   function listStyles() {
     if (!fs.existsSync(stylesRoot)) return [];
     return fs.readdirSync(stylesRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && fs.existsSync(path.join(stylesRoot, d.name, "estilo.yaml"))).map((d) => {
-      try { const st = YAML.parse(fs.readFileSync(path.join(stylesRoot, d.name, "estilo.yaml"), "utf8")); return { id: d.name, name: st.name || d.name, from: st.from || null, accent: st.theme?.colors?.accent || null, paper: st.theme?.colors?.paper || null }; }
+      try { const st = YAML.parse(fs.readFileSync(path.join(stylesRoot, d.name, "estilo.yaml"), "utf8")); return { id: d.name, name: st.name || d.name, default: d.name === defaultStyle(), from: st.from || null, accent: st.theme?.colors?.accent || null, paper: st.theme?.colors?.paper || null }; }
       catch { return null; }
     }).filter(Boolean).sort((x, y) => x.name.localeCompare(y.name, "pt-BR"));
   }
@@ -364,7 +384,7 @@ export function openLibrary(root) {
   }
 
   return {
-    listStyles, saveStyle, loadStyle, applyStyleTo,
+    listStyles, saveStyle, loadStyle, applyStyleTo, defaultStyle, setDefaultStyle, withDefaultStyle,
     importOffice,
     root, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,

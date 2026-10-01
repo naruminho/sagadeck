@@ -259,6 +259,11 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.equal(lido().slides[0].kicker, "Conta 42", "a IA recebeu o resultado real");
       assert.match(await p.locator(".cmd-msg .cmd-state").last().textContent(), /Rodou \(saída 0\)/);
       fs.rmSync(marca);
+      // auditoria: o recusado e o executado ficam no registro de comandos, com código, saída e quem pediu
+      const log = fs.readFileSync(process.env.SAGADECK_COMANDOS_LOG, "utf8").trim().split(/\r?\n/).map((l) => JSON.parse(l));
+      assert.ok(log.some((e) => e.decision === "recusado" && /rodou\.txt/.test(e.code)));
+      const ran = log.find((e) => e.decision === "aprovado");
+      assert.ok(ran && ran.exit === 0 && /42/.test(ran.output) && ran.deck && ran.ms >= 0, JSON.stringify(log).slice(0, 400));
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
