@@ -436,6 +436,23 @@ test("slide a mais sem item (origem: extra) entra junto com o item de antes, sem
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("primeiro slide do bloco sem origem: é do primeiro item (a IA escreve na ordem)", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM((req) => {
+    const out = handler(req);
+    return /Escreva os slides destes itens|Conferi estes slides/.test(req.lastUser) ? out.replace("    origem: 2\n", "") : out;
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!r.report.problemas.some((p) => /origem/.test(p)), JSON.stringify(r.report.problemas));
+    assert.equal(r.spec.slides[1].layout, "statement");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("Studio: abrir outra apresentação durante a transformação não leva o resultado para o deck errado", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();

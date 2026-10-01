@@ -99,9 +99,42 @@ export function figureHTML(el, ctx, w, h) {
       const fw = Math.max(0.01, 1 - c.l - c.r), fh = Math.max(0.01, 1 - c.t - c.b);
       return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
     }
-    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${el.fit || "cover"};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
+    // sem fit escolhido: preenche (cover), mas quando a proporção da imagem é muito diferente da caixa (fórmula, esquema
+    // largo numa coluna alta) cortar perderia informação: cabe inteira (contain)
+    let fit = el.fit;
+    if (!fit) {
+      const sz = w && h ? imageSize(el.image, ctx) : null;
+      const box = w && h ? w / h : 0, img = sz && sz.h ? sz.w / sz.h : 0;
+      fit = box && img && Math.max(box / img, img / box) > 1.5 ? "contain" : "cover";
+    }
+    return `<div${attrs(el, "fig fig-img")}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
+}
+
+// largura × altura do arquivo de imagem (cabeçalho de PNG, JPEG, GIF, WebP) ou null
+export function imageSize(p, ctx) {
+  try {
+    if (/^(https?:|data:)/.test(p)) return null;
+    const b = fs.readFileSync(path.resolve(ctx.baseDir, p));
+    if (b.readUInt32BE(0) === 0x89504e47) return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+    if (b.toString("ascii", 0, 3) === "GIF") return { w: b.readUInt16LE(6), h: b.readUInt16LE(8) };
+    if (b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP") {
+      const kind = b.toString("ascii", 12, 16);
+      if (kind === "VP8X") return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
+      if (kind === "VP8 ") return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+      if (kind === "VP8L") { const v = b.readUInt32LE(21); return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 }; }
+    }
+    if (b[0] === 0xff && b[1] === 0xd8) {
+      for (let i = 2; i < b.length - 9;) {
+        if (b[i] !== 0xff) { i++; continue; }
+        const m = b[i + 1], len = b.readUInt16BE(i + 2);
+        if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return { w: b.readUInt16BE(i + 7), h: b.readUInt16BE(i + 5) };
+        i += 2 + len;
+      }
+    }
+  } catch {}
+  return null;
 }
 
 export function imageSrc(p, ctx) {

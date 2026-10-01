@@ -86,7 +86,7 @@ export function tableHTML(t = {}, { size, cls = "", style = "", theme } = {}) {
   const thead = head ? `<thead><tr>${head.map((h, j) => { const c = cell(h, j, "th", `${kind === "colunas" ? ` tb-k${(j % 5) + 1}` : ""}${hlCols.has(j + 1) ? " hl" : ""}`); return kOn(j) ? c.replace("<th ", `<th style="color:${kOn(j)}" `) : c; }).join("")}</tr></thead>` : "";
   const tbody = `<tbody>${rows.map((r, i) => `<tr class="${hlRows.has(i + 1) ? "hl" : ""}${total && i === rows.length - 1 ? " tot" : ""}">${r.map((v, j) => cell(v, j, j === 0 && t.rowHeader ? "th" : "td", `${hlCols.has(j + 1) ? " hl" : ""}${hlCell && hlCell[0] === i + 1 && hlCell[1] === j + 1 ? " hlc" : ""}`)).join("")}</tr>`).join("")}</tbody>`;
   // data-fit: não coube (colunas demais, conclusão ao lado), a letra encolhe até caber (src/runtime/fit.js)
-  return `<div class="dtable-wrap tb-${kind}${cls ? ` ${cls}` : ""}" data-fit style="${vars}${style}"><table class="dtable f-body">${colgroup}${thead}${tbody}</table></div>`;
+  return `<div class="dtable-wrap tb-${kind}${cls ? ` ${cls}` : ""}" data-fit data-fit-self style="${vars}${style}"><table class="dtable f-body">${colgroup}${thead}${tbody}</table></div>`;
 }
 
 export const TABLE_STYLES = [...STYLES];
