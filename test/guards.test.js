@@ -11,7 +11,7 @@ import { ROOT } from "./helpers.js";
 
 const LIMITS = { // bytes
   "src/studio/public/app.js": 280_000,
-  "src/studio/server.js": 118_000,
+  "src/studio/server.js": 112_000,
   "src/studio/public/slide-form.js": 110_000,
 };
 
