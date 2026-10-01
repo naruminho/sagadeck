@@ -221,7 +221,7 @@ X-Forwarded-Host $host;`): é com ele que o Studio reconhece a própria página.
 apresentação pronta, sem o editor, sem a biblioteca e sem as notas do apresentador (a não ser que se marque).
 No servidor, `/ver/<código>` exige o usuário do portal (o proxy pede a sessão e manda `X-Sagadeck-User`) e
 `/publico/<código>` abre para qualquer pessoa, só se o link foi criado como público (o proxy deixa passar sem
-sessão e sem o cabeçalho). Os links ficam em `<biblioteca>/.compartilhados.json`; revogar apaga na hora. As páginas
+sessão e sem o cabeçalho). Os links ficam em `<biblioteca>/.compartilhados.json`; revogar apaga na hora. Quem abre baixa pelo botão Baixar da página (`<link>/baixar/pdf|pptx|html|estudo|estudo-html|sagadeck`, e `roteiro`/`tudo` só no link com as notas), um arquivo por vez por link. As páginas
 vão com `noindex` e sem Referer. No Studio local, o link abre para quem alcança o Studio (com `--host=0.0.0.0`, a
 rede da casa).
 

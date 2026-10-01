@@ -24,10 +24,9 @@ async function raw(url, { method = "GET", headers = {}, body } = {}) {
   const u = new URL(url);
   return new Promise((resolve, reject) => {
     const req = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method, headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...headers } }, (res) => {
-      let data = "";
-      res.setEncoding("utf8");
-      res.on("data", (c) => (data += c));
-      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: data, json: () => JSON.parse(data) }));
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => { const buf = Buffer.concat(chunks), data = buf.toString("utf8"); resolve({ status: res.statusCode, headers: res.headers, body: data, buf, json: () => JSON.parse(data) }); });
     });
     req.on("error", reject);
     req.end(body ? JSON.stringify(body) : undefined);
@@ -80,6 +79,60 @@ test("Studio: Arquivo › Compartilhar link cria um link só de leitura (sem as 
   } finally { await studio.close(); await browser.close(); fs.rmSync(library, { recursive: true, force: true }); }
 });
 
+test("link de ver: quem abre baixa nos formatos (PDF, PowerPoint, HTML, estudo, .sagadeck) e as notas só vão no link com as notas", { timeout: 240000 }, async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const library = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-share-dl-"));
+  const file = libraryWithDeck(library);
+  const studio = await startStudio(file, { library });
+  const JSZip = (await import("jszip")).default;
+  const unzipText = async (buf) => { const z = await JSZip.loadAsync(buf); let all = ""; for (const f of Object.values(z.files)) if (!f.dir && /\.(xml|yaml|json|html)$/.test(f.name)) all += await f.async("string"); return all; };
+  try {
+    const sem = (await raw(`${studio.url}/api/share`, { method: "POST", body: {} })).json().link;
+    const com = (await raw(`${studio.url}/api/share`, { method: "POST", body: { notas: true } })).json().link;
+    // o botão Baixar está na página, com os formatos; o roteiro só no link com as notas
+    const pageSem = (await raw(`${studio.url}/${sem.path}`)).body;
+    for (const k of ["pdf", "pptx", "html", "estudo", "estudo-html", "sagadeck"]) assert.match(pageSem, new RegExp(`data-kind="${k}"`), k);
+    assert.doesNotMatch(pageSem, /data-kind="roteiro"/);
+    assert.match((await raw(`${studio.url}/${com.path}`)).body, /data-kind="roteiro"/);
+    const get = (l, k) => raw(`${studio.url}/${l.path}/baixar/${k}`);
+    const pdf = await get(sem, "pdf");
+    assert.equal(pdf.status, 200); assert.equal(pdf.buf.subarray(0, 4).toString(), "%PDF");
+    assert.match(pdf.headers["x-robots-tag"], /noindex/);
+    const pptx = await get(sem, "pptx");
+    assert.equal(pptx.status, 200);
+    const pptxText = await unzipText(pptx.buf);
+    assert.match(pptxText, /A chuva que vira enchente/);
+    assert.doesNotMatch(pptxText, /SEGREDO DO APRESENTADOR/, "PowerPoint do link sem notas não leva as notas");
+    assert.match(await unzipText((await get(com, "pptx")).buf), /SEGREDO DO APRESENTADOR/, "no link com as notas, leva");
+    const html = await get(sem, "html");
+    assert.match(html.headers["content-disposition"], /attachment/);
+    assert.match(html.body, /A chuva que vira enchente/); assert.doesNotMatch(html.body, /SEGREDO DO APRESENTADOR/);
+    const pack = await get(sem, "sagadeck");
+    assert.equal(pack.status, 200);
+    const packText = await unzipText(pack.buf);
+    assert.match(packText, /Tempo de concentração/); assert.doesNotMatch(packText, /SEGREDO DO APRESENTADOR/);
+    assert.equal((await get(sem, "estudo-html")).status, 200);
+    assert.equal((await get(sem, "roteiro")).status, 404, "roteiro é feito das notas: não no link sem as notas");
+    assert.equal((await get(com, "roteiro")).buf.subarray(0, 4).toString(), "%PDF");
+    assert.equal((await get(sem, "exe")).status, 404);
+    // revogado: o download para junto
+    await raw(`${studio.url}/api/share/revoke`, { method: "POST", body: { token: sem.token } });
+    assert.equal((await get(sem, "pdf")).status, 404);
+    // a página com o botão funciona no navegador, sem erro, e o clique no botão não passa o slide
+    const p = await browser.newPage();
+    const errs = []; p.on("pageerror", (e) => errs.push(e.message));
+    await p.goto(`${studio.url}/${com.path}`);
+    await p.waitForFunction(() => window.sagadeck && window.sagadeck.n === 2);
+    await p.click("#sd-dl > button");
+    assert.ok(await p.isVisible('#sd-dl a[data-kind="pdf"]'));
+    assert.equal(await p.evaluate(() => window.sagadeck.cur), 0, "abrir o menu não avançou o slide");
+    const [dl] = await Promise.all([p.waitForEvent("download"), p.click('#sd-dl a[data-kind="html"]')]);
+    assert.match(dl.suggestedFilename(), /\.html$/);
+    assert.deepEqual(errs, []);
+    await p.close();
+  } finally { await studio.close(); await browser.close(); fs.rmSync(library, { recursive: true, force: true }); }
+});
+
 test("servidor: 'ver' só com o usuário do portal; 'público' sem login só se foi criado assim; ninguém revoga o de outro", async () => {
   const studio = await startStudio(null, { multiuser: true });
   const ana = { "X-Sagadeck-User": "ana" }, mary = { "X-Sagadeck-User": "mary" };
@@ -105,5 +158,11 @@ test("servidor: 'ver' só com o usuário do portal; 'público' sem login só se 
     assert.equal((await raw(`${studio.url}/api/share/revoke`, { method: "POST", headers: ana, body: { token: tok } })).status, 200);
     assert.equal((await raw(`${studio.url}/ver/${tok}`, { headers: mary })).status, 404);
     assert.equal((await raw(`${studio.url}/api/share`, { headers: ana })).json().links.length, 1, "sobrou o público");
+    // baixar segue as mesmas regras do link
+    assert.equal((await raw(`${studio.url}/publico/${pub.link.token}/baixar/html`)).status, 200, "público baixa sem login");
+    const portal = (await raw(`${studio.url}/api/share`, { method: "POST", headers: ana, body: {} })).json().link;
+    assert.equal((await raw(`${studio.url}/ver/${portal.token}/baixar/html`)).status, 401, "sem o usuário do portal, não baixa");
+    assert.equal((await raw(`${studio.url}/ver/${portal.token}/baixar/html`, { headers: mary })).status, 200);
+    assert.equal((await raw(`${studio.url}/publico/${portal.token}/baixar/html`)).status, 404, "link de portal não baixa pelo caminho público");
   } finally { await studio.close(); }
 });

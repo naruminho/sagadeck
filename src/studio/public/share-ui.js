@@ -45,7 +45,7 @@
     multiuser = !!r.multiuser;
     $("share-who").hidden = !multiuser; // no Studio local não há portal: o link abre para quem alcança o Studio
     $("share-create").disabled = !r.saved;
-    $("share-create").title = r.saved ? "" : "Salve a apresentação na biblioteca antes de compartilhar";
+    $("share-create").title = r.saved ? $("share-create").dataset.hint || "" : "Salve a apresentação na biblioteca antes de compartilhar";
     render(r.links || []);
     $("modal-share").classList.remove("hidden");
   }
