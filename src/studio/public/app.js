@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo",
+    "chart", "table", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -40,7 +40,7 @@
   const LAYOUT_LABELS = {
     cover: "Capa", section: "Seção", statement: "Frase de impacto", quote: "Citação", number: "Número grande",
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
-    timeline: "Linha do tempo", chart: "Gráfico de dados", compare: "Comparação", matrix: "Matriz 2×2",
+    timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
@@ -2448,7 +2448,7 @@
   const SLIDE_GROUPS = [
     ["estrutura", "Abertura e estrutura", ["cover", "section", "agenda", "end", "references"]],
     ["texto", "Texto e ideias", ["statement", "headline", "quote", "list", "cards", "split", "mosaic", "ribbon", "bento", "dossier"]],
-    ["dados", "Números e gráficos", ["number", "stats", "chart", "science", "compare", "matrix"]],
+    ["dados", "Números e gráficos", ["number", "stats", "chart", "table", "science", "compare", "matrix"]],
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
     ["codigo", "Código e API", ["code", "codewalk", "api"]],

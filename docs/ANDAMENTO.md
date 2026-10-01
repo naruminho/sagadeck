@@ -71,7 +71,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 - **Variedade de conteúdo**: cada tipo de slide com o exemplo e com conteúdo longo, em 16:9 e 4:3
   (`test/lengths.test.js`): o longo só pode deixar a letra menor, nada de vazar/cortar/sobrepor novo. Hoje passa
   em todos. Rótulo do grupo do Estilo: "Organização".
-- Falta do relatório (ordem): recriar ao vivo (Pro × Flash) com o código novo; depois
+- **Tabela de verdade** (`src/table.js`): layout `table` e elemento `table` (head/rows, objetos, csv colado,
+  lista de listas); cabeçalho na cor do tema com texto legível pela luminância, números à direita (algarismos de
+  mesma largura), zebra, destaque de linha/coluna/célula, total, estilos faixa/zebra/linhas/colunas/cartão, cor
+  c1–c5; encolhe para caber. Studio: Novo slide › Tabela, Inserir › Tabela, grade no Formatar que cola do Excel.
+  Transformação: a visão transcreve tabela em imagem inteira e a IA reescreve como `table` (recorte de livro vira
+  tabela real). `test/table.test.js`.
+- **Recriar ao vivo, 1ª rodada**: a internet caiu no meio (DNS do openrouter) e os dois ficaram parciais
+  (retomáveis). Achados corrigidos: YAML da IA com ": " sem aspas e LaTeX em aspas duplas (`rac` virava caractere
+  de controle em silêncio) → consertado no parse; a IA pediu `table` (não existia); conferência visual "sem JSON"
+  tenta de novo e, no recriar, não cobra a moldura do original; fórmula `$…$` no meio do texto (KaTeX) em qualquer
+  campo.
+- Falta do relatório (ordem): retomar o recriar ao vivo (Pro × Flash); depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
 

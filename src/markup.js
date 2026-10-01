@@ -1,6 +1,10 @@
+import katex from "katex";
+
 // Marcação inline usada em qualquer texto do YAML.
 //   **negrito**   *itálico*   ==marca-texto==   ^^cor de ênfase^^
 //   ~~riscado~~   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
+//   $fórmula$ (LaTeX no meio do texto) e $$fórmula$$ (em destaque). Dinheiro não vira fórmula: "R$ 10", "$5 e $6".
+export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?![\s\d])([^$\n]+?)(?<!\s)\$(?![\w])/g;
 
 export function esc(s) {
   return String(s ?? "")
@@ -10,7 +14,12 @@ export function esc(s) {
 
 export function md(s) {
   if (s == null) return "";
-  let h = esc(String(s).trim());
+  const maths = [];
+  const raw = String(s).trim().replace(INLINE_MATH, (_, block, inline) => {
+    maths.push(katex.renderToString(block ?? inline, { displayMode: block != null, throwOnError: false, trust: false, maxExpand: 1000, maxSize: 20 }));
+    return `\u0001${maths.length - 1}\u0001`;
+  });
+  let h = esc(raw);
   const codes = [];
   h = h.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
   h = h
@@ -24,6 +33,7 @@ export function md(s) {
     .replace(/~~([^~]+)~~/g, "<s>$1</s>")
     .replace(/\n/g, "<br>");
   h = h.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code class="f-mono">${codes[+i]}</code>`);
+  h = h.replace(/\u0001(\d+)\u0001/g, (_, i) => maths[+i]);
   return h;
 }
 

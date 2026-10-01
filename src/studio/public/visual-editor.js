@@ -165,6 +165,7 @@
     menu.addEventListener('keydown',e=>{if(e.key==='Escape'){menu.hidden=true;shapesBtn.focus();}});
     const file=document.createElement('input');file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;container.append(file);
     container.append(button('Imagem',()=>file.click(),'rbtn rbtn-lg','image'));
+    container.append(button('Tabela',()=>insert({table:{head:['Coluna 1','Coluna 2','Coluna 3'],rows:[['Item','10','20'],['Item','30','40']]},x:260,y:220,w:1100}),'rbtn rbtn-lg','table'));
     file.onchange=async()=>{ const f=file.files[0];if(!f)return;if(f.size>8*1024*1024){alert('Use uma imagem de até 8 MB.');return;} const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f);});insert({image:data,x:260,y:180,w:700,h:450,fit:'contain'});file.value=''; };
     toolbar=document.createElement('div');toolbar.className='visual-toolbar';toolbar.hidden=true;toolbar.setAttribute('role','toolbar');toolbar.ariaLabel='Objeto selecionado';
     toolbar.innerHTML=`<label class="vt-field" data-size-field title="Tamanho do texto"><i class="ic" data-ic="type"></i><input type="number" min="10" max="500" data-size aria-label="Tamanho do texto"></label>

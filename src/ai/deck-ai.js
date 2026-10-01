@@ -154,6 +154,9 @@ export function repairYaml(src) {
       blockIndent = indent;
       return line;
     }
+    // texto sem aspas com ": " no meio (`mudou: imagem com fit: contain`): o YAML acha que é outro mapa
+    const plain = /^(\s*(?:- )?[\w-]+:[ \t]+)([^"'{[|>&*!#\s].*:\s.*)$/.exec(line);
+    if (plain && !/^[\w-]+:\s/.test(plain[2])) return plain[1] + JSON.stringify(plain[2].trim());
     const m = /^(\s*(?:- )?(?:[\w-]+:[ \t]+)?)((?:\*|==|\^\^|~~|`)\S.*)$/.exec(line);
     if (!m || !/(- |:[ \t]+)$/.test(m[1])) return line;
     const value = m[2].trim();
@@ -178,7 +181,16 @@ function rejoinFlowCommas(node) {
   return out;
 }
 
+// LaTeX entre aspas duplas: "\frac", "\beta", "\times", "\nu"… começam com um escape válido do YAML (\f, \b, \t,
+// \n) e viram caractere de controle em silêncio (a fórmula estraga sem erro); "\left" nem é escape e quebra o YAML.
+// Barra seguida de comando LaTeX (2+ letras) dentro de aspas duplas vira barra literal.
+const LATEX_CMD = /\\(?=(?:frac|dfrac|tfrac|beta|times|theta|Theta|text|textbf|tau|tan|tanh|nu|nabla|neq|ne|rho|right|left|alpha|approx|vec|varphi|varepsilon|epsilon|eta|exp|bar|binom|forall|le|leq|ge|geq|lambda|Lambda|sum|sqrt|mathrm|mathbf|cdot|cdots|ldots|infty|int|iint|oint|pi|Pi|sigma|Sigma|delta|Delta|gamma|Gamma|omega|Omega|phi|Phi|psi|mu|chi|kappa|zeta|xi|partial|pm|mp|log|ln|sin|cos|lim|max|min|over|overline|underline|hat|dot|ddot|quad|qquad|circ|degree|propto|equiv|sim|simeq|cong|in|notin|subset|cup|cap|to|rightarrow|leftarrow|Rightarrow|Leftrightarrow|mathcal|operatorname|displaystyle|begin|end)(?![A-Za-z]))/g;
+function protectLatex(src) {
+  return src.replace(/"(?:[^"\\\n]|\\.)*"/g, (q) => (/\\[A-Za-z]{2,}/.test(q) ? q.replace(LATEX_CMD, "\\\\") : q));
+}
+
 export function parseYaml(src) {
+  src = protectLatex(src);
   try {
     return rejoinFlowCommas(YAML.parse(src));
   } catch (first) {

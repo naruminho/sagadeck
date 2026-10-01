@@ -572,3 +572,18 @@ test("carrossel pelo chat: cada item com image_prompt vira foto gerada (a refer�
   const asked = llm.requests.slice(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", ""));
   assert.deepEqual(asked.sort(), ["a misty mountain at sunrise, realistic photo", "calm ocean at noon, realistic photo"]);
 });
+
+test("YAML da IA: texto com ': ' sem aspas e LaTeX entre aspas duplas são consertados sem corromper a fórmula", async () => {
+  const { parseYaml } = await import("../src/ai/deck-ai.js");
+  const y = [
+    "slides:",
+    "  - layout: statement",
+    "    mudou: Lista completa de rótulos restaurada, imagem com fit: contain e legenda",
+    String.raw`    text: "**Segurança:** $S = \left(1 - \frac{1}{TR}\right)^n$, com \beta e \times"`,
+  ].join("\n");
+  const s = parseYaml(y).slides[0];
+  assert.equal(s.mudou, "Lista completa de rótulos restaurada, imagem com fit: contain e legenda");
+  assert.equal(s.text, String.raw`**Segurança:** $S = \left(1 - \frac{1}{TR}\right)^n$, com \beta e \times`);
+  // o que já era válido continua igual (quebra de linha escapada, aspas escapadas)
+  assert.equal(parseYaml(String.raw`a: "linha 1\nlinha 2 \"x\""`).a, 'linha 1\nlinha 2 "x"');
+});

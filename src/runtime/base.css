@@ -1607,3 +1607,28 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
 .algo-predict-opts li b{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;background:var(--em);color:var(--bg);font-size:30px}
 .algo-explain-ans{font-size:60px;line-height:1.15;color:var(--em)}
 .algo-explain-text{font-size:38px;line-height:1.45;max-width:1500px}
+/* tabela de verdade (src/table.js): cabeçalho na cor do tema, números à direita, zebra, destaque e total */
+.dtable-wrap{--tb-c:var(--em);width:100%;max-width:100%;max-height:100%;overflow:hidden;border-radius:var(--radius,12px)}
+.dtable{width:100%;border-collapse:separate;border-spacing:0;font-size:1em;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--fg)}
+.dtable th,.dtable td{padding:.48em .75em;text-align:left;vertical-align:middle;border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent)}
+.dtable .num{text-align:right;white-space:nowrap}.dtable .mid{text-align:center}
+.dtable thead th{background:var(--tb-c);color:var(--on-tb,#fff);font-weight:700;border-bottom:0}
+.dtable tbody tr:nth-child(even) td,.dtable tbody tr:nth-child(even) th{background:color-mix(in srgb,var(--tb-c) 7%,transparent)}
+.dtable tbody th{font-weight:700}
+.dtable tr.hl td,.dtable tr.hl th,.dtable td.hl,.dtable th.hl{background:color-mix(in srgb,var(--tb-c) 22%,transparent)!important;font-weight:700}
+.dtable td.hlc{background:var(--tb-c)!important;color:#fff;font-weight:800}
+.dtable tr.tot td,.dtable tr.tot th{font-weight:800;border-top:3px solid var(--tb-c);background:color-mix(in srgb,var(--tb-c) 12%,transparent)}
+.tb-zebra .dtable thead th{background:transparent;color:var(--tb-c);border-bottom:3px solid var(--tb-c)}
+.tb-zebra .dtable tbody tr:nth-child(odd) td,.tb-zebra .dtable tbody tr:nth-child(odd) th{background:color-mix(in srgb,var(--tb-c) 10%,transparent)}
+.tb-zebra .dtable tbody tr:nth-child(even) td,.tb-zebra .dtable tbody tr:nth-child(even) th{background:transparent}
+.tb-linhas .dtable thead th{background:transparent;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.72em;border-bottom:2px solid var(--fg)}
+.tb-linhas .dtable tbody tr td,.tb-linhas .dtable tbody tr th{background:transparent!important}
+.tb-colunas .dtable thead th.tb-k1{background:var(--c-c1,var(--em))}.tb-colunas .dtable thead th.tb-k2{background:var(--c-c2,var(--em))}.tb-colunas .dtable thead th.tb-k3{background:var(--c-c3,var(--em))}.tb-colunas .dtable thead th.tb-k4{background:var(--c-c4,var(--em))}.tb-colunas .dtable thead th.tb-k5{background:var(--c-c5,var(--em))}
+.tb-cartao{border:2px solid color-mix(in srgb,var(--tb-c) 35%,transparent);box-shadow:0 10px 30px #0001}
+.tb-cartao .dtable thead th{background:color-mix(in srgb,var(--tb-c) 14%,var(--bg));color:var(--fg)}
+.L-table{display:flex;flex-direction:column;height:100%;min-height:0}
+.L-table .tb-row{flex:1;min-height:0;display:flex;gap:56px;align-items:flex-start}
+.L-table .tb-main{flex:1;min-width:0;max-height:100%}
+.L-table.with-side .tb-main{flex:2.2}
+.L-table .tb-side{flex:1;align-self:center}
+.L-table .tb-cap{margin-top:18px;color:var(--muted)}

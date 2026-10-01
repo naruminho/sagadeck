@@ -13,7 +13,7 @@ import { LAYOUTS, SCENES } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el, imageSrc } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
-import { esc, notesHTML, plain, md } from "./markup.js";
+import { esc, notesHTML, plain, md, INLINE_MATH } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
 import { readRecordings } from "./api-client.js";
 
@@ -182,7 +182,7 @@ export function buildHTML(rawSpec, opts = {}) {
 <title>${esc(plain(spec.title || "Apresentação"))}</title>
 <style>${fontsCSSFor(read("runtime/base.css") + deckThemeCSS(spec, theme) + customCSS)}
 ${read("runtime/base.css")}
-${spec.slides.some(s => ["science", "solution", "calc"].includes(s.layout) || (s.layout === "canvas" && JSON.stringify(s.elements || []).includes('"latex"'))) ? read("runtime/vendor/katex.css") : ""}
+${spec.slides.some(s => ["science", "solution", "calc"].includes(s.layout) || (s.layout === "canvas" && JSON.stringify(s.elements || []).includes('"latex"')) || new RegExp(INLINE_MATH.source).test(JSON.stringify(s))) ? read("runtime/vendor/katex.css") : ""}
 ${deckThemeCSS(spec, theme)}
 ${customCSS}</style></head>
 <body class="theme-${theme.name}">
