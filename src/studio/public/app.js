@@ -1112,7 +1112,20 @@
 
       // Substituir o indicador pela resposta completa
       await finishWork();
-      appendChatMessage("ai", data.reply, data.actions);
+      const reply = appendChatMessage("ai", data.reply, data.actions);
+      // depois de melhorar seguindo o estilo do original: salvar esse estilo para usar em outras apresentações
+      if (data.offerStyle && reply) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "btn btn-sm chat-save-style";
+        b.innerHTML = '<i class="ic" data-ic="swatch-book"></i> Salvar este estilo'; hydrateIcons(b);
+        b.title = "Guarda a moldura, as cores e as fontes do original para usar em outras apresentações (Design › Estilo)";
+        b.onclick = async () => {
+          const name = window.prompt("Nome do estilo", data.offerStyle.name);
+          if (!name) return;
+          try { const r = await fetch("api/styles/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status); b.disabled = true; showToast(`Estilo "${j.name}" salvo: Design › Estilo aplica em outra apresentação ou usa em toda nova.`, 6000); } catch (e) { showToast(e.message); }
+        };
+        reply.querySelector(".ai-content")?.append(b);
+      }
       updateBrainstormApply();
     } catch (err) {
       work.fail(err.message);
