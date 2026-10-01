@@ -61,7 +61,7 @@ test("versão mínima do modelrelay: a mesma no aviso e no extra ia; modelrelay 
   const run = (version) => {
     fs.writeFileSync(path.join(fake, "modelrelay", "__init__.py"), `__version__ = "${version}"\n`);
     const r = spawnSync(py, ["-c", "import sagadeck.llm as llm\nllm.DEFAULT_PORT = 1\nwith llm.llm_env('studio', {}) as env: print(env['SAGADECK_LLM_URL'])"],
-      { env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: [fake, path.join(ROOT, "python")].join(path.delimiter) }, encoding: "utf8" });
+      { env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: [fake, path.join(ROOT, "python")].join(path.delimiter) }, encoding: "utf8" });
     assert.equal(r.status, 0, r.stderr);
     return r.stderr;
   };
@@ -83,6 +83,6 @@ test("versão mínima do modelrelay: a mesma no aviso e no extra ia; modelrelay 
   const venv = path.join(fake, ".venv", "lib", "python3.12", "site-packages", "modelrelay");
   fs.mkdirSync(venv, { recursive: true });
   const r = spawnSync(py, ["-c", `import sagadeck.llm as llm; print(llm.relay_clone(r"${path.join(venv, "__init__.py")}"))`],
-    { env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: path.join(ROOT, "python") }, encoding: "utf8" });
+    { env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: path.join(ROOT, "python") }, encoding: "utf8" });
   assert.equal(r.stdout.trim(), "None", r.stderr);
 });
