@@ -53,6 +53,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas]  gera <deck>.pptx editável (com animações dos cliques e notas; --sem-notas tira as notas, para mandar a alguém)
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
+  sagadeck estudo <deck.yaml> [--html]         gera <deck> - material de estudo.pdf (cada slide + texto de consulta)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
   sagadeck studio [deck.yaml|x.sagadeck] [--port=3517] [--library=PASTA]  sem arquivo: abre a biblioteca; já aberto: usa o aberto
                                    (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
@@ -273,6 +274,17 @@ async function main() {
       const { files } = await shots(p.html, p.tmpShots + "-mini", { scale: 0.5, jpeg: true });
       await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: p.roteiro, title: r.meta.title, author: r.meta.author, duration: r.spec.duration });
       console.log(`✓ Roteiro: ${p.roteiro}`); break;
+    }
+    // material de estudo: cada slide inteiro + o texto de consulta (sem as notas); --html para um arquivo HTML só
+    case "estudo": {
+      const p = paths(args[0]); const r = doBuild(p, true);
+      const { shots } = await import("../src/export/shots.js");
+      const { estudoHTML, estudoPDF } = await import("../src/export/estudo.js");
+      const { files } = await shots(p.html, p.tmpShots + "-estudo", { scale: 0.7, jpeg: true });
+      const html = estudoHTML({ title: r.meta.title, author: r.meta.author, date: r.spec.date, slidesMeta: r.slidesMeta, shotFiles: files });
+      const out = p.roteiro.replace(/ - roteiro\.pdf$/, ` - material de estudo.${flags.html ? "html" : "pdf"}`);
+      if (flags.html) fs.writeFileSync(out, html); else await estudoPDF(html, out);
+      console.log(`✓ Material de estudo: ${out}`); break;
     }
     case "all": {
       const p = paths(args[0]); const r = doBuild(p);

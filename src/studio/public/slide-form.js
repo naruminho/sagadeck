@@ -292,7 +292,7 @@
         f.more([f.el("figure", "Figura (no lugar do ícone)")])]), { addLabel: "Adicionar bloco", newItem: () => ({ title: "Bloco", icon: "star" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
   };
-  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "time", "auto", "density", "visualEdits", "from", "fiscalOk", "uid", "review", "original"]); // uid: identidade do slide; review/original: revisão e origem (importação) // from: de que planilha veio o gráfico (Atualizar da planilha)
+  const SLIDE_RESERVED = new Set(["layout", "tone", "deco", "notes", "consulta", "time", "auto", "density", "visualEdits", "from", "fiscalOk", "uid", "review", "original"]); // uid: identidade do slide; review/original: revisão e origem (importação) // from: de que planilha veio o gráfico (Atualizar da planilha)
 
   // ---------------------------------------------------------------------------------------------
   // Elementos (src/elements.js): tipos, como reconhecer e campos

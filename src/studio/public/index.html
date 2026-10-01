@@ -76,6 +76,8 @@
         <button class="menu-item" id="export-pptx" data-export="pptx" title="PowerPoint editável: textos nativos, animações dos cliques e notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint (.pptx)</button>
         <button class="menu-item" id="export-pptx-clean" data-export="pptx" data-notas="0" title="Para mandar a alguém: o mesmo PowerPoint, sem as notas do apresentador"><i class="ic" data-ic="file-text"></i>Baixar PowerPoint sem as notas</button>
         <button class="menu-item" id="export-pdf" data-export="pdf" title="Um slide por página, como a plateia vê (tudo revelado)"><i class="ic" data-ic="file-text"></i>Baixar PDF</button>
+        <button class="menu-item" id="export-estudo" data-export="estudo" title="Para o aluno: cada slide inteiro e o texto de consulta, sem as notas do apresentador"><i class="ic" data-ic="graduation-cap"></i>Baixar material de estudo (PDF)</button>
+        <button class="menu-item" id="export-estudo-html" data-export="estudo-html" title="O material de estudo num arquivo HTML só (abre em qualquer navegador, também no celular)"><i class="ic" data-ic="graduation-cap"></i>Baixar material de estudo (HTML)</button>
         <button class="menu-item" id="export-roteiro" data-export="roteiro" title="Para o apresentador: miniatura de cada slide com as notas e o tempo planejado"><i class="ic" data-ic="sticky-note"></i>Baixar roteiro (PDF)</button>
         <button class="menu-item" id="export-html" title="Um arquivo só, com tudo embutido, para apresentar em qualquer navegador (não serve para editar)"><i class="ic" data-ic="file-code"></i>Baixar para apresentar (HTML)</button>
       </div>
@@ -434,6 +436,7 @@
 
       <div id="notes-bar" class="notes-bar">
         <textarea id="slide-notes-input" class="notes-input" placeholder="Clique para adicionar anotações do apresentador"></textarea>
+        <textarea id="slide-consulta-input" class="notes-input notes-consulta" placeholder="Texto de consulta: só no material de estudo (o aluno lê depois)" title="Vai no material de estudo, logo depois deste slide; não aparece na apresentação"></textarea>
       </div>
     </section>
 

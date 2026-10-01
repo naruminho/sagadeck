@@ -1506,7 +1506,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           if (pathname === "/api/library/download" && req.method === "GET") {
             const file = L.resolveId(url.searchParams.get("id"));
             const kind = url.searchParams.get("kind") || "sagadeck";
-            if (!["sagadeck", "pptx", "pdf", "roteiro", "tudo"].includes(kind)) throw new Error("formato inválido");
+            if (!["sagadeck", "pptx", "pdf", "roteiro", "tudo", "estudo", "estudo-html"].includes(kind)) throw new Error("formato inválido");
             await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { notes: url.searchParams.get("notas") !== "0" });
             return;
           }
@@ -1610,11 +1610,12 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       }
 
       // Baixar o deck aberto: .sagadeck (YAML + imagens, CSS, widgets), PowerPoint, PDF ou roteiro
-      const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro|tudo)$/) || [])[1];
+      const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro|tudo|estudo|estudo-html)$/) || [])[1];
       if (exportKind) {
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
-        await sendExport(res, exportKind, spec, name, { notes: url.searchParams.get("notas") !== "0" });
+        // ?ver=1: o material de estudo abre na aba (o que o aluno recebe), em vez de baixar
+        await sendExport(res, exportKind, spec, name, { notes: url.searchParams.get("notas") !== "0", inline: exportKind === "estudo-html" && url.searchParams.get("ver") === "1" });
         return;
       }
 
@@ -1724,7 +1725,7 @@ async function lookAt(spec, index, prompt, emit) {
 // de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-async function sendExport(res, kind, spec, name, { notes = true } = {}) {
+async function sendExport(res, kind, spec, name, { notes = true, inline = false } = {}) {
   const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
   if (kind === "sagadeck") {
     const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
@@ -1736,6 +1737,9 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
     pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
     pdf: { file: `${name}.pdf`, mime: "application/pdf" },
     roteiro: { file: `${name} - roteiro.pdf`, mime: "application/pdf" },
+    // a visão de estudo do mesmo deck: cada slide inteiro + o texto de consulta (sem as notas do apresentador)
+    estudo: { file: `${name} - material de estudo.pdf`, mime: "application/pdf" },
+    "estudo-html": { file: `${name} - material de estudo.html`, mime: "text/html; charset=utf-8" },
     // "Baixar tudo": o que se leva para apresentar, num clique (PowerPoint com as notas, PDF e roteiro)
     tudo: { file: `${name}.zip`, mime: "application/zip" },
   };
@@ -1758,6 +1762,12 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
         let file = htmlFile;
         if (light) { file = path.join(tmp, "deck-claro.html"); fs.writeFileSync(file, buildHTML(light).html); }
         await pdf(file, out);
+      } else if (what === "estudo" || what === "estudo-html") {
+        const { shots } = await import("../export/shots.js");
+        const { estudoHTML, estudoPDF } = await import("../export/estudo.js");
+        const { files } = await shots(htmlFile, path.join(tmp, "fotos"), { scale: what === "estudo" ? 0.6 : 0.75, jpeg: true });
+        const html = estudoHTML({ title: r.meta.title, author: r.meta.author, date: spec.date, slidesMeta: r.slidesMeta, shotFiles: files });
+        if (what === "estudo-html") fs.writeFileSync(out, html); else await estudoPDF(html, out);
       } else {
         const { shots } = await import("../export/shots.js");
         const { roteiroPDF } = await import("../export/roteiro.js");
@@ -1773,7 +1783,7 @@ async function sendExport(res, kind, spec, name, { notes = true } = {}) {
       body = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
     } else body = await make(kind);
     res.writeHead(200, {
-      "Content-Type": k.mime, "Content-Disposition": cd(k.file),
+      "Content-Type": k.mime, "Content-Disposition": inline ? "inline" : cd(k.file),
       // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
       "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
     });
