@@ -400,6 +400,8 @@
     document.getElementById("advanced-density-select").value = ["compact", "dense"].includes(slide.density) ? slide.density : "";
     updateVariantButtons();
     dom.slideNotesInput.value = slide.notes || "";
+    const consulta = document.getElementById("slide-consulta-input");
+    if (consulta) consulta.value = slide.consulta || "";
     dom.slideTimeInput.value = slide.time || 1;
     syncThemeGallery();
     syncMotionMenu();
@@ -1930,6 +1932,8 @@
     { title: "Baixar PowerPoint (.pptx)", cat: "Arquivo", ic: "file-text", fn: () => document.getElementById("export-pptx").click() },
     { title: "Baixar PDF", cat: "Arquivo", ic: "file-text", fn: () => document.getElementById("export-pdf").click() },
     { title: "Baixar roteiro (PDF)", cat: "Arquivo", ic: "sticky-note", fn: () => document.getElementById("export-roteiro").click() },
+    { title: "Baixar material de estudo (PDF)", cat: "Arquivo", ic: "graduation-cap", fn: () => document.getElementById("export-estudo").click() },
+    { title: "Ver o que o aluno recebe", cat: "Exibir", ic: "graduation-cap", fn: () => window.open("api/export/estudo-html?ver=1", "_blank") },
     { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
@@ -4789,6 +4793,14 @@ ${ta.value}`;
       if (slide) slide.notes = dom.slideNotesInput.value;
     });
     dom.slideNotesInput.addEventListener("blur", syncDeckToServer);
+    // texto de consulta: a visão de estudo do slide (Arquivo › material de estudo)
+    const consultaInput = document.getElementById("slide-consulta-input");
+    consultaInput?.addEventListener("input", () => {
+      const slide = state.deck.slides[state.currentSlideIndex];
+      if (!slide) return;
+      if (consultaInput.value.trim()) slide.consulta = consultaInput.value; else delete slide.consulta;
+    });
+    consultaInput?.addEventListener("blur", syncDeckToServer);
 
     // Tempo do Slide
     dom.slideTimeInput.addEventListener("change", () => {
@@ -5063,6 +5075,8 @@ ${ta.value}`;
       pptx: { label: "o PowerPoint", done: "PowerPoint editável, com animações e notas." },
       pdf: { label: "o PDF", done: "PDF com um slide por página." },
       roteiro: { label: "o roteiro", done: "roteiro com miniaturas, notas e tempos." },
+      estudo: { label: "o material de estudo", done: "material de estudo: cada slide inteiro e o texto de consulta." },
+      "estudo-html": { label: "o material de estudo", done: "material de estudo num HTML só." },
       tudo: { label: "o PowerPoint, o PDF e o roteiro", done: "um .zip com o PowerPoint (com notas), o PDF e o roteiro." },
     };
     document.querySelectorAll("[data-export]").forEach((btn) => {
@@ -5074,7 +5088,7 @@ ${ta.value}`;
         btn.disabled = true;
         showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${{ pptx: "pptx", tudo: "zip" }[kind] || "pdf"}`);
+          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${{ pptx: "pptx", tudo: "zip", "estudo-html": "html" }[kind] || "pdf"}`);
           const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
           showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
         } catch (err) {

@@ -558,7 +558,7 @@ export function applyPatch(base, patch) {
 // ---------------------------------------------------------------------------------------------
 const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
-const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "output", "json"]);
+const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "consulta", "output", "json"]);
 const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);
 let knownKeysCache = null;
 function knownSlideKeys() {

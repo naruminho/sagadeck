@@ -147,7 +147,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const limit = wordLimit(s, spec, layout);
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
-    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", time: s.time || 0, layout, words });
+    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", time: s.time || 0, layout, words });
   });
 
   // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)
@@ -171,7 +171,7 @@ export function buildHTML(rawSpec, opts = {}) {
   const apiScripts = hasApi ? `<script type="application/json" id="sagadeck-api-rec">${JSON.stringify(readRecordings(spec._file)).replace(/</g, "\\u003c")}</script>
 <script>${read("runtime/api-core.js")}</script>` : "";
   const size = slideSize(spec);
-  const data = { size: { w: size.w, h: size.h }, id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, ...m }) => m) };
+  const data = { size: { w: size.w, h: size.h }, id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, consulta, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
 
   const doc = `<!doctype html>

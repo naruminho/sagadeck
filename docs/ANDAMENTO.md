@@ -49,6 +49,11 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   centro do slide e dos objetos; Alt solta); trocar imagem com encaixe e ponto de foco (a chave do objeto não muda);
   clique sem arrastar num dos selecionados fica só com ele. Texto, tabela e desenho importados do PowerPoint
   (`tbx`, `tbx-table`, `drw`) passaram a ser objetos ajustáveis. `test/editor-tools.test.js`.
+- **Palco × estudo** (`src/export/estudo.js`): campo `consulta:` do slide (escrito ao lado das anotações) só vai
+  no material de estudo; Arquivo › material de estudo (PDF ou HTML), "Ver o que o aluno recebe" na busca de
+  comandos, `sagadeck estudo deck.yaml [--html]`; cada slide inteiro (tudo revelado) + o texto de consulta, sem as
+  notas do apresentador. A referência pede para a IA pôr o aprofundamento em `consulta` numa palestra.
+  `test/estudo.test.js`.
 - Falta do relatório (ordem): teste ao vivo Pro × Flash (em curso); depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
