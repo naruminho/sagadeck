@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import JSZip from "jszip";
 import path from "node:path";
 import { buildHTML, loadSpec } from "../src/build.js";
 import { tempDeck, browserOrSkip, readPptx } from "./helpers.js";
@@ -99,5 +100,24 @@ test("PowerPoint: linhas desenhadas por CSS (pseudo-elementos e bordas de um lad
   assert.ok(tl.filter((s) => s.h <= 10 && s.w >= 60).length >= 2, `linha do tempo sem o traço entre os eventos: ${JSON.stringify(tl)}`);
   const dv = await shapesOf(out, 1);
   assert.ok(dv.some((s) => s.fill === "CC0000" && s.h <= 10 && s.w >= 100), `divisor (borda embaixo) sumiu: ${JSON.stringify(dv)}`);
+  deck.cleanup();
+});
+
+test("PowerPoint: a tabela sai como tabela nativa, editável, com o texto e a cor do cabeçalho", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const deck = tempDeck();
+  const spec = { title: "Tabela", theme: "sinal", slides: [{ layout: "table", title: "Vazões", head: ["Ano", "Vazão (m³/s)"], rows: [["1984", "2.218,0"], ["1985", "1.980,5"]], highlight: { row: 1 } }] };
+  const r = buildHTML(spec);
+  const htmlFile = path.join(deck.dir, "t.html"), out = path.join(deck.dir, "t.pptx");
+  fs.writeFileSync(htmlFile, r.html);
+  const { exportPptx } = await import("../src/export/pptx.js");
+  await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } });
+  const zip = await JSZip.loadAsync(fs.readFileSync(out));
+  const xml = await zip.file("ppt/slides/slide1.xml").async("string");
+  assert.match(xml, /<a:tbl>/, "tabela nativa");
+  assert.equal((xml.match(/<a:tr /g) || []).length, 3, "cabeçalho + 2 linhas");
+  for (const v of ["Ano", "Vazão (m³/s)", "2.218,0", "1.980,5"]) assert.ok(xml.includes(`<a:t>${v}</a:t>`), v);
+  assert.match(xml, /<a:tcPr[^>]*>[\s\S]*?<a:solidFill><a:srgbClr val="[0-9A-F]{6}"/, "cabeçalho com cor");
   deck.cleanup();
 });

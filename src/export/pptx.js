@@ -150,6 +150,23 @@ function collectInPage([idx, nativeCharts]) {
         return;
       }
     }
+    // tabela de verdade (src/table.js): tabela nativa do PowerPoint, editável, com as cores e larguras da tela
+    if (tag === "TABLE" && e.classList.contains("dtable")) {
+      const trs = [...e.rows];
+      const rows = trs.map((tr) => [...tr.cells].map((c) => {
+        const ccs = getComputedStyle(c);
+        let bg = rgba(ccs.backgroundColor);
+        if (bg.a < 0.01) bg = rgba(getComputedStyle(tr).backgroundColor);
+        const col = rgba(ccs.color), bb = rgba(ccs.borderBottomColor);
+        const run = { family: ccs.fontFamily.split(",")[0].replace(/["']/g, "").trim(), weight: +ccs.fontWeight, baseW: 400, italic: ccs.fontStyle === "italic", baseItalic: false, role: "body", stretch: 100 };
+        return { text: c.innerText.trim(), run, color: col.hex, size: parseFloat(ccs.fontSize), fill: bg.a > 0.01 ? bg.hex : null, fillA: bg.a, align: ccs.textAlign === "right" || ccs.textAlign === "end" ? "right" : ccs.textAlign === "center" ? "center" : "left",
+          pad: [ccs.paddingTop, ccs.paddingRight, ccs.paddingBottom, ccs.paddingLeft].map(parseFloat), line: parseFloat(ccs.borderBottomWidth) > 0 && bb.a > 0.05 ? { color: bb.hex, w: parseFloat(ccs.borderBottomWidth) } : null };
+      }));
+      const colW = trs.length ? [...trs[0].cells].map((c) => c.getBoundingClientRect().width) : [];
+      const rowH = trs.map((tr) => tr.getBoundingClientRect().height);
+      tagIt({ kind: "table", rows, colW, rowH });
+      return;
+    }
     // coisas que viram imagem
     if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" ||
         e.classList.contains("widget") || e.classList.contains("timer") || e.classList.contains("code") || e.classList.contains("raster") || transformed(cs)) {
@@ -389,6 +406,17 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
           const el = document.querySelector(`[data-pid="${pid}"]`); el.classList.remove("solo-t", "solo-bg");
         }, it.pid);
         slide.addImage({ data: "image/png;base64," + buf.toString("base64"), ...geo, objectName: name });
+        anims.push({ name, step: it.step, exit: it.exit, isSp: false });
+      } else if (it.kind === "table") {
+        const rows = it.rows.map((r) => r.map((c) => {
+          const f = fontFor(c.run, fmap, aliases);
+          const o = { fontFace: f.face, bold: f.bold, italic: f.italic, fontSize: +(c.size * PT).toFixed(2), color: c.color, align: c.align, valign: "middle", margin: c.pad.map((v) => +(v * PT).toFixed(2)) };
+          o.fill = c.fill ? { color: c.fill, transparency: Math.round((1 - c.fillA * alpha) * 100) } : { type: "none" };
+          const none = { type: "none" };
+          o.border = [none, none, c.line ? { type: "solid", color: c.line.color, pt: +(c.line.w * PT).toFixed(2) } : none, none];
+          return { text: c.text, options: o };
+        }));
+        slide.addTable(rows, { ...geo, colW: it.colW.map((w) => w * PX), rowH: it.rowH.map((h) => h * PX), objectName: name, autoPage: false });
         anims.push({ name, step: it.step, exit: it.exit, isSp: false });
       } else if (it.kind === "chart") {
         addNativeChart(pres, slide, it, geo, name, fmap);
