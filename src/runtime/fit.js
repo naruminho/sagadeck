@@ -214,7 +214,21 @@
     });
   }
 
+  // Palco do infográfico (1680 × 700, desenho posicionado): com algo no add (aviso, legenda), sobra menos altura no
+  // layout e o palco vazava por baixo do que vem depois. Cabe na altura que sobra (até 50%), centrado.
+  function fitStages(root) {
+    root.querySelectorAll(".ig-stage").forEach((st) => {
+      const L = st.parentElement;
+      st.style.zoom = "";
+      if (!L || !L.clientHeight || !st.offsetHeight) return;
+      const others = [...L.children].filter((c) => c !== st).reduce((a, c) => { const cs = getComputedStyle(c); return a + c.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom); }, 0);
+      const z = Math.min(1, (L.clientHeight - others - 8) / st.offsetHeight);
+      if (z < 0.98) st.style.zoom = String(Math.max(0.5, +z.toFixed(3)));
+    });
+  }
+
   function fitAllIn(root) {
+    fitStages(root);
     fitImages(root);
     fitSteps(root);
     fitChartText(root);
@@ -223,5 +237,5 @@
     fitText(root);
   }
 
-  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, fitWide, fitImages, fitSteps, shrink };
+  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, fitWide, fitImages, fitSteps, fitStages, shrink };
 })(typeof window !== "undefined" ? window : globalThis);

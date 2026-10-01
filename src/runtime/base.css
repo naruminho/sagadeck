@@ -1459,7 +1459,7 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .sol-row{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr);gap:48px}
 .sol-problem{display:flex;flex-direction:column;gap:24px;min-width:0;padding:28px 30px;border-radius:22px;background:color-mix(in srgb,var(--fg) 5%,var(--bg));border:1px solid var(--line);align-self:start}
 .sol-text{font-size:30px;line-height:1.4}
-.sol-label{font-size:18px;color:var(--em);letter-spacing:.08em;white-space:nowrap}
+.sol-label{font-size:20px;color:var(--em);letter-spacing:.08em;white-space:nowrap}
 .sol-givens{display:flex;flex-direction:column;gap:10px}
 .sol-given{display:flex;align-items:baseline;gap:16px;font-size:28px}.sol-given .sol-tex{min-width:7em}.sol-given>span{font-size:22px;color:var(--muted)}
 .sol-find{display:flex;align-items:baseline;gap:16px;font-size:30px;padding-top:14px;border-top:1px dashed var(--line)}

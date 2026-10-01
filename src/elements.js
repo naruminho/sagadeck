@@ -180,7 +180,8 @@ export function aviso(e) {
   const norm = String(a.tipo || "dica").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const kind = AVISO_KINDS[norm] ? norm : "dica";
   const { icon, titulo } = AVISO_KINDS[kind];
-  return `<div${attrs(e, `aviso av-${kind}`)}><span class="av-icon">${iconSVG(a.icon || icon, { size: 44, stroke: 2 })}</span><div class="av-body"><div class="av-title f-heading">${md(a.titulo || titulo)}</div><div class="av-text f-body">${md(a.texto || "")}</div></div></div>`;
+  // (texto com .t: o ajuste para caber e o fiscal enxergam o aviso; antes ele ficava por cima de outro sem ninguém ver)
+  return `<div${attrs(e, `aviso av-${kind}`)}><span class="av-icon">${iconSVG(a.icon || icon, { size: 44, stroke: 2 })}</span><div class="av-body"><div class="av-title t f-heading">${md(a.titulo || titulo)}</div><div class="av-text t f-body">${md(a.texto || "")}</div></div></div>`;
 }
 
 // Renderiza qualquer elemento
