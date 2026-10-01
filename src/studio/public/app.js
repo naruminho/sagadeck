@@ -1054,6 +1054,7 @@
         attachments,
         renderNotes: state.renderNotes || [],
         autoRun: !!state.autoRunCommands, // a pessoa liberou os comandos desta conversa (só enquanto a página está aberta)
+        expectFile: state.file,
       }, (ev) => { if (!commandEvent(ev)) work.update(ev); });
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       // conversa salva antes de dispensar o indicador: quem espera o fim da resposta já encontra o arquivo gravado
@@ -1880,9 +1881,10 @@
         const res = await fetch(slideMode ? "api/slide-yaml" : "api/deck", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(slideMode ? { index: state.currentSlideIndex, yaml: dom.yamlLiveEditor.value } : { yaml: dom.yamlLiveEditor.value }),
+          body: JSON.stringify(slideMode ? { index: state.currentSlideIndex, yaml: dom.yamlLiveEditor.value, expectFile: state.file } : { yaml: dom.yamlLiveEditor.value, expectFile: state.file }),
         });
         const data = await res.json();
+        if (data.stale) return staleTab(data.error);
         if (!res.ok || !data.ok) {
           dom.yamlStatus.textContent = data.error || "YAML inválido";
           dom.yamlStatus.classList.add("error");
@@ -3281,6 +3283,9 @@
     showToast(`${dir < 0 ? "Desfeito" : "Refeito"}: ${e.label}`, 2200);
   }
 
+  // outra aba/aparelho abriu outra apresentação neste Studio: nada desta foi gravado (o servidor recusou)
+  function staleTab(msg) { updateSaveStatus("error"); showToast(msg, 20000, { label: "Recarregar", fn: () => location.reload() }); }
+
   async function syncDeckToServer() {
     trackDeck("Edição");
     updateSaveStatus("saving");
@@ -3288,9 +3293,10 @@
       const res = await fetch("api/deck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spec: state.deck }),
+        body: JSON.stringify({ spec: state.deck, expectFile: state.file }),
       });
       const data = await res.json().catch(() => ({}));
+      if (data.stale) return staleTab(data.error);
       if ("file" in data) state.file = data.file;
       if (data.materialized) previewMaterialized(data.materialized);
       // o servidor dá identidade a slide novo (uid) e leva o ajuste visual junto quando um texto muda: o Studio adota

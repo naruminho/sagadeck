@@ -70,6 +70,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   chegar nada (`SAGADECK_LLM_TIMEOUT`, 180 s). `test/llm-timeout.test.js`. Achados para depois: pendente falso por
   coordenada de mapa (7606, 7608…) e por palavra comum com maiúscula ("Para", "Seção", "Hidrográfica"); correção que
   falha por formato de gráfico e por YAML nas notas; visão "sem JSON".
+- Na 2ª tentativa do pedido detalhado, o chat gravou o resultado na recriada da rodada 1 (81 → 130 slides): o Studio
+  local tem UMA apresentação aberta para todas as abas e aparelhos; depois do reinício, uma aba aberta na recriada a
+  reabriu logo depois de o script abrir o original, e o chat grava em W.file (o aberto naquele instante), não no que
+  quem pediu estava vendo. A rodada 1 foi remontada da tarefa salva (os 69 itens prontos; montar é código, sem
+  modelo; mesmo resultado: 81 slides, 4 pendentes, 17 a conferir). Correção: a aba manda `expectFile` (o arquivo que
+  está vendo) ao salvar, no YAML e no chat; se o Studio está com outro aberto, 409 e "Recarregue" (nada é gravado).
+  `test/stale-tab.test.js`.
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`
