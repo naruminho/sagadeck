@@ -404,6 +404,9 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   // ---- 5. MONTAR — o que faltou conserva o original; a proposta fica pendente para o professor decidir
   const slides = [];
   const coverage = [];
+  // o original que volta para o deck (pendente, não saiu): no recriar, sem a moldura antiga (deco: faixa, logos), que
+  // destoaria do tema novo; o conteúdo fica inteiro
+  const asOriginal = (s) => { const c = structuredClone(s); if (mode === "recriar") c.elements = (c.elements || []).filter((e) => !e.deco); return c; };
   plan.slides.forEach((it, k) => {
     const res = job.results[k];
     const src = srcOf(it);
@@ -412,14 +415,14 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       : null;
     if (!res?.slides) {
       // não saiu (falhou, parou no limite, cancelado): o original como era
-      const back = src.map((s) => structuredClone(s));
+      const back = src.map((s) => (it.acao === "manter" ? structuredClone(s) : asOriginal(s)));
       if (back.length && it.acao !== "manter") report.pendentes.push(`item ${k + 1} (${it.ideia}): ${res?.state === "falhou" ? "não saiu" : "não chegou a ser escrito"}; ficou o original (slide ${src.map((s) => s.original.slide).join(", ")})`);
       slides.push(...back);
       return;
     }
     if (res.state === "pendente" && src.length) {
       // omissão: o original fica, e a proposta vem logo depois, marcada para decidir
-      const back = src.map((s) => ({ ...structuredClone(s), uid: newUid() }));
+      const back = src.map((s) => ({ ...asOriginal(s), uid: newUid() }));
       slides.push(...back);
       slides.push(...res.slides.map(({ _why, ...s }) => ({ ...s, review: { status: "pendente", note: clip(`Proposta para o slide ${src.map((x) => x.original.slide).join(", ")}: ${res.missing}. O original ficou antes desta; aceitar tira o original, desfazer tira a proposta.`, 300), original: Number(it.de[0]), pair: back.map((b) => b.uid) } })));
       report.pendentes.push(res.missing);

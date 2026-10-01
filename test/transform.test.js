@@ -462,6 +462,24 @@ test("slide a mais sem item (origem: extra) entra junto com o item de antes, sem
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("recriar: o original que fica no deck novo (pendente ou que não saiu) vem sem a moldura antiga; o melhorar mantém", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM(handler);
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    // moldura antiga no slide 2 (como o professor copiou slide a slide)
+    d.spec.slides[1].elements.push({ drawing: '<svg viewBox="0 0 10 1"><rect width="10" height="1" fill="#4472C4"/></svg>', x: 0, y: 1000, w: 1920, h: 80, deco: true });
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false, limits: { calls: 1 } }); // o item 2 não chega a ser escrito
+    const back = r.spec.slides.find((s) => s.original?.slide === 2);
+    assert.ok(back && back.elements.length && !back.elements.some((e) => e.deco), "sem a moldura, com o conteúdo");
+    const m = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false, limits: { calls: 1 } });
+    assert.ok(m.spec.slides.find((s) => s.original?.slide === 2).elements.some((e) => e.deco), "no melhorar a moldura fica (é o estilo)");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("primeiro slide do bloco sem origem: é do primeiro item (a IA escreve na ordem)", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
