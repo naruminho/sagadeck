@@ -3,7 +3,13 @@
 name: test
 on:
   push:
+    branches: [main]
   pull_request:
+
+# um push novo na mesma branch/PR cancela o run anterior (a fila não acumula)
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
