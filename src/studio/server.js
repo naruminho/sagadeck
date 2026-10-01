@@ -24,7 +24,7 @@ import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
-import { runCommand, envName } from "../ai/commands.js";
+import { runCommand, envName, logCommand } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -193,12 +193,16 @@ export function createStudioServer(deckPath = null, opts = {}) {
           approvals.set(id, { user: W.user || "", answer: (d) => { clearTimeout(timer); approvals.delete(id); resolve(d); } });
           emit({ phase: "approve", id, command, text: "Esperando você autorizar o comando…" });
         });
-        if (decision === "deny") return { denied: true };
+        if (decision === "deny") { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: "recusado" }); return { denied: true }; }
         if (decision === "always") body.autoRun = true;
       }
       emit({ phase: "command", command, text: `Rodando: ${command.why || command.language}…` });
       const { env, mask } = await commandEnv(W);
-      const result = await runCommand(command, { cwd, env, mask });
+      const t0 = Date.now();
+      let result;
+      try { result = await runCommand(command, { cwd, env, mask }); }
+      catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", error: e.message }, { mask }); throw e; }
+      logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
       emit({ phase: "command-result", command, result, text: "Analisando o resultado…" });
       return result;
     };
@@ -334,6 +338,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         drawCheck: diagramCheck,
       });
       if (gen.question) { L.trashDeck(id); return { question: gen.question }; } // a IA quer saber para que serve o material
+      // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
+      if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
       const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
       return { id: finalId, file: L.resolveId(finalId), images: gen.images };
@@ -741,6 +747,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const style = W.spec.master ? { name, theme: W.spec.theme, master: W.spec.master, from: W.spec.import?.from || null } : styleFromImport(W.spec, { name });
             return reply(200, W.library.saveStyle(style, dir));
           }
+          if (pathname === "/api/styles/default") return reply(200, { ok: true, default: W.library.setDefaultStyle(b.id || null) });
           if (pathname === "/api/styles/apply") {
             W.spec = W.library.applyStyleTo(W.spec, dir, b.id);
             persist(W);
@@ -1533,6 +1540,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               const title = String(b.title || "Nova apresentação").trim();
               const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,
                 slides: [{ layout: "cover", title, subtitle: "Subtítulo", author: "" }] });
+              // estilo padrão da biblioteca (Brand Kit): sem tema escolhido, a nova já nasce nele
+              if (!b.theme && L.defaultStyle()) { const f = L.resolveId(id); writeDeckFile(f, L.withDefaultStyle(YAML.parse(fs.readFileSync(f, "utf8")), path.dirname(f))); }
               return ok({ id });
             }
             case "/api/library/decks/model": {

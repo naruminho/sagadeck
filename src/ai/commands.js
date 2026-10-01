@@ -10,6 +10,22 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+
+// Registro de auditoria: cada comando pedido pela IA (aprovado, recusado ou executado), uma linha JSON em
+// ~/.sagadeck/comandos.log (SAGADECK_COMANDOS_LOG troca o arquivo). Código e saída passam pela máscara de segredos;
+// a saída fica nos primeiros 2 mil caracteres. Falha ao gravar o registro nunca impede o comando.
+export function commandLogFile(env = process.env, home = os.homedir()) {
+  return env.SAGADECK_COMANDOS_LOG || path.join(home, ".sagadeck", "comandos.log");
+}
+export function logCommand(entry, { mask = (s) => s, file = commandLogFile() } = {}) {
+  try {
+    const m = (v) => (typeof v === "string" ? mask(v) : v);
+    const line = { at: new Date().toISOString(), ...entry, code: m(entry.code), output: entry.output != null ? m(String(entry.output)).slice(0, 2000) : undefined };
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, JSON.stringify(line) + "\n");
+  } catch {}
+}
 
 export const MAX_COMMANDS = 12, MAX_SECONDS = 60;
 const LANGS = ["javascript", "python", "powershell", "shell"];

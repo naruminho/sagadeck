@@ -173,3 +173,30 @@ test("faixa do título do mestre: o título fica acima do fio e o conteúdo come
   assert.equal(titleBand({ master: { ...master, elements: [] } }), null);
   assert.doesNotMatch(build({ ...spec, master: { ...master, elements: [] } }).html, /master-title/);
 });
+
+test("Brand Kit: um estilo vira o padrão e toda apresentação nova (em branco, sem tema escolhido) já nasce nele", async () => {
+  const home = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TEMP || process.env.TMPDIR || "/tmp"), "sgd-brand-"));
+  const lib = openLibrary(home);
+  const imp = await lib.importOffice(await universityPptx(), "Aulas", "Aula padrão.pptx");
+  const studio = await startStudio(imp.file, { library: home });
+  const post = async (url, body) => (await fetch(`${studio.url}${url}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+  try {
+    const saved = await post("/api/styles/save", { name: "Padrão da universidade" });
+    assert.equal((await post("/api/styles/default", { id: saved.id })).default, saved.id);
+    assert.equal(lib.listStyles().find((s) => s.id === saved.id).default, true);
+    const nova = await post("/api/library/decks", { topic: "Aulas", title: "Aula nova" });
+    const spec = YAML.parse(fs.readFileSync(lib.resolveId(nova.id), "utf8"));
+    assert.equal(spec.style?.id, saved.id, "nasceu no estilo padrão");
+    assert.ok(spec.master?.elements?.length, "com a moldura");
+    const imgs = (spec.master.elements || []).filter((e) => e.image).map((e) => e.image);
+    for (const im of imgs) assert.ok(fs.existsSync(path.join(path.dirname(lib.resolveId(nova.id)), im)), `imagem da moldura copiada: ${im}`);
+    // tema escolhido: respeita a escolha
+    const comTema = await post("/api/library/decks", { topic: "Aulas", title: "Com tema", theme: "oceano" });
+    assert.ok(!YAML.parse(fs.readFileSync(lib.resolveId(comTema.id), "utf8")).style);
+    // sem padrão: nascem sem estilo
+    await post("/api/styles/default", { id: null });
+    assert.equal(lib.defaultStyle(), null);
+    const sem = await post("/api/library/decks", { topic: "Aulas", title: "Sem estilo" });
+    assert.ok(!YAML.parse(fs.readFileSync(lib.resolveId(sem.id), "utf8")).style);
+  } finally { await studio.close(); fs.rmSync(home, { recursive: true, force: true }); }
+});

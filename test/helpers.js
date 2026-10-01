@@ -14,6 +14,8 @@ process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home
 process.env.SAGADECK_AMBIENTES = path.join(process.env.SAGADECK_HOME, "ambientes-de-teste.yaml");
 // e para as Preferências (~/.sagadeck/preferencias.json)
 process.env.SAGADECK_PREFERENCIAS = path.join(process.env.SAGADECK_HOME, "preferencias-de-teste.json");
+// registro dos comandos da IA (src/ai/commands.js): nos testes, numa pasta temporária
+process.env.SAGADECK_COMANDOS_LOG = path.join(process.env.SAGADECK_HOME, "comandos-de-teste.log");
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).

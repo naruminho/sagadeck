@@ -82,6 +82,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   de controle em silêncio) → consertado no parse; a IA pediu `table` (não existia); conferência visual "sem JSON"
   tenta de novo e, no recriar, não cobra a moldura do original; fórmula `$…$` no meio do texto (KaTeX) em qualquer
   campo.
+- **Do log de conselhos (outro assistente)**, o que fazia sentido: registro de auditoria dos comandos da IA
+  (`~/.sagadeck/comandos.log`, com segredo mascarado; recusado/aprovado/liberado, saída e tempo); travas (os 3
+  monolitos não crescem: `test/guards.test.js`; todo `visualEdits` do motor está na referência); **Brand Kit**:
+  estilo padrão da biblioteca (`.estilos/padrao.json`), deck novo em branco ou com IA sem tema já nasce nele
+  (Design › Estilo › Usar em toda apresentação nova). Já estava feito: Plotly/Mermaid só entram no HTML quando o
+  deck usa (deck simples ~200 KB). Não feito, com motivo: ESLint/Prettier (reformataria o repositório inteiro,
+  com o GPT na mesma pasta), link público na nuvem (precisa de infraestrutura; o uso no banco é offline).
 - Falta do relatório (ordem): retomar o recriar ao vivo (Pro × Flash); depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
