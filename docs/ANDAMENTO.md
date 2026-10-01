@@ -63,6 +63,9 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   título e o texto** (faixa do título: `titleBand` em `src/master.js`, o cabeçalho vai acima do fio e o conteúdo
   começa abaixo, vale para deck já gerado); capa repetindo logo e instituição da moldura e `dossier` (letra miúda)
   numa palestra (regras no prompt; aprofundamento em `consulta`).
+- **Arquitetura**: CI também no Windows (matriz ubuntu + windows); o CI estava vermelho desde o #59 (o motor
+  empacotado não achava o package.json); desempenho com 10/80/200 slides (`test/perf.test.js`: montar o HTML
+  200 slides < 0,1 s aqui; Studio com 200 abre em ~2,5 s e troca de slide em 0,1–0,4 s).
 - Falta do relatório (ordem): recriar ao vivo (Pro × Flash) com o código novo; depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
