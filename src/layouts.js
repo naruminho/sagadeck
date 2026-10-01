@@ -1,5 +1,6 @@
 // Layouts: cada um recebe o objeto do slide (YAML) e devolve o HTML da área útil.
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
+import { tableHTML } from "./table.js";
 import { decisionLabHTML } from "./decision-lab.js";
 import { md, esc } from "./markup.js";
 import { adaptiveHTML } from "./adaptive-layouts.js";
@@ -235,6 +236,14 @@ export const LAYOUTS = {
     return `<div class="L-split ${s.reverse ? "rev" : ""}">
       <div class="sp-text" style="flex:${ratio[0]}">${head(s, s.titleAs || "h2")}${left}</div>${right}
     </div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // tabela de verdade: título, a tabela (cores do tema) e, se houver, a conclusão ao lado (side) e a fonte
+  table(s, ctx) {
+    const t = { head: s.head || s.columns, rows: s.rows, csv: s.csv, style: s.style, color: s.color, align: s.align, highlight: s.highlight, total: s.total, widths: s.widths, rowHeader: s.rowHeader, size: s.size };
+    const tb = `<div class="tb-main e" style="--d:2;">${tableHTML(t, { theme: ctx?.theme })}</div>`;
+    const side = s.side ? `<div class="tb-side e" style="--d:3;">${text(s.side, "lead", { class: "tb-side-t" })}</div>` : "";
+    return `<div class="L-table${side ? " with-side" : ""}">${head(s)}<div class="tb-row">${tb}${side}</div>${s.caption ? text(s.caption, "small", { class: "tb-cap" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   cards(s, ctx) {

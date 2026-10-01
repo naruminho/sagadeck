@@ -33,7 +33,7 @@ export function applyVisualEdits(html, edits = {}, { src = (p) => p } = {}) {
   const out = html.replace(/<(div|span|p|h[1-6])\b([^>]*\bclass="([^"]+)"[^>]*)>/g, (tag,name,attrs,cls,offset) => {
     const classes = cls.split(/\s+/);
     // tbx / tbx-table / drw: texto, tabela e desenho que vieram de um PowerPoint (também se ajustam no Studio)
-    if (!classes.some(c=>['t','fig','shape','scene-sculpture','tbx','tbx-table','drw'].includes(c))) return tag;
+    if (!classes.some(c=>['t','fig','shape','scene-sculpture','tbx','tbx-table','drw','tbl'].includes(c))) return tag;
     const group = classes.filter(c=>c!=='e' && c!=='active').join('-').replace(/[^a-zA-Z0-9_-]/g,'');
     const n = counts.get(group) || 0; counts.set(group,n+1);
     const legacy = `${group}-${n}`;

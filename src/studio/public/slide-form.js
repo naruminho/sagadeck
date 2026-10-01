@@ -49,6 +49,7 @@
     plot: (k, label, o = {}) => ({ k, label, type: "plot", ...o }),
     photo: (k, label, o = {}) => ({ k, label, type: "photo", ...o }),     // foto da pessoa (arquivo escolhido) ou vazia = de demonstração
     lines: (k, label, o = {}) => ({ k, label, type: "linemap", ...o }), // {2: "texto", 5: null} <-> "2: texto" por linha
+    tablegrid: (label, o = {}) => ({ k: ["head", "rows"], label, type: "tablegrid", ...o }), // tabela de texto (layout table)
     sheet: (label, o = {}) => ({ k: ["data", "labels", "series", "parts"], label, type: "sheet", ...o }), // planilha dos dados do gráfico       // fórmulas, pontos e superfície (slide science)
     json: (k, label, o = {}) => ({ k, label, type: "json", ...o }),        // objeto editado como JSON validado
     more: (fields) => ({ type: "more", fields }),
@@ -152,6 +153,11 @@
     timeline: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("events", "Eventos", obj(TIMELINE_EV), { addLabel: "Adicionar evento", newItem: () => ({ when: "2025", title: "Evento" }) }),
       f.text("after", "Frase final (depois de um clique)"),
       f.more([f.nums("highlight", "Destacar eventos (posições, a partir de 0)"), f.bool("build", "Um por clique"), f.num("afterStep", "Frase final no clique")])],
+    table: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.tablegrid("Tabela", { hint: "A primeira linha é o cabeçalho. Cole do Excel numa célula." }),
+      f.select("style", "Estilo", [["", "Faixa (cabeçalho colorido)"], ["zebra", "Zebra"], ["linhas", "Só linhas"], ["colunas", "Uma cor por coluna"], ["cartao", "Cartão"]]),
+      f.select("color", "Cor", [["", "Do tema"], ["c1", "Cor 1 da paleta"], ["c2", "Cor 2 da paleta"], ["c3", "Cor 3 da paleta"], ["c4", "Cor 4 da paleta"], ["c5", "Cor 5 da paleta"], ["hi", "Destaque"]]),
+      f.bool("total", "Última linha é o total"), f.el("side", "Ao lado (a conclusão)", { stringAs: "text" }), f.text("caption", "Legenda"), f.text("source", "Fonte"),
+      f.more([f.num("size", "Tamanho da letra (px)"), f.bool("rowHeader", "Primeira coluna em negrito")])],
     chart: [f.action("Atualizar da planilha", () => CTX.refreshFrom?.(), { when: (s) => s.from?.file }), f.text("kicker", "Chapéu"), f.text("title", "Título"), f.chart("chart", "Gráfico"), f.el("side", "Ao lado", { stringAs: "text" }),
       f.more([f.num("chartHeight", "Altura do gráfico (px)"), f.num("chartStep", "Gráfico no clique"), f.num("sideStep", "Lado no clique")])],
     compare: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.obj("left", "Lado A", COMPARE_SIDE), f.text("vs", "Entre os lados", { placeholder: "×" }),
@@ -496,6 +502,7 @@
       case "chart": return chartField(o, spec, path);
       case "plot": return plotField(o, spec);
       case "sheet": return sheetField(o, spec);
+      case "tablegrid": return tableGridField(o, spec);
       case "linemap": return lineMapField(o, spec);
       case "photo": return photoField(o, spec);
       case "json": return jsonField(o, spec);
@@ -924,6 +931,57 @@
       c[key] = rows.map((r, i) => ({ label: r[0], value: r[1] ?? 0, ...(t.itemColors?.[i] ? { color: t.itemColors[i] } : {}) }));
     }
   }
+  // Tabela de texto como no Excel: a primeira linha é o cabeçalho; Enter/setas andam; a última linha em branco cria a
+  // próxima; colar do Excel (tab) ou de um CSV preenche a partir da célula; + coluna, − linha/coluna
+  function tableGridField(o, spec) {
+    const cols = Math.max(1, (o.head || []).length, ...(o.rows || []).map((r) => (Array.isArray(r) ? r.length : 0)));
+    const grid = [[...(o.head || [])], ...(o.rows || []).map((r) => (Array.isArray(r) ? [...r] : [r]))].map((r) => Array.from({ length: cols }, (_, j) => (r[j] == null ? "" : String(r[j]))));
+    if (!grid.length) grid.push(Array(cols).fill(""));
+    grid.push(Array(cols).fill(""));
+    const wrapEl = h("div", { class: "sf-sheet-wrap sf-tgrid" });
+    const save = (structure) => {
+      const rows = grid.filter((r, i) => i === 0 || r.some((v) => String(v).trim()));
+      o.head = rows[0];
+      o.rows = rows.slice(1).map((r) => r.map((v) => (/^-?\d+([.,]\d+)?$/.test(String(v).trim()) && !/^0\d/.test(String(v).trim()) ? String(v).trim() : v)));
+      if (!o.head.some((v) => String(v).trim())) delete o.head;
+      structure ? commitStructure() : commitSoon();
+    };
+    const focusCell = (i, j) => { const el = wrapEl.querySelector(`[data-tcell="${i},${j}"]`); if (el) { el.focus(); el.select(); } };
+    const draw = () => {
+      const n = grid[0].length;
+      const top = h("tr", {}, ...grid[0].map((_, j) => h("th", { class: "sf-sheet-act" }, n > 1 ? h("button", { class: "icon-btn icon-btn-sm", type: "button", title: `Remover a coluna ${j + 1}`, onclick: () => { grid.forEach((r) => r.splice(j, 1)); save(true); draw(); } }, icon("x")) : null)),
+        h("th", { class: "sf-sheet-act" }, h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Adicionar coluna", "data-tgrid-addcol": "", onclick: () => { grid.forEach((r) => r.push("")); save(true); draw(); } }, icon("plus"))));
+      const body = grid.map((r, i) => h("tr", { class: i === 0 ? "sf-tgrid-head" : "" }, ...r.map((v, j) => {
+        const inp = h("input", { class: "sf-sheet-in", value: v, "data-tcell": `${i},${j}`, "aria-label": i === 0 ? `Título da coluna ${j + 1}` : `Linha ${i}, coluna ${j + 1}`, placeholder: i === 0 ? `Coluna ${j + 1}` : "", spellcheck: "false" });
+        inp.addEventListener("input", () => {
+          r[j] = inp.value;
+          if (i === grid.length - 1 && inp.value.trim()) { grid.push(Array(r.length).fill("")); save(false); draw(); const el = wrapEl.querySelector(`[data-tcell="${i},${j}"]`); el?.focus(); el?.setSelectionRange(el.value.length, el.value.length); return; }
+          save(false);
+        });
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); focusCell(i + 1, j); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); focusCell(i - 1, j); }
+        });
+        inp.addEventListener("paste", (e) => {
+          const text = e.clipboardData?.getData("text/plain") || "";
+          if (!/[\t\n;]/.test(text)) return;
+          const cells = parseCells(text);
+          if (!cells.length) return;
+          e.preventDefault();
+          const need = j + Math.max(...cells.map((c) => c.length));
+          grid.forEach((row) => { while (row.length < need) row.push(""); });
+          cells.forEach((c, k) => { while (grid.length <= i + k + 1) grid.push(Array(grid[0].length).fill("")); c.forEach((val, q) => { grid[i + k][j + q] = String(val ?? ""); }); });
+          save(true); draw();
+        });
+        return h("td", {}, inp);
+      }), h("td", { class: "sf-sheet-act" }, i > 0 && grid.length > 2 ? h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Remover linha", onclick: () => { grid.splice(i, 1); save(true); draw(); } }, icon("trash-2")) : null)));
+      wrapEl.replaceChildren(h("table", { class: "sf-sheet" }, h("thead", {}, top), h("tbody", {}, body)));
+      CTX.hydrate?.(wrapEl);
+    };
+    draw();
+    return fieldWrap(spec, wrapEl, "sf-sheet-field");
+  }
+
   function sheetField(c, spec) {
     const t = sheetRead(c, spec);
     t.rows.push(["", ...t.names.map(() => null)]); // sempre uma linha em branco no fim: digitar nela cria a próxima

@@ -1,6 +1,7 @@
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
 // anim (up|fade|pop|left|right|zoom|none), w, h, flex, align, class, style, card.
+import { tableHTML } from "./table.js";
 import { qrSVG } from "./figures/qr.js";
 import katex from "katex";
 import fs from "node:fs";
@@ -143,6 +144,8 @@ export function el(e, ctx, w, h) {
   if (isFigure(e)) return figureHTML(e, ctx, w, h);
   if (e.textbox) return textbox(e, ctx);
   if (e.table && e.table.cells) return importedTable(e, ctx);
+  // tabela de verdade: { table: { head, rows, style, color… } }, { table: [[…], […]] } ou { table: "csv colado" }
+  if (e.table) { const t = Array.isArray(e.table) ? { rows: e.table, header: true } : typeof e.table === "string" ? { csv: e.table } : e.table; return `<div${attrs(e, "tbl")}>${tableHTML(t, { theme: ctx?.theme })}</div>`; }
   if (e.drawing) return `<div${attrs(e, "drw")}>${String(e.drawing).replace(/href="media:([^"]+)"/g, (m, p) => `href="${imageSrc(p, ctx) || ""}"`)}</div>`;
   if (e.text != null) return text(e.text, e.as || "body", e);
   if (e.row) return `<div${attrs(e, "row", `gap:${px(e.gap ?? 48)};align-items:${e.valign || "stretch"};justify-content:${e.justify || "flex-start"};`)}>${e.row.map((x) => el(x, ctx)).join("")}</div>`;

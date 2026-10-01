@@ -119,6 +119,7 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - NADA do original pode se perder: números, unidades, fórmulas, nomes, siglas, leis, fontes/créditos das figuras, exemplos, tabelas inteiras, observações. Se não couber no slide, vai para outro slide, para \`consulta\` ou para notes.
 - Figura ESPECÍFICA (mapa de um lugar, dado de um experimento, foto real, gráfico com dados que não estão no texto) continua: use a imagem original pelo caminho dado (image: …, ou figure: { image: … }). Figura GENÉRICA (conceito que qualquer livro desenha igual) pode ser redesenhada com os recursos do sagadeck — só se preservar exatamente as mesmas características.
 - Não invente dado. Se o original parecer ter um erro (fórmula que contradiz o gráfico, número que não fecha), NÃO troque em silêncio: aponte em "alertas" e, no slide, mostre o que o material sustenta com uma nota curta para o professor validar.
+- Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
 - É para APRESENTAR (palestra): letra que se lê do fundo da sala. Não use \`dossier\` (página de consulta, letra pequena) nem encha um slide; o que é para ler depois vai em \`consulta\` (material de estudo) ou em outro slide.
 - Escreva em português, no tom do material (aula).`;
 const MODE_RULES = {
@@ -224,7 +225,7 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
       for (let q = 0; q < queue.length; q++) {
         const batch = queue[q], k = needFig.indexOf(batch[0]);
         progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
-        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
+        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
 Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
         batch.forEach((s) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urlOf.get(s) } }));
         try {
@@ -365,7 +366,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         }
         try {
           progress("conferir", `Conferindo o desenho dos itens ${batch.map(({ k }) => k + 1).join(", ")}${round ? " (depois da correção)" : ""}…`);
-          for (const v of await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V })) issues.push({ ...v, kind: "desenho" });
+          for (const v of await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V, mode })) issues.push({ ...v, kind: "desenho" });
         } catch (e) {
           if (e instanceof TransformStop) throw e;
           report.problemas.push(`conferência visual dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`);
@@ -542,7 +543,7 @@ function parseProduced(text, batch, deckBase, dir) {
 }
 
 // o slide novo desenhado ao lado da foto do original: o modelo de visão aponta o que está errado
-async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model }) {
+async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, mode = "melhorar" }) {
   const { slideSnapshots } = await import("../studio/snapshot.js");
   const { imagesAsDataUrls } = await import("../import/crop.js");
   const deck = { ...deckBase, _dir: dir, slides: produced.map(({ origem, mudou, ...s }) => s) };
@@ -553,10 +554,15 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model })
   const content = [{ type: "text", text: `Confira slides NOVOS de uma aula contra as fotos dos slides ORIGINAIS. Aponte só problemas reais:
 - desenho: texto cortado, sobreposto, fora do slide, ilegível de tão pequeno, área vazia enorme, figura esticada;
 - conteúdo: informação que está no original e sumiu no novo (número, rótulo, parte de uma figura específica), figura errada.
-Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
+${mode === "recriar" ? "- o estilo é NOVO de propósito: a moldura do original (logos, faixas, cores, fontes, número da página) NÃO precisa estar no novo; não aponte isso.\n" : ""}Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
   origFiles.forEach((f, j) => { if (origUrls[j]) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: origUrls[j] } }); });
   shots.forEach((u, i) => { if (u) content.push({ type: "text", text: `NOVO ${i + 1} (do item ${produced[i].origem}):` }, { type: "image_url", image_url: { url: u } }); });
-  const r = await ask([{ role: "user", content }], { model, maxTokens: 16000 });
-  const res = jsonLoose(r.text);
+  // resposta sem JSON (o modelo de visão às vezes só "pensa" e não escreve): mais uma vez, pedindo só o JSON
+  let res;
+  try { res = jsonLoose((await ask([{ role: "user", content }], { model, maxTokens: 16000 })).text); }
+  catch (e) {
+    if (e instanceof TransformStop) throw e;
+    res = jsonLoose((await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 16000 })).text);
+  }
   return (res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }));
 }

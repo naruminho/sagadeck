@@ -1,7 +1,7 @@
 # Referência do formato `.yaml` do sagadeck
 
 Um deck é um arquivo YAML com cabeçalho + lista de `slides`. Cada slide escolhe um **layout** e preenche os campos dele.
-Tudo que é texto aceita a **marcação inline** (abaixo). Qualquer slide aceita `notes`, `time`, `tone`.
+Tudo que é texto aceita a **marcação inline** (abaixo), inclusive fórmula LaTeX no meio do texto: `$t_c = 57 (L^3/H)^{0,385}$` (e `$$…$$` em destaque; dinheiro como "R$ 10" continua texto). Qualquer slide aceita `notes`, `time`, `tone`.
 
 ```yaml
 title: Nome da palestra          # obrigatório (vira rodapé e título da janela)
@@ -80,6 +80,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 | `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
+| `table` | `title, head, rows, style, color, highlight, total, side, caption, source` | tabela de verdade nas cores do tema |
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |
 | `matrix` | `title, x: [esq, dir], y: [cima, baixo], cells: [4 × {title, text, example, hl}], build` | matriz 2×2 |
 | `question` | `question, options: [texto ou {key, text, sub}], keys, cols, timer, hint, optionSize` | pergunta para a plateia (com timer) |
@@ -618,6 +619,16 @@ Como o slide mestre do PowerPoint: `master:` no deck desenha em todo slide o que
 ## Revisão das mudanças (`review`)
 
 Quando melhorar ou reescrever uma apresentação que já existia (principalmente uma importada), marque cada slide que mudou para a pessoa validar: `review: { status: alterado, note: "o que mudou, em uma frase", original: 7 }` (`original` = o número do slide no original) ou `review: { status: novo, note: "por que entrou" }` para slide que não existia. O Studio mostra um selo na miniatura, uma faixa no slide com **Ver original**, **Aceitar** e **Desfazer** (volta ao slide de `original/original.yaml`; slide novo sai) e a lista em Revisar › **Mudanças**. A transformação da apresentação inteira ainda usa dois estados: `pendente` (a proposta ficou ao lado do original porque faltava algo dele; aceitar tira o original, desfazer tira a proposta) e `revisar` (a conferência pela foto achou um problema de desenho). A apresentação e a exportação não mostram as marcas. Nunca apague dados do original: números, nomes, fórmulas, fontes e figuras específicas (um mapa, um experimento de uma cidade) continuam, só mais claros.
+
+## Tabelas (`table`)
+
+Tabela é tabela, nunca imagem: dados de um livro ou de um PowerPoint que vieram como figura viram `table` quando os valores estão legíveis (o sagadeck alinha os números à direita, com algarismos de mesma largura, e pinta nas cores do tema). Layout `table` (o slide inteiro) ou o elemento `{ table: {…} }` em qualquer lugar (`content`, `add`, `canvas`).
+
+- `head: [Ano, "Vazão (m³/s)"]` (títulos das colunas) e `rows: [[1984, "2.218,0"], …]` (as linhas). Também vale `rows` com objetos (`[{Ano: 1984, Vazão: 2218}]`: as chaves viram o cabeçalho), `csv:` (tabela colada do Excel ou CSV, a 1ª linha é o cabeçalho) e, no elemento, `table: [[…], […]]` (a 1ª linha é o cabeçalho).
+- `style`: `faixa` (padrão: cabeçalho na cor), `zebra`, `linhas` (só fios, sóbria), `colunas` (cada coluna com uma cor da paleta) ou `cartao`. `color`: `c1`…`c5` (cores da paleta), `hi`, `em` ou `#hex`. Varie entre as tabelas do deck.
+- `highlight: {row: 2}` (ou `{col: 3}`, `{cell: [2, 3]}`, `{rows: [1, 4]}`; contando de 1, sem o cabeçalho) acende o que importa; `total: true` deixa a última linha como total; `rowHeader: true` põe a 1ª coluna em negrito; `align: [left, right]` e `widths: [2, 1, 1]` quando precisar; `size` (px) troca o tamanho da letra (o padrão já depende do tamanho da tabela).
+- No slide `table`: `side` (a conclusão, ao lado, com `==destaque==`), `caption` (legenda) e `source` (fonte). Tabela grande demais: divida em dois slides ou deixe só as linhas que contam a história (a completa vai em `consulta`).
+- No Studio: Inserir › Tabela, ou Novo slide › Tabela; no Formatar, a grade aceita colar do Excel.
 
 ## Aula: exercício resolvido, calculadora ao vivo, algoritmo animado (`solution`, `calc`, `algo`)
 
