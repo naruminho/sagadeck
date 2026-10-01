@@ -96,6 +96,10 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-k
 /* ===== tipografia ===== */
 .t{margin:0}
 .ttl{word-break:normal;overflow-wrap:normal;hyphens:none;text-wrap:balance}
+/* palavra maior que a caixa (fit.js: fitWide) */
+.fit-hy{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:normal;word-break:normal}
+/* fórmula no meio do texto ($…$) no tamanho da letra; a em destaque ($$…$$) fica maior, como o KaTeX faz */
+.t .katex{font-size:1.05em}.t .katex-display>.katex{font-size:1.21em}
 .t b{font-weight:700}
 .f-display b,.f-heading b{font-weight:inherit}
 .muted{color:var(--muted)}
@@ -948,8 +952,10 @@ html[data-motion="none"] *,html[data-motion="none"] *::before,html[data-motion="
 .api-rt-text{flex:1;min-width:0;height:46px;border:1px solid #ffffff1f;border-radius:12px;outline:0;padding:0 14px;background:#182234;color:#fff;font:500 20px system-ui,sans-serif}
 .api-rt-ctl [data-rt-send]{height:46px;padding:0 16px;border:1px solid #ffffff2a;border-radius:12px;background:none;color:#e8edf5;font:600 18px system-ui,sans-serif;cursor:pointer}
 /* Fórmulas e funções: o conteúdo matemático permanece selecionável e acessível. */
-.L-science{height:100%;display:flex;flex-direction:column;gap:28px}.L-science .hd{flex:none}.science-body{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:54px;flex:1;min-height:0}.science-body.equations-only{grid-template-columns:1fr}.science-equations{display:flex;flex-direction:column;justify-content:center;gap:16px;min-width:0}.science-equation{display:flex;align-items:center;gap:28px;padding:20px 0;border-bottom:1px solid var(--line);min-width:0}.science-equation>div{min-width:0;flex:1;overflow:auto}.science-equation p{font-size:22px;margin:0;color:var(--muted)}.science-number{font:18px monospace;color:var(--muted)}.science-equation .katex-display{font-size:46px;margin:10px 0;text-align:left}
+.L-science{flex:1 0 auto;display:flex;flex-direction:column;gap:28px}.L-science .hd{flex:none}.science-body{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:54px;flex:1;min-height:0}.science-body.equations-only{grid-template-columns:1fr}.science-equations{display:flex;flex-direction:column;justify-content:center;gap:16px;min-width:0}.science-equation{display:flex;align-items:center;gap:28px;padding:20px 0;border-bottom:1px solid var(--line);min-width:0}.science-equation>div{min-width:0;flex:1;overflow:auto}.science-equation p{font-size:22px;margin:0;color:var(--muted)}.science-number{font:18px monospace;color:var(--muted)}.science-equation .katex-display{font-size:46px;margin:10px 0;text-align:left}
 .science-equations:has(.science-equation:nth-child(3)) .katex-display{font-size:38px}.science-equation .katex-display>.katex{text-align:left}.science-plot{display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--line);border-radius:24px;padding:12px;background:color-mix(in srgb,var(--bg) 95%,var(--fg))}.science-plot-target{flex:1;min-height:500px;width:100%;touch-action:none}.science-help{font-size:17px;text-align:center;color:var(--muted);margin:12px 0}.science-equations:has(.science-equation:nth-child(4)) .katex-display{font-size:26px}.science-equations:has(.science-equation:nth-child(4)) .science-equation{padding:10px 0}
+/* só equações (plot: false): o que vem no add (cartões das variáveis) não é espremido, e uma ou duas equações ficam grandes */
+.L-science>*:not(.science-body){flex:none}.science-body.equations-only{flex:none}.science-body.equations-only .science-equations:not(:has(.science-equation:nth-child(3))) .katex-display{font-size:72px}
 /* fórmulas: prévia desenhada (miniatura, PDF, antes do Plotly) e controles deslizantes dos parâmetros */
 .science-body.plot-only{grid-template-columns:1fr}.science-plot-target{position:relative}.science-preview{position:absolute;inset:8px 12px;width:calc(100% - 24px);height:calc(100% - 16px)}
 .science-preview .sp-axis{stroke:var(--line);stroke-width:2}.science-preview .sp-zero{stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 6}.science-preview .sp-tick{font:18px var(--f-body,sans-serif);fill:var(--muted)}
@@ -1453,11 +1459,11 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .sol-row{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr);gap:48px}
 .sol-problem{display:flex;flex-direction:column;gap:24px;min-width:0;padding:28px 30px;border-radius:22px;background:color-mix(in srgb,var(--fg) 5%,var(--bg));border:1px solid var(--line);align-self:start}
 .sol-text{font-size:30px;line-height:1.4}
-.sol-label{font-size:18px;color:var(--em);letter-spacing:.08em}
+.sol-label{font-size:18px;color:var(--em);letter-spacing:.08em;white-space:nowrap}
 .sol-givens{display:flex;flex-direction:column;gap:10px}
 .sol-given{display:flex;align-items:baseline;gap:16px;font-size:28px}.sol-given .sol-tex{min-width:7em}.sol-given>span{font-size:22px;color:var(--muted)}
 .sol-find{display:flex;align-items:baseline;gap:16px;font-size:30px;padding-top:14px;border-top:1px dashed var(--line)}
-.sol-steps{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(to bottom,transparent 0,#000 60px);mask:linear-gradient(to bottom,transparent 0,#000 60px)}
+.sol-steps{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(to bottom,transparent 0,#000 60px);mask:linear-gradient(to bottom,transparent 0,#000 60px)}.sol-steps.sol-fit{-webkit-mask:none;mask:none}
 .sol-step:not(.now){padding:6px 20px}.sol-step:not(.now) .sol-why{font-size:20px;margin:0}.sol-step:not(.now) .sol-math .katex-display{font-size:24px;margin:2px 0}.sol-step:not(.now) .sol-note{display:none}
 .sol-step{display:grid;grid-template-columns:44px 1fr;gap:16px;padding:14px 20px;border-radius:16px;opacity:.55;transition:opacity .5s,background .5s}
 .sol-step.now{opacity:1;background:color-mix(in srgb,var(--hi) 12%,var(--bg));box-shadow:inset 5px 0 var(--hi)}

@@ -11,7 +11,7 @@ export function mathHTML(equations = []) {
   if (!Array.isArray(equations) || equations.length > 5) throw new Error('Use até cinco equações por slide.');
   return equations.map((eq,i) => {
     const e = typeof eq === 'string' ? {latex:eq} : eq;
-    const html = katex.renderToString(String(e.latex || ''), {displayMode:true,throwOnError:false,trust:false,maxExpand:1000,maxSize:20});
+    const html = katex.renderToString(String(e.latex || ''), {displayMode:true,throwOnError:false,strict:"ignore",trust:false,maxExpand:1000,maxSize:20});
     return `<article class="science-equation raster"><span class="science-number">${String(i+1).padStart(2,'0')}</span><div>${e.label ? `<p class="t f-label">${esc(e.label)}</p>` : ''}${html}</div></article>`;
   }).join('');
 }

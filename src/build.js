@@ -255,11 +255,12 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   const withMaster = masterApplies(spec, s, layout);
   // faixa do título do mestre: o cabeçalho do layout sai do fluxo e vai para cima do fio (src/master.js: titleBand)
   const band = withMaster && !isCoverLayout(layout) && area === "safe" ? titleBand(spec) : null;
-  // (fora da área útil: o ajuste para caber de lá não pode achar que o título "vaza"; os ajustes visuais valem nele)
+  // (fora da área útil: o ajuste para caber de lá não pode achar que o título "vaza"; ele encolhe só pelo próprio tamanho,
+  // data-fit-self, e não pelo que vaza no resto do slide; os ajustes visuais valem nele)
   let bandTitle = "";
   if (band) {
     const hd = inner.match(/<header class="hd">[\s\S]*?<\/header>/);
-    if (hd) { bandTitle = `<div class="master-title">${hd[0].replace(/(<[a-z0-9]+ [^>]*class="[^"]*\bttl\b[^"]*"(?![^>]*data-fit))/, "$1 data-fit")}</div>`; inner = inner.replace(hd[0], ""); }
+    if (hd) { bandTitle = `<div class="master-title">${hd[0].replace(/<[a-z0-9]+ [^>]*class="[^"]*\bttl\b[^"]*"[^>]*/, (tag) => `${tag}${/\sdata-fit[\s=>]|\sdata-fit$/.test(tag) ? "" : " data-fit"} data-fit-self`)}</div>`; inner = inner.replace(hd[0], ""); }
   }
   let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;

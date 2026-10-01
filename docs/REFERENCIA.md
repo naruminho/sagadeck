@@ -62,6 +62,8 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 
 `**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · `[texto](#id)` (leva ao slide de `id`) · quebra de linha = nova linha no YAML (`|`).
 
+Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `solution`…) vira tabela de verdade: uma linha `| a | b |` por linha, com `|---|---|` depois do cabeçalho (sem essa linha não há cabeçalho). Para a tabela principal do slide, prefira o layout/elemento `table`.
+
 ## Layouts
 
 | layout | campos principais | uso |
@@ -520,7 +522,7 @@ Chave é a sigla da UF (sigla desconhecida vira aviso); UF sem valor fica apagad
 aparecem (`showValues: true` força os valores).
 
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
-**Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML).
+**Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML). Sem `fit`, a imagem preenche a caixa, mas cabe inteira (`contain`) quando o corte passaria de 20% (gráfico com eixo e legenda na borda, esquema largo numa coluna alta); solta no fluxo (num `add`) e sem altura, não passa de 420 px. Para foto que pode ser cortada, `fit: cover`; para gráfico, `fit: contain`.
 **Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
 
 ## Notas / roteiro (`notes`)

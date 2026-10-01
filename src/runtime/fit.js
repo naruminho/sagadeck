@@ -15,11 +15,15 @@
       if (!safe) return;
       if (!el.dataset.fs0) el.dataset.fs0 = parseFloat(getComputedStyle(el).fontSize);
       let fs = +el.dataset.fs0;
-      el.style.fontSize = fs + "px";
+      // "important": o título do mestre (estilo da pessoa) vem com font-size !important; sem isso o ajuste não pega
+      const setFs = (v) => el.style.setProperty("font-size", v, "important");
+      setFs(fs + "px");
       const sc = scaleOf(safe);
+      // caixa que esconde o que sobra (título na faixa do mestre): a sobra aparece cortada, então não há tolerância
+      const clips = /hidden|clip/.test(getComputedStyle(el).overflowY);
       const over = () => {
         const sr = safe.getBoundingClientRect(), r = el.getBoundingClientRect();
-        const tol = fs * 0.3; // ignora a "sobra" natural de acentos/descendentes com entrelinha curta
+        const tol = clips ? 2 : fs * 0.3; // ignora a "sobra" natural de acentos/descendentes com entrelinha curta
         if (el.scrollHeight > el.clientHeight + tol || el.scrollWidth > el.clientWidth + 2 || (r.bottom - sr.bottom) / sc > tol) return true;
         // qualquer outro texto do slide passando da área útil também conta: o título "cede" espaço (a tabela não:
         // data-fit-self, ela encolhe só pelo próprio tamanho; quem vaza ao lado se resolve sozinho)
@@ -34,7 +38,7 @@
       let guard = 0;
       // não passa do mínimo de texto do deck (fit.minTextPt; data-min-text no slide, em px)
       const floor = Math.max(+el.dataset.fs0 * 0.3, +(el.closest(".slide")?.dataset.minText || 0));
-      while (over() && fs > floor && guard++ < 60) { fs = Math.max(floor, fs * 0.95); el.style.fontSize = fs.toFixed(1) + "px"; }
+      while (over() && fs > floor && guard++ < 60) { fs = Math.max(floor, fs * 0.95); setFs(fs.toFixed(1) + "px"); }
     });
   }
 
@@ -158,11 +162,66 @@
     });
   }
 
+  // Largura que não cabe, antes do resto (senão o "encolher tudo" acha que vaza e deixa o slide inteiro miúdo):
+  //  - fórmula em destaque ($$…$$) mais larga que o lugar dela: encolhe até caber (nunca sai do slide);
+  //  - texto com uma palavra maior que a própria caixa (rótulo grande numa coluna estreita, "probabilidade" num
+  //    cartão): hifeniza onde o navegador sabe (nunca parte a palavra no meio) e, se não couber, encolhe (até 50%).
+  function fitWide(root) {
+    root.querySelectorAll(".katex-display").forEach((k) => {
+      if (!k.getClientRects().length) return;
+      k.style.fontSize = "";
+      for (let guard = 0; k.clientWidth && k.scrollWidth > k.clientWidth + 2 && guard < 6; guard++) {
+        const em = parseFloat(k.style.fontSize || "1") * Math.max(0.4, (k.clientWidth / k.scrollWidth) * 0.98);
+        if (em < 0.3) break;
+        k.style.fontSize = em.toFixed(3) + "em";
+      }
+    });
+    root.querySelectorAll(".safe .t").forEach((t) => {
+      if (t.dataset.fw0) { t.style.fontSize = t.dataset.fw0 + "px"; }
+      if (t.hasAttribute("data-vsize") || t.querySelector(".t") || t.closest(".code, .katex, svg, .ttl") || !t.clientWidth) return;
+      if (t.scrollWidth <= t.clientWidth + 2) return;
+      t.classList.add("fit-hy");
+      if (t.scrollWidth <= t.clientWidth + 2) return;
+      if (!t.dataset.fw0) t.dataset.fw0 = parseFloat(getComputedStyle(t).fontSize);
+      let fs = +t.dataset.fw0;
+      for (let guard = 0; t.scrollWidth > t.clientWidth + 2 && fs > t.dataset.fw0 * 0.5 && guard < 16; guard++) { fs *= 0.95; t.style.fontSize = fs.toFixed(1) + "px"; }
+    });
+  }
+
+  // Imagem sem encaixe escolhido (data-autofit): preenche a caixa (cover), mas se a proporção do arquivo é bem diferente
+  // da caixa (corte de mais de 20%: gráfico perderia eixo e legenda), cabe inteira (contain). Ainda sem carregar: refaz
+  // quando carregar.
+  function fitImages(root) {
+    root.querySelectorAll("img[data-autofit]").forEach((img) => {
+      if (!img.naturalWidth) { if (!img.dataset.afWait) { img.dataset.afWait = "1"; img.addEventListener("load", () => fitImages(img.parentElement || img), { once: true }); } return; }
+      const w = img.clientWidth, h = img.clientHeight;
+      if (!w || !h) return;
+      const box = w / h, file = img.naturalWidth / img.naturalHeight;
+      img.style.objectFit = Math.max(box / file, file / box) > 1.25 ? "contain" : "cover";
+    });
+  }
+
+  // Passos do exercício resolvido (solution): a coluna é alinhada pelo fim (o passo novo embaixo) e o que sobra vaza por
+  // cima, apagando. Antes de cortar, encolhe (até 60%) para os passos caberem inteiros. Quadro escondido não mede: o
+  // runtime chama de novo a cada clique.
+  function fitSteps(root) {
+    root.querySelectorAll(".sol-steps").forEach((st) => {
+      if (!st.clientHeight || !st.firstElementChild) return;
+      st.style.zoom = "";
+      const over = () => st.firstElementChild.getBoundingClientRect().top < st.getBoundingClientRect().top - 2;
+      for (let z = 1; over() && z > 0.6;) { z = +(z - 0.05).toFixed(2); st.style.zoom = String(z); }
+      st.classList.toggle("sol-fit", !over()); // coube: sem o esmaecido de cima (ele só serve para o que vazou)
+    });
+  }
+
   function fitAllIn(root) {
+    fitImages(root);
+    fitSteps(root);
     fitChartText(root);
     fitCode(root);
+    fitWide(root);
     fitText(root);
   }
 
-  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, shrink };
+  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, fitWide, fitImages, fitSteps, shrink };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -74,7 +74,8 @@ function gotoRects(i) {
 }
 
 // ---------- verificação (roda dentro do navegador) ----------
-function inPageCheck(i) {
+// (exportado: a transformação usa o mesmo fiscal para conferir os slides que a IA escreveu, src/studio/snapshot.js)
+export function inPageCheck(i) {
   const slide = document.querySelectorAll("#stage > .slide")[i];
   const issues = [];
   const R = (e) => e.getBoundingClientRect();
@@ -83,7 +84,29 @@ function inPageCheck(i) {
     const [r, g, b] = m.slice(0, 3).map((v) => { v = v / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
+  const opaque = (c) => c && c !== "transparent" && c !== "none" && /^rgb/.test(c) && !/rgba\(.*,\s*0\)$/.test(c);
+  // o que está de fato embaixo do texto: o desenho (pílula do infográfico em SVG) ou a caixa com fundo; gradiente ou
+  // imagem: não dá para medir (null, sem aviso). Sem nada embaixo, o fundo dos pais.
+  // (durante a medição, texto e desenho respondem ao ponteiro: muitos vêm com pointer-events: none e sumiriam da pilha)
+  let pe = document.getElementById("sd-check-pe");
+  if (!pe) { pe = document.createElement("style"); pe.id = "sd-check-pe"; pe.textContent = ".slide .t, .slide svg, .slide svg *{pointer-events:visiblePainted!important}"; document.head.appendChild(pe); }
+  const underOf = (e) => {
+    const r = R(e);
+    let below = false; // só o que vem DEPOIS do próprio texto na pilha (o que está por cima dele não é fundo)
+    for (const el of document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)) {
+      if (el === e || e.contains(el)) { below = true; continue; }
+      if (!below) continue;
+      const cs = getComputedStyle(el);
+      if (el instanceof SVGGeometryElement) { if (opaque(cs.fill)) return cs.fill; if (/url\(/.test(cs.fill)) return null; continue; }
+      if (el instanceof SVGElement) continue;
+      if (cs.backgroundImage && cs.backgroundImage !== "none") return null;
+      if (opaque(cs.backgroundColor)) return cs.backgroundColor;
+    }
+    return undefined;
+  };
   const bgOf = (e) => {
+    const u = underOf(e);
+    if (u !== undefined) return u;
     for (let p = e; p; p = p.parentElement) {
       const cs = getComputedStyle(p); const bg = cs.backgroundColor;
       if (bg && !/rgba\(.*,\s*0\)$/.test(bg) && bg !== "transparent") return bg;
@@ -96,16 +119,20 @@ function inPageCheck(i) {
   const safe = slide.querySelector(".safe");
   for (const e of texts) {
     const r = R(e);
-    if (e.scrollWidth > e.clientWidth + 3) issues.push({ kind: "estouro-horizontal", text: label(e) });
     const fsz = parseFloat(getComputedStyle(e).fontSize);
+    // tolerância pela letra: o enchimento do marca-texto (==x==) passa uns px da caixa sem cortar nada
+    if (e.scrollWidth > e.clientWidth + Math.max(3, fsz * 0.12)) issues.push({ kind: "estouro-horizontal", text: label(e) });
     if (getComputedStyle(e).maxHeight !== "none" && e.scrollHeight > e.clientHeight + fsz * 0.3) issues.push({ kind: "estouro-vertical", text: label(e) });
     if (r.right > 1920 + 2 || r.bottom > (window.sagadeck?.size?.h || 1080) + 2 || r.left < -2 || r.top < -2) issues.push({ kind: "fora-do-slide", text: label(e) });
     if (safe && !e.closest(".foot, .headbar") && r.bottom > R(safe).bottom + 24) issues.push({ kind: "passa-da-margem-inferior", text: label(e), px: Math.round(r.bottom - R(safe).bottom) });
     const fs = fsz;
     if (fs < 19 && !e.closest(".foot, .headbar")) issues.push({ kind: "fonte-pequena", text: label(e), px: Math.round(fs) });
-    const c1 = lum(getComputedStyle(e).color), c2 = lum(bgOf(e));
-    const ratio = (Math.max(c1, c2) + 0.05) / (Math.min(c1, c2) + 0.05);
-    if (ratio < 3) issues.push({ kind: "baixo-contraste", text: label(e), ratio: +ratio.toFixed(2) });
+    const bg = bgOf(e);
+    if (bg) {
+      const c1 = lum(getComputedStyle(e).color), c2 = lum(bg);
+      const ratio = (Math.max(c1, c2) + 0.05) / (Math.min(c1, c2) + 0.05);
+      if (ratio < 3) issues.push({ kind: "baixo-contraste", text: label(e), ratio: +ratio.toFixed(2) });
+    }
   }
   // sobreposição entre blocos de texto que não são pai/filho
   for (let a = 0; a < texts.length; a++) for (let b = a + 1; b < texts.length; b++) {
@@ -120,6 +147,7 @@ function inPageCheck(i) {
       issues.push({ kind: "sobreposicao", text: `${label(A)} ⟂ ${label(B)}` });
     }
   }
+  pe.remove();
   return issues;
 }
 

@@ -8,6 +8,38 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Revisão das 4 versões da Aula 1 pelo fiscal: acabamento do motor e transformação mais rápida — 01/10/2026
+
+- Método: o fiscal do sagadeck (`src/export/shots.js: check`) em todos os slides das 4 versões + fotos dos acusados.
+  Antes: melhorada Flash 22 achados, Pro 36, recriada Flash 10, Pro 18. Depois: melhorada Flash 0 (o resto é letra
+  miúda pedida pelo conteúdo e casos pontuais). As correções são do motor: valem para os decks já gerados.
+- **Faixa do título do mestre** cortava a perna do q/g/ç e a 2ª linha, e não encolhia: o título do estilo vem com
+  `font-size !important` e o ajuste mudava `style.fontSize` sem efeito. Agora `setProperty(..., "important")`, sem
+  tolerância quando a caixa esconde a sobra, `data-fit-self` (encolhe só pelo próprio tamanho), cabeçalho da faixa sem
+  o gap/padding do layout e folga de .1em embaixo.
+- **Largura que não cabe** (`fit.js: fitWide`): fórmula `$$…$$` mais larga que o slide encolhe até caber; palavra
+  maior que a caixa (rótulo ENTÃO de 64 px em 140 px, "probabilidade" num cartão) encolhe até 50% (o Chrome daqui
+  não hifeniza português; partir a palavra ficou feio). Antes o "encolher tudo" deixava o slide inteiro miúdo.
+- **Cor `hi` como texto**: em estilo tirado do PowerPoint era azul-bebê no branco; `--hi-ink` (o hi se dá para ler,
+  senão a ênfase, senão o texto).
+- **Tabela em markdown** (`| a | b |`, com `|---|`) em qualquer texto vira tabela de verdade (a IA escrevia assim
+  dentro de passo do `solution` e saía cru).
+- **`solution`**: dado e "pede-se" em frase saem como texto ("ver tabela" virava "vertabela" em itálico); os passos
+  encolhem (até 60%) antes de cortar o primeiro no último clique, e sem o esmaecido quando cabem; "Pede-se" não
+  quebra no hífen. Fórmula no meio do texto no tamanho da letra (o KaTeX aumentava 21%).
+- **Imagem**: solta no `add` com `w: 100%` ocupava tudo e espremia o layout até altura 0 (agora 420 px no máximo,
+  como sem tamanho; esse caso antes não tinha teste); figura sem `fit` cabe inteira quando o corte passaria de 20%
+  (gráfico perdia eixo e legenda), medido no navegador com a caixa real (`data-autofit`, `fitImages`).
+- **`science` só com equação** (`plot: false`) espremia os cartões do `add` por baixo da fórmula.
+- **Fiscal**: contraste pelo que está de fato embaixo do texto (a pílula SVG do infográfico; antes "branco no
+  branco"), marca-texto no título não é estouro. Falso alarme virava correção à toa da IA.
+- **Transformação**: a conferência roda o fiscal nos slides escritos (problema exato, com o texto do objeto, para a
+  correção) antes da visão; blocos em paralelo (3; `SAGADECK_TRANSFORM_PARALLEL`); no fim, pendente por fato é
+  conferido de novo contra todos os itens irmãos prontos (o fato que outro bloco levou não é pendência).
+- CI do Windows: o teste do modelo lavanda contava a imagem da prévia antes de ela entrar.
+- Testes: `fit-wide.test.js`, `check.test.js`, faixa em `style.test.js`, tabela em `markup-math.test.js`, solution em
+  `lessons.test.js`, paralelo e fiscal em `transform.test.js`.
+
 ## Relatório do GPT, 1º pacote: identidade persistente e transformação confiável — 30/09/2026
 
 - **Identidade**: todo slide tem `uid` (`src/uid.js`, dado no GET do deck e ao gravar; `data-uid` no HTML). A

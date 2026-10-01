@@ -27,6 +27,8 @@ test('modelos: abrem em prévia sem criar arquivo; a primeira mudança cria a c�
       await p.click('#btn-new');await p.click('#new-menu [data-new="gallery"]');await p.click('.vit-card[data-new="model-lavanda"]');
       await p.waitForURL(/editor\?model=lavanda/);
       await p.waitForSelector('.thumb-card[data-idx="1"]');
+      // (espera a imagem entrar: na máquina lenta do CI a prévia desenha depois das miniaturas)
+      await p.waitForSelector('#rendered-slide-container .fig-img img',{timeout:15000}).catch(()=>{});
       assert.ok(await p.locator('#rendered-slide-container .fig-img img').count(),'a imagem do modelo aparece na prévia');
       assert.equal(await p.locator('#rendered-slide-container .fig-missing').count(),0);
       assert.ok(await p.isVisible('#preview-banner'),'faixa de prévia à vista');

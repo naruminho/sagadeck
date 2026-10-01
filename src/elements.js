@@ -21,6 +21,8 @@ const FACE = { hero: "display", number: "display", title: "display", h2: "displa
 
 const px = (v) => (v == null ? null : typeof v === "number" ? `${v}px` : String(v));
 const colorVal = (c) => (!c ? null : /^#?[0-9a-f]{6}$/i.test(c) ? `#${c.replace("#", "")}` : `var(--${c})`);
+// cor de texto: "hi" (cor de destaque) vira a versão legível sobre o fundo (--hi-ink, src/themes.js)
+const textColorVal = (c) => (c === "hi" ? "var(--hi-ink,var(--hi))" : colorVal(c));
 
 export function attrs(el = {}, extraCls = "", extraStyle = "") {
   const cls = [extraCls, el.class, el.card ? "card" : "", el.card === "hi" ? "card-hi" : "", el.goto != null && el.goto !== "" ? "goto" : ""].filter(Boolean).join(" ");
@@ -29,7 +31,7 @@ export function attrs(el = {}, extraCls = "", extraStyle = "") {
   if (el.h != null) st += `height:${px(el.h)};flex-shrink:0;`;
   if (el.w != null && el.h != null) st += `flex:none;`;
   if (el.flex != null) st += `flex:${el.flex};min-width:0;min-height:0;`;
-  if (el.color) st += `color:${colorVal(el.color)};`;
+  if (el.color) st += `color:${textColorVal(el.color)};`;
   if (el.bg) st += `background:${colorVal(el.bg)};`;
   if (el.align) st += `text-align:${el.align};`;
   if (el.pad != null) st += `padding:${px(el.pad)};`;
@@ -83,7 +85,7 @@ export function figureHTML(el, ctx, w, h) {
     const svg = qrSVG(el.qr, { ec: el.ec, ink: el.ink || "#111", paper: el.paper || "#fff" });
     return `<div${attrs(el, "fig fig-qr")}><div class="qr-box" style="width:${size}px;">${svg}</div>${el.label ? `<div class="qr-label f-label">${md(el.label)}</div>` : ""}</div>`;
   }
-  if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${colorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
+  if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${textColorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
   if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(csvChart(el, ctx), el.cw || w || 1200, el.ch || h || 620)}</div>`;
@@ -100,21 +102,29 @@ export function figureHTML(el, ctx, w, h) {
       return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
     }
     // sem fit escolhido: preenche (cover), mas quando a proporção da imagem é muito diferente da caixa (fórmula, esquema
-    // largo numa coluna alta) cortar perderia informação: cabe inteira (contain)
+    // largo numa coluna alta; gráfico com eixo e legenda na borda) cortar perderia informação: passou de 1,25× (corte de
+    // mais de 20%), cabe inteira (contain). Sem o tamanho da caixa aqui (figura do split, do layout), a mesma conta é feita
+    // na apresentação, com a caixa medida (data-autofit; src/runtime/fit.js: fitImages)
     let fit = el.fit;
     if (!fit) {
       const sz = w && h ? imageSize(el.image, ctx) : null;
       const box = w && h ? w / h : 0, img = sz && sz.h ? sz.w / sz.h : 0;
-      fit = box && img && Math.max(box / img, img / box) > 1.5 ? "contain" : "cover";
+      fit = box && img && Math.max(box / img, img / box) > 1.25 ? "contain" : "cover";
     }
-    // imagem solta no fluxo, sem tamanho (num add, numa row): ganha a proporção do arquivo, cabe inteira e não passa de
-    // 420 px de altura (senão aparecia no tamanho natural do arquivo, enorme e cortada)
-    let flow = "";
-    if (!w && !h && el.w == null && el.h == null && el.x == null) {
+    // imagem solta no fluxo, sem altura (num add, numa row; largura nenhuma ou em %): ganha a proporção do arquivo, cabe
+    // inteira e não passa de 420 px de altura (senão aparecia no tamanho natural do arquivo, enorme, e espremia o
+    // layout do slide até sumir)
+    let flow = "", box = el;
+    const pct = typeof el.w === "string" && /^\s*\d+(\.\d+)?%\s*$/.test(el.w);
+    if (!w && !h && (el.w == null || pct) && el.h == null && el.x == null) {
       const sz = imageSize(el.image, ctx);
-      if (sz && sz.w && sz.h) { flow = `aspect-ratio:${sz.w}/${sz.h};width:min(100%, ${Math.round((420 * sz.w) / sz.h)}px);`; if (!el.fit) fit = "contain"; }
+      if (sz && sz.w && sz.h) {
+        flow = `aspect-ratio:${sz.w}/${sz.h};width:min(${pct ? el.w.trim() : "100%"}, ${Math.round((420 * sz.w) / sz.h)}px);`;
+        if (!el.fit) fit = "contain";
+        if (pct) { box = { ...el }; delete box.w; }
+      }
     }
-    return `<div${attrs(el, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}" style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
+    return `<div${attrs(box, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}"${el.fit ? "" : " data-autofit"} style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
 }
@@ -262,7 +272,7 @@ function bulletHTML(b, size, color) {
 }
 function runHTML(r) {
   if (r.br) return "<br>";
-  if (r.latex != null) return `<span class="tbx-math" style="font-size:${r.size || 36}px">${katex.renderToString(String(r.latex), { throwOnError: false, trust: false, maxExpand: 1000 })}</span>`;
+  if (r.latex != null) return `<span class="tbx-math" style="font-size:${r.size || 36}px">${katex.renderToString(String(r.latex), { throwOnError: false, strict: "ignore", trust: false, maxExpand: 1000 })}</span>`;
   let st = `font-size:${r.sup || r.sub ? Math.round((r.size || 36) * 0.7) : r.size || 36}px;font-family:${fontStack(r.font)};`;
   if (r.b) st += "font-weight:700;";
   if (r.i) st += "font-style:italic;";
@@ -405,7 +415,7 @@ export function stats(e, ctx) {
   const cols = e.cols || Math.min(items.length, 4) || 3;
   const body = items.map((st, i) => {
     const step = e.build ? (e.buildFrom ?? 1) + i : st.step;
-    const valColor = st.color ? `color:${colorVal(st.color)};` : "";
+    const valColor = st.color ? `color:${textColorVal(st.color)};` : "";
     let iconHtml = "";
     if (st.icon) {
       iconHtml = `<div class="st-icon">${iconSVG(st.icon, { size: 48, stroke: 1.8 })}</div>`;
