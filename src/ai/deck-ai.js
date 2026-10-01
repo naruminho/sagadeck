@@ -227,7 +227,10 @@ export function validateSlides(spec) {
   const errors = [];
   spec.slides.forEach((s, i) => {
     try {
-      renderSlide(withoutImagePrompts(s), i, spec);
+      const { html } = renderSlide(withoutImagePrompts(s), i, spec);
+      // fórmula ($…$) que não compila: volta para a IA corrigir (no slide ela apareceria como texto marcado)
+      const bad = [...String(html).matchAll(/class="f-mono tex-error" title="([^"]*)">([^<]*)</g)].slice(0, 3);
+      if (bad.length) errors.push(`slide ${i + 1} (${s.layout || "auto"}): fórmula que não compila: ${bad.map((m) => `$${m[2].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')}$ (${m[1].replace(/&quot;/g, '"').slice(0, 120)})`).join("; ")}`);
     } catch (e) {
       // erro interno do desenho (campo no formato errado: texto onde vai lista, objeto onde vai texto…): a IA só
       // corrige se souber o que o layout espera e o que ela mandou
