@@ -81,10 +81,11 @@ export function inPageCheck(i) {
   const R = (e) => e.getBoundingClientRect();
   const lum = (c) => {
     const m = c.match(/[\d.]+/g); if (!m) return 1;
-    const [r, g, b] = m.slice(0, 3).map((v) => { v = v / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    const unit = /^color\(srgb/.test(c) ? 1 : 255; // color-mix() devolve color(srgb 0.95 0.95 0.96), de 0 a 1
+    const [r, g, b] = m.slice(0, 3).map((v) => { v = v / unit; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
-  const opaque = (c) => c && c !== "transparent" && c !== "none" && /^rgb/.test(c) && !/rgba\(.*,\s*0\)$/.test(c);
+  const opaque = (c) => c && c !== "transparent" && c !== "none" && /^(rgb|color\(srgb)/.test(c) && !/rgba\(.*,\s*0\)$/.test(c) && !/\/\s*0\)$/.test(c);
   // o que está de fato embaixo do texto: o desenho (pílula do infográfico em SVG) ou a caixa com fundo; gradiente ou
   // imagem: não dá para medir (null, sem aviso). Sem nada embaixo, o fundo dos pais.
   // (durante a medição, texto e desenho respondem ao ponteiro: muitos vêm com pointer-events: none e sumiriam da pilha)

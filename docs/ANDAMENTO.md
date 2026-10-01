@@ -43,6 +43,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   transformação tira ao montar. Número da página, data e rodapé do original também saem. Na detecção, elemento que
   não é imagem/desenho/caixa de texto tinha a chave "?" + posição (dois conteúdos no mesmo lugar viravam moldura).
 - Visão (VER) também em lotes paralelos.
+- Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
+  `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
+  por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`
+  (color-mix) de 0 a 1 (dava "baixo contraste" em texto escuro no cinza-claro); rótulos do `solution` com 20 px.
+- Fiscal final (01/10): melhorada Flash 0, recriada Flash 0, melhorada Pro 5, recriada Pro 7. O resto é conteúdo
+  grande demais (exercício com uma tabela enorme por passo, que nem a 60% cabe: dividir) e letra miúda pedida no
+  slide; numa transformação nova o fiscal devolve isso para a IA.
 - Testes: `fit-wide.test.js`, `check.test.js`, faixa em `style.test.js`, tabela em `markup-math.test.js`, solution em
   `lessons.test.js`, paralelo e fiscal em `transform.test.js`.
 

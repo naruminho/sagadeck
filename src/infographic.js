@@ -73,11 +73,12 @@ const icon = (name, size, color) => {
   try { return `<span class="ig-ic" style="color:${color};width:${size}px;height:${size}px">${iconSVG(name, { size, stroke: 1.9 })}</span>`; } catch { return ""; }
 };
 // Caixa de texto posicionada. Quem encolhe para caber é a caixa (data-fit, altura fixa): título e texto dentro
-// dela têm o tamanho em em (base 20px), então encolhem juntos, na mesma proporção.
+// dela têm o tamanho em em (base 20px), então encolhem juntos, na mesma proporção. Só pelo próprio tamanho
+// (data-fit-self): é posicionada, encolher não abre espaço para o que vaza noutro canto do slide.
 // Alinhamento "safe": se não couber, alinha pelo topo e o excesso vai para baixo, onde a medida (scrollHeight) o vê;
 // centralizado ou no pé, o excesso subiria por cima da caixa sem ninguém perceber (e o título sairia cortado).
 function box(x, y, w, h, inner, { align = "left", valign = "center", cls = "" } = {}) {
-  return `<div class="ig-box ${cls}" data-fit style="font-size:20px;left:${F(x)}px;top:${F(y)}px;width:${F(w)}px;height:${F(h)}px;text-align:${align};justify-content:${valign === "top" ? "flex-start" : valign === "bottom" ? "safe flex-end" : "safe center"};align-items:${align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start"}">${inner}</div>`;
+  return `<div class="ig-box ${cls}" data-fit data-fit-self style="font-size:20px;left:${F(x)}px;top:${F(y)}px;width:${F(w)}px;height:${F(h)}px;text-align:${align};justify-content:${valign === "top" ? "flex-start" : valign === "bottom" ? "safe flex-end" : "safe center"};align-items:${align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start"}">${inner}</div>`;
 }
 const em = (px) => `${F(px / 20)}em`;
 const title = (t, size, color, extra = "") => (t ? `<div class="t f-heading ig-t" style="font-size:${em(size)};color:${color};${extra}">${md(String(t))}</div>` : "");

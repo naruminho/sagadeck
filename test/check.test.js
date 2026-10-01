@@ -18,6 +18,8 @@ test("fiscal: contraste pelo que está embaixo do texto (desenho SVG conta) e ma
     { layout: "infographic", ...structuredClone(LAYOUT_SAMPLES.infographic) },
     { layout: "blocks", title: "Pálido", content: [{ text: "texto quase branco", color: "#F2F2F2" }] },
     { layout: "split", title: "Vazões máximas ==anuais==", body: "x" },
+    // fundo em color-mix (o navegador devolve color(srgb 0.95 …), de 0 a 1) e rótulos do exercício
+    { layout: "solution", title: "Ex", problem: "Dada a série", givens: ["N = 8"], find: "Probabilidade empírica e TR para 10 anos", steps: ["x = 1"] },
   ];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-check-"));
   try {
@@ -28,5 +30,6 @@ test("fiscal: contraste pelo que está embaixo do texto (desenho SVG conta) e ma
     assert.deepEqual(kinds(1).filter((k) => k.startsWith("baixo-contraste")), [], "o texto do infográfico está sobre a pílula colorida");
     assert.ok(kinds(2).some((k) => k === "baixo-contraste: texto quase branco"), "o pálido no branco continua acusado");
     assert.deepEqual(kinds(3).filter((k) => k.startsWith("estouro-horizontal")), []);
+    assert.deepEqual(kinds(4).filter((k) => /^(baixo-contraste|fonte-pequena)/.test(k)), [], "texto escuro no cinza-claro do exercício; rótulos Dados/Pede-se legíveis");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

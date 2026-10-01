@@ -156,3 +156,26 @@ test("exercício resolvido com passos longos: no último clique o 1º passo aind
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("infográfico com aviso no add: o desenho cabe acima do aviso (não fica por baixo dele) e a letra das caixas não encolhe à toa", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ig-"));
+  try {
+    const items = ["Transpiração", "Evaporação", "Infiltração", "Escoamento superficial", "Fluxo ascendente", "Fluxo de base", "Drenagem profunda", "Zona de raízes"].map((title) => ({ title, text: "Água que passa por aqui no ciclo", icon: "droplet" }));
+    const slides = [{ layout: "infographic", kicker: "Ciclo", title: "Componentes do ciclo hidrológico", shape: "lados", center: { icon: "cloud-rain" }, items,
+      add: [{ aviso: { tipo: "dica", titulo: "Nota", texto: "Algumas simplificações consideram a evaporação por intercepção como parte da evapotranspiração." } }] }];
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(500);
+    const r = await page.evaluate(() => {
+      const s = document.querySelector(".slide");
+      const stage = s.querySelector(".ig-stage").getBoundingClientRect(), av = s.querySelector(".aviso").getBoundingClientRect();
+      return { gap: av.top - stage.bottom, avText: s.querySelectorAll(".aviso .t").length, minBody: Math.min(...[...s.querySelectorAll(".ig-x")].map((e) => parseFloat(getComputedStyle(e).fontSize))) };
+    });
+    assert.ok(r.gap >= -2, `o desenho passa ${-r.gap}px por baixo do aviso`);
+    assert.equal(r.avText, 2, "o texto do aviso é visto pelo ajuste e pelo fiscal (.t)");
+    assert.ok(r.minBody >= 15, `descrição com ${r.minBody}px`);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
