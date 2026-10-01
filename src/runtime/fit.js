@@ -21,7 +21,9 @@
         const sr = safe.getBoundingClientRect(), r = el.getBoundingClientRect();
         const tol = fs * 0.3; // ignora a "sobra" natural de acentos/descendentes com entrelinha curta
         if (el.scrollHeight > el.clientHeight + tol || el.scrollWidth > el.clientWidth + 2 || (r.bottom - sr.bottom) / sc > tol) return true;
-        // qualquer outro texto do slide passando da área útil também conta: o título "cede" espaço
+        // qualquer outro texto do slide passando da área útil também conta: o título "cede" espaço (a tabela não:
+        // data-fit-self, ela encolhe só pelo próprio tamanho; quem vaza ao lado se resolve sozinho)
+        if (el.hasAttribute("data-fit-self")) return false;
         for (const t of safe.querySelectorAll(".t")) {
           const tr = t.getBoundingClientRect();
           if (!tr.width && !tr.height) continue; // escondido (display:none) não ocupa lugar nenhum

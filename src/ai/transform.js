@@ -120,6 +120,7 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - Figura ESPECÍFICA (mapa de um lugar, dado de um experimento, foto real, gráfico com dados que não estão no texto) continua: use a imagem original pelo caminho dado (image: …, ou figure: { image: … }). Figura GENÉRICA (conceito que qualquer livro desenha igual) pode ser redesenhada com os recursos do sagadeck — só se preservar exatamente as mesmas características.
 - Não invente dado. Se o original parecer ter um erro (fórmula que contradiz o gráfico, número que não fecha), NÃO troque em silêncio: aponte em "alertas" e, no slide, mostre o que o material sustenta com uma nota curta para o professor validar.
 - Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
+- Fórmula vai em LaTeX (\`$…$\` no texto, \`equations\` no \`science\`, \`latex\` no \`solution\`), nunca como imagem: a imagem de equação do original (recorte do OLE) só entra se a visão não conseguiu transcrever; transcrita, não repita a imagem. Uma fórmula importante por slide, grande; a explicação das variáveis em lista ao lado ou embaixo.
 - É para APRESENTAR (palestra): letra que se lê do fundo da sala. Não use \`dossier\` (página de consulta, letra pequena) nem encha um slide; o que é para ler depois vai em \`consulta\` (material de estudo) ou em outro slide.
 - Escreva em português, no tom do material (aula).`;
 const MODE_RULES = {
@@ -524,8 +525,9 @@ function parseProduced(text, batch, deckBase, dir) {
   const slides = raw.slides.map((s, i) => {
     if (!s || typeof s !== "object") throw new Error(`slide ${i + 1}: não é um objeto`);
     let origem = Number(s.origem ?? (batch.length === 1 ? batch[0].k + 1 : NaN));
-    // slide a mais sem item (origem: extra, nova…): é inclusão do item do slide de antes
-    if (!allowed.has(origem) && !/^\d+$/.test(String(s.origem ?? "")) && prev != null) origem = prev;
+    // sem origem (ou origem: extra, nova…): é do item do slide de antes; o primeiro, do primeiro item (a IA escreve
+    // na ordem dos itens)
+    if (!allowed.has(origem) && !/^\d+$/.test(String(s.origem ?? ""))) origem = prev ?? batch[0].k + 1;
     prev = origem;
     if (!allowed.has(origem)) throw new Error(`slide ${i + 1}: origem ${s.origem} não é um item deste bloco (${[...allowed].join(", ")})`);
     return { ...s, origem };
