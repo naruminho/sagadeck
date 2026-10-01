@@ -56,25 +56,6 @@ const TEMPLATE_DIRS = [path.resolve(HERE, "..", "..", "templates"), path.resolve
 const isBundledTemplate = (f) => !!f && TEMPLATE_DIRS.some((d) => path.resolve(f).startsWith(d + path.sep));
 const templateFile = (name) => TEMPLATE_DIRS.map((d) => path.join(d, name)).find((f) => fs.existsSync(f));
 
-// Modelo do ~/.sagadeck/ambientes.yaml, para quem ainda não tem um (tela Ambientes do Studio).
-const AMBIENTES_MODELO = `# Ambientes do slide "api": endereços e credenciais ficam aqui, na sua máquina, nunca no deck.
-# Nos slides, {{base}} vira o valor de vars.base do ambiente escolhido (o selo DEV/HOM no slide troca).
-# Segredo nunca vai em vars: use secrets (e, melhor ainda, uma variável de ambiente com env:).
-current: dev
-environments:
-  dev:
-    vars: { base: "https://api-dev.exemplo.com/v1" }
-    # token:                               # token que expira (client credentials), renovado sozinho
-    #   url: "https://identidade-dev.exemplo.com/token"
-    #   client_id: "meu-id"
-    #   client_secret_env: MINHA_SECRET    # nome da variável de ambiente com o segredo
-    #   field: "$.access_token"
-    # secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
-    # OpenRouter: o ambiente OPENROUTER embutido usa OPENROUTER_API_KEY para o exemplo gratuito NVIDIA Nemotron.
-    # ca: "C:/certs/empresa.pem"           # certificado da empresa (inspeção TLS)
-  hom:
-    vars: { base: "https://api-hom.exemplo.com/v1" }
-`;
 const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 

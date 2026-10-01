@@ -8,6 +8,26 @@ import { spawn } from "node:child_process";
 import YAML from "yaml";
 import { writeRecording, readRecordings, mimeOf } from "../api-client.js";
 
+// Modelo do ~/.sagadeck/ambientes.yaml, para quem ainda não tem um (tela Ambientes do Studio).
+const AMBIENTES_MODELO = `# Ambientes do slide "api": endereços e credenciais ficam aqui, na sua máquina, nunca no deck.
+# Nos slides, {{base}} vira o valor de vars.base do ambiente escolhido (o selo DEV/HOM no slide troca).
+# Segredo nunca vai em vars: use secrets (e, melhor ainda, uma variável de ambiente com env:).
+current: dev
+environments:
+  dev:
+    vars: { base: "https://api-dev.exemplo.com/v1" }
+    # token:                               # token que expira (client credentials), renovado sozinho
+    #   url: "https://identidade-dev.exemplo.com/token"
+    #   client_id: "meu-id"
+    #   client_secret_env: MINHA_SECRET    # nome da variável de ambiente com o segredo
+    #   field: "$.access_token"
+    # secrets: { client_secret: { env: MINHA_SECRET } }   # {{secret.client_secret}} nos slides
+    # OpenRouter: o ambiente OPENROUTER embutido usa OPENROUTER_API_KEY para o exemplo gratuito NVIDIA Nemotron.
+    # ca: "C:/certs/empresa.pem"           # certificado da empresa (inspeção TLS)
+  hom:
+    vars: { base: "https://api-hom.exemplo.com/v1" }
+`;
+
 export async function apiRoutes({ req, res, pathname, url, W, apiEnv, rtSessions, apiBlocked, ensureEnsaio, readJSON, isBundledTemplate }) {
   const reply = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
   const blocked = apiBlocked(req);
