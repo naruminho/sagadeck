@@ -153,3 +153,23 @@ test("Studio: salvar o estilo do deck importado, aplicar em outro (Design › Es
     assert.deepEqual(e2, []);
   } finally { await studio.close(); await browser.close(); fs.rmSync(home, { recursive: true, force: true }); }
 });
+
+test("faixa do título do mestre: o título fica acima do fio e o conteúdo começa abaixo dele (nada atravessa a linha)", async () => {
+  const { buildHTML: build } = await import("../src/build.js");
+  const { titleBand } = await import("../src/master.js");
+  const master = { area: { top: 52, left: 146, right: 146, bottom: 102 }, title: { size: 80, gap: 89, font: "Calibri", bold: true },
+    elements: [{ drawing: '<svg viewBox="0 0 10 1"><path d="M0 0H10" stroke="#4472C4"/></svg>', x: 148, y: 169, w: 1513, h: 1 }] };
+  const band = titleBand({ master });
+  assert.deepEqual(band, { top: 52, bottom: 163, contentTop: 231 });
+  const spec = { title: "A", theme: "sinal", master, slides: [{ layout: "cover", title: "Capa" }, { layout: "split", title: "A ciência da água", body: "Hidrologia, do grego", figure: { icon: "droplet" } }] };
+  const { html } = build(spec);
+  const sec = html.split('<section class="slide').find((x) => x.includes("A ciência da água"));
+  assert.match(sec, /master-band/);
+  const [before, rest] = sec.split('<div class="safe">'), safe = rest.split("</section>")[0];
+  assert.match(before, /class="master-title"><header class="hd">.*data-fit/s, "o título vai para a faixa, fora da área útil, e encolhe para caber");
+  assert.doesNotMatch(safe, /A ciência da água/, "e não fica no fluxo do layout");
+  assert.match(html, /\.slide\.has-master\.master-band:not\(\.master-cover\) \.safe\{top:231px\}/);
+  // sem fio na moldura: nada muda
+  assert.equal(titleBand({ master: { ...master, elements: [] } }), null);
+  assert.doesNotMatch(build({ ...spec, master: { ...master, elements: [] } }).html, /master-title/);
+});

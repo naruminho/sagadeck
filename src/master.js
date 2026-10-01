@@ -40,11 +40,35 @@ const px = (v) => `${Math.round(num(v, 0) * 10) / 10}px`;
 const areaCSS = (a) => (a ? `top:${px(a.top)};left:${px(a.left)};right:${px(a.right)};bottom:${px(a.bottom)};` : "");
 const fontStack = (f) => (f ? `'${String(f).replace(/'/g, "")}', Calibri, Carlito, 'Segoe UI', Arial, sans-serif` : "");
 
+// Faixa do título, como no PowerPoint: do topo da área até a linha (fio) do título que a moldura desenha. O título do
+// slide fica nela (encolhe para caber) e o conteúdo começa abaixo da linha: nada atravessa o fio. Sem fio na moldura,
+// não há faixa (o título segue no fluxo do layout, como antes). Calculada da moldura: vale para deck já gerado.
+export function titleBand(spec) {
+  const m = spec?.master;
+  if (!m?.area || !Array.isArray(m.elements)) return null;
+  const H = spec.aspect === "4:3" ? 1440 : 1080;
+  const size = m.title?.size || 64;
+  const rule = m.elements
+    .filter((e) => e.drawing && Number(e.h) <= 8 && Number(e.w) >= 700 && e.y > m.area.top + size * 0.5 && e.y < H * 0.35)
+    .sort((a, b) => a.y - b.y)[0];
+  if (!rule) return null;
+  const top = m.area.top, bottom = Math.round(rule.y - 6);
+  const contentTop = Math.round(Math.max(rule.y + 24, top + size * 1.12 + (m.title?.gap ?? 40)));
+  return { top, bottom, contentTop };
+}
+
 export function masterCSS(spec) {
   const m = spec?.master;
   if (!m) return "";
   let css = "";
   if (m.area) css += `.slide.has-master:not(.master-cover) .safe{${areaCSS(m.area)}}\n`;
+  const band = titleBand(spec);
+  if (band) {
+    css += `.slide.has-master.master-band:not(.master-cover) .safe{top:${band.contentTop}px}\n`;
+    const a = m.area, h = band.bottom - band.top - 10;
+    css += `.slide.has-master.master-band>.master-title{position:absolute;z-index:2;left:${a.left}px;right:${a.right}px;top:${band.top}px;height:${band.bottom - band.top}px;padding-bottom:10px;box-sizing:border-box;display:flex;align-items:flex-end}\n`;
+    css += `.slide.has-master.master-band .master-title>.hd{margin:0!important;width:100%;max-height:100%}.slide.has-master.master-band .master-title .ttl{max-height:${h}px;overflow:hidden}\n`;
+  }
   if (m.coverArea) css += `.slide.has-master.master-cover .safe{${areaCSS(m.coverArea)}}\n`;
   const t = m.title;
   if (t) {
