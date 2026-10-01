@@ -96,7 +96,34 @@ export function calcHTML(s, ctx, head) {
 // ------------------------------------------------------------------------------------------------ algo
 import { traceAlgorithm, ALGO_CODE, ALGO_NAMES } from "./algo-trace.js";
 import { tracePlan, traceHTML } from "./trace-view.js";
+// Prever → rodar → explicar: `predict` vira o primeiro quadro (a turma aposta antes de ver), `explain` o último (o
+// porquê, com a resposta da aposta em destaque). Os passos do algoritmo ficam no meio, renumerados.
+function bookends(s, html) {
+  const p = s.predict == null || s.predict === "" ? null : typeof s.predict === "string" ? { question: s.predict } : s.predict;
+  const x = s.explain == null || s.explain === "" ? null : typeof s.explain === "string" ? { text: s.explain } : s.explain;
+  if (!p && !x) return html;
+  let out = html;
+  if (p) {
+    const opts = Array.isArray(p.options) ? p.options : [];
+    const pre = `<div class="algo-predict-in"><div class="algo-predict-tag t f-label">${esc(p.label || "Antes de rodar")}</div><div class="algo-predict-q t f-heading">${md(p.question || "")}</div>${opts.length ? `<ol class="algo-predict-opts">${opts.map((o, i) => `<li class="t f-body"><b>${String.fromCharCode(65 + i)}</b>${md(String(o))}</li>`).join("")}</ol>` : ""}</div>`;
+    out = out.replace(/data-lesson-panel="(\d+)"/g, (_, k) => `data-lesson-panel="${+k + 1}"`).replace(/(<section class="lesson-panel dyn-frame [^"]*?) active"/, "$1\"");
+    out = out.replace('<div class="dyn-frames">', `<div class="dyn-frames">${panel(0, pre, "algo-predict")}`);
+  }
+  const count = Number(out.match(/data-lesson-count="(\d+)"/)?.[1] || 0) + (p ? 1 : 0) + (x ? 1 : 0);
+  out = out.replace(/data-lesson-count="\d+"/, `data-lesson-count="${count}"`);
+  if (x) {
+    const ans = x.answer ?? p?.answer;
+    const post = `<div class="algo-explain-in"><div class="algo-predict-tag t f-label">${esc(x.label || "Por quê")}</div>${ans != null && ans !== "" ? `<div class="algo-explain-ans t f-heading">${md(String(ans))}</div>` : ""}<div class="algo-explain-text t f-body">${md(x.text || "")}</div></div>`;
+    const at = out.lastIndexOf("</section>");
+    if (at >= 0) out = out.slice(0, at + 10) + panel(count - 1, post, "algo-explain") + out.slice(at + 10);
+  }
+  return out;
+}
+
 export function algoHTML(s, ctx, head) {
+  return bookends(s, algoCore(s, ctx, head));
+}
+function algoCore(s, ctx, head) {
   // programa do professor (program:) ou do catálogo (kmp, bfs…): execução rastreada genérica (src/pytrace.js)
   const plan = tracePlan(s);
   if (plan) return traceHTML(s, plan, ctx, head, panel);

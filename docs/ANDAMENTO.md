@@ -66,6 +66,8 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 - **Arquitetura**: CI também no Windows (matriz ubuntu + windows); o CI estava vermelho desde o #59 (o motor
   empacotado não achava o package.json); desempenho com 10/80/200 slides (`test/perf.test.js`: montar o HTML
   200 slides < 0,1 s aqui; Studio com 200 abre em ~2,5 s e troca de slide em 0,1–0,4 s).
+- **Interação didática: prever → rodar → explicar** no `algo` (`predict:` abre com a aposta e as opções,
+  `explain:` fecha com o porquê e a resposta; vale para o rastreado); campos no formulário; `lessons.test.js`.
 - Falta do relatório (ordem): recriar ao vivo (Pro × Flash) com o código novo; depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.

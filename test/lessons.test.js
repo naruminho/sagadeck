@@ -130,3 +130,35 @@ test("Studio: categoria de aula na galeria; algoritmo e números pelo formulári
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
+
+test("prever → rodar → explicar: o algo abre com a aposta, roda os passos e fecha com o porquê", async (t) => {
+  const s = { layout: "algo", algorithm: "bubble", array: [3, 1, 2], predict: { question: "Quantas trocas?", options: ["1", "2", "3"], answer: "2 trocas" }, explain: "O 3 sobe trocando com o 1 e depois com o 2." };
+  const plain = { ...s }; delete plain.predict; delete plain.explain;
+  const count = (h) => +h.match(/data-lesson-count="(\d+)"/)[1];
+  const h = renderSlide(s, 0, { slides: [s] }).html, h0 = renderSlide(plain, 0, { slides: [plain] }).html;
+  assert.equal(count(h), count(h0) + 2, "um quadro antes e um depois");
+  assert.deepEqual([...h.matchAll(/data-lesson-panel="(\d+)"/g)].map((m) => +m[1]), Array.from({ length: count(h) }, (_, i) => i));
+  assert.equal((h.match(/ active"/g) || []).length, 1);
+  // o mesmo vale para o programa rastreado (program:)
+  const tr = { layout: "algo", program: "def f(v):\n    v.append(1)\n    return v", call: "f([2])", predict: "O que sai?" };
+  assert.match(renderSlide(tr, 0, { slides: [tr] }).html, /algo-predict/);
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  try {
+    const file = path.join(deck.dir, "prever.html");
+    fs.writeFileSync(file, buildHTML({ title: "A", theme: "sinal", slides: [s] }).html);
+    const { page: p, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+    await p.goto(pathToFileURL(file).href);
+    await p.waitForFunction(() => window.sagadeck && window.sagadeck.cur >= 0);
+    const active = () => p.evaluate(() => document.querySelector("section .dyn-frame.active").className);
+    assert.match(await active(), /algo-predict/, "abre na aposta");
+    assert.match(await p.innerText("section .dyn-frame.active"), /Quantas trocas\?[\s\S]*A[\s\S]*1/);
+    await p.keyboard.press("ArrowRight");
+    assert.doesNotMatch(await active(), /algo-predict|algo-explain/, "o clique começa a rodar");
+    for (let k = 0; k < count(h); k++) await p.keyboard.press("ArrowRight");
+    await p.evaluate(() => window.sagadeck.goto(0, 999));
+    assert.match(await active(), /algo-explain/, "fecha no porquê");
+    assert.match(await p.innerText("section .dyn-frame.active"), /2 trocas[\s\S]*sobe trocando/);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); deck.cleanup(); }
+});
