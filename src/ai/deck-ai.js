@@ -216,10 +216,22 @@ export function validateSlides(spec) {
     try {
       renderSlide(withoutImagePrompts(s), i, spec);
     } catch (e) {
-      errors.push(`slide ${i + 1} (${s.layout || "auto"}): ${e.message}`);
+      // erro interno do desenho (campo no formato errado: texto onde vai lista, objeto onde vai texto…): a IA só
+      // corrige se souber o que o layout espera e o que ela mandou
+      const internal = e instanceof TypeError || /Cannot read|is not a function|is not iterable/.test(e.message);
+      errors.push(`slide ${i + 1} (${s.layout || "auto"}): ${internal ? `um campo veio no formato errado (${e.message}). ${layoutHint(s)}` : e.message}`);
     }
   });
   if (errors.length) throw new Error(`Estes slides não renderizam:\n${errors.join("\n")}`);
+}
+
+// o que o layout aceita (a linha dele na tabela da referência) e o formato de cada campo que veio
+function layoutHint(s) {
+  const kind = (v) => (Array.isArray(v) ? `lista de ${v.length}${v.length && typeof v[0] === "object" ? " objetos" : ""}` : v === null ? "vazio" : typeof v === "object" ? `objeto {${Object.keys(v).slice(0, 6).join(", ")}}` : typeof v === "string" ? "texto" : typeof v);
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const row = s.layout && reference().match(new RegExp("^\\|\\s*`" + esc(s.layout) + "`\\s*\\|\\s*([^|]+)\\|", "m"))?.[1]?.trim();
+  const sent = Object.entries(s).filter(([k]) => !["layout", "notes", "uid", "review", "origem", "mudou"].includes(k)).map(([k, v]) => `${k}: ${kind(v)}`).join("; ");
+  return `${row ? `Campos de ${s.layout}: ${row}. ` : ""}Veio: ${sent}. Corrija o formato (ou use outro layout).`;
 }
 
 // Para validar antes de gerar as imagens: image_prompt ainda não tem arquivo.
