@@ -63,6 +63,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   a IA escolheu manual, mas a paleta se perdia (o plano só tinha "tema") e o propósito era sempre palestra (fixo no
   código e numa regra do prompt). Agora o plano devolve `paleta` (recriar) e `proposito`, e quem escreve recebe a
   regra do propósito escolhido.
+- Rodada ao vivo (01/10, Flash, código e37b1bf, figuras do cache): pedido curto em 26 min (antes 63), 81 slides, 4
+  pendentes, 17 pontos de desenho, tema prata, fiscal só com 5 letras pequenas. O pedido detalhado parou no PLANO:
+  `SAGADECK_LLM_TIMEOUT` era o tempo TOTAL da chamada, e em streaming o relay só manda os cabeçalhos quando o modelo
+  começa a escrever. Agora são dois limites (llm.js): até a 1ª palavra (`SAGADECK_LLM_FIRST_TIMEOUT`, 600 s) e sem
+  chegar nada (`SAGADECK_LLM_TIMEOUT`, 180 s). `test/llm-timeout.test.js`. Achados para depois: pendente falso por
+  coordenada de mapa (7606, 7608…) e por palavra comum com maiúscula ("Para", "Seção", "Hidrográfica"); correção que
+  falha por formato de gráfico e por YAML nas notas; visão "sem JSON".
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

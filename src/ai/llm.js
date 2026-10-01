@@ -10,7 +10,8 @@
 //   SAGADECK_IMAGE_MODEL  modelo de imagem       (padrão: "image" — idem)
 //   SAGADECK_VISION_MODEL modelo que vê imagens  (padrão: "vision" — quando o de texto não enxerga, a chamada com
 //                         imagem vai para ele em vez de perder a imagem; quem configura o relay decide qual é)
-//   SAGADECK_LLM_TIMEOUT  segundos por chamada   (padrão: 180)
+//   SAGADECK_LLM_TIMEOUT  segundos por chamada; em streaming, segundos sem chegar nada (padrão: 180)
+//   SAGADECK_LLM_FIRST_TIMEOUT  em streaming, segundos até a 1ª palavra (o modelo pensa antes) (padrão: 600)
 
 export class LLMError extends Error {
   constructor(message, { status, cause, aborted } = {}) {
@@ -30,6 +31,7 @@ export function llmConfig(env = process.env) {
     imageModel: env.SAGADECK_IMAGE_MODEL || "image",
     visionModel: env.SAGADECK_VISION_MODEL || "vision",
     timeoutMs: Number(env.SAGADECK_LLM_TIMEOUT || 180) * 1000,
+    firstTimeoutMs: Number(env.SAGADECK_LLM_FIRST_TIMEOUT || 600) * 1000,
     // o modelrelay escolhe os modelos deste app em [apps.sagadeck.models] (o resto vem de [models])
     app: env.SAGADECK_APP || "sagadeck",
   };
@@ -141,20 +143,34 @@ async function chatOnce(messages, { model, temperature, maxTokens, onDelta, sign
 }
 
 async function chatStream(body, onDelta, cfg, signal) {
+  // Dois limites, nenhum deles o tempo total: até a 1ª palavra (o modelo pensa antes de escrever e o relay só manda os
+  // cabeçalhos aí; firstTimeoutMs) e, depois, sem chegar nada (timeoutMs). Uma resposta longa que está chegando (o plano
+  // de uma aula de 80 slides) não é cortada no meio.
+  const idle = new AbortController();
+  let timer;
+  const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => idle.abort(Object.assign(new Error("tempo esgotado"), { name: "TimeoutError" })), ms); };
+  arm(cfg.firstTimeoutMs ?? cfg.timeoutMs);
+  const sig = signal ? AbortSignal.any([signal, idle.signal]) : idle.signal;
+  try { return await readStream(body, onDelta, cfg, signal, sig, () => arm(cfg.timeoutMs)); }
+  finally { clearTimeout(timer); }
+}
+
+async function readStream(body, onDelta, cfg, signal, sig, alive) {
   let res;
   try {
     res = await fetch(`${cfg.url}/chat/completions`, {
       method: "POST",
       headers: headers(cfg),
       body: JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } }),
-      signal: withTimeout(signal, cfg.timeoutMs),
+      signal: sig,
     });
   } catch (e) {
     if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
-    const why = e.name === "TimeoutError" ? `sem resposta em ${cfg.timeoutMs / 1000}s` : e.message;
+    const why = e.name === "TimeoutError" ? `não começou a responder em ${(cfg.firstTimeoutMs ?? cfg.timeoutMs) / 1000} s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
       "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });
   }
+  alive(); // começou: daqui em diante, o limite é ficar sem chegar nada
   if (!res.ok) {
     const raw = await res.text();
     let msg = raw.slice(0, 500) || res.statusText;
@@ -176,6 +192,7 @@ async function chatStream(body, onDelta, cfg, signal) {
   const decoder = new TextDecoder();
   try {
     for await (const chunk of res.body) {
+      alive();
       buffer += decoder.decode(chunk, { stream: true });
       let nl;
       while ((nl = buffer.indexOf("\n")) >= 0) {
@@ -198,7 +215,8 @@ async function chatStream(body, onDelta, cfg, signal) {
     }
   } catch (e) {
     if (e instanceof LLMError) throw e;
-    const why = e.name === "TimeoutError" ? `sem terminar em ${cfg.timeoutMs / 1000}s` : e.message;
+    if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
+    const why = e.name === "TimeoutError" ? `nada chegou em ${cfg.timeoutMs / 1000} s` : e.message;
     throw new LLMError(`A resposta do LLM foi interrompida (${why}).`, { cause: e });
   }
   return { text, images: [], usage, model };
