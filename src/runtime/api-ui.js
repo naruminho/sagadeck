@@ -270,7 +270,7 @@
       const form = own ? `<div class="av-form"><input data-var-name placeholder="nome (ex.: modelo)" aria-label="Nome da variável"><input data-var-value placeholder="valor" aria-label="Valor"><label title="Protegida: não aparece na tela (só pelo olhinho) e é gravada cifrada"><input type="checkbox" data-var-protected> protegida</label><button type="button" data-var-add>Adicionar</button></div>`
         : `<div class="av-row av-empty">${esc(String(STATE.current || "").toUpperCase())} é um ambiente de exemplo: para guardar variáveis, crie um ambiente seu em Ambientes.</div>`;
       p.innerHTML = `<div class="av-sec"><b>Ambiente ${esc(String(STATE.current || "").toUpperCase())}</b>${envRows || '<div class="av-row av-empty">sem variáveis</div>'}${form}</div>`
-        + `<div class="av-sec"><b>Token</b>${tok}</div>`
+        + `<div class="av-sec av-tok"><b>Token</b>${tok}</div>`
         + `<div class="av-sec"><b>Guardadas pelos slides</b>${mine.length ? mine.map((k) => row(k, saved[k], `${meta.from[k] ? `<small>slide ${esc(meta.from[k])}</small>` : ""}<button type="button" class="av-ic" data-var-inspect="${esc(k)}" title="Inspecionar">{ }</button>`)).join("") : '<div class="av-row av-empty">nenhuma ainda (use save: num slide)</div>'}`
         + (mine.length ? `<button type="button" class="av-clear" data-vars-clear>Limpar o que os slides guardaram</button>` : "") + `</div>`
         + `<div class="av-sec av-watch"><b>Observar</b>${watches.map((w, i) => `<div class="av-row"><code>${esc(w)}</code><span class="av-v">${fmt(watchValue(w))}</span><button type="button" class="av-ic" data-watch-del="${i}" title="Parar de observar">${DEL}</button></div>`).join("")}`
@@ -293,8 +293,24 @@
       // digitar nos campos não avança a apresentação
       $$("input", p).forEach((i) => i.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") ($("[data-var-add]", i.closest(".av-form")) || $("[data-watch-add]", i.closest(".av-form")))?.click(); }));
     };
+    const paintTokenOnly = (box) => {
+      const env = (STATE.envs || []).find((e) => e.name === STATE.current) || {};
+      const t = meta.token, left = t && t.exp ? Math.max(0, Math.round(t.exp - Date.now() / 1000)) : null;
+      const tok = t ? `<div class="av-row"><code>token</code><span class="av-v">••••${esc(t.last4)} ${left == null ? "" : left ? `expira em ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` : "expirou"}</span>${t.slide ? `<small>slide ${esc(t.slide)}</small>` : ""}</div>`
+        : `<div class="av-row av-empty">${env.token ? "pedido sozinho ao executar (token do ambiente)" : "nenhum token ainda"}</div>`;
+      box.innerHTML = `<b>Token</b>${tok}`;
+    };
     paint();
-    p._tick = setInterval(() => { if (!p.isConnected) return clearInterval(p._tick); if (meta.token && meta.token.exp && !p.contains(document.activeElement)) paint(); }, 1000);
+    // a contagem do token anda sozinha: só a linha do token muda (redesenhar o painel inteiro a cada segundo trocava
+    // os botões debaixo do mouse e o clique se perdia)
+    p._tick = setInterval(() => {
+      if (!p.isConnected) return clearInterval(p._tick);
+      if (!(meta.token && meta.token.exp)) return;
+      const box = $(".av-tok", p), fresh = document.createElement("div");
+      const keep = box && box.innerHTML;
+      paintTokenOnly(fresh);
+      if (box && fresh.innerHTML !== keep) box.innerHTML = fresh.innerHTML;
+    }, 1000);
     $(".api-bar", root).appendChild(p);
   }
 
