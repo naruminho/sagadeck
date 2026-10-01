@@ -18,6 +18,10 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   no-store. Revogar: só o dono; o de outra pessoa nem aparece.
 - oraculo-workspace: nginx `location /sagadeck/ver/` (`auth_request /_session`: qualquer logado, mesmo sem o app
   sagadeck) e `/sagadeck/publico/` (sem sessão, cabeçalho de usuário vazio, só GET); `infra/DEPLOY-sagadeck.md`.
+- Quem recebe também baixa (pedido: "quero q ela consiga baixar pra ela se precisar nos formatos possiveis"): botão
+  Baixar na página do link (`<link>/baixar/<formato>`): PDF, PowerPoint, HTML para apresentar sem internet, material de
+  estudo (PDF e HTML) e `.sagadeck`; roteiro e "tudo" só no link com as notas (são feitos delas). Sem as notas, nenhum
+  arquivo as leva. Um arquivo por vez por link (PDF/PPTX usam o Chrome do servidor). Mesmas regras de acesso do link.
 - Teste: `test/share.test.js` (Studio local pelo menu; multiusuário por HTTP), `tests/test_portal_app_access.py`.
 
 ## Revisão das 4 versões da Aula 1 pelo fiscal: acabamento do motor e transformação mais rápida — 01/10/2026
