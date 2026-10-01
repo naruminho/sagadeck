@@ -8,6 +8,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Link para ver, só leitura (compartilhar com a Mary) — 01/10/2026
+
+- Pedido: no servidor da Oracle (login do portal), mandar o link de UMA apresentação para a Mary, só para ver.
+- `src/studio/share-routes.js`: Arquivo › Compartilhar link (`share-ui.js`, janela própria; app.js no limite). Código
+  de 144 bits por link, em `<biblioteca>/.compartilhados.json` (dono, id do deck, público?, com as notas?).
+  `/ver/<código>`: no multiusuário exige o usuário do portal; `/publico/<código>`: só se o link é público. A página é
+  a apresentação montada na hora (a versão atual), sem as notas (a não ser que marcado), com noindex, no-referrer e
+  no-store. Revogar: só o dono; o de outra pessoa nem aparece.
+- oraculo-workspace: nginx `location /sagadeck/ver/` (`auth_request /_session`: qualquer logado, mesmo sem o app
+  sagadeck) e `/sagadeck/publico/` (sem sessão, cabeçalho de usuário vazio, só GET); `infra/DEPLOY-sagadeck.md`.
+- Teste: `test/share.test.js` (Studio local pelo menu; multiusuário por HTTP), `tests/test_portal_app_access.py`.
+
 ## Revisão das 4 versões da Aula 1 pelo fiscal: acabamento do motor e transformação mais rápida — 01/10/2026
 
 - Método: o fiscal do sagadeck (`src/export/shots.js: check`) em todos os slides das 4 versões + fotos dos acusados.
