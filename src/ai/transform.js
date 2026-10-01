@@ -345,8 +345,13 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   const siblingsOf = (k) => plan.slides.map((x, j) => (j !== k && (x.de || []).some((n) => (plan.slides[k].de || []).includes(n)) ? j : -1)).filter((j) => j >= 0);
   const writable = plan.slides.map((it, k) => ({ it, k })).filter(({ it, k }) => (it.acao === "escrever" || it.acao === "novo") && !job.results[k]);
   const BATCH = 5;
-  for (let b = 0; b < writable.length && !stop; b += BATCH) {
-    const batch = writable.slice(b, b + BATCH);
+  const batches = [];
+  for (let b = 0; b < writable.length; b += BATCH) batches.push(writable.slice(b, b + BATCH));
+  // blocos em paralelo (cada um é independente: o plano já diz o que vai em cada item); SAGADECK_TRANSFORM_PARALLEL
+  // troca quantos de cada vez (1 = um por vez, como antes)
+  const parallel = Math.max(1, Math.min(6, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 3));
+  const runBatch = async (batch) => {
+    if (stop) return;
     try {
       progress("escrever", `Escrevendo ${batch.length === 1 ? "o item" : "os itens"} ${batch.map(({ k }) => k + 1).join(", ")} de ${plan.slides.length}…`, { done: Object.keys(job.results).length, total: plan.slides.length });
       const itemsText = batch.map(({ it, k }) => `## ITEM ${k + 1} — ${it.acao}: ${it.ideia}${it.imagens?.length ? `\nImagens para usar: ${it.imagens.join(", ")}` : ""}\nOriginal:\n${srcOf(it).map(brief).join("\n\n") || "(nenhum)"}`).join("\n\n");
@@ -364,7 +369,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       if (!produced) {
         report.problemas.push(`itens ${batch.map(({ k }) => k + 1).join(", ")}: não saíram (${clip(lastErr?.message, 160)})`);
         for (const { k } of batch) job.results[k] = { slides: null, state: "falhou" };
-        save(); continue;
+        save(); return;
       }
       // conferir → corrigir → conferir de novo (a última conferência também olha o desenho)
       let issues = [];
@@ -407,13 +412,27 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       }
       save();
     } catch (e) {
-      if (e instanceof TransformStop) { stop = e; break; }
+      if (e instanceof TransformStop) { stop = stop || e; return; }
       // o bloco não saiu (o modelo falhou mesmo depois de tentar de novo): fica registrado e a tarefa segue;
       // esses itens entram como o original e pedir de novo tenta só eles
       report.problemas.push(`itens ${batch.map(({ k }) => k + 1).join(", ")}: ${clip(e.message, 160)}`);
       save();
     }
+  };
+  let nextBatch = 0;
+  const worker = async () => { while (!stop && nextBatch < batches.length) await runBatch(batches[nextBatch++]); };
+  await Promise.all(Array.from({ length: Math.min(parallel, batches.length) }, worker));
+
+  // pendente por fato que faltou: confere de novo com TODOS os itens prontos. Um item irmão (do mesmo slide original)
+  // escrito depois, ou noutro bloco ao mesmo tempo, pode ter levado o fato: aí não é pendência.
+  for (const [key, res] of Object.entries(job.results)) {
+    const k = Number(key), it = plan.slides[k];
+    if (res?.state !== "pendente" || !res.slides || !it) continue;
+    const all = [...res.slides, ...siblingsOf(k).flatMap((j) => job.results[j]?.slides || [])];
+    const miss = missingFacts(factsFor(it, all), all);
+    if (!miss.numbers.length && !miss.terms.length) { res.state = res.drawing?.length ? "revisar" : "ok"; res.missing = null; }
   }
+  save();
 
   // ---- 5. MONTAR — o que faltou conserva o original; a proposta fica pendente para o professor decidir
   const slides = [];
@@ -576,6 +595,15 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, m
   const { slideSnapshots } = await import("../studio/snapshot.js");
   const { imagesAsDataUrls } = await import("../import/crop.js");
   const deck = { ...deckBase, _dir: dir, slides: produced.map(({ origem, mudou, ...s }) => s) };
+  // primeiro o fiscal do sagadeck (medido no navegador, exato): o que ele acha vai para a correção com o texto do objeto
+  const fiscal = [];
+  try {
+    const { layoutCheck } = await import("../studio/snapshot.js");
+    for (const r of await layoutCheck(deck)) {
+      const found = [...new Set(r.issues.filter((x) => x.kind !== "fonte-pequena" || x.px < 16).map((x) => `${FISCAL[x.kind] || x.kind}${x.px && x.kind === "fonte-pequena" ? ` (${x.px} px)` : ""}: "${clip(x.text, 50)}"`))].slice(0, 4);
+      if (found.length) fiscal.push({ k: (produced[r.slide - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${r.slide} (item ${produced[r.slide - 1]?.origem}), medido: ${found.join("; ")}` });
+    }
+  } catch (e) { if (e instanceof TransformStop) throw e; }
   const shots = [];
   for (let i = 0; i < deck.slides.length; i++) shots.push((await slideSnapshots(deck, i, { mode: "final", width: 960 }))[0]?.dataUrl);
   const origFiles = [...new Set(batch.flatMap(({ it }) => (it.de || []).map((n) => orig.get(Number(n))?.original?.image).filter(Boolean)))];
@@ -593,5 +621,10 @@ ${mode === "recriar" ? "- o estilo é NOVO de propósito: a moldura do original 
     if (e instanceof TransformStop) throw e;
     res = jsonLoose((await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 16000 })).text);
   }
-  return (res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }));
+  return [...fiscal, ...(res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }))];
 }
+// o que cada achado do fiscal quer dizer, para a IA corrigir
+const FISCAL = {
+  "estouro-horizontal": "texto mais largo que a caixa", "estouro-vertical": "texto cortado embaixo", "fora-do-slide": "sai do slide",
+  "passa-da-margem-inferior": "passa da margem de baixo", sobreposicao: "texto por cima de outro", "baixo-contraste": "pouco contraste com o fundo", "fonte-pequena": "letra miúda",
+};

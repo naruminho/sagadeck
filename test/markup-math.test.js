@@ -25,3 +25,12 @@ test("a IA recebe de volta a fórmula que não compila (validateSlides)", async 
   assert.throws(() => validateSlides({ slides: [{ layout: "statement", text: String.raw`S = $\frac{a}}{L}$ ok` }] }), /fórmula que não compila: \$\\frac\{a\}\}\{L\}\$/);
   validateSlides({ slides: [{ layout: "statement", text: String.raw`S = $\frac{a}{L}$ ok` }] });
 });
+
+test("tabela em markdown no meio do texto vira tabela de verdade; barra solta continua texto", () => {
+  const h = md("Veja:\n| Classe | f |\n|---|---|\n| 150 a 155 | 0,01 |\n| 155 a 160 | 0,03 |\nE pronto.");
+  assert.match(h, /^Veja:<div class="dtable-wrap[^"]*md-table"/);
+  assert.match(h, /<thead><tr><th class="">Classe<\/th><th class="num">f<\/th><\/tr><\/thead>/);
+  assert.match(h, /<td class="num">0,03<\/td><\/tr><\/tbody><\/table><\/div>E pronto\.$/);
+  assert.doesNotMatch(md("| a | b |\n| 1 | 2 |"), /<thead>/, "sem a linha |---| não há cabeçalho");
+  assert.equal(md("x | y"), "x | y");
+});

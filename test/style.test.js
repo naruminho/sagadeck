@@ -166,12 +166,37 @@ test("faixa do título do mestre: o título fica acima do fio e o conteúdo come
   const sec = html.split('<section class="slide').find((x) => x.includes("A ciência da água"));
   assert.match(sec, /master-band/);
   const [before, rest] = sec.split('<div class="safe">'), safe = rest.split("</section>")[0];
-  assert.match(before, /class="master-title"><header class="hd">.*data-fit/s, "o título vai para a faixa, fora da área útil, e encolhe para caber");
+  assert.match(before, /class="master-title"><header class="hd">.*data-fit data-fit-self/s, "o título vai para a faixa, fora da área útil, e encolhe para caber (só pelo próprio tamanho)");
   assert.doesNotMatch(safe, /A ciência da água/, "e não fica no fluxo do layout");
   assert.match(html, /\.slide\.has-master\.master-band:not\(\.master-cover\) \.safe\{top:231px\}/);
   // sem fio na moldura: nada muda
   assert.equal(titleBand({ master: { ...master, elements: [] } }), null);
   assert.doesNotMatch(build({ ...spec, master: { ...master, elements: [] } }).html, /master-title/);
+});
+
+test("faixa do título: título longo (com chamada em cima) encolhe até caber inteiro, sem cortar a 2ª linha nem a perna do q/g/ç", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const master = { area: { top: 52, left: 146, right: 146, bottom: 102 }, title: { size: 80, gap: 89, font: "Calibri", bold: true },
+    elements: [{ drawing: '<svg viewBox="0 0 10 1"><path d="M0 0H10" stroke="#4472C4"/></svg>', x: 148, y: 169, w: 1513, h: 1 }] };
+  const slides = [
+    { layout: "split", kicker: "Representação gráfica", title: "Histograma de duração e hidrograma de previsão com legenda", body: "x" },
+    { layout: "split", title: "O que caracteriza uma bacia — segurança", body: "x" },
+  ];
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TEMP || process.env.TMPDIR || "/tmp"), "sgd-band-"));
+  try {
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "A", theme: "sinal", master, slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    for (const n of [1, 2]) {
+      await page.goto(`file://${file.replace(/\\/g, "/")}?export#${n}`); await page.waitForTimeout(400);
+      const m = await page.evaluate((i) => {
+        const el = document.querySelectorAll(".slide")[i].querySelector(".master-title .ttl");
+        return { sh: el.scrollHeight, ch: el.clientHeight, fs: parseFloat(getComputedStyle(el).fontSize) };
+      }, n - 1);
+      assert.ok(m.sh <= m.ch + 1, `slide ${n}: o título cabe na faixa sem cortar (${m.sh} > ${m.ch}, letra ${m.fs}px)`);
+    }
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("Brand Kit: um estilo vira o padrão e toda apresentação nova (em branco, sem tema escolhido) já nasce nele", async () => {

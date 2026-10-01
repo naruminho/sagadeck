@@ -569,3 +569,76 @@ test("Studio: abrir outra apresentação durante a transformação não leva o r
     assert.deepEqual(YAML.parse(fs.readFileSync(outro, "utf8")).slides.map((s) => s.text), ["Não mexa aqui"], "o outro ficou como estava");
   } finally { await studio.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+// plano com muitos itens novos (3 blocos de 5) e um par de itens irmãos (do mesmo slide original) em blocos diferentes
+function bigPlan({ fiscal = false } = {}) {
+  const inflight = { now: 0, max: 0 }, fixes = [];
+  const items = [{ acao: "manter", de: [1], ideia: "capa" }, { acao: "escrever", de: [2], ideia: "Kirpich, a regra" },
+    ...Array.from({ length: 9 }, (_, j) => ({ acao: "novo", de: [], ideia: `pergunta ${j + 1}` })),
+    { acao: "escrever", de: [2], ideia: "Kirpich, os números" }, { acao: "manter", de: [3] }, { acao: "manter", de: [4] }, { acao: "manter", de: [5] }];
+  const write = (text) => {
+    const ks = [...text.matchAll(/## ITEM (\d+)/g)].map((m) => +m[1]);
+    const out = ["```yaml", "slides:"];
+    for (const k of ks) {
+      if (k === 2) out.push("  - layout: statement", "    origem: 2", '    text: "Kirpich vale para bacias menores que 0,5 km²."');
+      else if (k === 12) out.push("  - layout: statement", "    origem: 12", '    text: "Coeficiente 57 e expoente 0,385."');
+      else if (fiscal && k === 3) out.push("  - layout: canvas", "    origem: 3", "    elements:", '      - { text: "Fora do slide", x: 2300, y: 300, w: 500 }');
+      else out.push("  - layout: statement", `    origem: ${k}`, `    text: "Pergunta ${k}?"`);
+    }
+    return [...out, "```"].join("\n");
+  };
+  const handler = async (req) => {
+    const u = req.lastUser;
+    if (/Confira slides NOVOS/.test(u)) return '```json\n{"slides":[]}\n```';
+    if (/Fotos de slides/.test(u)) return '```json\n{"slides":[]}\n```';
+    if (/Faça o PLANO/.test(u)) return "```json\n" + JSON.stringify({ titulo: "Hidrologia", slides: items }) + "\n```";
+    if (/Conferi estes slides/.test(u)) {
+      fixes.push(u);
+      const asked = req.messages.find((m) => m.role === "user" && /Escreva os slides destes itens/.test(typeof m.content === "string" ? m.content : ""));
+      return write(asked.content).replace(/x: 2300/, "x: 300");
+    }
+    if (/Escreva os slides destes itens/.test(u)) {
+      inflight.now++; inflight.max = Math.max(inflight.max, inflight.now);
+      await new Promise((r) => setTimeout(r, 400));
+      inflight.now--;
+      return write(u);
+    }
+    return "ok";
+  };
+  return { handler, inflight, fixes };
+}
+
+test("tarefa: blocos em paralelo; o fato que um item irmão de outro bloco levou não deixa o primeiro pendente", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler, inflight } = bigPlan();
+  const llm = await startMockLLM(handler);
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(inflight.max >= 2, `os blocos rodaram ao mesmo tempo (no máximo ${inflight.max})`);
+    assert.deepEqual(r.report.pendentes, [], "o 0,385 e o 57 estão no item 12, irmão do 2");
+    assert.ok(r.spec.slides.some((s) => /expoente 0,385/.test(s.text || "")));
+    assert.equal(r.spec.slides.filter((s) => /^Pergunta \d+\?$/.test(s.text || "")).length, 9, "todos os itens novos saíram, na ordem do plano");
+    assert.deepEqual(r.spec.slides.filter((s) => /^Pergunta/.test(s.text || "")).map((s) => s.text), Array.from({ length: 9 }, (_, j) => `Pergunta ${j + 3}?`));
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("tarefa: a conferência usa o fiscal de layout (medido no navegador): o que sai do slide volta para a IA corrigir", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler, fixes } = bigPlan({ fiscal: true });
+  const llm = await startMockLLM(handler);
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    const asked = fixes.find((u) => /medido:/.test(u));
+    assert.ok(asked, "o fiscal mandou corrigir");
+    assert.match(asked, /item 3\), medido: sai do slide: "Fora do slide"/);
+    const fixed = r.spec.slides.find((s) => s.layout === "canvas" && s.elements?.some((e) => e.text === "Fora do slide"));
+    assert.equal(fixed.elements[0].x, 300, "a correção voltou para dentro do slide");
+    assert.ok(!r.report.revisar.some((x) => /sai do slide/.test(x)), "corrigido, não fica para revisar");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});

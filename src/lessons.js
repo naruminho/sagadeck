@@ -10,7 +10,7 @@ import "./runtime/formula.js";
 import "./runtime/calc.js";
 
 const F = globalThis.SagaFormula;
-const tex = (s, display = true) => katex.renderToString(String(s ?? ""), { displayMode: display, throwOnError: false, trust: false, maxExpand: 1000, maxSize: 20 });
+const tex = (s, display = true) => katex.renderToString(String(s ?? ""), { displayMode: display, throwOnError: false, strict: "ignore", trust: false, maxExpand: 1000, maxSize: 20 });
 // valor de um dado em LaTeX: número vira vírgula decimal (e 10 elevado, se for muito grande ou muito pequeno)
 const commaTex = (v) => {
   if (typeof v === "number" && Number.isFinite(v)) {
@@ -24,10 +24,16 @@ const commaTex = (v) => {
 const panel = (i, inner, cls = "") => `<section class="lesson-panel dyn-frame ${cls}${i === 0 ? " active" : ""}" data-lesson-panel="${i}">${inner}</section>`;
 
 // ------------------------------------------------------------------------------------------------ solution
+// frase (palavra de 3+ letras, fora sen/log/max…) sem nada de LaTeX: é texto, não fórmula — senão "ver tabela" vira
+// "vertabela" em itálico, sem espaços
+const PROSE = /\p{L}{3,}/u;
+const isProse = (s) => !/\\[a-zA-Z]|[\^_{}]/.test(s) && PROSE.test(String(s).replace(/\b(sen|cos|tan|tg|log|ln|exp|max|min|lim|mod)\b/g, ""));
+const mathOrText = (s) => (isProse(String(s ?? "")) ? `<span class="sol-txt t f-body">${md(String(s))}</span>` : tex(s, false));
 function givenTex(g) {
   if (typeof g === "string") return g;
   if (g.latex) return g.latex;
-  return `${g.symbol ?? ""} = ${commaTex(g.value)}${g.unit ? `\\ \\mathrm{${String(g.unit).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,")}}` : ""}`;
+  const value = typeof g.value === "string" && isProse(g.value) ? `\\text{${g.value.replace(/[{}\\$]/g, "")}}` : commaTex(g.value);
+  return `${g.symbol ?? ""} = ${value}${g.unit ? `\\ \\mathrm{${String(g.unit).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,")}}` : ""}`;
 }
 export function solutionHTML(s, ctx, head) {
   const steps = (s.steps || []).map((x) => (typeof x === "string" ? { latex: x } : x || {}));
@@ -35,8 +41,8 @@ export function solutionHTML(s, ctx, head) {
   const hasAnswer = !!s.answer;
   const n = 1 + steps.length + (hasAnswer ? 1 : 0); // enunciado · cada passo · resposta
   const left = `<div class="sol-problem">${s.problem ? `<div class="sol-text t f-body">${md(s.problem)}</div>` : ""}
-    ${givens.length ? `<div class="sol-givens"><div class="sol-label t f-label">Dados</div>${givens.map((g) => `<div class="sol-given"><div class="sol-tex">${tex(givenTex(g), false)}</div>${g.label ? `<span class="t f-body">${md(g.label)}</span>` : ""}</div>`).join("")}</div>` : ""}
-    ${s.find ? `<div class="sol-find"><span class="sol-label t f-label">Pede-se</span><div class="sol-tex">${tex(s.find, false)}</div></div>` : ""}</div>`;
+    ${givens.length ? `<div class="sol-givens"><div class="sol-label t f-label">Dados</div>${givens.map((g) => `<div class="sol-given"><div class="sol-tex">${typeof g === "string" ? mathOrText(g) : tex(givenTex(g), false)}</div>${g.label ? `<span class="t f-body">${md(g.label)}</span>` : ""}</div>`).join("")}</div>` : ""}
+    ${s.find ? `<div class="sol-find"><span class="sol-label t f-label">Pede-se</span><div class="sol-tex">${mathOrText(s.find)}</div></div>` : ""}</div>`;
   const stepHTML = (st, i, k) => `<article class="sol-step${i === k - 1 ? " now" : ""}"><span class="sol-n t f-label">${String(i + 1).padStart(2, "0")}</span><div class="sol-body">${st.text ? `<div class="sol-why t f-body">${md(st.text)}</div>` : ""}${st.latex ? `<div class="sol-math">${tex(st.latex)}</div>` : ""}${st.note ? `<div class="sol-note t f-body">${md(st.note)}</div>` : ""}</div></article>`;
   const answer = hasAnswer ? (typeof s.answer === "string" ? { latex: s.answer } : s.answer) : null;
   const frames = Array.from({ length: n }, (_, k) => {

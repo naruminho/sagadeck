@@ -314,6 +314,7 @@
       line.classList.toggle("hl", highlight.has(i + 1));
       line.classList.toggle("dim", highlight.size > 0 && !highlight.has(i + 1));
     });
+    if (root.dataset.lesson === "solution") window.SagadeckFit.fitSteps(root); // o quadro novo só mede agora, à vista
     if (root.dataset.lesson === "kinetic") {
       window.SagadeckFit.fitText(root);
       if (previous !== index) kineticMorph(root, source, $(`[data-lesson-panel="${index}"]`, root));

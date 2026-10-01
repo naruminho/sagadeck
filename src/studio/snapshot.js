@@ -91,6 +91,41 @@ export async function diagramCheck(spec, indices) {
   }
 }
 
+/**
+ * O fiscal de layout (src/export/shots.js: inPageCheck) em todos os slides do deck, com tudo revelado: texto que vaza
+ * ou é cortado, fora do slide, passando da margem, um por cima do outro, letra miúda, pouco contraste. Medido no
+ * navegador, sem modelo: é exato e de graça.
+ * @returns {Promise<{ slide:number, issues:{kind:string,text:string,px?:number}[] }[]>}
+ */
+export async function layoutCheck(spec) {
+  const { inPageCheck } = await import("../export/shots.js");
+  const { html } = buildHTML(spec);
+  const file = path.join(os.tmpdir(), `sagadeck-lc-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.html`);
+  fs.writeFileSync(file, html);
+  const b = await browser();
+  const page = await b.newPage({ viewport: { width: 1920, height: slideSize(spec).h } });
+  try {
+    await page.goto(`${pathToFileURL(file).href}?export`, { waitUntil: "load" });
+    await page.waitForFunction(() => window.sagadeck && typeof window.sagadeck.goto === "function", null, { timeout: 10000 });
+    await page.evaluate(() => window.SagaScienceReady);
+    await page.evaluate(() => window.SagaDiagramsReady);
+    await page.evaluate(() => document.fonts?.ready);
+    const n = await page.evaluate(() => window.sagadeck.n);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const steps = await page.evaluate((j) => window.sagadeck.steps(j) || 0, i);
+      await page.evaluate(([j, k]) => window.sagadeck.goto(j, k, true), [i, steps]);
+      await page.waitForTimeout(80);
+      const issues = await page.evaluate(inPageCheck, i);
+      if (issues.length) out.push({ slide: i + 1, issues });
+    }
+    return out;
+  } finally {
+    await page.close().catch(() => {});
+    fs.rm(file, { force: true }, () => {});
+  }
+}
+
 export async function closeSnapshots() {
   if (browserPromise) (await browserPromise).close().catch(() => {});
   browserPromise = null;

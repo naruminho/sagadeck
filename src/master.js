@@ -67,7 +67,8 @@ export function masterCSS(spec) {
     css += `.slide.has-master.master-band:not(.master-cover) .safe{top:${band.contentTop}px}\n`;
     const a = m.area, h = band.bottom - band.top - 10;
     css += `.slide.has-master.master-band>.master-title{position:absolute;z-index:2;left:${a.left}px;right:${a.right}px;top:${band.top}px;height:${band.bottom - band.top}px;padding-bottom:10px;box-sizing:border-box;display:flex;align-items:flex-end}\n`;
-    css += `.slide.has-master.master-band .master-title>.hd{margin:0!important;width:100%;max-height:100%}.slide.has-master.master-band .master-title .ttl{max-height:${h}px;overflow:hidden}\n`;
+    // sem o espaçamento do cabeçalho do layout (o padding e o gap dele roubavam altura da faixa e o título encolhia à toa)
+    css += `.slide.has-master.master-band .master-title>.hd{margin:0!important;width:100%;max-height:100%;gap:0!important;padding:0!important}.slide.has-master.master-band .master-title>.hd>.kicker{margin-bottom:8px}.slide.has-master.master-band .master-title .ttl{max-height:${h}px;overflow:hidden;box-sizing:border-box;padding-bottom:.1em}\n`;
   }
   if (m.coverArea) css += `.slide.has-master.master-cover .safe{${areaCSS(m.coverArea)}}\n`;
   const t = m.title;

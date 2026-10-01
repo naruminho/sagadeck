@@ -1,9 +1,11 @@
 import katex from "katex";
+import { tableHTML } from "./table.js";
 
 // Marcação inline usada em qualquer texto do YAML.
 //   **negrito**   *itálico*   ==marca-texto==   ^^cor de ênfase^^
 //   ~~riscado~~   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
 //   $fórmula$ (LaTeX no meio do texto) e $$fórmula$$ (em destaque). Dinheiro não vira fórmula: "R$ 10", "$5 e $6".
+//   | a | b | (uma linha por linha da tabela, com ou sem |---|) vira tabela de verdade
 export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?![\s\d])([^$\n]+?)(?<!\s)\$(?![\w])/g;
 
 export function esc(s) {
@@ -12,10 +14,28 @@ export function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+// tabela em markdown no meio do texto (uma linha "| a | b |" por linha, com ou sem a linha "|---|---|" depois do
+// cabeçalho): vira tabela de verdade (src/table.js), não texto com barras
+const PIPE_TABLE = /(^|\n)((?:[ \t]*\|[^\n]*\|[ \t]*(?:\n|$)){2,})/g;
+const PIPE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+function pipeTable(block) {
+  const lines = block.trim().split("\n").map((l) => l.trim());
+  const cells = (l) => l.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  const sep = lines.findIndex((l) => PIPE_SEP.test(l));
+  const head = sep === 1 ? cells(lines[0]) : null;
+  const rows = lines.filter((l, i) => !PIPE_SEP.test(l) && !(head && i === 0)).map(cells);
+  return tableHTML({ head, rows }, { cls: "md-table", style: "font-size:.85em;" });
+}
+
 export function md(s) {
   if (s == null) return "";
+  const tables = [];
   const maths = [];
-  const raw = String(s).trim().replace(INLINE_MATH, (_, block, inline) => {
+  const src = String(s).trim().replace(PIPE_TABLE, (m, lead, block) => {
+    try { tables.push(pipeTable(block)); } catch { return m; }
+    return `${lead}\u0002${tables.length - 1}\u0002${block.endsWith("\n") ? "\n" : ""}`;
+  });
+  const raw = src.replace(INLINE_MATH, (_, block, inline) => {
     const tex = (block ?? inline).trim();
     // fórmula que não compila (chave a mais, comando errado): aparece o texto dela, marcado, para corrigir; nunca "undefined"
     try { maths.push(katex.renderToString(tex, { displayMode: block != null, throwOnError: true, strict: "ignore", trust: false, maxExpand: 1000, maxSize: 20 })); }
@@ -37,6 +57,7 @@ export function md(s) {
     .replace(/\n/g, "<br>");
   h = h.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code class="f-mono">${codes[+i]}</code>`);
   h = h.replace(/\u0001(\d+)\u0001/g, (_, i) => maths[+i]);
+  h = h.replace(/(?:<br>)?\u0002(\d+)\u0002(?:<br>)?/g, (_, i) => tables[+i]);
   return h;
 }
 

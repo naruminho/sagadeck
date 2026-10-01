@@ -379,6 +379,9 @@ const lum = (h) => { const [r, g, b] = rgb(h).map((v) => { v /= 255; return v <=
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 // a cor de texto (entre as da paleta) que mais aparece sobre o fundo `bg`
 const onColor = (bg, p) => (contrast(bg, p.ink) >= contrast(bg, p.paper) ? p.ink : p.paper);
+// "hi" é a cor de DESTAQUE (fundo do marca-texto); como cor de TEXTO pode sumir no fundo (azul-bebê no branco, num
+// estilo tirado do PowerPoint). --hi-ink: o próprio hi quando dá para ler, senão a ênfase, senão a cor do texto.
+const hiInk = (bg, hi, em, fg) => (contrast(hi, bg) >= 3 ? hi : contrast(em, bg) >= 3 ? em : fg);
 
 export function paletteColors(p) {
   const { paper, ink, accent, alert } = p;
@@ -475,7 +478,7 @@ export function scopedThemeCSS(theme, { faces = true } = {}) {
   const lk = `.slide.lk-${theme.key}`;
   let css = faces ? fontFaceCSS(theme) : "";
   css += `${lk}{` + Object.entries(theme.colors).map(([k, v]) => `--c-${k}:#${v};`).join("") + `--radius:${theme.radius}px;}\n`;
-  for (const [tone, m] of Object.entries(theme.tones)) css += `${lk}.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};}\n`;
+  for (const [tone, m] of Object.entries(theme.tones)) css += `${lk}.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};--hi-ink:${hiInk(c(m.bg), c(m.hi), c(m.em), c(m.fg))};}\n`;
   css += familySeriesCSS(theme, `${lk}[class*="tone-"]`);
   if (faces) for (const [name, f] of Object.entries(theme.faces)) css += `.slide.th-${theme.name} .f-${name}{${f.css}}\n`;
   return css;
@@ -491,7 +494,7 @@ export function themeCSS(theme) {
   for (const [k, v] of Object.entries(theme.colors)) css += `--c-${k}:#${v};`;
   css += `--radius:${theme.radius}px;}\n`;
   for (const [tone, m] of Object.entries(theme.tones)) {
-    css += `.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};}\n`;
+    css += `.tone-${tone}{--bg:${c(m.bg)};--fg:${c(m.fg)};--muted:${c(m.muted)};--line:${c(m.line)};--surface:${c(m.surface)};--hi:${c(m.hi)};--em:${c(m.em)};--on-hi:${c(m.onHi)};--hi-ink:${hiInk(c(m.bg), c(m.hi), c(m.em), c(m.fg))};}\n`;
   }
   css += familySeriesCSS(theme, `[class*="tone-"]`);
   for (const [name, f] of Object.entries(theme.faces)) css += `.f-${name}{${f.css}}\n`;

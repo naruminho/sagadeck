@@ -162,3 +162,13 @@ test("prever → rodar → explicar: o algo abre com a aposta, roda os passos e 
     assert.deepEqual(errors, []);
   } finally { await browser.close(); deck.cleanup(); }
 });
+
+test("exercício resolvido: dado e 'pede-se' em frase saem como texto (não 'vertabela' em itálico); fórmula continua fórmula", () => {
+  const { html } = renderSlide({ layout: "solution", title: "Ex", problem: "Dada a série", givens: ["N = 8", "Q = ver tabela", { symbol: "Q", value: "ver tabela", label: "vazões" }],
+    find: "Probabilidade empírica, TR e vazão para TR = 10 anos.", steps: [String.raw`P = \frac{m}{N+1}`] }, 0, { title: "x", slides: [] });
+  assert.match(html, /<span class="sol-txt t f-body"[^>]*>Q = ver tabela<\/span>/);
+  assert.match(html, /<span class="sol-txt t f-body"[^>]*>Probabilidade empírica, TR e vazão para TR = 10 anos\.<\/span>/);
+  assert.match(html, /<mfrac>/, "o passo em LaTeX continua fórmula");
+  assert.match(html, /<mtext>ver.tabela<\/mtext>/u, "valor em frase de um dado com símbolo: o símbolo é fórmula, o valor é texto");
+  assert.match(html, /<mi>N<\/mi><mo>=<\/mo><mn>8<\/mn>/, "N = 8 continua fórmula");
+});
