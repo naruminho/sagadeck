@@ -257,3 +257,30 @@ test("Brand Kit pelo chat: a IA aplica um estilo salvo pelo nome, faz ele virar 
     assert.ok(lib.listStyles().some((s) => s.name === "Estilo da outra aula"));
   } finally { await studio.close(); await llm.close(); fs.rmSync(home, { recursive: true, force: true }); }
 });
+
+test("apresentação recriada: o slide original que ficou nela não desenha a moldura antiga (deco); o conteúdo fica", () => {
+  const slide = { layout: "canvas", original: { slide: 3 }, elements: [{ drawing: '<svg viewBox="0 0 10 1"><rect width="10" height="1" fill="#9DC3E6"/></svg>', x: 0, y: 990, w: 1920, h: 90, deco: true }, { text: "Conteúdo do slide", x: 100, y: 100, w: 800 }] };
+  const recriada = buildHTML({ title: "x", theme: "oceano", recreatedFrom: "Aula.pptx", slides: [slide] }).html;
+  assert.doesNotMatch(recriada, /9DC3E6/, "a faixa do PowerPoint não aparece no tema novo");
+  assert.match(recriada, /Conteúdo do slide/);
+  assert.match(buildHTML({ title: "x", theme: "oceano", slides: [slide] }).html, /9DC3E6/, "na importada (ou melhorada) a moldura continua");
+  // moldura copiada slide a slide (sem deco, como na Aula 1): logo e faixa na mesma posição em vários slides saem; a
+  // figura de conteúdo, que só aparece num, fica
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TEMP || process.env.TMPDIR || "/tmp"), "sgd-frame-"));
+  try {
+    fs.writeFileSync(path.join(dir, "logo.png"), Buffer.from(PNG, "base64"));
+    fs.writeFileSync(path.join(dir, "grafico.png"), Buffer.from(PNG, "base64"));
+    const copied = (n, extra = []) => ({ layout: "canvas", original: { slide: n }, elements: [
+      { image: "logo.png", x: 20, y: 1000, w: 120, h: 70 },
+      { drawing: '<svg viewBox="0 0 10 1"><path d="M0 0H10" stroke="#4472C4"/></svg>', x: 148, y: 169, w: 1513, h: 1 },
+      { textbox: { paragraphs: [{ runs: [{ t: `PAG${n}` }] }] }, ph: "sldNum", x: 1444, y: 1009, w: 100, h: 50 },
+      { text: `Texto do slide ${n}`, x: 100, y: 300, w: 800 }, ...extra] });
+    const deck = { title: "x", theme: "oceano", recreatedFrom: "Aula.pptx", _dir: dir, slides: [{ layout: "statement", text: "novo" }, copied(4), copied(9, [{ image: "grafico.png", x: 900, y: 300, w: 800, h: 500 }]), copied(12)] };
+    const html = buildHTML(deck).html;
+    const sec = html.split('<section class="slide').find((x) => x.includes("Texto do slide 9"));
+    assert.equal((sec.match(/<img /g) || []).length, 1, "só a figura de conteúdo (o logo repetido saiu)");
+    assert.doesNotMatch(sec, /#4472C4/, "a linha do título do PowerPoint saiu");
+    assert.doesNotMatch(sec, /PAG9/, "o número da página do original (que nem bate com o deck novo) saiu");
+    assert.match(sec, /Texto do slide 9/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -608,7 +608,7 @@ Um `.pptx` importado (Biblioteca › Importar apresentação, ou `sagadeck impor
 - `drawing: "<svg…>"`: forma desenhada (retângulo, seta, desenho livre).
 - `table: { cols, heights, cells }` com `tableData` (o texto das células, para você ler e usar).
 - `image` com `crop: { l, t, r, b }` (recorte em fração de cada lado), `fit: fill`; `fromOriginal: true` = recortado da foto do original (equação antiga, SmartArt).
-Para melhorar ou recriar, leia o conteúdo (títulos, textos, `tableData`, notas) e o que a imagem mostra, e troque o slide por layouts do sagadeck; os números, nomes, fórmulas e fontes do original não podem se perder.
+Para melhorar ou recriar, leia o conteúdo (títulos, textos, `tableData`, notas) e o que a imagem mostra, e troque o slide por layouts do sagadeck; os números, nomes, fórmulas e fontes do original não podem se perder. Numa apresentação recriada (`recreatedFrom`), o slide original que ficou nela não desenha a moldura antiga (o que se repete na mesma posição entre os slides originais: logos, faixas, linha do título, número da página): o tema novo cuida disso.
 
 ## Estilo da pessoa (mestre: moldura, título, área)
 

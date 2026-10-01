@@ -37,6 +37,12 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   correção) antes da visão; blocos em paralelo (3; `SAGADECK_TRANSFORM_PARALLEL`); no fim, pendente por fato é
   conferido de novo contra todos os itens irmãos prontos (o fato que outro bloco levou não é pendência).
 - CI do Windows: o teste do modelo lavanda contava a imagem da prévia antes de ela entrar.
+- **Recriada sem a moldura antiga**: na Aula 1 a moldura foi copiada slide a slide (sem `deco`), então o filtro por
+  `deco` não tirava nada. `repeatedFrame` (src/master.js, a mesma detecção do estilo) acha o que se repete na mesma
+  posição; o motor não desenha isso nos originais de um deck `recreatedFrom` (vale para as recriadas já geradas) e a
+  transformação tira ao montar. Número da página, data e rodapé do original também saem. Na detecção, elemento que
+  não é imagem/desenho/caixa de texto tinha a chave "?" + posição (dois conteúdos no mesmo lugar viravam moldura).
+- Visão (VER) também em lotes paralelos.
 - Testes: `fit-wide.test.js`, `check.test.js`, faixa em `style.test.js`, tabela em `markup-math.test.js`, solution em
   `lessons.test.js`, paralelo e fiscal em `transform.test.js`.
 

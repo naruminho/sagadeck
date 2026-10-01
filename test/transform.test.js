@@ -642,3 +642,37 @@ test("tarefa: a conferência usa o fiscal de layout (medido no navegador): o que
     assert.ok(!r.report.revisar.some((x) => /sai do slide/.test(x)), "corrigido, não fica para revisar");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+test("tarefa: as figuras do original são olhadas em lotes paralelos", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const inflight = { now: 0, max: 0 };
+  const llm = await startMockLLM(async (req) => {
+    if (/Fotos de slides/.test(req.lastUser)) {
+      inflight.now++; inflight.max = Math.max(inflight.max, inflight.now);
+      await new Promise((r) => setTimeout(r, 400));
+      inflight.now--;
+      const ns = [...req.lastUser.matchAll(/Slide (\d+):/g)].map((m) => +m[1]);
+      return "```json\n" + JSON.stringify({ slides: ns.map((n) => ({ n, figuras: [{ tipo: "gráfico", generica: false, o_que: `curva ${n}` }] })) }) + "\n```";
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto.png"), PNG);
+    // 12 slides com figura de conteúdo: 3 lotes de 4
+    const base = d.spec.slides[1];
+    d.spec.slides = Array.from({ length: 12 }, (_, j) => {
+      fs.writeFileSync(path.join(d.dir, "imagens", `curva-${j + 1}.png`), PNG);
+      return { ...structuredClone(base), original: { ...base.original, slide: j + 1, image: "original/foto.png" }, elements: [...base.elements, { image: `imagens/curva-${j + 1}.png`, x: 0, y: 0, w: 100, h: 100 }] };
+    });
+    await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false, limits: { calls: 4 } });
+    assert.ok(inflight.max >= 2, `os lotes de figuras rodaram ao mesmo tempo (no máximo ${inflight.max})`);
+    const cache = JSON.parse(fs.readFileSync(path.join(d.dir, ".sagadeck", "transform", "figuras.json"), "utf8"));
+    assert.ok(Object.keys(cache).length >= 1, "o que foi visto ficou no cache");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
