@@ -418,6 +418,24 @@ test("visão com resposta cortada: os slides que ficaram de fora são olhados de
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("slide a mais sem item (origem: extra) entra junto com o item de antes, sem derrubar o bloco", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM((req) => {
+    const out = handler(req);
+    if (/Escreva os slides destes itens/.test(req.lastUser) || /Conferi estes slides/.test(req.lastUser)) return out.replace(/```\s*$/, '  - layout: statement\n    origem: extra\n    text: "Exercício: calcule o tc de uma bacia de 2 km"\n```');
+    return out;
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!r.report.problemas.some((p) => /origem/.test(p)), JSON.stringify(r.report.problemas));
+    assert.ok(r.spec.slides.some((s) => /Exercício: calcule/.test(s.text || "")), "o slide a mais entrou");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("Studio: abrir outra apresentação durante a transformação não leva o resultado para o deck errado", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();

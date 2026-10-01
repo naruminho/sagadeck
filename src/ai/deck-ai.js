@@ -183,8 +183,9 @@ function rejoinFlowCommas(node) {
 
 // LaTeX entre aspas duplas: "\frac", "\beta", "\times", "\nu"… começam com um escape válido do YAML (\f, \b, \t,
 // \n) e viram caractere de controle em silêncio (a fórmula estraga sem erro); "\left" nem é escape e quebra o YAML.
-// Barra seguida de comando LaTeX (2+ letras) dentro de aspas duplas vira barra literal.
-const LATEX_CMD = /\\(?=(?:frac|dfrac|tfrac|beta|times|theta|Theta|text|textbf|tau|tan|tanh|nu|nabla|neq|ne|rho|right|left|alpha|approx|vec|varphi|varepsilon|epsilon|eta|exp|bar|binom|forall|le|leq|ge|geq|lambda|Lambda|sum|sqrt|mathrm|mathbf|cdot|cdots|ldots|infty|int|iint|oint|pi|Pi|sigma|Sigma|delta|Delta|gamma|Gamma|omega|Omega|phi|Phi|psi|mu|chi|kappa|zeta|xi|partial|pm|mp|log|ln|sin|cos|lim|max|min|over|overline|underline|hat|dot|ddot|quad|qquad|circ|degree|propto|equiv|sim|simeq|cong|in|notin|subset|cup|cap|to|rightarrow|leftarrow|Rightarrow|Leftrightarrow|mathcal|operatorname|displaystyle|begin|end)(?![A-Za-z]))/g;
+// Barra (ou barras: a IA às vezes já escapa, às vezes escapa duas vezes) antes de comando LaTeX, dentro de aspas
+// duplas, vira UMA barra de LaTeX.
+const LATEX_CMD = /\\+(?=(?:frac|dfrac|tfrac|beta|times|theta|Theta|text|textbf|tau|tan|tanh|nu|nabla|neq|ne|rho|right|left|alpha|approx|vec|varphi|varepsilon|epsilon|eta|exp|bar|binom|forall|le|leq|ge|geq|lambda|Lambda|sum|sqrt|mathrm|mathbf|cdot|cdots|ldots|infty|int|iint|oint|pi|Pi|sigma|Sigma|delta|Delta|gamma|Gamma|omega|Omega|phi|Phi|psi|mu|chi|kappa|zeta|xi|partial|pm|mp|log|ln|sin|cos|lim|max|min|over|overline|underline|hat|dot|ddot|quad|qquad|circ|degree|propto|equiv|sim|simeq|cong|in|notin|subset|cup|cap|to|rightarrow|leftarrow|Rightarrow|Leftrightarrow|mathcal|operatorname|displaystyle|begin|end)(?![A-Za-z]))/g;
 function protectLatex(src) {
   return src.replace(/"(?:[^"\\\n]|\\.)*"/g, (q) => (/\\[A-Za-z]{2,}/.test(q) ? q.replace(LATEX_CMD, "\\\\") : q));
 }

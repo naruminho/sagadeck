@@ -584,6 +584,9 @@ test("YAML da IA: texto com ': ' sem aspas e LaTeX entre aspas duplas são conse
   const s = parseYaml(y).slides[0];
   assert.equal(s.mudou, "Lista completa de rótulos restaurada, imagem com fit: contain e legenda");
   assert.equal(s.text, String.raw`**Segurança:** $S = \left(1 - \frac{1}{TR}\right)^n$, com \beta e \times`);
+  // já escapado certo (\\frac) ou escapado demais (\\\frac): uma barra de LaTeX, como a IA quis
+  for (const y2 of [String.raw`t: "$$i = \frac{a \cdot Tr^{b}}{(t+c)^{d}}$$"`, String.raw`t: "$$i = \\frac{a \\cdot Tr^{b}}{(t+c)^{d}}$$"`, String.raw`t: "$$i = \\\frac{a \\\cdot Tr^{b}}{(t+c)^{d}}$$"`])
+    assert.equal(parseYaml(y2).t, String.raw`$$i = \frac{a \cdot Tr^{b}}{(t+c)^{d}}$$`, y2);
   // o que já era válido continua igual (quebra de linha escapada, aspas escapadas)
   assert.equal(parseYaml(String.raw`a: "linha 1\nlinha 2 \"x\""`).a, 'linha 1\nlinha 2 "x"');
 });
