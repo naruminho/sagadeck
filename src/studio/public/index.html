@@ -80,6 +80,8 @@
         <button class="menu-item" id="export-estudo-html" data-export="estudo-html" title="O material de estudo num arquivo HTML só (abre em qualquer navegador, também no celular)"><i class="ic" data-ic="graduation-cap"></i>Baixar material de estudo (HTML)</button>
         <button class="menu-item" id="export-roteiro" data-export="roteiro" title="Para o apresentador: miniatura de cada slide com as notas e o tempo planejado"><i class="ic" data-ic="sticky-note"></i>Baixar roteiro (PDF)</button>
         <button class="menu-item" id="export-html" title="Um arquivo só, com tudo embutido, para apresentar em qualquer navegador (não serve para editar)"><i class="ic" data-ic="file-code"></i>Baixar para apresentar (HTML)</button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" id="menu-share" title="Um link para alguém ver esta apresentação, sem editar e sem ver a sua biblioteca"><i class="ic" data-ic="share-2"></i>Compartilhar link (só leitura)…</button>
       </div>
     </div>
     <button class="ribbon-tab active" role="tab" data-tab="inicio" aria-selected="true">Início</button>
@@ -636,6 +638,26 @@
     </div>
   </div>
 
+  <div id="modal-share" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box share-dialog" role="dialog" aria-modal="true" aria-labelledby="share-title">
+      <div class="modal-dialog-header">
+        <h3 id="share-title">Compartilhar link (só leitura)</h3>
+        <button id="share-close" class="icon-btn" title="Fechar" aria-label="Fechar"><i class="ic" data-ic="x"></i></button>
+      </div>
+      <div class="modal-dialog-body">
+        <div class="share-new">
+          <div id="share-who" class="share-who" role="radiogroup" aria-label="Quem pode ver">
+            <label title="A pessoa entra com o login dela no portal; o link sozinho não basta"><input type="radio" name="share-who" value="portal" checked><i class="ic" data-ic="lock"></i>Só quem entra no portal</label>
+            <label title="Qualquer pessoa com o link vê, sem login (como no Google Docs); revogue quando não precisar mais"><input type="radio" name="share-who" value="publico"><i class="ic" data-ic="globe"></i>Qualquer pessoa com o link</label>
+          </div>
+          <label class="share-notes" title="Sem marcar, quem abre não vê as notas do apresentador"><input type="checkbox" id="share-notas">Com as notas do apresentador</label>
+          <button id="share-create" class="btn btn-primary"><i class="ic" data-ic="link"></i>Criar link</button>
+        </div>
+        <ul id="share-list" class="share-list"></ul>
+      </div>
+    </div>
+  </div>
+
   <div id="drop-overlay" class="drop-overlay hidden">
     <div class="drop-box"><i class="ic" data-ic="folder-open"></i><div>Solte o arquivo .yaml para abrir</div></div>
   </div>
@@ -805,6 +827,7 @@
   <script src="merge-decks.js"></script>
   <script src="history.js"></script>
   <script src="review-ui.js"></script>
+  <script src="share-ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

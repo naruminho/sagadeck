@@ -30,6 +30,7 @@ import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
 import { sendExport, lightVariant } from "./exporting.js";
 import { styleRoutes, styleAction } from "./style-routes.js";
+import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
 export { lightVariant };
 import { VERSION } from "./instance.js";
@@ -107,6 +108,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
     if (!workspaces.has(user)) workspaces.set(user, newWorkspace(user));
     return workspaces.get(user);
   }
+  // links de ver, só leitura (Arquivo › Compartilhar link; src/studio/share-routes.js): a biblioteca de quem compartilhou
+  const shares = shareRoutes({ libraryRoot, multiuser: !!opts.multiuser, libraryOf: (u) => {
+    if (!workspaces.has(u || "")) workspaces.set(u || "", newWorkspace(u || null));
+    return workspaces.get(u || "").library;
+  } });
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
@@ -401,6 +407,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
       return;
     }
 
+    // link de ver (só leitura): o público não tem usuário; o "ver" exige o do portal no multiusuário
+    if (shares.serveView(req, res, pathname, opts.multiuser ? String(req.headers[USER_HEADER] || "").trim() : "")) return;
+
     const W = workspaceOf(req);
     if (!W) { // multiusuário sem o cabeçalho do proxy: ninguém autenticado
       res.writeHead(401, { "Content-Type": "application/json" });
@@ -505,7 +514,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -685,6 +694,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // revisão das mudanças e estilos da pessoa (src/studio/style-routes.js)
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
+      if (await shares.api({ req, res, pathname, W, readJSON })) return;
       if (pathname === "/api/aspect" && req.method === "POST") {
         const b = await readJSON(req);
         if (!parseAspect(b.aspect)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: `Proporção "${b.aspect}" não entendida. Use 16:9, 4:3, 1:1, 9:16 ou largura:altura.` })); return; }

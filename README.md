@@ -217,6 +217,14 @@ embutido em iframe de outra origem.
 atrás do proxy. Se o nginx troca o `Host`, mande o endereço do portal em `X-Forwarded-Host` (`proxy_set_header
 X-Forwarded-Host $host;`): é com ele que o Studio reconhece a própria página.
 
+**Link para ver (só leitura):** Arquivo › Compartilhar link cria um link para uma apresentação: quem abre vê a
+apresentação pronta, sem o editor, sem a biblioteca e sem as notas do apresentador (a não ser que se marque).
+No servidor, `/ver/<código>` exige o usuário do portal (o proxy pede a sessão e manda `X-Sagadeck-User`) e
+`/publico/<código>` abre para qualquer pessoa, só se o link foi criado como público (o proxy deixa passar sem
+sessão e sem o cabeçalho). Os links ficam em `<biblioteca>/.compartilhados.json`; revogar apaga na hora. As páginas
+vão com `noindex` e sem Referer. No Studio local, o link abre para quem alcança o Studio (com `--host=0.0.0.0`, a
+rede da casa).
+
 **Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
 navegador, mas não para editar.
 
