@@ -200,3 +200,35 @@ test("Brand Kit: um estilo vira o padrão e toda apresentação nova (em branco,
     assert.ok(!YAML.parse(fs.readFileSync(lib.resolveId(sem.id), "utf8")).style);
   } finally { await studio.close(); fs.rmSync(home, { recursive: true, force: true }); }
 });
+
+test("Brand Kit pelo chat: a IA aplica um estilo salvo pelo nome, faz ele virar o padrão e salva o desta (o prompt lista os salvos)", async () => {
+  const { startMockLLM } = await import("./mock-llm.js");
+  const home = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TEMP || process.env.TMPDIR || "/tmp"), "sgd-brandchat-"));
+  const lib = openLibrary(home);
+  const imp = await lib.importOffice(await universityPptx(), "Aulas", "Aula padrão.pptx");
+  const outro = lib.resolveId(lib.createDeck("Aulas", { title: "Outra aula", theme: "sinal", slides: [{ layout: "list", title: "Pontos", items: ["a", "b"] }] }));
+  const llm = await startMockLLM((req) => {
+    if (/aplique o padrão/.test(req.lastUser)) return 'Aplico o padrão da universidade.\n```yaml\nestilo:\n  aplicar: "Padrão da universidade"\n```';
+    if (/toda apresentação nova/.test(req.lastUser)) return 'Feito.\n```yaml\nestilo:\n  padrao: "padrão da universidade"\n```';
+    if (/guarde este estilo/.test(req.lastUser)) return 'Guardo.\n```yaml\nestilo:\n  salvar: "Estilo da outra aula"\n```';
+    return "ok";
+  });
+  const studio = await startStudio(imp.file, { llmUrl: llm.url, library: home });
+  const post = async (url, body) => (await fetch(`${studio.url}${url}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+  try {
+    await post("/api/styles/save", { name: "Padrão da universidade" });
+    await post("/api/library/open", { id: lib.idOf(outro) });
+    const spec = (await (await fetch(`${studio.url}/api/deck`)).json()).spec;
+    const r = await post("/api/ai/chat", { message: "aplique o padrão da universidade nesta apresentação", spec });
+    assert.match(llm.requests.at(-1).lastUser, /Estilos salvos na biblioteca: "Padrão da universidade"/, "a IA sabe quais estilos existem");
+    assert.match(r.reply, /aplicado/);
+    const saved = YAML.parse(fs.readFileSync(outro, "utf8"));
+    assert.equal(saved.style?.name, "Padrão da universidade");
+    assert.ok(saved.master?.elements?.length);
+    assert.deepEqual(saved.slides[0].items, ["a", "b"], "o conteúdo ficou");
+    await post("/api/ai/chat", { message: "use esse estilo em toda apresentação nova", spec: saved });
+    assert.ok(lib.defaultStyle(), "virou o padrão");
+    await post("/api/ai/chat", { message: "guarde este estilo", spec: saved });
+    assert.ok(lib.listStyles().some((s) => s.name === "Estilo da outra aula"));
+  } finally { await studio.close(); await llm.close(); fs.rmSync(home, { recursive: true, force: true }); }
+});

@@ -492,6 +492,14 @@ transform:
 O sagadeck faz o trabalho em etapas (vê as figuras do original, planeja, escreve em blocos e confere cada bloco), mostrando o
 andamento aqui. No modo recriar nasce uma apresentação nova na biblioteca; no melhorar, cada slide mudado fica marcado para
 a pessoa validar. Para mexer em poucos slides, continue usando o patch normal.
+ESTILO (moldura, cores e fontes salvas na biblioteca; a lista dos salvos vem no pedido): para APLICAR um estilo salvo a
+esta apresentação, SALVAR o estilo desta, TIRAR o estilo, ou fazer um estilo virar o PADRÃO das apresentações novas,
+não faça patch: uma frase e um bloco yaml só com
+\`\`\`yaml
+estilo:
+  aplicar: "nome do estilo salvo"   # ou  salvar: "nome novo"  ·  tirar: true  ·  padrao: "nome do estilo salvo"
+\`\`\`
+Use o nome exatamente como aparece na lista. Trocar o estilo só muda a moldura, as cores e as fontes; o conteúdo fica.
 Cuidado com a escrita (o deck é da pessoa):
 - Mude SÓ o que foi pedido. Para ajustar um texto, um campo ou uma lista, use \`edit\` com apenas esses campos: não reescreva o
   slide inteiro (reescrever cria erro de digitação e estraga o que estava bom). \`slides\` só para trocar layout/estrutura.
@@ -708,6 +716,13 @@ function parseEditText(text, base) {
   const raw = parseYaml(yaml);
   if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete (ou variants).");
   if (raw.variants) return parseVariants(raw.variants, base, prose);
+  if (raw.estilo || raw.style) {
+    const e = raw.estilo || raw.style;
+    const act = typeof e === "string" ? { aplicar: e } : e || {};
+    const kind = ["aplicar", "salvar", "tirar", "padrao"].find((k) => act[k] != null && act[k] !== false);
+    if (!kind) throw new Error('estilo: use { aplicar: "nome" }, { salvar: "nome" }, { tirar: true } ou { padrao: "nome" }.');
+    return { spec: base, prose, changed: [], style: { action: kind, name: kind === "tirar" ? null : String(act[kind]) } };
+  }
   if (raw.transform) {
     const t = raw.transform || {};
     const mode = String(t.mode || t.modo || "").toLowerCase();
@@ -744,7 +759,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null }) {
   const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -767,7 +782,7 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
 \`\`\`yaml
 ${YAML.stringify(numbered, { indent: 2 })}slides:
 ${slidesYaml}\`\`\`
-${focus}${problems}${autoLog}${drawn}${apiEnvText}
+${focus}${problems}${autoLog}${drawn}${apiEnvText}${styles ? `\nEstilos salvos na biblioteca: ${styles.list.length ? styles.list.map((s) => `"${s.name}"${s.default ? " (padrão das novas)" : ""}`).join(", ") : "nenhum"}. Estilo desta apresentação: ${styles.current ? `"${styles.current}"` : "nenhum"}.` : ""}
 ${materialsBlock(materials) ? `\n${materialsBlock(materials)}\n` : ""}
 Pedido: ${instruction}
 
@@ -790,7 +805,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
       if (parsed.variants) await checkDrawings({ slides: parsed.variants.options.map((o) => o.slide) }, parsed.variants.options.map((_, k) => k), drawCheck, drawWarned);
@@ -810,6 +825,8 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
   // transformar a apresentação inteira: quem executa é o servidor (src/ai/transform.js), com o andamento no chat
   if (transform) return { reply: prose || "Vou transformar a apresentação.", spec, actions, targetSlide, transform };
+  // estilo (Brand Kit): quem aplica/salva é o servidor, com a biblioteca
+  if (style) return { reply: prose || "Certo.", spec, actions, targetSlide, style };
   // versões para escolher: nada muda até a pessoa escolher uma
   if (variants) return { reply: prose || `${variants.options.length} versões para você escolher.`, spec, actions, targetSlide, variants };
   if (attempts > 1) actions.push(`YAML corrigido após ${attempts - 1} tentativa(s) inválida(s)`);

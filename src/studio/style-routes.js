@@ -70,3 +70,34 @@ export async function styleRoutes({ req, res, pathname, W, persist, readJSON }) 
   }
   return false;
 }
+
+// a IA decidiu mexer no estilo pelo chat (estilo: aplicar | salvar | tirar | padrao); devolve a resposta do chat
+export function styleAction({ W, spec, result, persist, isBundledTemplate }) {
+  const { action, name } = result.style;
+  const norm = (v) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const find = () => W.library.listStyles().find((s) => norm(s.name) === norm(name) || s.id === name) || W.library.listStyles().find((s) => norm(s.name).includes(norm(name)));
+  const say = (reply, extra = {}) => ({ ...result, reply, spec: W.spec || spec, ...extra });
+  if (!W.file || isBundledTemplate(W.file)) return say("Para usar estilos, a apresentação precisa estar salva na biblioteca.", { talk: true });
+  const dir = path.dirname(W.file);
+  try {
+    if (action === "aplicar") {
+      const st = find();
+      if (!st) return say(`Não achei o estilo "${name}". Os salvos: ${W.library.listStyles().map((s) => s.name).join(", ") || "nenhum"}.`, { talk: true });
+      W.spec = W.library.applyStyleTo(W.spec, dir, st.id); persist(W);
+      return say(`${result.reply}\nEstilo "${st.name}" aplicado: moldura, cores e fontes; o conteúdo ficou.`, { spec: W.spec });
+    }
+    if (action === "tirar") { delete W.spec.master; delete W.spec.style; W.spec.theme = W.spec.theme && typeof W.spec.theme === "string" ? W.spec.theme : "manual"; persist(W); return say(`${result.reply}\nEstilo tirado.`, { spec: W.spec }); }
+    if (action === "salvar") {
+      const style = W.spec.master ? { name, theme: W.spec.theme, master: W.spec.master, from: W.spec.import?.from || null } : styleFromImport(W.spec, { name });
+      const saved = W.library.saveStyle(style, dir);
+      return say(`${result.reply}\nEstilo "${saved.name}" salvo na biblioteca.`, { talk: true });
+    }
+    if (action === "padrao") {
+      const st = find();
+      if (!st) return say(`Não achei o estilo "${name}".`, { talk: true });
+      W.library.setDefaultStyle(st.id);
+      return say(`${result.reply}\nAs apresentações novas já nascem no estilo "${st.name}".`, { talk: true });
+    }
+  } catch (e) { return say(`Não deu: ${e.message}`, { talk: true }); }
+  return say("Não entendi o que fazer com o estilo.", { talk: true });
+}

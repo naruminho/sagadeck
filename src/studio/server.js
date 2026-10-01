@@ -29,7 +29,7 @@ import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
 import { sendExport, lightVariant } from "./exporting.js";
-import { styleRoutes } from "./style-routes.js";
+import { styleRoutes, styleAction } from "./style-routes.js";
 import { apiRoutes } from "./api-routes.js";
 export { lightVariant };
 import { VERSION } from "./instance.js";
@@ -1242,10 +1242,13 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               apiContext: apiContextFor(req, W),
               drawCheck: diagramCheck,
               runCommand: commandRunner(req, emit, body, W),
+              styles: W.file && !isBundledTemplate(W.file) ? { list: W.library.listStyles(), current: W.spec?.style?.name || null } : null,
             });
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
             // a IA decidiu transformar a apresentação inteira (transform:): o trabalho em etapas, com o andamento aqui
             if (result.transform) return await runTransform(W, withBase(W, spec), result, emit);
+            // a IA decidiu mexer no estilo (estilo:): aplicar, salvar, tirar ou padrão das novas
+            if (result.style) return styleAction({ W, spec: withBase(W, spec), result, persist, isBundledTemplate });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
             const convo = [...history, { role: "user", text: prompt }]
