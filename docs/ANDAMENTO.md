@@ -59,6 +59,10 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   transformação tira ao montar. Número da página, data e rodapé do original também saem. Na detecção, elemento que
   não é imagem/desenho/caixa de texto tinha a chave "?" + posição (dois conteúdos no mesmo lugar viravam moldura).
 - Visão (VER) também em lotes paralelos.
+- Pergunta: "você pediu para seguir um tema?". Sim (tema prata ou manual, paleta floresta ou mar, purpose consulta);
+  a IA escolheu manual, mas a paleta se perdia (o plano só tinha "tema") e o propósito era sempre palestra (fixo no
+  código e numa regra do prompt). Agora o plano devolve `paleta` (recriar) e `proposito`, e quem escreve recebe a
+  regra do propósito escolhido.
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`
