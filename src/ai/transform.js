@@ -23,6 +23,25 @@ const jsonOf = (text) => {
   const m = String(text).match(/```(?:json)?\s*([\s\S]*?)```/) || [null, String(text).slice(String(text).indexOf("{"), String(text).lastIndexOf("}") + 1)];
   return JSON.parse(m[1]);
 };
+// resposta cortada no meio (o modelo de visão gasta parte dos tokens pensando): os objetos completos da lista
+// "slides" valem; o resto se pede de novo. Devolve { slides: [...], partial: true|false }.
+export function jsonLoose(text) {
+  try { return { ...jsonOf(text), partial: false }; } catch {}
+  const t = String(text), start = t.search(/"slides"\s*:\s*\[/);
+  if (start < 0) throw new Error("resposta sem JSON");
+  const out = [];
+  let i = t.indexOf("[", start) + 1, depth = 0, from = -1, inStr = false;
+  for (; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { if (c === "\\") i++; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{") { if (depth++ === 0) from = i; }
+    else if (c === "}") { if (--depth === 0 && from >= 0) { try { out.push(JSON.parse(t.slice(from, i + 1))); } catch {} from = -1; } }
+    else if (c === "]" && depth === 0) break;
+  }
+  if (!out.length) throw new Error("resposta cortada antes do primeiro item");
+  return { slides: out, partial: true };
+}
 
 // ------------------------------------------------------------------------------------------------ fatos (código)
 const deaccent = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -57,8 +76,15 @@ export function factsOf(slide, extra = "") {
     numbers.add(v); alts.set(v, vs);
   }
   const terms = new Set();
-  for (const m of text.matchAll(/\b([A-Z][A-Z0-9]{1,6})\b/g)) if (!STOP.has(deaccent(m[1]))) terms.add(m[1]); // siglas: SAE, IDF, TR
-  for (const m of text.matchAll(/(?:[a-zà-ú,;]\s)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,}(?:\s+(?:de|da|do|e)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,})*)/g)) terms.add(m[1]); // nomes próprios no meio da frase
+  // siglas: SAE, IDF, TR (o \b do JS não conhece acento: "MÁXIMA" não pode virar a sigla "XIMA")
+  for (const m of text.matchAll(/(?<![\p{L}\p{N}])([A-Z][A-Z0-9]{1,6})(?![\p{L}\p{N}])/gu)) if (!STOP.has(deaccent(m[1]))) terms.add(m[1]);
+  // nomes próprios no meio da frase; palavra comum com maiúscula (item de lista, cabeçalho) que aparece minúscula no
+  // mesmo slide não é nome
+  for (const m of text.matchAll(/(?:[a-zà-ú,;]\s)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,}(?:\s+(?:de|da|do|e)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,})*)/g)) {
+    const low = m[1].toLowerCase();
+    if (!m[1].includes(" ") && new RegExp(`(?<![\\p{L}])${low}(?![\\p{L}])`, "u").test(text)) continue;
+    terms.add(m[1]);
+  }
   return { numbers, terms, alts };
 }
 function textOfProduced(slides) {
@@ -121,7 +147,7 @@ export function jobStatus(dir, mode) {
   } catch { return null; }
 }
 
-export async function transformDeck({ spec, dir, mode = "melhorar", request = "", onProgress = () => {}, textModel, visionModel, maxRounds = 1, signal, limits = {}, log = () => {}, resume = true }) {
+export async function transformDeck({ spec, dir, mode = "melhorar", request = "", onProgress = () => {}, textModel, visionModel, maxRounds = 2, signal, limits = {}, log = () => {}, resume = true }) {
   if (!["melhorar", "recriar"].includes(mode)) throw new Error(`modo desconhecido: ${mode}`);
   const originals = (spec.slides || []).filter((s) => s.layout === "canvas" && s.original);
   if (!originals.length) throw new Error("Esta apresentação não veio de uma importação (importe o PowerPoint primeiro: Biblioteca › Importar apresentação).");
@@ -191,23 +217,32 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
     if (needFig.length) {
       const { imagesAsDataUrls } = await import("../import/crop.js");
       const urls = await imagesAsDataUrls(needFig.map(imgFile), { width: 1024 });
-      for (let k = 0; k < needFig.length; k += 4) {
-        const batch = needFig.slice(k, k + 4);
+      const queue = [];
+      for (let k = 0; k < needFig.length; k += 4) queue.push(needFig.slice(k, k + 4));
+      const urlOf = new Map(needFig.map((s, j) => [s, urls[j]]));
+      for (let q = 0; q < queue.length; q++) {
+        const batch = queue[q], k = needFig.indexOf(batch[0]);
         progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
         const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
 Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
-        batch.forEach((s, j) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urls[k + j] } }));
+        batch.forEach((s) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urlOf.get(s) } }));
         try {
-          const r = await ask([{ role: "user", content }], { model: V, maxTokens: 6000 });
-          for (const it of jsonOf(r.text).slides || []) {
+          const r = await ask([{ role: "user", content }], { model: V, maxTokens: 16000 });
+          const got = jsonLoose(r.text);
+          for (const it of got.slides || []) {
             const s = orig.get(Number(it.n));
             if (!s) continue;
             figs[s.original.slide] = it;
             const key = figKey(s); if (key) figCache[key] = it;
           }
+          // resposta cortada: os que ficaram de fora vão de novo, um por vez
+          const left = batch.filter((s) => !figs[s.original.slide]);
+          if (left.length && batch.length > 1) left.forEach((s) => queue.push([s]));
+          else if (left.length) report.problemas.push(`não consegui ver as figuras do slide ${left[0].original.slide} (resposta incompleta): segue só com o texto`);
         } catch (e) {
           if (e instanceof TransformStop) throw e;
-          report.problemas.push(`não consegui ver as figuras dos slides ${batch.map((s) => s.original.slide).join(", ")} (${clip(e.message, 120)}): seguem só com o texto`);
+          if (batch.length > 1) batch.forEach((s) => queue.push([s]));
+          else report.problemas.push(`não consegui ver as figuras do slide ${batch[0].original.slide} (${clip(e.message, 120)}): segue só com o texto`);
         }
         fs.writeFileSync(figFile, JSON.stringify(figCache, null, 1));
       }
@@ -458,6 +493,24 @@ function coverageMarkdown(coverage, deck) {
   return lines.join("\n") + "\n";
 }
 
+// caminho de imagem que não existe, mas há UM arquivo de imagem parecido na pasta (mesmo nome em outra pasta, ou até
+// 2 letras de diferença: "imagens/orignal/x.png"): é ele
+const imageListCache = new Map();
+export function nearImage(rel, dir) {
+  let files = imageListCache.get(dir);
+  if (!files) {
+    files = [];
+    const walk = (d, pre) => { let ents = []; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch {} for (const e of ents) { if (e.name.startsWith(".")) continue; if (e.isDirectory()) walk(path.join(d, e.name), `${pre}${e.name}/`); else if (/\.(png|jpe?g|gif|webp|svg)$/i.test(e.name)) files.push(`${pre}${e.name}`); } };
+    walk(dir, ""); imageListCache.set(dir, files);
+  }
+  const want = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  const lev = (a, b) => { if (Math.abs(a.length - b.length) > 2) return 9; const d = Array.from({ length: b.length + 1 }, (_, j) => j); for (let i = 1; i <= a.length; i++) { let prev = d[0]; d[0] = i; for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } } return d[b.length]; };
+  const near = files.filter((f) => lev(f, want) <= 2);
+  if (near.length === 1) return near[0];
+  const same = files.filter((f) => f.split("/").pop() === want.split("/").pop());
+  return same.length === 1 ? same[0] : null;
+}
+
 // resposta do escritor → slides válidos (renderizam, só imagens que existem, origem de um item do bloco)
 function parseProduced(text, batch, deckBase, dir) {
   const { yaml } = extractYaml(text);
@@ -476,7 +529,10 @@ function parseProduced(text, batch, deckBase, dir) {
   const clean = normalizeSpec({ ...deckBase, slides: slides.map(({ origem, mudou, ...rest }) => rest) });
   // imagens que não existem na pasta do deck: erro (volta para a IA)
   const bad = [];
-  const walk = (v, k) => { if (k === "image" && typeof v === "string" && !/^(https?:|data:)/.test(v) && !fs.existsSync(path.join(dir, v))) bad.push(v); else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) walk(vv, kk); };
+  const walk = (o) => { if (!o || typeof o !== "object") return; for (const [k, v] of Object.entries(o)) {
+    if (k === "image" && typeof v === "string" && !/^(https?:|data:)/.test(v) && !fs.existsSync(path.join(dir, v))) { const fix = nearImage(v, dir); if (fix) o[k] = fix; else bad.push(v); }
+    else if (v && typeof v === "object") walk(v);
+  } };
   clean.slides.forEach((s) => walk(s));
   if (bad.length) throw new Error(`Imagens que não existem: ${[...new Set(bad)].join(", ")}. Use só os caminhos dados.`);
   validateSlides({ ...clean, _dir: dir });
@@ -499,7 +555,7 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model })
 Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
   origFiles.forEach((f, j) => { if (origUrls[j]) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: origUrls[j] } }); });
   shots.forEach((u, i) => { if (u) content.push({ type: "text", text: `NOVO ${i + 1} (do item ${produced[i].origem}):` }, { type: "image_url", image_url: { url: u } }); });
-  const r = await ask([{ role: "user", content }], { model, maxTokens: 6000 });
-  const res = jsonOf(r.text);
+  const r = await ask([{ role: "user", content }], { model, maxTokens: 16000 });
+  const res = jsonLoose(r.text);
   return (res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }));
 }

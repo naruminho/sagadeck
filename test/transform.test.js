@@ -9,7 +9,7 @@ import pptxgen from "pptxgenjs";
 import { startMockLLM } from "./mock-llm.js";
 import { openLibrary } from "../src/library.js";
 import { mergeProgressive, isProgressive } from "../src/import/merge.js";
-import { factsOf, missingFacts, transformDeck, jobStatus } from "../src/ai/transform.js";
+import { factsOf, missingFacts, transformDeck, jobStatus, jsonLoose, nearImage } from "../src/ai/transform.js";
 import { browserOrSkip, startStudio } from "./helpers.js";
 
 process.env.SAGADECK_NO_OFFICE = "1";
@@ -353,5 +353,67 @@ test("tarefa: erro passageiro do modelo tenta de novo; bloco que não sai não d
     assert.ok(c.report.retomada);
     assert.equal(c.report.status, "concluido");
     assert.equal(c.spec.slides[1].layout, "statement");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("fatos: sigla respeita acento (MÁXIMA não vira XIMA) e palavra comum com maiúscula não é nome próprio", () => {
+  const f = factsOf({ elements: [{ textbox: { paragraphs: [{ runs: [{ t: "VAZÃO MÁXIMA no SAE. Eixos: maiores e menores; ver Maiores, Menores e a represa do Lobo." }] }] } }] });
+  assert.ok(!f.terms.has("XIMA") && !f.terms.has("ZÃO"), [...f.terms].join(","));
+  assert.ok(f.terms.has("SAE"));
+  assert.ok(!f.terms.has("Maiores") && !f.terms.has("Menores"), "aparecem minúsculas no slide: são palavras comuns");
+  assert.ok(f.terms.has("Lobo"), "nome de verdade continua");
+});
+
+test("JSON cortado no meio: os itens completos valem", () => {
+  const r = jsonLoose('```json\n{"slides":[{"n":1,"figuras":[{"tipo":"mapa","o_que":"bacia"}]},{"n":2,"figuras":[{"tipo":"gráf');
+  assert.equal(r.partial, true);
+  assert.deepEqual(r.slides.map((s) => s.n), [1]);
+  assert.deepEqual(jsonLoose('{"slides":[{"n":3}]}').slides, [{ n: 3 }]);
+  assert.throws(() => jsonLoose("nada aqui"));
+});
+
+test("caminho de imagem com erro de digitação: um arquivo parecido só, é ele", () => {
+  const dir = tmp("sgd-img-");
+  fs.mkdirSync(path.join(dir, "imagens", "original"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "imagens", "original", "image16.jpeg"), "x");
+  fs.writeFileSync(path.join(dir, "imagens", "original", "image17.png"), "x");
+  try {
+    assert.equal(nearImage("imagens/orignal/image16.jpeg", dir), "imagens/original/image16.jpeg");
+    assert.equal(nearImage("image17.png", dir), "imagens/original/image17.png", "mesmo nome em outra pasta");
+    assert.equal(nearImage("imagens/outra/zzz.png", dir), null);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("visão com resposta cortada: os slides que ficaram de fora são olhados de novo, um por vez", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const looks = [];
+  const llm = await startMockLLM((req) => {
+    if (/Fotos de slides/.test(req.lastUser)) {
+      const ns = [...req.lastUser.matchAll(/Slide (\d+):/g)].map((m) => +m[1]);
+      looks.push(ns);
+      const item = (n) => `{"n":${n},"figuras":[{"tipo":"esquema","generica":false,"o_que":"figura ${n}","dados":"d${n}"}]}`;
+      return ns.length > 1 ? '```json\n{"slides":[' + item(ns[0]) + ',{"n":' + ns[1] + ',"figu' : '```json\n{"slides":[' + item(ns[0]) + "]}\n```";
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    for (const n of [2, 5]) {
+      fs.writeFileSync(path.join(d.dir, "original", `foto-${n}.png`), PNG);
+      const s = d.spec.slides[n - 1];
+      s.original.image = `original/foto-${n}.png`;
+      fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+      fs.writeFileSync(path.join(d.dir, "imagens", `f${n}.png`), PNG);
+      s.elements.push({ image: `imagens/f${n}.png`, x: 0, y: 0, w: 100, h: 100 });
+    }
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false, limits: { calls: 4 } });
+    assert.deepEqual(looks, [[2, 5], [5]], "o lote cortado: o 5 foi de novo, sozinho");
+    assert.ok(!r.report.problemas.some((p) => /não consegui ver/.test(p)), JSON.stringify(r.report.problemas));
+    const plan = llm.requests.find((q) => /Faça o PLANO/.test(q.lastUser)).lastUser;
+    assert.match(plan, /figura 2/); assert.match(plan, /figura 5/);
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
