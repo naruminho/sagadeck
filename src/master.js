@@ -96,25 +96,45 @@ export function masterCSS(spec) {
 // ------------------------------------------------------------------------------------------------ estilo do original
 // A partir de um deck importado (src/import): o layout mais usado vira a moldura de conteúdo; o do 1º slide, a capa.
 // Título e corpo: posição, fonte, tamanho e cor dos placeholders do original. Tema: cores e fontes do arquivo.
+const plainText = (e) => (e.textbox?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t || "").join("")).join("\n").trim();
+
+// Moldura de slides importados = o que se repete na mesma posição (do mestre ou copiado slide a slide, como muita gente
+// faz). "É o mesmo elemento": imagem/texto iguais, ou desenho com o mesmo tipo de traço e a mesma cor, na mesma região
+// (arredondada: a linha do título muda alguns pixels de um slide para outro). 20% dos slides: aulas costumam misturar
+// slides de fontes diferentes; o estilo é o do primeiro bloco coerente.
+export function repeatedFrame(pool) {
+  // outro tipo (texto, tabela…): o conteúdo, sem a posição (antes "?" e dois conteúdos no mesmo lugar contavam como um)
+  const restOf = (e) => { const { x, y, w, h, step, exit, ...r } = e; return JSON.stringify(r).slice(0, 300); };
+  const drawKey = (d) => `${(String(d).match(/<path d="[A-Za-z]/g) || []).join("")}|${(String(d).match(/(fill|stroke)="(#[0-9A-Fa-f]{6}|rgba\([^)]*\))"/g) || []).join(",")}`;
+  const keyOf = (e) => `${e.image ? `I:${e.image}` : e.drawing ? `S:${drawKey(e.drawing)}` : e.textbox ? `T:${plainText(e)}` : `X:${restOf(e)}`}@${Math.round(e.x / 16)},${Math.round(e.y / 16)},${Math.round(e.w / 48)},${Math.round(e.h / 16)}`;
+  const freq = new Map();
+  for (const s of pool) for (const k of new Set((s.elements || []).filter((e) => e.deco || (!e.ph && !e.textbox) || (!e.ph && e.textbox && plainText(e).length < 60)).map(keyOf))) freq.set(k, (freq.get(k) || 0) + 1);
+  const repeated = new Set([...freq].filter(([, n]) => n >= Math.max(2, pool.length * 0.2)).map(([k]) => k));
+  // número da página, data e rodapé do original também são moldura (o número antigo nem bate com o deck novo)
+  return { keyOf, repeated, isFrame: (e) => !!e && (e.deco || ["sldNum", "dt", "ftr"].includes(e.ph) || (!e.ph && repeated.has(keyOf(e)))) };
+}
+
+// Apresentação recriada (tema novo): a moldura antiga (faixas, logos, número) dos slides originais que ficaram nela,
+// achada pela repetição entre eles; null quando o deck não é recriado. Guardada por lista de slides.
+const FRAMES = new WeakMap();
+export function recreatedFrame(spec) {
+  if (!spec?.recreatedFrom || !Array.isArray(spec.slides)) return null;
+  if (!FRAMES.has(spec.slides)) {
+    const orig = spec.slides.filter((s) => s?.layout === "canvas" && s.original && Array.isArray(s.elements));
+    FRAMES.set(spec.slides, orig.length >= 2 ? repeatedFrame(orig).isFrame : (e) => !!e?.deco);
+  }
+  return FRAMES.get(spec.slides);
+}
+
 export function styleFromImport(spec, { name } = {}) {
   const slides = (spec.slides || []).filter((s) => s.layout === "canvas" && Array.isArray(s.elements));
   if (!slides.length) throw new Error("Este deck não veio de uma importação (não há slides do original para copiar o estilo).");
   const H = spec.aspect === "4:3" ? 1440 : 1080;
   const fonts = spec.import?.fonts || {};
   const realFont = (f) => { const t = String(f || "").replace(/\s*\((Body|Headings|Corpo|Títulos|Titulos)\)\s*$/i, "").trim(); return /\((Body|Corpo)\)/i.test(f || "") ? fonts.minor || t : /\((Headings|Títulos|Titulos)\)/i.test(f || "") ? fonts.major || t : t; };
-  const plainText = (e) => (e.textbox?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t || "").join("")).join("\n").trim();
   const clean = (e) => { const c = structuredClone(e); delete c.deco; delete c.ph; if (c.textbox) for (const p of c.textbox.paragraphs || []) for (const r of p.runs || []) if (r.font) r.font = realFont(r.font); return c; };
-  // moldura = o que se repete na mesma posição (do mestre ou copiado slide a slide, como muita gente faz)
-  // "é o mesmo elemento": imagem/texto iguais, ou desenho com o mesmo tipo de traço e a mesma cor, na mesma região
-  // (arredondada: a linha do título muda alguns pixels de um slide para outro)
-  const drawKey = (d) => `${(String(d).match(/<path d="[A-Za-z]/g) || []).join("")}|${(String(d).match(/(fill|stroke)="(#[0-9A-Fa-f]{6}|rgba\([^)]*\))"/g) || []).join(",")}`;
-  const keyOf = (e) => `${e.image ? `I:${e.image}` : e.drawing ? `S:${drawKey(e.drawing)}` : e.textbox ? `T:${plainText(e)}` : "?"}@${Math.round(e.x / 16)},${Math.round(e.y / 16)},${Math.round(e.w / 48)},${Math.round(e.h / 16)}`;
-  const content = slides.slice(1).filter((s) => s.elements.some((e) => e.ph === "title" || e.ph === "body"));
   const pool = slides.length > 1 ? slides.slice(1) : slides; // todos menos a capa (há slides sem placeholder, só com desenho)
-  const freq = new Map();
-  for (const s of pool) for (const k of new Set(s.elements.filter((e) => e.deco || (!e.ph && !e.textbox) || (!e.ph && e.textbox && plainText(e).length < 60)).map(keyOf))) freq.set(k, (freq.get(k) || 0) + 1);
-  // 20%: aulas costumam misturar slides de fontes diferentes; o estilo é o do primeiro bloco coerente
-  const repeated = new Set([...freq].filter(([, n]) => n >= Math.max(2, pool.length * 0.2)).map(([k]) => k));
+  const { keyOf, repeated } = repeatedFrame(pool);
   const ref = pool.find((s) => s.elements.some((e) => e.ph === "title") && s.elements.some((e) => e.ph === "body") && s.elements.some((e) => repeated.has(keyOf(e)))) || pool[0];
   const frame = ref.elements.filter((e) => repeated.has(keyOf(e)) || (e.deco && !e.ph)).map(clean);
   const pageNum = ref.elements.find((e) => e.ph === "sldNum" && e.textbox) || ref.elements.find((e) => e.textbox && e.textbox.paragraphs.some((p) => p.runs.some((r) => r.field === "slidenum")));

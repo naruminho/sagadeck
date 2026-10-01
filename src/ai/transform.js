@@ -14,7 +14,7 @@ import { chat, llmConfig } from "./llm.js";
 import { systemPrompt, extractYaml, parseYaml, validateSlides, sanitizeCheck } from "./deck-ai.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { plainOf } from "../import/pptx.js";
-import { styleFromImport } from "../master.js";
+import { styleFromImport, repeatedFrame } from "../master.js";
 import { mergeProgressive } from "../import/merge.js";
 import { ensureUids, newUid } from "../uid.js";
 
@@ -229,8 +229,11 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
       const queue = [];
       for (let k = 0; k < needFig.length; k += 4) queue.push(needFig.slice(k, k + 4));
       const urlOf = new Map(needFig.map((s, j) => [s, urls[j]]));
-      for (let q = 0; q < queue.length; q++) {
-        const batch = queue[q], k = needFig.indexOf(batch[0]);
+      // lotes em paralelo, como a escrita (SAGADECK_TRANSFORM_PARALLEL); o que volta para a fila (resposta cortada) é
+      // pego por quem estiver livre
+      let qi = 0, halted = null;
+      const look = async (batch) => {
+        const k = needFig.indexOf(batch[0]);
         progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
         const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
 Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
@@ -249,12 +252,16 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":tru
           if (left.length && batch.length > 1) left.forEach((s) => queue.push([s]));
           else if (left.length) report.problemas.push(`não consegui ver as figuras do slide ${left[0].original.slide} (resposta incompleta): segue só com o texto`);
         } catch (e) {
-          if (e instanceof TransformStop) throw e;
+          if (e instanceof TransformStop) { halted = halted || e; return; }
           if (batch.length > 1) batch.forEach((s) => queue.push([s]));
           else report.problemas.push(`não consegui ver as figuras do slide ${batch[0].original.slide} (${clip(e.message, 120)}): segue só com o texto`);
         }
         fs.writeFileSync(figFile, JSON.stringify(figCache, null, 1));
-      }
+      };
+      const lookWorker = async () => { while (!halted && qi < queue.length) await look(queue[qi++]); };
+      const lanes = Math.max(1, Math.min(6, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 3));
+      await Promise.all(Array.from({ length: Math.min(lanes, queue.length) }, lookWorker));
+      if (halted) throw halted;
     }
   } catch (e) { if (e instanceof TransformStop) stop = e; else throw e; }
 
@@ -437,9 +444,10 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   // ---- 5. MONTAR — o que faltou conserva o original; a proposta fica pendente para o professor decidir
   const slides = [];
   const coverage = [];
-  // o original que volta para o deck (pendente, não saiu): no recriar, sem a moldura antiga (deco: faixa, logos), que
-  // destoaria do tema novo; o conteúdo fica inteiro
-  const asOriginal = (s) => { const c = structuredClone(s); if (mode === "recriar") c.elements = (c.elements || []).filter((e) => !e.deco); return c; };
+  // o original que volta para o deck (pendente, não saiu): no recriar, sem a moldura antiga (faixa, logos: o deco e o
+  // que se repete na mesma posição, como no estilo), que destoaria do tema novo; o conteúdo fica inteiro
+  const frameOf = mode === "recriar" ? repeatedFrame(originals.length > 1 ? originals.slice(1) : originals).isFrame : null;
+  const asOriginal = (s) => { const c = structuredClone(s); if (frameOf) c.elements = (c.elements || []).filter((e) => !frameOf(e)); return c; };
   plan.slides.forEach((it, k) => {
     const res = job.results[k];
     const src = srcOf(it);

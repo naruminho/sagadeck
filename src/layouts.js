@@ -14,6 +14,7 @@ import { infographicHTML } from "./infographic.js";
 import { duelHTML, terminalsHTML, turnsHTML } from "./dynamics/layouts.js";
 import { carouselHTML } from "./carousel.js";
 import { slideSize } from "./aspect.js";
+import { recreatedFrame } from "./master.js";
 import { solutionHTML, calcHTML, algoHTML } from "./lessons.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
 
@@ -557,7 +558,10 @@ export const LAYOUTS = {
 
   // Posicionamento livre (x, y, w, h em px numa tela de 1920 × 1080)
   canvas(s, ctx) {
-    return (s.elements || []).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");
+    // apresentação recriada (tema novo): o slide original que ficou nela não traz a moldura antiga do PowerPoint (faixas,
+    // logos, número: o que se repete na mesma posição, src/master.js: recreatedFrame), que destoaria; o conteúdo fica
+    const frame = s.original ? recreatedFrame(ctx?.spec) : null;
+    return (s.elements || []).filter((e) => !(frame && frame(e))).map((e) => el({ ...e, x: e.x ?? 0, y: e.y ?? 0 }, ctx, e.w, e.h)).join("");
   },
   // Diagrama (Mermaid): fluxograma, sequência, estados, classes/UML, ER, jornada, mapa mental, linha do tempo, blocos.
   // Quem desenha é o navegador (runtime/diagram.js), com a paleta do slide. Ícones: ":nome-do-icone:" nos rótulos.
