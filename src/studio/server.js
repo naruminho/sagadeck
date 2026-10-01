@@ -1199,9 +1199,11 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         ];
         if (mode === "melhorar") {
           if (!fs.existsSync(origFile)) { fs.mkdirSync(path.dirname(origFile), { recursive: true }); fs.writeFileSync(origFile, YAML.stringify(spec, { lineWidth: 0 })); }
+          // o estilo do original pode virar um estilo salvo (Brand Kit): a resposta oferece o botão
+          const offerStyle = { name: String(spec.import?.from || spec.title || "Estilo").replace(/\.[a-z]+$/i, "").slice(0, 80) };
           if (W.file === file) { W.spec = { ...t.spec, _dir: dir }; persist(W); }
           else { writeDeckFile(file, t.spec); return { ...result, reply: `Pronto: "${W.library.idOf(file)}" foi melhorada (você está em outra apresentação agora). Cada slide mudado está marcado para validar.\n${lines.join("\n")}`, spec: W.spec, talk: true, transformReport: r }; }
-          return { ...result, reply: `Pronto. Cada slide mudado está marcado (Revisar › Mudanças) para você validar.\n${lines.join("\n")}`, spec: W.spec, actions: [...(result.actions || [])], transformReport: r };
+          return { ...result, reply: `Pronto. Cada slide mudado está marcado (Revisar › Mudanças) para você validar.\n${lines.join("\n")}`, spec: W.spec, actions: [...(result.actions || [])], transformReport: r, offerStyle };
         }
         // recriar: apresentação nova no mesmo tópico, com as imagens que ela usa. A retomada grava na MESMA
         // apresentação nova (não cria outra a cada pedaço).

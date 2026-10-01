@@ -418,6 +418,28 @@ test("visão com resposta cortada: os slides que ficaram de fora são olhados de
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("Studio: depois de melhorar no estilo do original, a resposta oferece salvar esse estilo (e salva na biblioteca)", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const { handler } = script();
+  const llm = await startMockLLM(handler);
+  const d = await imported();
+  const studio = await startStudio(d.file, { llmUrl: llm.url, library: d.home });
+  try {
+    const { newPage } = await import("./helpers.js");
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#tab-btn-chat");
+    await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
+    await p.click("#chat-send");
+    const btn = p.locator(".chat-save-style");
+    await btn.waitFor({ timeout: 60000 });
+    p.once("dialog", (dlg) => dlg.accept("Padrão da Aula 1"));
+    await btn.click();
+    for (let k = 0; k < 40 && !d.lib.listStyles().length; k++) await p.waitForTimeout(100);
+    assert.deepEqual(d.lib.listStyles().map((s) => s.name), ["Padrão da Aula 1"]);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("slide a mais sem item (origem: extra) entra junto com o item de antes, sem derrubar o bloco", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
