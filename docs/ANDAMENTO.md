@@ -68,6 +68,9 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   200 slides < 0,1 s aqui; Studio com 200 abre em ~2,5 s e troca de slide em 0,1–0,4 s).
 - **Interação didática: prever → rodar → explicar** no `algo` (`predict:` abre com a aposta e as opções,
   `explain:` fecha com o porquê e a resposta; vale para o rastreado); campos no formulário; `lessons.test.js`.
+- **Variedade de conteúdo**: cada tipo de slide com o exemplo e com conteúdo longo, em 16:9 e 4:3
+  (`test/lengths.test.js`): o longo só pode deixar a letra menor, nada de vazar/cortar/sobrepor novo. Hoje passa
+  em todos. Rótulo do grupo do Estilo: "Organização".
 - Falta do relatório (ordem): recriar ao vivo (Pro × Flash) com o código novo; depois
   desfazer unificado, editor visual (trocar/recortar imagem, alinhar e distribuir, guias, travar mestre, camadas,
   paleta de comandos), palco × consulta, variedade, interações didáticas, arquitetura/CI.
