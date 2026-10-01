@@ -417,3 +417,27 @@ test("visão com resposta cortada: os slides que ficaram de fora são olhados de
     assert.match(plan, /figura 2/); assert.match(plan, /figura 5/);
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+test("Studio: abrir outra apresentação durante a transformação não leva o resultado para o deck errado", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM(async (req) => {
+    if (/Escreva os slides destes itens/.test(req.lastUser)) await new Promise((r) => setTimeout(r, 2500));
+    return handler(req);
+  });
+  const d = await imported();
+  const outro = d.lib.resolveId(d.lib.createDeck("Aulas", { title: "Outra aula", slides: [{ layout: "statement", text: "Não mexa aqui" }] }));
+  const studio = await startStudio(d.file, { llmUrl: llm.url, library: d.home });
+  try {
+    const post = (url, body) => fetch(`${studio.url}${url}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const pedido = post("/api/ai/chat", { message: "melhore a aula inteira mantendo o estilo", spec: d.spec }).then((r) => r.json());
+    await new Promise((r) => setTimeout(r, 1200));
+    await post("/api/library/open", { id: d.lib.idOf(outro) }); // a pessoa foi para outra apresentação
+    const res = await pedido;
+    assert.match(res.reply, /outra apresentação/);
+    const melhorada = YAML.parse(fs.readFileSync(d.file, "utf8"));
+    assert.ok(melhorada.slides.some((s) => s.layout === "statement" && s.review), "o resultado foi para o deck da tarefa");
+    assert.deepEqual(YAML.parse(fs.readFileSync(outro, "utf8")).slides.map((s) => s.text), ["Não mexa aqui"], "o outro ficou como estava");
+  } finally { await studio.close(); await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
