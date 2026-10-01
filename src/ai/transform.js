@@ -77,7 +77,12 @@ export function factsOf(slide, extra = "") {
   }
   const terms = new Set();
   // siglas: SAE, IDF, TR (o \b do JS não conhece acento: "MÁXIMA" não pode virar a sigla "XIMA")
-  for (const m of text.matchAll(/(?<![\p{L}\p{N}])([A-Z][A-Z0-9]{1,6})(?![\p{L}\p{N}])/gu)) if (!STOP.has(deaccent(m[1]))) terms.add(m[1]);
+  // frase toda em caixa alta (título dentro da figura: "BOCA DE LOBO", "DRENAGEM URBANA") não é fileira de siglas:
+  // palavra de 3+ letras (só letras) com outra palavra em caixa alta do lado fica de fora; sigla com número (BL1) vale
+  const capsPhrase = new Set();
+  for (const m of text.matchAll(/(?<![\p{L}\p{N}])(?:\p{Lu}{2,}[\p{Lu}\p{N}]*)(?:[ \t]+(?:\p{Lu}{2,}[\p{Lu}\p{N}]*|\p{N}+))+(?![\p{L}\p{N}])/gu))
+    for (const w of m[0].split(/[ \t]+/)) if (/^\p{Lu}{3,}$/u.test(w)) capsPhrase.add(w);
+  for (const m of text.matchAll(/(?<![\p{L}\p{N}])([A-Z][A-Z0-9]{1,6})(?![\p{L}\p{N}])/gu)) if (!STOP.has(deaccent(m[1])) && !capsPhrase.has(m[1])) terms.add(m[1]);
   // nomes próprios no meio da frase; palavra comum com maiúscula (item de lista, cabeçalho) que aparece minúscula no
   // mesmo slide não é nome
   for (const m of text.matchAll(/(?:[a-zà-ú,;]\s)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,}(?:\s+(?:de|da|do|e)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,})*)/g)) {

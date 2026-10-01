@@ -587,6 +587,8 @@ test("YAML da IA: texto com ': ' sem aspas e LaTeX entre aspas duplas são conse
   // já escapado certo (\\frac) ou escapado demais (\\\frac): uma barra de LaTeX, como a IA quis
   for (const y2 of [String.raw`t: "$$i = \frac{a \cdot Tr^{b}}{(t+c)^{d}}$$"`, String.raw`t: "$$i = \\frac{a \\cdot Tr^{b}}{(t+c)^{d}}$$"`, String.raw`t: "$$i = \\\frac{a \\\cdot Tr^{b}}{(t+c)^{d}}$$"`])
     assert.equal(parseYaml(y2).t, String.raw`$$i = \frac{a \cdot Tr^{b}}{(t+c)^{d}}$$`, y2);
+  // valor que começa com "Palavra: " (Fonte: …) e tem outros ": " no meio
+  assert.equal(parseYaml("a:\n  source: Fonte: Macedo (2020). Equação: I = K·TR^m").a.source, "Fonte: Macedo (2020). Equação: I = K·TR^m");
   // o que já era válido continua igual (quebra de linha escapada, aspas escapadas)
   assert.equal(parseYaml(String.raw`a: "linha 1\nlinha 2 \"x\""`).a, 'linha 1\nlinha 2 "x"');
 });
