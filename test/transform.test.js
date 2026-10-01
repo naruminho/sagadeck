@@ -499,6 +499,36 @@ test("correção que volta só com o item corrigido: vale; os outros itens do bl
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("números lidos numa figura (eixos) não ficam pendentes quando o slide novo mantém a figura; sem a figura, são cobrados", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  let keep = true;
+  const llm = await startMockLLM((req) => {
+    if (/Fotos de slides/.test(req.lastUser)) return '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"o_que":"curva","dados":"eixo x: 200, 300, 400, 500"}]}]}\n```';
+    const out = handler(req);
+    if (keep && /Escreva os slides destes itens|Conferi estes slides/.test(req.lastUser)) {
+      return out.replace(/  - layout: statement\n    origem: 2\n    mudou: [^\n]*\n    text: [^\n]*/, '  - layout: split\n    origem: 2\n    title: "Kirpich"\n    body: "Kirpich: bacias menores que 0,5 km²; coeficiente 57, expoente 0,385."\n    figure: { image: imagens/f2.png }');
+    }
+    return out;
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "imagens", "f2.png"), PNG);
+    d.spec.slides[1].original.image = "original/foto-2.png";
+    d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 });
+    const a = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!a.report.pendentes.some((p) => /\b200\b/.test(p)), `figura mantida: ${JSON.stringify(a.report.pendentes)}`);
+    keep = false;
+    const b = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(b.report.pendentes.some((p) => /\b200\b/.test(p)), `figura tirada: os números do eixo são cobrados (${JSON.stringify(b.report.pendentes)})`);
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("primeiro slide do bloco sem origem: é do primeiro item (a IA escreve na ordem)", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
