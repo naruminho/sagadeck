@@ -362,6 +362,10 @@ test("fatos: sigla respeita acento (MÁXIMA não vira XIMA) e palavra comum com 
   assert.ok(f.terms.has("SAE"));
   assert.ok(!f.terms.has("Maiores") && !f.terms.has("Menores"), "aparecem minúsculas no slide: são palavras comuns");
   assert.ok(f.terms.has("Lobo"), "nome de verdade continua");
+  // título em caixa alta (dentro da figura: "DELIMITAÇÃO DE ÁREAS ... DRENAGEM URBANA") não é uma fileira de siglas
+  const g = factsOf({ elements: [{ textbox: { paragraphs: [{ runs: [{ t: "DELIMITAÇÃO DE ÁREAS DE CONTRIBUIÇÃO EM DRENAGEM URBANA. A BOCA DE LOBO 1 (BL1) e o IDF." }] }] } }] });
+  for (const w of ["URBANA", "DRENAGEM", "BOCA", "LOBO", "CONTRIBUIÇÃO"]) assert.ok(!g.terms.has(w), `${w}: ${[...g.terms].join(",")}`);
+  assert.ok(g.terms.has("BL1") && g.terms.has("IDF"), "sigla solta continua");
 });
 
 test("JSON cortado no meio: os itens completos valem", () => {

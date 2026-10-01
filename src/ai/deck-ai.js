@@ -156,7 +156,7 @@ export function repairYaml(src) {
     }
     // texto sem aspas com ": " no meio (`mudou: imagem com fit: contain`): o YAML acha que é outro mapa
     const plain = /^(\s*(?:- )?[\w-]+:[ \t]+)([^"'{[|>&*!#\s].*:\s.*)$/.exec(line);
-    if (plain && !/^[\w-]+:\s/.test(plain[2])) return plain[1] + JSON.stringify(plain[2].trim());
+    if (plain) return plain[1] + JSON.stringify(plain[2].trim()); // "Fonte: Macedo (2020)" também (só roda se o YAML já falhou)
     const m = /^(\s*(?:- )?(?:[\w-]+:[ \t]+)?)((?:\*|==|\^\^|~~|`)\S.*)$/.exec(line);
     if (!m || !/(- |:[ \t]+)$/.test(m[1])) return line;
     const value = m[2].trim();
