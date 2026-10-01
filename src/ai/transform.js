@@ -520,9 +520,13 @@ function parseProduced(text, batch, deckBase, dir) {
   if (Array.isArray(raw)) raw = { slides: raw };
   if (!raw || !Array.isArray(raw.slides) || !raw.slides.length) throw new Error('Esperava `slides:` com a lista de slides.');
   const allowed = new Set(batch.map(({ k }) => k + 1));
+  let prev = null;
   const slides = raw.slides.map((s, i) => {
     if (!s || typeof s !== "object") throw new Error(`slide ${i + 1}: não é um objeto`);
-    const origem = Number(s.origem ?? (batch.length === 1 ? batch[0].k + 1 : NaN));
+    let origem = Number(s.origem ?? (batch.length === 1 ? batch[0].k + 1 : NaN));
+    // slide a mais sem item (origem: extra, nova…): é inclusão do item do slide de antes
+    if (!allowed.has(origem) && !/^\d+$/.test(String(s.origem ?? "")) && prev != null) origem = prev;
+    prev = origem;
     if (!allowed.has(origem)) throw new Error(`slide ${i + 1}: origem ${s.origem} não é um item deste bloco (${[...allowed].join(", ")})`);
     return { ...s, origem };
   });
