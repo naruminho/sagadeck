@@ -115,6 +115,38 @@ export function missingFacts(facts, slides) {
   };
 }
 
+// Erro de digitação do escritor ("Ajute", "probailidade", "Distribuião", "Periodo"): a palavra nova que não está no
+// original mas é uma palavra dele com UMA letra a menos (no meio: "chuva" de "chuvas" é plural, não erro) ou sem o
+// acento. Vocabulário = as palavras do original. Vai para a correção como possível erro; quem decide é a IA.
+const WORD = /[\p{L}]{4,}/gu;
+export function vocabularyOf(slides) {
+  const v = new Map(); // forma sem acento, minúscula → a palavra como está no original
+  for (const s of slides) for (const t of textsOfSlide(s)) for (const w of t.match(WORD) || []) {
+    const k = w.toLowerCase();
+    if (!v.has(k)) v.set(k, w);
+  }
+  return v;
+}
+export function typosOf(slides, vocab) {
+  if (!vocab.size) return [];
+  const plain = new Map(), dropped = new Map();
+  for (const [k, w] of vocab) {
+    const d = deaccent(k);
+    if (!plain.has(d)) plain.set(d, w);
+    // a última letra não (plural); a primeira só em palavra comprida ("arras" de "barras")
+    for (let i = k.length >= 6 ? 0 : 1; i < k.length - 1; i++) { const x = k.slice(0, i) + k.slice(i + 1); if (!dropped.has(x)) dropped.set(x, w); }
+  }
+  const out = new Map();
+  for (const w of textOfProduced(slides).replace(/\$[^$\n]*\$|`[^`]*`/g, " ").match(WORD) || []) {
+    const k = w.toLowerCase();
+    if (vocab.has(k) || out.has(k)) continue;
+    // sem acento onde o original tem ("Periodo"); o contrário (o novo com acento) é correção, não erro
+    const near = (deaccent(k) === k ? plain.get(k) : null) || dropped.get(k);
+    if (near) out.set(k, `"${w}" (no original: "${near}")`);
+  }
+  return [...out.values()];
+}
+
 // ------------------------------------------------------------------------------------------------ regras
 const TOOLBOX = `Ferramentas para cada item do plano (campo "acao"):
 - "manter": o slide original fica como está (só no modo melhorar; use quando ele já está bom ou é uma figura específica que não ganha nada sendo refeita).
@@ -340,6 +372,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   } catch {}
   const writeSystem = `${systemPrompt({ images: false })}\n\n${CONTENT_RULES}\n${PURPOSE_RULES[deckBase.purpose]}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
   const srcOf = (it) => (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
+  const vocab = vocabularyOf(originals);
   // manter e juntar: código (sem IA)
   plan.slides.forEach((it, k) => {
     if (job.results[k]) return;
@@ -423,6 +456,11 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       let issues = [], hints = [];
       for (let round = 0; ; round++) {
         issues = []; hints = [];
+        for (const { k } of batch) {
+          const typos = typosOf(produced.filter((s) => s.origem === k + 1), vocab);
+          // dica, não erro: palavra certa também pode ser a do original com uma letra a menos ("estão" de "gestão")
+          if (typos.length) hints.push(`ITEM ${k + 1}: confira a grafia (letra faltando ou sem acento?): ${typos.slice(0, 15).join(", ")}`);
+        }
         for (const { it, k } of batch) {
           if (!srcOf(it).length || it.acao === "novo") continue;
           const mine = produced.filter((s) => s.origem === k + 1);
@@ -445,14 +483,19 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         progress("corrigir", `Corrigindo ${issues.length} ponto(s) nos itens ${[...new Set(issues.map((x) => x.k + 1))].join(", ")}…`);
         const fixMsg = [...messages, { role: "assistant", content: `\`\`\`yaml\n${YAML.stringify({ slides: produced })}\`\`\`` },
           { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}${hints.length ? `\n\nDicas (não são erro): ${hints.map((x) => `\n- ${x}`).join("")}` : ""}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
-        // a correção pode vir só com os itens corrigidos: os que não vieram ficam como estavam
-        try {
-          const r = await ask(fixMsg);
-          const fixed = wholeFigures(parseProduced(r.text, batch, deckBase, dir, { partial: true }));
-          const got = new Set(fixed.map((x) => x.origem));
-          produced = batch.flatMap(({ k }) => (got.has(k + 1) ? fixed.filter((x) => x.origem === k + 1) : produced.filter((x) => x.origem === k + 1)));
+        // a correção pode vir só com os itens corrigidos: os que não vieram ficam como estavam. Resposta que não serve
+        // (YAML quebrado, campo que não existe, imagem errada) volta com o erro, como na escrita
+        let fixed = null, fixErr = null;
+        for (let attempt = 1; attempt <= 2 && !fixed; attempt++) {
+          try {
+            const r = await ask(fixMsg);
+            try { fixed = wholeFigures(parseProduced(r.text, batch, deckBase, dir, { partial: true })); }
+            catch (e) { fixErr = e; fixMsg.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para usar:\n${e.message}\nCorrija e responda de novo com o bloco \`\`\`yaml.` }); }
+          } catch (e) { if (e instanceof TransformStop) throw e; fixErr = e; break; }
         }
-        catch (e) { if (e instanceof TransformStop) throw e; report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`); break; }
+        if (!fixed) { report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(fixErr?.message, 160)}`); break; }
+        const got = new Set(fixed.map((x) => x.origem));
+        produced = batch.flatMap(({ k }) => (got.has(k + 1) ? fixed.filter((x) => x.origem === k + 1) : produced.filter((x) => x.origem === k + 1)));
       }
       for (const { it, k } of batch) {
         const mine = produced.filter((s) => s.origem === k + 1).map((s) => { const out = { ...s }; const why = out.mudou; delete out.origem; delete out.mudou; out._why = why; return out; });
@@ -649,13 +692,13 @@ function parseProduced(text, batch, deckBase, dir, { partial = false } = {}) {
 }
 
 // o slide novo desenhado ao lado da foto do original: o modelo de visão aponta o que está errado
-async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, mode = "melhorar" }) {
+async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, mode = "melhorar", fiscalToo = true, offset = 0 }) {
   const { slideSnapshots } = await import("../studio/snapshot.js");
   const { imagesAsDataUrls } = await import("../import/crop.js");
   const deck = { ...deckBase, _dir: dir, slides: produced.map(({ origem, mudou, ...s }) => s) };
   // primeiro o fiscal do sagadeck (medido no navegador, exato): o que ele acha vai para a correção com o texto do objeto
   const fiscal = [];
-  try {
+  if (fiscalToo) try {
     const { layoutCheck } = await import("../studio/snapshot.js");
     for (const r of await layoutCheck(deck)) {
       const found = [...new Set(r.issues.filter((x) => x.kind !== "fonte-pequena" || x.px < 16).map((x) => `${FISCAL[x.kind] || x.kind}${x.px && x.kind === "fonte-pequena" ? ` (${x.px} px)` : ""}: "${clip(x.text, 50)}"`))].slice(0, 4);
@@ -673,14 +716,29 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, m
 ${mode === "recriar" ? "- o estilo é NOVO de propósito: a moldura do original (logos, faixas, cores, fontes, número da página) NÃO precisa estar no novo; não aponte isso.\n" : ""}Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
   origFiles.forEach((f, j) => { if (origUrls[j]) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: origUrls[j] } }); });
   shots.forEach((u, i) => { if (u) content.push({ type: "text", text: `NOVO ${i + 1} (do item ${produced[i].origem}):` }, { type: "image_url", image_url: { url: u } }); });
+  const half = async () => {
+    const items = [...new Set(produced.map((x) => x.origem))];
+    if (items.length < 2) throw new Error("resposta sem JSON");
+    const cut = Math.ceil(items.length / 2), a = new Set(items.slice(0, cut));
+    const parts = [produced.filter((x) => a.has(x.origem)), produced.filter((x) => !a.has(x.origem))];
+    const out = [];
+    let off = offset;
+    for (const part of parts) {
+      const its = new Set(part.map((x) => x.origem));
+      out.push(...await visualCheck({ produced: part, batch: batch.filter(({ k }) => its.has(k + 1)), deckBase, dir, orig, ask, model, mode, fiscalToo: false, offset: off }));
+      off += part.length;
+    }
+    return out;
+  };
   // resposta sem JSON (o modelo de visão às vezes só "pensa" e não escreve): mais uma vez, pedindo só o JSON
   let res;
   try { res = jsonLoose((await ask([{ role: "user", content }], { model, maxTokens: 16000 })).text); }
   catch (e) {
     if (e instanceof TransformStop) throw e;
-    res = jsonLoose((await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 16000 })).text);
+    try { res = jsonLoose((await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 16000 })).text); }
+    catch (e2) { if (e2 instanceof TransformStop) throw e2; return [...fiscal, ...await half()]; }
   }
-  return [...fiscal, ...(res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }))];
+  return [...fiscal, ...(res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i + offset} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }))];
 }
 // o que cada achado do fiscal quer dizer, para a IA corrigir
 const FISCAL = {

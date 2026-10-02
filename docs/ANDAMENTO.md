@@ -129,6 +129,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   - layout image com figura inteira: título no alto e legenda pequena embaixo (não a frase gigante);
   - faixas claras fora da capa na apresentação: slide com moldura até a borda (canvas, mestre) tem fundo escuro fora;
   - erros de digitação ("Méodo", "Refrências"): quem escreve confere a ortografia e a conferência visual aponta.
+- Rodada colorida 7381869 (02/10, 48 min): nenhum original voltou ao lado, mas 4 lotes perderam a correção (YAML
+  quebrado: `mudou: "Ajute" corrigido…` e texto com ": " que segue na linha de baixo; a correção desistia na 1ª) e 4
+  ficaram sem conferência visual (sem JSON duas vezes). Agora: o conserto de YAML pega os dois casos; a correção
+  volta com o erro e tenta de novo; a visão sem JSON confere em duas metades. `$2$` (número sozinho) é fórmula;
+  `t~c~` e `m^2^` (índice/expoente, a IA usa sozinha) desenham.
+- **As rodadas "Flash" de 01-10 e 02-10 escreveram com o Pro**: o `modelrelay serve` não relê o config editado à mão
+  (só o salvo pela tela dele) e seguia com `text = deepseek-v4-pro`. Renomeadas para "Pro · rodada…". O Pro (pelo
+  OpenRouter) come letras ao escrever, ~0,5% das palavras ("Ajute", "probailidade", 40 na melhorada Pro); o Flash,
+  medido na mesma tarefa, nenhuma. A conferência por código (`typosOf`: palavra do original com uma letra a menos no
+  meio, ou sem acento) vai como DICA na correção (acha também palavras certas: "estão" de "gestão"). modelrelay 0.2.1:
+  o fim do stream diz o modelo resolvido (o relatório mostrava só "text"); falta publicar no PyPI.
+- Na mesma rodada: kicker `^^…^^` sumia nos temas com pílula (oceano, sinal…: a ênfase tinha a cor da pílula; a
+  "pílula vazia" do ciclo). Cartões da mesma grade encolhiam cada um por si (`fitWide`, palavra comprida num cartão
+  estreito) e ficavam de tamanhos diferentes: agora os irmãos ficam com o menor.
+  Gráfico de linhas: o eixo arredondava para inteiro (0 a 1 mostrava só "0" e "1"): marcações redondas (`niceTicks`,
+  com as casas do passo); linhas que terminam juntas (as curvas hipsométricas em 1) empilhavam os nomes: legenda em
+  cima (também com `legend: true`); rótulo numérico do eixo x com vírgula. Rodapé numa linha só (reticências).
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

@@ -3,10 +3,11 @@ import { tableHTML } from "./table.js";
 
 // Marcação inline usada em qualquer texto do YAML.
 //   **negrito**   *itálico*   ==marca-texto==   ^^cor de ênfase^^
-//   ~~riscado~~   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
+//   ~~riscado~~   t~c~ (índice)   m^2^ (expoente)   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
 //   $fórmula$ (LaTeX no meio do texto) e $$fórmula$$ (em destaque). Dinheiro não vira fórmula: "R$ 10", "$5 e $6".
 //   | a | b | (uma linha por linha da tabela, com ou sem |---|) vira tabela de verdade
-export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?![\s\d])([^$\n]+?)(?<!\s)\$(?![\w])/g;
+// número logo depois do cifrão só é fórmula quando fecha sem espaço ("$2$", "$10^3$"); "$5 ou $6" é dinheiro
+export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?!\s)((?!\d)[^$\n]+?|\d[^$\s]*?)(?<!\s)\$(?![\w])/g;
 
 export function esc(s) {
   return String(s ?? "")
@@ -70,6 +71,9 @@ export function md(s) {
     .replace(/==([^=]+)==/g, "<mark>$1</mark>")
     .replace(/\^\^([^^]+)\^\^/g, '<span class="em">$1</span>')
     .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+    // índice e expoente como no Pandoc (t~c~, m^2^): sem espaço dentro ("cerca de ~5 km e ~10 m" é texto)
+    .replace(/(?<!~)~([^~\s<>]{1,20})~(?!~)/g, "<sub>$1</sub>")
+    .replace(/(?<!\^)\^([^\^\s<>]{1,20})\^(?!\^)/g, "<sup>$1</sup>")
     .replace(/\n/g, "<br>");
   h = h.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code class="f-mono">${codes[+i]}</code>`);
   h = h.replace(/\u0001(\d+)\u0001/g, (_, i) => maths[+i]);
@@ -81,6 +85,7 @@ export function md(s) {
 export function plain(s) {
   return String(s ?? "")
     .replace(/\*\*|==|\^\^|~~|`/g, "")
+    .replace(/~([^~\s]{1,20})~|\^([^^\s]{1,20})\^/g, "$1$2")
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1$2")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 }

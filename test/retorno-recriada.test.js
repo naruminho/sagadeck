@@ -77,3 +77,49 @@ test("no navegador: gráficos lado a lado ocupam a largura, ícone do split num 
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("no navegador: cartões da mesma grade com o mesmo tamanho de letra (um só com palavra comprida) e ênfase no kicker em pílula visível", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const slides = [
+    { layout: "cards", kicker: "^^Conceitos Básicos^^", title: "Características", items: [
+      { icon: "mountain", title: "Topografia", text: "Relevo e altitude" }, { icon: "leaf", title: "Geologia", text: "Tipo de rocha" },
+      { icon: "building-2", title: "Uso", text: "Áreas urbanas e impermeabilização" }, { icon: "leaf", title: "Cobertura", text: "Vegetação" },
+      { icon: "leaf", title: "Solo", text: "Textura" }, { icon: "leaf", title: "Clima", text: "Chuva" } ] },
+  ];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ret2-"));
+  try {
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "Aula 1 — recriada pelo sagadeck (Flash · rodada 02-10 · colorido · 7381869) com um nome bem comprido", theme: "oceano", slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`file://${file.replace(/\\/g, "/")}`); await page.waitForFunction(() => window.sagadeck); await page.waitForTimeout(600);
+    const r = await page.evaluate(() => {
+      const s = document.querySelector(".slide"), fs = (sel) => [...s.querySelectorAll(sel)].map((e) => getComputedStyle(e).fontSize);
+      const k = s.querySelector(".kicker"), em = k.querySelector(".em");
+      return { text: fs(".cd-text"), title: fs(".cd-title"), shrunk: !!s.querySelector(".cd-text[data-fw0]"), kicker: getComputedStyle(k).color, em: getComputedStyle(em).color };
+    });
+    assert.ok(r.shrunk, "a palavra comprida encolheu o seu cartão");
+    assert.equal(new Set(r.text).size, 1, `textos: ${r.text.join(", ")}`);
+    assert.equal(new Set(r.title).size, 1, `títulos: ${r.title.join(", ")}`);
+    assert.equal(r.em, r.kicker, "a ênfase no kicker em pílula tem a cor do texto da pílula, não a da pílula");
+    const foot = await page.evaluate(() => [...document.querySelectorAll(".slide .foot > *")].map((e) => e.getBoundingClientRect().height));
+    assert.ok(foot.length && foot.every((h) => h <= 30), `rodapé numa linha só: ${foot.join(", ")} px`);
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("gráfico de linhas: eixo com marcações redondas (0 a 1 não fica só com 0 e 1); linhas que terminam juntas ganham legenda em cima", async () => {
+  const { niceTicks } = await import("../src/figures/charts.js");
+  assert.deepEqual(niceTicks(0, 1.1), [0, 0.25, 0.5, 0.75, 1]);
+  assert.deepEqual(niceTicks(0, 1100), [0, 250, 500, 750, 1000]);
+  const texts = (h) => [...h.matchAll(/>([^<>]*)<\/text>/g)].map((m) => m[1]);
+  const hyp = { layout: "chart", title: "Curvas hipsométricas", chart: { type: "line", labels: [0, 0.5, 1], series: [{ name: "Jovem", values: [0, 0.2, 1] }, { name: "Velha", values: [0, 0.8, 1] }] } };
+  const h = R(hyp);
+  assert.deepEqual(texts(h).filter((x) => /^\d/.test(x)), ["0,00", "0,25", "0,50", "0,75", "1,00", "0", "0,5", "1"]);
+  assert.equal((h.match(/<rect [^>]*width="24" height="24"/g) || []).length, 2, "legenda com as duas séries");
+  // linhas que terminam longe: o nome fica no fim da linha (sem legenda)
+  const far = R({ ...hyp, chart: { ...hyp.chart, series: [{ name: "A", values: [0, 0.2, 0.3] }, { name: "B", values: [0, 0.8, 1] }] } });
+  assert.equal((far.match(/<rect [^>]*width="24" height="24"/g) || []).length, 0);
+  assert.ok(texts(far).includes("A") && texts(far).includes("B"));
+});

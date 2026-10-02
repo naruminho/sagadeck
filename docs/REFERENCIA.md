@@ -60,7 +60,7 @@ Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenizaç
 
 ## Marcação inline (qualquer texto)
 
-`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `` `código` `` · `[link](https://…)` · `[texto](#id)` (leva ao slide de `id`) · quebra de linha = nova linha no YAML (`|`).
+`**negrito**` · `*itálico*` · `==destaque==` (marca-texto animado; o estilo muda com `markStyle` no deck ou no slide: `marca-texto`, `sublinhado`, `cor`, `negrito`, `nenhum`) · `^^cor de ênfase^^` · `~~riscado~~` · `t~c~` (índice) e `m^2^` (expoente) · `` `código` `` · `[link](https://…)` · `[texto](#id)` (leva ao slide de `id`) · quebra de linha = nova linha no YAML (`|`).
 
 Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `solution`…) vira tabela de verdade: uma linha `| a | b |` por linha, com `|---|---|` depois do cabeçalho (sem essa linha não há cabeçalho). Para a tabela principal do slide, prefira o layout/elemento `table`.
 

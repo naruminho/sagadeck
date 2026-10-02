@@ -143,26 +143,47 @@ function importedSummary(sl) {
 // Erro clássico de LLM: `text: **negrito** resto` (o * vira alias de YAML). Põe aspas nesses valores,
 // sem mexer no conteúdo de blocos `|` / `>` (ex.: notes).
 export function repairYaml(src) {
+  const lines = src.split(/\r?\n/), out = [];
   let blockIndent = -1;
-  return src.split(/\r?\n/).map((line) => {
+  // o texto continua nas linhas de baixo, mais para dentro, que não são outro campo nem item: entram nas aspas juntas
+  const withRest = (i, keyIndent, first) => {
+    let value = first.trim(), j = i + 1;
+    for (; j < lines.length; j++) {
+      const l = lines[j], ind = l.match(/^\s*/)[0].length;
+      if (!l.trim() || ind <= keyIndent || /^\s*(?:- |[\w-]+:(?:\s|$))/.test(l)) break;
+      value += " " + l.trim();
+    }
+    return [value, j - 1];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const indent = line.match(/^\s*/)[0].length;
     if (blockIndent >= 0) {
-      if (!line.trim() || indent > blockIndent) return line;
+      if (!line.trim() || indent > blockIndent) { out.push(line); continue; }
       blockIndent = -1;
     }
     if (/:\s*[|>][+-]?\d*\s*$/.test(line)) {
       blockIndent = indent;
-      return line;
+      out.push(line); continue;
     }
-    // texto sem aspas com ": " no meio (`mudou: imagem com fit: contain`): o YAML acha que é outro mapa
+    // texto sem aspas com ": " no meio (`mudou: imagem com fit: contain`): o YAML acha que é outro mapa;
+    // "Fonte: Macedo (2020)" também (só roda se o YAML já falhou)
     const plain = /^(\s*(?:- )?[\w-]+:[ \t]+)([^"'{[|>&*!#\s].*:\s.*)$/.exec(line);
-    if (plain) return plain[1] + JSON.stringify(plain[2].trim()); // "Fonte: Macedo (2020)" também (só roda se o YAML já falhou)
+    // texto que começa entre aspas e continua depois delas (`mudou: "Ajute" corrigido para "Ajuste"; …`)
+    const quoted = /^(\s*(?:- )?[\w-]+:[ \t]+)("(?:[^"\\]|\\.)*"[ \t]*[^\s#,\]}].*)$/.exec(line);
+    const hit = plain || quoted;
+    if (hit) {
+      const keyIndent = hit[1].match(/^\s*/)[0].length + (/- /.test(hit[1]) ? 2 : 0); // "- campo:" conta o "- "
+      const [value, last] = withRest(i, keyIndent, hit[2]);
+      out.push(hit[1] + JSON.stringify(value)); i = last; continue;
+    }
     const m = /^(\s*(?:- )?(?:[\w-]+:[ \t]+)?)((?:\*|==|\^\^|~~|`)\S.*)$/.exec(line);
-    if (!m || !/(- |:[ \t]+)$/.test(m[1])) return line;
+    if (!m || !/(- |:[ \t]+)$/.test(m[1])) { out.push(line); continue; }
     const value = m[2].trim();
-    if (/^\*[\w-]+$/.test(value)) return line; // alias legítimo (*nome)
-    return m[1] + JSON.stringify(value);
-  }).join("\n");
+    if (/^\*[\w-]+$/.test(value)) { out.push(line); continue; } // alias legítimo (*nome)
+    out.push(m[1] + JSON.stringify(value));
+  }
+  return out.join("\n");
 }
 
 // Outro erro clássico: `{ title: A, text: Manteiga derretida, mas sem fumaça }` — num mapa entre chaves a vírgula
