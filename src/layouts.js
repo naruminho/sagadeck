@@ -73,6 +73,25 @@ export const SCENES = {
   gallery: { label: 'Parede de galeria', size: 170, props: () => `<div class="scene-spot"></div><div class="scene-plaque"><b>Sem título</b><span>2026. Texto sobre parede.</span><span>Coleção particular</span></div><div class="scene-baseboard"></div>` },
 };
 
+// No blocks, "rótulo e depois o gráfico" é o título do gráfico, e dois ou mais gráficos seguidos ficam lado a lado:
+// empilhados, cada um ganhava 200 e poucos px de altura e, mantendo a proporção, saía estreito no meio do slide.
+function chartsSideBySide(content) {
+  if (!Array.isArray(content)) return content;
+  const isChart = (x) => x && typeof x === "object" && x.chart && !x.row;
+  const isLabel = (x) => x && typeof x === "object" && Object.keys(x).length === 1 && typeof x.label === "string";
+  const items = [];
+  for (let i = 0; i < content.length; i++) {
+    const x = content[i], next = content[i + 1];
+    if (isLabel(x) && isChart(next) && !next.title) { items.push({ ...next, title: x.label }); i++; } else items.push(x);
+  }
+  const out = [];
+  for (let i = 0; i < items.length;) {
+    let j = i; while (j < items.length && isChart(items[j])) j++;
+    if (j - i >= 2) { out.push({ row: items.slice(i, j) }); i = j; } else out.push(items[i++]);
+  }
+  return out;
+}
+
 export const LAYOUTS = {
   mosaic(s) { return `${head(s)}${adaptiveHTML(s,'mosaic')}${src(s)}`; },
   ribbon(s) { return `${head(s)}${adaptiveHTML(s,'ribbon')}${src(s)}`; },
@@ -118,6 +137,24 @@ export const LAYOUTS = {
     const fig = s.figure ? `<div class="df-fig e" style="--d:3;">${el(s.figure, ctx, 640, 640)}</div>` : s.icon ? `<div class="df-fig df-icon e" style="--d:3;" aria-hidden="true">${iconSVG(s.icon, { size: 220, stroke: 1.6 })}</div>` : "";
     return `<div class="L-definition${fig ? " has-fig" : ""}"><div class="df-main">${kicker(s)}${text(term, "hero", { class: "df-term ttl e", style: "--d:1;", fit: true, size: s.termSize })}${origin}
       ${s.text ? `<div class="df-rule e" style="--d:2;"></div>${text(s.text, "lead", { class: "df-text e", style: "--d:3;", step: s.build ? 2 : undefined })}` : ""}</div>${fig}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Pôster (infográfico de uma página, como uma figura de revista científica): ilustração principal, painéis com letra
+  // (a, b, c…), cada um com desenho, título, texto curto e números; flow: setas na ordem dos painéis; fonte embaixo.
+  poster(s, ctx) {
+    const panels = (Array.isArray(s.panels) ? s.panels : []).filter((p) => p && typeof p === "object");
+    const n = panels.length, hero = s.hero || s.figure;
+    // com a ilustração principal ao lado, mais de 2 ou 3 colunas espremem os painéis (o texto vira uma tira)
+    const cols = hero ? Math.min(s.cols || 3, n > 4 ? 3 : 2) : s.cols || (n <= 3 ? n : n === 4 ? 4 : 3);
+    const arrow = `<span class="ps-arrow" aria-hidden="true">${iconSVG("arrow-right", { size: 30, stroke: 2.4 })}</span>`;
+    const facts = (p) => (Array.isArray(p.facts) && p.facts.length ? `<div class="ps-facts">${p.facts.map((f) => (typeof f === "object" ? `<div class="ps-fact"><b class="t f-display ps-val">${md(String(f.value ?? ""))}</b>${f.label ? `<span class="t f-label ps-lab">${md(String(f.label))}</span>` : ""}</div>` : `<div class="ps-fact"><span class="t f-label ps-lab">${md(String(f))}</span></div>`)).join("")}</div>` : "");
+    const panel = (p, i) => {
+      const fig = p.figure || (p.image || p.image_prompt ? { image: p.image, image_prompt: p.image_prompt, image_ref: p.image_ref, fit: p.fit || "contain" } : null);
+      const pic = fig ? `<div class="ps-pic">${el(fig, ctx, 520, 300)}</div>` : p.icon ? `<div class="ps-pic ps-ico" aria-hidden="true">${iconSVG(p.icon, { size: 120, stroke: 1.6 })}</div>` : "";
+      return `<section class="ps-panel e" style="--d:${2 + i};"${s.build ? ` data-step="${i + 1}"` : ""}><header class="ps-head"><span class="t f-display ps-letter">${esc(String(p.label ?? String.fromCharCode(97 + i)))}</span>${p.title ? text(p.title, "h3", { class: "ps-title", size: 40 }) : ""}</header>${pic}${p.text ? text(p.text, "small", { class: "ps-text", size: 27 }) : ""}${facts(p)}${s.flow && i < n - 1 && (i + 1) % cols !== 0 ? arrow : ""}</section>`;
+    };
+    const heroHTML = hero ? `<figure class="ps-hero e" style="--d:1;">${el(typeof hero === "string" ? { image: hero } : { fit: "contain", ...hero }, ctx, 760, 760)}${hero.caption ? text(hero.caption, "small", { class: "ps-cap", size: 22 }) : ""}</figure>` : "";
+    return `<div class="L-poster${hero ? " has-hero" : ""}${s.flow ? " ps-flow" : ""}">${head(s)}${s.subtitle ? text(s.subtitle, "lead", { class: "ps-sub muted", size: 34 }) : ""}<div class="ps-body">${heroHTML}<div class="ps-grid" style="--cols:${cols};">${panels.map(panel).join("")}</div></div>${s.key ? text(s.key, "small", { class: "ps-key muted", size: 20 }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   // Status semanal: saúde, avanço e as seções que tiverem conteúdo (feito, em andamento, bloqueios, riscos, próximos
@@ -416,7 +453,7 @@ export const LAYOUTS = {
   },
 
   blocks(s, ctx) {
-    return `<div class="L-blocks">${head(s, s.titleAs || "h2")}<div class="bl-body">${el(s.content || [], ctx)}</div>${s.caption ? text(s.caption, "small", { class: "bl-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-blocks">${head(s, s.titleAs || "h2")}<div class="bl-body">${el(chartsSideBySide(s.content || []), ctx)}</div>${s.caption ? text(s.caption, "small", { class: "bl-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   end(s, ctx) {
@@ -593,7 +630,7 @@ export const LAYOUTS = {
     const code = String(s.mermaid || s.code || "").replace(/%%\{[\s\S]*?\}%%\s*/g, "")
       .replace(/(^|[\s;>|&-])([A-Za-z_][\w-]*)\[(?!["(\[\/\\])([^\]"\n]*[()][^\]"\n]*)\]/gm, '$1$2["$3"]')
       .replace(/(^|[\s;>|&-])([A-Za-z_][\w-]*)\{(?![{"])([^}"\n]*[()][^}"\n]*)\}/gm, '$1$2{"$3"}')
-      .replace(/:([a-z][a-z0-9-]*[a-z0-9]):/g, (m, name) => {
+      .replace(/:([a-z](?:[a-z0-9-]*[a-z0-9])?):/g, (m, name) => { // :x: também (uma letra só)
         if (!known.has(name)) return m;
         try { icons[name] = iconSVG(name, { size: 40, stroke: 2 }); } catch { return m; }
         return `<i class=dgi-${name}></i>`; // sem aspas: não briga com as aspas do Mermaid

@@ -71,6 +71,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `cover` | `kicker, title, subtitle, author, role, figure` | capa |
 | `section` | `number, kicker, title, subtitle, figure` | abertura de ato/capítulo (tom `accent` por padrão) |
 | `statement` | `text` **ou** `lines: [ {text, as, color, step} ]`, `by`, `center` | uma frase de impacto; `lines` + `build` revelam linha a linha |
+| `poster` | `kicker, title, subtitle, hero` (ilustração principal: `{ image_prompt }`, imagem, gráfico…), `panels: [{label, title, text, icon` ou `figure` ou `image_prompt, facts: [{value, label}]}], flow, cols, key, build` | infográfico de UMA página no estilo de figura de revista científica (Nature, Scientific American): a ilustração principal e painéis com letra (a, b, c…), cada um com um desenho, título, texto curto e números com unidade; `flow: true` põe setas na ordem (receita, processo, protocolo); `key` é a nota de rodapé (fonte, condições). Para "infográfico de uma página", "pôster" ou "como fazer X numa página", este e não o `onepage` (que é jornada, problema e solução de um projeto). Ilustre os painéis com `image_prompt` no mesmo estilo (ex.: "clean scientific illustration, flat, white background") |
 | `definition` | `kicker, term, origin, parts: [{word, meaning}], text, icon` (ou `figure`), `build`, `termSize` (px do termo) | definição de um termo, como verbete: o termo em destaque, a origem da palavra em partes (`origin: do grego`, `parts: [{word: hydor, meaning: água}, {word: logos, meaning: ciência}]`) e a definição; para "o que é X", use este e não um `statement` com o parágrafo inteiro |
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
 | `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor` | número gigante animado (conta de `from` até `value`) |
@@ -525,6 +526,7 @@ aparecem (`showValues: true` força os valores).
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML). Sem `fit`, a imagem preenche a caixa, mas cabe inteira (`contain`) quando o corte passaria de 20% (gráfico com eixo e legenda na borda, esquema largo numa coluna alta); solta no fluxo (num `add`) e sem altura, não passa de 420 px. Para foto que pode ser cortada, `fit: cover`; para gráfico, `fit: contain`.
 **Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
+**Redesenhar uma figura do deck** (xerox, escaneada, borrada): `{ image_prompt: "Clean up and redraw THIS EXACT figure… (o que ela mostra, as cores)", image_ref: imagens/original/mapa.png, fit: contain }` — o modelo de imagem recebe a figura como base e devolve o redesenho; se não sair, fica a figura de base.
 
 ## Notas / roteiro (`notes`)
 

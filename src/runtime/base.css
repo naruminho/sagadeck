@@ -134,6 +134,19 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 /* ===== elementos ===== */
 .row{display:flex;flex-direction:row}
 /* definição (verbete) */
+/* pôster: infográfico de uma página (figura de revista científica): painéis com letra, desenho, texto curto e números */
+.L-poster{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px}.L-poster .hd{margin-bottom:0}.ps-sub{margin-top:-6px}
+.ps-body{flex:1;min-height:0;display:flex;gap:36px}
+.ps-hero{flex:0 0 38%;min-width:0;margin:0;display:flex;flex-direction:column;gap:10px;justify-content:center}.ps-hero>.fig{flex:1;min-height:0}
+.ps-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:22px 40px}
+.ps-panel{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:16px;background:color-mix(in srgb,var(--fg) 4%,transparent);border-top:4px solid var(--em)}
+.ps-head{display:flex;align-items:baseline;gap:12px}.ps-letter{font-size:40px;font-weight:800;color:var(--em);line-height:1}.ps-title{line-height:1.1}
+.ps-pic{flex:1;min-height:90px;max-height:300px;display:flex;align-items:center;justify-content:center}.ps-pic>.fig{width:100%;height:100%}
+.ps-ico>svg{width:auto;height:min(150px,80%);aspect-ratio:1;padding:22px;border-radius:50%;background:color-mix(in srgb,var(--em) 14%,transparent);color:var(--em)}
+.ps-text{color:var(--fg);line-height:1.3}
+.ps-facts{display:flex;flex-wrap:wrap;gap:6px 24px;margin-top:auto}.ps-fact{display:flex;flex-direction:column}.ps-val{font-size:40px;line-height:1.05;color:var(--em)}.ps-lab{font-size:18px;color:var(--muted)}
+.ps-flow .ps-arrow{position:absolute;right:-36px;top:46%;color:var(--em);z-index:1}
+.ps-key{border-top:1px solid var(--line);padding-top:8px}
 .L-definition{flex:1;min-height:0;display:flex;align-items:center;gap:90px}.df-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:26px}
 .df-term{line-height:1}.df-origin{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px}.df-from{color:var(--muted);letter-spacing:.06em}
 .df-part{display:inline-flex;align-items:baseline;gap:12px;padding:10px 22px;border:2px solid color-mix(in srgb,var(--em) 35%,transparent);border-radius:999px;background:color-mix(in srgb,var(--em) 8%,transparent)}
@@ -400,7 +413,7 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .ch-fig>.fig{width:100%;height:100%}
 .ch-side{flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px;min-width:0}
 
-.cp-row{flex:1;display:flex;align-items:stretch;gap:40px;min-height:0}
+.cp-row{flex:0 1 auto;margin-block:auto;display:flex;align-items:stretch;gap:40px;min-height:0} /* altura do conteúdo, no meio (texto curto não vira um cartão vazio do tamanho do slide) */
 .cp-col{flex:1;display:flex;flex-direction:column;gap:22px;padding:48px;border-radius:var(--radius);background:var(--surface);min-width:0}
 .cp-col.hl{background:var(--hi);color:var(--on-hi);--fg:var(--on-hi);--muted:var(--on-hi)}
 .cp-label{color:var(--em)}
@@ -449,6 +462,8 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .cd-note{flex:1;display:flex;flex-direction:column;gap:24px}
 
 .bl-body{flex:1;display:flex;flex-direction:column;gap:36px;min-height:0}
+/* gráfico solto no blocks (um embaixo do outro, com o rótulo em cima): divide a altura que sobra, em vez da altura mínima */
+.bl-body>.fig-chart{flex:1 1 0;min-height:120px}.bl-body>.fig-chart>svg{width:100%;height:100%}.bl-body>.r-label:has(+.fig-chart){margin-bottom:-24px}
 
 .L-end{flex:1;display:flex;gap:80px;align-items:center;min-height:0}
 .en-main{flex:1.3;display:flex;flex-direction:column;gap:36px;min-width:0}
@@ -1480,7 +1495,8 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .sol-given{display:flex;align-items:baseline;gap:16px;font-size:28px}.sol-given .sol-tex{min-width:7em}.sol-given>span{font-size:22px;color:var(--muted)}
 .sol-find{display:flex;align-items:baseline;gap:16px;font-size:30px;padding-top:14px;border-top:1px dashed var(--line)}
 .sol-steps{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(to bottom,transparent 0,#000 60px);mask:linear-gradient(to bottom,transparent 0,#000 60px)}.sol-steps.sol-fit{-webkit-mask:none;mask:none}
-.sol-step:not(.now){padding:6px 20px}.sol-step:not(.now) .sol-why{font-size:20px;margin:0}.sol-step:not(.now) .sol-math .katex-display{font-size:24px;margin:2px 0}.sol-step:not(.now) .sol-note{display:none}
+/* passos anteriores em tamanho menor só quando não cabem todos no normal (com 3 passos curtos, ficavam miúdos à toa) */
+.sol-compact>.sol-step:not(.now){padding:6px 20px}.sol-compact>.sol-step:not(.now) .sol-why{font-size:20px;margin:0}.sol-compact>.sol-step:not(.now) .sol-math .katex-display{font-size:24px;margin:2px 0}.sol-compact>.sol-step:not(.now) .sol-note{display:none}
 .sol-step{display:grid;grid-template-columns:44px 1fr;gap:16px;padding:14px 20px;border-radius:16px;opacity:.55;transition:opacity .5s,background .5s}
 .sol-step.now{opacity:1;background:color-mix(in srgb,var(--hi) 12%,var(--bg));box-shadow:inset 5px 0 var(--hi)}
 .dyn-frame.active .sol-step.now{animation:tn-in .6s cubic-bezier(.22,.8,.24,1) both}

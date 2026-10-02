@@ -117,6 +117,9 @@ test("gráfico de linhas: eixo com marcações redondas (0 a 1 não fica só com
   const hyp = { layout: "chart", title: "Curvas hipsométricas", chart: { type: "line", labels: [0, 0.5, 1], series: [{ name: "Jovem", values: [0, 0.2, 1] }, { name: "Velha", values: [0, 0.8, 1] }] } };
   const h = R(hyp);
   assert.deepEqual(texts(h).filter((x) => /^\d/.test(x)), ["0,00", "0,25", "0,50", "0,75", "1,00", "0", "0,5", "1"]);
+  // ano no eixo: sem ponto de milhar (saía "1.984")
+  const anos = R({ layout: "chart", title: "Vazões", chart: { type: "line", labels: [1984, 1985, 1986], series: [{ name: "Q", values: [1796, 1492, 1565] }] } });
+  assert.ok(texts(anos).includes("1984") && !texts(anos).includes("1.984"), texts(anos).join(" "));
   assert.equal((h.match(/<rect [^>]*width="24" height="24"/g) || []).length, 2, "legenda com as duas séries");
   // linhas que terminam longe: o nome fica no fim da linha (sem legenda)
   const far = R({ ...hyp, chart: { ...hyp.chart, series: [{ name: "A", values: [0, 0.2, 0.3] }, { name: "B", values: [0, 0.8, 1] }] } });

@@ -229,8 +229,11 @@ function decodeImage(url) {
 }
 
 // Gera uma imagem com o modelo de imagem. Devolve { mime, data: Buffer }.
-export async function generateImage(prompt, { model, cfg = llmConfig() } = {}) {
-  const res = await chat([{ role: "user", content: `Generate an image: ${prompt}` }], { model: model || cfg.imageModel, cfg });
+// ref: imagens (data URL) que o modelo usa como base, para redesenhar uma figura (xerox, escaneada) em vez de inventar
+export async function generateImage(prompt, { model, cfg = llmConfig(), ref = [] } = {}) {
+  const text = `Generate an image: ${prompt}`;
+  const content = ref.length ? [{ type: "text", text }, ...ref.map((url) => ({ type: "image_url", image_url: { url } }))] : text;
+  const res = await chat([{ role: "user", content }], { model: model || cfg.imageModel, cfg });
   let img = res.images[0];
   if (img && !img.data && img.url) {
     const r = await fetch(img.url, { signal: AbortSignal.timeout(60_000) });

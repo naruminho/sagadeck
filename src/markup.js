@@ -6,8 +6,9 @@ import { tableHTML } from "./table.js";
 //   ~~riscado~~   t~c~ (índice)   m^2^ (expoente)   `código`    [link](https://...)   [outro slide](#id)   quebra de linha = \n
 //   $fórmula$ (LaTeX no meio do texto) e $$fórmula$$ (em destaque). Dinheiro não vira fórmula: "R$ 10", "$5 e $6".
 //   | a | b | (uma linha por linha da tabela, com ou sem |---|) vira tabela de verdade
-// número logo depois do cifrão só é fórmula quando fecha sem espaço ("$2$", "$10^3$"); "$5 ou $6" é dinheiro
-export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?!\s)((?!\d)[^$\n]+?|\d[^$\s]*?)(?<!\s)\$(?![\w])/g;
+// a regra do Pandoc: abre sem espaço depois e fecha sem espaço antes (e sem letra ou número logo depois). "$2$" e
+// "$1 - P(X \geq x)$" são fórmula; "R$ 10", "$5 ou $6" e "de $5 a $10" continuam dinheiro (o "fecho" teria espaço antes)
+export const INLINE_MATH = /\$\$([^$]+?)\$\$|(?<![\w$\\])\$(?!\s)([^$\n]+?)(?<!\s)\$(?![\w])/g;
 
 export function esc(s) {
   return String(s ?? "")

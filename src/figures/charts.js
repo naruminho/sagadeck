@@ -191,7 +191,7 @@ export function niceTicks(min, max, want = 5) {
 function line(o, W, H) {
   const series = o.series || [{ values: o.values }];
   // rótulo que veio como número (0.5): com vírgula, como o resto do gráfico
-  const labels = (o.labels || series[0].values.map((_, i) => String(i + 1))).map((l) => (typeof l === "number" ? l.toLocaleString("pt-BR") : l));
+  const labels = (o.labels || series[0].values.map((_, i) => String(i + 1))).map((l) => (typeof l === "number" ? l.toLocaleString("pt-BR", { useGrouping: false }) : l));
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   const min = o.min ?? Math.min(0, ...all), max = o.max ?? Math.max(...all) * 1.1;
   // nomes no fim das linhas, a não ser que se encostem (as linhas terminam juntas) ou o slide peça legenda: aí, legenda em cima

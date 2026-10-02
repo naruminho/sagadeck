@@ -33,7 +33,9 @@ function givenTex(g) {
   if (typeof g === "string") return g;
   if (g.latex) return g.latex;
   const value = typeof g.value === "string" && isProse(g.value) ? `\\text{${g.value.replace(/[{}\\$]/g, "")}}` : commaTex(g.value);
-  return `${g.symbol ?? ""} = ${value}${g.unit ? `\\ \\mathrm{${String(g.unit).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,")}}` : ""}`;
+  // % (e # & _ $) são comandos no LaTeX: "60 %" saía como erro vermelho na conta da criança
+  const unit = g.unit ? String(g.unit).replace(/[%#&_$]/g, (c) => `\\${c}`).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,") : "";
+  return `${g.symbol ?? ""} = ${value}${unit ? `\\ \\mathrm{${unit}}` : ""}`;
 }
 export function solutionHTML(s, ctx, head) {
   const steps = (s.steps || []).map((x) => (typeof x === "string" ? { latex: x } : x || {}));

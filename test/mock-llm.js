@@ -35,8 +35,12 @@ export async function startMockLLM(handler) {
       res.end(JSON.stringify({ error: { message: content.error, type: "ProviderError" } }));
       return;
     }
+    // ou devolver uma imagem gerada: { image: "data:image/png;base64,…", content: "texto opcional" }
+    const message = content && typeof content === "object" && content.image
+      ? { role: "assistant", content: content.content || "", images: [{ type: "image_url", image_url: { url: content.image } }] }
+      : { role: "assistant", content };
     res.writeHead(200, { "Content-Type": "application/json" }); // JSON normal mesmo quando pedem stream (o cliente aceita)
-    res.end(JSON.stringify({ model: "mock", choices: [{ message: { role: "assistant", content } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }));
+    res.end(JSON.stringify({ model: "mock", choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }));
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   return {

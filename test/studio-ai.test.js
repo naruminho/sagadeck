@@ -85,7 +85,7 @@ test("studio + IA (LLM falso)", async (t) => {
       await send("arrume os slides 2 e 3 pra ficarem mais bonitos");
       const req = lastReq(/slides 2 e 3/);
       assert.match(req.lastUser, /olhando o slide 1/, "a IA sabe qual está na tela");
-      assert.match(req.system, /não falou de imagem → não gere/, "regra de quando gerar imagem");
+      assert.match(req.system, /não falou de imagem → VOCÊ decide/, "regra de quando gerar imagem");
       const d = await deck();
       assert.equal(d.slides[1].title, "Pilares ajustados");
       assert.equal(d.slides[2].title, "Linha ajustada");

@@ -42,7 +42,7 @@
         const target = p.querySelector('.science-plot-target');
         const formula = m.kind === 'formula';
         const data = formula ? formulaTraces(m, valuesOf(p), p) : m.data;
-        const layout = {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{size:20,color:getComputedStyle(p).color},margin:{t:35,b:65,l:75,r:40},showlegend:data.length > 1,legend:{orientation:'h',y:1.08},
+        const layout = {separators:',.',paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{size:20,color:getComputedStyle(p).color},margin:{t:35,b:65,l:75,r:40},showlegend:data.length > 1,legend:{orientation:'h',y:1.08},
           ...m.layout, autosize:true};
         // eixos: os do modelo (log, faixa) juntam com o que o deck pôs em layout (títulos), sem um apagar o outro
         if (formula) {

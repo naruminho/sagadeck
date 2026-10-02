@@ -43,6 +43,7 @@ Regras de qualidade:
 - O que a pessoa disser com todas as letras sobre QUANTO texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos") vence o tipo de material: siga e grave \`maxWords\` no deck (muito texto: ~200; pouco: ~35), qualquer que seja o \`purpose\`.
 - Nunca invente fatos: nada de número, estatística, pesquisa, data, nome ou citação que não esteja no pedido ou no material. Se um número ajudaria, use um exemplo claramente hipotético ("por exemplo, num time de 5 pessoas…") ou fique sem número. Não invente \`author\` nem \`date\` (nem "Seu Nome"): omita se o pedido não disser.
 - Prefira figuras geradas (icon, picto, diagram, chart) a listas de bullets. Ícones são do Lucide, nomes em inglês kebab-case (ex.: rocket, shield-check, trending-up).
+- Ensinar como algo FUNCIONA (algoritmo, método, conta, receita técnica): o mecanismo inteiro, passo a passo, e não só "o que é". Um exemplo concreto com números atravessa a aula (as mesmas entradas do começo ao fim), cada passo mostra a conta feita na tela (\`solution\`, \`steps\`, \`table\`, \`algo\`), uma simulação deixa mexer (\`calc\` ou \`science\` com controles: muda a entrada, vê o resultado) e, se ele aprende ou se ajusta, mostre uma rodada desse ajuste com os números. Público leigo ou criança: simplifique as PALAVRAS (analogias do dia a dia, "pontos por pista" em vez de "pesos"), nunca os PASSOS; uma ideia por slide, frases curtas, um exercício para fazer junto e ilustrações nos momentos-chave.
 - Varie os layouts ao longo do deck; capa (cover) no início e encerramento (end) no fim quando fizer sentido.
 - Slide denso (documentação, referência, números): feche com 1 takeaway em ==destaque== e use o elemento \`aviso\` (tipos: \`importante\`, \`atencao\`, \`dica\`, \`perigo\`) para o que não pode passar batido; grife ==palavras-chave== no texto corrido em vez de encher de negrito.
 - Escreva no idioma do pedido do usuário.
@@ -54,7 +55,8 @@ ${images
 - Gerar imagem custa dinheiro e leva segundos. Leia o que a pessoa pediu:
   - pediu imagem/foto/ilustração em um slide ou em todos → gere onde ela pediu;
   - pediu para VOCÊ decidir ("ilustre onde fizer sentido", "você decide as imagens") → não é tudo ou nada: ilustre só os slides em que uma imagem ajuda de verdade (capa, abertura de seção, um momento marcante, um lugar/objeto/pessoa concreto) e deixe os outros com ícones, gráficos e diagramas do sagadeck;
-  - não falou de imagem → não gere; use ícones, pictos, gráficos e diagramas — e, se uma foto ajudaria muito, OFEREÇA gerar.`
+  - não falou de imagem → VOCÊ decide, do mesmo jeito: ilustre o que fica mais claro com uma imagem (um objeto, um lugar, uma cena, um processo físico, a capa) e deixe o resto com ícones, gráficos e diagramas do sagadeck;
+  - pediu sem imagens (ou só ícones) → não gere.`
     : "- NÃO use `image_prompt` nem imagens externas; use as figuras geradas do sagadeck."}
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 
@@ -195,7 +197,8 @@ function rejoinFlowCommas(node) {
   const out = {};
   let prev = null;
   for (const [k, v] of Object.entries(node)) {
-    if (v === null && /\s/.test(k.trim()) && prev && typeof out[prev] === "string") { out[prev] += `, ${k.trim()}`; continue; }
+    // "mas sem fumaça" (com espaço) ou uma palavra que não é campo nenhum ("nuvens, vento, umidade")
+    if (v === null && (/\s/.test(k.trim()) || !knownSlideKeys().has(k.trim())) && prev && typeof out[prev] === "string") { out[prev] += `, ${k.trim()}`; continue; }
     out[k] = rejoinFlowCommas(v);
     prev = k;
   }
@@ -225,6 +228,13 @@ function parseDeckText(text, base = {}) {
   const { yaml, prose } = extractYaml(text);
   let raw = parseYaml(yaml);
   if (Array.isArray(raw)) raw = { slides: raw };
+  // deck inteiro com os campos do deck dentro de "deck:" (o jeito do patch): título, tema e paleta são do deck
+  // (sumiam: o deck novo saía "Nova apresentação", no tema padrão, com um "deck:" sobrando no arquivo)
+  if (raw && raw.deck && typeof raw.deck === "object" && !Array.isArray(raw.deck)) {
+    const { deck, ...rest } = raw;
+    const fields = Object.fromEntries(Object.entries(deck).filter(([k]) => k !== "slides" && !k.startsWith("_")));
+    raw = { ...rest, ...fields };
+  }
   const spec = normalizeSpec(raw);
   if (!spec || !Array.isArray(spec.slides) || !spec.slides.length) throw new Error('O YAML precisa ter uma lista "slides:" com pelo menos um slide.');
   if (spec.theme && !THEMES[spec.theme]) throw new Error(`Tema "${spec.theme}" não existe. Use um de: ${Object.keys(THEMES).join(", ")}.`);
@@ -276,7 +286,9 @@ function withoutImagePrompts(node) {
   if (Array.isArray(node)) return node.map(withoutImagePrompts);
   if (!node || typeof node !== "object") return node;
   const out = {};
-  for (const [k, v] of Object.entries(node)) if (k !== "image_prompt") out[k] = withoutImagePrompts(v);
+  for (const [k, v] of Object.entries(node)) if (k !== "image_prompt" && k !== "image_ref") out[k] = withoutImagePrompts(v);
+  // redesenho (image_ref): até gerar, vale a figura de base
+  if ("image_prompt" in node && !out.image && typeof node.image_ref === "string" && node.image_ref) out.image = node.image_ref;
   if ("image_prompt" in node && !out.image && Object.keys(out).every((k) => ["fit", "alt", "radius", "step", "anim", "w", "h"].includes(k))) {
     out.icon = "image";
   }
@@ -395,21 +407,33 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
   assetsDir = assetsDir || path.join(baseDir, "imagens");
   for (const node of nodes.slice(0, max)) {
     const prompt = node.image_prompt.trim();
-    onProgress?.(`gerando imagem: ${prompt.slice(0, 70)}`);
+    // image_ref: a figura do deck que serve de base (redesenhar o xerox); falhou, fica ela mesma
+    const refFile = typeof node.image_ref === "string" && node.image_ref ? path.resolve(baseDir, node.image_ref) : null;
+    onProgress?.(`${refFile ? "redesenhando" : "gerando"} imagem: ${prompt.slice(0, 70)}`);
     try {
-      const img = await generateImage(prompt);
+      let ref = [];
+      if (refFile) {
+        if (!fs.existsSync(refFile)) throw new Error(`imagem de base não existe: ${node.image_ref}`);
+        const { imagesAsDataUrls } = await import("../import/crop.js");
+        ref = (await imagesAsDataUrls([refFile], { width: 1600, quality: 0.9 })).filter(Boolean);
+      }
+      const img = await generateImage(prompt, { ref });
       const ext = (img.mime.split("/")[1] || "png").replace("jpeg", "jpg").replace(/\W.*/, "");
-      const hash = crypto.createHash("sha1").update(prompt).digest("hex").slice(0, 8);
+      const hash = crypto.createHash("sha1").update(prompt + (refFile ? `\n${node.image_ref}` : "")).digest("hex").slice(0, 8);
       fs.mkdirSync(assetsDir, { recursive: true });
       const file = path.join(assetsDir, `ia-${hash}.${ext}`);
       fs.writeFileSync(file, img.data);
       node.image = path.relative(baseDir, file).split(path.sep).join("/");
-      if (!node.fit) node.fit = "cover";
+      // sem fit escolhido, o encaixe automático decide: a ilustração 16:9 numa caixa em pé cabia cortada ("cover")
+      // e a criança da capa saía pela metade
       if (!node.alt) node.alt = prompt.slice(0, 120);
       delete node.image_prompt;
-      done.push({ prompt, file });
+      delete node.image_ref;
+      done.push({ prompt, file, ref: refFile ? path.relative(baseDir, refFile).split(path.sep).join("/") : undefined });
     } catch (e) {
       failed.push({ prompt, error: e.message });
+      // redesenho que não saiu: a figura de base volta (antes de virar ícone)
+      if (refFile && fs.existsSync(refFile) && !keepFailed) { node.image = node.image_ref; delete node.image_prompt; delete node.image_ref; }
     }
   }
   // O que sobrou sem imagem vira um ícone, para o slide continuar renderizando
@@ -418,6 +442,7 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
   for (const node of collectImagePrompts(spec.slides || [])) {
     if (!node.image) Object.assign(node, withoutImagePrompts(node));
     delete node.image_prompt;
+    delete node.image_ref;
   }
   return { done, failed };
 }
@@ -613,7 +638,7 @@ export function applyPatch(base, patch) {
 // Os campos válidos são os que a referência documenta (a mesma que vai no prompt) mais os do Studio.
 // Campos de código/dados (code, request, svg…) podem conter qualquer coisa.
 // ---------------------------------------------------------------------------------------------
-const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "density", "deco", "theme", "palette", "tone",
+const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "image_ref", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
 const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "consulta", "output", "json"]);
 const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);

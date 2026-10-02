@@ -294,7 +294,8 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   const reqs = llm.requests.slice(n);
   assert.match(reqs[0].system, /Você PODE pedir ilustrações/, "imagens liberadas sem precisar de caixa marcada");
   assert.match(reqs[0].system, /pediu para VOCÊ decidir/);
-  assert.match(reqs[0].system, /não falou de imagem → não gere/);
+  assert.match(reqs[0].system, /não falou de imagem → VOCÊ decide/, "sem falar de imagem, a IA decide onde ilustrar (antes: nunca gerava)");
+  assert.match(reqs[0].system, /pediu sem imagens \(ou só ícones\) → não gere/);
   const asked = reqs.filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", ""));
   assert.deepEqual(asked.sort(), ["a bank vault at night", "a crowded subway station"], "só os slides que a IA escolheu ilustrar");
 });
@@ -554,11 +555,24 @@ test("estilo Documentação técnica (Criar com IA): o par claro/escuro do tema 
   assert.match(styleFor("manual").direction, /Documentação técnica/);
 });
 
+test("deck novo com título, tema e paleta dentro de deck: (o jeito do patch) vale como o deck (saía \"Nova apresentação\", no tema padrão)", async () => {
+  reply = () => "Pronto.\n```yaml\ndeck:\n  title: Brigadeiro Gourmet\n  theme: editorial\n  palette: entardecer\nslides:\n  - layout: poster\n    title: Como fazer um brigadeiro\n    panels:\n      - { title: Ponto, icon: flame, text: Desgruda do fundo }\n```";
+  const r = await generateDeck("brigadeiro numa página", { images: false });
+  assert.equal(r.spec.title, "Brigadeiro Gourmet");
+  assert.equal(r.spec.theme, "editorial");
+  assert.equal(r.spec.palette, "entardecer");
+  assert.equal(r.spec.deck, undefined, "o deck: não sobra no arquivo");
+});
+
 test("vírgula dentro de texto em { } não vira campo novo (o modelo escreve assim e o texto se partia)", async () => {
   reply = () => "Pronto.\n```yaml\ntitle: Ovo\nslides:\n  - layout: cover\n    title: Ovo\n  - layout: steps\n    title: Ritual\n    steps:\n      - { title: Aqueça, text: Manteiga derretida, mas sem fumaça saindo }\n      - { title: Quebre, text: Na borda, com coragem, sem medo }\n  - layout: end\n    title: Fim\n```";
   const r = await generateDeck("ovo", { images: false });
   const st = r.spec.slides[1].steps;
   assert.deepEqual(st[0], { title: "Aqueça", text: "Manteiga derretida, mas sem fumaça saindo" });
+  // lista de uma palavra por vírgula ({ text: nuvens, vento, umidade }): "vento" e "umidade" não são campos
+  const { parseYaml } = await import("../src/ai/deck-ai.js");
+  assert.deepEqual(parseYaml("steps:\n  - { title: Olha as pistas, text: nuvens, vento, umidade }").steps[0], { title: "Olha as pistas", text: "nuvens, vento, umidade" });
+  assert.deepEqual(parseYaml("a: { title: X, image: }").a, { title: "X", image: null }, "campo de verdade vazio continua campo");
   assert.deepEqual(st[1], { title: "Quebre", text: "Na borda, com coragem, sem medo" });
 });
 
