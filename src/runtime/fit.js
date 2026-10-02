@@ -105,7 +105,8 @@
       if (r.width && (r.bottom - sr.bottom > tol || r.right - sr.right > tol)) return true;
     }
     const hit = (r, q) => Math.min(r.right, q.right) - Math.max(r.left, q.left) > 4 * sc && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 4 * sc;
-    const figs = [...safe.querySelectorAll(".fig")].map((f) => [f, f.getBoundingClientRect()]);
+    // (a tabela também: o texto das células não é .t e o texto de outra caixa caía por baixo dela)
+    const figs = [...safe.querySelectorAll(".fig, .dtable-wrap")].map((f) => [f, f.getBoundingClientRect()]);
     for (let i = 0; i < texts.length; i++) {
       if (!tr[i].width) continue;
       for (let j = i + 1; j < texts.length; j++) {

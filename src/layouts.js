@@ -330,7 +330,10 @@ export const LAYOUTS = {
   },
 
   image(s, ctx) {
-    return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>
+    // figura inteira à vista (fit: contain: gráfico, tabela, esquema): a legenda vai embaixo, sem cobrir; foto (cover)
+    // segue sangrando, com o cartão por cima
+    const contain = (s.figure?.fit || s.fit) === "contain";
+    return `<div class="L-image${contain ? " im-contain" : ""}"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>
       ${s.title || s.caption ? `<div class="im-cap">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl" }) : ""}${s.caption ? text(s.caption, "body") : ""}</div>` : ""}</div>${add(s, ctx)}`;
   },
 

@@ -95,6 +95,14 @@ test("juntar slides progressivos: cada parte aparece no clique em que surgiu, e 
   assert.deepEqual(m.original.merged, [6, 7, 8]);
 });
 
+test("fatos: palavra que começa linha ou é rótulo (\"Como…\", \"Estabelecido…\", \"Obs:\") não é nome próprio; nome no meio da frase é", () => {
+  const box = (t) => ({ textbox: { paragraphs: t.split("\n").map((l) => ({ runs: [{ t: l }] })) } });
+  const f = factsOf({ elements: [box("A drenagem urbana tradicional\nComo definir a área de contribuição\nEstabelecido pela lei federal\nvazão de pico, Obs: depende da chuva\nO posto fica em São Carlos e foi medido por Barbassa")] });
+  for (const w of ["Como", "Estabelecido", "Obs"]) assert.ok(!f.terms.has(w), `${w} não é nome`);
+  assert.ok(f.terms.has("São Carlos"), [...f.terms].join(", "));
+  assert.ok(f.terms.has("Barbassa"));
+});
+
 test("fatos do original: números (0,385 = 0.385; 10.000), siglas e nomes; o que falta no novo é apontado", () => {
   const slide = { elements: [{ textbox: { paragraphs: [{ runs: [{ t: "Kirpich: coeficiente 57, expoente 0,385; vale até 10.000 hab. Fonte: SAE de São Carlos." }] }] } }, { tableData: [["Ano", "Q"], ["1988", "2218,0"]] }] };
   const f = factsOf(slide);
@@ -499,7 +507,10 @@ test("correção que volta só com o item corrigido: vale; os outros itens do bl
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
-test("números lidos numa figura (eixos) não ficam pendentes quando o slide novo mantém a figura; sem a figura, são cobrados", async (t) => {
+// O que a visão leu numa figura (eixos, coordenadas) é aproximado e, numa figura redesenhada, nem precisa estar no
+// texto: nunca vira pendência (o original ao lado da proposta, a "duplicata" que o professor reclamou). Sem a figura,
+// vai como DICA na correção; a imagem do original também não é cobrada (a IA decide se redesenha ou mantém).
+test("números lidos numa figura (eixos) não ficam pendentes; sem a figura, vão como dica na correção; a imagem não é cobrada", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
   const { handler } = script();
@@ -525,7 +536,9 @@ test("números lidos numa figura (eixos) não ficam pendentes quando o slide nov
     assert.ok(!a.report.pendentes.some((p) => /\b200\b/.test(p)), `figura mantida: ${JSON.stringify(a.report.pendentes)}`);
     keep = false;
     const b = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
-    assert.ok(b.report.pendentes.some((p) => /\b200\b/.test(p)), `figura tirada: os números do eixo são cobrados (${JSON.stringify(b.report.pendentes)})`);
+    assert.ok(!b.report.pendentes.some((p) => /\b200\b|imagens\/f2\.png/.test(p)), `figura tirada: nem os números do eixo nem a imagem viram pendência (${JSON.stringify(b.report.pendentes)})`);
+    const fix = llm.requests.filter((r) => /Conferi estes slides/.test(r.lastUser)).at(-1)?.lastUser || "";
+    assert.match(fix, /Dicas \(não são erro\):[\s\S]*a figura do original mostrava os números 200, 300, 400, 500/, "vão como dica na correção");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
@@ -704,6 +717,8 @@ test("recriar: a paleta e o propósito que o plano escolheu pelo pedido valem no
   assert.equal(a.spec.palette, "mar");
   assert.equal(a.spec.purpose, "consulta");
   assert.match(a.system, /material para ESTUDAR depois \(consulta\)/, "quem escreve recebe a regra da consulta");
+  assert.match(a.system, /REDESENHE bonito[\s\S]*NUNCA as duas/, "critério de designer para as figuras: reconstruir quando dá, nunca a imagem e a transcrição juntas");
+  assert.match(a.system, /visual tem de ser MARCANTE e bem diferente do original/, "recriar: visual marcante, diferente do original");
   assert.doesNotMatch(a.system, /É para APRESENTAR \(palestra\)/);
   const b = await run({ paleta: "nao-existe" });
   assert.equal(b.spec.palette, undefined, "paleta que não existe fica no padrão do tema");

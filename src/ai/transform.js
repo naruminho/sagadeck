@@ -85,7 +85,9 @@ export function factsOf(slide, extra = "") {
   for (const m of text.matchAll(/(?<![\p{L}\p{N}])([A-Z][A-Z0-9]{1,6})(?![\p{L}\p{N}])/gu)) if (!STOP.has(deaccent(m[1])) && !capsPhrase.has(m[1])) terms.add(m[1]);
   // nomes próprios no meio da frase; palavra comum com maiúscula (item de lista, cabeçalho) que aparece minúscula no
   // mesmo slide não é nome
-  for (const m of text.matchAll(/(?:[a-zà-ú,;]\s)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,}(?:\s+(?:de|da|do|e)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,})*)/g)) {
+  // (o espaço antes é da mesma linha: a 1ª palavra de cada linha do PowerPoint começa com maiúscula e não é nome; e
+  // palavra seguida de ":" é rótulo, "Obs:", "Fonte:")
+  for (const m of text.matchAll(/(?:[a-zà-ú,;][ \t])([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,}(?:[ \t]+(?:(?:de|da|do|dos|das|e)[ \t]+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-úç]{2,})*)(?![\p{L}]*\s*:)/gu)) {
     const low = m[1].toLowerCase();
     if (!m[1].includes(" ") && new RegExp(`(?<![\\p{L}])${low}(?![\\p{L}])`, "u").test(text)) continue;
     terms.add(m[1]);
@@ -122,7 +124,7 @@ const TOOLBOX = `Ferramentas para cada item do plano (campo "acao"):
 Recursos do sagadeck que costumam fazer diferença numa aula: calc (fórmula com entradas que a turma mexe), science (curvas com controles), chart (toda tabela numérica pode virar gráfico), solution (exercício resolvido passo a passo com os dados do próprio material), algo com program: (um método passo a passo como programa: ordenar e classificar, redistribuir blocos…), spotlight (mapa ou figura com regiões explicadas), compare, timeline, diagram, infographic, question/poll, split com a figura original.`;
 const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - NADA do original pode se perder: números, unidades, fórmulas, nomes, siglas, leis, fontes/créditos das figuras, exemplos, tabelas inteiras, observações. Se não couber no slide, vai para outro slide, para \`consulta\` ou para notes.
-- Figura ESPECÍFICA (mapa de um lugar, dado de um experimento, foto real, gráfico com dados que não estão no texto) continua: use a imagem original pelo caminho dado (image: …, ou figure: { image: … }). Figura GENÉRICA (conceito que qualquer livro desenha igual) pode ser redesenhada com os recursos do sagadeck — só se preservar exatamente as mesmas características.
+- Figuras: pense como um designer que entende do assunto, figura por figura. REDESENHE bonito com os recursos do sagadeck sempre que der para reconstruir sem perder nada: gráfico cujos dados ou cuja equação estão no material (\`chart\` com os pontos, ou \`science\` com a curva da equação), tabela em imagem legível (\`table\`), esquema, fluxo ou ciclo (\`infographic\`, \`diagram\`), equação (LaTeX). Original feio, borrado ou escaneado que dá para reconstruir: reconstrua. MANTENHA a imagem original (image: …, ou figure: { image: … }, pelo caminho dado) só quando ela é insubstituível: foto real, mapa de um lugar, figura com dado que não dá para ler ou reproduzir com fidelidade; aí ela fica, mesmo feia, com a fonte. NUNCA as duas: redesenhou ou transcreveu (tabela, equação, gráfico), a imagem original não entra, nem como "versão alternativa" ou "imagem original". Confira o caminho: a imagem tem de ser a do assunto do slide.
 - Não invente dado. Se o original parecer ter um erro (fórmula que contradiz o gráfico, número que não fecha), NÃO troque em silêncio: aponte em "alertas" e, no slide, mostre o que o material sustenta com uma nota curta para o professor validar.
 - Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
 - Fórmula vai em LaTeX (\`$…$\` no texto, \`equations\` no \`science\`, \`latex\` no \`solution\`), nunca como imagem: a imagem de equação do original (recorte do OLE) só entra se a visão não conseguiu transcrever; transcrita, não repita a imagem. Uma fórmula importante por slide, grande; a explicação das variáveis em lista ao lado ou embaixo.
@@ -135,7 +137,7 @@ const PURPOSE_RULES = {
 };
 const MODE_RULES = {
   melhorar: `MODO MELHORAR: o estilo é o do original (a moldura dele — faixa, logos, linha do título, número — já está no mestre do deck; use os layouts do sagadeck normalmente, sem redesenhar a moldura). Na capa, a moldura já traz os logos e o texto institucional do original: a capa nova leva só título, subtítulo, autor e data (não repita logo nem instituição). O título dos slides de conteúdo vai na faixa do título da moldura: uma linha curta, como no original. O aprofundamento que não cabe no slide vai em \`consulta\` (material de estudo). Mantenha a ORDEM do original; inclusões entram perto do assunto. Melhore onde ganha: estrutura, clareza, interação, exercícios, redesenho de figura genérica. Slide que já está bom: "manter". Cada slide que mudar vai ser marcado para o professor validar.`,
-  recriar: `MODO RECRIAR: uma apresentação nova, do zero, com o melhor que o sagadeck faz (escolha o tema em "tema"). A ordem pode mudar se a didática ganhar (seções, uma ideia por slide, exercícios no ponto certo). "manter" não vale; use "juntar", "escrever" e "novo". Todo slide original precisa ir para algum item (o conteúdo dele não pode sumir).`,
+  recriar: `MODO RECRIAR: uma apresentação nova, do zero, com o melhor que o sagadeck faz (escolha o tema em "tema"). O visual tem de ser MARCANTE e bem diferente do original: se o pedido não disser o tema, fuja do que o original já é (original claro e sóbrio, de fundo branco: escolha um tema com cor e personalidade, fundo escuro ou colorido) e escolha em "paleta" cores vivas ligadas ao assunto (água: azuis e verdes vivos); cor nos destaques, ícones, infográficos e gráficos, seções que mudam o tom. Pedido com tema ou paleta: vale o pedido. A ordem pode mudar se a didática ganhar (seções, uma ideia por slide, exercícios no ponto certo). "manter" não vale; use "juntar", "escrever" e "novo". Todo slide original precisa ir para algum item (o conteúdo dele não pode sumir).`,
 };
 
 // ------------------------------------------------------------------------------------------------ tarefa
@@ -348,14 +350,23 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   job.stage = "escrever"; save();
   // fatos do original: o texto do slide e, para cada figura que NÃO foi mantida no novo, o que a visão leu nela (eixos,
   // rótulos). Figura mantida (a mesma imagem no slide novo) já carrega os números dela: não cobra de novo no texto.
-  const factsFor = (it, produced = []) => {
+  // Pendência é só o que estava ESCRITO no original (texto, tabela do PowerPoint, notas) e sumiu. O que a visão leu
+  // numa figura (eixos, coordenadas de mapa, rótulos) é aproximado e, numa figura redesenhada, nem precisa estar no
+  // texto: vira dica para a correção (figureFacts), nunca pendência. A imagem do original também não é cobrada: a IA
+  // decide se redesenha ou mantém (a conferência visual compara com a foto do original e aponta o que se perdeu).
+  const factsFor = (it) => {
+    const facts = { numbers: new Set(), terms: new Set(), alts: new Map() };
+    for (const s of srcOf(it)) { const f = factsOf(s); f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v)); }
+    return facts;
+  };
+  const figureFacts = (it, produced = []) => {
     const facts = { numbers: new Set(), terms: new Set(), alts: new Map() };
     const used = JSON.stringify(produced);
-    const add = (f) => { f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v)); };
     for (const s of srcOf(it)) {
-      add(factsOf(s));
       const kept = contentImages(s).length && contentImages(s).every((im) => used.includes(im));
-      if (!kept) add(factsOf({ elements: [] }, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" ")));
+      if (kept) continue;
+      const f = factsOf({ elements: [] }, figs[s.original.slide]?.figuras?.map((x) => x.dados || "").join(" "));
+      f.numbers.forEach((x) => facts.numbers.add(x)); f.terms.forEach((x) => facts.terms.add(x)); f.alts.forEach((v, key) => facts.alts.set(key, v));
     }
     return facts;
   };
@@ -389,17 +400,19 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         save(); return;
       }
       // conferir → corrigir → conferir de novo (a última conferência também olha o desenho)
-      let issues = [];
+      let issues = [], hints = [];
       for (let round = 0; ; round++) {
-        issues = [];
+        issues = []; hints = [];
         for (const { it, k } of batch) {
           if (!srcOf(it).length || it.acao === "novo") continue;
           const mine = produced.filter((s) => s.origem === k + 1);
           const sib = siblingsOf(k);
           const others = [...sib.flatMap((j) => job.results[j]?.slides || []), ...produced.filter((s) => sib.includes(s.origem - 1))];
-          const miss = missingFacts(factsFor(it, [...mine, ...others]), [...mine, ...others]);
-          const imgsLost = (it.imagens || []).filter((p) => fs.existsSync(path.join(dir, p)) && !JSON.stringify(mine).includes(p));
-          if (miss.numbers.length || miss.terms.length || imgsLost.length) issues.push({ k, kind: "fatos", miss, imgsLost, text: `ITEM ${k + 1}: faltou do original ${[miss.numbers.length ? `números ${miss.numbers.slice(0, 30).join(", ")}` : "", miss.terms.length ? `nomes/siglas ${miss.terms.slice(0, 20).join(", ")}` : "", imgsLost.length ? `imagens ${imgsLost.join(", ")}` : ""].filter(Boolean).join("; ")}` });
+          const miss = missingFacts(factsFor(it), [...mine, ...others]);
+          if (miss.numbers.length || miss.terms.length) issues.push({ k, kind: "fatos", miss, text: `ITEM ${k + 1}: faltou do original ${[miss.numbers.length ? `números ${miss.numbers.slice(0, 30).join(", ")}` : "", miss.terms.length ? `nomes/siglas ${miss.terms.slice(0, 20).join(", ")}` : ""].filter(Boolean).join("; ")}` });
+          const fig = missingFacts(figureFacts(it, [...mine, ...others]), [...mine, ...others]);
+          const figNums = fig.numbers.filter((x) => !miss.numbers.includes(x)), figTerms = fig.terms.filter((x) => !miss.terms.includes(x));
+          if (figNums.length || figTerms.length) hints.push(`ITEM ${k + 1}: a figura do original mostrava ${[figNums.length ? `os números ${figNums.slice(0, 20).join(", ")}` : "", figTerms.length ? `os nomes ${figTerms.slice(0, 12).join(", ")}` : ""].filter(Boolean).join(" e ")}; se a figura foi redesenhada, confira se o que importa está nela (marcações de eixo não precisam)`);
         }
         try {
           progress("conferir", `Conferindo o desenho dos itens ${batch.map(({ k }) => k + 1).join(", ")}${round ? " (depois da correção)" : ""}…`);
@@ -411,7 +424,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         if (!issues.length || round >= maxRounds) break;
         progress("corrigir", `Corrigindo ${issues.length} ponto(s) nos itens ${[...new Set(issues.map((x) => x.k + 1))].join(", ")}…`);
         const fixMsg = [...messages, { role: "assistant", content: `\`\`\`yaml\n${YAML.stringify({ slides: produced })}\`\`\`` },
-          { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
+          { role: "user", content: `Conferi estes slides contra o original e contra a foto de como ficaram:\n${issues.map((x) => `- ${x.text}`).join("\n")}${hints.length ? `\n\nDicas (não são erro): ${hints.map((x) => `\n- ${x}`).join("")}` : ""}\n\nDevolva o bloco \`\`\`yaml com TODOS os slides destes itens, corrigidos (o que faltou entra no slide, numa tabela ou em notes; problema de desenho: ajuste o layout, divida o slide ou reduza o texto).` }];
         // a correção pode vir só com os itens corrigidos: os que não vieram ficam como estavam
         try {
           const r = await ask(fixMsg);
@@ -446,7 +459,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     const k = Number(key), it = plan.slides[k];
     if (res?.state !== "pendente" || !res.slides || !it) continue;
     const all = [...res.slides, ...siblingsOf(k).flatMap((j) => job.results[j]?.slides || [])];
-    const miss = missingFacts(factsFor(it, all), all);
+    const miss = missingFacts(factsFor(it), all);
     if (!miss.numbers.length && !miss.terms.length) { res.state = res.drawing?.length ? "revisar" : "ok"; res.missing = null; }
   }
   save();

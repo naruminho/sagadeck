@@ -77,6 +77,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   modelo; mesmo resultado: 81 slides, 4 pendentes, 17 a conferir). Correção: a aba manda `expectFile` (o arquivo que
   está vendo) ao salvar, no YAML e no chat; se o Studio está com outro aberto, 409 e "Recarregue" (nada é gravado).
   `test/stale-tab.test.js`.
+- Retorno da pessoa sobre a recriada da rodada 1 (10 pontos + "tema sem graça"), causas e correções:
+  - tabela numa linha só (o YAML juntou as linhas), fórmula entre \( \) e \[ \], \frac (barra dobrada vira
+    quebra de linha no LaTeX): `md` aceita os três;
+  - legenda por cima do gráfico no layout `image`: com `fit: contain`, a legenda vai embaixo (foto segue com o cartão);
+  - tabela do `add` espremendo o layout e ficando por cima do texto: no máximo 45% da altura (a letra encolhe); o
+    ajuste e o fiscal veem a tabela;
+  - equação e tabela repetidas como imagem e slides "versão alternativa"/"imagem original": a conferência cobrava
+    TODA imagem do plano ("faltou imagens") e a IA repunha; não cobra mais. O que a visão leu numa figura vira dica na
+    correção, não pendência (fim das pendências por coordenada de mapa). Regra nova: critério de designer (redesenhar
+    quando dá sem perder nada, manter só o insubstituível, nunca as duas);
+  - ciclo hidrológico em fluxograma (setas de volta cruzando tudo): infográfico `ciclo` novo (etapas numa elipse,
+    setas curvas na cor de cada uma) e a referência manda ciclos para ele;
+  - recriar sem tema pedido: visual marcante e diferente do original (cor, paleta viva ligada ao assunto).
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`
