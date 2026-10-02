@@ -27,7 +27,7 @@ classifiers = [
 [project.optional-dependencies]
 # IA pelo modelrelay (OpenRouter, OpenAI, gateway da empresa). A versão mínima é a MIN_MODELRELAY de
 # python/sagadeck/llm.py: mudou o modelrelay, suba as duas (test/python-relay.test.js confere).
-ia = ["modelrelay>=0.2.0"]
+ia = ["modelrelay>=0.2.2"]
 
 [project.urls]
 Homepage = "https://github.com/naruminho/sagadeck"

@@ -18,7 +18,7 @@ from typing import Iterator, Sequence
 
 # Versão mínima do modelrelay que este sagadeck espera (0.2.0: a tela de modelos com a lista do provedor e o Testar).
 # Mudou o modelrelay? Suba aqui e no extra "ia" do pyproject.toml (regra no CLAUDE.md dos dois repositórios).
-MIN_MODELRELAY = "0.2.0"
+MIN_MODELRELAY = "0.2.2"
 
 
 def _version(v: str) -> tuple:
