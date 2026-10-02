@@ -14,6 +14,7 @@ export const PREF_SCHEMA = {
   ia: {
     perguntar: { def: true },  // pedido sem dizer para que serve o material: a IA pergunta antes de gerar
     imagens: { def: true },    // gerar imagens quando o pedido pedir (desligado: só ícones, gráficos e diagramas)
+    pesquisa: { def: true },   // pesquisar na web quando o pedido precisar de informação recente ou de um artigo (a IA decide)
     autor: { def: "" },        // nome na capa e no rodapé das apresentações novas (no lugar de "Seu Nome")
     idioma: { def: "auto" },   // auto = o idioma do pedido
   },

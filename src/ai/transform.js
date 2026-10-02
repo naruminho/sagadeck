@@ -447,7 +447,23 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   const parallel = Math.max(1, Math.min(16, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 8));
   // image_prompt (e image_ref, o redesenho de uma figura ruim do original) vira arquivo em imagens/ia; o que não sai
   // volta a ser a figura de base (ou um ícone, sem base)
+  // o que a visão viu em cada imagem do original (pelos tipos das figuras do slide dela): gráfico, tabela e equação
+  // não vão para o modelo de imagem (saíam como figura com número trocado e rótulo em inglês, e a fórmula como foto);
+  // são refeitos com chart, table e LaTeX. Só ilustração (esquema, mapa, desenho, corte) é redesenhada.
+  const tiposDe = new Map();
+  for (const s of originals) for (const img of contentImages(s)) tiposDe.set(img, (figs[s.original.slide]?.figuras || []).map((f) => String(f.tipo || "")));
+  const naoIlustracao = (ref) => { const t = tiposDe.get(ref); return !!t?.length && t.every((x) => /gr[aá]fico|tabela|equa|f[oó]rmula/i.test(x)); };
+  const keepDataFigures = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) return node.forEach(keepDataFigures);
+    if (typeof node.image_ref === "string" && node.image_prompt && naoIlustracao(node.image_ref)) {
+      report.problemas.push(`redesenho recusado (${node.image_ref} é gráfico, tabela ou equação: refaça com chart, table ou LaTeX)`);
+      node.image = node.image_ref; delete node.image_prompt; delete node.image_ref;
+    }
+    for (const v of Object.values(node)) keepDataFigures(v);
+  };
   const drawImages = async (slides) => {
+    keepDataFigures(slides);
     if (!countImagePrompts({ slides })) return;
     if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
     progress("escrever", "Desenhando as ilustrações…");
