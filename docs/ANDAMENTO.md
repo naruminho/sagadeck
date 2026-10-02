@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Experiências exploráveis e autonomia — 02/10/2026 (em execução)
+
+Plano completo e estado de retomada: `docs/PLANO-EXPERIENCIAS.md`. Pedido do usuário: implementar as sete frentes, registrar avanços e publicar etapas validadas.
+
+- Branch `codex/experiencias-exploraveis`. Sem mudanças em decks pessoais ou no Oracle.
+- Implementado, em validação: calc com cenários, comparação congelada, restaurar, previsão/revelação, curva ligada às entradas e selo ilustrativo; formulário; demo Explore uma ideia; estados e explicações no material de estudo.
+- Agente: validação de fórmulas em estados/extremos; `review: true` fotografa estados e devolve achados ao agente para uma correção. Revisão indisponível permanece explicitamente sem conferência.
+- Elementos: continuidade de posição/tamanho por nome entre cenas, respeitando movimento reduzido.
+- Direção de arte: variantes podem propor tema para o conjunto com composição do conteúdo real, aplicação explícita na escolha.
+- Avaliação: cinco pedidos independentes em `src/ai/evaluation.js`, execução real por `tools/evaluate-autonomy.mjs`, relatórios e decks na biblioteca. Tokens/custo ficam indisponíveis quando não medidos; não inventados.
+- Base verificada: npm test, 680 testes, 660 passaram, 20 pulados, zero falhas (14 min). Testes direcionados de interação e IA passaram. Suite final e avaliação real ainda pendentes; não declarar concluído antes delas.
+
+
 ## Senso crítico da recriação: a IA ganha ferramentas para se corrigir — 02/10/2026
 
 Feedback da versão "escalafobética" da Aula 1 (relevo): foco guiado todo fora do lugar, mapa do posto
