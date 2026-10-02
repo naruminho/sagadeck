@@ -892,6 +892,10 @@ test("recriar: a paleta e o propósito que o plano escolheu pelo pedido valem no
   assert.match(a.system, /REDESENHE bonito[\s\S]*NUNCA as duas/, "critério de designer para as figuras: reconstruir quando dá, nunca a imagem e a transcrição juntas");
   assert.match(a.system, /O tema e a paleta: os que o pedido disser[\s\S]*sem nada no pedido, o que você achar melhor/, "recriar: o tema segue o pedido; sem pedido, a IA escolhe");
   assert.doesNotMatch(a.system, /É para APRESENTAR \(palestra\)/);
+  // rodada 4 da escalafobética: "sóbrio, sem neon" virou a paleta grafite, que deixou o relevo (escuro, de ficção
+  // científica) claro e os destaques em tarja cinza; e as quebras de linha da caixa do PowerPoint picavam as frases
+  assert.match(a.system, /tema com fundo e identidade próprios[^\n]*paleta só se o pedido falar de cores/i, "paleta não desmancha o tema");
+  assert.match(a.system, /quebra de linha do original no meio da frase[^\n]*junte/i, "frase picada pelo PowerPoint é juntada");
   const b = await run({ paleta: "nao-existe" });
   assert.equal(b.spec.palette, undefined, "paleta que não existe fica no padrão do tema");
   assert.equal(b.spec.purpose, "palestra", "sem pedido de consulta: palestra");

@@ -48,6 +48,11 @@ raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título r
 - Dois gráficos em colunas lado a lado dividem a linha por igual (o primeiro saía minúsculo).
 - Limites da tarefa: `calls` (300) conta só as chamadas que escrevem e pensam; as de olhar (`think: false`) têm o
   próprio `looks` (2000). A rodada 3 parou no "Limite de 300 chamadas" com a conferência por slide.
+- Rodada 4 (19 min, completa): os 7 pontos do retorno resolvidos. Duas regras novas de prompt: tema com identidade
+  própria não leva paleta sem pedido de cores ("sóbrio" virou `grafite` e o relevo saiu claro, destaques em tarja
+  cinza); quebra de linha do PowerPoint no meio da frase é juntada (frases picadas nos slides de chuva de projeto).
+- Ainda abertos: slides repetidos às vezes (declividade em dois slides seguidos); equação pequena num canto
+  (IDF de São Carlos); o modelo pede pouca ilustração nova mesmo quando o pedido quer "imagens realistas".
 - Testes: `test/llm-raciocinio.test.js`, `test/ground.test.js`, `test/blocks-graficos.test.js`, `test/transform.test.js`.
 
 ---
