@@ -146,7 +146,7 @@
     return L;
   }
 
-  function config(L) {
+  function config(L, curve) {
     const F = L.hiFam;
     const themeCSS = [
       `.node rect,.node polygon,.node circle,.node ellipse,.node path{stroke-width:1.6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,${L.dark ? 0.35 : 0.08}))}`,
@@ -189,7 +189,7 @@
         stateBkg: F.fill, stateLabelColor: F.text, compositeBackground: N.cbg, transitionColor: L.arrow, transitionLabelColor: L.soft,
         classText: F.text, git0: F.strong, gitBranchLabel0: F.strongText, pie1: F.stroke, pie2: E.stroke, pie3: N.stroke, pie4: F.fill, ...cs,
       },
-      flowchart: { ...sizes, htmlLabels: true, nodeSpacing: 34, rankSpacing: 50, padding: 14, diagramPadding: 6, curve: window.__dgCurve || "step", subGraphTitleMargin: { top: 6, bottom: 14 } },
+      flowchart: { ...sizes, htmlLabels: true, nodeSpacing: 34, rankSpacing: 50, padding: 14, diagramPadding: 6, curve: window.__dgCurve || curve || "basis", subGraphTitleMargin: { top: 6, bottom: 14 } },
       sequence: { ...sizes, actorMargin: 44, boxMargin: 6, messageMargin: 28, mirrorActors: false, diagramMarginX: 6, diagramMarginY: 6 },
       state: { ...sizes, padding: 10 }, class: sizes, er: sizes, journey: sizes, gantt: sizes, mindmap: sizes, timeline: sizes, block: sizes, requirement: sizes,
     };
@@ -282,7 +282,7 @@
       // texto. Então, antes do desenho, no lugar do ícone vai um texto de verdade ("MM"), que ele mede com a fonte real;
       // depois do desenho esse trecho vira o ícone, com a MESMA largura medida: o rótulo cabe no nó com qualquer fonte.
       const withMarks = code.replace(/<i class=dgi-([a-z0-9-]+)><\/i>/g, (m, name) => (icons[name] ? `<span class=dgp-${name}>MM</span>` : ""));
-      window.mermaid.initialize(config(L));
+      window.mermaid.initialize(config(L, box.dataset.dgCurve));
       let { svg } = await window.mermaid.render(id, withMarks);
       // direção: fica com a que deixa a letra maior (a do código ganha no empate: só troca se for bem melhor)
       const other = box.dataset.dgAuto !== "0" && flipped(withMarks);

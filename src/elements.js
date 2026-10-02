@@ -88,7 +88,8 @@ export function figureHTML(el, ctx, w, h) {
   if (el.icon) return `<div${attrs(el, "fig fig-icon", `color:${textColorVal(el.color) || "var(--fg)"};`)}>${iconSVG(el.icon, { size: el.size || 160, stroke: el.stroke || 1.6 })}</div>`;
   if (el.picto) return `<div${attrs(el, "fig")}>${picto(el)}</div>`;
   if (el.diagram) return `<div${attrs(el, "fig")}>${diagram(el)}</div>`;
-  if (el.chart) return `<div${attrs(el, "fig fig-chart")}>${chart(csvChart(el, ctx), el.cw || w || 1200, el.ch || h || 620)}</div>`;
+  // (com title: o nome do gráfico em cima, como a IA escreve quando põe dois lado a lado)
+  if (el.chart) return `<div${attrs(el, `fig fig-chart${el.title ? " has-title" : ""}`)}>${el.title ? `<div class="t f-label fc-title">${md(String(el.title))}</div>` : ""}${chart(csvChart(el, ctx), el.cw || w || 1200, el.ch || h || 620)}</div>`;
   if (el.ufmap) return `<div${attrs(el, "fig fig-ufmap")}>${ufmap({ cw: w, ...el }, ctx?.warnings)}</div>`;
   if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
   if (el.image) {

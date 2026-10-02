@@ -96,14 +96,28 @@ export const LAYOUTS = {
   },
 
   statement(s, ctx) {
+    // o tamanho pelo comprimento: frase curta é manchete; parágrafo inteiro em letra de título ocupava a tela toda
+    const words = String(s.text || (s.lines || []).map((l) => (typeof l === "string" ? l : l?.text || "")).join(" ")).split(/\s+/).filter(Boolean).length;
+    const role = s.as || (words > 45 ? "lead" : words > 22 ? "h2" : "title");
     const lines = s.lines
       ? s.lines.map((l, i) => {
           const o = typeof l === "string" ? { text: l } : l;
-          return text(o.text, o.as || "title", { ...o, step: o.step ?? build(s, i, 0), class: `st-line ${o.class || ""}`, size: o.size || s.size });
+          return text(o.text, o.as || role, { ...o, step: o.step ?? build(s, i, 0), class: `st-line ${o.class || ""}`, size: o.size || s.size });
         }).join("")
-      : text(s.text, s.as || "title", { class: "st-line e", style: "--d:1;", fit: true, size: s.size });
+      : text(s.text, role, { class: "st-line e", style: "--d:1;", fit: true, size: s.size });
     return `<div class="L-statement ${s.center ? "center" : ""}">${kicker(s)}<div class="st-body">${lines}</div>
       ${s.by ? text(s.by, "label", { class: "st-by e", style: "--d:3;", step: s.byStep }) : ""}${src(s)}</div>${add(s, ctx)}`;
+  },
+
+  // Definição (verbete): o termo em destaque, a origem da palavra em partes (hydor — água · logos — ciência), a
+  // definição em letra de leitura e um ícone ou figura ilustrativa. Para "o que é X", no lugar de uma frase gigante.
+  definition(s, ctx) {
+    const term = s.term || s.title || "";
+    const parts = (Array.isArray(s.parts) ? s.parts : []).map((p) => (typeof p === "string" ? { word: p } : p || {})).filter((p) => p.word || p.meaning);
+    const origin = s.origin || parts.length ? `<div class="df-origin e" style="--d:2;"${s.build ? ' data-step="1"' : ""}>${s.origin ? `<span class="t f-label df-from">${md(String(s.origin))}</span>` : ""}${parts.map((p) => `<span class="df-part"><i class="t f-heading df-word">${md(String(p.word || ""))}</i>${p.meaning ? `<span class="t f-body df-mean">${md(String(p.meaning))}</span>` : ""}</span>`).join('<span class="df-plus" aria-hidden="true">+</span>')}</div>` : "";
+    const fig = s.figure ? `<div class="df-fig e" style="--d:3;">${el(s.figure, ctx, 640, 640)}</div>` : s.icon ? `<div class="df-fig df-icon e" style="--d:3;" aria-hidden="true">${iconSVG(s.icon, { size: 220, stroke: 1.6 })}</div>` : "";
+    return `<div class="L-definition${fig ? " has-fig" : ""}"><div class="df-main">${kicker(s)}${text(term, "hero", { class: "df-term ttl e", style: "--d:1;", fit: true, size: s.termSize })}${origin}
+      ${s.text ? `<div class="df-rule e" style="--d:2;"></div>${text(s.text, "lead", { class: "df-text e", style: "--d:3;", step: s.build ? 2 : undefined })}` : ""}</div>${fig}</div>${src(s)}${add(s, ctx)}`;
   },
 
   // Status semanal: saúde, avanço e as seções que tiverem conteúdo (feito, em andamento, bloqueios, riscos, próximos
@@ -278,7 +292,8 @@ export const LAYOUTS = {
   chart(s, ctx) {
     const side = s.side || s.note;
     const w = side ? 1120 : 1680, h = s.chartHeight || (s.title ? 600 : 720);
-    const ch = { ...s.chart, chart: s.chart.chart || s.chart.type };
+    // sem chart/type: o tipo pode vir como chave ({ line: { labels, series } }); sem tipo nenhum, o gráfico acusa
+    const ch = s.chart?.chart || s.chart?.type ? { ...s.chart, chart: s.chart.chart || s.chart.type } : { chart: s.chart || {} };
     return `<div class="L-chart">${head(s)}<div class="ch-row">
       <div class="ch-fig e" style="--d:2" ${s.chartStep ? `data-step="${s.chartStep}"` : ""}>${figureHTML(ch, ctx, w, h)}</div>
       ${side ? `<div class="ch-side" ${s.sideStep ? `data-step="${s.sideStep}"` : ""}>${typeof side === "string" ? text(side, "lead") : el(side, ctx)}</div>` : ""}
@@ -333,7 +348,9 @@ export const LAYOUTS = {
     // figura inteira à vista (fit: contain: gráfico, tabela, esquema): a legenda vai embaixo, sem cobrir; foto (cover)
     // segue sangrando, com o cartão por cima
     const contain = (s.figure?.fit || s.fit) === "contain";
-    return `<div class="L-image${contain ? " im-contain" : ""}"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>
+    // figura inteira: título no alto, como nos outros slides (não a frase gigante embaixo), e a legenda pequena embaixo
+    if (contain) return `<div class="L-image im-contain">${s.title || s.kicker ? head(s) : ""}<div class="im-fig">${el(s.figure || { image: s.image, fit: "contain" }, ctx, 1680, slideSize(ctx.spec).h)}</div>${s.caption ? text(s.caption, "small", { class: "im-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>
       ${s.title || s.caption ? `<div class="im-cap">${kicker(s)}${s.title ? text(s.title, "h2", { class: "ttl" }) : ""}${s.caption ? text(s.caption, "body") : ""}</div>` : ""}</div>${add(s, ctx)}`;
   },
 
@@ -399,7 +416,7 @@ export const LAYOUTS = {
   },
 
   blocks(s, ctx) {
-    return `<div class="L-blocks">${head(s, s.titleAs || "h2")}<div class="bl-body">${el(s.content || [], ctx)}</div></div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-blocks">${head(s, s.titleAs || "h2")}<div class="bl-body">${el(s.content || [], ctx)}</div>${s.caption ? text(s.caption, "small", { class: "bl-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   end(s, ctx) {
@@ -571,13 +588,19 @@ export const LAYOUTS = {
   diagram(s, ctx) {
     const icons = {};
     const known = diagramIconNames();
-    // %%{init}%% no código trocaria o tema do Mermaid e fugiria da paleta: sai
-    const code = String(s.mermaid || s.code || "").replace(/%%\{[\s\S]*?\}%%\s*/g, "").replace(/:([a-z][a-z0-9-]*[a-z0-9]):/g, (m, name) => {
-      if (!known.has(name)) return m;
-      try { icons[name] = iconSVG(name, { size: 40, stroke: 2 }); } catch { return m; }
-      return `<i class=dgi-${name}></i>`; // sem aspas: não briga com as aspas do Mermaid
-    });
-    return `<div class="L-diagram${s.caption ? " has-caption" : ""}">${head(s)}<div class="dg-box e" style="--d:2;"${s.autoDirection === false ? " data-dg-auto=\"0\"" : ""} data-dg-icons="${esc(JSON.stringify(icons))}"><pre class="dg-src" hidden>${esc(code)}</pre></div>${s.caption ? text(s.caption, "small", { class: "dg-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+    // %%{init}%% no código trocaria o tema do Mermaid e fugiria da paleta: sai. Rótulo com parênteses sem aspas
+    // (BL1[Boca de Lobo 1 (BL1)], D{Divisor (x)}) quebra o Mermaid: ganha as aspas.
+    const code = String(s.mermaid || s.code || "").replace(/%%\{[\s\S]*?\}%%\s*/g, "")
+      .replace(/(^|[\s;>|&-])([A-Za-z_][\w-]*)\[(?!["(\[\/\\])([^\]"\n]*[()][^\]"\n]*)\]/gm, '$1$2["$3"]')
+      .replace(/(^|[\s;>|&-])([A-Za-z_][\w-]*)\{(?![{"])([^}"\n]*[()][^}"\n]*)\}/gm, '$1$2{"$3"}')
+      .replace(/:([a-z][a-z0-9-]*[a-z0-9]):/g, (m, name) => {
+        if (!known.has(name)) return m;
+        try { icons[name] = iconSVG(name, { size: 40, stroke: 2 }); } catch { return m; }
+        return `<i class=dgi-${name}></i>`; // sem aspas: não briga com as aspas do Mermaid
+      });
+    // ligações: curvas (padrão: chegam limpas em cada caixa); "angulo" (em degraus, para arquitetura) ou "reta"
+    const curve = { angulo: "step", reta: "linear", curva: "basis" }[s.curve] || "basis";
+    return `<div class="L-diagram${s.caption ? " has-caption" : ""}">${head(s)}<div class="dg-box e" style="--d:2;"${s.autoDirection === false ? " data-dg-auto=\"0\"" : ""} data-dg-curve="${curve}" data-dg-icons="${esc(JSON.stringify(icons))}"><pre class="dg-src" hidden>${esc(code)}</pre></div>${s.caption ? text(s.caption, "small", { class: "dg-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
   // Infográfico: arco, ramos, lados, trilhas ou metrô, para qualquer quantidade de itens (src/infographic.js)

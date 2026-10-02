@@ -145,8 +145,12 @@
   }
 
   // ---------- navegação ----------
+  // fora do slide (tela de outra proporção): a cor do slide, que emenda sem borda; slide com moldura até a borda (o
+  // original importado, o estilo tirado do PowerPoint) fica com fundo escuro, como no PowerPoint (a faixa azul da capa
+  // acabava no meio de uma área clara)
   function setBg() {
-    const bg = getComputedStyle(slides[cur]).backgroundColor;
+    const s = slides[cur];
+    const bg = s.matches('[data-layout="canvas"], .has-master') ? "#0b0b0b" : getComputedStyle(s).backgroundColor;
     $("#viewport").style.background = bg;
     document.body.style.background = bg;
   }

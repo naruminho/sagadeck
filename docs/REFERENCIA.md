@@ -71,6 +71,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `cover` | `kicker, title, subtitle, author, role, figure` | capa |
 | `section` | `number, kicker, title, subtitle, figure` | abertura de ato/capítulo (tom `accent` por padrão) |
 | `statement` | `text` **ou** `lines: [ {text, as, color, step} ]`, `by`, `center` | uma frase de impacto; `lines` + `build` revelam linha a linha |
+| `definition` | `kicker, term, origin, parts: [{word, meaning}], text, icon` (ou `figure`), `build`, `termSize` (px do termo) | definição de um termo, como verbete: o termo em destaque, a origem da palavra em partes (`origin: do grego`, `parts: [{word: hydor, meaning: água}, {word: logos, meaning: ciência}]`) e a definição; para "o que é X", use este e não um `statement` com o parágrafo inteiro |
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
 | `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor` | número gigante animado (conta de `from` até `value`) |
 | `split` | `title, body, bullets, content, figure, ratio: "1.2:1", reverse, build` | texto + figura |
@@ -811,7 +812,7 @@ Infográfico × diagrama: infográfico é para itens paralelos em volta de uma i
 
 ## Diagramas (`diagram`)
 
-Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida, mapa de ideias: o campo `mermaid` leva o código [Mermaid](https://mermaid.js.org) e o sagadeck desenha com a fonte e a paleta do slide (troque tema/paleta e o diagrama acompanha). O visual é de diagrama de arquitetura bem feito: cada grupo (`subgraph`) ganha uma família de cor (fundo bem claro, título colorido, nós com preenchimento suave e contorno da mesma cor mais escura), setas em ângulo reto, texto em grafite (nunca preto chapado). No mapa mental, cada ramo tem sua família. O desenho ocupa a área livre do slide. Funciona offline no HTML; PDF e PowerPoint levam a imagem.
+Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida, mapa de ideias: o campo `mermaid` leva o código [Mermaid](https://mermaid.js.org) e o sagadeck desenha com a fonte e a paleta do slide (troque tema/paleta e o diagrama acompanha). O visual é de diagrama de arquitetura bem feito: cada grupo (`subgraph`) ganha uma família de cor (fundo bem claro, título colorido, nós com preenchimento suave e contorno da mesma cor mais escura), setas curvas que chegam limpas em cada caixa, texto em grafite (nunca preto chapado). `curve: angulo` deixa as ligações em degraus (bom para arquitetura com poucas ligações), `curve: reta` em linha reta. Rótulo com parênteses vai entre aspas (`A["Boca de lobo (BL1)"]`); sem aspas, o sagadeck põe. No mapa mental, cada ramo tem sua família. O desenho ocupa a área livre do slide. Funciona offline no HTML; PDF e PowerPoint levam a imagem.
 
 Direção automática: em fluxogramas o sagadeck desenha deitado (`LR`) e em pé (`TB`) e usa o que deixa a letra maior na área do slide. Escreva a direção que fizer sentido; `autoDirection: false` no slide mantém a do código (use só se a pessoa pedir uma direção).
 

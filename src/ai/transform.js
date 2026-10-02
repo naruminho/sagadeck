@@ -131,7 +131,8 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - \`full\` (imagem de fundo com texto por cima) só para FOTO; gráfico, esquema, mapa e tabela nunca vão em \`full\` (o texto cobre os dados): use \`split\` (texto ao lado) ou \`image\`.
 - Ciclo (algo que volta ao começo: ciclo hidrológico, PDCA, ciclo de vida): \`infographic\` com \`shape: ciclo\` (etapas em volta, setas curvas), nunca \`diagram\` (no fluxograma a volta vira setas cruzando o desenho).
 - Exercício novo: quando o material já tem os dados (a série, a tabela, a bacia do original), prefira usá-los.
-- Escreva em português, no tom do material (aula).`;
+- Figura de um slide: um ícone sozinho só quando não houver nada melhor; prefira um gráfico ou esquema do próprio conceito (declividade: o perfil do rio num \`chart\`).
+- Escreva em português, no tom do material (aula). Confira a ortografia de cada título e texto antes de responder.`;
 // o uso do material (o plano escolhe pelo pedido: "proposito"); vale para quem escreve
 const PURPOSE_RULES = {
   palestra: "- É para APRESENTAR (palestra): letra que se lê do fundo da sala. Não use \`dossier\` (página de consulta, letra pequena) nem encha um slide; o que é para ler depois vai em \`consulta\` (material de estudo) ou em outro slide.",
@@ -314,7 +315,8 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         const item = { acao: mode === "melhorar" ? "manter" : "escrever", de: [n], ideia: "(o plano esqueceu este slide: entra aqui para não perder o conteúdo)", auto: true };
         if (at < 0) job.plan.slides.push(item); else job.plan.slides.splice(at, 0, item);
       }
-      if (mode === "recriar") job.plan.slides.forEach((it) => { if (it.acao === "manter") it.acao = "escrever"; });
+      // recriar é redesenhar: nem "manter" nem "juntar" (juntar os progressivos guarda os desenhos velhos do original)
+      if (mode === "recriar") job.plan.slides.forEach((it) => { if (it.acao === "manter" || it.acao === "juntar") it.acao = "escrever"; });
       save();
     }
   }
@@ -502,6 +504,13 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       slides.push(...back);
       return;
     }
+    if (res.state === "pendente" && src.length && mode === "recriar") {
+      // recriar: o original não volta para o deck novo (destoava e duplicava: a capa velha antes da nova); a proposta
+      // fica, marcada para conferir o que faltou (o original continua em original/)
+      slides.push(...res.slides.map(({ _why, ...s }) => ({ ...s, review: { status: "revisar", note: clip(`Faltou do original (slide ${src.map((x) => x.original.slide).join(", ")}): ${res.missing}. Confira e complete se fizer falta.`, 300), original: Number(it.de[0]) } })));
+      report.revisar.push(`item ${k + 1}: ${res.missing}`);
+      return;
+    }
     if (res.state === "pendente" && src.length) {
       // omissão: o original fica, e a proposta vem logo depois, marcada para decidir
       const back = src.map((s) => ({ ...asOriginal(s), uid: newUid() }));
@@ -523,7 +532,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   const itemOfSlide = new Map();
   let cursor = 0;
   // (recalcula a posição de cada item no deck montado)
-  plan.slides.forEach((it, k) => { const res = job.results[k]; const n = !res?.slides ? srcOf(it).length : res.state === "pendente" && srcOf(it).length ? srcOf(it).length + res.slides.length : res.slides.length; for (let j = 0; j < n; j++) itemOfSlide.set(cursor + j, k); cursor += n; });
+  plan.slides.forEach((it, k) => { const res = job.results[k]; const n = !res?.slides ? srcOf(it).length : res.state === "pendente" && srcOf(it).length && mode === "melhorar" ? srcOf(it).length + res.slides.length : res.slides.length; for (let j = 0; j < n; j++) itemOfSlide.set(cursor + j, k); cursor += n; });
   for (const s of originals) {
     for (const unit of unitsOf(s)) {
       const where = [];
@@ -660,6 +669,7 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, m
   const content = [{ type: "text", text: `Confira slides NOVOS de uma aula contra as fotos dos slides ORIGINAIS. Aponte só problemas reais:
 - desenho: texto cortado, sobreposto, fora do slide, ilegível de tão pequeno, área vazia enorme, figura esticada;
 - conteúdo: informação que está no original e sumiu no novo (número, rótulo, parte de uma figura específica), figura errada.
+- texto: erro de digitação ou de ortografia (letra faltando ou trocada: "Méodo", "Refrências").
 ${mode === "recriar" ? "- o estilo é NOVO de propósito: a moldura do original (logos, faixas, cores, fontes, número da página) NÃO precisa estar no novo; não aponte isso.\n" : ""}Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
   origFiles.forEach((f, j) => { if (origUrls[j]) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: origUrls[j] } }); });
   shots.forEach((u, i) => { if (u) content.push({ type: "text", text: `NOVO ${i + 1} (do item ${produced[i].origem}):` }, { type: "image_url", image_url: { url: u } }); });
