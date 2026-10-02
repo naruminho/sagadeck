@@ -179,6 +179,18 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   - na mesma rodada: correção sem bloco ("nada a corrigir") contava como falha → fica como está; lote cuja
     resposta parava no meio perdia os itens → os que faltaram vão de novo, um por vez. Respostas que não serviram
     ficam em `.sagadeck/transform/falhas/` (as 40 últimas).
+- Casos de 02/10 (decks em `Pedidos de teste/`):
+  - **Apple prateado**: o `prata` (fiel ao branco da Apple de hoje) achado sem graça. Tema novo **`aluminio`**: a cara
+    dos lançamentos de iPhone e iPad de 2020-2021 (prata metálico com brilho de estúdio, alumínio escovado, título
+    cromado com a cor sólida em `color` para o fiscal medir, disco de metal polido na capa e na seção, cartões de
+    alumínio com chanfro, seção em azul-pacífico, escuro em grafite).
+  - **história dos videogames em 5 slides, temática, o último como mapa de Mario Kart visto de cima**: saiu no tema
+    alegre genérico e o último era um ciclo de bolinhas. Infográfico novo **`pista`** (circuito visto de cima: grama,
+    zebra, asfalto, largada quadriculada, caixas de item; os itens como marcos da volta e as placas em fila em cima e
+    embaixo, sem encavalar) e tema **`arcade`** (tela de tubo com linhas de varredura, neon, títulos em Press Start 2P,
+    rótulos em VT323, cartões de 8 bits, chão de tijolos na capa; fontes OFL embutidas).
+  - **transformers denso como aula**: bom de conteúdo (intuição, tokens, atenção com números, softmax, Python, tabela
+    da próxima palavra, temperatura, perda, limites). Ficou para depois: fluxo de 10 a 12 caixas em fila sai miúdo.
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

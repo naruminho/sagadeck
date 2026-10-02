@@ -21,6 +21,8 @@ const FONTS = [
   ["Plus Jakarta Sans", "@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2", "200 800"],
   ["Fredoka", "@fontsource-variable/fredoka/files/fredoka-latin-wght-normal.woff2", "300 700"],
   ["Inter", "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", "100 900"],
+  ["Press Start 2P", "@fontsource/press-start-2p/files/press-start-2p-latin-400-normal.woff2", "400"],
+  ["VT323", "@fontsource/vt323/files/vt323-latin-400-normal.woff2", "400"],
 ];
 
 fs.rmSync(OUT, { recursive: true, force: true });

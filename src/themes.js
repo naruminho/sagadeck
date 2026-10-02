@@ -293,6 +293,59 @@ export const THEMES = {
     },
     radius: 20, deco: "silver",
   },
+  // Alumínio: a cara dos lançamentos de iPhone e iPad de 2020-2021 (prata metálico, alumínio escovado, títulos
+  // cromados, grafite no escuro). O prata segue fiel ao branco da Apple de hoje.
+  aluminio: {
+    label: "Alumínio — lançamento de iPhone e iPad (2020): prata metálico, títulos cromados, alumínio escovado e grafite",
+    colors: {
+      paper: "E4E5E9", ink: "1C1C1E", accent: "0066CC", alert: "D70015",
+      muted: "5E5E63", line: "C3C5CA", surface: "F4F5F7", surfaceDark: "2C2C2E",
+      c1: "0066CC", c2: "3A3A3C", c3: "8E8E93", c4: "B7BAC1", c5: "1C1C1E",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "D1D3D8", em: "accent", onHi: "ink" },
+      dark: { bg: "1C1C1E", fg: "F5F5F7", muted: "A1A1A6", line: "3A3A3C", surface: "surfaceDark", hi: "48484A", em: "2997FF", onHi: "FFFFFF" },
+      // azul-pacífico do iPhone 12 Pro, metálico (a pele põe o brilho)
+      accent: { bg: "1D3A50", fg: "FFFFFF", muted: "C5D6E3", line: "3F6580", surface: "2A4C64", hi: "FFFFFF", em: "8FC1E3", onHi: "1D3A50" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFD1D4", line: "F0525F", surface: "B30012", hi: "FFFFFF", em: "FFFFFF", onHi: "alert" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif; font-weight: 700; letter-spacing: -0.04em; line-height: 0.96;", pptx: { face: "Segoe UI", bold: true } },
+      heading: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: -0.02em; line-height: 1.06;", pptx: { face: "Segoe UI Semibold" } },
+      body: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: -0.005em; line-height: 1.38;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: 'SF Mono', ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif; font-weight: 300; letter-spacing: -0.02em; line-height: 1.15;", pptx: { face: "Segoe UI Light" } },
+    },
+    radius: 24, deco: "none",
+  },
+  // Arcade: videogame, fliperama, cultura pop dos anos 80 e 90. Tela de tubo azul-noite com linhas de varredura, neon
+  // amarelo/ciano/magenta, títulos em pixel (Press Start 2P), rótulos de placar (VT323), cartões com borda de pixel.
+  arcade: {
+    label: "Arcade — videogame e fliperama: tela de tubo com linhas, neon, títulos em pixel e cartões de 8 bits",
+    colors: {
+      paper: "0E0B26", ink: "F4F1FF", accent: "FFD23F", alert: "FF3864",
+      muted: "A9A3D6", line: "2E2860", surface: "1B1640", surfaceDark: "120E30",
+      c1: "FFD23F", c2: "2DE2E6", c3: "FF3864", c4: "7CFF6B", c5: "B967FF",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "2DE2E6", onHi: "0E0B26" },
+      dark: { bg: "050410", fg: "ink", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "2DE2E6", onHi: "0E0B26" },
+      accent: { bg: "3A0CA3", fg: "FFFFFF", muted: "D7C8FF", line: "5B2BD1", surface: "4A1CB8", hi: "FFD23F", em: "FFD23F", onHi: "0E0B26" },
+      alert: { bg: "alert", fg: "FFFFFF", muted: "FFD0DA", line: "FF6B8B", surface: "C2183E", hi: "FFD23F", em: "FFFFFF", onHi: "0E0B26" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Press Start 2P', 'Courier New', monospace; font-weight: 400; letter-spacing: -0.02em; line-height: 1.22;", pptx: { face: "Press Start 2P" } },
+      heading: { css: "font-family: 'VT323', 'Courier New', monospace; font-weight: 400; letter-spacing: 0.01em; line-height: 0.98;", pptx: { face: "VT323" } },
+      body: { css: "font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 500; line-height: 1.36;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: 'VT323', 'Courier New', monospace; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.1;", pptx: { face: "VT323" } },
+      mono: { css: `font-family: 'VT323', ${SYS_MONO}; line-height: 1.25;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'VT323', 'Courier New', monospace; font-weight: 400; line-height: 1.05;", pptx: { face: "VT323" } },
+    },
+    radius: 0, deco: "none",
+  },
   // Par técnico (material de consulta, tutorial, apostila): o claro imprime bem, o escuro descansa a vista.
   // pair: o Studio alterna entre os dois (Design › Claro/Escuro) e o PDF pode sair no claro (Preferências).
   manual: {
