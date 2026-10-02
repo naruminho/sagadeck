@@ -178,20 +178,36 @@ function column(o, W, H) {
   return wrap(W, H, g + axisTitles(o, W, H), o, "column");
 }
 
+// marcações "redondas" do eixo (passo 1, 2, 2,5 ou 5 × 10^k, umas 4 a 6): arredondar para inteiro deixava um eixo de
+// 0 a 1 só com "0" e "1"
+export function niceTicks(min, max, want = 5) {
+  if (!(max > min)) return [min];
+  const raw = (max - min) / want, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((x) => x >= raw);
+  const out = [];
+  for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + 1e-9; v += step) out.push(+v.toPrecision(12));
+  return out;
+}
 function line(o, W, H) {
   const series = o.series || [{ values: o.values }];
-  const labels = o.labels || series[0].values.map((_, i) => String(i + 1));
+  // rótulo que veio como número (0.5): com vírgula, como o resto do gráfico
+  const labels = (o.labels || series[0].values.map((_, i) => String(i + 1))).map((l) => (typeof l === "number" ? l.toLocaleString("pt-BR") : l));
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   const min = o.min ?? Math.min(0, ...all), max = o.max ?? Math.max(...all) * 1.1;
-  const L = (o.axis === false ? 10 : 90) + (o.yLabel ? 40 : 0), R = 40, T = 50, B = o.xLabel ? 110 : 70;
+  // nomes no fim das linhas, a não ser que se encostem (as linhas terminam juntas) ou o slide peça legenda: aí, legenda em cima
+  const ends = series.length > 1 ? series.map((s) => s.values.filter((v) => v != null).at(-1)) : [];
+  const useLegend = series.length > 1 && (o.legend === true || ends.some((a, i) => ends.some((b, j) => j > i && Math.abs(a - b) <= (max - min) * 0.08)));
+  const L = (o.axis === false ? 10 : 90) + (o.yLabel ? 40 : 0), R = 40, T = useLegend ? 80 : 50, B = o.xLabel ? 110 : 70;
   const cw = W - L - R, ch = H - T - B, n = labels.length;
   const X = (i) => L + (n === 1 ? cw / 2 : (cw * i) / (n - 1));
   const Y = (v) => T + ch - ((v - min) / (max - min)) * ch;
-  let g = "";
-  const ticks = o.ticks ?? [min, (min + max) / 2, max].map((v) => Math.round(v));
+  let g = useLegend ? legendSVG(series, W) : "";
+  const ticks = o.ticks ?? niceTicks(min, max);
+  // casas do passo (0,25 não vira "0,3"); o decimals do slide vale
+  const tickDec = Math.min(4, Math.max(0, ...ticks.map((t) => (String(t).split(".")[1] || "").length)));
   if (o.axis !== false) ticks.forEach((t) => {
     g += `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}" style="stroke:var(--line)" stroke-width="2"/>`;
-    g += `<text x="${L - 16}" y="${Y(t) + 9}" text-anchor="end" class="f-label" font-size="22" style="fill:var(--muted)">${esc(fmt(t, o))}</text>`;
+    g += `<text x="${L - 16}" y="${Y(t) + 9}" text-anchor="end" class="f-label" font-size="22" style="fill:var(--muted)">${esc(fmt(t, { decimals: tickDec, ...o }))}</text>`;
   });
   const gap = n > 1 ? cw / (n - 1) : cw;
   const axis = labels.map((l, i) => {
@@ -227,7 +243,7 @@ function line(o, W, H) {
         g += `<circle class="fade-in" style="--i:${si * 2 + k};fill:${last ? color : "var(--bg)"};stroke:${color}" cx="${p[0]}" cy="${p[1]}" r="${last ? 11 : 7}" stroke-width="4"/>`;
       });
     });
-    if (series.length > 1 && s.name) {
+    if (series.length > 1 && s.name && !useLegend) {
       // rótulo no fim da linha: a série mais alta ali ganha o rótulo acima; as outras, abaixo
       const lastIdx = s.values.map((v, i) => (v != null ? i : -1)).filter((i) => i >= 0).pop();
       const endVals = series.map((x) => x.values[lastIdx] ?? -Infinity);

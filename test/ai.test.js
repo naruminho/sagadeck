@@ -589,6 +589,22 @@ test("YAML da IA: texto com ': ' sem aspas e LaTeX entre aspas duplas são conse
     assert.equal(parseYaml(y2).t, String.raw`$$i = \frac{a \cdot Tr^{b}}{(t+c)^{d}}$$`, y2);
   // valor que começa com "Palavra: " (Fonte: …) e tem outros ": " no meio
   assert.equal(parseYaml("a:\n  source: Fonte: Macedo (2020). Equação: I = K·TR^m").a.source, "Fonte: Macedo (2020). Equação: I = K·TR^m");
+  // casos da rodada 02/10: texto que começa entre aspas e continua depois delas; texto com ": " que segue na linha de baixo
+  const y3 = [
+    "slides:",
+    "  - title: A",
+    '    mudou: "Ajute" corrigido para "Ajuste"; número do posto mantido como',
+    "      no original",
+    "    text: x",
+    "  - title: B",
+    "    mudou: Adicionados os rótulos faltantes: Maior precipitação, Maior Evaporação e",
+    "      Variações no nível",
+    "    text: y",
+  ].join("\n");
+  const [a3, b3] = parseYaml(y3).slides;
+  assert.equal(a3.mudou, '"Ajute" corrigido para "Ajuste"; número do posto mantido como no original');
+  assert.equal(b3.mudou, "Adicionados os rótulos faltantes: Maior precipitação, Maior Evaporação e Variações no nível");
+  assert.deepEqual([a3.text, b3.text], ["x", "y"]);
   // o que já era válido continua igual (quebra de linha escapada, aspas escapadas)
   assert.equal(parseYaml(String.raw`a: "linha 1\nlinha 2 \"x\""`).a, 'linha 1\nlinha 2 "x"');
 });

@@ -52,3 +52,11 @@ test("a IA escreve fórmula e tabela de outros jeitos: \\( \\), \\[ \\], \\\\fra
   assert.equal((one.match(/<tr class="">/g) || []).length, 3, "3 linhas de dados");
   assert.match(one, /<\/table><\/div><b>Entregar por email\.<\/b>$/);
 });
+
+test("número sozinho entre cifrões é fórmula ($2$, $10^3$), dinheiro com espaço continua texto", () => {
+  assert.match(md("$K_c > 1{,}5$ a $2$ alongada"), /^<span class="katex">[\s\S]*a <span class="katex">[\s\S]*alongada$/);
+  assert.doesNotMatch(md("$K_c > 1{,}5$ a $2$"), /\$/, "nenhum cifrão sobra");
+  assert.match(md("entre $10^3$ e"), /class="katex"/);
+  assert.equal(md("Custa R$ 10 e $5 ou $6"), "Custa R$ 10 e $5 ou $6");
+  assert.equal(md("de $5 a $10 por mês"), "de $5 a $10 por mês");
+});

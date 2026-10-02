@@ -9,7 +9,7 @@ import pptxgen from "pptxgenjs";
 import { startMockLLM } from "./mock-llm.js";
 import { openLibrary } from "../src/library.js";
 import { mergeProgressive, isProgressive } from "../src/import/merge.js";
-import { factsOf, missingFacts, transformDeck, jobStatus, jsonLoose, nearImage } from "../src/ai/transform.js";
+import { factsOf, missingFacts, transformDeck, jobStatus, jsonLoose, nearImage, vocabularyOf, typosOf } from "../src/ai/transform.js";
 import { browserOrSkip, startStudio } from "./helpers.js";
 
 process.env.SAGADECK_NO_OFFICE = "1";
@@ -505,6 +505,49 @@ test("correção que volta só com o item corrigido: vale; os outros itens do bl
     assert.ok(r.spec.slides.some((s) => s.layout === "question"), "o item que não voltou na correção ficou como estava");
     assert.equal(r.report.status, "concluido");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+// Rodada 02/10: 4 lotes perderam a correção porque o YAML veio quebrado (e desistia), e 4 ficaram sem a conferência
+// visual porque a visão não devolveu JSON nem na 2ª vez; erros de digitação ("Ajute") ficaram no deck.
+test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON duas vezes confere em metades; grafia vai como dica", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const looks = [], fixes = [];
+  const llm = await startMockLLM((req) => {
+    const u = req.lastUser;
+    if (/Confira slides NOVOS/.test(u)) {
+      const n = (u.match(/NOVO \d+ \(do item/g) || []).length;
+      looks.push(n);
+      return looks.length <= 2 ? "Vou olhar slide por slide, com calma..." : '```json\n{"slides":[{"i":1,"ok":true}]}\n```';
+    }
+    if (/Escreva os slides destes itens/.test(u)) return handler(req).replace("coeficiente 57", "coeficinte 57");
+    if (/Conferi estes slides|Não deu para usar/.test(u)) {
+      fixes.push(u);
+      if (fixes.length === 1) return "```yaml\nslides:\n  - layout: statement\n      origem: 2\n    text: quebrado\n```";
+      const asked = req.messages.find((m) => m.role === "user" && /Escreva os slides destes itens/.test(typeof m.content === "string" ? m.content : ""));
+      return handler({ ...req, lastUser: asked.content }).replace(/0,5 km²; coeficiente 57\./, "0,5 km²; coeficiente 57, expoente 0,385.");
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!r.report.problemas.some((p) => /correção|conferência visual/.test(p)), JSON.stringify(r.report.problemas));
+    assert.match(fixes[0], /"coeficinte" \(no original: "coeficiente"\)/, "a grafia vai como dica na correção");
+    assert.match(fixes[1], /Não deu para usar/, "o YAML quebrado volta com o erro");
+    assert.match(r.spec.slides.find((s) => /Kirpich/.test(s.text || "")).text, /0,385/, "a correção entrou na 2ª tentativa");
+    assert.ok(looks.length >= 4 && looks[2] < looks[0] && looks[3] < looks[0], `fotos por conferência: ${looks.join(", ")}`);
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("grafia: palavra do original com uma letra a menos (no meio) ou sem acento; plural e o novo acentuado não contam", () => {
+  const orig = [{ elements: [{ textbox: { paragraphs: [{ runs: [{ t: "AJUSTE DE DISTRIBUIÇÃO; Método; Referências; período; chuvas; barras" }] }] } }] }];
+  const v = vocabularyOf(orig);
+  assert.deepEqual(typosOf([{ title: "Ajute de Distribuião", text: "Méodo, Refrências, Periodo, arras, chuva, $Ajute$" }], v),
+    ['"Ajute" (no original: "AJUSTE")', '"Distribuião" (no original: "DISTRIBUIÇÃO")', '"Méodo" (no original: "Método")', '"Refrências" (no original: "Referências")', '"Periodo" (no original: "período")', '"arras" (no original: "barras")']);
+  assert.deepEqual(typosOf([{ text: "Período e método, as chuvas" }], v), []);
 });
 
 // O que a visão leu numa figura (eixos, coordenadas) é aproximado e, numa figura redesenhada, nem precisa estar no

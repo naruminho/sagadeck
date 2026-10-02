@@ -177,6 +177,7 @@
         k.style.fontSize = em.toFixed(3) + "em";
       }
     });
+    const shrunk = [];
     root.querySelectorAll(".safe .t").forEach((t) => {
       if (t.dataset.fw0) { t.style.fontSize = t.dataset.fw0 + "px"; }
       if (t.hasAttribute("data-vsize") || t.querySelector(".t") || t.closest(".code, .katex, svg, .ttl") || !t.clientWidth) return;
@@ -186,7 +187,27 @@
       if (!t.dataset.fw0) t.dataset.fw0 = parseFloat(getComputedStyle(t).fontSize);
       let fs = +t.dataset.fw0;
       for (let guard = 0; t.scrollWidth > t.clientWidth + 2 && fs > t.dataset.fw0 * 0.5 && guard < 16; guard++) { fs *= 0.95; t.style.fontSize = fs.toFixed(1) + "px"; }
+      shrunk.push(t);
     });
+    // irmãos de uma grade (cartões, números, passos) ficam do mesmo tamanho: cada um encolhendo por conta própria
+    // deixava "Geologia" maior que "Topografia" no slide ao lado
+    const groupOf = (t) => {
+      for (let a = t.parentElement, i = 0; a && i < 4 && !a.classList.contains("safe"); a = a.parentElement, i++) {
+        const p = a.parentElement, k = a.classList[0];
+        if (p && k && [...p.children].filter((x) => x.classList[0] === k).length > 1) return [...p.children].filter((x) => x.classList[0] === k);
+      }
+      return null;
+    };
+    for (const t of shrunk) {
+      const kin = groupOf(t), cls = t.classList[0];
+      if (!kin || !cls) continue;
+      const all = kin.flatMap((x) => [...x.querySelectorAll(`.${cls}`)]).filter((x) => !x.hasAttribute("data-vsize"));
+      const min = Math.min(...all.map((x) => parseFloat(getComputedStyle(x).fontSize)));
+      for (const x of all) if (parseFloat(getComputedStyle(x).fontSize) > min + 0.2) {
+        if (!x.dataset.fw0) x.dataset.fw0 = parseFloat(getComputedStyle(x).fontSize);
+        x.style.fontSize = min.toFixed(1) + "px";
+      }
+    }
   }
 
   // Imagem sem encaixe escolhido (data-autofit): preenche a caixa (cover), mas se a proporção do arquivo é bem diferente
