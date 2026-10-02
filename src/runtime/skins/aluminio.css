@@ -1,0 +1,33 @@
+/* Alumínio (lançamento de iPhone e iPad, 2020-2021): prata metálico com brilho de luz de estúdio, alumínio escovado,
+   títulos cromados (a cor continua sólida em "color": o fiscal mede o contraste por ela), cartões de metal com
+   chanfro de luz; capa com o título embaixo à esquerda e um disco de metal polido à direita; o escuro é grafite */
+.th-aluminio.tone-light{background:radial-gradient(120% 90% at 18% 0%,#fdfdfe 0%,rgba(253,253,254,0) 55%),linear-gradient(165deg,#f2f3f5 0%,#dfe0e4 48%,#c9cbd0 100%)}
+.th-aluminio.tone-accent{background:radial-gradient(110% 80% at 80% 0%,#4f7590 0%,rgba(79,117,144,0) 60%),linear-gradient(170deg,#2f5168 0%,#1d3a50 60%,#142a3b 100%)}
+.th-aluminio.tone-dark{background:radial-gradient(110% 80% at 80% 0%,#3a3a3e 0%,rgba(58,58,62,0) 60%),linear-gradient(170deg,#2a2a2d 0%,#161618 70%,#0e0e10 100%)}
+/* escovado: linhas finíssimas na horizontal, quase nada (dá o "metal" sem virar listra) */
+.th-aluminio::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:repeating-linear-gradient(180deg,rgba(255,255,255,.07) 0 1px,rgba(0,0,0,.025) 1px 3px)}
+.th-aluminio.tone-dark::after{opacity:.35;background:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 1px,rgba(0,0,0,.08) 1px 3px)}
+/* título cromado: grafite que clareia no meio, como o reflexo num corpo de alumínio */
+.th-aluminio .ttl{background:linear-gradient(180deg,#48484c 0%,#1c1c1e 38%,#4a4a4f 62%,#8e8e93 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.th-aluminio.tone-dark .ttl{background:linear-gradient(180deg,#ffffff 0%,#e5e5ea 40%,#a1a1a6 70%,#d1d1d6 100%);-webkit-background-clip:text;background-clip:text}
+.th-aluminio .ttl :is(mark,.em,.katex){-webkit-text-fill-color:currentColor}
+.th-aluminio.tone-accent .ttl,.th-aluminio.tone-alert .ttl{background:none;-webkit-text-fill-color:currentColor}
+/* kicker: pílula de metal com contorno fino, sem fundo cheio */
+.th-aluminio .kicker{align-self:flex-start;padding:6px 20px;border:1.5px solid color-mix(in srgb,var(--fg) 28%,transparent);border-radius:999px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;background:transparent}
+/* capa e fim: o título embaixo à esquerda; à direita, um disco de metal polido (o brilho de um produto) */
+.th-aluminio .L-cover:not(:has(.cv-fig)) .cv-main,.th-aluminio .L-end:not(:has(.en-fig)) .en-main{justify-content:flex-end;align-items:flex-start;text-align:left;padding-bottom:30px;max-width:1150px}
+.th-aluminio .orn i:nth-child(1){display:block;width:760px;height:760px;right:-160px;top:-120px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#ffffff 0%,#eceef1 18%,#c3c6cc 46%,#9a9da4 70%,#d9dbdf 100%);box-shadow:inset -30px -40px 80px rgba(0,0,0,.18),inset 30px 30px 60px rgba(255,255,255,.7),0 40px 120px rgba(0,0,0,.12)}
+.th-aluminio.tone-dark .orn i:nth-child(1){background:radial-gradient(circle at 34% 28%,#6e6e73 0%,#3a3a3e 30%,#1c1c1e 70%,#2c2c2e 100%);box-shadow:inset -30px -40px 80px rgba(0,0,0,.5),inset 20px 20px 60px rgba(255,255,255,.08),0 40px 120px rgba(0,0,0,.5)}
+.th-aluminio .orn i:nth-child(2){display:block;left:120px;right:120px;bottom:96px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fg) 30%,transparent),transparent)}
+.th-aluminio:not(.L-cover-slide):not(.L-end-slide):not(.L-section-slide)>.orn i:nth-child(1){display:none}
+.th-aluminio.L-cover-slide .cv-fig,.th-aluminio.L-end-slide .en-fig{z-index:1}
+/* seção: número grande em metal, o título ao lado */
+.th-aluminio .L-section:not(:has(.sc-fig)){flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:60px;padding-bottom:40px}
+.th-aluminio .sc-num{font-size:220px;line-height:.8;background:linear-gradient(180deg,#ffffff 0%,#c7c9ce 45%,#8e9097 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12))}
+/* cartões, números e citação: alumínio com chanfro (luz em cima, sombra embaixo) */
+.th-aluminio :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,#fbfbfc 0%,#eceef1 55%,#e1e3e7 100%);border:1px solid rgba(0,0,0,.08);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.06),0 18px 40px -18px rgba(0,0,0,.25)}
+.th-aluminio.tone-dark :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,#3a3a3e 0%,#2c2c2e 55%,#232325 100%);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 18px 40px -18px rgba(0,0,0,.7)}
+.th-aluminio .cd-ico,.th-aluminio .st-icon,.th-aluminio .step-icon{background:radial-gradient(circle at 35% 30%,#ffffff,#d1d3d8 60%,#b5b8be);color:var(--em);box-shadow:inset 0 -2px 4px rgba(0,0,0,.15)}
+.th-aluminio .hd::after{content:"";flex:none;width:120px;height:4px;border-radius:4px;background:linear-gradient(90deg,#8e8e93,#e5e5ea,#8e8e93)}
+.th-aluminio .li-n{color:var(--muted)}
+.th-aluminio .q-mark{color:#a1a1a6}

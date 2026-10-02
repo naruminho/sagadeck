@@ -4,7 +4,7 @@
 // (data-fit). Uma cor por item, tirada do tema: numa paleta de família, os parentes dela; senão, tons harmônicos
 // ao destaque. Neutros (fundo, linhas, texto) são as variáveis do tom do slide, então funciona em claro e escuro.
 //
-//   shape: arco | ramos | lados | trilhas | metro | ciclo
+//   shape: arco | ramos | lados | trilhas | metro | ciclo | pista
 //   center: "Título" ou { title, text, icon }
 //   items: [{ title, text, icon, steps: [...] (só trilhas) }]
 import { md } from "./markup.js";
@@ -18,6 +18,7 @@ export const INFOGRAPHIC_SHAPES = {
   trilhas: { max: 4, label: "Trilhas: um objetivo e linhas de etapas encadeadas (estratégia, tática…), uma cor por coluna" },
   metro: { max: 7, label: "Metrô: centro e linhas que se abrem até cada item, com ícone e legenda" },
   ciclo: { max: 8, label: "Ciclo: etapas em volta de um círculo, cada uma ligada à seguinte por uma seta curva (ciclo da água, PDCA, ciclo de vida)" },
+  pista: { max: 8, label: "Pista: um circuito de corrida visto de cima (estilo Mario Kart), com os itens como marcos ao longo da volta (uma história, uma jornada, as fases de um projeto)" },
 };
 
 // ---- cores ----------------------------------------------------------------------------------------------------
@@ -269,7 +270,86 @@ function ciclo(s, items, cols, theme) {
   return base + layers.join("");
 }
 
-const SHAPES = { arco, ramos, lados, trilhas, metro, ciclo };
+// Pista: um circuito de corrida visto de cima (estilo Mario Kart), com grama, zebra, asfalto, faixa do meio, largada
+// quadriculada e caixas de item; os itens são os marcos da volta, a distâncias iguais a partir da largada, cada um com
+// a sua placa (o cartão vai para fora da pista, ou para dentro quando a borda do palco não deixa); o centro é a placa
+// do meio do circuito. As cores da cena (grama, asfalto, zebra) são as de uma pista; os marcos, as do tema.
+// achatada no meio do palco: em cima e embaixo sobra uma faixa para as placas
+const TRACK = [[190, 470], [200, 210], [400, 105], [610, 235], [820, 120], [1110, 105], [1430, 150], [1535, 360], [1390, 575], [1010, 600], [700, 520], [430, 610]]
+  .map(([x, y]) => [Math.round(140 + (x - 190) * 1.04), Math.round(350 + (y - 357) * 0.5)]);
+function trackModel() {
+  const n = TRACK.length, P = (i) => TRACK[(i + n) % n];
+  const segs = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    segs.push([p1, [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6], p2]);
+  }
+  const d = `M${F(segs[0][0][0])} ${F(segs[0][0][1])}` + segs.map(([, a, b, c]) => ` C${F(a[0])} ${F(a[1])} ${F(b[0])} ${F(b[1])} ${F(c[0])} ${F(c[1])}`).join("") + " Z";
+  const pts = [];
+  for (const [a, b, c, e] of segs) for (let k = 0; k < 40; k++) {
+    const t = k / 40, u = 1 - t;
+    pts.push([u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * e[0], u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * e[1]]);
+  }
+  const len = [0];
+  for (let i = 1; i <= pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i % pts.length][0] - pts[i - 1][0], pts[i % pts.length][1] - pts[i - 1][1]));
+  const total = len[len.length - 1];
+  // ponto e direção a uma fração da volta
+  const at = (f) => {
+    const L = ((f % 1) + 1) % 1 * total;
+    let i = len.findIndex((v) => v > L) - 1; if (i < 0) i = 0;
+    const p = pts[i % pts.length], q = pts[(i + 1) % pts.length], dx = q[0] - p[0], dy = q[1] - p[1], m = Math.hypot(dx, dy) || 1;
+    return { x: p[0], y: p[1], tx: dx / m, ty: dy / m };
+  };
+  const cx = TRACK.reduce((a, p) => a + p[0], 0) / n, cy = TRACK.reduce((a, p) => a + p[1], 0) / n;
+  return { d, at, cx, cy };
+}
+function pista(s, items, cols, theme) {
+  const n = items.length, c = centerOf(s), T = trackModel(), RW = 86;
+  const grass = "#5DAE4F", grass2 = "#4E9A43", asphalt = "#5B6068";
+  // árvores e arbustos fixos (a mesma pista em toda exportação)
+  const trees = [[90, 90], [130, 640], [700, 60], [980, 260], [1250, 300], [1600, 90], [1610, 640], [560, 400], [1180, 420], [300, 330], [850, 660], [1560, 520]];
+  const start = T.at(0), ang = (Math.atan2(start.ty, start.tx) * 180) / Math.PI;
+  const boxes = [0.18, 0.47, 0.79].map((f) => T.at(f));
+  let base = svg(`${shadow()}<defs><pattern id="${ID}k" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="#fff"/><rect width="10" height="10" fill="#111"/><rect x="10" y="10" width="10" height="10" fill="#111"/></pattern>
+      <linearGradient id="${ID}q" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset=".5" stop-color="#FF6FB5"/><stop offset="1" stop-color="#5BC0FF"/></linearGradient></defs>
+    <rect x="0" y="0" width="${W}" height="${H}" rx="36" fill="${grass}"/>
+    ${trees.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${18 + (i % 3) * 6}" fill="${grass2}"/><circle cx="${x - 6}" cy="${y - 6}" r="${8 + (i % 3) * 3}" fill="#6BC25C"/>`).join("")}
+    <path d="${T.d}" fill="none" stroke="#fff" stroke-width="${RW + 22}" stroke-linejoin="round"/>
+    <path d="${T.d}" fill="none" stroke="#E53935" stroke-width="${RW + 22}" stroke-dasharray="26 26" stroke-linejoin="round"/>
+    <path d="${T.d}" fill="none" stroke="${asphalt}" stroke-width="${RW}" stroke-linejoin="round"/>
+    <path d="${T.d}" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="26 30" opacity=".85"/>
+    <rect x="${F(start.x - 12)}" y="${F(start.y - RW / 2)}" width="24" height="${RW}" fill="url(#${ID}k)" transform="rotate(${F(ang)} ${F(start.x)} ${F(start.y)})"/>
+    ${boxes.map((b, i) => `<rect x="${F(b.x - 15)}" y="${F(b.y - 15)}" width="30" height="30" rx="6" fill="url(#${ID}q)" stroke="#fff" stroke-width="3" opacity=".95" transform="rotate(${20 + i * 25} ${F(b.x)} ${F(b.y)})"/>`).join("")}
+    ${c.title || c.text ? `<rect x="${F(T.cx - 170)}" y="${F(T.cy - 36)}" width="340" height="72" rx="16" style="fill:var(--bg);stroke:color-mix(in srgb,var(--fg) 20%,var(--bg))" stroke-width="3" filter="url(#${ID}s)"/>` : ""}`);
+  if (c.title || c.text) base += box(T.cx - 158, T.cy - 31, 316, 62, `${title(c.title, 26, FG, "font-weight:800;line-height:1.05")}${body(c.text, 15, FG)}`, { align: "center", cls: "ig-center" });
+  // cada marco vai para a faixa de cima ou de baixo (a mais perto); na faixa, as placas em fila, na ordem de x, sem
+  // encavalar; um tracejado liga o marco à placa
+  const marks = items.map((it, i) => ({ it, i, p: T.at((i + 0.5) / n) }));
+  const bands = [marks.filter((m) => m.p.y < T.cy), marks.filter((m) => m.p.y >= T.cy)];
+  const bh = 104, layers = [];
+  bands.forEach((band, up) => {
+    const k = band.length; if (!k) return;
+    band.sort((a, b) => a.p.x - b.p.x);
+    const gap = 14, bw = Math.min(330, (W - 12 - gap * (k - 1)) / k);
+    // a placa fica embaixo do x do marco quando dá; senão, empurra para os lados
+    let xs = band.map((m) => Math.max(6, Math.min(W - 6 - bw, m.p.x - bw / 2)));
+    for (let r = 0; r < 4; r++) for (let j = 1; j < k; j++) if (xs[j] < xs[j - 1] + bw + gap) xs[j] = xs[j - 1] + bw + gap;
+    const over = xs[k - 1] + bw - (W - 6); if (over > 0) xs = xs.map((x) => x - over);
+    for (let j = k - 2; j >= 0; j--) if (xs[j] + bw + gap > xs[j + 1]) xs[j] = xs[j + 1] - bw - gap;
+    const by = up ? H - 6 - bh : 6;
+    band.forEach((m, j) => {
+      const { it, i, p } = m, col = cols[i], on = `#${onColor(theme, col)}`, bx = xs[j];
+      const g = svg(`<path d="M${F(p.x)} ${F(p.y)} L${F(bx + bw / 2)} ${F(up ? by : by + bh)}" stroke="#fff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" fill="none"/>
+        <rect x="${F(bx)}" y="${F(by)}" width="${F(bw)}" height="${bh}" rx="18" style="fill:var(--bg)" filter="url(#${ID}s)"/><rect x="${F(bx)}" y="${F(by)}" width="10" height="${bh}" rx="5" style="fill:#${col}"/>
+        <circle cx="${F(p.x)}" cy="${F(p.y)}" r="31" fill="#fff" filter="url(#${ID}s)"/><circle cx="${F(p.x)}" cy="${F(p.y)}" r="25" style="fill:#${col}"/>`);
+      const num = box(p.x - 25, p.y - 25, 50, 50, it.icon ? icon(it.icon, 26, on) : title(String(i + 1), 24, on, "font-weight:800"), { align: "center" });
+      layers[i] = layer(g + num + box(bx + 22, by + 8, bw - 32, bh - 16, `${title(it.title, 24, `#${col}`, "font-weight:800")}${body(it.text, 17, FG)}`), s.build ? i + 1 : 0);
+    });
+  });
+  return base + layers.join("");
+}
+
+const SHAPES = { arco, ramos, lados, trilhas, metro, ciclo, pista };
 
 export function infographicHTML(s, ctx) {
   const shape = SHAPES[s.shape] ? s.shape : "arco";
