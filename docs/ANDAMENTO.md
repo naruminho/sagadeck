@@ -8,17 +8,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## Experiências exploráveis e autonomia — 02/10/2026 (em execução)
+## Experiências exploráveis e autonomia — 02/10/2026
 
 Plano completo e estado de retomada: `docs/PLANO-EXPERIENCIAS.md`. Pedido do usuário: implementar as sete frentes, registrar avanços e publicar etapas validadas.
 
 - Branch `codex/experiencias-exploraveis`. Sem mudanças em decks pessoais ou no Oracle.
-- Implementado, em validação: calc com cenários, comparação congelada, restaurar, previsão/revelação, curva ligada às entradas e selo ilustrativo; formulário; demo Explore uma ideia; estados e explicações no material de estudo.
+- Implementado e validado: calc com cenários, comparação congelada, restaurar, previsão/revelação, curva ligada às entradas e selo ilustrativo; formulário; demo Explore uma ideia; estados e explicações no material de estudo.
 - Agente: validação de fórmulas em estados/extremos; `review: true` fotografa estados e devolve achados ao agente para uma correção. Revisão indisponível permanece explicitamente sem conferência.
 - Elementos: continuidade de posição/tamanho por nome entre cenas, respeitando movimento reduzido.
 - Direção de arte: variantes podem propor tema para o conjunto com composição do conteúdo real, aplicação explícita na escolha.
-- Avaliação: cinco pedidos independentes em `src/ai/evaluation.js`, execução real por `tools/evaluate-autonomy.mjs`, relatórios e decks na biblioteca. Tokens/custo ficam indisponíveis quando não medidos; não inventados.
-- Base verificada: npm test, 680 testes, 660 passaram, 20 pulados, zero falhas (14 min). Testes direcionados de interação e IA passaram. Suite final e avaliação real ainda pendentes; não declarar concluído antes delas.
+- Avaliação: cinco pedidos independentes em `src/ai/evaluation.js`, execução real por `tools/evaluate-autonomy.mjs`, relatórios e decks na biblioteca. Tokens/custo medidos em escopo isolado por tarefa, quando informados pelo provedor; ausência não vira zero.
+- Validação final: npm test, 691 testes; 671 passaram, 20 pulados, zero falhas. Testes específicos adicionais de Studio, IA, contraste, continuidade, estudo offline e medição concorrente passaram. Bundle atualizado.
+- Avaliação real: duas rodadas de cinco casos. Segunda rodada: geometria e narrativa conferidas; demais com pendências explícitas. A avaliação identificou contraste ruim de resultados alterados e escala ausente na curva: corrigidos no motor, sem retocar os exemplos.
+- Formulário extraído para calc-fields.js; prévias de direção em iframe isolado (art-preview.js), sem vazamento de CSS. Limite de tamanho do formulário reduzido.
+- Porta atual por instrução expressa do usuário: 3517. O processo SagaDeck anterior foi substituído; wotan-router em 3001 preservado. Demo: /editor?model=explorar. Sem deploy remoto.
 
 
 ## Senso crítico da recriação: a IA ganha ferramentas para se corrigir — 02/10/2026

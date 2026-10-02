@@ -1,13 +1,15 @@
 // Modelos de fábrica são código; as apresentações criadas ficam somente na biblioteca.
 import { COLLECTION_NAMES, COLLECTION_ASSETS, collectionDeck } from './template-collections.js';
 import { LAYOUT_SAMPLES } from './layout-samples.js';
+import { explorationDemo } from './exploration-demo.js';
 export function demoAssets(kind) { return kind === 'lavanda' || kind === 'novidades' ? ['lavanda-cover.jpg'] : COLLECTION_ASSETS[kind] || []; }
 // arquivos do projeto que o modelo traz (fora de imagens/): a planilha e as anotações da demo de novidades
 export function demoProjectFiles(kind) { return kind === 'novidades' ? ['contexto/vendas.csv', 'contexto/leia-me.md'] : []; }
 const item=(title,text,extra={})=>({title,text,...extra});
 const route='flowchart LR\n  A([Pedido]):::hi --> B{Dados válidos?}\n  B -->|sim| C[Executar tarefa]\n  B -.->|não| D[Informar erro]:::vazado\n  C ==> E[Guardar resultado]:::em';
-export const DEMO_NAMES={lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',novidades:'Demo — novidades',hidraulica:'Aula de hidráulica',algoritmos:'Aula de algoritmos',...COLLECTION_NAMES};
+export const DEMO_NAMES={explorar:'Demo — explore uma ideia',lavanda:'Estúdio lavanda',executivo:'Relatório executivo',workshop:'Workshop visual',compacto:'Demo — material de consulta',avancado:'Demo — recursos avançados',diagramas:'Demo — diagramas vivos',novidades:'Demo — novidades',hidraulica:'Aula de hidráulica',algoritmos:'Aula de algoritmos',...COLLECTION_NAMES};
 export function demoDeck(kind) {
+  if(kind==='explorar')return explorationDemo();
   if(Object.hasOwn(COLLECTION_NAMES,kind))return collectionDeck(kind);
   if(!DEMO_NAMES[kind])throw Error('Modelo não encontrado.');
   // cada demo com a sua cara (tema, tom e figura da capa): na vitrine, as capas não podem parecer a mesma

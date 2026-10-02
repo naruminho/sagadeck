@@ -158,6 +158,13 @@
     i = Math.max(0, Math.min(N - 1, i));
     k = Math.max(0, Math.min(STEPS[i], k));
     const changed = i !== cur || opts.force;
+    const origins = new Map();
+    if (changed && !opts.instant && !EXPORT && !reducedMotion()) {
+      slides[cur].querySelectorAll('[data-continuity]').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.width && r.height && getComputedStyle(el).visibility !== 'hidden') origins.set(el.dataset.continuity, r);
+      });
+    }
     if (changed) {
       const prev = slides[cur];
       prev.classList.remove("current");
@@ -170,6 +177,19 @@
     }
     step = k;
     applyStep(slides[i], k, opts);
+    if (origins.size) requestAnimationFrame(() => {
+      if (cur !== i) return;
+      const scale = stage.getBoundingClientRect().width / SW || 1;
+      slides[i].querySelectorAll('[data-continuity]').forEach(el => {
+        const from = origins.get(el.dataset.continuity), to = el.getBoundingClientRect();
+        if (!from || !to.width || !to.height) return;
+        const transform = getComputedStyle(el).transform;
+        el.animate([
+          { transform: `translate(${(from.x-to.x)/scale}px,${(from.y-to.y)/scale}px) scale(${from.width/to.width},${from.height/to.height})`, transformOrigin: '0 0' },
+          { transform: transform === 'none' ? 'none' : transform, transformOrigin: '0 0' }
+        ], { duration: 550, easing: 'cubic-bezier(.2,.7,.2,1)' });
+      });
+    });
     if (changed) hooks[i].enter.forEach((f) => f(k));
     hooks[i].step.forEach((f) => f(k));
     if (opts.instant) { void slides[i].offsetWidth; slides[i].style.transition = ""; }

@@ -16,6 +16,8 @@ import { iconSVG } from "./figures/icons.js";
 import { esc, notesHTML, plain, md, INLINE_MATH } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
 import { readRecordings } from "./api-client.js";
+import { explorationStates } from './exploration.js';
+import { calcModel } from './lessons.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
@@ -147,7 +149,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const limit = wordLimit(s, spec, layout);
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
-    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", time: s.time || 0, layout, words });
+    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, layout, words });
   });
 
   // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)

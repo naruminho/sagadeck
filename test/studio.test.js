@@ -12,6 +12,38 @@ import { browserOrSkip, newPage, startStudio, tempDeck, readPptx, novoSlide } fr
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
+test('experiências: formulário e direção de arte gravam o resultado escolhido', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const { explorationDemo } = await import('../src/studio/exploration-demo.js');
+  const { startMockLLM } = await import('./mock-llm.js');
+  const deck = tempDeck(); fs.writeFileSync(deck.file, YAML.stringify(explorationDemo()));
+  const llm = await startMockLLM(() => '```yaml\nvariants:\n  slide: 1\n  options:\n    - label: Editorial\n      direction: {theme: editorial, rationale: "Hierarquia editorial"}\n      slide: {layout: cover, title: "Uma pergunta. Vários caminhos."}\n    - label: Geométrica\n      direction: {theme: bauhaus, rationale: "Contraste geométrico"}\n      slide: {layout: statement, text: "Uma pergunta. Vários caminhos."}\n```');
+  const studio = await startStudio(deck.file, { llmUrl: llm.url });
+  try {
+    const { page, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deck.file, 'utf8'));
+    await t.test('editar a pergunta e a explicação salva sem tocar nas fórmulas', async () => {
+      await page.click('.thumb-card[data-idx="1"]');
+      await page.click('#tab-btn-props');
+      const input = page.locator('#slide-fields-form .sf-field').filter({ has: page.locator('.sf-label', { hasText: /^Pergunta antes de revelar$/ }) }).locator('input');
+      await input.fill('Qual cenário você escolheria?'); await input.blur();
+      await page.waitForTimeout(800);
+      assert.equal(saved().slides[1].prediction, 'Qual cenário você escolheria?');
+      assert.equal(saved().slides[1].outputs[0].fn, '1/(capacidade-demanda)');
+    });
+    await t.test('escolher direção aplica tema ao deck e preserva os demais slides', async () => {
+      await page.click('.thumb-card[data-idx="0"]'); await page.click('#tab-btn-chat');
+      await page.fill('#chat-input', 'Proponha direções visuais'); await page.click('#chat-send');
+      await page.waitForSelector('[data-variant="0"]');
+      assert.equal(saved().theme, 'bauhaus');
+      await page.click('[data-variant="0"]'); await page.waitForTimeout(900);
+      assert.equal(saved().theme, 'editorial');
+      assert.equal(saved().slides[1].prediction, 'Qual cenário você escolheria?');
+    });
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); await llm.close(); deck.cleanup(); }
+});
+
 test('modelos: abrem em prévia sem criar arquivo; a primeira mudança cria a cópia e o modelo continua igual',async t=>{
   const browser=await browserOrSkip(t);if(!browser)return;
   const studio=await startStudio(null);

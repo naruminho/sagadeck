@@ -10,6 +10,6 @@ Leia e siga `CLAUDE.md` antes de editar, e `docs/ANDAMENTO.md` (o diário do que
 - Apresentações e seus arquivos ficam em `C:\Users\narum\sagadeck`, uma pasta por apresentação. Use os helpers da biblioteca. Modelos de fábrica podem ser definidos no código; instâncias de apresentações ficam na biblioteca.
 - Preserve conteúdo, exemplos, ordem e cadência de apresentações existentes. Pedido de revisão pontual não autoriza reescrita integral. Use `writeDeckFile` para alterações.
 - O usuário autorizou testar, commitar, publicar PR e fazer merge assim que o trabalho estiver concluído e validado. Não peça confirmação novamente. Não deixe trabalho pronto apenas em uma branch local.
-- Depois de mudanças que exijam reiniciar, reinicie automaticamente o SagaDeck na porta **3001**, substituindo o processo anterior verificado. Não abra outra porta para o mesmo serviço. Informe a URL após reiniciar.
+- Depois de mudanças que exijam reiniciar, reinicie automaticamente o SagaDeck na porta **3517**, substituindo o processo anterior verificado. Não abra outra porta para o mesmo serviço. Informe a URL após reiniciar.
 - Testes automatizados podem abrir portas efêmeras, devendo fechá-las ao terminar.
 - Não versione credenciais, conversas privadas, gravações de APIs ou dados corporativos. Código, modelos de fábrica e testes vão para o GitHub; documentos pessoais permanecem na biblioteca.

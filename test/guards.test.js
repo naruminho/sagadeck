@@ -12,7 +12,7 @@ import { ROOT } from "./helpers.js";
 const LIMITS = { // bytes
   "src/studio/public/app.js": 274_000,
   "src/studio/server.js": 100_000,
-  "src/studio/public/slide-form.js": 110_000,
+  "src/studio/public/slide-form.js": 109_200,
 };
 
 test("monolitos do Studio não crescem (o novo vai para um módulo próprio)", () => {

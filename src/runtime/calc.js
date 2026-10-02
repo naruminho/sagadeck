@@ -23,6 +23,7 @@
       const src = (kase && kase.fn) || o.fn;
       let value = null, error = "";
       if (src) { try { value = F.compile(src, vars).eval(env); } catch (e) { error = e.message; } }
+      if (src && !Number.isFinite(value)) error ||= 'A fórmula não produziu um número finito para estas entradas.';
       if (value != null) env[o.name] = value;
       out[o.name] = { value, error, text: (kase && kase.text) || "", color: (kase && kase.color) || "" };
     }
@@ -34,11 +35,36 @@
     const t = sc.log ? (lg(v) - lg(sc.min)) / (lg(sc.max) - lg(sc.min)) : (v - sc.min) / (sc.max - sc.min);
     return Math.max(0, Math.min(1, t)) * 100;
   }
+  function curveData(model, values, output) {
+    const input = model.inputs.find(i => i.name === model.sweep);
+    if (!input) return { path: '', min: null, max: null };
+    const points = Array.from({ length: 41 }, (_, k) => {
+      const x = input.min + (input.max - input.min) * k / 40;
+      return { x, y: evaluate(model, { ...values, [input.name]: x })[output]?.value };
+    });
+    const valid = points.filter(p => Number.isFinite(p.y));
+    if (!valid.length) return { path: '', min: null, max: null };
+    const lo = Math.min(...valid.map(p => p.y)), hi = Math.max(...valid.map(p => p.y));
+    let lift = true;
+    const path = points.map((p, k) => {
+      if (!Number.isFinite(p.y)) { lift = true; return ''; }
+      const command = lift ? 'M' : 'L'; lift = false;
+      return `${command}${(k * 8).toFixed(1)},${(75 - (p.y - lo) / (hi - lo || 1) * 70).toFixed(1)}`;
+    }).join(' ');
+    return { path, min: lo, max: hi };
+  }
+  const curve = (model, values, output) => curveData(model, values, output).path;
   // na apresentação: mexeu no controle, recalcula e atualiza números, selos e ponteiros
   function mount(doc) {
     doc.querySelectorAll("[data-calc]:not([data-calc-ready])").forEach((rootEl) => {
       rootEl.dataset.calcReady = "1";
       const model = JSON.parse(rootEl.querySelector(".calc-model").textContent);
+      let frozen = null;
+      let previous = null;
+      const resultsEl = rootEl.querySelector('.calc-outputs');
+      const explain = rootEl.querySelector('[data-calc-explanation]');
+      const setValues = (v) => rootEl.querySelectorAll('[data-calc-in]').forEach(el => { el.value = v[el.dataset.calcIn] ?? model.inputs.find(i => i.name === el.dataset.calcIn).value; });
+      if (model.prediction) rootEl.classList.add('calc-unrevealed');
       const values = () => Object.fromEntries([...rootEl.querySelectorAll("[data-calc-in]")].map((i) => [i.dataset.calcIn, Number(i.value)]));
       const redraw = () => {
         const v = values(), res = evaluate(model, v);
@@ -46,19 +72,60 @@
         for (const o of model.outputs) {
           const r = res[o.name];
           const out = rootEl.querySelector(`[data-calc-out="${o.name}"]`); if (out) out.textContent = format(r.value, o);
+          if (out) out.classList.toggle('calc-changed', !!previous && previous[o.name]?.value !== r.value);
+          const comparison = rootEl.querySelector(`[data-calc-compare="${o.name}"]`);
+          if (comparison) {
+            comparison.hidden = !frozen;
+            comparison.textContent = frozen ? `Antes: ${format(frozen.results[o.name].value, o)} ${o.unit || ''} · Variação: ${format(r.value == null || frozen.results[o.name].value == null ? null : r.value - frozen.results[o.name].value, o)}` : '';
+          }
           const b = rootEl.querySelector(`[data-calc-badge="${o.name}"]`); if (b) { b.textContent = r.text; b.style.background = r.color ? `var(--${r.color})` : ""; }
           const ptr = rootEl.querySelector(`[data-calc-pointer="${o.name}"]`);
           if (ptr && o.scale) ptr.style.left = `${scalePos(o.of ? res[o.of] ? res[o.of].value : v[o.of] : r.value, o.scale)}%`;
+          const path = rootEl.querySelector(`[data-calc-curve="${o.name}"]`);
+          if (path) {
+            const data = curveData(model, v, o.name);
+            path.setAttribute('d', data.path);
+            const axis = rootEl.querySelector(`[data-calc-axis="${o.name}"]`);
+            if (axis) axis.textContent = `${o.label}: ${format(data.min, o)} a ${format(data.max, o)} ${o.unit || ''} (escala automática)`;
+          }
         }
+        previous = res;
+        rootEl.dispatchEvent(new CustomEvent('sagadeck:values', { bubbles: true, detail: { inputs: { ...v }, outputs: res } }));
       };
+      rootEl.querySelectorAll('button').forEach(button => {
+        ['keydown', 'pointerdown', 'click'].forEach(ev => button.addEventListener(ev, e => e.stopPropagation()));
+      });
+      rootEl.querySelectorAll('[data-calc-scenario]').forEach(button => button.addEventListener('click', () => {
+        const scenario = model.scenarios[Number(button.dataset.calcScenario)];
+        setValues(scenario.values || {});
+        if (explain) explain.textContent = scenario.explanation || model.explanation;
+        rootEl.querySelectorAll('[data-calc-scenario]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+        redraw();
+      }));
+      const freezeButton = rootEl.querySelector('[data-calc-freeze]');
+      freezeButton?.addEventListener('click', () => { frozen = { values: values(), results: evaluate(model, values()) }; freezeButton.textContent = 'Comparação fixada'; freezeButton.setAttribute('aria-pressed', 'true'); redraw(); });
+      rootEl.querySelector('[data-calc-reset]')?.addEventListener('click', () => {
+        frozen = null; previous = null; setValues({});
+        if (freezeButton) { freezeButton.textContent = 'Comparar com este'; freezeButton.setAttribute('aria-pressed', 'false'); }
+        rootEl.querySelectorAll('[data-calc-scenario]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+        if (explain) explain.textContent = model.explanation;
+        rootEl.classList.toggle('calc-unrevealed', !!model.prediction); redraw();
+      });
+      rootEl.querySelector('[data-calc-reveal]')?.addEventListener('click', () => rootEl.classList.remove('calc-unrevealed'));
+      rootEl.querySelector('[data-calc-free]')?.addEventListener('click', () => { rootEl.classList.remove('calc-unrevealed'); if (explain) explain.textContent = `Modo livre: ajuste as entradas. ${model.explanation || ''}`; rootEl.querySelector('[data-calc-in]')?.focus(); });
       rootEl.querySelectorAll("[data-calc-in]").forEach((inp) => {
         const stop = (e) => e.stopPropagation(); // setas e cliques no controle não trocam de slide
         ["keydown", "pointerdown", "click"].forEach((ev) => inp.addEventListener(ev, stop));
-        inp.addEventListener("input", redraw);
+        inp.addEventListener("input", () => {
+          rootEl.querySelectorAll('[data-calc-scenario]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+          if (explain) explain.textContent = model.explanation;
+          redraw();
+        });
       });
+      redraw();
     });
   }
-  root.SagaCalc = { evaluate, format, scalePos, mount };
+  root.SagaCalc = { evaluate, format, scalePos, curve, curveData, mount };
   if (typeof document !== "undefined") {
     const go = () => mount(document);
     document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", go) : go();
