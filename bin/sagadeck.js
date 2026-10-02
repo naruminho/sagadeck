@@ -41,6 +41,7 @@ for (let i = 0; i < rawRest.length; i++) {
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
   sagadeck new <nome> --prompt "briefing" [--slides=10] [--duration=20] [--theme=x]  deck inteiro escrito pelo LLM
+                                   (pesquisa na web quando o pedido precisa de informação recente ou de um artigo; --sem-pesquisa desliga)
                                    (--duration dispensa --slides: ~1 slide a cada 1,5 min)
                                    (imagens: peça no briefing; --images = "você decide onde ilustrar", --no-images = nenhuma)
   sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
@@ -216,6 +217,8 @@ async function main() {
           duration: Number(flags.duration) || undefined,
           images: !flags["no-images"],
           imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
+          research: flags["sem-pesquisa"] ? false : "auto", // a IA decide se pesquisa; as fontes ficam em contexto/pesquisa/
+          researchDir: dir,
           onProgress: (m) => console.log(`  … ${m}`),
         }).finally(closeSnapshots);
         fs.mkdirSync(dir, { recursive: true });

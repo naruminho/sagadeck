@@ -335,13 +335,17 @@ export function createStudioServer(deckPath = null, opts = {}) {
         imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
         onEvent: emit,
         drawCheck: diagramCheck,
+        // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
+        // as fontes lidas ficam em contexto/pesquisa/ do deck
+        research: prefs.pesquisa === false ? false : "auto",
+        researchDir: dir,
       });
       if (gen.question) { L.trashDeck(id); return { question: gen.question }; } // a IA quer saber para que serve o material
       // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
       if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
       const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
-      return { id: finalId, file: L.resolveId(finalId), images: gen.images };
+      return { id: finalId, file: L.resolveId(finalId), images: gen.images, research: gen.research };
     } catch (e) {
       L.trashDeck(id);
       throw e;
@@ -961,7 +965,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (r.question) return { ok: true, question: r.question }; // a IA perguntou para que serve o material
           W.file = r.file;
           W.spec = loadSpec(r.file);
-          return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images };
+          return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images, research: r.research };
         });
         return;
       }
@@ -1441,7 +1445,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               await respond(res, b.stream, async (emit) => {
                 const r = await generateIntoLibrary(W, b.topic || "", b, emit);
                 if (r.question) return { ok: true, question: r.question }; // o Studio mostra a pergunta e gera de novo com a resposta
-                return { ok: true, id: r.id, images: r.images };
+                return { ok: true, id: r.id, images: r.images, research: r.research };
               });
               return;
             }

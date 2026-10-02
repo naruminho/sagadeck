@@ -8,7 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## PLANO (para aprovar): pesquisa na web para gerar material (estilo deep research) — 02/10/2026
+## Pesquisa na web para gerar material (estilo deep research) — fase 1 feita em 02/10/2026
+
+- Aprovado e pedido: a IA distingue quando o que ela sabe basta (hash table) e quando pesquisar (ranking das IAs de
+  fronteira, calendário dos próximos filmes, tecnologia que só existe em artigo: o paper, e o preprint se o artigo
+  estiver fechado), e transforma o material denso em reportagem (Superinteressante), lendo vários formatos.
+- `src/research/research.js`: decidir (com a data de hoje; acadêmico ou não; buscas) → buscar (DuckDuckGo e, no
+  acadêmico, a API do arXiv) → escolher as fontes (oficial, acadêmica, imprensa séria, referência; descarta blog,
+  fazenda de conteúdo, agregador) → ler (`fetchUrlDoc`: página, PDF até 15 MB, docx, pptx, xlsx, texto; artigo que só
+  deu o resumo vai ao preprint) → anotar (fatos com o trecho). Materiais [F1]… num bloco próprio ("FONTES DA PESQUISA
+  NA WEB"), a regra de citar no slide e fechar com `references`, e tudo em `contexto/pesquisa/` (fontes.json,
+  notas.md, o texto de cada fonte). Sem internet ou `SAGADECK_WEB=0` (a rede do banco): avisa, não inventa dado
+  recente e pede links/anexos. Preferências › IA › "Pesquisar na web quando precisar"; `sagadeck new --sem-pesquisa`.
+- Ligado na geração de deck (Studio: Criar com IA e biblioteca; `sagadeck new --prompt`). Falta (fases 2 e 3): no chat
+  de um deck aberto; figuras de dentro dos artigos e prints de páginas oficiais; outros buscadores.
+- Testes: `test/research.test.js` (web e LLM falsos; ao vivo, a decisão nos 4 exemplos da pessoa).
+
+### O plano original (02/10)
 
 - Pedido: "faça um tutorial de interpretabilidade com SHAP" e o sagadeck pesquisa, baixa páginas, PDFs, artigos e
   figuras de fontes confiáveis (documentação oficial, repositório, artigos, livros de referência; nunca o blog que

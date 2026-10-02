@@ -619,6 +619,40 @@ test("figura ESCANEADA do original (xerox) é redesenhada pelo modelo de imagem 
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
+test("gráfico, tabela ou equação escaneados NÃO vão para o modelo de imagem (saíam com número trocado e a fórmula como foto): fica o original", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const gen = [];
+  const llm = await startMockLLM((req) => {
+    const u = req.lastUser;
+    if (/^Generate an image/.test(u)) { gen.push(req); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; }
+    if (/Fotos de slides/.test(u)) return '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"aparencia":"escaneada","o_que":"hidrograma escaneado","dados":"picos 2303, 2291"}]}]}\n```';
+    if (/Escreva os slides destes itens|Conferi estes slides/.test(u)) {
+      const out = handler(req);
+      return out.replace(/  - layout: statement\n    origem: 2\n    mudou: "virou uma frase de destaque"\n    text: ("[^"]*")/, (_, txt) =>
+        `  - layout: split\n    origem: 2\n    title: Kirpich\n    body: ${txt.replace(/\.?"$/, ', expoente 0,385."')}\n    figure:\n      image_prompt: "Clean up and redraw THIS EXACT figure: the basin map with the river"\n      image_ref: imagens/f2.png\n      fit: contain`);
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+    fs.writeFileSync(path.join(d.dir, "imagens", "f2.png"), PNG);
+    d.spec.slides[1].original.image = "original/foto-2.png";
+    d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 });
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+    assert.equal(gen.length, 0, "o modelo de imagem não foi chamado");
+    const fig = r.spec.slides.find((s) => s.layout === "split")?.figure;
+    assert.equal(fig?.image, "imagens/f2.png", "ficou a figura original (a IA deve refazer com chart)");
+    assert.equal(fig.image_prompt, undefined);
+    assert.ok(r.report.problemas.some((p) => /redesenho recusado/.test(p)), JSON.stringify(r.report.problemas));
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("redesenho que não sai: a figura de base volta (não vira ícone)", async () => {
   const { materializeImages } = await import("../src/ai/deck-ai.js");
   const llm = await startMockLLM(() => "não consigo gerar agora");

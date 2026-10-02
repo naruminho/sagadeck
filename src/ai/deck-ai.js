@@ -596,6 +596,14 @@ export function applyPatch(base, patch) {
   if (patch.deck && typeof patch.deck === "object") {
     for (const [k, v] of Object.entries(patch.deck)) if (k !== "slides" && !k.startsWith("_")) spec[k] = v;
   }
+  // slides: {1: …, 2: …, 3: …} além do fim do deck (deck novo, que começa com 1 slide): a numeração contínua desde o
+  // 1 é o deck inteiro, na ordem; os que passam do fim entram depois (antes: "slide 2 não existe" e a geração falhava)
+  const keys = Object.keys(patch.slides || {}).map(Number);
+  if (keys.length && keys.every(Number.isInteger) && Math.max(...keys) > n && [...keys].sort((a, b) => a - b).every((k, i) => k === i + 1) && !patch.insert && !patch.delete) {
+    const extra = keys.filter((k) => k > n).sort((a, b) => a - b).map((k) => patch.slides[k]);
+    const rest = { ...patch, slides: Object.fromEntries(keys.filter((k) => k <= n).map((k) => [k, patch.slides[k]])), insert: extra.map((slide) => ({ after: n, slide })) };
+    return applyPatch(base, rest);
+  }
   const replaced = new Map();
   for (const [k, s] of Object.entries(patch.slides || {})) {
     if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error(`slides.${k} precisa ser um slide completo (objeto com layout e campos).`);
@@ -969,7 +977,7 @@ export function styleFor(kind) {
 // Gera um deck inteiro a partir de um briefing. É o MESMO caminho do chat (editDeck): o pedido vai como uma conversa
 // sobre um deck em branco, com as mesmas regras e a mesma temperatura. Antes havia um caminho próprio (direção
 // criativa sorteada, regras rígidas de ritmo, rodadas de reescrita) que saía bem pior que pedir a mesma coisa no chat.
-export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, ask = false, answer = "", author = "", language = "" } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const st = style ? styleFor(style) : null;
@@ -983,7 +991,29 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     decided = await decidePurpose(briefing, materials).catch(() => null);
     if (decided?.question) return { question: decided.question };
   }
+  // pesquisa: a IA decide se o que ela sabe basta; se não, busca, escolhe as fontes, lê e anota (src/research)
+  let researchReport;
+  if (research !== false) {
+    const R = await import("../research/research.js");
+    try {
+      say("vendo se precisa pesquisar…");
+      const plan = await R.decideResearch(briefing, { materials });
+      if (!plan.pesquisar) researchReport = { pesquisou: false, motivo: plan.motivo };
+      else {
+        say(`vou pesquisar: ${plan.motivo}`);
+        const off = process.env.SAGADECK_WEB === "0"; // a rede do banco: sem web, sem tentar
+        const r = off ? { report: { pesquisou: true, motivo: plan.motivo, buscas: plan.buscas, fontes: [], falhas: ["web desligada"], offline: true, data: new Date().toISOString().slice(0, 10) }, materials: [] }
+          : await R.runResearch(plan, { briefing, web: web || R.defaultWeb, onProgress: say, saveDir: researchDir });
+        researchReport = r.report;
+        materials = [...materials, ...r.materials];
+        say(r.materials.length ? `pesquisa: ${r.materials.length} fonte(s) lida(s) (${r.report.fontes.map((f) => f.site).join(", ")})`
+          : r.report.offline ? "Sem acesso à internet: não deu para pesquisar. Sigo com o que eu sei, sem inventar dado recente; cole links ou anexe arquivos para eu usar."
+          : "a pesquisa não achou fonte que desse para ler; sigo com o que eu sei, sem inventar dado recente.");
+      }
+    } catch (e) { say(`a pesquisa falhou (${e.message}); sigo com o que eu sei`); }
+  }
   const wishes = [
+    researchReport ? (await import("../research/research.js")).researchInstruction(researchReport) : "",
     theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
     slides ? `Cerca de ${slides} slides.` : "",
     duration ? `Duração planejada: ${duration} minutos (grave duration e o time de cada slide).` : "",
@@ -1021,7 +1051,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
   if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

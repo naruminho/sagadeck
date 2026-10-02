@@ -20,6 +20,8 @@ const base = () => ({
 });
 
 let llm;
+// a geração começa decidindo se pesquisa (src/research): as contas de chamada olham só as da geração em si
+const genReqs = (from = 0) => llm.requests.slice(from).filter((q) => !/Decida se o que você JÁ SABE basta/.test(q.lastUser));
 let reply = () => "ok";
 before(async () => {
   llm = await startMockLLM((req) => reply(req));
@@ -104,7 +106,7 @@ test("textToSlide respeita o formato escolhido", async () => {
   const n = llm.requests.length;
   const r = await textToSlide("Visitas 100, clientes 10", { layout: "funnel" });
   assert.equal(r.slide.layout, "funnel");
-  assert.match(llm.requests[n].lastUser, /OBRIGATORIAMENTE o layout funnel/);
+  assert.match(genReqs(n)[0].lastUser, /OBRIGATORIAMENTE o layout funnel/);
 });
 
 test("parseOptions separa a resposta das opções clicáveis", () => {
@@ -127,7 +129,7 @@ test("Criar com IA usa o MESMO caminho do chat: uma chamada, regras de edição 
   const n = llm.requests.length;
   reply = () => deckYaml(BORING); // mesmo repetitivo: não há rodada de "variedade" por cima (o chat não tem)
   const r = await generateDeck("apresentação bem humorada de como fritar um ovo como um chef");
-  const reqs = llm.requests.slice(n);
+  const reqs = genReqs(n);
   assert.equal(reqs.length, 1, "uma chamada só, como no chat");
   assert.match(reqs[0].system, /Regras de edição:/, "o sistema do chat (editDeck)");
   assert.match(reqs[0].system, /Como responder \(você decide/);
@@ -172,7 +174,7 @@ test("gerar deck: duration vira slides e style vira tema+direção no prompt", a
   reply = () => deckYaml(VARIED);
   const n = llm.requests.length;
   await generateDeck("fraudes", { duration: 30, style: "revista" });
-  const req = llm.requests[n].lastUser;
+  const req = genReqs(n)[0].lastUser;
   assert.match(req, /Cerca de 20 slides/);
   assert.match(req, /Duração planejada: 30 minutos/);
   assert.match(req, /Use o tema "editorial"/);
@@ -183,7 +185,7 @@ test("gerar deck: slides explícitos e tema explícito vencem duration e style",
   reply = () => deckYaml(VARIED);
   const n = llm.requests.length;
   await generateDeck("fraudes", { duration: 30, style: "revista", slides: 5, theme: "noite" });
-  const req = llm.requests[n].lastUser;
+  const req = genReqs(n)[0].lastUser;
   assert.match(req, /Cerca de 5 slides/);
   assert.match(req, /Use o tema "noite"/);
   assert.match(req, /Revista editorial/);
@@ -194,7 +196,7 @@ test("editDeck com materiais: bloco rotulado no pedido", async () => {
   const n = llm.requests.length;
   await editDeck({ spec: base(), instruction: "use os números", targetSlide: 0,
     materials: [{ name: "relatorio.pdf", text: "Fraudes: 40% em 2025", detail: "pdf (1 página)" }] });
-  const req = llm.requests[n].lastUser;
+  const req = genReqs(n)[0].lastUser;
   assert.match(req, /MATERIAL ANEXADO/);
   assert.match(req, /relatorio\.pdf/);
   assert.match(req, /Fraudes: 40% em 2025/);
@@ -205,7 +207,7 @@ test("generateDeck com materiais: bloco antes do briefing", async () => {
   reply = () => deckYaml(VARIED);
   const n = llm.requests.length;
   await generateDeck("fraudes", { direction: "x", materials: [{ name: "dados.csv", text: "ano,valor\n2024,3\n2025,5", detail: "texto" }] });
-  const req = llm.requests[n].lastUser;
+  const req = genReqs(n)[0].lastUser;
   assert.match(req, /MATERIAL ANEXADO/);
   assert.match(req, /dados\.csv/);
   assert.match(req, /2025,5/);
@@ -235,7 +237,7 @@ test("modelo de texto sem visão (ex.: DeepSeek Pro): a chamada com imagem vai p
     const n = llm.requests.length;
     const r = await editDeck({ spec: base(), instruction: "o que você acha?", targetSlide: 1, visuals });
     assert.match(r.reply, /Vi a foto/);
-    assert.deepEqual(llm.requests.slice(n).map((q) => [q.body.model, q.hasImages]), [["text", true], ["vision-ok", true]], "texto recusou, visão viu");
+    assert.deepEqual(genReqs(n).map((q) => [q.body.model, q.hasImages]), [["text", true], ["vision-ok", true]], "texto recusou, visão viu");
     assert.ok(r.actions.some((a) => /modelo de visão \(vision-ok\)/.test(a)), r.actions.join("; "));
   } finally { delete process.env.SAGADECK_VISION_MODEL; }
 });
@@ -250,7 +252,7 @@ test("modelo sem visão (ex.: DeepSeek V4 Flash) e sem modelo de visão no relay
   const r = await editDeck({ spec: base(), instruction: "o que você acha?", targetSlide: 1, visuals });
   assert.match(r.reply, /título está ok/);
   assert.ok(r.actions.some((a) => /não enxerga imagens/.test(a)), r.actions.join("; "));
-  assert.deepEqual(llm.requests.slice(n).map((q) => q.hasImages), [true, true, false], "tentou com imagem, tentou o modelo de visão, refez sem");
+  assert.deepEqual(genReqs(n).map((q) => q.hasImages), [true, true, false], "tentou com imagem, tentou o modelo de visão, refez sem");
   // da próxima vez, nem tenta mandar imagem para esse modelo
   const m = llm.requests.length;
   const r2 = await editDeck({ spec: base(), instruction: "e agora?", targetSlide: 1, visuals });
@@ -274,7 +276,7 @@ test("imagem pedida num slide alterado: gera; se falhar, fica o placeholder e um
     : ["Coloquei uma foto.", "```yaml", "slides:", "  2:", "    layout: full", "    image_prompt: foto de um cofre", "    title: Cofre", "```"].join("\n"));
   const n = llm.requests.length;
   const r = await editDeck({ spec: base(), instruction: "coloca uma foto de um cofre no slide 2", targetSlide: 1, images: true });
-  assert.ok(llm.requests.slice(n).some((q) => /^Generate an image: foto de um cofre/.test(q.lastUser)), "tentou gerar");
+  assert.ok(genReqs(n).some((q) => /^Generate an image: foto de um cofre/.test(q.lastUser)), "tentou gerar");
   assert.equal(r.spec.slides[1].image_prompt, "foto de um cofre", "falhou: o pedido fica como placeholder");
   assert.ok(r.actions.some((a) => /Falhou ao gerar imagem/.test(a)), r.actions.join("; "));
 });
@@ -291,7 +293,7 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   reply = (req) => (/^Generate an image/.test(req.lastUser) ? "sem imagem (mock)" : "```yaml\n" + YAML.stringify(deck) + "```");
   const n = llm.requests.length;
   await generateDeck("fraudes no pix. Ilustre onde fizer sentido.", { direction: "x" });
-  const reqs = llm.requests.slice(n);
+  const reqs = genReqs(n);
   assert.match(reqs[0].system, /Você PODE pedir ilustrações/, "imagens liberadas sem precisar de caixa marcada");
   assert.match(reqs[0].system, /pediu para VOCÊ decidir/);
   assert.match(reqs[0].system, /não falou de imagem → VOCÊ decide/, "sem falar de imagem, a IA decide onde ilustrar (antes: nunca gerava)");
@@ -555,6 +557,15 @@ test("estilo Documentação técnica (Criar com IA): o par claro/escuro do tema 
   assert.match(styleFor("manual").direction, /Documentação técnica/);
 });
 
+test("deck novo devolvido como slides: {1: …, 2: …, 3: …} sobre o começo de 1 slide: é o deck inteiro, na ordem (antes: \"slide 2 não existe\")", async () => {
+  const { applyPatch } = await import("../src/ai/deck-ai.js");
+  const base = { title: "Nova", slides: [{ layout: "cover", title: "Nova" }] };
+  const { spec, changed } = applyPatch(base, { slides: { 1: { layout: "cover", title: "Titans" }, 2: { layout: "statement", text: "A memória" }, 3: { layout: "end", title: "Fim" } } });
+  assert.deepEqual(spec.slides.map((x) => x.title || x.text), ["Titans", "A memória", "Fim"]);
+  assert.deepEqual(changed, [0, 1, 2]);
+  assert.throws(() => applyPatch(base, { slides: { 3: { layout: "end", title: "Fim" } } }), /slide 3 não existe/, "sem o começo da numeração continua erro");
+});
+
 test("deck novo com título, tema e paleta dentro de deck: (o jeito do patch) vale como o deck (saía \"Nova apresentação\", no tema padrão)", async () => {
   reply = () => "Pronto.\n```yaml\ndeck:\n  title: Brigadeiro Gourmet\n  theme: editorial\n  palette: entardecer\nslides:\n  - layout: poster\n    title: Como fazer um brigadeiro\n    panels:\n      - { title: Ponto, icon: flame, text: Desgruda do fundo }\n```";
   const r = await generateDeck("brigadeiro numa página", { images: false });
@@ -583,7 +594,7 @@ test("carrossel pelo chat: cada item com image_prompt vira foto gerada (a refer�
     : "Montei o carrossel.\n```yaml\nedit:\n  1:\n    layout: carousel\n    items:\n      - { title: Montanha, image_prompt: \"a misty mountain at sunrise, realistic photo\" }\n      - { title: Mar, image_prompt: \"calm ocean at noon, realistic photo\" }\n```");
   const n = llm.requests.length;
   await editDeck({ spec: base(), instruction: "faça um carrossel com fotos realistas", targetSlide: 0, images: true, imageOptions: { baseDir: process.cwd(), assetsDir: "imagens-teste-nao-cria" } });
-  const asked = llm.requests.slice(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
+  const asked = genReqs(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
   assert.deepEqual(asked.sort(), ["a misty mountain at sunrise, realistic photo", "calm ocean at noon, realistic photo"]);
 });
 

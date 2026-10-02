@@ -4254,6 +4254,7 @@ ${ta.value}`;
       { k: "texto.wrapCode", type: "bool", label: "Quebrar linhas longas de código", hint: "Em vez de encolher o bloco todo por causa de uma linha comprida." },
     ] },
     { id: "ia", title: "Inteligência artificial", items: [
+      { k: "ia.pesquisa", type: "bool", label: "Pesquisar na web quando precisar", hint: "Ranking, lançamentos, preços, um artigo científico: a IA pesquisa, lê as fontes confiáveis e cita cada uma. Desligado (ou sem internet), ela usa só o que sabe e avisa." },
       { k: "ia.perguntar", type: "bool", label: "Perguntar quando o pedido não disser para que serve o material", hint: "Ex.: um workshop sem dizer se o pessoal vai guardar o material. Desligado, a IA decide sozinha." },
       { k: "ia.imagens", type: "bool", label: "Gerar imagens quando o pedido pedir", hint: "Desligado: só ícones, gráficos e diagramas do sagadeck (sem custo de imagem)." },
       { k: "ia.autor", type: "text", label: "Seu nome", hint: "Vai na capa e no rodapé das apresentações novas (no lugar de \"Seu Nome\")." },
