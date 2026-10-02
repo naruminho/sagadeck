@@ -525,7 +525,7 @@ aparecem (`showValues: true` força os valores).
 
 **SVG próprio**: `{ svg: "<svg viewBox='0 0 100 100'>…</svg>" }` — use `style="fill:var(--fg)"`, `var(--hi)`, `var(--em)` para seguir o tema.
 **Imagem**: `{ image: foto.jpg, fit: cover }` (caminho relativo ao YAML; é embutida no HTML). Sem `fit`, a imagem preenche a caixa, mas cabe inteira (`contain`) quando o corte passaria de 20% (gráfico com eixo e legenda na borda, esquema largo numa coluna alta); solta no fluxo (num `add`) e sem altura, não passa de 420 px. Para foto que pode ser cortada, `fit: cover`; para gráfico, `fit: contain`.
-**Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
+**Imagem gerada por IA**: `{ image_prompt: "descrição visual, em inglês", fit: cover }` (sai sem texto: rótulos, números e títulos vão no slide; se a ilustração precisa de rótulos dentro dela, diga quais no prompt, em português e entre aspas: `with labels "Divisor de água", "Rio"`) — `sagadeck imagens deck.yaml` gera o arquivo em `imagens/` com o modelo de imagem e troca por `image:`.
 **Redesenhar uma figura do deck** (xerox, escaneada, borrada): `{ image_prompt: "Clean up and redraw THIS EXACT figure… (o que ela mostra, as cores)", image_ref: imagens/original/mapa.png, fit: contain }` — o modelo de imagem recebe a figura como base e devolve o redesenho; se não sair, fica a figura de base.
 
 ## Notas / roteiro (`notes`)

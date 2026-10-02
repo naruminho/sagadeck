@@ -233,7 +233,7 @@ test("tarefa: figuras vistas ficam em cache pelo conteúdo da foto; falha da vis
   const { handler } = script();
   let looks = 0, broken = true;
   const llm = await startMockLLM((req) => {
-    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"qualidade":"boa","o_que":"curva","dados":"pico 42"}]}]}\n```'; }
+    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"aparencia":"digital","o_que":"curva","dados":"pico 42"}]}]}\n```'; }
     return handler(req);
   });
   process.env.SAGADECK_LLM_URL = llm.url;
@@ -509,6 +509,39 @@ test("correção que volta só com o item corrigido: vale; os outros itens do bl
 
 // Rodada 02/10: 4 lotes perderam a correção porque o YAML veio quebrado (e desistia), e 4 ficaram sem a conferência
 // visual porque a visão não devolveu JSON nem na 2ª vez; erros de digitação ("Ajute") ficaram no deck.
+// Rodada com redesenho (02/10): 3 correções "falharam" porque o modelo respondeu sem bloco nenhum (nada a corrigir) e
+// um lote de 5 perdeu 4 itens porque a resposta parava no meio. A resposta que não serve fica guardada em falhas/.
+test("lote que escreve só parte dos itens: os que faltaram vão de novo, um por vez; correção sem bloco fica como está", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const writes = [];
+  const llm = await startMockLLM((req) => {
+    const u = req.lastUser;
+    if (/Conferi estes slides/.test(u)) return "Conferi de novo: os slides já estão certos, não há o que corrigir.";
+    if (/Escreva os slides destes itens|Não deu para usar/.test(u)) {
+      const asked = /Escreva os slides/.test(u) ? u : req.messages.find((m) => m.role === "user" && /Escreva os slides destes itens/.test(typeof m.content === "string" ? m.content : "")).content;
+      const items = [...asked.matchAll(/## ITEM (\d+)/g)].map((m) => +m[1]);
+      writes.push(items);
+      const out = handler({ ...req, lastUser: asked });
+      // com mais de um item, só sai o primeiro (a resposta "parou no meio")
+      return items.length > 1 ? out.split(/\n(?=  - layout:)/).slice(0, 2).join("\n").replace(/\s*$/, "\n```") : out;
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "melhorar", resume: false });
+    assert.ok(!r.report.problemas.some((p) => /não saíram|correção/.test(p)), JSON.stringify(r.report.problemas));
+    const singles = writes.filter((w) => w.length === 1).map((w) => w[0]);
+    assert.ok(singles.length >= 2, `itens refeitos sozinhos: ${JSON.stringify(writes)}`);
+    assert.ok(r.spec.slides.some((s) => s.layout === "question"), "o item que faltou no lote saiu sozinho");
+    const falhas = fs.readdirSync(path.join(d.dir, ".sagadeck", "transform", "falhas"));
+    assert.ok(falhas.some((f) => /escrita-/.test(f)), "a resposta incompleta ficou guardada");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
 test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON duas vezes confere em metades; grafia vai como dica", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
@@ -545,7 +578,7 @@ test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON dua
 // A pessoa: figura de xerox de apostila velha tem de voltar como ilustração bem feita (o modelo de imagem redesenha a
 // partir dela), não ficar feia nem virar diagrama. A visão diz a qualidade; o escritor pede image_prompt + image_ref;
 // o lote gera antes de conferir; a imagem gerada fica em imagens/ia.
-test("figura RUIM do original (xerox) é redesenhada pelo modelo de imagem com ela como base, antes da conferência", async (t) => {
+test("figura ESCANEADA do original (xerox) é redesenhada pelo modelo de imagem com ela como base, antes da conferência", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
   const { handler } = script();
@@ -553,7 +586,7 @@ test("figura RUIM do original (xerox) é redesenhada pelo modelo de imagem com e
   const llm = await startMockLLM((req) => {
     const u = req.lastUser;
     if (/^Generate an image/.test(u)) { gen.push(req); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; }
-    if (/Fotos de slides/.test(u)) return '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"mapa","generica":false,"qualidade":"ruim","o_que":"mapa da bacia escaneado","dados":"rio, exutório"}]}]}\n```';
+    if (/Fotos de slides/.test(u)) return '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"mapa","generica":false,"aparencia":"escaneada","o_que":"mapa da bacia escaneado","dados":"rio, exutório"}]}]}\n```';
     if (/Escreva os slides destes itens|Conferi estes slides/.test(u)) {
       const out = handler(req);
       return out.replace(/  - layout: statement\n    origem: 2\n    mudou: "virou uma frase de destaque"\n    text: ("[^"]*")/, (_, txt) =>
@@ -572,7 +605,8 @@ test("figura RUIM do original (xerox) é redesenhada pelo modelo de imagem com e
     d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 });
     const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
     const write = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser) && /ITEM 2/.test(q.lastUser)).lastUser;
-    assert.match(write, /ESPECÍFICA, imagem RUIM\] mapa/, "o escritor sabe que a figura é ruim");
+    assert.match(write, /ESPECÍFICA, imagem ESCANEADA\] mapa/, "o escritor sabe que a figura é de xerox");
+    assert.match(llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser)).system, /ILUSTRAÇÃO[^\n]*genérica ou específica[^\n]*não vire diagrama de caixas/, "ilustração volta como ilustração");
     assert.equal(gen.length, 1, "um redesenho");
     assert.ok(gen[0].hasImages, "a figura original foi junto, como base");
     const fig = r.spec.slides.find((s) => s.layout === "split")?.figure;

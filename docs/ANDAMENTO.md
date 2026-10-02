@@ -171,6 +171,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
     (rótulo + gráfico vira título; dois ou mais lado a lado); `$1 - P(X \geq x)$` cru (regra do Pandoc para `$`);
     anos no eixo sem ponto de milhar.
   - rodada colorida com o Flash de verdade (1107fd1, 72 slides): nenhum lote falhou, 1 erro de grafia ("LENCOL").
+  - rodada com redesenho (ddde26a, 102 slides): só 1 figura redesenhada, porque a visão marcou 1 de 72 como "ruim"
+    (achou boa até o mapa de xerox) e a regra só valia para figura específica (o ciclo da água, genérico, virava
+    diagrama). Agora a visão diz a `aparencia` (digital, foto, escaneada, pixelada) e ILUSTRAÇÃO escaneada ou
+    pixelada, genérica ou específica, volta como ilustração. Ilustração nova sai sem texto (o modelo escrevia
+    rótulos em inglês e palavras sem sentido); o redesenho mantém os rótulos.
+  - na mesma rodada: correção sem bloco ("nada a corrigir") contava como falha → fica como está; lote cuja
+    resposta parava no meio perdia os itens → os que faltaram vão de novo, um por vez. Respostas que não serviram
+    ficam em `.sagadeck/transform/falhas/` (as 40 últimas).
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

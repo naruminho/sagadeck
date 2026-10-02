@@ -137,7 +137,7 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 /* pôster: infográfico de uma página (figura de revista científica): painéis com letra, desenho, texto curto e números */
 .L-poster{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px}.L-poster .hd{margin-bottom:0}.ps-sub{margin-top:-6px}
 .ps-body{flex:1;min-height:0;display:flex;gap:36px}
-.ps-hero{flex:0 0 38%;min-width:0;margin:0;display:flex;flex-direction:column;gap:10px;justify-content:center}.ps-hero>.fig{flex:1;min-height:0}
+.ps-hero{flex:0 0 38%;min-width:0;margin:0;display:flex;flex-direction:column;gap:10px;justify-content:center}.ps-hero>.fig{flex:1;min-height:0;border-radius:18px;overflow:hidden}
 .ps-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:22px 40px}
 .ps-panel{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:16px;background:color-mix(in srgb,var(--fg) 4%,transparent);border-top:4px solid var(--em)}
 .ps-head{display:flex;align-items:baseline;gap:12px}.ps-letter{font-size:40px;font-weight:800;color:var(--em);line-height:1}.ps-title{line-height:1.1}
