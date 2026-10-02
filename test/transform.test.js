@@ -233,7 +233,7 @@ test("tarefa: figuras vistas ficam em cache pelo conteúdo da foto; falha da vis
   const { handler } = script();
   let looks = 0, broken = true;
   const llm = await startMockLLM((req) => {
-    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"aparencia":"digital","o_que":"curva","dados":"pico 42"}]}]}\n```'; }
+    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"arquivo":"","tipo":"gráfico","generica":false,"aparencia":"digital","o_que":"curva","dados":"pico 42"}]}]}\n```'; }
     return handler(req);
   });
   process.env.SAGADECK_LLM_URL = llm.url;
@@ -960,4 +960,67 @@ test("recriar: progressivos são redesenhados (juntar vira escrever); faltou alg
     const vision = llm.requests.find((q) => /Confira slides NOVOS/.test(q.lastUser))?.lastUser || "";
     assert.match(vision, /erro de digitação ou de ortografia/);
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+// Retorno da versão escalafobética (02/10): a visão descrevia o slide e não cada arquivo (a fórmula P = m/(N+1) foi
+// parar no lugar do hidrograma); o xerox ficou xerox; a equação ficou imagem; o foco guiado tinha caixas chutadas.
+async function figureRound(fig, writeSlide, { locate } = {}) {
+  const { handler } = script();
+  const reqs = { gen: [], fix: [], look: [], locate: [] };
+  const llm = await startMockLLM((req) => {
+    const u = req.lastUser;
+    if (/^Generate an image/.test(u)) { reqs.gen.push(req); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; }
+    if (/Fotos de slides/.test(u)) { reqs.look.push(req); return '```json\n{"slides":[{"n":2,"figuras":[' + JSON.stringify(fig) + ']}]}\n```'; }
+    if (/localize cada item abaixo/.test(u)) { reqs.locate.push(req); return locate || '{"itens": []}'; }
+    if (/Conferi estes slides/.test(u)) { reqs.fix.push(u); }
+    if (/Escreva os slides destes itens|Conferi estes slides/.test(u)) return handler(req).replace(/  - layout: statement\n    origem: 2\n[\s\S]*?(?=\n  - layout|\n```)/, writeSlide);
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+  fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+  fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+  for (const f of ["f2.png", "f3.png"]) fs.writeFileSync(path.join(d.dir, "imagens", f), PNG);
+  d.spec.slides[1].original.image = "original/foto-2.png";
+  d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 }, { image: "imagens/f3.png", x: 200, y: 0, w: 100, h: 100 });
+  try { return { r: await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false }), reqs }; }
+  finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+}
+const kirpich = '    title: Kirpich\n    body: "Kirpich: bacias menores que 0,5 km²; coeficiente 57, expoente 0,385."';
+
+test("a visão vê cada arquivo do slide separado e diz qual figura é qual; ilustração de xerox que a escritora deixou vira redesenho", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { r, reqs } = await figureRound({ arquivo: "imagens/f2.png", tipo: "mapa", generica: false, aparencia: "escaneada", o_que: "mapa do trecho do rio com o posto", dados: "POSTO, ARTEMIS" },
+    `  - layout: split\n    origem: 2\n${kirpich}\n    figure:\n      image: imagens/f2.png`);
+  const look = reqs.look[0].lastUser;
+  assert.match(look, /Arquivo imagens\/f2\.png/); assert.match(look, /Arquivo imagens\/f3\.png/);
+  assert.equal(reqs.gen.length, 1, "o redesenho foi pedido pelo código");
+  assert.ok(reqs.gen[0].hasImages, "com a figura de xerox como base");
+  assert.match(reqs.gen[0].lastUser, /mapa do trecho do rio com o posto[\s\S]*POSTO, ARTEMIS/);
+  assert.match(r.spec.slides.find((s) => s.layout === "split").figure.image, /^imagens\/ia\//);
+});
+
+test("imagem do original que é uma equação num slide novo: volta para a correção pedir a fórmula em LaTeX", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { reqs } = await figureRound({ arquivo: "imagens/f2.png", tipo: "equação em imagem", generica: false, aparencia: "digital", o_que: "fórmula", dados: "P = m/(N+1)" },
+    `  - layout: split\n    origem: 2\n${kirpich}\n    figure:\n      image: imagens/f2.png`);
+  assert.ok(reqs.fix.some((u) => /imagens\/f2\.png é uma EQUAÇÃO \(P = m\/\(N\+1\)\)[^\n]*LaTeX/.test(u)), "a correção recebeu o pedido");
+  assert.equal(reqs.gen.length, 0, "equação não vai para o modelo de imagem");
+});
+
+test("foco guiado (spotlight): a visão olha a figura e põe cada destaque no lugar; o que ela não acha fica como estava", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { r, reqs } = await figureRound({ arquivo: "imagens/f2.png", tipo: "esquema", generica: false, aparencia: "digital", o_que: "delimitação", dados: "" },
+    `  - layout: spotlight\n    origem: 2\n    title: "Kirpich: 0,385 e 57"\n    caption: "bacias menores que 0,5 km²"\n    figure:\n      image: imagens/f2.png\n    hotspots:\n      - { x: 52, y: 58, width: 22, height: 16, title: Exutório, text: A única saída }\n      - { x: 10, y: 10, width: 20, height: 20, title: Legenda }`,
+    { locate: '{"itens": [{"i": 1, "achou": true, "x": 47.8, "y": 50.2, "width": 3.4, "height": 3.5}, {"i": 2, "achou": false}]}' });
+  assert.equal(reqs.locate.length >= 1, true);
+  assert.ok(reqs.locate[0].hasImages, "a visão recebeu a figura");
+  assert.match(reqs.locate[0].lastUser, /1\. Exutório: A única saída/);
+  const hs = r.spec.slides.find((s) => s.layout === "spotlight").hotspots;
+  assert.deepEqual([hs[0].x, hs[0].y, hs[0].width, hs[0].height], [47.8, 50.2, 3.4, 3.5]);
+  assert.deepEqual([hs[1].x, hs[1].y], [10, 10], "o que ela não achou ficou");
 });

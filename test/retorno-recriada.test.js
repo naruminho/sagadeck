@@ -126,3 +126,13 @@ test("gráfico de linhas: eixo com marcações redondas (0 a 1 não fica só com
   assert.equal((far.match(/<rect [^>]*width="24" height="24"/g) || []).length, 0);
   assert.ok(texts(far).includes("A") && texts(far).includes("B"));
 });
+
+test("escalafobética (02/10): linhas longas marcadas h2 não viram letra de título; tabela com texto ao lado em lista não sai \"[object Object]\"", () => {
+  const l = "As intensidades das chuvas diminuem conforme a duração aumenta e as maiores vazões vêm das chuvas cuja duração é igual ao tempo de concentração da bacia.";
+  const h = R({ layout: "statement", lines: [{ text: l, as: "h2" }, { text: l, as: "h2" }, { text: "Por isso a chuva de projeto dura o tempo de concentração.", as: "h2" }] });
+  assert.ok(!/r-h2|r-title/.test(h), "texto todo longo: as linhas vão para letra de leitura");
+  assert.match(R({ layout: "statement", lines: [{ text: "Curta", as: "h2" }, { text: "Outra curta" }] }), /r-h2/, "linha curta pode ser h2");
+  const t = R({ layout: "table", title: "IDF", head: ["a", "b"], rows: [["1", "2"]], side: [{ text: "$i = K/T$", as: "lead" }, { text: "K — coeficiente" }] });
+  assert.doesNotMatch(t, /object Object/);
+  assert.match(t, /K — coeficiente/);
+});

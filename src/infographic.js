@@ -4,7 +4,7 @@
 // (data-fit). Uma cor por item, tirada do tema: numa paleta de família, os parentes dela; senão, tons harmônicos
 // ao destaque. Neutros (fundo, linhas, texto) são as variáveis do tom do slide, então funciona em claro e escuro.
 //
-//   shape: arco | ramos | lados | trilhas | metro | ciclo | pista
+//   shape: arco | ramos | lados | trilhas | metro | ciclo | pista | camadas
 //   center: "Título" ou { title, text, icon }
 //   items: [{ title, text, icon, steps: [...] (só trilhas) }]
 import { md } from "./markup.js";
@@ -19,6 +19,7 @@ export const INFOGRAPHIC_SHAPES = {
   metro: { max: 7, label: "Metrô: centro e linhas que se abrem até cada item, com ícone e legenda" },
   ciclo: { max: 8, label: "Ciclo: etapas em volta de um círculo, cada uma ligada à seguinte por uma seta curva (ciclo da água, PDCA, ciclo de vida)" },
   pista: { max: 8, label: "Pista: um circuito de corrida visto de cima (estilo Mario Kart), com os itens como marcos ao longo da volta (uma história, uma jornada, as fases de um projeto)" },
+  camadas: { max: 6, label: "Camadas: um perfil físico de cima para baixo como na realidade (atmosfera, superfície, solo, lençol, rocha), com os fluxos entre as camadas como setas (flows)" },
 };
 
 // ---- cores ----------------------------------------------------------------------------------------------------
@@ -349,7 +350,41 @@ function pista(s, items, cols, theme) {
   return base + layers.join("");
 }
 
-const SHAPES = { arco, ramos, lados, trilhas, metro, ciclo, pista };
+// Camadas: um perfil físico de cima para baixo como na realidade (atmosfera, superfície, solo, lençol, rocha; ou as
+// camadas de um sistema), cada item uma faixa com o nome, o texto e as etiquetas dela; flows: [{from, to, title}]
+// (números das camadas, de cima para baixo) viram setas verticais com o nome do fluxo — descendo (infiltração) ou
+// subindo (evaporação). Num fluxograma, o Mermaid ordena pelas setas e a atmosfera ia parar embaixo.
+function camadas(s, items, cols, theme) {
+  const n = items.length, gap = 12, bh = (H - gap * (n - 1)) / n, lw = 380, x0 = lw + 30, xr = W - 8;
+  const flows = (Array.isArray(s.flows) ? s.flows : []).map((f) => ({ from: Number(f.from ?? f.de) - 1, to: Number(f.to ?? f.para) - 1, title: String(f.title ?? f.label ?? "") })).filter((f) => f.from >= 0 && f.to >= 0 && f.from < n && f.to < n && f.from !== f.to);
+  // as setas na metade direita (as etiquetas ficam na esquerda, sem cruzar)
+  const xa = flows.length ? x0 + (xr - x0) * 0.5 : xr, fx = (k) => xa + 30 + ((xr - xa - 60) * (k + 0.5)) / Math.max(1, flows.length);
+  const top = (i) => i * (bh + gap);
+  const markers = cols.map((col, i) => `<marker id="${ID}l${i}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:#${col}"/></marker>`).join("");
+  let base = svg(`${shadow()}<defs>${markers}</defs>${items.map((it, i) => `<rect x="0" y="${F(top(i))}" width="${W}" height="${F(bh)}" rx="18" style="fill:color-mix(in srgb,#${cols[i]} 16%,var(--bg));stroke:color-mix(in srgb,#${cols[i]} 55%,var(--bg))" stroke-width="2"/><rect x="0" y="${F(top(i))}" width="10" height="${F(bh)}" rx="5" style="fill:#${cols[i]}"/>`).join("")}`);
+  items.forEach((it, i) => {
+    base += box(28, top(i) + 8, lw - 30, bh - 16, `${icon(it.icon, Math.min(40, bh * 0.3), `#${cols[i]}`)}${title(it.title, Math.min(30, bh * 0.26), `#${cols[i]}`, "font-weight:800")}${body(it.text, Math.min(18, bh * 0.15), FG)}`, { align: "left" });
+    const chips = (Array.isArray(it.items) ? it.items : []).map(norm).filter((c) => c.title);
+    if (chips.length) base += `<div class="ig-box ig-chips" data-fit data-fit-self style="font-size:20px;left:${F(x0)}px;top:${F(top(i) + 10)}px;width:${F(xa - x0 - 20)}px;height:${F(bh - 20)}px;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;align-content:center;gap:8px 10px;justify-content:flex-start">${chips.map((c) => `<span class="t f-body" style="font-size:${em(Math.min(19, bh * 0.16))};padding:.25em .7em;border-radius:999px;background:color-mix(in srgb,#${cols[i]} 22%,var(--bg));color:${FG};border:1px solid color-mix(in srgb,#${cols[i]} 50%,var(--bg))">${md(c.title)}</span>`).join("")}</div>`;
+  });
+  // setas por cima das faixas, cada uma numa coluna; o nome ao lado, no meio do caminho
+  const layers = flows.map((f, k) => {
+    const x = fx(k), down = f.to > f.from, col = cols[f.from];
+    // de dentro da camada de origem até dentro da de destino (só no vão entre as faixas, a seta mal aparecia)
+    const y1 = down ? top(f.from) + bh * 0.35 : top(f.from) + bh * 0.65, y2 = down ? top(f.to) + bh * 0.65 : top(f.to) + bh * 0.35;
+    // duas setas entre as mesmas camadas (percolação desce, fluxo ascendente sobe): os nomes em alturas diferentes
+    const same = flows.slice(0, k).filter((o) => Math.min(o.from, o.to) === Math.min(f.from, f.to) && Math.max(o.from, o.to) === Math.max(f.from, f.to)).length;
+    const ym = (y1 + y2) / 2 + (same % 2 ? 34 : 0) - (flows.some((o, j) => j > k && Math.min(o.from, o.to) === Math.min(f.from, f.to) && Math.max(o.from, o.to) === Math.max(f.from, f.to)) && !same ? 34 : 0);
+    const g = svg(`<path d="M${F(x)} ${F(y1)} L${F(x)} ${F(y2)}" style="fill:none;stroke:#${col}" stroke-width="6" stroke-linecap="round" marker-end="url(#${ID}l${f.from})"/>`); // sem sombra: filtro numa linha reta (caixa de largura zero) apaga a linha
+    // o nome à direita da seta, na largura até a próxima (vizinhos encostados contam como texto sobre texto e o slide
+    // inteiro encolhia); perto da borda, à esquerda
+    const lw2 = Math.max(90, Math.min(200, (xr - xa - 60) / Math.max(1, flows.length) - 22)), right = x + 12 + lw2 <= W - 4;
+    return layer(g + box(right ? x + 12 : x - 12 - lw2, ym - 30, lw2, 60, `<span class="t f-label" style="font-size:${em(15)};padding:.2em .55em;border-radius:6px;background:var(--bg);color:#${col};font-weight:700;white-space:normal;display:inline-block;max-width:100%">${md(f.title)}</span>`, { align: right ? "left" : "right" }), s.build ? k + 1 : 0);
+  });
+  return base + layers.join("");
+}
+
+const SHAPES = { arco, ramos, lados, trilhas, metro, ciclo, pista, camadas };
 
 export function infographicHTML(s, ctx) {
   const shape = SHAPES[s.shape] ? s.shape : "arco";

@@ -12,6 +12,7 @@ import path from "node:path";
 import YAML from "yaml";
 import { chat, llmConfig } from "./llm.js";
 import { systemPrompt, extractYaml, parseYaml, validateSlides, sanitizeCheck, materializeImages, countImagePrompts } from "./deck-ai.js";
+import { groundSpotlights } from "./ground.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { plainOf } from "../import/pptx.js";
 import { styleFromImport, repeatedFrame } from "../master.js";
@@ -163,6 +164,8 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - Figura que é ILUSTRAÇÃO (desenho de uma cena, corte de terreno, perfil de solo, mapa, esquema desenhado; não fluxograma de caixas e setas, não gráfico, não tabela) com imagem ESCANEADA ou PIXELADA, genérica ou específica: REDESENHE como ilustração, com o modelo de imagem, a partir dela (não vire diagrama de caixas: ilustração volta como ilustração, bem feita): no lugar de \`image:\`, \`image_prompt: "Clean up and redraw THIS EXACT figure as if traced over it: same aspect ratio, same framing, every line in the same place; crisp lines, gentle colors (…cores que combinem com o deck…). Copy every text label exactly as written, letter by letter, at the same position; leave out what is unreadable; add no new text."\` e \`image_ref: <o caminho da imagem original dada>\` (com \`fit: contain\`). Descreva no prompt, em inglês, o que a figura mostra (ruas, curvas de nível, rio…) para o modelo não errar. O original fica guardado; a conferência compara os dois.
 - Ilustração nova (uma cena, um objeto, um processo físico, a capa) onde uma imagem explica melhor que ícone ou diagrama: \`image_prompt: "…em inglês…"\` sem \`image_ref\`. Com moderação: as que fazem diferença.
 - \`full\` (imagem de fundo com texto por cima) só para FOTO; gráfico, esquema, mapa e tabela nunca vão em \`full\` (o texto cobre os dados): use \`split\` (texto ao lado) ou \`image\`.
+- Camadas físicas (atmosfera, superfície, solo, lençol, rocha; o perfil de um terreno): \`infographic\` com \`shape: camadas\`, de cima para baixo como na realidade, com os fluxos entre elas em \`flows\`; nunca um \`diagram\` (o fluxograma ordena pelas setas e põe a atmosfera embaixo).
+- Gráfico 3D (\`plot.surface\`) só com a função ou os dados do próprio material; nada de superfície de enfeite (uma onda qualquer chamada de "terreno").
 - Ciclo (algo que volta ao começo: ciclo hidrológico, PDCA, ciclo de vida): \`infographic\` com \`shape: ciclo\` (etapas em volta, setas curvas), nunca \`diagram\` (no fluxograma a volta vira setas cruzando o desenho).
 - Exercício novo: quando o material já tem os dados (a série, a tabela, a bacia do original), prefira usá-los.
 - Figura de um slide: um ícone sozinho só quando não houver nada melhor; prefira um gráfico ou esquema do próprio conceito (declividade: o perfil do rio num \`chart\`).
@@ -275,7 +278,7 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
   const candidates = originals.filter((s) => imgFile(s) && fs.existsSync(imgFile(s)) && (contentImages(s).length || s.elements.filter((e) => e.drawing && !e.deco).length >= 3 || s.elements.some((e) => e.table)));
   // o cache de antes da "aparencia" (digital, foto, escaneada, pixelada) é olhado de novo: sem ela, nada é redesenhado
   // ("qualidade: boa/ruim" era subjetivo: a visão achava boa até o mapa de xerox)
-  for (const s of candidates) { const k = figKey(s); if (k && figCache[k] && (figCache[k].figuras || []).every((f) => "aparencia" in f)) figs[s.original.slide] = figCache[k]; }
+  for (const s of candidates) { const k = figKey(s); if (k && figCache[k] && (figCache[k].figuras || []).every((f) => "aparencia" in f && "arquivo" in f)) figs[s.original.slide] = figCache[k]; }
   const needFig = candidates.filter((s) => !figs[s.original.slide]);
   try {
     if (needFig.length) {
@@ -290,9 +293,17 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
       const look = async (batch) => {
         const k = needFig.indexOf(batch[0]);
         progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
-        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), a APARÊNCIA da imagem ("digital": desenho limpo feito no computador; "foto": fotografia real; "escaneada": papel escaneado, fotocopiado ou fotografado, com traço grosso, manchas ou preto e branco chapado, de livro ou apostila; "pixelada": baixa resolução, borrada, serrilhada) e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
-Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"aparencia":"escaneada","o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
-        batch.forEach((s) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urlOf.get(s) } }));
+        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), a APARÊNCIA da imagem ("digital": desenho limpo feito no computador; "foto": fotografia real; "escaneada": papel escaneado, fotocopiado ou fotografado, com traço grosso, manchas ou preto e branco chapado, de livro ou apostila; "pixelada": baixa resolução, borrada, serrilhada) e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais). Cada figura que é uma das imagens dadas leva o "arquivo" dela (o nome que vem antes da imagem); figura desenhada no próprio slide (formas, caixas de texto) leva "arquivo": "". Mapa ou desenho em preto e branco de traço grosso, com letras de máquina ou à mão, de livro antigo, é "escaneada".
+Responda só JSON: {"slides":[{"n":6,"figuras":[{"arquivo":"imagens/original/image4.png","tipo":"esquema","generica":true,"aparencia":"escaneada","o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
+        for (const s of batch) {
+          content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urlOf.get(s) } });
+          const files = contentImages(s);
+          if (files.length === 1) content.push({ type: "text", text: `(a imagem deste slide é o arquivo ${files[0]})` });
+          if (files.length > 1) {
+            const urls = await imagesAsDataUrls(files.map((f) => path.join(dir, f)), { width: 640 });
+            files.forEach((f, j) => { if (urls[j]) content.push({ type: "text", text: `Arquivo ${f} (uma das imagens do slide ${s.original.slide}):` }, { type: "image_url", image_url: { url: urls[j] } }); });
+          }
+        }
         try {
           const r = await ask([{ role: "user", content }], { model: V, maxTokens: 16000 });
           const got = jsonLoose(r.text);
@@ -322,7 +333,7 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":tru
 
   const brief = (s) => {
     const n = s.original.slide;
-    const f = figs[n]?.figuras?.length ? `\n  figuras: ${figs[n].figuras.map((x) => `[${x.generica ? "genérica" : "ESPECÍFICA"}${/escaneada|pixelada/.test(x.aparencia || "") ? `, imagem ${String(x.aparencia).toUpperCase()}` : ""}] ${x.tipo}: ${x.o_que}${x.dados ? ` — dados: ${x.dados}` : ""}`).join(" | ")}` : "";
+    const f = figs[n]?.figuras?.length ? `\n  figuras: ${figs[n].figuras.map((x) => `${x.arquivo ? `(arquivo ${x.arquivo}) ` : ""}[${x.generica ? "genérica" : "ESPECÍFICA"}${/escaneada|pixelada/.test(x.aparencia || "") ? `, imagem ${String(x.aparencia).toUpperCase()}` : ""}] ${x.tipo}: ${x.o_que}${x.dados ? ` — dados: ${x.dados}` : ""}`).join(" | ")}` : "";
     const imgs = contentImages(s);
     return `### slide ${n}: ${s.title || ""}\n${textsOfSlide(s).map((t) => `  ${t.replace(/\n/g, "\n  ")}`).join("\n")}${f}${imgs.length ? `\n  imagens: ${imgs.join(", ")}` : ""}${s.notes ? `\n  notas: ${clip(s.notes, 1500)}` : ""}${figs[n]?.continua_anterior ? "\n  (parece continuação do slide anterior: o mesmo desenho com partes a mais)" : ""}`;
   };
@@ -450,9 +461,18 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   // o que a visão viu em cada imagem do original (pelos tipos das figuras do slide dela): gráfico, tabela e equação
   // não vão para o modelo de imagem (saíam como figura com número trocado e rótulo em inglês, e a fórmula como foto);
   // são refeitos com chart, table e LaTeX. Só ilustração (esquema, mapa, desenho, corte) é redesenhada.
-  const tiposDe = new Map();
-  for (const s of originals) for (const img of contentImages(s)) tiposDe.set(img, (figs[s.original.slide]?.figuras || []).map((f) => String(f.tipo || "")));
-  const naoIlustracao = (ref) => { const t = tiposDe.get(ref); return !!t?.length && t.every((x) => /gr[aá]fico|tabela|equa|f[oó]rmula/i.test(x)); };
+  const tiposDe = new Map(), figDe = new Map();
+  for (const s of originals) {
+    const fs_ = figs[s.original.slide]?.figuras || [], files = contentImages(s);
+    for (const img of files) tiposDe.set(img, fs_.map((f) => String(f.tipo || "")));
+    // a figura de cada arquivo (a visão diz qual é qual; com uma imagem só e uma figura, é ela)
+    for (const f of fs_) if (f.arquivo && files.includes(f.arquivo)) figDe.set(f.arquivo, f);
+    if (files.length === 1 && fs_.length === 1 && !figDe.has(files[0])) figDe.set(files[0], fs_[0]);
+  }
+  const tipoDe = (img) => (figDe.has(img) ? [String(figDe.get(img).tipo || "")] : tiposDe.get(img));
+  const naoIlustracao = (ref) => { const t = tipoDe(ref); return !!t?.length && t.every((x) => /gr[aá]fico|tabela|equa|f[oó]rmula/i.test(x)); };
+  const ilustracaoRuim = (img) => { const f = figDe.get(img); return !!f && /mapa|esquema|desenho|ilustra|corte|perfil/i.test(f.tipo || "") && !/gr[aá]fico|tabela|equa/i.test(f.tipo || "") && /escaneada|pixelada/.test(f.aparencia || ""); };
+  const themeName = typeof deckBase.theme === "string" ? deckBase.theme : "clean";
   const keepDataFigures = (node) => {
     if (!node || typeof node !== "object") return;
     if (Array.isArray(node)) return node.forEach(keepDataFigures);
@@ -460,16 +480,39 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       report.problemas.push(`redesenho recusado (${node.image_ref} é gráfico, tabela ou equação: refaça com chart, table ou LaTeX)`);
       node.image = node.image_ref; delete node.image_prompt; delete node.image_ref;
     }
+    // ilustração de xerox que a escritora deixou como estava: o redesenho é automático (a regra pedia e ela ignorava;
+    // o mapa do posto fluviométrico ficou o xerox); a conferência visual compara com o original
+    if (typeof node.image === "string" && !node.image_prompt && !node.image_ref && ilustracaoRuim(node.image)) {
+      const f = figDe.get(node.image);
+      node.image_prompt = `Clean up and redraw THIS EXACT figure as if traced over it: same aspect ratio, same framing, every line in the same place; crisp lines and gentle colors that fit a "${themeName}" presentation. It shows: ${clip(f.o_que, 300)}. Copy every text label exactly as written, letter by letter, at the same position${f.dados ? ` (${clip(f.dados, 300)})` : ""}; leave out what is unreadable; add no new text.`;
+      node.image_ref = node.image;
+      if (!node.fit) node.fit = "contain";
+    }
     for (const v of Object.values(node)) keepDataFigures(v);
+  };
+  // imagem do original que é uma EQUAÇÃO num slide novo: a fórmula vai em LaTeX (a imagem ficava, e às vezes no slide
+  // errado: a fórmula de P no lugar do hidrograma). Volta para a correção com o que a visão leu.
+  const equationImages = (slides) => {
+    const out = [];
+    slides.forEach((sl, j) => {
+      const walk = (o) => { if (!o || typeof o !== "object") return; if (Array.isArray(o)) return o.forEach(walk);
+        if (typeof o.image === "string") { const f = figDe.get(o.image); if (f && /equa|f[oó]rmula/i.test(f.tipo || "")) out.push({ j, img: o.image, f }); }
+        for (const v of Object.values(o)) walk(v); };
+      walk(sl);
+    });
+    return out;
   };
   const drawImages = async (slides) => {
     keepDataFigures(slides);
-    if (!countImagePrompts({ slides })) return;
-    if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
-    progress("escrever", "Desenhando as ilustrações…");
-    const r = await materializeImages({ slides }, { baseDir: dir, assetsDir: path.join(dir, "imagens", "ia"), max: 6 });
-    job.images = (job.images || 0) + r.done.length;
-    for (const f of r.failed) report.problemas.push(`ilustração não saiu (${clip(f.error, 100)}): ${clip(f.prompt, 80)}`);
+    if (countImagePrompts({ slides })) {
+      if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
+      progress("escrever", "Desenhando as ilustrações…");
+      const r = await materializeImages({ slides }, { baseDir: dir, assetsDir: path.join(dir, "imagens", "ia"), max: 6 });
+      job.images = (job.images || 0) + r.done.length;
+      for (const f of r.failed) report.problemas.push(`ilustração não saiu (${clip(f.error, 100)}): ${clip(f.prompt, 80)}`);
+    }
+    // foco guiado: a visão olha a figura e põe cada destaque no lugar (a escritora não vê a figura e chutava)
+    await groundSpotlights(slides, { baseDir: dir, ask: async (content) => (await ask([{ role: "user", content }], { model: V, maxTokens: 8000 })).text, onProgress: (t) => progress("conferir", t) });
   };
   const runBatch = async (batch) => {
     if (stop) return;
@@ -504,6 +547,9 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
           const typos = typosOf(produced.filter((s) => s.origem === k + 1), vocab);
           // dica, não erro: palavra certa também pode ser a do original com uma letra a menos ("estão" de "gestão")
           if (typos.length) hints.push(`ITEM ${k + 1}: confira a grafia (letra faltando ou sem acento?): ${typos.slice(0, 15).join(", ")}`);
+        }
+        for (const { j, img, f } of equationImages(produced)) {
+          issues.push({ k: (produced[j]?.origem || batch[0].k + 1) - 1, kind: "desenho", text: `slide novo ${j + 1} (item ${produced[j]?.origem}): a imagem ${img} é uma EQUAÇÃO${f.dados ? ` (${clip(f.dados, 200)})` : ""}, não uma figura: escreva a fórmula em LaTeX ($…$ no texto, ou equations/latex) e tire a imagem; se o slide precisava de outra figura, use o arquivo certo` });
         }
         for (const { it, k } of batch) {
           if (!srcOf(it).length || it.acao === "novo") continue;
@@ -759,6 +805,7 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, m
   const origFiles = [...new Set(batch.flatMap(({ it }) => (it.de || []).map((n) => orig.get(Number(n))?.original?.image).filter(Boolean)))];
   const origUrls = await imagesAsDataUrls(origFiles.map((f) => path.join(dir, f)), { width: 960 });
   const content = [{ type: "text", text: `Confira slides NOVOS de uma aula contra as fotos dos slides ORIGINAIS. Aponte só problemas reais:
+- crítica de desenho (como um professor que vai apresentar): destaque ou caixa do foco guiado fora do lugar na figura; figura que não é a do assunto do slide (a legenda fala de uma coisa e a imagem mostra outra); equação ou tabela como imagem (devia ser LaTeX ou table); gráfico de enfeite sem dado do material; ordem física invertida (o que fica em cima no mundo desenhado embaixo); texto gigante ocupando o slide;
 - desenho: texto cortado, sobreposto, fora do slide, ilegível de tão pequeno, área vazia enorme, figura esticada;
 - conteúdo: informação que está no original e sumiu no novo (número, rótulo, parte de uma figura específica), figura errada.
 - texto: erro de digitação ou de ortografia (letra faltando ou trocada: "Méodo", "Refrências").

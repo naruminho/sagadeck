@@ -121,7 +121,11 @@ export const LAYOUTS = {
     const lines = s.lines
       ? s.lines.map((l, i) => {
           const o = typeof l === "string" ? { text: l } : l;
-          return text(o.text, o.as || role, { ...o, step: o.step ?? build(s, i, 0), class: `st-line ${o.class || ""}`, size: o.size || s.size });
+          // a linha pode ser menor que o tamanho que o texto todo permite, nunca maior (três linhas longas, cada uma
+          // em h2, ocupavam a tela inteira); o as do slide inteiro (pedido da pessoa) continua valendo
+          const RANK = { title: 3, h2: 2, lead: 1, body: 0, small: -1 };
+          const as = !s.as && o.as && (RANK[o.as] ?? 0) > (RANK[role] ?? 0) ? role : o.as || role;
+          return text(o.text, as, { ...o, as: undefined, step: o.step ?? build(s, i, 0), class: `st-line ${o.class || ""}`, size: o.size || s.size });
         }).join("")
       : text(s.text, role, { class: "st-line e", style: "--d:1;", fit: true, size: s.size });
     return `<div class="L-statement ${s.center ? "center" : ""}">${kicker(s)}<div class="st-body">${lines}</div>
@@ -329,7 +333,8 @@ export const LAYOUTS = {
   table(s, ctx) {
     const t = { head: s.head || s.columns, rows: s.rows, csv: s.csv, style: s.style, color: s.color, align: s.align, highlight: s.highlight, total: s.total, widths: s.widths, rowHeader: s.rowHeader, size: s.size };
     const tb = `<div class="tb-main e" style="--d:2;">${tableHTML(t, { theme: ctx?.theme })}</div>`;
-    const side = s.side ? `<div class="tb-side e" style="--d:3;">${text(s.side, "lead", { class: "tb-side-t" })}</div>` : "";
+    // ao lado: texto, ou elementos (a IA às vezes manda [{ text, as }] como no blocks: saía "[object Object]")
+    const side = s.side ? `<div class="tb-side e" style="--d:3;">${typeof s.side === "string" ? text(s.side, "lead", { class: "tb-side-t" }) : el(s.side, ctx)}</div>` : "";
     return `<div class="L-table${side ? " with-side" : ""}">${head(s)}<div class="tb-row">${tb}${side}</div>${s.caption ? text(s.caption, "small", { class: "tb-cap" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
