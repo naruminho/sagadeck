@@ -762,3 +762,33 @@ test("imagem do original que a visão viu como gráfico (não foto) sai inteira 
     assert.equal(b.spec.slides.find((s) => s.layout === "image").figure.fit, undefined, "foto: fica como a IA pediu");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
+
+test("recriar: progressivos são redesenhados (juntar vira escrever); faltou algo: a proposta fica marcada e o original NÃO volta ao lado", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const llm = await startMockLLM((req) => {
+    if (/Conferi estes slides/.test(req.lastUser)) {
+      const asked = req.messages.find((m) => m.role === "user" && /Escreva os slides destes itens/.test(typeof m.content === "string" ? m.content : ""));
+      return handler({ ...req, lastUser: asked.content }); // "corrige" esquecendo o 0,385 de novo
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+    assert.equal(r.plan.slides.find((it) => (it.de || []).includes(3)).acao, "escrever", "o ciclo (slides 3 e 4) é redesenhado, não juntado com os desenhos velhos");
+    const canvas = r.spec.slides.filter((s) => s.layout === "canvas");
+    assert.deepEqual(canvas.map((s) => s.original?.slide), [], `nenhum original volta ao deck novo (${JSON.stringify(canvas.map((s) => s.original?.slide))})`);
+    const kir = r.spec.slides.find((s) => /Kirpich/.test(s.text || ""));
+    assert.equal(kir.review?.status, "revisar");
+    assert.match(kir.review.note, /Faltou do original \(slide 2\): .*0\.385/);
+    assert.deepEqual(r.report.pendentes, [], "não fica pendente com o original ao lado");
+    const writer = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser)).messages.find((m) => m.role === "system").content;
+    assert.match(writer, /Confira a ortografia/);
+    assert.match(writer, /um ícone sozinho só quando não houver nada melhor/);
+    const vision = llm.requests.find((q) => /Confira slides NOVOS/.test(q.lastUser))?.lastUser || "";
+    assert.match(vision, /erro de digitação ou de ortografia/);
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});

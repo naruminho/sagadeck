@@ -131,6 +131,15 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 
 /* ===== elementos ===== */
 .row{display:flex;flex-direction:row}
+/* definição (verbete) */
+.L-definition{flex:1;min-height:0;display:flex;align-items:center;gap:90px}.df-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:26px}
+.df-term{line-height:1}.df-origin{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px}.df-from{color:var(--muted);letter-spacing:.06em}
+.df-part{display:inline-flex;align-items:baseline;gap:12px;padding:10px 22px;border:2px solid color-mix(in srgb,var(--em) 35%,transparent);border-radius:999px;background:color-mix(in srgb,var(--em) 8%,transparent)}
+.df-word{font-style:italic;font-size:38px;color:var(--hi-ink,var(--em))}.df-mean{font-size:30px;color:var(--muted)}.df-plus{font-size:34px;color:var(--muted)}
+.df-rule{width:120px;height:6px;border-radius:3px;background:var(--hi-ink,var(--em))}.df-text{max-width:1180px}
+.df-fig{flex:none;width:min(560px,34%);display:flex;align-items:center;justify-content:center}.df-icon{aspect-ratio:1;border-radius:50%;color:var(--hi-ink,var(--em));background:color-mix(in srgb,currentColor 12%,transparent);box-shadow:inset 0 0 0 4px color-mix(in srgb,currentColor 22%,transparent)}.df-icon>svg{width:46%;height:46%}
+/* gráficos lado a lado num row (blocks, content): dividem a largura e ocupam a altura que sobra; o SVG sem tamanho ficava com os 300 px padrão do navegador */
+.fig-chart.has-title{flex-direction:column;align-items:stretch;gap:8px}.fc-title{font-size:24px;color:var(--muted);text-align:center}.fig-chart.has-title>svg{flex:1;min-height:0;width:100%}.bl-caption{margin-top:14px;text-align:center}.row>.fig-chart{flex:1 1 0;min-width:0;align-self:stretch}.row>.fig-chart>svg{width:100%;height:100%;max-height:100%}.bl-body>.row:has(>.fig-chart){flex:1 1 auto;min-height:0}
 .col{display:flex;flex-direction:column}
 .fig{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
 .figbox>.fig,.cv-fig>.fig,.sc-fig>.fig,.en-fig>.fig,.vd-fig>.fig,.cp-fig>.fig{width:100%;height:100%}
@@ -276,6 +285,8 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .sp-text .hd{margin-bottom:10px}
 .sp-fig{display:flex;align-items:center;justify-content:center;min-width:0}
 .sp-fig>*{width:100%;height:100%}
+/* ícone sozinho como figura do split: grande, num disco com a cor dele (pequeno e solto parecia sujeira) */
+.sp-fig>.fig-icon{width:min(440px,78%);height:auto;aspect-ratio:1;border-radius:50%;background:color-mix(in srgb,currentColor 13%,transparent);box-shadow:inset 0 0 0 3px color-mix(in srgb,currentColor 22%,transparent)}.sp-fig>.fig-icon>svg{width:48%!important;height:48%!important}
 .sp-fig>.col{
   justify-content:center!important;
   height:auto;
@@ -427,7 +438,7 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .im-fig{position:absolute;inset:0;display:flex}
 .im-fig>*{width:100%;height:100%}
 .im-cap{position:absolute;left:120px;bottom:110px;max-width:1100px;display:flex;flex-direction:column;gap:18px;background:var(--bg);padding:40px 48px;border-radius:var(--radius)}
-.L-image.im-contain{position:relative;inset:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:22px}.L-image.im-contain .im-fig{position:relative;inset:auto;flex:1;min-height:0}.L-image.im-contain .im-cap{position:static;max-width:none;background:none;padding:0;gap:8px}
+.L-image.im-contain{position:relative;inset:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:22px}.L-image.im-contain .im-fig{position:relative;inset:auto;flex:1;min-height:0}.L-image.im-contain .im-cap{position:static;max-width:none;background:none;padding:0;gap:8px}.L-image.im-contain .im-caption{text-align:center;max-width:1500px;align-self:center}
 
 .cd-row{flex:1;display:flex;gap:60px;min-height:0;align-items:center}
 .cd-row .codewalk-editor{flex:1.4}

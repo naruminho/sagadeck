@@ -61,7 +61,7 @@ test("estilo do original: a moldura copiada em cada slide é reconhecida (faixa,
     const deck = { title: "Nova aula", theme: st.theme, master: st.master, footer: false, _dir: path.dirname(r.file), slides: [{ layout: "cover", title: "Capa" }, { layout: "list", title: "Pontos", items: ["a", "b"] }, { layout: "canvas", elements: [{ text: "livre", x: 0, y: 0 }] }, { layout: "list", title: "Sem moldura", items: ["c"], master: false }] };
     const { html, warnings } = buildHTML(deck);
     assert.deepEqual(warnings.filter((w) => !/palavras/.test(w)), []);
-    const sections = html.split('<section class="slide').slice(1);
+    const sections = html.split('<section class="slide').slice(1).map((x) => x.split("</section>")[0]); // só o slide (o script do runtime vem depois)
     assert.match(sections[0], /has-master master-cover/); assert.match(sections[1], /has-master /);
     assert.doesNotMatch(sections[2], /has-master/, "slide livre não recebe moldura");
     assert.doesNotMatch(sections[3], /has-master/, "master: false");

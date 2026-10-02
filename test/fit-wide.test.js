@@ -194,7 +194,7 @@ test("layout image com a figura inteira (fit: contain, gráfico): a legenda vai 
     fs.writeFileSync(file, buildHTML(spec).html);
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
     const measure = (i) => page.evaluate((k) => {
-      const s = document.querySelectorAll(".slide")[k], img = s.querySelector(".im-fig img"), c = s.querySelector(".im-cap").getBoundingClientRect();
+      const s = document.querySelectorAll(".slide")[k], img = s.querySelector(".im-fig img"), c = s.querySelector(".im-caption, .im-cap").getBoundingClientRect();
       // a parte desenhada da imagem (contain: a imagem inteira cabe na caixa, centrada)
       const b = img.getBoundingClientRect(), ar = img.naturalWidth / img.naturalHeight;
       const w = Math.min(b.width, b.height * ar), h = w / ar, top = b.top + (b.height - h) / 2;
@@ -203,6 +203,7 @@ test("layout image com a figura inteira (fit: contain, gráfico): a legenda vai 
     await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(400);
     const a = await measure(0);
     assert.equal(a.overlap, false, "a legenda não cobre o gráfico");
+    assert.ok(await page.evaluate(() => { const s = document.querySelector(".slide"), h = s.querySelector(".hd"), f = s.querySelector(".im-fig"); return !!h && h.getBoundingClientRect().bottom <= f.getBoundingClientRect().top + 2; }), "o título vai no alto, antes da figura (não a frase gigante embaixo)");
     assert.ok(a.capBottom <= 1080, "e cabe no slide");
     await page.goto(`file://${file.replace(/\\/g, "/")}?export#2`); await page.waitForTimeout(400);
     assert.equal((await measure(1)).overlap, true, "foto: o cartão continua por cima (é o desenho do layout)");

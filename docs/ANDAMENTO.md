@@ -115,6 +115,20 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   (wholeFigures). Tema: a pessoa corrigiu, "colorido" era a preferência DELA para esta aula, não regra: o recriar
   segue o tema/jeito que o pedido disser e, sem nada, a IA escolhe; o "bonito e colorido" vai no pedido do chat.
   Também não obrigar "dados fictícios" (é comum pedir material completo com dados, exemplos e exercícios gerados).
+- Retorno sobre a rodada 02/10 (a11fc5a), causas e correções:
+  - capa velha antes da nova e "Componentes do ciclo" com desenhos velhos semi-transparentes: no recriar, pendência
+    punha o original ao lado e "juntar" guardava os desenhos do original. Agora juntar vira escrever e pendência
+    vira proposta marcada "revisar" (com o que faltou), sem o original;
+  - setas do Mermaid em degraus ("raio do Darkseid") e pontas tortas: ligações curvas por padrão (`curve: angulo`
+    ou `reta` por slide); rótulo com parênteses sem aspas (quebrava o diagrama da delimitação) ganha aspas;
+  - gráfico com o tipo como chave (`{ line: {…} }`) sumia em silêncio: desenha; sem tipo, erro para a IA;
+  - dois gráficos num row com 300 px: dividem a largura; `title` do gráfico e `caption` do blocks aparecem;
+  - ícone sozinho no split parecia sujeira: grande, num disco; regra para preferir gráfico/esquema do conceito;
+  - statement com parágrafo em letra de título: tamanho pelo comprimento; layout novo `definition` (verbete) para
+    "o que é X" (termo, origem em partes, definição, ícone);
+  - layout image com figura inteira: título no alto e legenda pequena embaixo (não a frase gigante);
+  - faixas claras fora da capa na apresentação: slide com moldura até a borda (canvas, mestre) tem fundo escuro fora;
+  - erros de digitação ("Méodo", "Refrências"): quem escreve confere a ortografia e a conferência visual aponta.
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

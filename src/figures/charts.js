@@ -345,8 +345,23 @@ function stacked(o, W, H) {
 
 const TYPES = { bar, column, line, donut, waffle, isotype, stacked };
 
+// o tipo como chave, como a IA às vezes escreve: { chart: { line: { labels, series } } } ou { line: { labels, series } }
+function unwrapType(o) {
+  if (o && o.chart && typeof o.chart === "object") {
+    const [k, v] = Object.entries(o.chart)[0] || [];
+    if (TYPES[k] && v && typeof v === "object") return { ...o, ...v, chart: k };
+    return { ...o, ...o.chart, chart: o.chart.chart || o.chart.type };
+  }
+  if (o && !TYPES[o.chart]) {
+    const k = Object.keys(TYPES).find((t) => o[t] && typeof o[t] === "object" && !Array.isArray(o[t]));
+    if (k) { const { [k]: v, ...rest } = o; return { ...rest, ...v, chart: k }; }
+  }
+  return o;
+}
+
 export function chart(o, w = 1200, h = 620) {
+  o = unwrapType(o);
   const fn = TYPES[o.chart];
-  if (!fn) throw new Error(`gráfico "${o.chart}" desconhecido (${Object.keys(TYPES).join(" | ")})`);
+  if (!fn) throw new Error(o.chart ? `gráfico "${o.chart}" desconhecido (${Object.keys(TYPES).join(" | ")})` : `gráfico sem tipo: diga qual em chart (${Object.keys(TYPES).join(" | ")}), ex.: { chart: line, labels: [...], series: [...] }`);
   return fn(o, o.w || w, o.h || h);
 }

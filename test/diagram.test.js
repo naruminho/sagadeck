@@ -273,3 +273,18 @@ test("paleta de família: grupos e ramos ficam nos tons da família; a cor forte
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
+
+test("rótulo com parênteses sem aspas (Boca de Lobo 1 (BL1)) desenha; ligações curvas por padrão, em ângulo ou retas se pedir", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  try {
+    const code = "flowchart LR\n  subgraph A1 [Área de Contribuição 1]\n    L1[Lotes] --> S1[Sarjeta]\n  end\n  S1 --> BL1[Boca de Lobo 1 (BL1)]\n  D1{Divisor (escoamento)} -.-> S1";
+    const slides = [{ layout: "diagram", mermaid: code }, { layout: "diagram", mermaid: "flowchart TD\n  A --> B\n  A --> C", curve: "angulo" }, { layout: "diagram", mermaid: "flowchart TD\n  A --> B", curve: "reta" }];
+    const { p, errors } = await montar(browser, "sinal", slides);
+    const r = await p.evaluate(() => [...document.querySelectorAll(".slide")].map((s) => ({ svg: !!s.querySelector(".dg-box svg"), erro: s.querySelector(".dg-error")?.textContent || "", curve: s.querySelector(".dg-box").dataset.dgCurve, txt: s.querySelector(".dg-box svg")?.textContent || "" })));
+    assert.equal(r[0].erro, "", "sem erro de sintaxe");
+    assert.ok(r[0].svg && /Boca de Lobo 1 \(BL1\)/.test(r[0].txt) && /Divisor \(escoamento\)/.test(r[0].txt), JSON.stringify(r[0]).slice(0, 200));
+    assert.deepEqual(r.map((x) => x.curve), ["basis", "step", "linear"]);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
