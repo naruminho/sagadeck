@@ -188,7 +188,9 @@ const MODE_RULES = {
 export const ANALYSIS_VERSION = 2; // muda quando o pedido ao modelo de visão muda: o cache antigo não vale
 export class TransformStop extends Error { constructor(msg, kind) { super(msg); this.kind = kind; } }
 const sha1 = (buf) => crypto.createHash("sha1").update(buf).digest("hex");
-const DEFAULT_LIMITS = { calls: 300, tokens: 6_000_000, minutes: 120 };
+// calls: as chamadas que escrevem e pensam; looks: as de olhar (conferência visual de cada slide, localização dos
+// destaques), curtas e sem raciocínio, uma por slide a cada rodada de correção
+const DEFAULT_LIMITS = { calls: 300, looks: 2000, tokens: 6_000_000, minutes: 120 };
 // impressão dos slides originais (o que a tarefa transforma): outra importação = outra tarefa
 export function sourceHash(spec) {
   const originals = (spec?.slides || []).filter((s) => s.layout === "canvas" && s.original);
@@ -233,10 +235,12 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
   const tokens = () => Object.values(job.usage).reduce((a, u) => a + u.in + u.out, 0);
   const ask = async (messages, { model = T, maxTokens = 16000, temperature = 0.3, think } = {}) => {
     if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
-    if (job.calls >= lim.calls) throw new TransformStop(`Limite de ${lim.calls} chamadas.`, "limite");
+    const look = think === false;
+    if (!look && job.calls >= lim.calls) throw new TransformStop(`Limite de ${lim.calls} chamadas.`, "limite");
+    if (look && (job.looks || 0) >= lim.looks) throw new TransformStop(`Limite de ${lim.looks} conferências.`, "limite");
     if (tokens() >= lim.tokens) throw new TransformStop(`Limite de ${lim.tokens} tokens.`, "limite");
     if (spentBefore + Date.now() - t0 >= lim.minutes * 60000) throw new TransformStop(`Limite de ${lim.minutes} minutos.`, "limite");
-    job.calls++;
+    if (look) job.looks = (job.looks || 0) + 1; else job.calls++;
     let r;
     // em streaming (os cabeçalhos chegam logo; chamada longa não cai no limite de 300 s do fetch) e mostrando o texto
     // chegando; erro passageiro (rede, 5xx) tenta de novo uma vez

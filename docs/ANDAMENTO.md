@@ -46,6 +46,8 @@ raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título r
 - Redesenho automático: sem a moldura de print (janela do leitor de PDF, barra de ferramentas); o texto alternativo
   é o que a figura mostra, não o pedido ao modelo de imagem.
 - Dois gráficos em colunas lado a lado dividem a linha por igual (o primeiro saía minúsculo).
+- Limites da tarefa: `calls` (300) conta só as chamadas que escrevem e pensam; as de olhar (`think: false`) têm o
+  próprio `looks` (2000). A rodada 3 parou no "Limite de 300 chamadas" com a conferência por slide.
 - Testes: `test/llm-raciocinio.test.js`, `test/ground.test.js`, `test/blocks-graficos.test.js`, `test/transform.test.js`.
 
 ---

@@ -967,7 +967,7 @@ test("recriar: progressivos são redesenhados (juntar vira escrever); faltou alg
 
 // Retorno da versão escalafobética (02/10): a visão descrevia o slide e não cada arquivo (a fórmula P = m/(N+1) foi
 // parar no lugar do hidrograma); o xerox ficou xerox; a equação ficou imagem; o foco guiado tinha caixas chutadas.
-async function figureRound(fig, writeSlide, { locate, check } = {}) {
+async function figureRound(fig, writeSlide, { locate, check, limits } = {}) {
   const { handler } = script();
   const reqs = { gen: [], fix: [], look: [], locate: [], check: [] };
   const llm = await startMockLLM((req) => {
@@ -988,7 +988,7 @@ async function figureRound(fig, writeSlide, { locate, check } = {}) {
   for (const f of ["f2.png", "f3.png"]) fs.writeFileSync(path.join(d.dir, "imagens", f), PNG);
   d.spec.slides[1].original.image = "original/foto-2.png";
   d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 }, { image: "imagens/f3.png", x: 200, y: 0, w: 100, h: 100 });
-  try { return { r: await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false }), reqs }; }
+  try { return { r: await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false, limits }), reqs, requests: llm.requests }; }
   finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 }
 const kirpich = '    title: Kirpich\n    body: "Kirpich: bacias menores que 0,5 km²; coeficiente 57, expoente 0,385."';
@@ -1030,6 +1030,21 @@ test("conferência visual: um slide por vez, sem raciocínio; o problema apontad
   assert.ok(reqs.check.every((q) => q.body.reasoning?.enabled === false), "sem raciocínio");
   assert.ok(reqs.check.every((q) => (q.lastUser.match(/NOVO \d+ \(do item/g) || []).length === 1), "um slide novo por chamada");
   assert.ok(reqs.fix.some((u) => /título repetido: Kirpich aparece duas vezes/.test(u)), "o achado chegou à correção");
+});
+
+// Rodada 3 da escalafobética parou no "Limite de 300 chamadas": a conferência por slide multiplicou as chamadas,
+// que são curtas (sem raciocínio, ~1 mil tokens). O limite de chamadas é das que escrevem e pensam; as de olhar têm
+// um limite próprio, bem maior.
+test("limite de chamadas: as de olhar (conferência, localização) não gastam o limite das que escrevem", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const fig = { arquivo: "imagens/f2.png", tipo: "esquema", generica: false, aparencia: "digital", o_que: "delimitação", dados: "" };
+  const slide = `  - layout: spotlight\n    origem: 2\n    title: "Kirpich: 0,385 e 57"\n    figure:\n      image: imagens/f2.png\n    hotspots:\n      - { x: 52, y: 58, width: 22, height: 16, title: Exutório, text: A única saída }`;
+  const first = await figureRound(fig, slide, { check: '{"problemas": ["título repetido"]}' });
+  const thinking = first.requests.filter((q) => !q.body.reasoning).length;
+  assert.ok(first.requests.length > thinking, "houve chamadas de olhar");
+  const again = await figureRound(fig, slide, { check: '{"problemas": ["título repetido"]}', limits: { calls: thinking } });
+  assert.ok(!/Limite/.test(again.r.report.parou || ""), again.r.report.parou);
 });
 
 test("foco guiado (spotlight): a visão olha a figura e põe cada destaque no lugar; o que ela não acha fica como estava", async (t) => {
