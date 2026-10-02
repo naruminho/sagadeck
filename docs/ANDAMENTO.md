@@ -51,6 +51,9 @@ raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título r
 - Rodada 4 (19 min, completa): os 7 pontos do retorno resolvidos. Duas regras novas de prompt: tema com identidade
   própria não leva paleta sem pedido de cores ("sóbrio" virou `grafite` e o relevo saiu claro, destaques em tarja
   cinza); quebra de linha do PowerPoint no meio da frase é juntada (frases picadas nos slides de chuva de projeto).
+- Rodada 5 caiu no plano: "nada chegou em 180 s" duas vezes. O modelrelay descartava os keep-alives e o
+  raciocínio, e o modelo que pensa por minutos parecia morto. modelrelay 0.2.2 (naruminho/modelrelay#8): evento
+  `alive` e o comentário SSE `: alive` enquanto ele pensa; aqui `MIN_MODELRELAY` e o extra `ia` foram para 0.2.2.
 - Ainda abertos: slides repetidos às vezes (declividade em dois slides seguidos); equação pequena num canto
   (IDF de São Carlos); o modelo pede pouca ilustração nova mesmo quando o pedido quer "imagens realistas".
 - Testes: `test/llm-raciocinio.test.js`, `test/ground.test.js`, `test/blocks-graficos.test.js`, `test/transform.test.js`.
