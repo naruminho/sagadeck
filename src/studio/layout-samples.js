@@ -18,6 +18,7 @@ export const LAYOUT_INFO = {
   cover: ["Capa", "Abertura com título, subtítulo e autor"],
   section: ["Seção", "Abre um novo ato ou capítulo"],
   statement: ["Frase de impacto", "Uma ideia em letras grandes"],
+  calendar: ["Calendário", "Datas num calendário: um cartão por mês com o mini calendário e os eventos marcados; o que não tem data vai em \"sem data\""],
   poster: ["Pôster (infográfico)", "Uma página como figura de revista científica: ilustração principal e painéis com letra (a, b, c), desenho, texto curto e números"],
   definition: ["Definição", "O termo em destaque, a origem da palavra em partes e a definição, com um ícone ilustrativo"],
   headline: ["Manchete", "Uma frase enorme ocupando o slide"],
@@ -79,6 +80,9 @@ export const LAYOUT_SAMPLES = {
   cover: { layout: "cover", kicker: "Evento 2026", title: "Título da ==apresentação==", subtitle: "Um subtítulo curto", author: "Seu nome", figure: { icon: "rocket", size: 320 } },
   section: { layout: "section", number: 2, kicker: "Parte dois", title: "O problema" },
   statement: { layout: "statement", kicker: "A ideia", text: "Uma frase que ==muda tudo==." },
+  calendar: { layout: "calendar", kicker: "Agenda", title: "Próximos lançamentos", events: [
+    { date: "2026-11-12", title: "Beta aberto", tag: "Produto", text: "Para os 500 primeiros" }, { date: "2026-11-28", title: "Evento de lançamento", tag: "Evento" },
+    { date: "2027-01-15", title: "Versão 2.0", tag: "Produto", text: "Com o app de celular" }], undated: [{ title: "Integração com o banco", text: "Em negociação" }] },
   poster: { layout: "poster", kicker: "Receita", title: "Pão de fermentação natural", subtitle: "Do fermento ao forno em quatro etapas", flow: true,
     panels: [
       { title: "Fermento", icon: "wheat", text: "Farinha e água, alimentados por 5 dias", facts: [{ value: "1:1", label: "farinha e água" }] },

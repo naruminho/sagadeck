@@ -30,7 +30,7 @@
 
   // ordem da galeria: abertura, frase, números, listas/estruturas, dados, interação, mídia, livres, fim
   const LAYOUT_NAMES = [
-    "cover", "section", "statement", "definition", "poster", "headline", "quote", "number", "split", "full",
+    "cover", "section", "statement", "definition", "poster", "calendar", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
     "chart", "table", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo",
     "blocks", "dossier", "canvas", "references", "end",
@@ -38,7 +38,7 @@
 
   // Nome que a pessoa vê para cada layout (o YAML continua com o nome em inglês).
   const LAYOUT_LABELS = {
-    cover: "Capa", section: "Seção", statement: "Frase de impacto", definition: "Definição", poster: "Pôster (infográfico)", quote: "Citação", number: "Número grande",
+    cover: "Capa", section: "Seção", statement: "Frase de impacto", definition: "Definição", poster: "Pôster (infográfico)", calendar: "Calendário", quote: "Citação", number: "Número grande",
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
@@ -2462,7 +2462,7 @@
   // Categorias dos tipos de slide: a mesma divisão na galeria "Novo slide" (cria) e no Layout (troca o formato do atual)
   const SLIDE_GROUPS = [
     ["estrutura", "Abertura e estrutura", ["cover", "section", "agenda", "end", "references"]],
-    ["texto", "Texto e ideias", ["statement", "definition", "poster", "headline", "quote", "list", "cards", "split", "mosaic", "ribbon", "bento", "dossier"]],
+    ["texto", "Texto e ideias", ["statement", "definition", "poster", "calendar", "headline", "quote", "list", "cards", "split", "mosaic", "ribbon", "bento", "dossier"]],
     ["dados", "Números e gráficos", ["number", "stats", "chart", "table", "science", "compare", "matrix"]],
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],

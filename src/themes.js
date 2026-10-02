@@ -346,6 +346,33 @@ export const THEMES = {
     },
     radius: 0, deco: "none",
   },
+  // Relevo: ficção científica sóbria (a sala de controle de um filme, não o fliperama): grafite azulado profundo, curvas
+  // de nível ao fundo, painéis de vidro fosco, rótulos técnicos finos em monoespaçada, cantoneiras de mira nos cantos,
+  // título leve; gelo e âmbar, sem néon. Feito para ilustração 3D realista (terreno, cidade, água) e gráfico 3D.
+  relevo: {
+    label: "Relevo — ficção científica sóbria: grafite profundo, curvas de nível, vidro fosco, rótulos técnicos e 3D realista",
+    colors: {
+      paper: "0B1117", ink: "E6EDF2", accent: "8FD0E0", alert: "F0A35E",
+      muted: "8B9AA6", line: "223039", surface: "121C24", surfaceDark: "0E161D",
+      c1: "8FD0E0", c2: "F0A35E", c3: "9DB7A5", c4: "C7B3E5", c5: "6E8796",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "F0A35E", onHi: "0B1117" },
+      dark: { bg: "060A0E", fg: "ink", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "F0A35E", onHi: "0B1117" },
+      accent: { bg: "102630", fg: "FFFFFF", muted: "B5CCD6", line: "2C4A57", surface: "17323E", hi: "8FD0E0", em: "F0A35E", onHi: "0B1117" },
+      alert: { bg: "3A2412", fg: "FFFFFF", muted: "E8CDB3", line: "6B4422", surface: "4A2F18", hi: "F0A35E", em: "FFD3A6", onHi: "0B1117" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 300; letter-spacing: -0.035em; line-height: 0.98;", pptx: { face: "Segoe UI Light" } },
+      heading: { css: "font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 500; letter-spacing: -0.01em; line-height: 1.08;", pptx: { face: "Segoe UI Semibold" } },
+      body: { css: "font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.42;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: `font-family: 'Cascadia Mono', ${SYS_MONO}; font-weight: 400; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Cascadia Mono" } },
+      mono: { css: `font-family: 'Cascadia Mono', ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 200; letter-spacing: -0.02em; line-height: 1.15;", pptx: { face: "Segoe UI Light" } },
+    },
+    radius: 6, deco: "none",
+  },
   // Par técnico (material de consulta, tutorial, apostila): o claro imprime bem, o escuro descansa a vista.
   // pair: o Studio alterna entre os dois (Design › Claro/Escuro) e o PDF pode sair no claro (Preferências).
   manual: {
