@@ -233,7 +233,7 @@ test("tarefa: figuras vistas ficam em cache pelo conteúdo da foto; falha da vis
   const { handler } = script();
   let looks = 0, broken = true;
   const llm = await startMockLLM((req) => {
-    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"o_que":"curva","dados":"pico 42"}]}]}\n```'; }
+    if (/Fotos de slides/.test(req.lastUser)) { looks++; return broken ? "não consegui" : '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"gráfico","generica":false,"qualidade":"boa","o_que":"curva","dados":"pico 42"}]}]}\n```'; }
     return handler(req);
   });
   process.env.SAGADECK_LLM_URL = llm.url;
@@ -540,6 +540,64 @@ test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON dua
     assert.match(r.spec.slides.find((s) => /Kirpich/.test(s.text || "")).text, /0,385/, "a correção entrou na 2ª tentativa");
     assert.ok(looks.length >= 4 && looks[2] < looks[0] && looks[3] < looks[0], `fotos por conferência: ${looks.join(", ")}`);
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+// A pessoa: figura de xerox de apostila velha tem de voltar como ilustração bem feita (o modelo de imagem redesenha a
+// partir dela), não ficar feia nem virar diagrama. A visão diz a qualidade; o escritor pede image_prompt + image_ref;
+// o lote gera antes de conferir; a imagem gerada fica em imagens/ia.
+test("figura RUIM do original (xerox) é redesenhada pelo modelo de imagem com ela como base, antes da conferência", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  const gen = [];
+  const llm = await startMockLLM((req) => {
+    const u = req.lastUser;
+    if (/^Generate an image/.test(u)) { gen.push(req); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; }
+    if (/Fotos de slides/.test(u)) return '```json\n{"slides":[{"n":2,"figuras":[{"tipo":"mapa","generica":false,"qualidade":"ruim","o_que":"mapa da bacia escaneado","dados":"rio, exutório"}]}]}\n```';
+    if (/Escreva os slides destes itens|Conferi estes slides/.test(u)) {
+      const out = handler(req);
+      return out.replace(/  - layout: statement\n    origem: 2\n    mudou: "virou uma frase de destaque"\n    text: ("[^"]*")/, (_, txt) =>
+        `  - layout: split\n    origem: 2\n    title: Kirpich\n    body: ${txt.replace(/\.?"$/, ', expoente 0,385."')}\n    figure:\n      image_prompt: "Clean up and redraw THIS EXACT figure: the basin map with the river"\n      image_ref: imagens/f2.png\n      fit: contain`);
+    }
+    return handler(req);
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+    fs.writeFileSync(path.join(d.dir, "imagens", "f2.png"), PNG);
+    d.spec.slides[1].original.image = "original/foto-2.png";
+    d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 });
+    const r = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+    const write = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser) && /ITEM 2/.test(q.lastUser)).lastUser;
+    assert.match(write, /ESPECÍFICA, imagem RUIM\] mapa/, "o escritor sabe que a figura é ruim");
+    assert.equal(gen.length, 1, "um redesenho");
+    assert.ok(gen[0].hasImages, "a figura original foi junto, como base");
+    const fig = r.spec.slides.find((s) => s.layout === "split")?.figure;
+    assert.match(fig?.image || "", /^imagens\/ia\/ia-[0-9a-f]{8}\.png$/, JSON.stringify(fig));
+    assert.ok(fs.existsSync(path.join(d.dir, fig.image)));
+    assert.equal(fig.image_prompt, undefined); assert.equal(fig.image_ref, undefined);
+    const shot = llm.requests.find((q) => /Confira slides NOVOS/.test(q.lastUser) && /do item 2/.test(q.lastUser));
+    assert.ok(shot, "a conferência olhou o slide já com o redesenho");
+    assert.ok(llm.requests.indexOf(gen[0]) < llm.requests.indexOf(shot), "gerou antes de conferir");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
+});
+
+test("redesenho que não sai: a figura de base volta (não vira ícone)", async () => {
+  const { materializeImages } = await import("../src/ai/deck-ai.js");
+  const llm = await startMockLLM(() => "não consigo gerar agora");
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const dir = tmp("sgd-ref-");
+  try {
+    fs.mkdirSync(path.join(dir, "imagens"));
+    fs.writeFileSync(path.join(dir, "imagens", "mapa.png"), PNG);
+    const spec = { slides: [{ layout: "split", title: "Mapa", figure: { image_prompt: "redraw this map", image_ref: "imagens/mapa.png", fit: "contain" } }] };
+    const r = await materializeImages(spec, { baseDir: dir });
+    assert.equal(r.failed.length, 1);
+    assert.deepEqual(spec.slides[0].figure, { image: "imagens/mapa.png", fit: "contain" });
+  } finally { await llm.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("grafia: palavra do original com uma letra a menos (no meio) ou sem acento; plural e o novo acentuado não contam", () => {

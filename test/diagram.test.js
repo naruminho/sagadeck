@@ -29,6 +29,13 @@ test("layout diagram: o código vai no slide (escapado), ícones viram marcador,
   assert.doesNotMatch(sem, /SagaDiagrams/);
 });
 
+test("ícone de uma letra só (:x:) no rótulo do diagrama também vira desenho (aparecia \":x: NÃO\"); :::classe não", () => {
+  const { html } = renderSlide({ layout: "diagram", title: "x", mermaid: "flowchart LR\n  B --> C([:check: SIM]):::em\n  B --> D([:x: NÃO]):::suave" });
+  assert.match(html, /dgi-x&gt;|dgi-x>/, "o :x: virou marcador");
+  assert.doesNotMatch(html, /:x:/);
+  assert.match(html, /:::em/); assert.match(html, /:::suave/);
+});
+
 async function montar(browser, theme, slides, palette) {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-dg-")), "d.html");
   fs.writeFileSync(file, buildHTML({ theme, palette, slides }).html);

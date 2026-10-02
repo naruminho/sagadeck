@@ -146,6 +146,31 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   Gráfico de linhas: o eixo arredondava para inteiro (0 a 1 mostrava só "0" e "1"): marcações redondas (`niceTicks`,
   com as casas do passo); linhas que terminam juntas (as curvas hipsométricas em 1) empilhavam os nomes: legenda em
   cima (também com `legend: true`); rótulo numérico do eixo x com vírgula. Rodapé numa linha só (reticências).
+- Pedido (02/10): figura de xerox/escaneada não é para virar diagrama nem ficar feia: **redesenhar como ilustração
+  com o modelo de imagem**, a partir dela. A visão marca `qualidade: ruim`; o escritor pede `image_prompt` +
+  `image_ref` (a figura original como base); o lote gera em `imagens/ia/` ANTES da conferência visual (que compara
+  o redesenho com o original); falhou, volta a figura de base. Teste à mão com o mapa de ruas (image8): pedindo
+  "contornar por cima, mesma proporção, rótulo letra por letra" sai fiel (erra 2 ou 3 rótulos); sem isso, o modelo
+  reenquadra e inventa rótulos. Também: em deck novo, pedido que não fala de imagem → a IA decide onde ilustrar
+  (antes nunca gerava). Paralelismo do transform: 8 lotes (até 16).
+- Pedidos de 02/10, analisados slide a slide (decks em `Pedidos de teste/`):
+  - **brigadeiro "one page tipo Nature"**: a IA usou o `onepage` (de projeto: jornada, problema, solução) e a receita
+    saiu "brigadeiro de festa × gourmet", letra miúda, sem ilustração. Layout novo **`poster`**: ilustração principal
+    e painéis com letra (a, b, c), desenho, texto curto, números e setas; a referência manda usar este para
+    infográfico de uma página. Na versão 2 a IA usou o pôster, mas pôs título/tema/paleta dentro de `deck:` (o jeito
+    do patch) e o deck saiu "Nova apresentação" no tema padrão: a geração agora entende o `deck:`. Com ilustração
+    principal, no máximo 3 colunas (2 até 4 painéis).
+  - **regressão logística para 11 anos**: a versão 1 dizia "olha as pistas, dá uma nota, responde" sem o
+    mecanismo. Regra no prompt de geração: ensinar como algo funciona = o mecanismo inteiro, um exemplo de números do
+    começo ao fim, a conta de cada passo, uma simulação e uma rodada do ajuste; criança: simplificar as palavras,
+    nunca os passos. A versão 2 ensina (pontos por pista, soma, curva em S, 50%, ajuste, calculadora).
+  - motor: `:x:` (ícone de uma letra) no diagrama; `{ text: nuvens, vento, umidade }` virava campos vazios;
+    unidade `%` quebrava a fórmula do exercício resolvido; passos anteriores miúdos mesmo com espaço (agora só quando
+    não cabem); compare com texto curto virava dois cartões vazios do tamanho do slide; eixo do Plotly com vírgula;
+    ilustração gerada sem `fit` (era sempre `cover` e cortava a criança da capa); gráficos empilhados no `blocks`
+    (rótulo + gráfico vira título; dois ou mais lado a lado); `$1 - P(X \geq x)$` cru (regra do Pandoc para `$`);
+    anos no eixo sem ponto de milhar.
+  - rodada colorida com o Flash de verdade (1107fd1, 72 slides): nenhum lote falhou, 1 erro de grafia ("LENCOL").
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

@@ -231,6 +231,9 @@
       if (!st.clientHeight || !st.firstElementChild) return;
       st.style.zoom = "";
       const over = () => st.firstElementChild.getBoundingClientRect().top < st.getBoundingClientRect().top - 2;
+      // primeiro, os passos de antes em tamanho normal; não coube, eles ficam menores; ainda não, encolhe tudo
+      st.classList.remove("sol-compact");
+      if (over()) st.classList.add("sol-compact");
       for (let z = 1; over() && z > 0.6;) { z = +(z - 0.05).toFixed(2); st.style.zoom = String(z); }
       st.classList.toggle("sol-fit", !over()); // coube: sem o esmaecido de cima (ele só serve para o que vazou)
     });

@@ -11,7 +11,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
 import { chat, llmConfig } from "./llm.js";
-import { systemPrompt, extractYaml, parseYaml, validateSlides, sanitizeCheck } from "./deck-ai.js";
+import { systemPrompt, extractYaml, parseYaml, validateSlides, sanitizeCheck, materializeImages, countImagePrompts } from "./deck-ai.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
 import { plainOf } from "../import/pptx.js";
 import { styleFromImport, repeatedFrame } from "../master.js";
@@ -160,6 +160,8 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - Não invente dado. Se o original parecer ter um erro (fórmula que contradiz o gráfico, número que não fecha), NÃO troque em silêncio: aponte em "alertas" e, no slide, mostre o que o material sustenta com uma nota curta para o professor validar.
 - Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
 - Fórmula vai em LaTeX (\`$…$\` no texto, \`equations\` no \`science\`, \`latex\` no \`solution\`), nunca como imagem: a imagem de equação do original (recorte do OLE) só entra se a visão não conseguiu transcrever; transcrita, não repita a imagem. Uma fórmula importante por slide, grande; a explicação das variáveis em lista ao lado ou embaixo.
+- Figura ESPECÍFICA com imagem RUIM (xerox, escaneada, borrada) que é ilustração, mapa ou esquema (não foto real, não gráfico ou tabela que dá para refazer com os dados): REDESENHE como ilustração, com o modelo de imagem, a partir dela: no lugar de \`image:\`, \`image_prompt: "Clean up and redraw THIS EXACT figure as if traced over it: same aspect ratio, same framing, every line in the same place; crisp lines, gentle colors (…cores que combinem com o deck…). Copy every text label exactly as written, letter by letter, at the same position; leave out what is unreadable; add no new text."\` e \`image_ref: <o caminho da imagem original dada>\` (com \`fit: contain\`). Descreva no prompt, em inglês, o que a figura mostra (ruas, curvas de nível, rio…) para o modelo não errar. O original fica guardado; a conferência compara os dois.
+- Ilustração nova (uma cena, um objeto, um processo físico, a capa) onde uma imagem explica melhor que ícone ou diagrama: \`image_prompt: "…em inglês…"\` sem \`image_ref\`. Com moderação: as que fazem diferença.
 - \`full\` (imagem de fundo com texto por cima) só para FOTO; gráfico, esquema, mapa e tabela nunca vão em \`full\` (o texto cobre os dados): use \`split\` (texto ao lado) ou \`image\`.
 - Ciclo (algo que volta ao começo: ciclo hidrológico, PDCA, ciclo de vida): \`infographic\` com \`shape: ciclo\` (etapas em volta, setas curvas), nunca \`diagram\` (no fluxograma a volta vira setas cruzando o desenho).
 - Exercício novo: quando o material já tem os dados (a série, a tabela, a bacia do original), prefira usá-los.
@@ -261,7 +263,8 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
   const figKey = (s) => { const f = imgFile(s); return f && fs.existsSync(f) ? `${sha1(fs.readFileSync(f))}:v${ANALYSIS_VERSION}` : null; };
   const figs = {};
   const candidates = originals.filter((s) => imgFile(s) && fs.existsSync(imgFile(s)) && (contentImages(s).length || s.elements.filter((e) => e.drawing && !e.deco).length >= 3 || s.elements.some((e) => e.table)));
-  for (const s of candidates) { const k = figKey(s); if (k && figCache[k]) figs[s.original.slide] = figCache[k]; }
+  // o cache de antes da "qualidade" (figura de xerox, borrada) é olhado de novo: sem ela, nada é redesenhado
+  for (const s of candidates) { const k = figKey(s); if (k && figCache[k] && (figCache[k].figuras || []).every((f) => "qualidade" in f)) figs[s.original.slide] = figCache[k]; }
   const needFig = candidates.filter((s) => !figs[s.original.slide]);
   try {
     if (needFig.length) {
@@ -276,8 +279,8 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
       const look = async (batch) => {
         const k = needFig.indexOf(batch[0]);
         progress("ver", `Olhando as figuras do original (slides ${batch.map((s) => s.original.slide).join(", ")})…`, { done: k, total: needFig.length });
-        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
-Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
+        const content = [{ type: "text", text: `Fotos de slides de uma apresentação. Para cada slide, descreva as FIGURAS (não o texto corrido, que eu já tenho): o que é (esquema, mapa, gráfico, foto, tabela em imagem, equação em imagem, desenho), se é GENÉRICA (conceito que qualquer livro desenha igual e pode ser redesenhado sem perder nada) ou ESPECÍFICA (mapa de um lugar, dado de experimento, foto real, gráfico com dados que não estão no texto: tem que ser mantida), a QUALIDADE da imagem ("boa", ou "ruim": foto de xerox, escaneada, borrada, pixelada, traço grosso de apostila velha) e transcreva os dados legíveis (números, rótulos, eixos, legendas, fórmulas em LaTeX). TABELA em imagem: transcreva-a INTEIRA, uma linha por linha com as células separadas por " | " (o cabeçalho primeiro), e diga se algum valor ficou ilegível. Diga também se o slide parece continuação do anterior (o mesmo desenho com partes a mais).
+Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":true,"qualidade":"ruim","o_que":"…","dados":"…"}],"continua_anterior":false}]}` }];
         batch.forEach((s) => content.push({ type: "text", text: `Slide ${s.original.slide}:` }, { type: "image_url", image_url: { url: urlOf.get(s) } }));
         try {
           const r = await ask([{ role: "user", content }], { model: V, maxTokens: 16000 });
@@ -300,7 +303,7 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":tru
         fs.writeFileSync(figFile, JSON.stringify(figCache, null, 1));
       };
       const lookWorker = async () => { while (!halted && qi < queue.length) await look(queue[qi++]); };
-      const lanes = Math.max(1, Math.min(6, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 3));
+      const lanes = Math.max(1, Math.min(16, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 8));
       await Promise.all(Array.from({ length: Math.min(lanes, queue.length) }, lookWorker));
       if (halted) throw halted;
     }
@@ -308,7 +311,7 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"tipo":"esquema","generica":tru
 
   const brief = (s) => {
     const n = s.original.slide;
-    const f = figs[n]?.figuras?.length ? `\n  figuras: ${figs[n].figuras.map((x) => `[${x.generica ? "genérica" : "ESPECÍFICA"}] ${x.tipo}: ${x.o_que}${x.dados ? ` — dados: ${x.dados}` : ""}`).join(" | ")}` : "";
+    const f = figs[n]?.figuras?.length ? `\n  figuras: ${figs[n].figuras.map((x) => `[${x.generica ? "genérica" : "ESPECÍFICA"}${x.qualidade === "ruim" ? ", imagem RUIM" : ""}] ${x.tipo}: ${x.o_que}${x.dados ? ` — dados: ${x.dados}` : ""}`).join(" | ")}` : "";
     const imgs = contentImages(s);
     return `### slide ${n}: ${s.title || ""}\n${textsOfSlide(s).map((t) => `  ${t.replace(/\n/g, "\n  ")}`).join("\n")}${f}${imgs.length ? `\n  imagens: ${imgs.join(", ")}` : ""}${s.notes ? `\n  notas: ${clip(s.notes, 1500)}` : ""}${figs[n]?.continua_anterior ? "\n  (parece continuação do slide anterior: o mesmo desenho com partes a mais)" : ""}`;
   };
@@ -430,7 +433,17 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   for (let b = 0; b < writable.length; b += BATCH) batches.push(writable.slice(b, b + BATCH));
   // blocos em paralelo (cada um é independente: o plano já diz o que vai em cada item); SAGADECK_TRANSFORM_PARALLEL
   // troca quantos de cada vez (1 = um por vez, como antes)
-  const parallel = Math.max(1, Math.min(6, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 3));
+  const parallel = Math.max(1, Math.min(16, Number(process.env.SAGADECK_TRANSFORM_PARALLEL) || 8));
+  // image_prompt (e image_ref, o redesenho de uma figura ruim do original) vira arquivo em imagens/ia; o que não sai
+  // volta a ser a figura de base (ou um ícone, sem base)
+  const drawImages = async (slides) => {
+    if (!countImagePrompts({ slides })) return;
+    if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
+    progress("escrever", "Desenhando as ilustrações…");
+    const r = await materializeImages({ slides }, { baseDir: dir, assetsDir: path.join(dir, "imagens", "ia"), max: 6 });
+    job.images = (job.images || 0) + r.done.length;
+    for (const f of r.failed) report.problemas.push(`ilustração não saiu (${clip(f.error, 100)}): ${clip(f.prompt, 80)}`);
+  };
   const runBatch = async (batch) => {
     if (stop) return;
     try {
@@ -452,6 +465,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         for (const { k } of batch) job.results[k] = { slides: null, state: "falhou" };
         save(); return;
       }
+      await drawImages(produced);
       // conferir → corrigir → conferir de novo (a última conferência também olha o desenho)
       let issues = [], hints = [];
       for (let round = 0; ; round++) {
@@ -496,6 +510,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         if (!fixed) { report.problemas.push(`correção dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(fixErr?.message, 160)}`); break; }
         const got = new Set(fixed.map((x) => x.origem));
         produced = batch.flatMap(({ k }) => (got.has(k + 1) ? fixed.filter((x) => x.origem === k + 1) : produced.filter((x) => x.origem === k + 1)));
+        await drawImages(produced);
       }
       for (const { it, k } of batch) {
         const mine = produced.filter((s) => s.origem === k + 1).map((s) => { const out = { ...s }; const why = out.mudou; delete out.origem; delete out.mudou; out._why = why; return out; });
@@ -681,7 +696,7 @@ function parseProduced(text, batch, deckBase, dir, { partial = false } = {}) {
   // imagens que não existem na pasta do deck: erro (volta para a IA)
   const bad = [];
   const walk = (o) => { if (!o || typeof o !== "object") return; for (const [k, v] of Object.entries(o)) {
-    if (k === "image" && typeof v === "string" && !/^(https?:|data:)/.test(v) && !fs.existsSync(path.join(dir, v))) { const fix = nearImage(v, dir); if (fix) o[k] = fix; else bad.push(v); }
+    if ((k === "image" || k === "image_ref") && typeof v === "string" && !/^(https?:|data:)/.test(v) && !fs.existsSync(path.join(dir, v))) { const fix = nearImage(v, dir); if (fix) o[k] = fix; else bad.push(v); }
     else if (v && typeof v === "object") walk(v);
   } };
   clean.slides.forEach((s) => walk(s));

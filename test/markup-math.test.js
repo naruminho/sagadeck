@@ -59,4 +59,6 @@ test("número sozinho entre cifrões é fórmula ($2$, $10^3$), dinheiro com esp
   assert.match(md("entre $10^3$ e"), /class="katex"/);
   assert.equal(md("Custa R$ 10 e $5 ou $6"), "Custa R$ 10 e $5 ou $6");
   assert.equal(md("de $5 a $10 por mês"), "de $5 a $10 por mês");
+  // rodada 02/10: o complemento "$1 - P(X \geq x)$" aparecia cru
+  assert.match(md(String.raw`é o complemento: $1 - P(X \geq x)$.`), /^é o complemento: <span class="katex">[\s\S]*<\/span>\.$/);
 });
