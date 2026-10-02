@@ -231,7 +231,7 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
   };
   const t0 = Date.now(), spentBefore = job.spentMs || 0;
   const tokens = () => Object.values(job.usage).reduce((a, u) => a + u.in + u.out, 0);
-  const ask = async (messages, { model = T, maxTokens = 16000, temperature = 0.3 } = {}) => {
+  const ask = async (messages, { model = T, maxTokens = 16000, temperature = 0.3, think } = {}) => {
     if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
     if (job.calls >= lim.calls) throw new TransformStop(`Limite de ${lim.calls} chamadas.`, "limite");
     if (tokens() >= lim.tokens) throw new TransformStop(`Limite de ${lim.tokens} tokens.`, "limite");
@@ -243,7 +243,7 @@ export async function transformDeck({ spec, dir, mode = "melhorar", request = ""
     let shown = 0;
     const onDelta = (_, all) => { if (all.length - shown > 1500) { shown = all.length; onProgress({ ...lastProgress, chars: all.length }); } };
     for (let attempt = 1; ; attempt++) {
-      try { r = await chat(messages, { model, maxTokens, temperature, signal, onDelta }); break; }
+      try { r = await chat(messages, { model, maxTokens, temperature, think, signal, onDelta }); break; }
       catch (e) {
         if (signal?.aborted) throw new TransformStop("Parado a pedido.", "cancelado");
         const transient = !e.status || e.status >= 500 || e.status === 429;
@@ -484,9 +484,10 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     // o mapa do posto fluviométrico ficou o xerox); a conferência visual compara com o original
     if (typeof node.image === "string" && !node.image_prompt && !node.image_ref && ilustracaoRuim(node.image)) {
       const f = figDe.get(node.image);
-      node.image_prompt = `Clean up and redraw THIS EXACT figure as if traced over it: same aspect ratio, same framing, every line in the same place; crisp lines and gentle colors that fit a "${themeName}" presentation. It shows: ${clip(f.o_que, 300)}. Copy every text label exactly as written, letter by letter, at the same position${f.dados ? ` (${clip(f.dados, 300)})` : ""}; leave out what is unreadable; add no new text.`;
+      node.image_prompt = `Clean up and redraw THIS EXACT figure as if traced over it: same aspect ratio, same framing, every line in the same place; crisp lines and gentle colors that fit a "${themeName}" presentation. Redraw only the figure itself: if the source is a screenshot or a scanned page (window frame, toolbar, scroll bars, page edges, the book's caption line), leave them out. It shows: ${clip(f.o_que, 300)}. Copy every text label exactly as written, letter by letter, at the same position${f.dados ? ` (${clip(f.dados, 300)})` : ""}; leave out what is unreadable; add no new text.`;
       node.image_ref = node.image;
       if (!node.fit) node.fit = "contain";
+      if (!node.alt && f.o_que) node.alt = clip(f.o_que, 160); // senão o texto alternativo vira o pedido ao modelo de imagem
     }
     for (const v of Object.values(node)) keepDataFigures(v);
   };
@@ -502,6 +503,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     });
     return out;
   };
+  const groundMemo = new Map();
   const drawImages = async (slides) => {
     keepDataFigures(slides);
     if (countImagePrompts({ slides })) {
@@ -512,7 +514,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       for (const f of r.failed) report.problemas.push(`ilustração não saiu (${clip(f.error, 100)}): ${clip(f.prompt, 80)}`);
     }
     // foco guiado: a visão olha a figura e põe cada destaque no lugar (a escritora não vê a figura e chutava)
-    await groundSpotlights(slides, { baseDir: dir, ask: async (content) => (await ask([{ role: "user", content }], { model: V, maxTokens: 8000 })).text, onProgress: (t) => progress("conferir", t) });
+    await groundSpotlights(slides, { baseDir: dir, memo: groundMemo, onFail: (t, e) => report.problemas.push(`foco guiado "${clip(t.replace(/[=*]/g, ""), 60)}": não localizei os destaques na figura (${clip(e.message, 120)}); as caixas são as da escrita`), ask: async (content) => (await ask([{ role: "user", content }], { model: V, maxTokens: 8000, think: false })).text, onProgress: (t) => progress("conferir", t) });
   };
   const runBatch = async (batch) => {
     if (stop) return;
@@ -564,7 +566,9 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         }
         try {
           progress("conferir", `Conferindo o desenho dos itens ${batch.map(({ k }) => k + 1).join(", ")}${round ? " (depois da correção)" : ""}…`);
-          for (const v of await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V, mode })) issues.push({ ...v, kind: "desenho" });
+          const seen = await visualCheck({ produced, batch, deckBase, dir, orig, ask, model: V, mode, keepFailure });
+          for (const v of seen) issues.push({ ...v, kind: "desenho" });
+          if (seen.missed?.length) report.problemas.push(`conferência visual sem resposta nos slides novos ${seen.missed.join(", ")} dos itens ${batch.map(({ k }) => k + 1).join(", ")}`);
         } catch (e) {
           if (e instanceof TransformStop) throw e;
           report.problemas.push(`conferência visual dos itens ${batch.map(({ k }) => k + 1).join(", ")} falhou: ${clip(e.message, 160)}`);
@@ -787,7 +791,7 @@ function parseProduced(text, batch, deckBase, dir, { partial = false } = {}) {
 }
 
 // o slide novo desenhado ao lado da foto do original: o modelo de visão aponta o que está errado
-async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, mode = "melhorar", fiscalToo = true, offset = 0 }) {
+export async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, mode = "melhorar", fiscalToo = true, offset = 0, keepFailure }) {
   const { slideSnapshots } = await import("../studio/snapshot.js");
   const { imagesAsDataUrls } = await import("../import/crop.js");
   const deck = { ...deckBase, _dir: dir, slides: produced.map(({ origem, mudou, ...s }) => s) };
@@ -802,39 +806,41 @@ async function visualCheck({ produced, batch, deckBase, dir, orig, ask, model, m
   } catch (e) { if (e instanceof TransformStop) throw e; }
   const shots = [];
   for (let i = 0; i < deck.slides.length; i++) shots.push((await slideSnapshots(deck, i, { mode: "final", width: 960 }))[0]?.dataUrl);
-  const origFiles = [...new Set(batch.flatMap(({ it }) => (it.de || []).map((n) => orig.get(Number(n))?.original?.image).filter(Boolean)))];
-  const origUrls = await imagesAsDataUrls(origFiles.map((f) => path.join(dir, f)), { width: 960 });
-  const content = [{ type: "text", text: `Confira slides NOVOS de uma aula contra as fotos dos slides ORIGINAIS. Aponte só problemas reais:
-- crítica de desenho (como um professor que vai apresentar): destaque ou caixa do foco guiado fora do lugar na figura; figura que não é a do assunto do slide (a legenda fala de uma coisa e a imagem mostra outra); equação ou tabela como imagem (devia ser LaTeX ou table); gráfico de enfeite sem dado do material; ordem física invertida (o que fica em cima no mundo desenhado embaixo); texto gigante ocupando o slide;
-- desenho: texto cortado, sobreposto, fora do slide, ilegível de tão pequeno, área vazia enorme, figura esticada;
+  const origOf = (origem) => (batch.find(({ k }) => k + 1 === origem)?.it.de || []).map((n) => orig.get(Number(n))?.original?.image).filter(Boolean);
+  const origFiles = [...new Set(produced.flatMap((x) => origOf(x.origem)))];
+  const origUrls = new Map((await imagesAsDataUrls(origFiles.map((f) => path.join(dir, f)), { width: 960 })).map((u, j) => [origFiles[j], u]));
+  const prompt = `Confira slides NOVOS de uma aula contra as fotos dos slides ORIGINAIS; aqui vai UM slide novo, com o(s) original(is) de onde ele veio. Olhe como um professor que vai apresentar este slide amanhã e aponte só problemas reais:
+- crítica de desenho: destaque ou caixa do foco guiado fora do lugar na figura; figura que não é a do assunto do slide (a legenda fala de uma coisa e a imagem mostra outra); equação ou tabela como imagem (devia ser LaTeX ou table); gráfico de enfeite sem dado do material; ordem física invertida (o que fica em cima no mundo desenhado embaixo); texto gigante ocupando o slide; título repetido;
+- desenho: texto cortado, sobreposto, fora do slide, ilegível de tão pequeno, área vazia enorme, figura esticada, print de tela com a janela do programa;
 - conteúdo: informação que está no original e sumiu no novo (número, rótulo, parte de uma figura específica), figura errada.
 - texto: erro de digitação ou de ortografia (letra faltando ou trocada: "Méodo", "Refrências").
-${mode === "recriar" ? "- o estilo é NOVO de propósito: a moldura do original (logos, faixas, cores, fontes, número da página) NÃO precisa estar no novo; não aponte isso.\n" : ""}Responda só JSON: {"slides":[{"i":1,"ok":true,"problemas":["…"]}]} (i = número do slide novo, na ordem).` }];
-  origFiles.forEach((f, j) => { if (origUrls[j]) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: origUrls[j] } }); });
-  shots.forEach((u, i) => { if (u) content.push({ type: "text", text: `NOVO ${i + 1} (do item ${produced[i].origem}):` }, { type: "image_url", image_url: { url: u } }); });
-  const half = async () => {
-    const items = [...new Set(produced.map((x) => x.origem))];
-    if (items.length < 2) throw new Error("resposta sem JSON");
-    const cut = Math.ceil(items.length / 2), a = new Set(items.slice(0, cut));
-    const parts = [produced.filter((x) => a.has(x.origem)), produced.filter((x) => !a.has(x.origem))];
-    const out = [];
-    let off = offset;
-    for (const part of parts) {
-      const its = new Set(part.map((x) => x.origem));
-      out.push(...await visualCheck({ produced: part, batch: batch.filter(({ k }) => its.has(k + 1)), deckBase, dir, orig, ask, model, mode, fiscalToo: false, offset: off }));
-      off += part.length;
+O rodapé com o nome da aula abreviado com "…" é do tema; não aponte. ${mode === "recriar" ? "O estilo é NOVO de propósito: a moldura do original (logos, faixas, cores, fontes, número da página) NÃO precisa estar no novo; não aponte isso. " : ""}Responda só JSON: {"problemas":["…"]} (lista vazia se o slide estiver bom)`;
+  // um slide por chamada: com o lote inteiro numa chamada só (todas as fotos juntas), o modelo pensava até estourar o
+  // limite e não escrevia nada (16 mil tokens de raciocínio, resposta vazia) ou aprovava tudo sem olhar
+  const one = async (i) => {
+    const x = produced[i];
+    const content = [{ type: "text", text: prompt }];
+    origOf(x.origem).forEach((f, j) => { const u = origUrls.get(f); if (u) content.push({ type: "text", text: `ORIGINAL ${f.match(/(\d+)\.png$/)?.[1] || j + 1}:` }, { type: "image_url", image_url: { url: u } }); });
+    content.push({ type: "text", text: `NOVO ${i + 1 + offset} (do item ${x.origem}):` }, { type: "image_url", image_url: { url: shots[i] } });
+    const parse = (text) => { const r = jsonLoose(text); return Array.isArray(r.slides) ? r.slides[0] || { ok: true } : r; };
+    let r;
+    try { r = await ask([{ role: "user", content }], { model, maxTokens: 8000, temperature: 0.6, think: false }); return parse(r.text); }
+    catch (e) {
+      if (e instanceof TransformStop) throw e;
+      keepFailure?.(`conferencia-${x.origem}`, r?.text || "", e);
+      // resposta sem JSON (o modelo às vezes só "pensa" e não escreve): mais uma vez, pedindo só o JSON
+      try { r = await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 8000, temperature: 0.6, think: false }); return parse(r.text); }
+      catch (e2) { if (e2 instanceof TransformStop) throw e2; return null; }
     }
-    return out;
   };
-  // resposta sem JSON (o modelo de visão às vezes só "pensa" e não escreve): mais uma vez, pedindo só o JSON
-  let res;
-  try { res = jsonLoose((await ask([{ role: "user", content }], { model, maxTokens: 16000 })).text); }
-  catch (e) {
-    if (e instanceof TransformStop) throw e;
-    try { res = jsonLoose((await ask([{ role: "user", content: [...content, { type: "text", text: "Responda agora SÓ o bloco JSON, sem explicação." }] }], { model, maxTokens: 16000 })).text); }
-    catch (e2) { if (e2 instanceof TransformStop) throw e2; return [...fiscal, ...await half()]; }
-  }
-  return [...fiscal, ...(res.slides || []).filter((s) => s && s.ok === false && Array.isArray(s.problemas) && s.problemas.length).map((s) => ({ k: (produced[s.i - 1]?.origem || batch[0].k + 1) - 1, text: `slide novo ${s.i + offset} (item ${produced[s.i - 1]?.origem}): ${s.problemas.join("; ")}` }))];
+  const res = new Array(produced.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, produced.length) }, async () => { while (next < produced.length) { const i = next++; if (shots[i]) res[i] = await one(i); else res[i] = { ok: true }; } }));
+  const missed = res.map((r, i) => (r ? null : i + 1 + offset)).filter(Boolean);
+  if (missed.length === produced.length) throw new Error("resposta sem JSON");
+  const found = res.map((r, i) => ({ r, i })).filter(({ r }) => r && Array.isArray(r.problemas) && r.problemas.filter(Boolean).length)
+    .map(({ r, i }) => ({ k: (produced[i]?.origem || batch[0].k + 1) - 1, text: `slide novo ${i + 1 + offset} (item ${produced[i]?.origem}): ${r.problemas.join("; ")}` }));
+  return Object.assign([...fiscal, ...found], { missed });
 }
 // o que cada achado do fiscal quer dizer, para a IA corrigir
 const FISCAL = {

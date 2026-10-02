@@ -30,6 +30,24 @@ informação faltando, não desenho, e a IA não tinha como medir onde ficava ca
 - Testes: `test/camadas.test.js`, `test/transform.test.js` (visão por arquivo, equação, foco ancorado),
   `test/retorno-recriada.test.js`.
 
+**2ª rodada (mesmo dia): a autocrítica não respondia.** A conferência visual falhou em 5 lotes ("resposta sem JSON").
+Sondado com o modelo de verdade: com o lote inteiro numa chamada, o DeepSeek Flash pensava até estourar o limite
+(16 mil tokens de raciocínio, texto vazio) ou aprovava tudo sem olhar; até de um slide só entrava em laço. Sem
+raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título repetido, metade vazia, texto cortado).
+
+- `chat(..., { think: false })` pede `reasoning: {enabled: false}`; provedor que recusa o campo (400) leva a chamada
+  de novo sem ele, e o sagadeck lembra. Usado na conferência visual e na localização dos destaques.
+- Conferência visual: um slide novo por chamada (com o original dele), 4 em paralelo; slide sem resposta fica só ele
+  sem conferência (aviso no relatório); a resposta sem JSON fica em `falhas/conferencia-N.txt`; vale a lista de
+  problemas mesmo com `"ok": true` junto (o achado se perdia).
+- Foco guiado: a mesma figura com os mesmos destaques não é localizada de novo a cada rodada de correção (memo);
+  `figure: caminho.png` (texto, não objeto) também é localizada (o Vacununga ficava com as caixas chutadas); a visão
+  que não responde vira aviso no relatório; caixa do tamanho da figura inteira não vale (fica a da escrita).
+- Redesenho automático: sem a moldura de print (janela do leitor de PDF, barra de ferramentas); o texto alternativo
+  é o que a figura mostra, não o pedido ao modelo de imagem.
+- Dois gráficos em colunas lado a lado dividem a linha por igual (o primeiro saía minúsculo).
+- Testes: `test/llm-raciocinio.test.js`, `test/ground.test.js`, `test/blocks-graficos.test.js`, `test/transform.test.js`.
+
 ---
 
 ## Pesquisa na web para gerar material (estilo deep research) — fase 1 feita em 02/10/2026

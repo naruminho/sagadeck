@@ -542,7 +542,7 @@ test("lote que escreve só parte dos itens: os que faltaram vão de novo, um por
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
-test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON duas vezes confere em metades; grafia vai como dica", async (t) => {
+test("correção com YAML quebrado tenta de novo com o erro; a visão confere um slide por vez e a resposta sem JSON vai de novo; grafia vai como dica", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   await browser.close();
   const { handler } = script();
@@ -552,7 +552,7 @@ test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON dua
     if (/Confira slides NOVOS/.test(u)) {
       const n = (u.match(/NOVO \d+ \(do item/g) || []).length;
       looks.push(n);
-      return looks.length <= 2 ? "Vou olhar slide por slide, com calma..." : '```json\n{"slides":[{"i":1,"ok":true}]}\n```';
+      return looks.length === 1 ? "Vou olhar slide por slide, com calma..." : '```json\n{"ok":true,"problemas":[]}\n```';
     }
     if (/Escreva os slides destes itens/.test(u)) return handler(req).replace("coeficiente 57", "coeficinte 57");
     if (/Conferi estes slides|Não deu para usar/.test(u)) {
@@ -571,7 +571,10 @@ test("correção com YAML quebrado tenta de novo com o erro; visão sem JSON dua
     assert.match(fixes[0], /"coeficinte" \(no original: "coeficiente"\)/, "a grafia vai como dica na correção");
     assert.match(fixes[1], /Não deu para usar/, "o YAML quebrado volta com o erro");
     assert.match(r.spec.slides.find((s) => /Kirpich/.test(s.text || "")).text, /0,385/, "a correção entrou na 2ª tentativa");
-    assert.ok(looks.length >= 4 && looks[2] < looks[0] && looks[3] < looks[0], `fotos por conferência: ${looks.join(", ")}`);
+    // um slide novo por chamada (com o lote inteiro numa chamada, o modelo pensava até estourar e não respondia)
+    assert.ok(looks.length >= 2 && looks.every((n) => n === 1), `fotos por conferência: ${looks.join(", ")}`);
+    assert.ok(llm.requests.some((q) => /Confira slides NOVOS/.test(q.lastUser) && /SÓ o bloco JSON/.test(q.lastUser)), "a resposta sem JSON foi pedida de novo");
+    assert.ok(fs.readdirSync(path.join(d.dir, ".sagadeck", "transform", "falhas")).some((f) => /conferencia-/.test(f)), "a resposta sem JSON ficou guardada");
   } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
 
@@ -964,14 +967,15 @@ test("recriar: progressivos são redesenhados (juntar vira escrever); faltou alg
 
 // Retorno da versão escalafobética (02/10): a visão descrevia o slide e não cada arquivo (a fórmula P = m/(N+1) foi
 // parar no lugar do hidrograma); o xerox ficou xerox; a equação ficou imagem; o foco guiado tinha caixas chutadas.
-async function figureRound(fig, writeSlide, { locate } = {}) {
+async function figureRound(fig, writeSlide, { locate, check } = {}) {
   const { handler } = script();
-  const reqs = { gen: [], fix: [], look: [], locate: [] };
+  const reqs = { gen: [], fix: [], look: [], locate: [], check: [] };
   const llm = await startMockLLM((req) => {
     const u = req.lastUser;
     if (/^Generate an image/.test(u)) { reqs.gen.push(req); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; }
     if (/Fotos de slides/.test(u)) { reqs.look.push(req); return '```json\n{"slides":[{"n":2,"figuras":[' + JSON.stringify(fig) + ']}]}\n```'; }
     if (/localize cada item abaixo/.test(u)) { reqs.locate.push(req); return locate || '{"itens": []}'; }
+    if (check && /Confira slides NOVOS/.test(u)) { reqs.check.push(req); return reqs.check.length === 1 ? check : '{"problemas": []}'; }
     if (/Conferi estes slides/.test(u)) { reqs.fix.push(u); }
     if (/Escreva os slides destes itens|Conferi estes slides/.test(u)) return handler(req).replace(/  - layout: statement\n    origem: 2\n[\s\S]*?(?=\n  - layout|\n```)/, writeSlide);
     return handler(req);
@@ -1000,6 +1004,10 @@ test("a visão vê cada arquivo do slide separado e diz qual figura é qual; ilu
   assert.ok(reqs.gen[0].hasImages, "com a figura de xerox como base");
   assert.match(reqs.gen[0].lastUser, /mapa do trecho do rio com o posto[\s\S]*POSTO, ARTEMIS/);
   assert.match(r.spec.slides.find((s) => s.layout === "split").figure.image, /^imagens\/ia\//);
+  // print de tela (janela do leitor de PDF, barra de ferramentas): o redesenho é só da figura, sem a moldura
+  assert.match(reqs.gen[0].lastUser, /screenshot[^.]*leave (them|it) out/i);
+  // o texto alternativo diz o que a figura mostra, não o pedido ao modelo de imagem
+  assert.equal(r.spec.slides.find((s) => s.layout === "split").figure.alt, "mapa do trecho do rio com o posto");
 });
 
 test("imagem do original que é uma equação num slide novo: volta para a correção pedir a fórmula em LaTeX", async (t) => {
@@ -1009,6 +1017,19 @@ test("imagem do original que é uma equação num slide novo: volta para a corre
     `  - layout: split\n    origem: 2\n${kirpich}\n    figure:\n      image: imagens/f2.png`);
   assert.ok(reqs.fix.some((u) => /imagens\/f2\.png é uma EQUAÇÃO \(P = m\/\(N\+1\)\)[^\n]*LaTeX/.test(u)), "a correção recebeu o pedido");
   assert.equal(reqs.gen.length, 0, "equação não vai para o modelo de imagem");
+});
+
+// A conferência visual (a autocrítica): um slide por chamada, sem raciocínio (pensando, o modelo estourava o limite e
+// não respondia), e o problema apontado vale mesmo que o modelo diga "ok": true junto (o achado se perdia)
+test("conferência visual: um slide por vez, sem raciocínio; o problema apontado vai para a correção mesmo com ok: true", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { reqs } = await figureRound({ arquivo: "imagens/f2.png", tipo: "esquema", generica: false, aparencia: "digital", o_que: "delimitação", dados: "" },
+    `  - layout: split\n    origem: 2\n${kirpich}\n    figure:\n      image: imagens/f2.png`, { check: '{"ok": true, "problemas": ["título repetido: Kirpich aparece duas vezes"]}' });
+  assert.ok(reqs.check.length >= 1);
+  assert.ok(reqs.check.every((q) => q.body.reasoning?.enabled === false), "sem raciocínio");
+  assert.ok(reqs.check.every((q) => (q.lastUser.match(/NOVO \d+ \(do item/g) || []).length === 1), "um slide novo por chamada");
+  assert.ok(reqs.fix.some((u) => /título repetido: Kirpich aparece duas vezes/.test(u)), "o achado chegou à correção");
 });
 
 test("foco guiado (spotlight): a visão olha a figura e põe cada destaque no lugar; o que ela não acha fica como estava", async (t) => {
