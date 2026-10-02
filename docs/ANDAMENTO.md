@@ -12,7 +12,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 Plano completo e estado de retomada: `docs/PLANO-EXPERIENCIAS.md`. Pedido do usuário: implementar as sete frentes, registrar avanços e publicar etapas validadas.
 
-- Branch `codex/experiencias-exploraveis`. Sem mudanças em decks pessoais ou no Oracle.
+- Publicado e mergeado: PR #115, main 5b7e20d. Sem mudanças em decks pessoais ou no Oracle.
 - Implementado e validado: calc com cenários, comparação congelada, restaurar, previsão/revelação, curva ligada às entradas e selo ilustrativo; formulário; demo Explore uma ideia; estados e explicações no material de estudo.
 - Agente: validação de fórmulas em estados/extremos; `review: true` fotografa estados e devolve achados ao agente para uma correção. Revisão indisponível permanece explicitamente sem conferência.
 - Elementos: continuidade de posição/tamanho por nome entre cenas, respeitando movimento reduzido.

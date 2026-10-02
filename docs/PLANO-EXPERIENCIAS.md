@@ -21,12 +21,12 @@ Cada etapa: implementar motor + interface necessária + referência da IA + test
 
 - 02/10: regras e código atual inspecionados; árvore limpa em main 62d36f9. Branch codex/experiencias-exploraveis.
 - Base existente: calc, science, algo, widgets, estudo, variantes de slide, revisão visual de transformação. Evoluir estes caminhos em vez de criar sistemas paralelos.
-- Implementação e validação local concluídas; publicação e merge em andamento.
+- Implementação e validação local concluídas; PR #115 mergeado na main (5b7e20d).
 - As sete frentes têm implementação inicial verificável; os limites abaixo fazem parte da entrega.
 
 ## Avanço verificável
 
-- Implementação inicial das sete frentes validada na branch; publicação em andamento.
+- Implementação inicial das sete frentes publicada na main pelo PR #115.
 - Testes específicos: 9 de motor/navegador/estudo/revisão; teste Studio com dois subcasos verifica gravação da pergunta e aplicação da direção escolhida. Passaram.
 - Estudo HTML agora permite exploração offline dos mesmos controles; impressão mantém os estados nomeados e explicações.
 - Primeira avaliação real: cinco casos gerados, todos marcados needs-work. Achados incluíam preferências estéticas tratadas como defeitos e frames intermediários confundidos com o final. A revisão foi ajustada para evidência concreta; snapshots amostram início e fim. Nenhum deck da avaliação foi retocado manualmente.
@@ -34,6 +34,6 @@ Cada etapa: implementar motor + interface necessária + referência da IA + test
 - Validação final: npm test, 691 testes (671 passaram, 20 pulados, zero falhas), 894,7 s. Alterações finais cobertas novamente pelos testes específicos de IA, navegador, Studio e guardas. Bundle atualizado.
 - Segunda rodada real: geometria e narrativa conferidas; capacidade, algoritmo e consulta com pendências. Terceira sondagem de capacidade identificou falta de escala na curva e feedback dos controles: motor corrigido, teste de contraste incluído. Não houve retoque manual de deck. A avaliação é um instrumento de melhoria contínua, não uma promessa de perfeição autônoma.
 - Inspeção visual da demo: controles e resultados dentro do palco; contraste legível. Studio reiniciado em http://127.0.0.1:3517/editor?model=explorar.
-- Próximo passo operacional: commit/push/PR/merge e último reinício da versão publicada.
+- Publicação concluída: https://github.com/naruminho/sagadeck/pull/115, merge 5b7e20d; serviço local reiniciado na porta 3517. CI remoto estava em andamento no merge; validação local passou conforme acima.
 
 - Porta local atualizada por instrução expressa do usuário: 3517. Processo SagaDeck anterior identificado nessa porta; wotan-router ocupa 3001 e não deve ser encerrado.
