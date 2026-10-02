@@ -382,7 +382,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      assert.deepEqual(visiveis, ["model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/), p.click('.vit-card[data-new="exp-executivo"]')]);
       await p.waitForSelector("#rendered-slide-container .slide");

@@ -46,6 +46,7 @@ export function attrs(el = {}, extraCls = "", extraStyle = "") {
   if (el.exit != null) a += ` data-exit="${el.exit}"`;
   if (el.anim) a += ` data-anim="${el.anim}"`;
   if (el.id) a += ` id="${esc(el.id)}"`;
+  if (el.continuity) a += ` data-continuity="${esc(el.continuity)}"`;
   if (el.goto != null && el.goto !== "") a += ` data-goto="${esc(el.goto)}"`;
   if (el.deco) a += ` data-locked="deco"`; // moldura/logos do original: no Studio o clique atravessa (destrava na lista de objetos)
   return a;

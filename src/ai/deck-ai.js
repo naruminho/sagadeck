@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { renderSlide } from "../build.js";
+import { auditExploration } from '../exploration.js';
 import { THEMES } from "../themes.js";
 import { LAYOUTS } from "../layouts.js";
 import { normalizeSpec } from "../fiscal/normalize.js";
@@ -37,6 +38,11 @@ export function systemPrompt({ images = false, maxImages = 3 } = {}) {
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
 
 Regras de qualidade:
+- Planeje a explicação: o que a audiência precisa perceber, representação, interação útil, estados a testar e conclusão. Não transforme todo slide em controle ou animação.
+- Experiências usam entradas compartilhadas e fórmulas reais (calc), cenários, previsão, comparação e explicação. Dados fictícios levam illustrative: true. Consulte os estados extremos; não esconda erro matemático em gráfico bonito.
+- Ao reformular composição ou criar uma experiência pelo chat, inclua review: true para a conferência visual. Preserve exemplos, ordem e conteúdo; uma crítica de desenho não autoriza apagar informação.
+- Direção de arte: se pedirem propostas visuais, use variants com três composições do MESMO conteúdo real; varie hierarquia, enquadramento e tipografia, não só cor. Cada opção pode levar direction: {theme, rationale}. Escolher aplica o tema ao deck, mantendo outros slides intactos.
+- Para integrar texto ao cenário, componha camadas editáveis em canvas (imagem, texto, primeiro plano). continuity no mesmo objeto em slides consecutivos mantém continuidade espacial. Prefira uma imagem estática forte quando movimento não explicar nada.
 - Leia PARA QUE SERVE o material e grave em \`purpose:\` no deck. São só dois usos, e quanto texto vai na tela depende disso:
   - \`palestra\` (PARA APRESENTAR: alguém fala e a plateia assiste — palestra, reunião, pitch, aula expositiva, workshop): letra grande, respiro, uma ideia por slide, pouco texto na tela para a apresentação ficar dinâmica e não dar sono (o fiscal "anti-sono" reclama de textão); o detalhe vai em \`notes\`. Em reunião de decisão, sóbrio: recomendação, números e decisão.
   - \`consulta\` (PARA ESTUDAR DEPOIS: o material vai ser enviado e a audiência usa como fonte de estudo — apostila, documentação, guia, curso para guardar): a explicação fica NO SLIDE, em parágrafos curtos (2 a 4 frases, o porquê e não só o quê), com exemplos e código completo para copiar. Use \`dossier\`, \`code\`/\`codewalk\`, \`split\` com texto corrido, \`compare\` e \`aviso\`; \`density: dense\` onde precisar. Sem slide só de título de seção, sem quiz, enquete ou pergunta para a plateia, sem "número de impacto"; \`notes\` curtas e opcionais. Letra menor é aceitável (o ajuste para caber cuida). Código com mais de ~16 linhas: divida em slides de continuação.
@@ -258,6 +264,7 @@ export function validateSlides(spec) {
   const errors = [];
   spec.slides.forEach((s, i) => {
     try {
+      errors.push(...auditExploration(s).map(e => `slide ${i + 1}: ${e}`));
       const { html } = renderSlide(withoutImagePrompts(s), i, spec);
       // fórmula ($…$) que não compila: volta para a IA corrigir (no slide ela apareceria como texto marcado)
       const bad = [...String(html).matchAll(/class="f-mono tex-error" title="([^"]*)">([^<]*)</g)].slice(0, 3);
@@ -532,6 +539,7 @@ insert:            # slides novos; after = número do slide depois do qual entra
     slide: { layout: statement, text: … }
 delete: [7]        # números (atuais) dos slides a remover
 test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
+review: true       # conferir visualmente os slides alterados; use ao criar experiências ou reformular composição
 \`\`\`
 TRANSFORMAR A APRESENTAÇÃO INTEIRA (só quando o deck atual veio de um PowerPoint importado, com \`import:\` no deck e slides
 com \`importado:\`): se a pessoa pedir para MELHORAR a apresentação toda mantendo o estilo do original, ou para RECRIAR do zero,
@@ -753,7 +761,9 @@ function parseVariants(v, base, prose) {
   if (list.length < 2) throw new Error("variants precisa de 2 a 4 versões em options, cada uma com label e slide completo.");
   const options = list.map((o, k) => {
     if (!o?.slide || typeof o.slide !== "object") throw new Error(`variants.options[${k}] precisa de slide: { layout: …, … }`);
-    return { label: String(o.label || `Versão ${k + 1}`).slice(0, 60), slide: normalizeSpec({ slides: [o.slide] }).slides[0] };
+    const direction = o.direction && typeof o.direction === 'object' ? { theme: String(o.direction.theme || ''), rationale: String(o.direction.rationale || '') } : null;
+    if (direction && !THEMES[direction.theme]) throw new Error('direction.theme precisa ser um tema existente.');
+    return { label: String(o.label || `Versão ${k + 1}`).slice(0, 60), slide: normalizeSpec({ slides: [{ ...o.slide, ...(direction ? { theme: direction.theme } : {}) }] }).slides[0], ...(direction ? { direction } : {}) };
   });
   validateSlides({ ...base, slides: options.map((o) => o.slide) });
   sanitizeCheck({ slides: options.map((o) => o.slide) }, options.map((_, k) => k));
@@ -794,7 +804,7 @@ function parseEditText(text, base) {
     const { spec } = parseDeckText(text, base);
     const changed = spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(base.slides[i]) ? i : -1)).filter((i) => i >= 0);
     sanitizeCheck(spec, changed);
-    return { spec, prose, changed };
+    return { spec, prose, changed, review: raw.review === true };
   }
   const { spec, changed } = applyPatch(base, raw);
   if (spec.theme && !THEMES[spec.theme]) throw new Error(`Tema "${spec.theme}" não existe. Use um de: ${Object.keys(THEMES).join(", ")}.`);
@@ -807,7 +817,7 @@ function parseEditText(text, base) {
     // objeção de conteúdo (soft): refaz o pedido com o fato, e vale a explicação da resposta nova
     if ((spec.slides[n - 1].layout || "") !== "api") throw Object.assign(new Error(`FATO DO DECK: o slide ${n} não é um slide api; só slides api podem ser testados (test:).`), { soft: true });
   }
-  return { spec, prose, changed, test: test.map((n) => n - 1) };
+  return { spec, prose, changed, review: raw.review === true, test: test.map((n) => n - 1) };
 }
 
 // Nomes que o comando recebe (valores nunca vão para o modelo)
@@ -819,7 +829,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, reviewCheck = null, reviewDepth = 0, repairSlides = null }) {
   const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -865,9 +875,10 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
+      if (repairSlides && (parsed.spec.slides.length !== spec.slides.length || parsed.changed?.some(i => !repairSlides.includes(i)))) throw new Error('A revisão só pode corrigir os slides indicados, sem inserir, excluir ou alterar outros slides.');
       if (parsed.variants) await checkDrawings({ slides: parsed.variants.options.map((o) => o.slide) }, parsed.variants.options.map((_, k) => k), drawCheck, drawWarned);
       else if (parsed.changed?.length) {
         onProgress?.({ phase: "validating", text: "Conferindo o desenho dos diagramas…" });
@@ -908,9 +919,23 @@ Antes de responder, verifique (e siga as Regras de edição):
     edited.slides[targetSlide] = fix.slide;
     fix.actions.forEach((x) => actions.push(`Auto-correção (slide ${targetSlide + 1}): ${x}`));
   }
+  let quality;
+  if ((review || reviewDepth > 0) && changed.length && reviewCheck && !deferImages) {
+    onProgress?.({ phase: 'review', text: 'Conferindo a composição e os estados da experiência…' });
+    quality = await reviewCheck(edited, changed);
+    if (quality.issues.length && reviewDepth < 1) {
+      const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
+      const finalQuality = await reviewCheck(repaired.spec, changed);
+      const status = finalQuality.verified ? 'Composição e estados conferidos após a correção.' : `Revisão incompleta: ${finalQuality.issues.length} problemas; ${finalQuality.unchecked.length} slides sem conferência.`;
+      return { ...repaired, test: [...new Set([...test, ...(repaired.test || [])])], actions: [...actions, ...repaired.actions, status], quality: finalQuality };
+    }
+    actions.push(quality.verified ? 'Composição e estados conferidos visualmente.' : `Revisão incompleta: ${quality.issues.length} problemas; ${quality.unchecked.length} slides sem conferência.`);
+  }
   return {
     reply: prose || (test.length && !changed.length ? "Vou testar." : "Pronto, apliquei o pedido."),
     spec: edited,
+    quality,
+    reviewRequested: !!review,
     test,
     actions,
     targetSlide: changed.includes(targetSlide) ? targetSlide : (changed[0] ?? pickTarget(spec, edited, targetSlide)),
@@ -977,7 +1002,7 @@ export function styleFor(kind) {
 // Gera um deck inteiro a partir de um briefing. É o MESMO caminho do chat (editDeck): o pedido vai como uma conversa
 // sobre um deck em branco, com as mesmas regras e a mesma temperatura. Antes havia um caminho próprio (direção
 // criativa sorteada, regras rígidas de ritmo, rodadas de reescrita) que saía bem pior que pedir a mesma coisa no chat.
-export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, reviewCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
   const st = style ? styleFor(style) : null;
@@ -1053,7 +1078,17 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
   // foco guiado sobre uma imagem: a visão põe cada destaque no lugar
   try { const { groundSpotlights } = await import("./ground.js"); await groundSpotlights(spec.slides, { baseDir: imageOptions.baseDir || spec._dir, onProgress: say }); } catch {}
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(researchReport ? { research: researchReport } : {}) };
+  let quality;
+  if (r.reviewRequested && reviewCheck) {
+    say('Conferindo a apresentação e os estados interativos…');
+    quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
+    if (quality.issues.length) {
+      const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados, preservando conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
+      spec = repaired.spec; quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
+    }
+    if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
+  }
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

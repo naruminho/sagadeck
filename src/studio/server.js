@@ -23,6 +23,7 @@ import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
+import { reviewExperience } from '../ai/quality.js';
 import { runCommand, envName, logCommand } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
@@ -335,6 +336,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
         onEvent: emit,
         drawCheck: diagramCheck,
+        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots }),
         // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
         // as fontes lidas ficam em contexto/pesquisa/ do deck
         research: prefs.pesquisa === false ? false : "auto",
@@ -528,7 +530,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/calc-fields.js" || pathname === "/art-preview.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -1250,6 +1252,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               apiContext: apiContextFor(req, W),
               drawCheck: diagramCheck,
               runCommand: commandRunner(req, emit, body, W),
+              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots }),
               styles: W.file && !isBundledTemplate(W.file) ? { list: W.library.listStyles(), current: W.spec?.style?.name || null } : null,
             });
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];

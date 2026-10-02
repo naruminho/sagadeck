@@ -13,6 +13,8 @@
 //   SAGADECK_LLM_TIMEOUT  segundos por chamada; em streaming, segundos sem chegar nada (padrão: 180)
 //   SAGADECK_LLM_FIRST_TIMEOUT  em streaming, segundos até a 1ª palavra (o modelo pensa antes) (padrão: 600)
 
+import { currentUsage, recordUsage } from './usage.js';
+
 export class LLMError extends Error {
   constructor(message, { status, cause, aborted } = {}) {
     super(message);
@@ -78,6 +80,19 @@ const withTimeout = (signal, ms) => (signal ? AbortSignal.any([signal, AbortSign
 // Com `onDelta(pedaço, textoAtéAgora)`, pede streaming e avisa a cada pedaço de texto que chega.
 // Se o modelo não aceita imagem, refaz sem as imagens e marca `imagesDropped` (quem chamou avisa o usuário).
 export async function chat(messages, opts = {}) {
+  const metrics = currentUsage();
+  if (metrics) metrics.calls++;
+  try {
+    const result = await chatUnmetered(messages, opts);
+    if (metrics) recordUsage(metrics, result);
+    return result;
+  } catch (error) {
+    if (metrics) { metrics.failedCalls++; metrics.missingUsage++; metrics.missingCost++; }
+    throw error;
+  }
+}
+
+async function chatUnmetered(messages, opts = {}) {
   const cfg = opts.cfg || llmConfig();
   const key = `${cfg.url}|${cfg.app}|${opts.model || cfg.textModel}`;
   // o modelo de texto não enxerga: a chamada com imagem vai para o modelo de visão (se o relay tiver um)

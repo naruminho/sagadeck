@@ -48,9 +48,18 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
       const buf = await page.screenshot({ type: "jpeg", quality: 80 });
       frames.push({ label, dataUrl: `data:image/jpeg;base64,${buf.toString("base64")}` });
     };
-    if (mode === "steps" && steps > 0) {
-      const last = Math.min(steps, maxFrames - 1);
-      for (let k = 0; k <= last; k++) {
+    if (mode === 'exploration' && spec.slides[index]?.layout === 'calc') {
+      await page.evaluate(i => { window.sagadeck.goto(i, 0); document.querySelector('.slide.current [data-calc-reveal]')?.click(); }, index);
+      await shot('Estado inicial revelado');
+      await page.evaluate(() => document.querySelector('.slide.current [data-calc-freeze]')?.click());
+      for (let n = 0; n < Math.min((spec.slides[index].scenarios || []).length, maxFrames - 1); n++) {
+        await page.evaluate(n => document.querySelector(`.slide.current [data-calc-scenario="${n}"]`)?.click(), n);
+        await shot(`Cenário: ${spec.slides[index].scenarios[n].label}`);
+      }
+    } else if ((mode === "steps" || mode === 'exploration') && steps > 0) {
+      const count = Math.min(steps + 1, Math.max(2, maxFrames));
+      const samples = [...new Set(Array.from({ length: count }, (_, i) => Math.round(i * steps / (count - 1))))];
+      for (const k of samples) {
         await page.evaluate(([i, kk]) => window.sagadeck.goto(i, kk), [index, k]);
         await shot(k === 0 ? "antes do 1º clique" : `depois do clique ${k}`);
       }

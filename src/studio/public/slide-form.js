@@ -224,11 +224,7 @@
       f.list("steps", "Passos (um por clique)", obj([f.text("text", "O que se faz"), f.area("latex", "A conta (LaTeX)", { mono: true, rows: 2 }), f.text("note", "Observação")]), { addLabel: "Adicionar passo", newItem: () => ({ text: "Próximo passo", latex: "" }) }),
       f.obj("answer", "Resposta", [f.text("latex", "Resultado (LaTeX)", { mono: true }), f.text("text", "Em palavras"), f.text("label", "Rótulo", { placeholder: "Resposta" })]),
       f.more([f.text("prompt", "Pergunta antes do primeiro passo", { placeholder: "Por onde você começaria?" })])],
-    calc: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.json("inputs", "Entradas", { rows: 8, hint: "{ V: { label, value, min, max, step, unit, latex }, nu: { value, fixed: true } } — cada entrada vira um controle deslizante (fixed: constante)." }),
-      f.list("outputs", "Resultados (na ordem: um pode usar os anteriores)", obj([f.text("name", "Nome (para usar nas fórmulas)", { mono: true }), f.text("label", "Rótulo"), f.text("fn", "Fórmula", { mono: true, placeholder: "V*D/nu" }), f.text("latex", "Fórmula para mostrar (LaTeX)", { mono: true }), f.text("unit", "Unidade"), f.num("decimals", "Casas decimais"),
-        f.more([f.text("of", "Faixas de qual valor?", { mono: true }), f.json("cases", "Faixas", { hint: "[{ below: 2300, text: Laminar, color: s3 }, { text: Turbulento, color: hi }] — ou fn por faixa" }), f.json("scale", "Régua", { hint: "{ min: 100, max: 1000000, log: true }" })])]),
-        { addLabel: "Adicionar resultado", newItem: () => ({ name: "r", label: "Resultado", fn: "" }) }),
-      f.text("note", "Nota embaixo")],
+    calc: window.SagaCalcFields(f, obj),
     algo: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.select("algorithm", "Algoritmo", [["bubble", "Bubble sort"], ["insertion", "Insertion sort"], ["selection", "Selection sort"], ["merge", "Merge sort"], ["quick", "Quicksort"], ["linear", "Busca linear"], ["binary", "Busca binária"],
         ["naive", "Busca em texto: ingênua"], ["kmp", "Busca em texto: KMP"], ["quicksearch", "Busca em texto: Quick Search"], ["bfs", "Grafo: busca em largura"], ["dijkstra", "Grafo: Dijkstra"], ["bst", "Árvore binária de busca"], ["program", "Meu código (Python)"]], { empty: false, default: "bubble", structural: true }),
       f.nums("array", "Números (até 16)", { when: (s) => !s.program && !["naive", "kmp", "quicksearch", "bfs", "dijkstra", "program"].includes(s.algorithm) }),
@@ -319,6 +315,7 @@
   // ---------------------------------------------------------------------------------------------
   const EL_MORE = (positioned) => [
     f.num("step", "Aparece no clique"), f.num("exit", "Some no clique"), f.select("anim", "Animação", ANIMS),
+    f.text("continuity", "Mesmo objeto entre slides", { hint: "Repita este nome no objeto da próxima cena para acompanhar a mudança de posição e tamanho." }),
     ...(positioned ? [f.num("x", "X (px)"), f.num("y", "Y (px)")] : []),
     f.num("w", "Largura (px)"), f.num("h", "Altura (px)"), f.color("color", "Cor"), f.color("bg", "Fundo"),
     f.select("align", "Alinhamento", [["left", "Esquerda"], ["center", "Centro"], ["right", "Direita"]]),

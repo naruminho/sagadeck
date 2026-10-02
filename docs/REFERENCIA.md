@@ -570,6 +570,22 @@ Cada face tem `css` (navegador) e `pptx` (nome exato da fonte no PowerPoint). Us
 
 ## Widgets próprios
 
+## Experiências exploráveis
+
+O layout `calc` aceita `scenarios: [{label, values: {entrada: numero}, explanation}]`, `prediction` (pergunta antes de revelar), `explanation` (o que observar), `illustrative: true` (selo de simulação ilustrativa) e `sweep: entrada` (curva das saídas em função desta entrada; as outras permanecem nos valores atuais). Os resultados numéricos, faixas, réguas e curvas vêm das mesmas fórmulas. Entradas fixas não são alteradas por cenários.
+
+Na apresentação: botões de cenário, **Comparar com este** (congela resultados para comparar), **Restaurar**, **Ver resultado** e **Explorar**. Interações são temporárias, não reescrevem o deck. No material de estudo, estado inicial e cenários aparecem com entradas, resultados e explicações. `consulta` contém hipóteses, limitações e desenvolvimento completo. Não invente dados para dar aparência de evidência: marque modelos ilustrativos.
+
+Cada elemento pode receber `continuity: nome-estavel`: repita o nome no objeto correspondente do próximo slide para animar posição e tamanho entre cenas. Nome único por slide; use principalmente `canvas`. Sem movimento em exportação, `motion: none` ou preferência de movimento reduzido. Imagem de fundo, texto e primeiro plano podem ser elementos separados/editáveis, respeitando a ordem das camadas.
+
+Chat: inclua `review: true` no patch ao reformular uma composição ou criar uma experiência. O Studio confere os slides alterados e seus cenários renderizados, devolve problemas ao agente para uma rodada de correção e informa o que não pôde ser conferido. Uma resposta sem visão não é aprovação. Fórmulas são verificadas no estado inicial, nos cenários e nos extremos individuais das entradas; isso não prova todos os pontos do domínio.
+
+Propostas de direção de arte usam `variants` com o mesmo conteúdo em 2–4 composições diferentes. Cada opção pode incluir `direction: {theme: editorial, rationale: "Hierarquia editorial e contraste"}` junto de `label` e `slide`. A escolha aplica esse tema ao deck, remove a paleta anterior e substitui somente o slide escolhido; não reescreve os outros conteúdos. Composições devem diferir em estrutura, não apenas cor.
+
+Avaliação de autonomia (desenvolvimento): `SAGADECK_LIVE=1 node tools/evaluate-autonomy.mjs` executa cinco pedidos públicos pelo agente interno e guarda apresentações/relatórios no tópico **Avaliação do agente** da biblioteca. Aceita IDs de casos como argumentos. Relata falhas, achados, tempo, intervenções externas e uso de tokens/custo quando fornecidos pelo provedor; ausência de preço nunca vira custo zero. Esta avaliação não retoca os decks por fora do agente. O modelo **Explore uma ideia** demonstra os recursos sem rede.
+
+### API dos widgets
+
 ```js
 // widgets/contador.js
 Sagadeck.widget("contador", {

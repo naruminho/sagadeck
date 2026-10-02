@@ -974,10 +974,12 @@
       card.className = "variant";
       card.innerHTML = `<div class="variant-prev"><div class="thumb-render"></div></div><div class="variant-foot"><b></b><button type="button" class="btn btn-secondary btn-sm">Usar esta</button></div>`;
       card.querySelector("b").textContent = v.label;
+      if (v.direction) { card.querySelector('b').title = v.direction.rationale; card.querySelector('button').textContent = 'Usar direção no deck'; }
       const btn = card.querySelector("button");
       btn.dataset.variant = k;
       btn.onclick = () => {
         const s = JSON.parse(JSON.stringify(v.slide));
+        if (v.direction) { state.deck.theme = v.direction.theme; delete state.deck.palette; delete s.theme; }
         if (variants.insert) state.deck.slides.splice(variants.index, 0, s);
         else state.deck.slides[variants.index] = s;
         state.currentSlideIndex = variants.index;
@@ -999,6 +1001,7 @@
         prev.querySelector(".thumb-render").innerHTML = r.html;
         requestAnimationFrame(() => fitRendered(prev));
         prev.style.setProperty("--thumb-scale", String(prev.clientWidth / 1920));
+        if (v.direction) window.SagaArtPreview(prev, r, v.label);
       } catch {}
     }
     box.scrollIntoView({ block: "nearest" });

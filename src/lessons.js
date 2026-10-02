@@ -69,7 +69,7 @@ export function calcModel(s) {
     ...(o.decimals != null ? { decimals: Number(o.decimals) } : {}), ...(o.sci ? { sci: true } : {}),
     cases: [].concat(o.cases || []).map((c) => ({ ...(c.below != null ? { below: Number(c.below) } : {}), ...(c.fn ? { fn: String(c.fn) } : {}), ...(c.text ? { text: String(c.text) } : {}), ...(c.color ? { color: String(c.color) } : {}) })),
     ...(o.scale ? { scale: { min: Number(o.scale.min ?? 0), max: Number(o.scale.max ?? 1), ...(o.scale.log ? { log: true } : {}) } } : {}) }));
-  return { inputs, outputs };
+  return { inputs, outputs, scenarios: s.scenarios || [], sweep: s.sweep || '', explanation: String(s.explanation || ''), prediction: String(s.prediction || ''), illustrative: !!s.illustrative };
 }
 const C = globalThis.SagaCalc;
 export const calcEvaluate = (m, v) => C.evaluate(m, v);
@@ -95,10 +95,17 @@ export function calcHTML(s, ctx, head) {
     })() : "";
     const badge = r.text ? `<span class="calc-badge t f-display" data-calc-badge="${esc(o.name)}" style="${r.color ? `background:var(--${r.color})` : ""}">${esc(r.text)}</span>` : (o.cases.some((c) => c.text) ? `<span class="calc-badge t f-display" data-calc-badge="${esc(o.name)}"></span>` : "");
     const value = o.fn || o.cases.some((c) => c.fn) ? `<div class="calc-out-v"><b data-calc-out="${esc(o.name)}">${esc(formatNum(r.value, o))}</b>${o.unit ? ` <small>${esc(o.unit)}</small>` : ""}</div>` : "";
-    return `<div class="calc-out"><div class="calc-l t f-label">${esc(o.label)}</div>${o.latex ? `<div class="calc-formula">${tex(o.latex, false)}</div>` : ""}${value}${badge}${scale}</div>`;
+    const compare = `<small class="calc-compare" data-calc-compare="${esc(o.name)}" hidden></small>`;
+    const sweep = m.inputs.find(i => i.name === m.sweep);
+    const curve = sweep && o.fn ? C.curveData(m, {}, o.name) : null;
+    const chart = curve ? `<figure class="calc-curve"><svg viewBox="0 0 320 80" role="img" aria-label="${esc(o.label)} em função de ${esc(sweep.label)}"><path data-calc-curve="${esc(o.name)}" d="${curve.path}" fill="none" stroke="currentColor" stroke-width="3"/></svg><figcaption><span data-calc-axis="${esc(o.name)}">${esc(o.label)}: ${esc(formatNum(curve.min, o))} a ${esc(formatNum(curve.max, o))} ${esc(o.unit)} (escala automática)</span><br>${esc(sweep.label)}: ${esc(formatNum(sweep.min))} a ${esc(formatNum(sweep.max))} ${esc(sweep.unit)}</figcaption></figure>` : '';
+    return `<div class="calc-out"><div class="calc-l t f-label">${esc(o.label)}</div>${o.latex ? `<div class="calc-formula">${tex(o.latex, false)}</div>` : ""}${value}${badge}${scale}${chart}${compare}</div>`;
   };
   const payload = JSON.stringify(m).replace(/</g, "\\u003c");
-  return `<div class="L-calc" data-calc>${head(s)}<div class="calc-body"><div class="calc-inputs">${m.inputs.map(input).join("")}</div><div class="calc-outputs">${m.outputs.map(output).join("")}</div></div><script type="application/json" class="calc-model">${payload}</script>${s.note ? `<div class="calc-note t f-body">${md(s.note)}</div>` : ""}</div>`;
+  const controls = `<div class="calc-tools">${m.scenarios.map((c, i) => `<button type="button" data-calc-scenario="${i}">${esc(c.label || `Cenário ${i + 1}`)}</button>`).join('')}<button type="button" data-calc-free>Explorar</button><button type="button" data-calc-freeze>Comparar com este</button><button type="button" data-calc-reset>Restaurar</button></div>`;
+  const prediction = m.prediction ? `<div class="calc-prediction"><span>${esc(m.prediction)}</span> <button type="button" data-calc-reveal>Ver resultado</button></div>` : '';
+  const explanation = `<p class="calc-explanation" data-calc-explanation aria-live="polite">${esc(m.explanation)}</p>`;
+  return `<div class="L-calc" data-calc>${head(s)}${m.illustrative ? '<small class="calc-disclaimer">Simulação ilustrativa</small>' : ''}${prediction}${controls}<div class="calc-body"><div class="calc-inputs">${m.inputs.map(input).join("")}</div><div class="calc-outputs">${m.outputs.map(output).join("")}</div></div>${explanation}<script type="application/json" class="calc-model">${payload}</script>${s.note ? `<div class="calc-note t f-body">${md(s.note)}</div>` : ""}</div>`;
 }
 
 // ------------------------------------------------------------------------------------------------ algo
