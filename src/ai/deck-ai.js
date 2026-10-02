@@ -417,7 +417,10 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
         const { imagesAsDataUrls } = await import("../import/crop.js");
         ref = (await imagesAsDataUrls([refFile], { width: 1600, quality: 0.9 })).filter(Boolean);
       }
-      const img = await generateImage(prompt, { ref });
+      // sem texto, a não ser que o pedido diga os rótulos (em português, entre aspas): sozinho, o modelo escreve em
+      // inglês ("THE WATERSHED CYCLE") ou palavras sem sentido
+      const wantsText = /\b(labels?|labell?ed|lettering|written|captions?)\b/i.test(prompt) && /["“]/.test(prompt);
+      const img = await generateImage(refFile || wantsText ? prompt : `${prompt}${/[.!]$/.test(prompt) ? "" : "."} No text, letters, numbers or labels anywhere in the image.`, { ref });
       const ext = (img.mime.split("/")[1] || "png").replace("jpeg", "jpg").replace(/\W.*/, "");
       const hash = crypto.createHash("sha1").update(prompt + (refFile ? `\n${node.image_ref}` : "")).digest("hex").slice(0, 8);
       fs.mkdirSync(assetsDir, { recursive: true });

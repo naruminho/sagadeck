@@ -29,6 +29,23 @@ test("ilustração gerada sem fit fica com o encaixe automático (não força co
   } finally { await llm.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("ilustração nova sai sem texto (o modelo escrevia rótulos sem sentido); o redesenho de uma figura mantém os rótulos", async () => {
+  const { materializeImages } = await import("../src/ai/deck-ai.js");
+  const asked = [];
+  const llm = await startMockLLM((req) => { asked.push(req.lastUser); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-txt-"));
+  try {
+    fs.mkdirSync(path.join(dir, "imagens"));
+    fs.writeFileSync(path.join(dir, "imagens", "mapa.png"), PNG);
+    await materializeImages({ slides: [{ layout: "split", title: "a", figure: { image_prompt: "a gourmet brigadeiro cut in half" } }, { layout: "split", title: "b", figure: { image_prompt: "Clean up and redraw THIS EXACT map", image_ref: "imagens/mapa.png" } }] }, { baseDir: dir });
+    assert.match(asked[0], /a gourmet brigadeiro cut in half\. No text, letters, numbers or labels anywhere in the image\./);
+    assert.doesNotMatch(asked[1], /No text/, "o redesenho copia os rótulos da figura");
+    await materializeImages({ slides: [{ layout: "split", title: "c", figure: { image_prompt: 'a watershed cross-section with labels "Divisor de água" and "Rio"' } }] }, { baseDir: dir });
+    assert.doesNotMatch(asked[2], /No text/, "rótulos pedidos em português, entre aspas, ficam");
+  } finally { await llm.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("prompt de geração: ensinar como funciona pede o mecanismo inteiro com um exemplo de números e uma simulação", async () => {
   const { systemPrompt } = await import("../src/ai/deck-ai.js");
   const sys = systemPrompt({ images: true });
