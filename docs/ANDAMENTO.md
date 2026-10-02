@@ -8,6 +8,30 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Senso crítico da recriação: a IA ganha ferramentas para se corrigir — 02/10/2026
+
+Feedback da versão "escalafobética" da Aula 1 (relevo): foco guiado todo fora do lugar, mapa do posto
+fluviométrico ainda em xerox, hidrograma com a imagem da equação de P, "[object Object]", texto gigante, superfície
+3D de enfeite ("girar o relevo") e o ciclo em camadas de cabeça para baixo. A conferência visual procurava
+informação faltando, não desenho, e a IA não tinha como medir onde ficava cada coisa na figura.
+
+- **Foco guiado ancorado pela visão** (`src/ai/ground.js`): depois das imagens prontas, a visão localiza cada
+  destaque na imagem (caixa em % da figura); recriação e geração usam. Antes as coordenadas eram chutadas.
+- **A visão vê arquivo por arquivo**: com mais de uma imagem no slide, cada uma vai com o nome; cada figura sai com
+  `arquivo`. A escritora recebe `(arquivo X)` antes de cada figura (pegava a fórmula no lugar do hidrograma).
+- **Redesenho automático** da ilustração escaneada/pixelada que a escritora deixou como estava (`image_prompt` +
+  `image_ref`, copiando os rótulos lidos pela visão).
+- **Imagem de equação** num slide novo volta para a correção: escrever em LaTeX.
+- `table.side` aceita elemento (era o "[object Object]"); `statement` não deixa a IA pôr frase longa em `h2`.
+- Infográfico **`camadas`**: perfil físico de cima para baixo com setas de fluxo (`flows`). Regras: camadas
+  físicas vão nele; `plot.surface` só com função/dado do material.
+- Conferência visual com "crítica de desenho": destaque fora do lugar, figura errada, equação como imagem, gráfico
+  de enfeite, ordem física invertida, texto gigante.
+- Testes: `test/camadas.test.js`, `test/transform.test.js` (visão por arquivo, equação, foco ancorado),
+  `test/retorno-recriada.test.js`.
+
+---
+
 ## Pesquisa na web para gerar material (estilo deep research) — fase 1 feita em 02/10/2026
 
 - Aprovado e pedido: a IA distingue quando o que ela sabe basta (hash table) e quando pesquisar (ranking das IAs de

@@ -1051,6 +1051,8 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
   if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
+  // foco guiado sobre uma imagem: a visão põe cada destaque no lugar
+  try { const { groundSpotlights } = await import("./ground.js"); await groundSpotlights(spec.slides, { baseDir: imageOptions.baseDir || spec._dir, onProgress: say }); } catch {}
   return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(researchReport ? { research: researchReport } : {}) };
 }
 
