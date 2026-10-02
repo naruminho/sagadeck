@@ -198,8 +198,10 @@
       }
       return null;
     };
+    // o papel do texto é a classe própria dele (cd-title, ca-mo), não as genéricas (t, f-body, r-small, e)
+    const roleOf = (t) => [...t.classList].find((c) => !/^(t|e|f-.*|r-.*|fit-.*)$/.test(c));
     for (const t of shrunk) {
-      const kin = groupOf(t), cls = t.classList[0];
+      const kin = groupOf(t), cls = roleOf(t);
       if (!kin || !cls) continue;
       const all = kin.flatMap((x) => [...x.querySelectorAll(`.${cls}`)]).filter((x) => !x.hasAttribute("data-vsize"));
       const min = Math.min(...all.map((x) => parseFloat(getComputedStyle(x).fontSize)));

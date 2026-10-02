@@ -207,6 +207,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
     rótulos em VT323, cartões de 8 bits, chão de tijolos na capa; fontes OFL embutidas).
   - **transformers denso como aula**: bom de conteúdo (intuição, tokens, atenção com números, softmax, Python, tabela
     da próxima palavra, temperatura, perda, limites). Ficou para depois: fluxo de 10 a 12 caixas em fila sai miúdo.
+  - **calendário dos próximos filmes da Marvel** (pesquisa): a IA fez linha do tempo porque não havia calendário.
+    Layout novo **`calendar`**: um cartão por mês com evento, o mini calendário com os dias marcados na cor do tipo
+    (Filme, Série: cores de item do tema, com legenda), a lista embaixo e o cartão "sem data". A versão nova da
+    pesquisa leu 7 fontes e montou o calendário de verdade.
+  - correção: a igualdade de tamanho entre cartões irmãos agrupava pela primeira classe do texto, que às vezes é a
+    genérica `t` (todo texto do cartão ia para o menor: o mês do calendário com 15 px); agora agrupa pelo papel.
+  - **versão escalafobética da aula da Maria** (imagens realistas e tecnológicas, gráficos de ficção científica sem
+    néon, 3D bonito como um bloco de terreno): tema novo **`relevo`** (grafite profundo, curvas de nível, cantoneiras
+    de mira, vidro fosco, rótulos técnicos em monoespaçada, título leve).
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

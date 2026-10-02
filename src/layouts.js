@@ -10,7 +10,7 @@ const diagramIconNames = () => (iconNames ||= new Set(listIcons()));
 import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import { mathHTML, plotHTML } from "./science.js";
-import { infographicHTML } from "./infographic.js";
+import { infographicHTML, itemColors } from "./infographic.js";
 import { duelHTML, terminalsHTML, turnsHTML } from "./dynamics/layouts.js";
 import { carouselHTML } from "./carousel.js";
 import { slideSize } from "./aspect.js";
@@ -137,6 +137,41 @@ export const LAYOUTS = {
     const fig = s.figure ? `<div class="df-fig e" style="--d:3;">${el(s.figure, ctx, 640, 640)}</div>` : s.icon ? `<div class="df-fig df-icon e" style="--d:3;" aria-hidden="true">${iconSVG(s.icon, { size: 220, stroke: 1.6 })}</div>` : "";
     return `<div class="L-definition${fig ? " has-fig" : ""}"><div class="df-main">${kicker(s)}${text(term, "hero", { class: "df-term ttl e", style: "--d:1;", fit: true, size: s.termSize })}${origin}
       ${s.text ? `<div class="df-rule e" style="--d:2;"></div>${text(s.text, "lead", { class: "df-text e", style: "--d:3;", step: s.build ? 2 : undefined })}` : ""}</div>${fig}</div>${src(s)}${add(s, ctx)}`;
+  },
+
+  // Calendário (pedido: "um infográfico em forma de calendário dos próximos filmes"): um cartão por mês com evento, com
+  // o mini calendário do mês (os dias marcados na cor do evento) e a lista embaixo; o que não tem data vai no cartão
+  // "sem data". Datas: 2026-12-18, 18/12/2026, 2026-12 (só o mês) ou nada.
+  calendar(s, ctx) {
+    const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const parse = (d) => {
+      const t = String(d ?? "").trim();
+      let m = t.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/); if (m) return { y: +m[1], mo: +m[2] - 1, d: m[3] ? +m[3] : null };
+      m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[3], mo: +m[2] - 1, d: +m[1] };
+      m = t.match(/^(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[2], mo: +m[1] - 1, d: null };
+      return null;
+    };
+    const events = (Array.isArray(s.events) ? s.events : []).filter((e) => e && typeof e === "object").map((e, i) => ({ ...e, i, at: parse(e.date) }));
+    const undated = [...events.filter((e) => !e.at || e.at.mo < 0 || e.at.mo > 11), ...(Array.isArray(s.undated) ? s.undated.map((e) => (typeof e === "string" ? { title: e } : e)) : [])];
+    const months = new Map();
+    for (const e of events.filter((x) => x.at && x.at.mo >= 0 && x.at.mo <= 11).sort((a, b) => a.at.y - b.at.y || a.at.mo - b.at.mo || (a.at.d || 99) - (b.at.d || 99))) {
+      const key = `${e.at.y}-${e.at.mo}`; if (!months.has(key)) months.set(key, { y: e.at.y, mo: e.at.mo, list: [] }); months.get(key).list.push(e);
+    }
+    const colors = itemColors(ctx?.theme || { colors: {} }, 6).map((h) => `#${h}`); // as do infográfico: do tema, diferentes entre si e com contraste
+    const tagColor = new Map(); const colorOf = (e) => e.color ? (/^#?[0-9a-f]{6}$/i.test(e.color) ? `#${String(e.color).replace("#", "")}` : /^[a-z][\w-]*$/i.test(e.color) ? `var(--${e.color})` : "var(--hi)") : (e.tag ? (tagColor.has(e.tag) || tagColor.set(e.tag, colors[tagColor.size % colors.length]), tagColor.get(e.tag)) : colors[0]);
+    const card = (m, k) => {
+      const first = new Date(Date.UTC(m.y, m.mo, 1)).getUTCDay(), days = new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate();
+      const byDay = new Map(m.list.filter((e) => e.at.d).map((e) => [e.at.d, e]));
+      const cells = [...Array(first).fill(`<i></i>`), ...Array.from({ length: days }, (_, j) => { const e = byDay.get(j + 1); return e ? `<b style="--c:${colorOf(e)}">${j + 1}</b>` : `<i>${j + 1}</i>`; })].join("");
+      const items = m.list.map((e) => `<li class="ca-ev" style="--c:${colorOf(e)}"><span class="t f-label ca-day">${e.at.d ? String(e.at.d).padStart(2, "0") : "—"}</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 26 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 18 }) : ""}${e.tag ? `<span class="t f-label ca-tag">${md(String(e.tag))}</span>` : ""}</div></li>`).join("");
+      return `<section class="ca-month e" style="--d:${2 + k};"${s.build ? ` data-step="${k + 1}"` : ""}><header class="ca-head"><span class="t f-display ca-mo">${MESES[m.mo]}</span><span class="t f-label ca-y">${m.y}</span></header><div class="ca-grid" aria-hidden="true">${"DSTQQSS".split("").map((d) => `<u>${d}</u>`).join("")}${cells}</div><ul class="ca-list">${items}</ul></section>`;
+    };
+    const list = [...months.values()];
+    const und = undated.length ? `<section class="ca-month ca-undated e" style="--d:${2 + list.length};"><header class="ca-head"><span class="t f-display ca-mo">${md(String(s.undatedTitle || "sem data"))}</span></header><ul class="ca-list">${undated.map((e) => `<li class="ca-ev" style="--c:var(--muted)"><span class="t f-label ca-day">?</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 24 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 17 }) : ""}</div></li>`).join("")}</ul></section>` : "";
+    const n = list.length + (und ? 1 : 0), cols = s.cols || Math.min(n, n <= 4 ? n : n <= 6 ? 3 : 4);
+    const cardsHTML = list.map(card).join(""); // antes da legenda: os cartões é que dão a cor de cada tipo
+    const legend = tagColor.size > 1 ? `<div class="ca-legend">${[...tagColor].map(([t, c]) => `<span class="t f-label" style="--c:${c}"><i></i>${md(String(t))}</span>`).join("")}</div>` : "";
+    return `<div class="L-calendar">${head(s)}${legend}<div class="ca-months" style="--cols:${cols};">${cardsHTML}${und}</div></div>${src(s)}${add(s, ctx)}`;
   },
 
   // Pôster (infográfico de uma página, como uma figura de revista científica): ilustração principal, painéis com letra
