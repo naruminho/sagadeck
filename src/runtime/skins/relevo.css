@@ -1,15 +1,14 @@
 /* Relevo: a sala de controle de um filme de ficção científica, sóbria. Fundo grafite com um halo frio, curvas de nível
    finíssimas, cantoneiras de mira, painéis de vidro fosco com traço gelo, rótulos técnicos em monoespaçada.
    Capa: o título leve embaixo à esquerda, um rótulo técnico com traço antes, as curvas de nível concentradas à direita */
-.th-relevo{background:radial-gradient(90% 70% at 72% 30%,#16232d 0%,#0b1117 60%,#070b0f 100%)}
-.th-relevo.tone-dark{background:radial-gradient(90% 70% at 72% 30%,#0f1820 0%,#060a0e 70%)}
-.th-relevo.tone-accent{background:radial-gradient(90% 70% at 72% 30%,#1b3a47 0%,#102630 60%,#0a1a21 100%)}
+/* o fundo sai das cores do tom (--bg, --hi): com uma paleta por cima, ele acompanha (a letra nunca cai na cor do fundo) */
+.th-relevo{background-color:var(--bg);background-image:radial-gradient(90% 70% at 72% 30%,color-mix(in srgb,var(--hi) 9%,var(--bg)) 0%,var(--bg) 60%,color-mix(in srgb,#000 22%,var(--bg)) 100%)}
 /* curvas de nível ao fundo (anéis concêntricos deformados), quase invisíveis */
 .th-relevo::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:
-  repeating-radial-gradient(ellipse 60% 48% at 78% 34%,transparent 0 38px,rgba(143,208,224,.07) 38px 39px),
-  repeating-radial-gradient(ellipse 40% 30% at 18% 92%,transparent 0 30px,rgba(143,208,224,.05) 30px 31px)}
+  repeating-radial-gradient(ellipse 60% 48% at 78% 34%,transparent 0 38px,color-mix(in srgb,var(--hi) 8%,transparent) 38px 39px),
+  repeating-radial-gradient(ellipse 40% 30% at 18% 92%,transparent 0 30px,color-mix(in srgb,var(--hi) 6%,transparent) 30px 31px)}
 /* cantoneiras de mira nos quatro cantos */
-.th-relevo .orn i{display:block;width:44px;height:44px;border:0 solid rgba(143,208,224,.45)}
+.th-relevo .orn i{display:block;width:44px;height:44px;border:0 solid color-mix(in srgb,var(--hi) 50%,transparent)}
 .th-relevo .orn i:nth-child(1){left:48px;top:44px;border-left-width:1.5px;border-top-width:1.5px}
 .th-relevo .orn i:nth-child(2){right:48px;top:44px;border-right-width:1.5px;border-top-width:1.5px}
 .th-relevo .orn i:nth-child(3){left:48px;bottom:44px;border-left-width:1.5px;border-bottom-width:1.5px}
@@ -25,9 +24,9 @@
 .th-relevo .L-section:not(:has(.sc-fig)){flex-direction:row;align-items:center;gap:70px}
 .th-relevo .sc-num{font-size:260px;font-weight:100;color:transparent;-webkit-text-stroke:1.5px color-mix(in srgb,var(--hi) 70%,transparent)}
 /* conteúdo: vidro fosco com traço gelo e um marcador de canto */
-.th-relevo :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border:1px solid rgba(143,208,224,.16);border-radius:6px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 30px 60px -30px rgba(0,0,0,.6);backdrop-filter:blur(6px)}
-.th-relevo .card-hi{border:1px solid rgba(143,208,224,.5)}
-.th-relevo .cd-ico,.th-relevo .st-icon,.th-relevo .step-icon{background:transparent;border:1px solid rgba(143,208,224,.45);color:var(--hi);border-radius:4px}
+.th-relevo :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,color-mix(in srgb,var(--fg) 5%,transparent),color-mix(in srgb,var(--fg) 2%,transparent));border:1px solid color-mix(in srgb,var(--hi) 20%,transparent);border-radius:6px;box-shadow:inset 0 1px 0 color-mix(in srgb,var(--fg) 6%,transparent),0 30px 60px -30px rgba(0,0,0,.5);backdrop-filter:blur(6px)}
+.th-relevo .card-hi{border:1px solid color-mix(in srgb,var(--hi) 55%,transparent)}
+.th-relevo .cd-ico,.th-relevo .st-icon,.th-relevo .step-icon{background:transparent;border:1px solid color-mix(in srgb,var(--hi) 50%,transparent);color:var(--hi);border-radius:4px}
 .th-relevo .hd::after{content:"";flex:none;width:90px;height:1.5px;background:linear-gradient(90deg,var(--hi),transparent)}
 .th-relevo .li-n{color:var(--hi);font-family:'Cascadia Mono',monospace;font-weight:400}
 .th-relevo .q-mark{color:var(--em)}

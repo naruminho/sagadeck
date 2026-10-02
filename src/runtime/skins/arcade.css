@@ -1,8 +1,7 @@
 /* Arcade: tela de tubo (azul-noite, linhas de varredura, brilho no meio), neon, tudo de pixel. A capa tem o título no
    meio, uma placa de "PLAYER 1" (kicker com fundo e borda de pixel) e o chão de tijolinhos de um jogo de plataforma */
-.th-arcade{background:radial-gradient(120% 90% at 50% 45%,#1d1850 0%,#0e0b26 62%,#07051a 100%)}
-.th-arcade.tone-dark{background:radial-gradient(120% 90% at 50% 45%,#120f33 0%,#050410 70%)}
-.th-arcade.tone-accent{background:radial-gradient(120% 90% at 50% 45%,#5a24d6 0%,#3a0ca3 60%,#26076e 100%)}
+/* o fundo sai do --bg do tom: com uma paleta por cima, ele acompanha */
+.th-arcade{background-color:var(--bg);background-image:radial-gradient(120% 90% at 50% 45%,color-mix(in srgb,var(--fg) 9%,var(--bg)) 0%,var(--bg) 62%,color-mix(in srgb,#000 40%,var(--bg)) 100%)}
 /* linhas de varredura e a curvinha escura da borda do tubo */
 .th-arcade::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:repeating-linear-gradient(180deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px),radial-gradient(130% 120% at 50% 50%,transparent 60%,rgba(0,0,0,.55) 100%)}
 .th-arcade .ttl{text-shadow:0 0 18px color-mix(in srgb,var(--hi) 45%,transparent),4px 4px 0 color-mix(in srgb,var(--em) 70%,transparent)}
