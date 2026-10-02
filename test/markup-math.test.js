@@ -34,3 +34,21 @@ test("tabela em markdown no meio do texto vira tabela de verdade; barra solta co
   assert.doesNotMatch(md("| a | b |\n| 1 | 2 |"), /<thead>/, "sem a linha |---| não há cabeçalho");
   assert.equal(md("x | y"), "x | y");
 });
+
+test("a IA escreve fórmula e tabela de outros jeitos: \\( \\), \\[ \\], \\\\frac (barra dobrada) e tabela numa linha só", () => {
+  // \( … \) e \[ … \] (o jeito do LaTeX) valem como $…$ e $$…$$
+  const paren = md(String.raw`Aplicar \( P = \frac{m}{N+1} \) e \[ TR = \frac{1}{P} \] com N = 8.`);
+  assert.equal((paren.match(/class="katex"/g) || []).length, 2, paren.slice(0, 200));
+  assert.match(paren, /katex-display/);
+  assert.doesNotMatch(paren, /\\\(|\\\[/);
+  // \\frac (barra dobrada, de YAML em bloco): em LaTeX \\ é quebra de linha e saía "TR =" e "frac1P"
+  const dbl = md(String.raw`$$TR = \\frac{1}{P}$$ e $s_{\\log x}$`);
+  assert.match(dbl, /<mfrac>/, "a fração desenhada");
+  assert.doesNotMatch(dbl, /frac1P|>frac</);
+  assert.match(md(String.raw`$a \\ b$`), /class="katex"/, "a quebra de linha de verdade (\\ seguido de espaço) continua");
+  // tabela que a IA escreveu numa linha só (o YAML juntou as linhas)
+  const one = md("Analisar a série.\n| Ano | Q máx (m³/s) | |-----|-------------| | 1984 | 1796.8 | | 1985 | 1492.0 | | 1986 | 1565.0 |\n**Entregar por email.**");
+  assert.match(one, /<thead><tr><th[^>]*>Ano<\/th><th[^>]*>Q máx \(m³\/s\)<\/th><\/tr><\/thead>/);
+  assert.equal((one.match(/<tr class="">/g) || []).length, 3, "3 linhas de dados");
+  assert.match(one, /<\/table><\/div><b>Entregar por email\.<\/b>$/);
+});

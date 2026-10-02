@@ -4,7 +4,7 @@
 // (data-fit). Uma cor por item, tirada do tema: numa paleta de família, os parentes dela; senão, tons harmônicos
 // ao destaque. Neutros (fundo, linhas, texto) são as variáveis do tom do slide, então funciona em claro e escuro.
 //
-//   shape: arco | ramos | lados | trilhas | metro
+//   shape: arco | ramos | lados | trilhas | metro | ciclo
 //   center: "Título" ou { title, text, icon }
 //   items: [{ title, text, icon, steps: [...] (só trilhas) }]
 import { md } from "./markup.js";
@@ -17,6 +17,7 @@ export const INFOGRAPHIC_SHAPES = {
   lados: { max: 8, label: "Lados: peça central e itens com ícone em anel, metade de cada lado" },
   trilhas: { max: 4, label: "Trilhas: um objetivo e linhas de etapas encadeadas (estratégia, tática…), uma cor por coluna" },
   metro: { max: 7, label: "Metrô: centro e linhas que se abrem até cada item, com ícone e legenda" },
+  ciclo: { max: 8, label: "Ciclo: etapas em volta de um círculo, cada uma ligada à seguinte por uma seta curva (ciclo da água, PDCA, ciclo de vida)" },
 };
 
 // ---- cores ----------------------------------------------------------------------------------------------------
@@ -230,7 +231,45 @@ function metro(s, items, cols, theme) {
   return base + layers.join("");
 }
 
-const SHAPES = { arco, ramos, lados, trilhas, metro };
+// Ciclo: as etapas numa elipse, em sentido horário a partir de cima, cada uma ligada à seguinte por uma seta curva na
+// cor dela (a última volta para a primeira); o nome do ciclo no centro. O texto de cada etapa fica do lado de fora,
+// afastado da seta: acima/abaixo nas etapas do alto e de baixo, ao lado nas outras (subindo ou descendo para longe do
+// arco).
+function ciclo(s, items, cols, theme) {
+  const n = items.length, cx = W / 2, cy = H / 2, c = centerOf(s);
+  const Rx = 440, Ry = 172, r = 46;
+  const ang = items.map((_, i) => -Math.PI / 2 + (i * 2 * Math.PI) / n);
+  const pt = (a) => [cx + Rx * Math.cos(a), cy + Ry * Math.sin(a)];
+  const gap = (r + 16) / ((Rx + Ry) / 2); // o arco começa e termina fora do círculo da etapa
+  const markers = cols.map((col, i) => `<marker id="${ID}c${i}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:#${col}"/></marker>`).join("");
+  let base = svg(`${shadow()}<defs>${markers}</defs><ellipse cx="${cx}" cy="${cy}" rx="${Rx}" ry="${Ry}" style="fill:none;stroke:${LINE}" stroke-width="1.5" stroke-dasharray="3 9" opacity=".6"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${Rx * 0.42}" ry="${Ry * 0.62}" style="fill:var(--bg);stroke:color-mix(in srgb,var(--fg) 12%,var(--bg))" stroke-width="3" filter="url(#${ID}s)"/>`);
+  base += box(cx - Rx * 0.36, cy - Ry * 0.52, Rx * 0.72, Ry * 1.04, `${icon(c.icon, 52, FG)}${title(c.title, 36, FG, "font-weight:800;line-height:1.1")}${body(c.text, 19, FG)}`, { align: "center", cls: "ig-center" });
+  const layers = items.map((it, i) => {
+    const a = ang[i], [x, y] = pt(a), col = cols[i], on = `#${onColor(theme, col)}`;
+    let arrow = "";
+    if (n > 1) {
+      const [x1, y1] = pt(a + gap), [x2, y2] = pt(a + (2 * Math.PI) / n - gap);
+      arrow = `<path d="M${F(x1)} ${F(y1)} A${Rx} ${Ry} 0 0 1 ${F(x2)} ${F(y2)}" style="fill:none;stroke:#${col}" stroke-width="7" stroke-linecap="round" marker-end="url(#${ID}c${i})"/>`;
+    }
+    const g = svg(`${arrow}<circle cx="${F(x)}" cy="${F(y)}" r="${r + 9}" style="fill:var(--bg)" filter="url(#${ID}s)"/><circle cx="${F(x)}" cy="${F(y)}" r="${r}" style="fill:#${col}"/>`);
+    const ic = box(x - r, y - r, r * 2, r * 2, it.icon ? icon(it.icon, r * 0.95, on) : title(String(i + 1), r * 0.8, on, "font-weight:800"), { align: "center" });
+    const ux = Math.cos(a), uy = Math.sin(a), inner = `${title(it.title, 27, `#${col}`, "font-weight:700")}${body(it.text, 19, FG)}`;
+    let cap;
+    if (Math.abs(uy) > 0.9) { // no alto ou embaixo: acima/abaixo da etapa, centrado
+      const bw = 420, bh = Math.min(116, uy < 0 ? y - r - 18 : H - 4 - (y + r + 12));
+      cap = box(x - bw / 2, uy < 0 ? y - r - 14 - bh : y + r + 12, bw, bh, inner, { align: "center", valign: uy < 0 ? "bottom" : "top" });
+    } else { // ao lado, para fora, subindo (metade de cima) ou descendo (de baixo) para longe do arco
+      const bw = ux > 0 ? Math.min(380, W - 6 - (x + r + 18)) : Math.min(380, x - r - 18 - 6), bh = 130;
+      const bx = ux > 0 ? x + r + 18 : x - r - 18 - bw, by = uy < -0.15 ? y - bh + r * 0.6 : uy > 0.15 ? y - r * 0.6 : y - bh / 2;
+      cap = box(bx, Math.max(4, Math.min(H - 4 - bh, by)), bw, bh, inner, { align: ux > 0 ? "left" : "right", valign: uy < -0.15 ? "bottom" : uy > 0.15 ? "top" : "center" });
+    }
+    return layer(g + ic + cap, s.build ? i + 1 : 0);
+  });
+  return base + layers.join("");
+}
+
+const SHAPES = { arco, ramos, lados, trilhas, metro, ciclo };
 
 export function infographicHTML(s, ctx) {
   const shape = SHAPES[s.shape] ? s.shape : "arco";

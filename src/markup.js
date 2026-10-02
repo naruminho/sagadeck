@@ -27,16 +27,32 @@ function pipeTable(block) {
   return tableHTML({ head, rows }, { cls: "md-table", style: "font-size:.85em;" });
 }
 
+// Outros jeitos que a IA usa e que querem dizer o mesmo:
+//  - \( … \) e \[ … \] (os delimitadores do LaTeX) → $…$ e $$…$$
+//  - a tabela inteira numa linha só ("| Ano | Q | |---|---| | 1984 | 1796 |": o YAML juntou as linhas) → uma por linha
+const LATEX_DELIMS = (t) => t.replace(/\\\[([\s\S]+?)\\\]/g, (_, x) => `$$${x.trim()}$$`).replace(/\\\(([\s\S]+?)\\\)/g, (_, x) => `$${x.trim()}$`);
+function oneLineTables(t) {
+  return t.split("\n").map((line) => {
+    const a = line.indexOf("|"), b = line.lastIndexOf("|");
+    if (a < 0 || b <= a || !/\|\s*:?-{3,}/.test(line) || (line.match(/\|/g) || []).length < 6) return line;
+    const rows = line.slice(a, b + 1).split(/\|\s+\|/).map((r) => `| ${r.replace(/^\|\s*/, "").replace(/\s*\|$/, "")} |`);
+    if (rows.length < 3) return line;
+    return `${line.slice(0, a).trimEnd()}${a ? "\n" : ""}${rows.join("\n")}${line.slice(b + 1).trim() ? `\n${line.slice(b + 1).trim()}` : ""}`;
+  }).join("\n");
+}
+
 export function md(s) {
   if (s == null) return "";
   const tables = [];
   const maths = [];
-  const src = String(s).trim().replace(PIPE_TABLE, (m, lead, block) => {
+  const src = oneLineTables(LATEX_DELIMS(String(s).trim())).replace(PIPE_TABLE, (m, lead, block) => {
     try { tables.push(pipeTable(block)); } catch { return m; }
     return `${lead}\u0002${tables.length - 1}\u0002${block.endsWith("\n") ? "\n" : ""}`;
   });
   const raw = src.replace(INLINE_MATH, (_, block, inline) => {
-    const tex = (block ?? inline).trim();
+    // \\frac (barra dobrada, de YAML em bloco escrito como se fosse entre aspas): em LaTeX \\ é quebra de linha e a
+    // fórmula saía partida ("TR =" e "frac1P"); \\ seguido de letra é sempre o comando (a quebra vem com espaço)
+    const tex = (block ?? inline).trim().replace(/\\\\(?=[A-Za-z])/g, "\\");
     // fórmula que não compila (chave a mais, comando errado): aparece o texto dela, marcado, para corrigir; nunca "undefined"
     try { maths.push(katex.renderToString(tex, { displayMode: block != null, throwOnError: true, strict: "ignore", trust: false, maxExpand: 1000, maxSize: 20 })); }
     catch (e) { maths.push(`<code class="f-mono tex-error" title="${esc(String(e.message || e).slice(0, 200))}">${esc(tex)}</code>`); }

@@ -791,6 +791,7 @@ As formas clássicas de slide de consultoria, desenhadas na hora para a quantida
 | `lados` | frentes, áreas ou pilares com ícone (metade à esquerda, metade à direita da peça central) | 2 a 8 |
 | `trilhas` | objetivo e linhas de etapas encadeadas: cada item é o começo de uma linha e `steps` são as etapas seguintes (estratégia, tática, tática…); uma cor por coluna | 1 a 4 linhas, até 4 etapas cada |
 | `metro` | caminhos que partem de um mesmo ponto (linhas de metrô até cada item, com ícone e legenda) | 2 a 7 |
+| `ciclo` | processo que se repete e volta ao começo (ciclo da água, PDCA, ciclo de vida): etapas em volta de um círculo, em sentido horário a partir de cima, cada uma ligada à seguinte por uma seta curva na cor dela | 2 a 8 |
 
 `center`: o que fica no meio (`title`, `text`, `icon`; ou só um texto). Itens: `title` curto (1 a 3 palavras), `text` de uma frase, `icon` (nome do Lucide). Mais itens que a forma aceita: os demais ficam de fora com aviso; divida em dois slides.
 
@@ -806,7 +807,7 @@ As formas clássicas de slide de consultoria, desenhadas na hora para a quantida
     - { title: SaaS externo, text: Túnel mTLS e serviço extra, icon: globe }
 ```
 
-Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
+Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`) e para **ciclos** (`ciclo`: num fluxograma, a volta ao começo vira setas longas cruzando o desenho); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
 
 ## Diagramas (`diagram`)
 

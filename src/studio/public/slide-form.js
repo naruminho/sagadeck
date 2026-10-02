@@ -254,7 +254,7 @@
         { addLabel: "Adicionar detalhe", newItem: () => ({ title: "Novo detalhe", text: "", x: 10, y: 10, width: 30, height: 25 }) })]),
       f.more([f.el("figure", "Figura no lugar da imagem")])],
     decisionlab: [f.text("title", "Título"), f.obj("lab", "Premissas iniciais", [f.num("volume", "Número de decisões"), f.num("errorRate", "Erros da automação (%)"), f.num("reviewRate", "Casos revisados (%)"), f.num("catchRate", "Erros corrigidos (%)"), f.num("introducedRate", "Acertos estragados (%)"), f.num("seconds", "Segundos por revisão")])],
-    infographic: [f.select("shape", "Forma", [["arco", "Arco (pílulas numeradas)"], ["ramos", "Ramos (cartões)"], ["lados", "Lados (ícones dos dois lados)"], ["trilhas", "Trilhas (objetivo e etapas)"], ["metro", "Metrô (linhas até cada item)"]]),
+    infographic: [f.select("shape", "Forma", [["arco", "Arco (pílulas numeradas)"], ["ramos", "Ramos (cartões)"], ["lados", "Lados (ícones dos dois lados)"], ["trilhas", "Trilhas (objetivo e etapas)"], ["metro", "Metrô (linhas até cada item)"], ["ciclo", "Ciclo (etapas em volta, com setas)"]]),
       f.text("kicker", "Texto menor"), f.text("title", "Título"),
       f.obj("center", "Centro", [f.text("title", "Texto"), f.text("text", "Detalhe"), f.icon("icon", "Ícone")]),
       f.list("items", "Itens (2 a 8)", obj([f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"),

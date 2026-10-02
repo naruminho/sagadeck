@@ -20,6 +20,8 @@ test("fiscal: contraste pelo que está embaixo do texto (desenho SVG conta) e ma
     { layout: "split", title: "Vazões máximas ==anuais==", body: "x" },
     // fundo em color-mix (o navegador devolve color(srgb 0.95 …), de 0 a 1) e rótulos do exercício
     { layout: "solution", title: "Ex", problem: "Dada a série", givens: ["N = 8"], find: "Probabilidade empírica e TR para 10 anos", steps: ["x = 1"] },
+    // texto por cima de uma tabela (as células não são .t: o fiscal não via)
+    { layout: "canvas", elements: [{ table: { head: ["Ano", "Q"], rows: [["1984", "1796,8"], ["1985", "1492,0"]] }, x: 100, y: 300, w: 800, h: 300 }, { text: "texto por cima", x: 150, y: 380, w: 500 }] },
   ];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-check-"));
   try {
@@ -31,5 +33,6 @@ test("fiscal: contraste pelo que está embaixo do texto (desenho SVG conta) e ma
     assert.ok(kinds(2).some((k) => k === "baixo-contraste: texto quase branco"), "o pálido no branco continua acusado");
     assert.deepEqual(kinds(3).filter((k) => k.startsWith("estouro-horizontal")), []);
     assert.deepEqual(kinds(4).filter((k) => /^(baixo-contraste|fonte-pequena)/.test(k)), [], "texto escuro no cinza-claro do exercício; rótulos Dados/Pede-se legíveis");
+    assert.ok(kinds(5).some((k) => k === "sobreposicao: texto por cima ⟂ tabela"), JSON.stringify(kinds(5)));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

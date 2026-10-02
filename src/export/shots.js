@@ -135,6 +135,16 @@ export function inPageCheck(i) {
       if (ratio < 3) issues.push({ kind: "baixo-contraste", text: label(e), ratio: +ratio.toFixed(2) });
     }
   }
+  // texto por cima de uma tabela (as células não são .t)
+  for (const tb of slide.querySelectorAll(".dtable-wrap")) {
+    const rb = R(tb);
+    if (!rb.width) continue;
+    for (const A of texts) {
+      if (tb.contains(A) || A.contains(tb) || A.closest("[data-exit]")) continue;
+      const ra = R(A), ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), iy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      if (ix > 8 && iy > 8) issues.push({ kind: "sobreposicao", text: `${label(A)} ⟂ tabela` });
+    }
+  }
   // sobreposição entre blocos de texto que não são pai/filho
   for (let a = 0; a < texts.length; a++) for (let b = a + 1; b < texts.length; b++) {
     const A = texts[a], B = texts[b];

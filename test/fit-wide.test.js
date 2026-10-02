@@ -179,3 +179,55 @@ test("infográfico com aviso no add: o desenho cabe acima do aviso (não fica po
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("layout image com a figura inteira (fit: contain, gráfico): a legenda vai embaixo, sem cobrir o gráfico; foto (cover) segue com o cartão por cima", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-imcap-"));
+  try {
+    await grayPng(path.join(dir, "idf.png"), 2000, 1300);
+    const cap = "Curva IDF – São Carlos. Eixo x: duração (0 a 300 min); eixo y: intensidade. Fonte: Barbassa.";
+    const spec = { title: "x", theme: "sinal", _dir: dir, slides: [
+      { layout: "image", kicker: "Precipitação máxima", caption: cap, figure: { image: "idf.png", fit: "contain" } },
+      { layout: "image", kicker: "Foto", caption: "Enchente", figure: { image: "idf.png" } },
+    ] };
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML(spec).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const measure = (i) => page.evaluate((k) => {
+      const s = document.querySelectorAll(".slide")[k], img = s.querySelector(".im-fig img"), c = s.querySelector(".im-cap").getBoundingClientRect();
+      // a parte desenhada da imagem (contain: a imagem inteira cabe na caixa, centrada)
+      const b = img.getBoundingClientRect(), ar = img.naturalWidth / img.naturalHeight;
+      const w = Math.min(b.width, b.height * ar), h = w / ar, top = b.top + (b.height - h) / 2;
+      return { overlap: c.top < top + h - 2 && c.bottom > top + 2, capBottom: c.bottom };
+    }, i);
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(400);
+    const a = await measure(0);
+    assert.equal(a.overlap, false, "a legenda não cobre o gráfico");
+    assert.ok(a.capBottom <= 1080, "e cabe no slide");
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#2`); await page.waitForTimeout(400);
+    assert.equal((await measure(1)).overlap, true, "foto: o cartão continua por cima (é o desenho do layout)");
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("tabela do add embaixo de um split com texto longo: o ajuste vê a tabela (o texto não fica por baixo dela) e o fiscal acusa quando sobrepõe", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-addtb-"));
+  try {
+    await grayPng(path.join(dir, "eq.png"), 1600, 600);
+    const rows = [["1984", "1.796,8"], ["1985", "1.492,0"], ["1986", "1.565,0"], ["1987", "1.812,0"], ["1988", "2.218,0"], ["1989", "2.190,0"], ["1990", "1.445,0"], ["1991", "1.747,0"]];
+    const slides = [{ layout: "split", kicker: "Distribuição empírica", title: "Dados brutos e ordenamento",
+      body: "**Fórmula empírica:**\n$$P = \\frac{m}{N+1}$$\nOnde **N** é o tamanho da amostra (número de anos) e **m** é a ordem\nda vazão (**m = 1** para a maior, **m = N** para a menor).",
+      figure: { image: "eq.png", fit: "contain" }, add: [{ table: { head: ["Ano", "Q máx (m³/s)"], rows, style: "linhas" } }] }];
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", _dir: dir, slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(500);
+    const hit = await page.evaluate(() => {
+      const s = document.querySelector(".slide"), tb = s.querySelector(".dtable-wrap").getBoundingClientRect();
+      return [...s.querySelectorAll(".sp-text .t")].some((t) => { const r = t.getBoundingClientRect(); return r.width && Math.min(r.right, tb.right) - Math.max(r.left, tb.left) > 4 && Math.min(r.bottom, tb.bottom) - Math.max(r.top, tb.top) > 4; });
+    });
+    assert.equal(hit, false, "o texto do split não fica por baixo da tabela");
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
