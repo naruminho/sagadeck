@@ -168,6 +168,8 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .df-fig{flex:none;width:min(560px,34%);display:flex;align-items:center;justify-content:center}.df-icon{aspect-ratio:1;border-radius:50%;color:var(--hi-ink,var(--em));background:color-mix(in srgb,currentColor 12%,transparent);box-shadow:inset 0 0 0 4px color-mix(in srgb,currentColor 22%,transparent)}.df-icon>svg{width:46%;height:46%}
 /* gráficos lado a lado num row (blocks, content): dividem a largura e ocupam a altura que sobra; o SVG sem tamanho ficava com os 300 px padrão do navegador */
 .fig-chart.has-title{flex-direction:column;align-items:stretch;gap:8px}.fc-title{font-size:24px;color:var(--muted);text-align:center}.fig-chart.has-title>svg{flex:1;min-height:0;width:100%}.bl-caption{margin-top:14px;text-align:center}.row>.fig-chart{flex:1 1 0;min-width:0;align-self:stretch}.row>.fig-chart>svg{width:100%;height:100%;max-height:100%}.bl-body>.row:has(>.fig-chart){flex:1 1 auto;min-height:0}
+/* gráfico dentro de coluna (rótulo em cima, gráfico embaixo): as colunas dividem a linha por igual e o gráfico ocupa a altura */
+.row>.col:has(>.fig-chart){flex:1 1 0;min-width:0}.col>.fig-chart{flex:1 1 auto;min-height:0}.col>.fig-chart>svg{width:100%;height:100%;max-height:100%}.bl-body>.row:has(>.col>.fig-chart){flex:1 1 auto;min-height:0}
 .col{display:flex;flex-direction:column}
 .fig{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
 .figbox>.fig,.cv-fig>.fig,.sc-fig>.fig,.en-fig>.fig,.vd-fig>.fig,.cp-fig>.fig{width:100%;height:100%}

@@ -99,8 +99,22 @@ export async function chat(messages, opts = {}) {
   }
 }
 
-async function chatOnce(messages, { model, temperature, maxTokens, onDelta, signal, cfg = llmConfig() } = {}) {
+// think: false = sem raciocínio (tarefa de olhar: conferir um slide, achar um destaque na figura). Com ele, o modelo
+// de visão pensava até estourar o limite e não escrevia nada. Provedor que não conhece o campo recusa com 400: vai de
+// novo sem ele, e as próximas chamadas para o mesmo relay já vão sem.
+const noThinkField = new Set();
+async function chatOnce(messages, opts = {}) {
+  const cfg = opts.cfg || llmConfig();
+  if (opts.think === false && !noThinkField.has(cfg.url)) {
+    try { return await chatOnceRaw(messages, { ...opts, cfg, reasoningOff: true }); }
+    catch (e) { if (e.status !== 400 || !/reasoning/i.test(e.message)) throw e; noThinkField.add(cfg.url); }
+  }
+  return chatOnceRaw(messages, { ...opts, cfg });
+}
+
+async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, signal, reasoningOff, cfg = llmConfig() } = {}) {
   const body = { model: model || cfg.textModel, messages };
+  if (reasoningOff) body.reasoning = { enabled: false };
   if (temperature !== undefined) body.temperature = temperature;
   if (maxTokens) body.max_tokens = maxTokens;
   if (onDelta) return chatStream(body, onDelta, cfg, signal);
