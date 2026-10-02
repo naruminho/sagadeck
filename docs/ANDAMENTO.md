@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## PLANO (para aprovar): pesquisa na web para gerar material (estilo deep research) — 02/10/2026
+
+- Pedido: "faça um tutorial de interpretabilidade com SHAP" e o sagadeck pesquisa, baixa páginas, PDFs, artigos e
+  figuras de fontes confiáveis (documentação oficial, repositório, artigos, livros de referência; nunca o blog que
+  "delira"), lê, tira prints/figuras, plota e desenha esquemas que não existem, e gera os slides com a fonte de cada
+  informação. Opção caseira: no banco a internet é barrada e a tarefa avisa claramente (cole links/anexe arquivos).
+- Forma: uma tarefa em etapas comandada pelo código, como a transformação (salva em disco, retomável, limites de
+  chamadas/tokens/minutos, relatório), dentro do sagadeck. Não é o runtime de agente compartilhado (adiado em 29/09).
+- Etapas: planejar (perguntas e roteiro) → buscar (buscador trocável: DuckDuckGo, que já existe; busca do Gemini
+  com grounding; pesquisa web do OpenRouter) → filtrar fontes (oficial > acadêmico > referência; o resto descarta ou
+  marca como contexto) → baixar para `contexto/pesquisa/` (texto limpo, PDF, figuras com legenda; origem e data) →
+  ler e extrair (notas com citação; visão nas figuras; o Chrome fotografa o trecho da documentação ou a figura da
+  página do artigo) → gerar (figura original com crédito quando é a melhor; gráfico dos dados; esquema/ciclo novo;
+  imagem de IA só ilustrativa) → conferir (fiscal, visão e toda afirmação com número/fato vinda de fonte lida).
+- Fases: 1) busca com filtro, ler páginas e PDFs, slides com fonte, print de página oficial; 2) figuras de dentro
+  dos artigos, plot dos dados, esquemas novos; 3) outros buscadores e o aviso do banco refinado.
+
 ## Link para ver, só leitura (compartilhar com a Mary) — 01/10/2026
 
 - Pedido: no servidor da Oracle (login do portal), mandar o link de UMA apresentação para a Mary, só para ver.
@@ -90,6 +107,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   - ciclo hidrológico em fluxograma (setas de volta cruzando tudo): infográfico `ciclo` novo (etapas numa elipse,
     setas curvas na cor de cada uma) e a referência manda ciclos para ele;
   - recriar sem tema pedido: visual marcante e diferente do original (cor, paleta viva ligada ao assunto).
+- Rodada 02/10 (pedido curto, a11fc5a): 24 min, 81 slides, 3 pendentes; tabelas reais, fórmulas certas, curvas IDF
+  redesenhadas pela equação (science). Ainda: tema manual (branco) apesar da regra; ciclo ainda em diagram; gráfico
+  em `image` sem `fit: contain` (legenda por cima); exercício novo com série INVENTADA (120, 95, 150…), que não
+  existe no original. Correções: regra explícita de ciclo → `shape: ciclo`; exercício novo prefere os
+  dados do material quando houver; imagem do original que a visão viu como não-foto sai `fit: contain` por código
+  (wholeFigures). Tema: a pessoa corrigiu, "colorido" era a preferência DELA para esta aula, não regra: o recriar
+  segue o tema/jeito que o pedido disser e, sem nada, a IA escolhe; o "bonito e colorido" vai no pedido do chat.
+  Também não obrigar "dados fictícios" (é comum pedir material completo com dados, exemplos e exercícios gerados).
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`

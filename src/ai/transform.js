@@ -129,6 +129,8 @@ const CONTENT_RULES = `Regras de conteúdo (valem sempre):
 - Tabela que veio como IMAGEM (recorte de livro, print) e que a visão transcreveu inteira e legível: reescreva como \`table\` de verdade (cabeçalho, linhas, a fonte em \`source\`), nas cores do deck; se algum valor ficou ilegível, mantenha a imagem original. Dado tabular espalhado em texto também vira \`table\`.
 - Fórmula vai em LaTeX (\`$…$\` no texto, \`equations\` no \`science\`, \`latex\` no \`solution\`), nunca como imagem: a imagem de equação do original (recorte do OLE) só entra se a visão não conseguiu transcrever; transcrita, não repita a imagem. Uma fórmula importante por slide, grande; a explicação das variáveis em lista ao lado ou embaixo.
 - \`full\` (imagem de fundo com texto por cima) só para FOTO; gráfico, esquema, mapa e tabela nunca vão em \`full\` (o texto cobre os dados): use \`split\` (texto ao lado) ou \`image\`.
+- Ciclo (algo que volta ao começo: ciclo hidrológico, PDCA, ciclo de vida): \`infographic\` com \`shape: ciclo\` (etapas em volta, setas curvas), nunca \`diagram\` (no fluxograma a volta vira setas cruzando o desenho).
+- Exercício novo: quando o material já tem os dados (a série, a tabela, a bacia do original), prefira usá-los.
 - Escreva em português, no tom do material (aula).`;
 // o uso do material (o plano escolhe pelo pedido: "proposito"); vale para quem escreve
 const PURPOSE_RULES = {
@@ -137,7 +139,7 @@ const PURPOSE_RULES = {
 };
 const MODE_RULES = {
   melhorar: `MODO MELHORAR: o estilo é o do original (a moldura dele — faixa, logos, linha do título, número — já está no mestre do deck; use os layouts do sagadeck normalmente, sem redesenhar a moldura). Na capa, a moldura já traz os logos e o texto institucional do original: a capa nova leva só título, subtítulo, autor e data (não repita logo nem instituição). O título dos slides de conteúdo vai na faixa do título da moldura: uma linha curta, como no original. O aprofundamento que não cabe no slide vai em \`consulta\` (material de estudo). Mantenha a ORDEM do original; inclusões entram perto do assunto. Melhore onde ganha: estrutura, clareza, interação, exercícios, redesenho de figura genérica. Slide que já está bom: "manter". Cada slide que mudar vai ser marcado para o professor validar.`,
-  recriar: `MODO RECRIAR: uma apresentação nova, do zero, com o melhor que o sagadeck faz (escolha o tema em "tema"). O visual tem de ser MARCANTE e bem diferente do original: se o pedido não disser o tema, fuja do que o original já é (original claro e sóbrio, de fundo branco: escolha um tema com cor e personalidade, fundo escuro ou colorido) e escolha em "paleta" cores vivas ligadas ao assunto (água: azuis e verdes vivos); cor nos destaques, ícones, infográficos e gráficos, seções que mudam o tom. Pedido com tema ou paleta: vale o pedido. A ordem pode mudar se a didática ganhar (seções, uma ideia por slide, exercícios no ponto certo). "manter" não vale; use "juntar", "escrever" e "novo". Todo slide original precisa ir para algum item (o conteúdo dele não pode sumir).`,
+  recriar: `MODO RECRIAR: uma apresentação nova, do zero, com o melhor que o sagadeck faz (escolha o tema em "tema"). O tema e a paleta: os que o pedido disser (ou o jeito que ele pedir: "colorido", "sóbrio"); sem nada no pedido, o que você achar melhor para o assunto. A ordem pode mudar se a didática ganhar (seções, uma ideia por slide, exercícios no ponto certo). "manter" não vale; use "juntar", "escrever" e "novo". Todo slide original precisa ir para algum item (o conteúdo dele não pode sumir).`,
 };
 
 // ------------------------------------------------------------------------------------------------ tarefa
@@ -370,6 +372,22 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     }
     return facts;
   };
+  // imagem do original que a visão viu como gráfico, mapa, tabela, esquema (não foto): sai inteira (fit: contain).
+  // Cortar perde eixo e legenda, e no layout image a legenda ia por cima do gráfico (com contain, vai embaixo).
+  const notPhoto = new Set();
+  for (const s of originals) {
+    const kinds = (figs[s.original.slide]?.figuras || []).map((f) => String(f.tipo || ""));
+    if (kinds.length && kinds.some((t) => !/foto|photo|fotografia/i.test(t))) contentImages(s).forEach((im) => notPhoto.add(im));
+  }
+  const wholeFigures = (slides) => {
+    const walk = (o) => {
+      if (!o || typeof o !== "object") return;
+      if (typeof o.image === "string" && notPhoto.has(o.image) && (!o.fit || o.fit === "cover")) o.fit = "contain";
+      for (const v of Object.values(o)) if (v && typeof v === "object") walk(v);
+    };
+    slides.forEach(walk);
+    return slides;
+  };
   const siblingsOf = (k) => plan.slides.map((x, j) => (j !== k && (x.de || []).some((n) => (plan.slides[k].de || []).includes(n)) ? j : -1)).filter((j) => j >= 0);
   const writable = plan.slides.map((it, k) => ({ it, k })).filter(({ it, k }) => (it.acao === "escrever" || it.acao === "novo") && !job.results[k]);
   const BATCH = 5;
@@ -391,7 +409,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       let produced = null, lastErr = null;
       for (let attempt = 1; attempt <= 3 && !produced; attempt++) {
         const r = await ask(messages);
-        try { produced = parseProduced(r.text, batch, deckBase, dir); }
+        try { produced = wholeFigures(parseProduced(r.text, batch, deckBase, dir)); }
         catch (e) { lastErr = e; messages.push({ role: "assistant", content: r.text }, { role: "user", content: `Não deu para usar:\n${e.message}\nCorrija e responda de novo com o bloco \`\`\`yaml completo.` }); }
       }
       if (!produced) {
@@ -428,7 +446,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
         // a correção pode vir só com os itens corrigidos: os que não vieram ficam como estavam
         try {
           const r = await ask(fixMsg);
-          const fixed = parseProduced(r.text, batch, deckBase, dir, { partial: true });
+          const fixed = wholeFigures(parseProduced(r.text, batch, deckBase, dir, { partial: true }));
           const got = new Set(fixed.map((x) => x.origem));
           produced = batch.flatMap(({ k }) => (got.has(k + 1) ? fixed.filter((x) => x.origem === k + 1) : produced.filter((x) => x.origem === k + 1)));
         }

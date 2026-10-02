@@ -718,10 +718,47 @@ test("recriar: a paleta e o propósito que o plano escolheu pelo pedido valem no
   assert.equal(a.spec.purpose, "consulta");
   assert.match(a.system, /material para ESTUDAR depois \(consulta\)/, "quem escreve recebe a regra da consulta");
   assert.match(a.system, /REDESENHE bonito[\s\S]*NUNCA as duas/, "critério de designer para as figuras: reconstruir quando dá, nunca a imagem e a transcrição juntas");
-  assert.match(a.system, /visual tem de ser MARCANTE e bem diferente do original/, "recriar: visual marcante, diferente do original");
+  assert.match(a.system, /O tema e a paleta: os que o pedido disser[\s\S]*sem nada no pedido, o que você achar melhor/, "recriar: o tema segue o pedido; sem pedido, a IA escolhe");
   assert.doesNotMatch(a.system, /É para APRESENTAR \(palestra\)/);
   const b = await run({ paleta: "nao-existe" });
   assert.equal(b.spec.palette, undefined, "paleta que não existe fica no padrão do tema");
   assert.equal(b.spec.purpose, "palestra", "sem pedido de consulta: palestra");
   assert.match(b.system, /É para APRESENTAR \(palestra\)/);
+  // regras que vieram do retorno sobre a recriada: ciclo no infográfico; exercício novo prefere os dados do material
+  // (sem obrigar "dados fictícios": criar dados e exemplos continua livre); nada de tema imposto
+  assert.match(a.system, /shape: ciclo[\s\S]*nunca `?diagram/, "ciclo vai para o infográfico ciclo");
+  assert.match(a.system, /Exercício novo: quando o material já tem os dados[\s\S]*prefira usá-los/);
+  assert.doesNotMatch(a.system, /escrito no enunciado|fuja deles|MARCANTE/, "nada de rótulo obrigatório nem tema imposto");
+});
+
+test("imagem do original que a visão viu como gráfico (não foto) sai inteira (fit: contain), mesmo se a IA pediu cover ou nada", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { handler } = script();
+  let kind = "gráfico";
+  const llm = await startMockLLM((req) => {
+    if (/Fotos de slides/.test(req.lastUser)) return "```json\n" + JSON.stringify({ slides: [{ n: 2, figuras: [{ tipo: kind, generica: false, o_que: "curva IDF" }] }] }) + "\n```";
+    const out = handler(req);
+    if (/Escreva os slides destes itens|Conferi estes slides/.test(req.lastUser)) {
+      return out.replace(/  - layout: statement\n    origem: 2\n    mudou: [^\n]*\n    text: [^\n]*/, '  - layout: image\n    origem: 2\n    caption: "Curva IDF – São Carlos. Kirpich: bacias menores que 0,5 km²; coeficiente 57, expoente 0,385."\n    figure: { image: imagens/f2.png }');
+    }
+    return out;
+  });
+  process.env.SAGADECK_LLM_URL = llm.url;
+  const d = await imported();
+  try {
+    fs.mkdirSync(path.join(d.dir, "original"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "original", "foto-2.png"), PNG);
+    fs.mkdirSync(path.join(d.dir, "imagens"), { recursive: true });
+    fs.writeFileSync(path.join(d.dir, "imagens", "f2.png"), PNG);
+    d.spec.slides[1].original.image = "original/foto-2.png";
+    d.spec.slides[1].elements.push({ image: "imagens/f2.png", x: 0, y: 0, w: 100, h: 100 });
+    const a = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+    const slide = a.spec.slides.find((s) => s.layout === "image");
+    assert.equal(slide.figure.fit, "contain", "gráfico: inteiro (e a legenda do layout image vai embaixo)");
+    kind = "foto";
+    fs.rmSync(path.join(d.dir, ".sagadeck", "transform"), { recursive: true, force: true });
+    const b = await transformDeck({ spec: d.spec, dir: d.dir, mode: "recriar", resume: false });
+    assert.equal(b.spec.slides.find((s) => s.layout === "image").figure.fit, undefined, "foto: fica como a IA pediu");
+  } finally { await llm.close(); fs.rmSync(d.home, { recursive: true, force: true }); }
 });
