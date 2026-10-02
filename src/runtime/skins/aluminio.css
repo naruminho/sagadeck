@@ -1,15 +1,14 @@
 /* Alumínio (lançamento de iPhone e iPad, 2020-2021): prata metálico com brilho de luz de estúdio, alumínio escovado,
    títulos cromados (a cor continua sólida em "color": o fiscal mede o contraste por ela), cartões de metal com
    chanfro de luz; capa com o título embaixo à esquerda e um disco de metal polido à direita; o escuro é grafite */
-.th-aluminio.tone-light{background:radial-gradient(120% 90% at 18% 0%,#fdfdfe 0%,rgba(253,253,254,0) 55%),linear-gradient(165deg,#f2f3f5 0%,#dfe0e4 48%,#c9cbd0 100%)}
-.th-aluminio.tone-accent{background:radial-gradient(110% 80% at 80% 0%,#4f7590 0%,rgba(79,117,144,0) 60%),linear-gradient(170deg,#2f5168 0%,#1d3a50 60%,#142a3b 100%)}
-.th-aluminio.tone-dark{background:radial-gradient(110% 80% at 80% 0%,#3a3a3e 0%,rgba(58,58,62,0) 60%),linear-gradient(170deg,#2a2a2d 0%,#161618 70%,#0e0e10 100%)}
+/* o metal sai das cores do tom (--bg, --fg, --surface): com uma paleta por cima, ele acompanha */
+.th-aluminio{background-color:var(--bg);background-image:radial-gradient(120% 90% at 18% 0%,color-mix(in srgb,#fff 45%,var(--bg)) 0%,transparent 55%),linear-gradient(165deg,color-mix(in srgb,#fff 25%,var(--bg)) 0%,var(--bg) 48%,color-mix(in srgb,#000 12%,var(--bg)) 100%)}
+.th-aluminio:is(.tone-dark,.tone-accent){background-image:radial-gradient(110% 80% at 80% 0%,color-mix(in srgb,#fff 14%,var(--bg)) 0%,transparent 60%),linear-gradient(170deg,color-mix(in srgb,#fff 8%,var(--bg)) 0%,var(--bg) 65%,color-mix(in srgb,#000 30%,var(--bg)) 100%)}
 /* escovado: linhas finíssimas na horizontal, quase nada (dá o "metal" sem virar listra) */
 .th-aluminio::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:repeating-linear-gradient(180deg,rgba(255,255,255,.07) 0 1px,rgba(0,0,0,.025) 1px 3px)}
 .th-aluminio.tone-dark::after{opacity:.35;background:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 1px,rgba(0,0,0,.08) 1px 3px)}
 /* título cromado: grafite que clareia no meio, como o reflexo num corpo de alumínio */
-.th-aluminio .ttl{background:linear-gradient(180deg,#48484c 0%,#1c1c1e 38%,#4a4a4f 62%,#8e8e93 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.th-aluminio.tone-dark .ttl{background:linear-gradient(180deg,#ffffff 0%,#e5e5ea 40%,#a1a1a6 70%,#d1d1d6 100%);-webkit-background-clip:text;background-clip:text}
+.th-aluminio .ttl{background:linear-gradient(180deg,color-mix(in srgb,var(--fg) 82%,var(--bg)) 0%,var(--fg) 38%,color-mix(in srgb,var(--fg) 80%,var(--bg)) 62%,color-mix(in srgb,var(--fg) 58%,var(--bg)) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .th-aluminio .ttl :is(mark,.em,.katex){-webkit-text-fill-color:currentColor}
 .th-aluminio.tone-accent .ttl,.th-aluminio.tone-alert .ttl{background:none;-webkit-text-fill-color:currentColor}
 /* kicker: pílula de metal com contorno fino, sem fundo cheio */
@@ -25,8 +24,7 @@
 .th-aluminio .L-section:not(:has(.sc-fig)){flex-direction:row;align-items:flex-end;justify-content:flex-start;gap:60px;padding-bottom:40px}
 .th-aluminio .sc-num{font-size:220px;line-height:.8;background:linear-gradient(180deg,#ffffff 0%,#c7c9ce 45%,#8e9097 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12))}
 /* cartões, números e citação: alumínio com chanfro (luz em cima, sombra embaixo) */
-.th-aluminio :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,#fbfbfc 0%,#eceef1 55%,#e1e3e7 100%);border:1px solid rgba(0,0,0,.08);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.06),0 18px 40px -18px rgba(0,0,0,.25)}
-.th-aluminio.tone-dark :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,#3a3a3e 0%,#2c2c2e 55%,#232325 100%);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 18px 40px -18px rgba(0,0,0,.7)}
+.th-aluminio :is(.card:not(.card-hi),.stat-card,.step-card,.cp-col:not(.hl),.ps-panel){background:linear-gradient(180deg,color-mix(in srgb,#fff 30%,var(--surface)) 0%,var(--surface) 55%,color-mix(in srgb,#000 6%,var(--surface)) 100%);border:1px solid color-mix(in srgb,var(--fg) 10%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 60%,transparent),inset 0 -1px 0 rgba(0,0,0,.06),0 18px 40px -18px rgba(0,0,0,.3)}
 .th-aluminio .cd-ico,.th-aluminio .st-icon,.th-aluminio .step-icon{background:radial-gradient(circle at 35% 30%,#ffffff,#d1d3d8 60%,#b5b8be);color:var(--em);box-shadow:inset 0 -2px 4px rgba(0,0,0,.15)}
 .th-aluminio .hd::after{content:"";flex:none;width:120px;height:4px;border-radius:4px;background:linear-gradient(90deg,#8e8e93,#e5e5ea,#8e8e93)}
 .th-aluminio .li-n{color:var(--muted)}

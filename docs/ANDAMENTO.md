@@ -215,7 +215,11 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
     genérica `t` (todo texto do cartão ia para o menor: o mês do calendário com 15 px); agora agrupa pelo papel.
   - **versão escalafobética da aula da Maria** (imagens realistas e tecnológicas, gráficos de ficção científica sem
     néon, 3D bonito como um bloco de terreno): tema novo **`relevo`** (grafite profundo, curvas de nível, cantoneiras
-    de mira, vidro fosco, rótulos técnicos em monoespaçada, título leve).
+    de mira, vidro fosco, rótulos técnicos em monoespaçada, título leve). A IA escolheu o relevo, gerou 11 ilustrações 3D realistas
+    e 3 gráficos 3D; mas pôs a paleta `safira` (clara) e o texto saiu escuro no fundo escuro: as peles com fundo
+    desenhado (relevo, arcade, aluminio) pintavam cores fixas e ignoravam a paleta; o fiscal não viu (mede contra a
+    cor declarada). Agora o fundo, o metal e o vidro saem de --bg/--fg/--hi/--surface; `test/temas-paleta.test.js`
+    mede o PIXEL do fundo (relevo+safira dava 1,22). A referência avisa que paleta clara deixa o tema escuro claro.
 - Infográfico: o palco (1680 × 700) cabe na altura que sobra quando há algo no `add` (vazava por baixo do aviso;
   `fitStages`); as caixas de texto dele encolhem só pelo próprio tamanho (`data-fit-self`: a descrição caía para 13 px
   por causa de outro texto); o texto do `aviso` tem `.t` (o ajuste e o fiscal não o viam). Fiscal lê `color(srgb …)`
