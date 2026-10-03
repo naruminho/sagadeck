@@ -18,7 +18,7 @@ import { varietyReport } from "./variety.js";
 import { materialsBlock } from "./context.js";
 import { webVisualNodes, materializeWebVisuals } from '../research/visuals.js';
 import { COLLECTION_STYLE } from "../studio/template-collections.js";
-import { COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
+import { COMMAND_RULES, VIDEO_COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAX_ATTEMPTS = 3;
@@ -68,6 +68,8 @@ ${images
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 - Referências visuais REAIS são diferentes de ilustrações: para aplicações, tutoriais, personagens e produtos, use fotos/gráficos observados nas fontes com web_image: {url: URL_EXATA, source: PAGINA, alt: DESCRICAO}, ou uma captura pública com web_capture: {url: PAGINA, selector: SELETOR_OPCIONAL}. Não adivinhe URLs ou coordenadas de cliques. O motor importa a referência para a biblioteca e a apresentação funciona offline. Falhas aparecem; não substitua screenshot por desenho inventado. Não peça captura de páginas privadas ou autenticadas.
 - Para ensinar relações e redes (logística, dependências, pessoas, conhecimento), considere graphlab com nós semânticos e um experimento de rota/bloqueio. Para algoritmos, considere codelab com um desafio que o aluno possa alterar e executar. A escolha e o exemplo vêm do conteúdo, não do nome do assunto. HTTPX/NetworkX reais ficam em api/codewalk ou comandos Python; codelab interpreta Python simples, sem essas bibliotecas.
+
+DIREÇÃO E VARIEDADE: escolha a composição pela função narrativa de cada slide, não pelo layout mais fácil. Antes de gerar, planeje a cadência: uma cena concreta, exploração/demonstração, explicação, evidência e convite conforme o conteúdo. Não transforme tudo em cards, bento ou mosaicos. Uma jornada pede sequência/ribbon/poster; relações pedem diagrama/graphlab; screenshot pede spotlight; experimento pede calc/playground; uma tese pede section/statement; conteúdo técnico pede codewalk/codelab/api. Varie escala e composição sem inventar antagonismo, dados, quizzes ou interatividade decorativa. Preserve exemplos, ordem e cadência em revisões pontuais. Ao revisar, procure repetição visual mesmo quando nomes de layouts diferem. Respeite fundo claro, paleta e restrições pedidos; não force escuro/neon só porque a pessoa disse futurista. Uma animação 2D ou crossfade não equivale a vídeo 3D ou morph volumétrico. Nunca anuncie vídeo gerado quando só existe prompt, poster ou script.
 
 === REFERÊNCIA DO YAML ===
 ${reference()}`;
@@ -871,7 +873,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     : text;
   const convo = conversationFor(history);
   const messages = [
-    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? `${COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
+    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? `${COMMAND_RULES}\n${VIDEO_COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
     // a conversa deste deck: o que a pessoa disse lá atrás (compactado) + as últimas trocas inteiras
     ...(convo.memory ? [{ role: "user", content: convo.memory }, { role: "assistant", content: "Certo, levo isso em conta." }] : []),
     ...convo.recent,

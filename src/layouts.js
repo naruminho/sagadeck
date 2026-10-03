@@ -520,7 +520,7 @@ export const LAYOUTS = {
   },
 
   video(s, ctx) {
-    return `<div class="L-video">${head(s)}<div class="vd-row">${el({ video: s.url, label: s.label, class: "e", style: "--d:2;" }, ctx)}${s.figure ? `<div class="vd-fig">${el(s.figure, ctx, 600, 560)}</div>` : ""}</div>${s.caption ? text(s.caption, "body", { class: "muted" }) : ""}</div>${add(s, ctx)}`;
+    return `<div class="L-video">${head(s)}<div class="vd-row">${el({ video: s.url, label: s.label, loop:s.loop, poster:s.poster, start:s.start, finish:s.finish, handoffAt:s.handoffAt, composite:s.composite, fadeOut:s.fadeOut, class: "e", style: "--d:2;" }, ctx)}${s.figure ? `<div class="vd-fig">${el(s.figure, ctx, 600, 560)}</div>` : ""}</div>${s.caption ? text(s.caption, "body", { class: "muted" }) : ""}</div>${add(s, ctx)}`;
   },
 
   // Página inteira: uma figura (imagem, imagem gerada pela IA, SVG, HTML, gráfico…) ocupa o slide todo;

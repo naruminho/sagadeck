@@ -8,6 +8,19 @@ import {buildHTML} from '../src/build.js';
 import {portalExample,portalDemo} from '../src/portal-scene.js';
 import {browserOrSkip,newPage,tempDeck,startStudio,novoSlide} from './helpers.js';
 
+test('portal claro revela a cena durante a viagem, sem corte entre dois estados',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
+  const file=path.join(deck.dir,'light.html');fs.writeFileSync(file,buildHTML({theme:'manual',slides:[{...portalExample,skin:'aurora'}]}).html);
+  const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);await page.waitForSelector('[data-portal-ready]');
+  const root=page.locator('[data-portal]');assert.equal(await root.getAttribute('data-skin'),'aurora');
+  await root.locator('[data-portal-enter="0"]').click();await page.waitForTimeout(180);
+  assert.equal(await root.locator('.portal-inside').evaluate(e=>e.hidden),false,'a cena deve existir durante a transição');
+  const opacity=await root.locator('.portal-inside').evaluate(e=>Number(getComputedStyle(e).opacity));assert.ok(opacity>0&&opacity<1,'crossfade tem frames intermediários');
+  await root.locator('[data-portal-transform]').click();assert.equal(await root.locator('.portal-object').first().evaluate(e=>getComputedStyle(e).borderRadius),'20px');
+  assert.deepEqual(errors,[]);
+ }finally{await browser.close();deck.cleanup();}
+});
+
 test('portal atravessa o elemento, transforma objetos persistentes, muda texto no chão e retorna; sem erros',async t=>{
  const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
   const file=path.join(deck.dir,'portal.html');fs.writeFileSync(file,buildHTML(portalDemo()).html);const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);await page.waitForSelector('[data-portal-ready]');const root=page.locator('[data-portal]').first();await root.locator('[data-portal-enter="0"]').click();assert.equal(await root.locator('.portal-flight').count(),1);await root.locator('.portal-inside').waitFor();assert.equal(await root.locator('.portal-floor-word').textContent(),'RUÍDO');assert.ok(await root.locator('[data-portal-back] svg').evaluate(e=>e.getBoundingClientRect().width)<=22,'ícone do controle ocupa apenas o tamanho do botão');

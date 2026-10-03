@@ -14,6 +14,7 @@ import { diagram } from "./figures/diagrams.js";
 import { chart } from "./figures/charts.js";
 import { parseTable, toNum } from "./science.js";
 import { ufmap } from "./figures/ufmap.js";
+import { pointsSVG } from "./figures/points.js";
 import { highlightCode } from "./code-highlight.js";
 import { resolveCodeLanguage } from "./code-language.js";
 
@@ -82,8 +83,11 @@ function csvChart(el, ctx) {
 }
 
 export function figureHTML(el, ctx, w, h) {
-  if (el.qr) {
-    const size = el.size || 360;
+  if (el.points) {
+    try { return `<div${attrs(el, "fig")}>${pointsSVG(el.points)}</div>`; }
+    catch (e) { ctx.warnings?.push(String(e.message)); return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="${esc(String(e.message))}"><div class="fp-in"><span class="fp-tag f-label">figura de pontos indisponível</span><span class="fp-text f-body">${esc(String(e.message))}</span></div></div>`; }
+  }
+  if (el.qr) {    const size = el.size || 360;
     const svg = qrSVG(el.qr, { ec: el.ec, ink: el.ink || "#111", paper: el.paper || "#fff" });
     return `<div${attrs(el, "fig fig-qr")}><div class="qr-box" style="width:${size}px;">${svg}</div>${el.label ? `<div class="qr-label f-label">${md(el.label)}</div>` : ""}</div>`;
   }
@@ -168,7 +172,7 @@ export function imageSrc(p, ctx) {
   return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr || el.points);
 
 // Caixa de aviso/dica: { aviso: { tipo: importante|atencao|dica|perigo, titulo, texto } }.
 // Atalho: { aviso: "texto" } vira dica sem título. O tipo aceita "atenção" com ou sem acento.
@@ -543,6 +547,6 @@ export function shape(e) {
 }
 
 function video(e, ctx) {
-  const player=videoPlayer(e,ctx);if(player)return player;
+  const player=videoPlayer(e,ctx);if(player)return player.replace(/^<div class="([^"]+)"/,(_,cls)=>`<div${attrs(e,cls)}`);
   return `<a${attrs(e, "video")} href="${esc(e.video)}" target="_blank" rel="noopener"><span class="vd-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="vd-label t f-heading">${md(e.label || "Assistir")}</span><span class="vd-url t f-label">${esc(e.video.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</span></a>`;
 }

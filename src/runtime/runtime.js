@@ -167,12 +167,19 @@
     }
     if (changed) {
       const prev = slides[cur];
+      const incoming = slides[i].dataset.tr === "saida" || slides[i].dataset.tr === "morph" ? slides[i].dataset.tr : "";
+      const animated = incoming && !opts.instant && !EXPORT && !reducedMotion();
       prev.classList.remove("current");
+      if (animated) {
+        const leaving = "tr-leaving-" + incoming;
+        prev.classList.add(leaving);
+        setTimeout(() => prev.classList.remove(leaving), incoming === "morph" ? 750 : 500);
+      }
       hooks[cur].leave.forEach((f) => f());
       resetPlay(prev);
       cur = i;
       slides.forEach((s, j) => s.classList.toggle("current", j === i));
-      if (opts.instant) slides[i].style.transition = "none";
+      if (opts.instant) { slides[i].style.transition = "none"; slides[i].style.animation = "none"; }
       redrawSlideDrawings(i);
     }
     step = k;
@@ -192,7 +199,7 @@
     });
     if (changed) hooks[i].enter.forEach((f) => f(k));
     hooks[i].step.forEach((f) => f(k));
-    if (opts.instant) { void slides[i].offsetWidth; slides[i].style.transition = ""; }
+    if (opts.instant) { void slides[i].offsetWidth; slides[i].style.transition = ""; slides[i].style.animation = ""; }
     setBg();
     const bar = $("#hud .bar"); if (bar) bar.style.width = ((i + (STEPS[i] ? k / (STEPS[i] + 1) : 0)) / Math.max(1, N - 1)) * 100 + "%";
     if (!EXPORT && !PRESENTER && location.href!=='about:srcdoc') history.replaceState(null, "", "#" + (i + 1) + (k ? "." + k : ""));

@@ -29,6 +29,16 @@ before(async () => {
 });
 after(() => llm.close());
 
+test('chat recebe direção por conteúdo, variedade e ferramenta de vídeo retomável sem prometer 3D em SVG',async()=>{
+ reply=()=> 'Vamos preparar o briefing antes de gerar.';
+ const at=llm.requests.length;
+ await editDeck({spec:base(),instruction:'Planeje a variedade e um filme, sem gerar ainda',runCommand:async()=>({exitCode:0,stdout:'ok'})});
+ const system=llm.requests.slice(at).map(r=>JSON.stringify(r.body||r)).join('\n');
+ assert.match(system,/função narrativa/);assert.match(system,/Não transforme tudo em cards/);
+ assert.match(system,/language: video/);assert.match(system,/aguarde a aprovação/);
+ assert.match(system,/figura SVG 2D/);
+});
+
 test("editDeck aplica o patch do modelo só no slide pedido", async () => {
   reply = () => "Mudei o texto do slide 2.\n```yaml\nslides:\n  2:\n    layout: statement\n    text: Uma ideia ==melhor==\n```";
   const r = await editDeck({ spec: base(), instruction: "melhore o slide 2", targetSlide: 1 });

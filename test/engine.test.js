@@ -415,6 +415,15 @@ test("direções criativas: várias, e o sorteio cobre todas", () => {
   assert.equal(seen.size, CREATIVE_DIRECTIONS.length);
 });
 
+test("direções criativas: cada uma indica um tema que existe", async () => {
+  const { THEMES } = await import("../src/themes.js");
+  for (const d of CREATIVE_DIRECTIONS) {
+    const m = d.match(/Considere ([^.]+?)[;.]/);
+    assert.ok(m, `direção sem "Considere <tema>": ${d.slice(0, 60)}…`);
+    for (const t of m[1].split(/, | ou /)) assert.ok(THEMES[t.trim()], `tema "${t}" não existe`);
+  }
+});
+
 test("API Python: studio escuta só nesta máquina por padrão e aceita a pasta da biblioteca", () => {
   const api = fs.readFileSync(new URL("../python/sagadeck/api.py", import.meta.url), "utf8");
   const sig = api.match(/def studio\(([\s\S]*?)\) -> None:/)[1];
@@ -483,7 +492,7 @@ test("conteúdo da pessoa com emoji e símbolos passa intacto", () => {
 // séries extras dos gráficos, no lugar dos cinzas.
 test("paleta de família: parentes viram --c-fN e as séries 3 a 5 dos gráficos; paleta sem família não muda", async () => {
   const { resolveTheme, themeCSS, scopedThemeCSS, PALETTES } = await import("../src/themes.js");
-  for (const k of ["rubi", "ametista", "tangerina", "safira", "esmeralda"]) {
+  for (const k of ["rubi", "ametista", "tangerina", "safira", "esmeralda", "luzquente"]) {
     assert.ok(PALETTES[k]?.family?.length >= 2, k);
     assert.doesNotMatch(PALETTES[k].label, /bradesco|nubank|ita[uú]/i, "sem nome de empresa");
   }
@@ -712,4 +721,35 @@ test("gráfico de dados: várias séries viram colunas/barras agrupadas (com leg
   assert.equal((figureHTML({ chart: "column", csv: "dados/um.csv" }, ctx, 1200, 600).match(/class="gy"/g) || []).length, 2);
   assert.match(figureHTML({ chart: "bar", csv: "dados/nao.csv", data: [{ label: "x", value: 1 }] }, ctx, 1200, 600), /class="gx"/, "arquivo sumido: ficam os dados do slide");
   assert.match(ctx.warnings.at(-1), /não encontrado/);
+});
+
+test("transição do slide vira data-tr: saida e morph para comparar", () => {
+  assert.match(html({ layout: "statement", text: "Saída", transition: "saida" }), /data-tr="saida"/);
+  assert.match(html({ layout: "statement", text: "Morph", transition: "morph" }), /data-tr="morph"/);
+  assert.match(html({ layout: "statement", text: "Padrão" }), /data-tr="fade"/);
+});
+
+test("eco ambiente: data-ambient e camada .ambient; valor inválido vira aviso", () => {
+  const section = (h) => h.match(/<section[^>]*>/)[0];
+  assert.match(section(html({ layout: "statement", text: "x", ambient: "pontos" })), /data-ambient="pontos"/);
+  assert.match(html({ layout: "statement", text: "x", ambient: "pontos" }), /<div class="ambient" aria-hidden="true"><\/div>/);
+  assert.match(section(html({ layout: "statement", text: "x", ambient: "grade" })), /data-ambient="grade"/);
+  assert.doesNotMatch(section(html({ layout: "statement", text: "x" })), /data-ambient/);
+  const ruim = buildHTML({ slides: [{ layout: "statement", text: "x", ambient: "fogo" }] });
+  assert.doesNotMatch(section(ruim.html), /data-ambient/);
+  assert.ok(ruim.warnings.some((w) => /ambiente "fogo" desconhecido/.test(w)), "avisa o valor inválido");
+});
+
+test("figura de pontos: luzinhas da forma; morph com modelo; forma inválida vira aviso", () => {
+  const split = (figure) => ({ layout: "split", title: "Capacidades", body: "Da ideia ao app.", figure });
+  const dots = (h) => (h.match(/class="pts-dot"/g) || []).length;
+  assert.ok(dots(html(split({ points: "fone" }))) > 40, "fone tem dezenas de luzinhas");
+  assert.ok(dots(html(split({ points: "mic" }))) > 40);
+  const morph = buildHTML({ slides: [split({ points: { de: "fone", para: "mic", legenda: "Ouvindo", legendaPara: "Agindo" } })] });
+  assert.match(morph.html, /data-points-morph/);
+  assert.match(morph.html, /class="pts-model"/);
+  assert.match(morph.html, /Ouvindo/);
+  const ruim = buildHTML({ slides: [split({ points: "nave" })] });
+  assert.match(ruim.html, /figura de pontos indisponível/);
+  assert.ok(ruim.warnings.some((w) => /forma desconhecida "nave"/.test(w)), "avisa a forma inválida");
 });

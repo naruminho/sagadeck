@@ -50,6 +50,7 @@ export const CREATIVE_DIRECTIONS = [
   "Laboratório vivo: prever → observar → explicar → experimentar. Considere terminal; use codewalk para ler código por etapas, spotlight para screenshots e uma pergunta antes da resposta. Saídas simuladas devem ser identificadas.",
   "Lançamento de produto: primeiro o benefício, depois uma demonstração visual, um detalhe ampliado, prova e convite. Considere prata ou oceano; mostre o produto em escala, evitando uma sequência de cartões de funcionalidades.",
   "Manifesto tipográfico: alterne frases muito curtas, uma pausa visual, contrastes de escala e uma conclusão coletiva. Considere editorial ou bauhaus; capa assimétrica sem ícone decorativo e cada ato com composição própria.",
+  "Cinema hacker de bom gosto: capa escura e cinematográfica com poeira de luz à deriva, transições morph entre cenas e saída nas viradas, cada slide estático com um detalhe vivo discreto que ecoa a capa sem repeti-la, e uma demonstração visual escolhida pelo problema de negócio. Points é 2D; para areia 3D girando, planeje vídeo e aguarde autorização quando exigida. Respeite o fundo solicitado; Considere noite ou prisma; paleta luzquente; brancos quentes e âmbar de luz de prédio, nunca neon chapado; fundo escuro quente ou branco quente, cor de joia só no detalhe.",
 ];
 
 export function pickDirection(seed = Math.random()) {
