@@ -1,0 +1,28 @@
+/* Prisma: cor localizada, hierarquia ampla e superfícies claras. */
+.th-prisma .kicker{color:var(--c-c5);letter-spacing:.12em;font-size:23px}
+.th-prisma .hd{align-items:flex-start;text-align:left;margin-bottom:32px}
+.th-prisma .hd .ttl{text-align:left;letter-spacing:-.045em}
+.th-prisma .slide-num{color:var(--c-c5)}
+.th-prisma :is(.card,.adaptive-item,.bt-tile){border:1px solid var(--line);box-shadow:none;background:#fff}
+.th-prisma :is(.card,.adaptive-item):nth-child(5n+1){--item-color:var(--c-c1)}
+.th-prisma :is(.card,.adaptive-item):nth-child(5n+2){--item-color:var(--c-c2)}
+.th-prisma :is(.card,.adaptive-item):nth-child(5n+3){--item-color:var(--c-c3)}
+.th-prisma :is(.card,.adaptive-item):nth-child(5n+4){--item-color:var(--c-c4)}
+.th-prisma :is(.card,.adaptive-item):nth-child(5n){--item-color:var(--c-c5)}
+.th-prisma :is(.adaptive-index,.adaptive-value,.card-icon){color:var(--item-color,var(--em))}
+.th-prisma .adaptive-ribbon .adaptive-item{border:0;border-top:5px solid var(--item-color);border-radius:0;background:transparent}
+.th-prisma .adaptive-mosaic .adaptive-item{border-top:6px solid var(--item-color)}
+.th-prisma .L-cover .ttl{letter-spacing:-.065em;line-height:1.02}
+.th-prisma .L-cover .sub{color:var(--muted);font-size:36px;max-width:800px}
+.th-prisma .L-section .sc-num{color:var(--c-c5);letter-spacing:-.08em}
+.th-prisma .L-statement{align-items:flex-start;text-align:left}
+.th-prisma .L-statement .st-line{letter-spacing:-.045em}
+.th-prisma .meeting-option{border-left:5px solid var(--c-c1);background:#fff}
+.th-prisma .meeting-option:nth-child(2){border-left-color:var(--c-c2)}
+.th-prisma .meeting-option:nth-child(3){border-left-color:var(--c-c3)}
+.th-prisma .meeting-actions button{border-radius:12px}
+.th-prisma .ps-letter{color:var(--c-c5)}
+.th-prisma .ps-panel:nth-child(2) .ps-letter{color:var(--c-c2)}
+.th-prisma .ps-panel:nth-child(3) .ps-letter{color:var(--c-c3)}
+.th-prisma .ps-panel:nth-child(4) .ps-letter{color:var(--c-c4)}
+.th-prisma .pg-frame{border:0;background:#fff;border-radius:24px}

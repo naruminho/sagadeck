@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { esc } from './markup.js';
+import {iconSVG} from './figures/icons.js';
 
 export function youtubeId(value) {
   try {
@@ -23,8 +24,16 @@ export function videoPlayer(e, ctx = {}) {
     } else { ctx.warnings?.push(`Vídeo não encontrado: ${url}`); return `<div class="fig-pending">${label}: arquivo não encontrado</div>`; }
   }
   if (/\.(mp4|webm|ogg)(?:\?|$)|^data:video\//i.test(url)) {
+    let poster=e.poster;
+    if(poster&&!/^(https?:|data:)/i.test(poster)){
+      const file=path.resolve(ctx.baseDir||process.cwd(),poster);
+      if(fs.existsSync(file)){const ext=path.extname(file).slice(1).toLowerCase();poster=`data:image/${ext==='jpg'?'jpeg':ext};base64,${fs.readFileSync(file).toString('base64')}`;}
+      else ctx.warnings?.push(`Poster não encontrado: ${poster}`);
+    }
     // loop silencioso (fundo vivo, detalhe animado): sem controles, repete sozinho
-    if (e.loop) return `<div class="video-player video-loop"><video title="${label}" src="${esc(url)}"${e.poster ? ` poster="${esc(e.poster)}"` : ""} autoplay muted loop playsinline preload="auto" disablepictureinpicture></video></div>`;
+    const posterAttr=poster?` poster="${esc(poster)}"`:'';
+    if(e.start==='manual')return `<div class="video-player video-opening${e.composite==='screen'?' video-composite':''}" data-video-opening${e.finish==='next'?' data-video-next':''}${e.finish==='reveal'?' data-video-reveal':''} data-video-fade="${Number.isFinite(e.fadeOut)?Math.max(0,e.fadeOut):0.4}"${Number.isFinite(e.handoffAt)&&e.handoffAt>=0?` data-video-handoff="${e.handoffAt}"`:''}><video title="${label}" src="${esc(url)}"${posterAttr} muted playsinline preload="auto" disablepictureinpicture></video><div class="video-opening-controls"><button data-video-start>${iconSVG('play',20)} Iniciar abertura</button><button data-video-advance>${iconSVG('arrow-right',20)} Avançar</button><output data-video-status aria-live="polite"></output></div></div>`;
+    if (e.loop) return `<div class="video-player video-loop"><video title="${label}" src="${esc(url)}"${posterAttr} autoplay muted loop playsinline preload="auto" disablepictureinpicture></video></div>`;
     return `<div class="video-player"><video title="${label}" controls preload="metadata" playsinline src="${esc(url)}"></video></div>`;
   }
   return null;

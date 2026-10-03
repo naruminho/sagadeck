@@ -547,6 +547,6 @@ export function shape(e) {
 }
 
 function video(e, ctx) {
-  const player=videoPlayer(e,ctx);if(player)return player;
+  const player=videoPlayer(e,ctx);if(player)return player.replace(/^<div class="([^"]+)"/,(_,cls)=>`<div${attrs(e,cls)}`);
   return `<a${attrs(e, "video")} href="${esc(e.video)}" target="_blank" rel="noopener"><span class="vd-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="vd-label t f-heading">${md(e.label || "Assistir")}</span><span class="vd-url t f-label">${esc(e.video.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</span></a>`;
 }

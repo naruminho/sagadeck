@@ -4,14 +4,14 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { youtubeId } from '../video-player.js';
 
-export async function downloadYoutube(url, dir, {spawnProcess=spawn, timeoutMs=180000}={}) {
+export async function downloadYoutube(url, dir, {spawnProcess=spawn, timeoutMs=180000, ffmpeg: suppliedFfmpeg}={}) {
   const id=youtubeId(url);if(!id)throw new Error('Informe um link válido do YouTube.');
   const folder=path.join(dir,'videos');fs.mkdirSync(folder,{recursive:true});
   const file=path.join(folder,`${id}-${crypto.randomBytes(4).toString('hex')}.mp4`);
   const local = process.platform === 'win32' && process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA,'SagaDeck','tools','yt-dlp.exe') : '';
   const executable=process.env.SAGADECK_YTDLP || (local && fs.existsSync(local) ? local : 'yt-dlp');
   const bin = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA,'SagaDeck','python','imageio_ffmpeg','binaries') : '';
-  const ffmpeg = process.env.SAGADECK_FFMPEG || (bin && fs.existsSync(bin) ? fs.readdirSync(bin).filter(n=>/^ffmpeg.*\.exe$/.test(n)).map(n=>path.join(bin,n))[0] : undefined);
+  const ffmpeg = suppliedFfmpeg !== undefined ? suppliedFfmpeg : process.env.SAGADECK_FFMPEG || (bin && fs.existsSync(bin) ? fs.readdirSync(bin).filter(n=>/^ffmpeg.*\.exe$/.test(n)).map(n=>path.join(bin,n))[0] : undefined);
   // sem ffmpeg não dá para juntar vídeo+áudio: baixa só o vídeo (mudo, ideal para loop de fundo)
   const fmt = ffmpeg ? 'bestvideo[ext=mp4][vcodec^=avc1][height<=720]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]' : 'bv[ext=mp4][height<=720]';
   const args=['--ignore-config','--no-playlist','--no-overwrites','--max-filesize','100M','--socket-timeout','15','--retries','1','--js-runtimes',`node:${process.execPath}`,'-f',fmt,'--merge-output-format','mp4',...(ffmpeg?['--ffmpeg-location',ffmpeg]:[]),'-o',file,'--',`https://www.youtube.com/watch?v=${id}`];

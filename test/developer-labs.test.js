@@ -10,10 +10,15 @@ import {importCollection,expandApiCollections} from '../src/api-collections.js';
 import {youtubeId,videoPlayer} from '../src/video-player.js';
 import {playgroundDocument} from '../src/playground.js';
 import {downloadYoutube} from '../src/studio/video-download.js';
+import {el} from '../src/elements.js';
 import {startMockApi,envFileFor} from './mock-api.js';
 import {browserOrSkip,newPage,tempDeck,startStudio,novoSlide,readPptx} from './helpers.js';
 
 const collection={info:{name:'Aula'},item:[{name:'Pedidos',item:[{name:'Consultar',request:{method:'GET',url:{raw:'{{base}}/pedidos'},header:[{key:'X-Aula',value:'sim'}]}},{name:'Criar',request:{method:'POST',url:'{{base}}/pedidos',body:{mode:'raw',raw:'{"quantidade":3}'}}}]}]};
+test('vídeo preserva posição, tamanho e continuidade para encaixar na capa final',()=>{
+ const html=el({video:'data:video/mp4;base64,dGVzdA==',x:120,y:90,w:800,h:450,continuity:'capa'},{baseDir:'.'});
+ assert.match(html,/left:120px/);assert.match(html,/height:450px/);assert.match(html,/data-continuity="capa"/);
+});
 test('coleção Postman preserva pastas, URLs, headers, corpo e variáveis; exportação expande sem alterar o original',()=>{
   const services=importCollection(collection);assert.equal(services.length,2);assert.equal(services[0].name,'Pedidos / Consultar');assert.equal(services[0].request.headers['X-Aula'],'sim');assert.equal(services[1].request.body.quantidade,3);
   const spec={slides:[{layout:'api',title:'Pedidos',services}]},out=expandApiCollections(spec);assert.equal(out.slides.length,2);assert.equal(out.slides[1].request.method,'POST');assert.equal(spec.slides.length,1);assert.equal(spec.slides[0].services.length,2);
@@ -33,6 +38,57 @@ test('vídeo em loop: repete sozinho sem controles; com poster',()=>{
     assert.match(videoPlayer({video:'cena.mp4'},{baseDir:deck.dir}),/controls/);}finally{deck.cleanup();}
 });
 
+test('poster local acompanha HTML offline e vídeo em loop retoma ao voltar ao slide',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
+  fs.writeFileSync(path.join(deck.dir,'cena.mp4'),Buffer.from('test'));
+  fs.writeFileSync(path.join(deck.dir,'capa.png'),Buffer.from('poster'));
+  const spec={_dir:deck.dir,slides:[{layout:'cover',title:'Capa',figure:{video:'cena.mp4',loop:true,poster:'capa.png'}},{layout:'section',title:'Próximo'}]};
+  const html=buildHTML(spec,{baseDir:deck.dir}).html;assert.match(html,/poster="data:image\/png;base64/);
+  const file=path.join(deck.dir,'loop.html');fs.writeFileSync(file,html);const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);
+  await page.evaluate(()=>{window.loopPlays=0;document.querySelector('video').play=()=>{window.loopPlays++;return Promise.resolve()};window.sagadeck.goto(1)});
+  await page.waitForTimeout(40);await page.evaluate(()=>window.sagadeck.goto(0));await page.waitForTimeout(40);
+  assert.equal(await page.evaluate(()=>window.loopPlays),1);assert.deepEqual(errors,[]);
+ }finally{await browser.close();deck.cleanup();}
+});
+
+test('abertura aguarda clique, avança no fim do vídeo sem timer e permite avançar manualmente',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
+  const file=path.join(deck.dir,'opening.html');fs.writeFileSync(path.join(deck.dir,'cena.mp4'),Buffer.from('test'));
+  fs.writeFileSync(file,buildHTML({_dir:deck.dir,slides:[{layout:'cover',title:'Inicial',figure:{video:'cena.mp4',start:'manual',finish:'next'}},{layout:'section',title:'Final'}]}).html);
+  const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);
+  assert.equal(await page.locator('video').getAttribute('autoplay'),null);assert.equal(await page.locator('.slide').first().evaluate(e=>e.classList.contains('current')),true);
+  await page.evaluate(()=>{document.querySelector('video').play=()=>Promise.resolve()});await page.locator('[data-video-start]').click();
+  assert.equal(await page.locator('[data-video-start]').isHidden(),true);
+  await page.evaluate(()=>document.querySelector('video').dispatchEvent(new Event('ended')));
+  await page.waitForFunction(()=>document.querySelectorAll('.slide')[1].classList.contains('current'));
+  await page.evaluate(()=>window.sagadeck.goto(0));await page.locator('[data-video-advance]').click();
+  assert.equal(await page.locator('.slide').nth(1).evaluate(e=>e.classList.contains('current')),true);assert.deepEqual(errors,[]);
+ }finally{await browser.close();deck.cleanup();}
+});
+
+test('Studio salva início manual e passagem automática no formulário de vídeo',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck(),studio=await startStudio(deck.file);try{
+  const {page,errors}=await newPage(browser,studio.url+'/editor');await novoSlide(page,'video');
+  const field=label=>page.locator('.sf-field').filter({has:page.locator('.sf-label',{hasText:new RegExp('^'+label+'$')})});
+  await field('Início da reprodução').locator('select').selectOption('manual');
+  await field('Ao terminar').locator('select').selectOption('next');
+  await page.waitForTimeout(900);const saved=YAML.parse(fs.readFileSync(deck.file,'utf8')).slides.find(s=>s.layout==='video');
+  assert.equal(saved.start,'manual');assert.equal(saved.finish,'next');assert.deepEqual(errors,[]);
+ }finally{await browser.close();await studio.close();deck.cleanup();}
+});
+
+test('abertura em camada revela a capa já renderizada sem trocar texto ou esperar outro slide',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
+  fs.writeFileSync(path.join(deck.dir,'cena.mp4'),Buffer.from('test'));const file=path.join(deck.dir,'layer.html');
+  fs.writeFileSync(file,buildHTML({_dir:deck.dir,slides:[{layout:'canvas',elements:[{text:'Capa real',x:100,y:200,w:700,h:150},{video:'cena.mp4',x:0,y:0,w:1920,h:1080,start:'manual',finish:'reveal',composite:'screen'}]}]}).html);
+  const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);await page.evaluate(()=>{window.originalTitle=document.querySelector('.t');document.querySelector('video').play=()=>Promise.resolve()});
+  await page.locator('[data-video-start]').click();await page.evaluate(()=>document.querySelector('video').dispatchEvent(new Event('ended')));
+  assert.equal(await page.locator('.video-opening').getAttribute('data-revealed'),'true');
+  assert.equal(await page.evaluate(()=>window.originalTitle===document.querySelector('.t')),true);
+  assert.equal(await page.locator('.video-opening').isVisible(),false);assert.deepEqual(errors,[]);
+ }finally{await browser.close();deck.cleanup();}
+});
+
 test('download usa URL canônica, não lê configurações/cookies e pede áudio com vídeo MP4',async()=>{
  const deck=tempDeck();const old=process.env.SAGADECK_FFMPEG;process.env.SAGADECK_FFMPEG='C:/ffmpeg/ffmpeg.exe';try{
   const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE?list=outra',deck.dir,{spawnProcess:(exe,args)=>{
@@ -44,7 +100,7 @@ test('download usa URL canônica, não lê configurações/cookies e pede áudio
 
 test('download sem ffmpeg baixa arquivo único em vez de travar na junção',async()=>{
  const deck=tempDeck();const old=process.env.SAGADECK_FFMPEG;delete process.env.SAGADECK_FFMPEG;try{
-  const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE',deck.dir,{spawnProcess:(exe,args)=>{
+  const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE',deck.dir,{ffmpeg:null,spawnProcess:(exe,args)=>{
     assert.match(args[args.indexOf('-f')+1],/^bv\[ext=mp4\]/);assert.ok(!args.includes('--ffmpeg-location'));
     fs.writeFileSync(args[args.indexOf('-o')+1],Buffer.from('mp4-test'));const child=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};queueMicrotask(()=>child.emit('close',0));return child;
   }});assert.ok(fs.existsSync(path.join(deck.dir,result.url)));
