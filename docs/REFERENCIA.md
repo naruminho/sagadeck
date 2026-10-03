@@ -3,6 +3,15 @@
 Um deck é um arquivo YAML com cabeçalho + lista de `slides`. Cada slide escolhe um **layout** e preenche os campos dele.
 Tudo que é texto aceita a **marcação inline** (abaixo), inclusive fórmula LaTeX no meio do texto: `$t_c = 57 (L^3/H)^{0,385}$` (e `$$…$$` em destaque; dinheiro como "R$ 10" continua texto). Qualquer slide aceita `notes`, `time`, `tone`.
 
+
+## Prioridade de composição para o agente
+
+Por padrão, sem exigir termos técnicos no pedido, monte a apresentação com layouts e elementos nativos separados e editáveis. Prefira essa composição a HTML/iframe de slide inteiro. Isso não limita criatividade nem proíbe HTML, playground, imagens ou vídeo: use experiências personalizadas isoladas quando o comportamento pedido não puder ser bem atendido pelos componentes existentes. Preserve textos e elementos editáveis ao redor delas.
+
+Antes de propor uma alternativa mais complexa, renderize e confira o resultado: legibilidade, composição, movimento e fidelidade à intenção. Se a solução nativa não atingir a qualidade visual desejada, explique a limitação concreta e sugira uma alternativa (por exemplo, animação personalizada ou vídeo gerado), em vez de insistir num resultado ruim ou anunciar qualidade sem olhar. Diferencie limites reais de implementação de escolhas de design.
+
+Mídia paga não é proibida por padrão. Quando for apropriada, proponha seu uso com benefício, briefing e custo estimado; siga a autorização e o orçamento já dados pela pessoa. Sem autorização aplicável, mostre a proposta antes de gerar. Restrições como “sem mídia paga” ou “sem HTML completo” só são limites específicos quando pedidas, não frases que a pessoa precise repetir para obter uma apresentação editável.
+
 ```yaml
 title: Nome da palestra          # obrigatório (vira rodapé e título da janela)
 author: Seu Nome · Cargo
@@ -1019,3 +1028,52 @@ Para manter retângulo e título sempre nítidos, componha a capa em `canvas` co
 Abertura sem denunciar a área preta: `controls: stage` oculta os botões de início/avanço; clique na cena ou Espaço/Enter/seta direita inicia, e um segundo comando avança. O primeiro poster deve ser limpo, centralizado, sem objetos ou reflexos nas margens. Use uma referência `firstFrame` exata ao gerar. Para troca cinematográfica, crie a capa final como slide seguinte e use `finish: next` no instante em que o objeto cobre a tela, mantendo o enquadramento no frame final.
 
 Pesquisa: a anotação de cada fonte tem prazo total de 45 segundos, incluindo tentativas. O extrator usa resposta curta sem raciocínio adicional; em falha ou prazo esgotado, registra o motivo, avisa e continua sem inventar fatos dessa fonte. A quantidade explicitamente pedida (inclusive slide único) prevalece sobre a estimativa por duração; mantenha referências no próprio slide ou nas notas quando não houver slides extras.
+
+
+## Elementos de movimento reutilizáveis: `motion`
+
+São elementos de qualquer layout, inclusive `canvas`, com x/y/w/h e `step`. Funcionam offline, sem GIF remoto ou JavaScript escrito pela IA. O motor entrega uma cena isolada, pausa quando o slide sai e respeita movimento reduzido.
+
+```yaml
+elements:
+  - motion: {type: wireframe, shape: sphere, caption: SYSTEM / MODEL, speed: 0.7}
+    x: 1250
+    y: 230
+    w: 550
+    h: 390
+  - motion: {type: requests, caption: SANDBOX / EVENTS, speed: 4}
+    x: 1250
+    y: 650
+    w: 550
+    h: 190
+```
+
+`type: wireframe` aceita `shape: sphere | cube`: geometria 3D projetada, girando, sem vídeo pago. `type: requests` gera continuamente requests fictícios em inglês com identificadores e contadores novos, sem reiniciar um GIF; é decoração, não execução de API real. `type: flow` mostra pulsos entre entradas e saída. Todos aceitam `caption`, `speed` (0.1 a 8), `background`, `foreground`, `accent`, `secondary` (hex de seis dígitos). Cores sólidas; nenhuma obrigação de degradê ou neon. Para mini-animações, reduza w/h e velocidade, varie o tipo pelo conteúdo; não repita o mesmo objeto em todo slide.
+
+### Abertura com chat preciso e filme separado
+
+```yaml
+- motion:
+    type: chat
+    caption: ASSISTENTE
+    user: Pode melhorar meu dia?
+    assistant: Não posso te ajudar com isso, mas posso melhorar essa capa.
+    start: manual
+    recognition: 1
+    thinking: 0.8
+    read: 2
+    typing: 0.035
+    finish: video
+  x: 1140
+  y: 640
+  w: 450
+  h: 265
+```
+
+A janela começa invisível. Clique/Espaço inicia: aparece vazia, espera recognition segundos, digita a pergunta no campo, envia e sobe o balão, mostra Pensando…, digita a resposta, espera read segundos. `finish: hold` mantém a resposta; `next` avança; `video` esconde o chat e inicia o primeiro vídeo manual no MESMO slide. O elemento de chat deve estar DEPOIS do vídeo em elements para ficar sobre ele. O vídeo mantém poster limpo, start manual, finish next, controls stage, e o slide seguinte contém a capa real editável. A cena de chat garante texto e tempo, não gera cinema 3D.
+
+Para o filme, planeje pelo comando video, mostre prompt detalhado e quadros inicial/final antes de submit. Não solicite geração paga sem a autorização aplicável. Ferramenta que atravessa câmera termina sua ação na oclusão: nunca volte a desenhar depois da revelação quando a continuidade com o slide real foi pedida. A capa final e seus detalhes vivos devem ser construídos e conferidos ANTES de encomendar vídeo.
+
+### Composição pelo agente
+
+Use os elementos nativos para textos, logos/imagens, figuras e motion. Não entregue a apresentação inteira como HTML/iframe opaco só para contornar os recursos disponíveis: prejudica edição e exportação. Combine área clara de texto com painel tecnológico quando o briefing pedir; hierarquia tipográfica e respiro continuam importantes. Escolha cores e geometria pelo assunto e restrições, sem receitas fixas por nome de evento. Logo próprio pode ser SVG via html, com formas simples e significado explícito; logo oficial deve vir do arquivo correto, sem reinventar. `review: true` pede conferência visual. Só declare capacidade comprovada após gerar pelo chat e inspecionar o resultado; teste a criação em outro assunto para verificar que não depende da apresentação usada como exemplo.

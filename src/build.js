@@ -218,6 +218,7 @@ ${html}
 <script>${widgets.replace(/<\/script/gi, "<\\/script")}</script>
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
+<script>${read("runtime/motion.js")}</script>
 <script>${read("runtime/video-player.js")}</script>
 ${spec.slides.some(s=>s.layout==='poll'&&s.manual)?`<script>${read('runtime/meeting.js')}</script>`:''}
 ${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}
