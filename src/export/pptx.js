@@ -169,7 +169,7 @@ function collectInPage([idx, nativeCharts]) {
     }
     // coisas que viram imagem
     if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" ||
-        e.classList.contains("widget") || e.classList.contains("timer") || e.classList.contains("code") || e.classList.contains("raster") || transformed(cs)) {
+        e.classList.contains("katex") || (isLeaf(e) && e.querySelector(".katex")) || e.classList.contains("widget") || e.classList.contains("timer") || e.classList.contains("code") || e.classList.contains("raster") || transformed(cs)) {
       const vr = visualRect(e);
       e.setAttribute("data-pid", String(++pid));
       items.push({ pid, kind: "image", ...box(vr), clip: { x: vr.left, y: vr.top, width: vr.width, height: vr.height }, ...st, opacity: opac(e) });
@@ -298,7 +298,8 @@ function timingXML(anims, ids) {
     });
     seq += `<p:par><p:cTn id="${++id}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${++id}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${inner}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
   }
-  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${seq}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst>${bld.size ? `<p:bldLst>${[...bld].join("")}</p:bldLst>` : ""}</p:timing>`;
+  const initial = anims.filter(a => a.step > 0).map(a => `<p:set><p:cBhvr><p:cTn id="${++id}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${a.spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="hidden"/></p:to></p:set>`).join("");
+  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${initial}<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${seq}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst>${bld.size ? `<p:bldLst>${[...bld].join("")}</p:bldLst>` : ""}</p:timing>`;
 }
 
 // ------------------------------------------------------------------ principal
@@ -327,6 +328,7 @@ function materializePseudos() {
 export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, log = () => {} } = {}) {
   const notesOpt = notes !== false;
   const { browser, page, errors } = await openDeck(htmlFile, { scale: 2 });
+  try {
   await page.evaluate(materializePseudos);
   await page.addStyleTag({ content: `
     html.solo,html.solo body,html.solo #viewport,html.solo .slide{background:transparent!important}
@@ -428,8 +430,6 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
     animBySlide.push({ anims, tr: data.tr });
     log(`  slide ${i + 1}/${n}: ${data.items.length} objetos`);
   }
-  await browser.close();
-
   // pós-processamento: animações + transições
   const buf = await pres.write({ outputType: "nodebuffer" });
   const zip = await JSZip.loadAsync(buf);
@@ -448,6 +448,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
   const out = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
   fs.writeFileSync(outFile, out);
   return { errors };
+  } finally { await browser.close(); }
 }
 
 function addNativeChart(pres, slide, it, geo, name, fmap) {

@@ -289,9 +289,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
     if (!W.file || isBundledTemplate(W.file)) return;
     if (text == null && W.spec) ensureUids(W.spec); // decks antigos ganham uid aqui; slide novo (da pessoa ou da IA) também
     try {
-      if (text != null) { const tmp = W.file + ".tmp-" + process.pid; fs.writeFileSync(tmp, text, "utf8"); fs.renameSync(tmp, W.file); }
+      if (text != null) {
+        const tmp = W.file + ".tmp-" + crypto.randomUUID();
+        try { fs.writeFileSync(tmp, text, "utf8"); fs.renameSync(tmp, W.file); }
+        finally { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); }
+      }
       else writeDeckFile(W.file, W.spec);
-    } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); }
+    } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); throw e; }
   }
 
   // Onde a IA grava imagens geradas: pasta "imagens" ao lado do deck (ou na pasta atual, se o deck é um exemplo).
@@ -1103,7 +1107,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       // melhorar / recriar a apresentação importada (src/ai/transform.js), a pedido do chat. A tarefa segue no servidor
       // mesmo se o navegador fechar (a página reaberta acompanha por /api/ai/transform/status); pedir de novo retoma.
       const transformLimits = () => ({ calls: Number(process.env.SAGADECK_TRANSFORM_CALLS) || 0, tokens: Number(process.env.SAGADECK_TRANSFORM_TOKENS) || 0, minutes: Number(process.env.SAGADECK_TRANSFORM_MINUTES) || 0 });
-      async function runTransform(W, spec, result, emit) {
+      async function runTransform(W, spec, result, emit, request, visualReferences = []) {
         if (!W.file || isBundledTemplate(W.file)) return { ...result, reply: "Para transformar, a apresentação precisa estar salva na biblioteca.", spec, talk: true };
         // o deck da tarefa fica guardado: a pessoa pode abrir outra apresentação durante os minutos de trabalho, e o
         // resultado tem de ir para ESTE arquivo (W.file passa a ser o outro)
@@ -1124,7 +1128,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         }
         tell({ phase: "transform", text: mode === "melhorar" ? "Vou melhorar a apresentação em etapas…" : "Vou recriar a apresentação em etapas…", mode });
         let t;
-        try { t = await transformDeck({ spec: source, dir, mode, request: pedido, onProgress: (ev) => tell({ ...ev, mode }), signal: job.controller.signal, limits: transformLimits() }); }
+        try { t = await transformDeck({ spec: source, dir, mode, request: request || pedido, visualReferences, onProgress: (ev) => tell({ ...ev, mode }), signal: job.controller.signal, limits: transformLimits() }); }
         catch (e) {
           if (e.kind) return { ...result, reply: `Parei antes de terminar o plano (${e.message}). Peça de novo para continuar de onde parou.`, spec, talk: true };
           console.error("[Studio] transformação:", e.message);
@@ -1257,7 +1261,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             });
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
             // a IA decidiu transformar a apresentação inteira (transform:): o trabalho em etapas, com o andamento aqui
-            if (result.transform) return await runTransform(W, withBase(W, spec), result, emit);
+            if (result.transform) return await runTransform(W, withBase(W, spec), result, emit, prompt, visuals.filter(v => v.label.startsWith("imagem colada pelo usuário")));
             // a IA decidiu mexer no estilo (estilo:): aplicar, salvar, tirar ou padrão das novas
             if (result.style) return styleAction({ W, spec: withBase(W, spec), result, persist, isBundledTemplate });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela

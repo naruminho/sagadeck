@@ -534,7 +534,7 @@ slides:            # só para TROCAR o slide inteiro (mudar o layout ou a estrut
   2:
     layout: split
     title: …
-insert:            # slides novos; after = número do slide depois do qual entra (0 = no início)
+insert:            # slides novos; after = número do slide ORIGINAL depois do qual entra (0 = no início); vários novos no mesmo ponto usam o mesmo after, na ordem da lista
   - after: 3
     slide: { layout: statement, text: … }
 delete: [7]        # números (atuais) dos slides a remover
@@ -1050,7 +1050,7 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
   ].filter(Boolean).join("\n");
   const starter = { title: "Nova apresentação", ...(theme ? { theme } : {}), slides: [{ layout: "cover", title: "Nova apresentação" }] };
-  const instruction = `Crie a apresentação inteira que a pessoa pediu abaixo. O deck atual é só um começo em branco: troque o slide 1 e insira os outros (ou devolva o deck completo). Grave no deck o title, o theme, o purpose e, se o pedido disser a ocasião, o context.
+  const instruction = `Crie a apresentação inteira que a pessoa pediu abaixo. O deck atual é só um começo em branco: devolva preferencialmente o deck completo com slides como LISTA YAML. Se usar insert, todos os novos entram after: 1 (referência ao único slide original, nunca a um slide que você ainda está inserindo). Grave no deck o title, o theme, o purpose e, se o pedido disser a ocasião, o context.
 ${wishes}
 
 Pedido da pessoa:
@@ -1079,10 +1079,10 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   // foco guiado sobre uma imagem: a visão põe cada destaque no lugar
   try { const { groundSpotlights } = await import("./ground.js"); await groundSpotlights(spec.slides, { baseDir: imageOptions.baseDir || spec._dir, onProgress: say }); } catch {}
   let quality;
-  if (r.reviewRequested && reviewCheck) {
+  if (reviewCheck) {
     say('Conferindo a apresentação e os estados interativos…');
     quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
-    if (quality.issues.length) {
+    for (let round = 0; quality.issues.length && round < 3; round++) {
       const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados, preservando conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
       spec = repaired.spec; quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
     }

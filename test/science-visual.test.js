@@ -92,3 +92,16 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
     assert.deepEqual(errors,[]);
   }finally{await studio.close();await browser.close();temp.cleanup();}
 });
+
+test('curva continua visível quando a cor de destaque é quase igual ao fundo',async t=>{
+  const browser=await browserOrSkip(t);if(!browser)return;
+  try {
+    const {page,errors}=await newPage(browser,null);
+    await page.setContent(buildHTML({theme:'prata',slides:[{layout:'science',title:'Curva',plot:{functions:[{fn:'x^2',color:'hi'}],x:[0,2]}}]}).html);
+    await page.evaluate(()=>window.SagaScienceReady);
+    const colors=await page.evaluate(()=>{const p=document.querySelector('.science-plot');return {line:p.querySelector('.science-plot-target').data[0].line.color,highlight:getComputedStyle(p).getPropertyValue('--hi').trim()};});
+    const ratio=await page.evaluate(()=>{ const p=document.querySelector('.science-plot'),ctx=document.createElement('canvas').getContext('2d');const lum=c=>{ctx.fillStyle=c;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);};const a=lum(p.querySelector('.science-plot-target').data[0].line.color),b=lum(getComputedStyle(p).getPropertyValue('--bg'));return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);});
+    assert.ok(ratio>=3,`contraste do traço: ${ratio}`);
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
+});

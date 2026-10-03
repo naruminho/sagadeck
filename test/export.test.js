@@ -5,7 +5,7 @@ import fs from "node:fs";
 import JSZip from "jszip";
 import path from "node:path";
 import { buildHTML, loadSpec } from "../src/build.js";
-import { tempDeck, browserOrSkip, readPptx } from "./helpers.js";
+import { tempDeck, browserOrSkip, readPptx, startStudio } from "./helpers.js";
 
 test("PowerPoint: um slide por slide, textos editáveis, notas e animações dos cliques", { timeout: 180000 }, async (t) => {
   const browser = await browserOrSkip(t); // só para pular sem Chrome; a exportação abre o próprio
@@ -120,4 +120,81 @@ test("PowerPoint: a tabela sai como tabela nativa, editável, com o texto e a co
   for (const v of ["Ano", "Vazão (m³/s)", "2.218,0", "1.980,5"]) assert.ok(xml.includes(`<a:t>${v}</a:t>`), v);
   assert.match(xml, /<a:tcPr[^>]*>[\s\S]*?<a:solidFill><a:srgbClr val="[0-9A-F]{6}"/, "cabeçalho com cor");
   deck.cleanup();
+});
+
+test('exportação pequena: fórmulas inline inteiras, estados de saída e ocultação inicial', async t => {
+  const b=await browserOrSkip(t);if(!b)return;await b.close();const d=tempDeck();
+  try {
+    const r=buildHTML({theme:'prata',slides:[{layout:'split',title:'Fórmula',body:'Tempo $t_c=57\\left(\\frac{L^3}{\\Delta h}\\right)^{0.385}$ e risco $1-(1-1/T)^n$.',figure:{icon:'cloud-rain'}},{layout:'canvas',elements:[{text:'Primeira etapa',x:100,y:100,w:600,h:120,step:1,exit:2},{text:'Segunda etapa',x:100,y:250,w:600,h:120,step:2}]}]});
+    const file=path.join(d.dir,'mini.html'),out=path.join(d.dir,'mini.pptx');fs.writeFileSync(file,r.html);
+    const {exportPptx}=await import('../src/export/pptx.js');await exportPptx(file,out,{theme:r.theme,meta:{...r.meta,slides:r.slidesMeta}});
+    const zip=await JSZip.loadAsync(fs.readFileSync(out));const xml=await zip.file('ppt/slides/slide2.xml').async('string');
+    assert.match(xml,/Primeira etapa/,'o elemento que sai no clique 2 deve existir no PPTX');
+    assert.match(xml.split('<p:seq')[0],/style.visibility[\s\S]*?val="hidden"/,'as entradas têm ocultação inicial antes da sequência de cliques');
+    const one=await zip.file('ppt/slides/slide1.xml').async('string');assert.ok((one.match(/<p:pic>/g)||[]).length>=2,'o parágrafo com as duas fórmulas e o ícone preservados como imagens');
+    assert.doesNotMatch(one,/<a:t>Δ<\/a:t>/,'KaTeX não deve ser desmontado em glifos nativos');
+  } finally {d.cleanup();}
+});
+
+test('exportação espera gráficos tardios antes de fotografar',async t=>{
+  const b=await browserOrSkip(t);if(!b)return;await b.close();const d=tempDeck();
+  try {
+    const file=path.join(d.dir,'late.html');const r=buildHTML({slides:[{layout:'statement',text:'Inicial'}]});
+    fs.writeFileSync(file,r.html.replace('</body>',`<script>window.SagaScienceReady=new Promise(resolve=>setTimeout(()=>{document.body.dataset.ready='sim';resolve()},650));</script></body>`));
+    const {openDeck}=await import('../src/export/browser.js');const session=await openDeck(file);try{assert.equal(await session.page.getAttribute('body','data-ready'),'sim');}finally{await session.browser.close();}
+  }finally{d.cleanup();}
+});
+
+test('exportação: preparação travada informa erro; widgets com fechamento de script não quebram HTML', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const d = tempDeck();
+  try {
+    fs.writeFileSync(path.join(d.dir, 'widget.js'), 'window.widgetText="</script>";');
+    const r = buildHTML({_dir:d.dir, widgets:['widget.js'], slides:[{layout:'statement',text:'Teste'}]});
+    const file = path.join(d.dir,'widget.html'); fs.writeFileSync(file,r.html);
+    const page = await browser.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    await page.goto('file:///' + file.replace(/\\/g,'/'));
+    assert.equal(await page.evaluate(()=>window.widgetText),'</script>');
+    assert.deepEqual(errors,[]);
+    await page.evaluate(()=>{window.SagaScienceReady=new Promise(()=>{});});
+    const {waitForResources}=await import('../src/export/browser.js');
+    await assert.rejects(waitForResources(page,{timeout:100}),/Tempo excedido ao preparar/);
+  } finally { await browser.close(); d.cleanup(); }
+});
+
+test('Studio: downloads pequenos têm formato válido e PDF contém as imagens de todas as páginas', async t => {
+  const browser = await browserOrSkip(t); if(!browser)return; await browser.close();
+  const d=tempDeck(); const studio=await startStudio(d.file);
+  try {
+    const spec={title:'Fórmulas',theme:'prata',slides:[
+      {layout:'split',title:'Kirpich',body:'Tempo $t_c=57\\left(\\frac{L^3}{\\Delta h}\\right)^{0.385}$.',figure:{icon:'cloud-rain'}},
+      {layout:'statement',text:'Probabilidade $P=1-(1-1/T)^n$'},
+    ]};
+    const saved=await fetch(studio.url+'/api/deck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spec})});
+    assert.equal(saved.status,200);
+    for(const kind of ['pptx','pdf']) {
+      const response=await fetch(studio.url+'/api/export/'+kind);
+      assert.equal(response.status,200); assert.match(response.headers.get('content-disposition'),new RegExp('\\.'+kind));
+      const bytes=Buffer.from(await response.arrayBuffer());
+      if(kind==='pptx') {const zip=await JSZip.loadAsync(bytes); assert.ok(zip.file('ppt/slides/slide2.xml'));}
+      else {
+        assert.equal(response.headers.get('content-type'),'application/pdf');
+        const {getDocument,OPS}=await import('pdfjs-dist/legacy/build/pdf.mjs');
+        const task=getDocument({data:new Uint8Array(bytes),useSystemFonts:true});
+        try {const doc=await task.promise; assert.equal(doc.numPages,2);
+          for(let i=1;i<=2;i++){const operators=await (await doc.getPage(i)).getOperatorList(); assert.ok(operators.fnArray.includes(OPS.paintImageXObject),'imagem do slide na página '+i);}
+        }finally{await task.destroy();}
+      }
+    }
+  } finally {await studio.close();d.cleanup();}
+});
+
+test('Studio: falha de gravação retorna 500, sem sucesso fictício nem arquivo temporário',async()=>{
+  const d=tempDeck();const studio=await startStudio(d.file);
+  try {
+    fs.unlinkSync(d.file);fs.mkdirSync(d.file);
+    const response=await fetch(studio.url+'/api/deck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({yaml:'title: Teste\nslides:\n  - layout: statement\n    text: Teste\n'})});
+    assert.equal(response.status,500);assert.ok((await response.json()).error);
+    assert.deepEqual(fs.readdirSync(d.dir),['deck.yaml']);
+  }finally{await studio.close();d.cleanup();}
 });

@@ -22,6 +22,7 @@ export function findBrowser() {
 
 export async function openDeck(htmlFile, { scale = 1 } = {}) {
   const browser = await chromium.launch({ executablePath: findBrowser() });
+  try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: scale });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -31,9 +32,22 @@ export async function openDeck(htmlFile, { scale = 1 } = {}) {
   // a janela com o tamanho do slide (deck.aspect: 4:3 → 1920 × 1440): foto, PDF e PPTX sem faixa nem corte
   const size = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 });
   if (size.h !== 1080) { await page.setViewportSize({ width: size.w, height: size.h }); await page.waitForTimeout(80); }
-  await page.evaluate(() => window.SagaScienceReady);
-  await page.evaluate(() => window.SagaDiagramsReady);
-    await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(150);
+  await waitForResources(page);
   return { browser, page, errors };
+  } catch (error) { await browser.close(); throw error; }
+}
+
+export async function waitForResources(page, { timeout = 15000 } = {}) {
+  await page.evaluate(async (timeout) => {
+    let timer;
+    try {
+      await Promise.race([
+        Promise.all([window.SagaScienceReady, window.SagaDiagramsReady, document.fonts.ready,
+          ...[...document.images].map(img => img.decode())]),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tempo excedido ao preparar gráficos, fontes ou imagens para exportação.')), timeout); }),
+      ]);
+    } finally { clearTimeout(timer); }
+    document.querySelectorAll('[data-calc-reveal]').forEach(button => button.click());
+  }, timeout);
+  await page.waitForFunction(() => document.fonts.status === 'loaded' && [...document.images].every(img => img.complete && img.naturalWidth > 0), null, { timeout: 15000 });
 }

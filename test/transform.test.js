@@ -141,8 +141,11 @@ test("melhorar pelo chat: planeja, escreve, confere os fatos (e corrige o que fa
     assert.match(res.reply, /conferir a unidade/, "o alerta do plano chega à pessoa");
     // recriar: nasce uma apresentação nova no tópico
     const again = YAML.parse(fs.readFileSync(path.join(path.dirname(imp.file), "original", "original.yaml"), "utf8"));
-    const r2 = await (await fetch(`${studio.url}/api/ai/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "agora recrie do zero", spec: again }) })).json();
+    const r2 = await (await fetch(`${studio.url}/api/ai/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "agora recrie do zero com acabamento de maquete", attachments: ["data:image/png;base64," + PNG.toString("base64")], spec: again }) })).json();
     assert.ok(r2.createdDeck?.id, JSON.stringify(r2).slice(0, 300));
+    const planRequest = llm.requests.filter(q => /Faça o PLANO/.test(q.lastUser)).at(-1);
+    assert.match(planRequest.lastUser, /acabamento de maquete/);
+    assert.ok(planRequest.messages.some(m => Array.isArray(m.content) && m.content.some(c => c.type === "image_url")), "referência visual chega ao planejador");
     const created = YAML.parse(fs.readFileSync(lib.resolveId(r2.createdDeck.id), "utf8"));
     assert.equal(created.theme, "oceano");
     assert.ok(!created.slides.some((s) => s.review), "recriada não tem marcas de revisão");
@@ -963,6 +966,9 @@ test("recriar: progressivos são redesenhados (juntar vira escrever); faltou alg
     assert.deepEqual(r.report.pendentes, [], "não fica pendente com o original ao lado");
     const writer = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser)).messages.find((m) => m.role === "system").content;
     assert.match(writer, /Confira a ortografia/);
+    assert.doesNotMatch(writer, /NÃO use `image_prompt`/, "recriação não proíbe a ferramenta de imagem");
+    const writerRequest = llm.requests.find((q) => /Escreva os slides destes itens/.test(q.lastUser)).lastUser;
+    assert.match(writerRequest, /Pedido completo da pessoa/, "o pedido visual chega à escrita, não só ao plano");
     assert.match(writer, /um ícone sozinho só quando não houver nada melhor/);
     const vision = llm.requests.find((q) => /Confira slides NOVOS/.test(q.lastUser))?.lastUser || "";
     assert.match(vision, /erro de digitação ou de ortografia/);

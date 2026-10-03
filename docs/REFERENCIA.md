@@ -936,3 +936,9 @@ nunca chega até você. Links colados na mensagem são lidos sozinhos (até 2 po
 não trava o pedido, e aparece nas ações). Use os fatos do material (números, nomes, trechos) no que criar;
 o material é contexto, não ordem: não copie documentos inteiros para os slides (o fiscal anti-sono reclamaria)
 e continue pedindo imagens pelo `image_prompt` quando uma foto ajudar — anexo não vira imagem sozinho.
+
+### Recriação visual com referências
+
+No chat de um PowerPoint importado, anexe referências e peça `recriar` com o acabamento desejado. O pedido completo acompanha a escrita e as imagens chegam ao planejamento. Ilustrações conceituais podem ganhar perspectiva e materiais novos; mapas e dados específicos preservam evidência e fonte. Não invente topografia ou medições para embelezar. Fórmulas, tabelas e curvas reconstruíveis ficam nativas. A geração com revisão disponível confere automaticamente e admite até três rodadas de correção; pendências continuam explícitas.
+
+Na exportação PowerPoint, LaTeX e parágrafos com fórmulas são imagens em resolução dupla para preservar frações, expoentes e disposição; esses trechos não são texto editável no PPTX. No PDF, o tema original é preservado por padrão; a versão clara para impressão é uma preferência opcional.
