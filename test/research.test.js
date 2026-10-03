@@ -9,8 +9,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { startMockLLM } from "./mock-llm.js";
+test('anotação lenta tem prazo total, não repete a chamada e libera a geração',async()=>{
+ const llm=await startMockLLM(async req=>{if(/Escolha até/.test(req.lastUser))return '{"fontes":[{"i":1}]}';await new Promise(r=>setTimeout(r,700));return '{"resumo":"Tarde","fatos":[]}'});
+ process.env.SAGADECK_LLM_URL=llm.url;const {runResearch}=await import('../src/research/research.js');
+ try{const start=Date.now(),steps=[];const result=await runResearch({buscas:['tema']},{annotationTimeoutMs:40,web:{search:async()=>[{title:'Fonte',url:'https://example.test/'}],fetch:async()=>({text:'conteúdo da fonte '.repeat(100)})},onProgress:s=>steps.push(s)});
+ assert.ok(Date.now()-start<600,'não espera a resposta lenta');assert.equal(llm.requests.filter(r=>/Tire desta fonte/.test(r.lastUser)).length,1);assert.match(result.report.falhas.join(' '),/tempo|prazo/);assert.deepEqual(result.materials,[]);assert.ok(steps.some(s=>/seguindo sem/.test(s)));
+ }finally{await llm.close()}
+});
 
 const deckYaml = (title) => "```yaml\ntitle: " + title + "\nslides:\n  - layout: cover\n    title: " + title + "\n  - layout: statement\n    text: \"Dados de hoje\"\n  - layout: references\n    title: Referências\n    items: [\"Fonte F1\"]\n```";
+test('slide único no pedido prevalece sobre estimativa de duração no prompt',async()=>{
+ const llm=await startMockLLM(()=> '```yaml\ntitle: Página única\nslides:\n  - layout: statement\n    text: Um infográfico\n```');process.env.SAGADECK_LLM_URL=llm.url;
+ try{const {generateDeck}=await import('../src/ai/deck-ai.js');const result=await generateDeck('Quero um único slide, sem capa extra',{duration:1,research:false,images:false});assert.equal(result.spec.slides.length,1);assert.match(llm.requests.at(-1).lastUser,/pedido prevalece/);assert.match(llm.requests.at(-1).lastUser,/não adicione capa/);}finally{await llm.close()}
+});
 
 function fakeWeb() {
   const calls = { search: [], arxiv: [], fetch: [] };

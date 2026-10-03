@@ -1764,3 +1764,5 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
 .video-opening-controls button[hidden]{display:none}
 .video-composite video{mix-blend-mode:screen}.video-composite{background:transparent}.video-opening[data-revealed=true]{visibility:hidden;pointer-events:none}
 .video-composite video{background:#000}
+
+.video-opening[data-video-stage] .video-opening-controls{visibility:hidden;pointer-events:none}.video-opening[data-video-stage]{cursor:default}

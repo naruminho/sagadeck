@@ -15,6 +15,17 @@ import {startMockApi,envFileFor} from './mock-api.js';
 import {browserOrSkip,newPage,tempDeck,startStudio,novoSlide,readPptx} from './helpers.js';
 
 const collection={info:{name:'Aula'},item:[{name:'Pedidos',item:[{name:'Consultar',request:{method:'GET',url:{raw:'{{base}}/pedidos'},header:[{key:'X-Aula',value:'sim'}]}},{name:'Criar',request:{method:'POST',url:'{{base}}/pedidos',body:{mode:'raw',raw:'{"quantidade":3}'}}}]}]};
+test('abertura de palco não entrega controles e Espaço inicia antes de avançar',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();try{
+ fs.copyFileSync(path.resolve('test/fixtures/short.mp4'),path.join(deck.dir,'cena.mp4'));
+ const file=path.join(deck.dir,'palco.html');fs.writeFileSync(file,buildHTML({_dir:deck.dir,slides:[{layout:'canvas',elements:[{video:'cena.mp4',start:'manual',finish:'next',controls:'stage',x:0,y:0,w:1920,h:1080}]},{layout:'section',title:'Capa final'}]}).html);
+ const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);
+ assert.equal(await page.locator('[data-video-start]').isVisible(),false);
+ await page.evaluate(()=>{window.plays=0;document.querySelector('video').play=()=>{window.plays++;return Promise.resolve()}});
+ await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>window.plays),1);assert.equal(await page.locator('.slide').first().evaluate(s=>s.classList.contains('current')),true);
+ await page.keyboard.press('ArrowRight');assert.equal(await page.locator('.slide').nth(1).evaluate(s=>s.classList.contains('current')),true);assert.deepEqual(errors,[]);
+ }finally{await browser.close();deck.cleanup();}
+});
 test('vídeo preserva posição, tamanho e continuidade para encaixar na capa final',()=>{
  const html=el({video:'data:video/mp4;base64,dGVzdA==',x:120,y:90,w:800,h:450,continuity:'capa'},{baseDir:'.'});
  assert.match(html,/left:120px/);assert.match(html,/height:450px/);assert.match(html,/data-continuity="capa"/);
@@ -72,8 +83,9 @@ test('Studio salva início manual e passagem automática no formulário de víde
   const field=label=>page.locator('.sf-field').filter({has:page.locator('.sf-label',{hasText:new RegExp('^'+label+'$')})});
   await field('Início da reprodução').locator('select').selectOption('manual');
   await field('Ao terminar').locator('select').selectOption('next');
+  await field('Controles da abertura').locator('select').selectOption('stage');
   await page.waitForTimeout(900);const saved=YAML.parse(fs.readFileSync(deck.file,'utf8')).slides.find(s=>s.layout==='video');
-  assert.equal(saved.start,'manual');assert.equal(saved.finish,'next');assert.deepEqual(errors,[]);
+  assert.equal(saved.start,'manual');assert.equal(saved.finish,'next');assert.equal(saved.controls,'stage');assert.deepEqual(errors,[]);
  }finally{await browser.close();await studio.close();deck.cleanup();}
 });
 

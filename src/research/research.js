@@ -40,13 +40,14 @@ export function jsonOf(text) {
     return { ...head, [key[1]]: out, cortada: true };
   }
 }
-const ask = async (prompt, { maxTokens = 8000 } = {}) => {
+const ask = async (prompt, { maxTokens = 8000, signal } = {}) => {
   for (let k = 0; ; k++) {
-    try { return (await chat([{ role: "user", content: prompt }], { maxTokens, temperature: 0.2 })).text; }
-    catch (e) { if (k >= 1) throw e; await new Promise((ok) => setTimeout(ok, 2000)); } // a conexão caiu: mais uma vez
+    try { return (await chat([{ role: "user", content: prompt }], { maxTokens, temperature: 0.2, signal, reasoningOff: true })).text; }
+    catch (e) { if (k >= 1 || signal?.aborted) throw e; await new Promise((ok) => setTimeout(ok, 2000)); } // a conexão caiu: mais uma vez
   }
 };
-const askJSON = async (prompt, opts) => {
+const askJSON = async (prompt, opts = {}) => {
+  opts = {...opts, signal: opts.signal || AbortSignal.timeout(opts.timeoutMs || 45000)};
   let text = await ask(prompt, opts);
   try { return jsonOf(text); } catch { text = await ask(`${prompt}\n\nResponda SÓ o JSON, curto, sem explicação.`, opts); return jsonOf(text); }
 };
@@ -110,7 +111,7 @@ Responda só JSON: {"pesquisar": true|false, "motivo": "uma frase", "academico":
 const siteOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 const isArxiv = (u) => /arxiv\.org\/(abs|pdf)\//.test(u);
 
-export async function runResearch(plan, { briefing = "", web = defaultWeb, onProgress = () => {}, saveDir = null, maxSources = 8 } = {}) {
+export async function runResearch(plan, { briefing = "", web = defaultWeb, onProgress = () => {}, saveDir = null, maxSources = 8, annotationTimeoutMs = 45000 } = {}) {
   const report = { pesquisou: true, motivo: plan.motivo, buscas: plan.buscas, fontes: [], descartadas: 0, falhas: [], offline: false, data: today() };
   // 2. buscar
   onProgress(`Pesquisando: ${plan.buscas.join(" · ")}`);
@@ -156,11 +157,11 @@ export async function runResearch(plan, { briefing = "", web = defaultWeb, onPro
   if (!docs.length) return { report, materials: [] };
   // 5. anotar: os fatos de cada fonte, com o trecho
   const noted = await Promise.all(docs.map(async (d, k) => {
-    onProgress(`Anotando ${siteOf(d.url)}…`);
+    onProgress(`Anotando ${siteOf(d.url)} (${k+1}/${docs.length}, prazo de ${Math.ceil(annotationTimeoutMs/1000)}s)…`);
     try {
-      const r = await askJSON(`Pedido: "${clip(briefing, 1500)}"\nHoje é ${today()}.\n\nTexto de uma fonte (${d.title} — ${d.url}):\n"""\n${clip(d.text, 30000)}\n"""\n\nTire desta fonte o que serve para o pedido: fatos com números, datas, nomes, definições, a explicação de como funciona, exemplos; para artigo científico, o problema, a ideia central, o método, os resultados e as limitações. Até 15 fatos, cada um com o trecho de onde saiu (até 25 palavras, nas palavras da fonte). Não invente nada que não esteja no texto.\nResponda só JSON: {"resumo": "2 a 4 frases", "data": "data da publicação, se aparecer", "fatos": [{"fato": "…", "trecho": "…"}]}`, { maxTokens: 12000 });
+      const r = await askJSON(`Pedido: "${clip(briefing, 1500)}"\nHoje é ${today()}.\n\nTexto de uma fonte (${d.title} — ${d.url}):\n"""\n${clip(d.text, 30000)}\n"""\n\nTire desta fonte o que serve para o pedido: fatos com números, datas, nomes, definições, a explicação de como funciona, exemplos; para artigo científico, o problema, a ideia central, o método, os resultados e as limitações. Até 15 fatos, cada um com o trecho de onde saiu (até 25 palavras, nas palavras da fonte). Não invente nada que não esteja no texto.\nResponda só JSON: {"resumo": "2 a 4 frases", "data": "data da publicação, se aparecer", "fatos": [{"fato": "…", "trecho": "…"}]}`, { maxTokens: 3500, timeoutMs: annotationTimeoutMs });
       return { title: d.title, url: d.url, site: siteOf(d.url), tipo: d.tipo, preprint: !!d.preprint, data: String(r.data || d.date || ""), resumo: String(r.resumo || ""), fatos: (r.fatos || []).slice(0, 25), text: d.text, detail: d.detail,visuals:d.visuals };
-    } catch (e) { report.falhas.push(`anotação de ${siteOf(d.url)}: ${e.message}`); return null; }
+    } catch (e) { const why=e.aborted ? "prazo de anotação esgotado" : e.message; report.falhas.push(`anotação de ${siteOf(d.url)}: ${why}`); onProgress(`Não deu para anotar ${siteOf(d.url)} (${why}); seguindo sem essa anotação.`); return null; }
   }));
   // numeradas depois do filtro: F1, F2, F3… sem buraco (a que não deu para anotar não tem número)
   const sources = noted.filter(Boolean).map((x, k) => ({ id: `F${k + 1}`, ...x }));
