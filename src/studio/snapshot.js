@@ -35,8 +35,10 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
   const b = await browser();
   const page = await b.newPage({ viewport: { width: 1920, height: slideSize(spec).h }, deviceScaleFactor: width / 1920 }); // deck.aspect
   try {
-    // ?export: sem animações de entrada e sem HUD — a foto mostra o estado final de cada clique
-    await page.goto(`${pathToFileURL(file).href}?export#${index + 1}`, { waitUntil: "load" });
+    // O palco real: exportação troca etapas interativas por resumos e ocultava o que a IA deveria conferir.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${pathToFileURL(file).href}#${index + 1}`, { waitUntil: "load" });
+    await page.addStyleTag({ content: '#hud,#laser,.draw-fab,.draw-toolbar,#draw-canvas{display:none!important}' });
     await page.waitForFunction(() => window.sagadeck && typeof window.sagadeck.goto === "function", null, { timeout: 10000 });
     await page.evaluate(() => window.SagaScienceReady);
     await page.evaluate(() => window.SagaDiagramsReady);
@@ -45,8 +47,16 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
     const frames = [];
     const shot = async (label) => {
       await page.waitForTimeout(120);
+      const state = await page.evaluate(() => {
+        const slide = document.querySelector('.slide.current');
+        const panel = slide?.querySelector('.lesson-panel.active, .dyn-frame.active');
+        return {
+          ...(panel ? { stepText: panel.querySelector('.lesson-title, .algo-name')?.textContent, stepVisible: !!panel.getClientRects().length } : {}),
+          highlightedLines: [...(slide?.querySelectorAll('.code .cl.hl') || [])].map(line => Number(line.querySelector('.cn')?.textContent)),
+        };
+      });
       const buf = await page.screenshot({ type: "jpeg", quality: 80 });
-      frames.push({ label, dataUrl: `data:image/jpeg;base64,${buf.toString("base64")}` });
+      frames.push({ label, state, dataUrl: `data:image/jpeg;base64,${buf.toString("base64")}` });
     };
     if (mode === 'exploration' && spec.slides[index]?.layout === 'calc') {
       await page.evaluate(i => { window.sagadeck.goto(i, 0); document.querySelector('.slide.current [data-calc-reveal]')?.click(); }, index);

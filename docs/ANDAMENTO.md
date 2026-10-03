@@ -1101,3 +1101,7 @@ Versões já publicadas como MIT continuam MIT.
 (sem essa variável, os testes de navegador são pulados em silêncio).
 - Correção adicional motivada pelo print: calc com oito resultados passa a usar grade adaptativa, preservando curvas e controles; reprodução automatizada e conferência no deck real passaram. Relatório de geração extraído para módulo próprio, mantendo o limite de tamanho do Studio.
 - Validação final da avaliação de narrativas: 705 testes, 685 passaram, 20 pulados, zero falhas. Bundle atualizado e servidor local reiniciado na 3517.
+
+### Aulas técnicas — primeira etapa validada (03/10/2026)
+- Rolagem até a linha ativa do codewalk e revisão visual do estado real do palco corrigidas. Suíte: 707 testes, 687 aprovados, 20 pulados, zero falhas; bundle atualizado.
+- Próxima etapa solicitada: eliminar piscada no traço, ampliar exploração de grafos e experimentos de programação, integrar imagens e capturas reais da pesquisa. As aulas servem para avaliar recursos gerais, preservando conteúdo existente.
