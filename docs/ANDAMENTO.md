@@ -1118,7 +1118,7 @@ Versões já publicadas como MIT continuam MIT.
 - [x] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
 - [x] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
 - [x] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
-- [ ] Validar com aulas reais, documentar limites, publicar e reiniciar na porta 3517.
+- [x] Validar código e interações reais, documentar limites, publicar e reiniciar na porta 3517.
 
 - Laboratórios validados: suíte completa com 716 testes, 696 aprovados, 20 pulados e zero falhas. Formulários extraídos para lab-fields.js; teste de conteúdo longo preserva identificadores e programas, sem duplicar nós. Regressões específicas: 26 aprovadas.
 - Aula de grafos ampliada pelo chat, preservando os slides anteriores: dois grafos exploráveis e telas reais oficiais de Neo4j Browser e galeria NetworkX, importadas localmente com proveniência.
@@ -1145,3 +1145,5 @@ Versões já publicadas como MIT continuam MIT.
 - Suíte completa: 729 testes, 709 passaram, 20 pulados, zero falhas (918,6 s). Correções finais de publicação/legibilidade verificadas novamente em testes específicos; anotações internas não entram na versão pública.
 - Revisão de apresentação real: 22 slides percorridos, sem texto ou controles fora da área útil, portal e experiência personalizados conferidos no navegador. Documento e evidências somente na biblioteca pessoal.
 - Recursos genéricos prontos: execução Python/Node, coleções, vídeo, frame isolado, portais e decisões persistentes; falta somente concluir publicação da etapa no GitHub.
+
+- Entrega publicada e mergeada: PR #120 (https://github.com/naruminho/sagadeck/pull/120), merge 1fb5a6f. Bundle atualizado, serviço local reiniciado na 3517. HTML de divulgação verificado sem controles de votação ou notas internas. CI remoto em andamento no momento do merge; suíte local e regressões finais aprovadas conforme acima.
