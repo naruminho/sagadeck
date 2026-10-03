@@ -61,6 +61,9 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
     let [status, r] = await post("/api/ai/generate", { briefing: "palestra sobre pix", duration: 12, style: "revista" });
     assert.equal(status, 200, JSON.stringify(r));
     assert.ok(inside(studio.library, r.file), r.file);
+    assert.equal(typeof r.quality?.verified, 'boolean', 'o editor recebe o resultado da conferência');
+    const reviewFile = path.join(path.dirname(r.file), '.sagadeck', 'avaliacao-geracao.json');
+    assert.deepEqual(JSON.parse(fs.readFileSync(reviewFile, 'utf8')).quality, r.quality, 'a conferência acompanha a apresentação salva');
     assert.equal(path.basename(path.dirname(r.file)) + ".yaml", path.basename(r.file), "pasta própria");
     assert.deepEqual(fs.readdirSync(fora), ["aberto.yaml"], "nada solto ao lado do deck aberto");
     let pedido = llm.requests.findLast(r => /Crie a apresentação inteira/.test(r.lastUser)).lastUser;
@@ -75,6 +78,8 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
     assert.equal(status, 200, JSON.stringify(r));
     const file = path.join(studio.library, ...r.id.split("/"));
     assert.ok(fs.existsSync(file), file);
+    assert.equal(typeof r.quality?.verified, 'boolean', 'a biblioteca também recebe o resultado da conferência');
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(path.dirname(file), '.sagadeck', 'avaliacao-geracao.json'), 'utf8')).quality, r.quality);
     pedido = llm.requests.findLast(r => /Crie a apresentação inteira/.test(r.lastUser)).lastUser;
     assert.match(pedido, /Receita de 3 bilhões/, "o anexo vai no pedido");
     assert.match(pedido, /Use o tema "prata"/, "estilo essencial → tema prata");

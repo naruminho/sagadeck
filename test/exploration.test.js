@@ -20,6 +20,43 @@ export const slide = { layout: 'calc', title: 'Quando a espera cresce?', illustr
   outputs: [{ name: 'wait', label: 'Espera', fn: '1/(capacity-demand)', decimals: 3, scale: { min: 0, max: 1 } }],
   scenarios: [{ label: 'Perto do limite', values: { demand: 9 }, explanation: 'A espera cresce rapidamente.' }] };
 
+test('oito resultados com curvas deixam controles e explicação visíveis', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  try {
+    const outputs = Array.from({length:4}, (_,i) => [
+      {name:`n${i+1}`,label:`Novos na ${i+1}ª rodada`,fn:i ? `n${i}*p*fator` : 'alcance*p*fator',decimals:1},
+      {name:`t${i+1}`,label:`Alcance após ${i+1} rodadas`,fn:i ? `t${i}+n${i+1}` : 'alcance+n1',decimals:1},
+    ]).flat();
+    const file = path.join(deck.dir,'oito-resultados.html');
+    fs.writeFileSync(file,buildHTML({theme:'editorial',slides:[{...slide,
+      title:'Quanto mais gente compartilha, mais verdade parece',sweep:'p',outputs,
+      prediction:'Se 10 pessoas veem, 30% compartilham e cada compartilhamento alcança 3 pessoas novas, quantas pessoas são alcançadas em 4 rodadas?',
+      inputs:{alcance:{label:'Alcance inicial',value:10,min:1,max:100,step:1},p:{label:'Probabilidade de compartilhar',value:.3,min:.01,max:.9,step:.01},fator:{label:'Novos por compartilhamento',value:3,fixed:true}},
+      explanation:'O alcance cresce mesmo quando a afirmação não tem nenhuma evidência: popularidade não é prova, e o número final não diz se a informação é verdadeira. A curva mostra o alcance após quatro rodadas em função da probabilidade de compartilhar. Leia os valores nas saídas numéricas ao lado e acompanhe o formato da curva.',
+      scenarios:[{label:'Viral',values:{p:.7}}],
+    }]}).html);
+    const {page,errors}=await newPage(browser,null,{width:1920,height:1080});
+    await page.goto(pathToFileURL(file).href); await page.waitForSelector('[data-calc-ready]');
+    await page.click('[data-calc-reveal]');
+    await page.waitForTimeout(200);
+    const initial=await page.evaluate(()=>({bottom:document.querySelector('.calc-explanation').getBoundingClientRect().bottom,limit:document.querySelector('.safe').getBoundingClientRect().bottom}));
+    assert.ok(initial.bottom<=initial.limit+2,JSON.stringify(initial));
+    await page.click('[data-calc-freeze]'); await page.click('[data-calc-scenario="0"]');
+    await page.waitForTimeout(200);
+    const bounds=await page.evaluate(()=>{
+      const safe=document.querySelector('.safe').getBoundingClientRect();
+      const panel=document.querySelector('.calc-outputs').getBoundingClientRect();
+      const explanation=document.querySelector('.calc-explanation').getBoundingClientRect();
+      return {bottom:panel.bottom,limit:safe.bottom,explanation:explanation.top,inputs:document.querySelector('.calc-inputs').getBoundingClientRect().bottom,top:panel.top};
+    });
+    assert.ok(bounds.bottom<=bounds.explanation+2 && bounds.bottom<=bounds.limit+2 && bounds.inputs<=bounds.top+2,JSON.stringify(bounds));
+    assert.equal(await page.locator('[data-calc-out="t4"]').innerText(),'362,2');
+    assert.equal(await page.locator('.calc-curve').count(),8);
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();deck.cleanup();}
+});
+
 test('experiência: estados calculados, extremos e contrato inválido', () => {
   assert.deepEqual(auditExploration(slide), []);
   assert.equal(explorationStates(slide)[1].results.wait.value, 1);
@@ -156,4 +193,68 @@ test('revisão confirma semanticamente defeitos sem tratar verificações corret
   assert.deepEqual(r.issues,[{slide:1,text:'Controle ilegível'}]);assert.deepEqual(r.unchecked,[]);
   const failed=await reviewExperience({slides:[slide]},[0],{snapshot:async()=>{throw Error('Render indisponível');}});
   assert.equal(failed.failures[0].reason,'Render indisponível');assert.equal(failed.verified,false);
+});
+
+test('revisão informa avanço por slide inclusive quando uma captura falha', async () => {
+  const events = [];
+  const r = await reviewExperience({ slides: [slide, { layout: 'statement', text: 'Outra ideia' }] }, [0, 1, 1], {
+    onProgress: event => events.push(event),
+    snapshot: async (_spec, index) => {
+      if (index === 0) throw Error('Captura indisponível');
+      return [{ label: 'Completo', dataUrl: 'data:image/png;base64,AA==' }];
+    },
+    complete: async () => ({ text: '{"issues":[]}' }),
+  });
+  assert.deepEqual(events.map(e => [e.phase, e.slide, e.current, e.total]), [
+    ['review', 1, 1, 2], ['review', 2, 2, 2],
+  ]);
+  assert.match(events[1].text, /2.*2/);
+  assert.deepEqual(r.unchecked, [1]);
+  assert.equal(r.verified, false);
+});
+
+test('geração preserva o último deck válido se o provedor cai durante a correção visual', async () => {
+  const llm = await startMockLLM(req => req.lastUser.includes('Corrija somente')
+    ? { status: 502, error: 'Provedor indisponível' }
+    : '```yaml\ndeck:\n  title: Exemplo preservado\nslides:\n  - layout: cover\n    title: Exemplo preservado\n  - layout: statement\n    text: Conteúdo já gerado\n```');
+  const before = process.env.SAGADECK_LLM_URL;
+  process.env.SAGADECK_LLM_URL = llm.url;
+  try {
+    const r = await generateDeck('Crie dois slides', { research: false, images: false,
+      reviewCheck: async () => ({ issues: [{ slide: 1, text: 'Título cortado' }], unchecked: [], failures: [], verified: false }) });
+    assert.equal(r.spec.slides[1].text, 'Conteúdo já gerado');
+    assert.equal(r.quality.verified, false);
+    assert.equal(r.quality.issues.length, 1);
+    assert.match(r.quality.failures.at(-1).reason, /502|indisponível/i);
+  } finally {
+    if (before == null) delete process.env.SAGADECK_LLM_URL; else process.env.SAGADECK_LLM_URL = before;
+    await llm.close();
+  }
+});
+
+test('calculadora com duas curvas e comparação mantém resultados dentro da área útil', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  try {
+    const file = path.join(deck.dir, 'duas-curvas.html');
+    fs.writeFileSync(file, buildHTML({ theme: 'editorial', slides: [{ ...slide,
+      title: 'Como pequenas escolhas mudam os resultados ao longo de várias etapas?',
+      outputs: [...slide.outputs, { name: 'factor', label: 'Fator acumulado', fn: 'demand^3', decimals: 2 }],
+    }] }).html);
+    const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForSelector('[data-calc-ready]');
+    await page.click('[data-calc-reveal]');
+    await page.click('[data-calc-freeze]');
+    await page.click('[data-calc-scenario="0"]');
+    await page.waitForTimeout(150);
+    const bounds = await page.evaluate(() => {
+      const safe = document.querySelector('.safe').getBoundingClientRect();
+      const panel = document.querySelector('.calc-outputs').getBoundingClientRect();
+      return { bottom: panel.bottom, limit: safe.bottom, top: panel.top, start: safe.top };
+    });
+    assert.ok(bounds.bottom <= bounds.limit + 4 && bounds.top >= bounds.start - 4, JSON.stringify(bounds));
+    assert.equal(await page.locator('[data-calc-out="factor"]').innerText(), '729,00');
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); deck.cleanup(); }
 });

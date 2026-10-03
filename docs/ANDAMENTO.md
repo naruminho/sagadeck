@@ -8,6 +8,17 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Avaliação fora da hidrologia — 03/10/2026
+
+- Plano: `docs/PLANO-TESTE-DESINFORMACAO.md`.
+- Tema novo: Como uma mentira vira verdade na internet? Duas versões, executiva e estudante, geradas pela API do Studio na biblioteca oficial.
+- Em curso: geração real com imagens e conferência visual. Casos fictícios e referência conceitual da UNESCO; sem reescrita externa de slides.
+- Verificação planejada: conteúdo e sequência, controles e estados extremos, estudo, erros de navegador e composição. Falhas serão registradas antes de corrigir o produto.
+- Executiva gerada e corrigida pelo próprio chat: gráfico com zoom/hover, escalas completa e recortada, caminhos com retorno. Conferência visual aprovada; navegação e cálculo testados no navegador e estudo offline.
+- Falhas reproduzidas e corrigidas no produto: resultado válido perdido em queda do provedor durante reparo; revisão sem avanço por slide e sem relatório persistido; painel de calculadora cortado com duas curvas/comparação.
+- Estudantil independente guardada como diagnóstico por mudar exemplos/ordem e manter duas pendências. Versões finais com 11 slides: editorial e Bauhaus; conteúdo, dados, fórmulas e navegação iguais, conferência visual aprovada e zero erros JavaScript nos dois HTMLs.
+- Contagem anti-sono também corrigida: texto de `consulta`, que só vai para estudo, não conta como texto do palco. Relatórios pessoais e apresentações permanecem na biblioteca; código e plano vão para GitHub após validação final.
+
 ## Exportação PPTX/PDF — 03/10/2026
 
 - Diagnóstico com decks sintéticos de dois slides; a aula de 80 slides não foi usada nesta rodada.
@@ -1088,3 +1099,5 @@ Versões já publicadas como MIT continuam MIT.
 
 `npm ci`, depois `SAGADECK_BROWSER=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm test`
 (sem essa variável, os testes de navegador são pulados em silêncio).
+- Correção adicional motivada pelo print: calc com oito resultados passa a usar grade adaptativa, preservando curvas e controles; reprodução automatizada e conferência no deck real passaram. Relatório de geração extraído para módulo próprio, mantendo o limite de tamanho do Studio.
+- Validação final da avaliação de narrativas: 705 testes, 685 passaram, 20 pulados, zero falhas. Bundle atualizado e servidor local reiniciado na 3517.

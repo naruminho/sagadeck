@@ -60,7 +60,7 @@ const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full",
 export function wordCount(s) {
   const txt = [];
   const walk = (v, k) => {
-    if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
+    if (k === "notes" || k === "consulta" || k === "source" || k === "id" || k === "layout" || k === "tone" || k === "auto") return;
     // o que veio de um PowerPoint importado: desenho, fontes, cores, estilos e a origem não são palavras
     if (k === "drawing" || k === "font" || k === "color" || k === "sym" || k === "style" || k === "image" || k === "link" || k === "original" || k === "tableData" || k === "fill" || k === "border" || k === "borders" || k === "review") return;
     if (typeof v === "string") { if (!/^(\.|https?:|#?[0-9a-f]{6}$)/i.test(v)) txt.push(plain(v)); }

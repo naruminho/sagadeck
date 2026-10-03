@@ -24,6 +24,7 @@ import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { reviewExperience } from '../ai/quality.js';
+import { saveGenReport } from './generation-report.js';
 import { runCommand, envName, logCommand } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
@@ -340,7 +341,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
         onEvent: emit,
         drawCheck: diagramCheck,
-        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots }),
+        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: emit }),
         // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
         // as fontes lidas ficam em contexto/pesquisa/ do deck
         research: prefs.pesquisa === false ? false : "auto",
@@ -350,8 +351,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
       // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
       if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
+      saveGenReport(dir, gen);
       const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
-      return { id: finalId, file: L.resolveId(finalId), images: gen.images, research: gen.research };
+      return { id: finalId, file: L.resolveId(finalId), images: gen.images, research: gen.research, quality: gen.quality, variety: gen.variety };
     } catch (e) {
       L.trashDeck(id);
       throw e;
@@ -971,7 +973,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
           if (r.question) return { ok: true, question: r.question }; // a IA perguntou para que serve o material
           W.file = r.file;
           W.spec = loadSpec(r.file);
-          return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images, research: r.research };
+          return { ok: true, spec: W.spec, file: W.file, id: r.id, images: r.images, research: r.research, quality: r.quality, variety: r.variety };
         });
         return;
       }
@@ -1256,7 +1258,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               apiContext: apiContextFor(req, W),
               drawCheck: diagramCheck,
               runCommand: commandRunner(req, emit, body, W),
-              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots }),
+              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit }),
               styles: W.file && !isBundledTemplate(W.file) ? { list: W.library.listStyles(), current: W.spec?.style?.name || null } : null,
             });
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
@@ -1452,7 +1454,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               await respond(res, b.stream, async (emit) => {
                 const r = await generateIntoLibrary(W, b.topic || "", b, emit);
                 if (r.question) return { ok: true, question: r.question }; // o Studio mostra a pergunta e gera de novo com a resposta
-                return { ok: true, id: r.id, images: r.images, research: r.research };
+                return { ok: true, id: r.id, images: r.images, research: r.research, quality: r.quality, variety: r.variety };
               });
               return;
             }

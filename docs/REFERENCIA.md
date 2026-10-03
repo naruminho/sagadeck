@@ -939,6 +939,10 @@ e continue pedindo imagens pelo `image_prompt` quando uma foto ajudar — anexo 
 
 ### Recriação visual com referências
 
+A geração informa o avanço da conferência por slide. O resultado da revisão e o diagnóstico de variedade ficam em `.sagadeck/avaliacao-geracao.json`, dentro da pasta da apresentação. Revisão incompleta não significa apresentação aprovada. Se o provedor falhar durante uma correção visual, a geração conserva o último deck válido e registra a falha; uma nova revisão pode ser pedida pelo chat.
+
 No chat de um PowerPoint importado, anexe referências e peça `recriar` com o acabamento desejado. O pedido completo acompanha a escrita e as imagens chegam ao planejamento. Ilustrações conceituais podem ganhar perspectiva e materiais novos; mapas e dados específicos preservam evidência e fonte. Não invente topografia ou medições para embelezar. Fórmulas, tabelas e curvas reconstruíveis ficam nativas. A geração com revisão disponível confere automaticamente e admite até três rodadas de correção; pendências continuam explícitas.
 
 Na exportação PowerPoint, LaTeX e parágrafos com fórmulas são imagens em resolução dupla para preservar frações, expoentes e disposição; esses trechos não são texto editável no PPTX. No PDF, o tema original é preservado por padrão; a versão clara para impressão é uma preferência opcional.
+
+Calculadoras com quatro ou mais resultados usam uma grade compacta automaticamente: três colunas até seis resultados e quatro colunas a partir de sete. Os controles ficam acima, preservando todas as curvas, valores e comparações.

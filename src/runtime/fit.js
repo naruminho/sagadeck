@@ -100,7 +100,7 @@
       if (!r.width) continue;
       if (r.bottom - sr.bottom > tol || sr.top - r.top > tol || r.right - sr.right > tol) return true;
     }
-    for (const f of safe.querySelectorAll(".fig, .card, .adaptive-item, .code")) {
+    for (const f of safe.querySelectorAll(".fig, .card, .adaptive-item, .code, .calc-outputs, .calc-explanation")) {
       const r = f.getBoundingClientRect();
       if (r.width && (r.bottom - sr.bottom > tol || r.right - sr.right > tol)) return true;
     }
