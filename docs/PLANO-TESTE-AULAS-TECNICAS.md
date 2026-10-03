@@ -1,0 +1,21 @@
+# Avaliação com aulas técnicas — HTTPX e grafos
+
+## Objetivo
+Gerar e testar duas aulas pelo agente do próprio SagaDeck, na biblioteca oficial. Sem retoques manuais nos YAMLs nem regras específicas para esses assuntos. Público desenvolvedor; palco e estudo no mesmo material.
+
+## Casos
+1. HTTPX avançado: clientes, configurações, timeouts, pool, concorrência limitada, streaming, falhas, retry, hooks, testes com MockTransport e HTTP/2. 14 slides iniciais, 45 minutos. Testar código longo, saídas, controles e material de consulta.
+2. Grafos: conceitos antes das ferramentas; BFS e Dijkstra passo a passo, NetworkX e Neo4j/Cypher. 18 slides iniciais, 60 minutos. Mesmo grafo de cinco nós nas três abordagens, pesos não negativos. Menor custo A-C-B-D-E = 7, menos saltos A-B-E = 11. Testar traço, diagramas, código e preservação de dados.
+
+## Execução
+- Fontes oficiais consultadas em 03/10/2026: python-httpx.org; networkx.org/documentation/stable; neo4j.com/docs.
+- Criar via /api/library/decks/ai no tópico Laboratório técnico; guardar revisão automática junto de cada deck.
+- Inspecionar ordem, cobertura e conteúdo. Executar exemplos Python reais; não confundir saídas guiadas com execução no navegador.
+- Conferir interação, legibilidade e estudo no navegador; qualquer falha geral ganha teste que falha antes da correção.
+- Registrar evidência e limites; bundle, suíte completa, commit/push/PR/merge e reinício na 3517 para alterações de produto.
+- Não requer instalar ou deployar Neo4j remoto, nem mudar Oracle. Exemplos que dependam de instância real devem dizer isso.
+
+## Avanços
+- Plano registrado; geração HTTPX iniciada pelo Studio. Grafos será gerado na sequência.
+- Correções da avaliação anterior ainda em validação final, sem descarte de trabalho.
+- HTTPX gerado: 17 slides, revisão visual do agente aprovada; alertas de ritmo (três códigos consecutivos e todos claros). Leitura encontrou URL relativa sem base_url, fórmula ceil exibida mas não calculada e MockTransport com endpoints diferentes em vez de retry do mesmo pedido. Corrigir pelo chat e testar código. Primeira geração de grafos falhou por DNS do provedor durante a escrita; repetir sem descartar a aula de HTTPX.

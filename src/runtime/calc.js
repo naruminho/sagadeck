@@ -93,6 +93,9 @@
         }
         previous = res;
         rootEl.dispatchEvent(new CustomEvent('sagadeck:values', { bubbles: true, detail: { inputs: { ...v }, outputs: res } }));
+        // Comparação e explicação podem aumentar o painel depois da primeira montagem.
+        const slide = rootEl.closest('.slide');
+        if (slide && root.SagadeckFit) root.requestAnimationFrame(() => root.SagadeckFit.shrink(slide));
       };
       rootEl.querySelectorAll('button').forEach(button => {
         ['keydown', 'pointerdown', 'click'].forEach(ev => button.addEventListener(ev, e => e.stopPropagation()));

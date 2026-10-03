@@ -3,11 +3,13 @@ import { chat } from './llm.js';
 import { auditExploration } from '../exploration.js';
 import { varietyReport } from './variety.js';
 
-export async function reviewExperience(spec, indices, { snapshot, complete = chat } = {}) {
+export async function reviewExperience(spec, indices, { snapshot, complete = chat, onProgress } = {}) {
   const issues = [], unchecked = [], failures = [];
-  for (const index of [...new Set(indices)]) {
+  const selected = [...new Set(indices)].filter(index => spec.slides[index]);
+  for (const [position, index] of selected.entries()) {
     const slide = spec.slides[index];
-    if (!slide) continue;
+    onProgress?.({ phase: 'review', slide: index + 1, current: position + 1, total: selected.length,
+      text: `Conferindo slide ${index + 1} (${position + 1} de ${selected.length})…` });
     issues.push(...auditExploration(slide).map(text => ({ slide: index + 1, text })));
     if (!snapshot) { unchecked.push(index + 1); continue; }
     try {

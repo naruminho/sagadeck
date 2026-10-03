@@ -1083,8 +1083,15 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     say('Conferindo a apresentação e os estados interativos…');
     quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
     for (let round = 0; quality.issues.length && round < 3; round++) {
-      const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados, preservando conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
-      spec = repaired.spec; quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
+      try {
+        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados, preservando conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
+        const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i));
+        spec = repaired.spec; quality = nextQuality;
+      } catch (error) {
+        quality = { ...quality, verified: false, failures: [...(quality.failures || []), { stage: 'repair', reason: error.message }] };
+        say(`A correção visual foi interrompida (${error.message}). A apresentação gerada foi preservada; a revisão continua incompleta.`);
+        break;
+      }
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   }

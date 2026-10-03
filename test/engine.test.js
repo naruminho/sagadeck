@@ -22,6 +22,13 @@ import { ROOT, FIXTURE } from "./helpers.js";
 const spec = { title: "Teste", theme: "bauhaus", slides: [] };
 const html = (slide) => renderSlide(slide, 0, spec).html;
 
+test('texto de estudo não conta como excesso de palavras no slide de palco', () => {
+  const slide = { layout: 'statement', text: 'Circulação não é evidência.' };
+  const withStudy = { ...slide, consulta: 'Explicação detalhada para ler depois. '.repeat(80) };
+  assert.equal(wordCount(withStudy), wordCount(slide));
+  assert.deepEqual(buildHTML({ slides: [withStudy] }).warnings, buildHTML({ slides: [slide] }).warnings);
+});
+
 // ---------------------------------------------------------------- layouts
 test("todo layout tem nome, descrição e exemplo na galeria", () => {
   for (const name of Object.keys(LAYOUTS)) {
