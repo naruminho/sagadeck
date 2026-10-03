@@ -1179,3 +1179,13 @@ Versões já publicadas como MIT continuam MIT.
 - Geração: quantidade e formato explicitamente pedidos prevalecem sobre estimativa de duração; slide único não recebe capas/encerramentos/referências extras. Teste confere o prompt e resultado de um slide, sem heurística de palavras no código.
 - Testes focados passaram. Suíte completa em execução; dados pessoais, frames e vídeos permanecem somente na biblioteca.
 - Validação concluída: suíte completa com 757 testes, 737 passaram, 20 pulados e zero falhas. Bundle atualizado; abertura de palco e pesquisa com prazo prontas para publicação.
+
+### Movimento declarativo e prova pelo agente — 03/10/2026
+- Usuário exige geração pelo próprio chat, não apresentação artesanal como prova. Prévia pessoal aprovada preservada; teste real será feito em estudo separado.
+- Plano: (1) elementos nativos wireframe/requests/flow/chat, (2) início manual e handoff para vídeo, (3) referência e instruções do agente, (4) criação/revisão pelo chat real com evidências, (5) regressões + bundle + suíte completa + publicação.
+- Implementados `motion` e runtime de controle: geometria 3D projetada, fluxo, requests fictícios sem reiniciar loop, chat determinístico com entrada/envio/pensando/resposta/leitura. Frames isolados sem rede; pausa fora do slide e movimento reduzido.
+- Teste de elemento falhou antes da implementação e passa; teste de navegador valida entrada antes do balão, fase de pensamento e avanço. Handoff para vídeo e prova real ainda em validação. Nenhuma nova geração paga de vídeo autorizada nesta etapa.
+
+- Prova real concluída pelo endpoint do próprio chat (modelo real, sem edição externa do YAML): criou abertura, capa e conteúdo nativos; revisão pelo mesmo chat corrigiu contraste e escala do detalhe. Navegador confirmou espera manual, digitação antes do balão, pensamento, avanço automático e zero erros. Evidências e estudos ficam na biblioteca pessoal. Handoff chat → vídeo existente passou em teste de navegador, sem nova geração paga.
+- Segundo caso real pelo chat: slide de logística com motion flow, sem referência ao hackathon ou à Bridge; elemento criado pelo modelo. Nenhuma regra de código depende do tema de apresentação.
+- Validação final: suíte completa existente com 757 testes (737 passaram, 20 pulados, zero falhas), mais três testes novos de motion executados separadamente e verdes. Testes antigos de movimento preservados. Bundle atualizado; pronto para publicação.
