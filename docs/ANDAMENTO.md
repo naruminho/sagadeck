@@ -1105,3 +1105,20 @@ Versões já publicadas como MIT continuam MIT.
 ### Aulas técnicas — primeira etapa validada (03/10/2026)
 - Rolagem até a linha ativa do codewalk e revisão visual do estado real do palco corrigidas. Suíte: 707 testes, 687 aprovados, 20 pulados, zero falhas; bundle atualizado.
 - Próxima etapa solicitada: eliminar piscada no traço, ampliar exploração de grafos e experimentos de programação, integrar imagens e capturas reais da pesquisa. As aulas servem para avaliar recursos gerais, preservando conteúdo existente.
+
+### Laboratórios interativos — implementação e validação em curso
+- Causa da piscada reproduzida: a entrada do quadro completo reiniciava em cada passo. Removida apenas no algo, preservando destaque de escritas/comparações.
+- Recursos gerais graphlab e codelab implementados, catalogados, formulários de Studio e referência da IA atualizados. Rede com cartões semânticos, menor custo, BFS, vizinhança, zoom/pan, foco, arraste, edição de custos e nós e restauração. Código usa o interpretador offline existente e aceita alteração de programa/entrada, sem prometer pacotes Python externos.
+- Pesquisa conserva URLs de imagens observadas; importador de imagens reais e captura pública com navegador, arquivos locais, proveniência e erros explícitos. Não desenhar interfaces fictícias no lugar de screenshots.
+- Material de estudo HTML incorpora experiências. Teste revelou history/wake lock inválidos no iframe sandbox; corrigido com isolamento mantido. 65 testes de motor/laboratórios aprovados, zero falhas; 29 regressões de pesquisa/exploração passaram na rodada anterior.
+- Chat nativo aplicando novos recursos à aula de grafos, com URLs reais da documentação Neo4j e galeria NetworkX. Nenhuma edição do YAML por script próprio.
+
+## Próxima etapa autorizada — execução, coleções e mídia
+- [ ] Python nativo e JavaScript nativo, com saída real e erros visíveis.
+- [ ] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
+- [ ] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
+- [ ] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
+- [ ] Validar com aulas reais, documentar limites, publicar e reiniciar na porta 3517.
+
+- Laboratórios validados: suíte completa com 716 testes, 696 aprovados, 20 pulados e zero falhas. Formulários extraídos para lab-fields.js; teste de conteúdo longo preserva identificadores e programas, sem duplicar nós. Regressões específicas: 26 aprovadas.
+- Aula de grafos ampliada pelo chat, preservando os slides anteriores: dois grafos exploráveis e telas reais oficiais de Neo4j Browser e galeria NetworkX, importadas localmente com proveniência.

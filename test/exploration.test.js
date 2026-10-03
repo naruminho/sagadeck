@@ -21,6 +21,18 @@ export const slide = { layout: 'calc', title: 'Quando a espera cresce?', illustr
   outputs: [{ name: 'wait', label: 'Espera', fn: '1/(capacity-demand)', decimals: 3, scale: { min: 0, max: 1 } }],
   scenarios: [{ label: 'Perto do limite', values: { demand: 9 }, explanation: 'A espera cresce rapidamente.' }] };
 
+test('passo do algoritmo mantém código e estruturas opacos sem animar o quadro inteiro', async t => {
+  const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
+  try {
+    const file=path.join(deck.dir,'sem-piscada.html');
+    fs.writeFileSync(file,buildHTML({theme:'manual',slides:[{layout:'algo',title:'Soma rastreada',program:'def soma(v):\n    total = 0\n    for x in v:\n        total += x\n    return total',call:'soma([3, 1, 4])'}]}).html);
+    const {page,errors}=await newPage(browser,null,{width:1920,height:1080});await page.goto(pathToFileURL(file).href);await page.waitForFunction(()=>window.sagadeck);
+    await page.keyboard.press('ArrowRight');
+    const state=await page.locator('.L-algo .dyn-frame.active').evaluate(el=>({opacity:getComputedStyle(el).opacity,animations:el.getAnimations().map(a=>a.animationName)}));
+    assert.equal(state.opacity,'1');assert.ok(!state.animations.includes('dyn-in'));assert.deepEqual(errors,[]);
+  } finally {await browser.close();deck.cleanup();}
+});
+
 test('código guiado rola até o destaque da etapa sem deslocar o palco', async t => {
   const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
   try {

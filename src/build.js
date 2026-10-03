@@ -152,6 +152,7 @@ export function buildHTML(rawSpec, opts = {}) {
     slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, layout, words });
   });
 
+  for(const [i,s]of spec.slides.entries())if(['graphlab','codelab'].includes(s.layout))slidesMeta[i].interactiveModel={theme:spec.theme||'manual',slide:s};
   // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)
   warnings.push(...navWarnings(spec.slides));
 
@@ -215,6 +216,8 @@ ${html}
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
 ${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "graphlab") ? `<script>${read("runtime/graph-lab.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "codelab") ? `<script>${read("runtime/code-lab.js").replace(/<\/script/gi,'<\\/script')}</script>` : ""}
 ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/vendor/mermaid.min.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/diagram.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}

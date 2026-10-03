@@ -1,0 +1,5 @@
+// Formulários dos laboratórios interativos.
+window.SagaLabFields = {
+codelab: (f, obj) => [f.text('title','Título'),f.area('program','Programa Python',{mono:true,rows:14}),f.text('call','Chamada / entrada',{mono:true}),f.area('explanation','Desafio para a turma'),f.num('maxSteps','Máximo de passos')],
+graphlab: (f, obj) => [f.text('title','Título'),f.list('nodes','Nós',obj([f.text('id','Id único'),f.text('label','Nome'),f.text('icon','Ícone Lucide'),f.num('x','Posição horizontal'),f.num('y','Posição vertical')]),{newItem:()=>({id:'novo',label:'Novo nó',icon:'map-pin'})}),f.list('edges','Ligações',obj([f.text('from','Origem (id)'),f.text('to','Destino (id)'),f.num('weight','Custo'),f.text('label','Nome da ligação')]),{newItem:()=>({from:'',to:'',weight:1})}),f.bool('directed','Ligações com direção'),f.text('start','Origem inicial'),f.text('goal','Destino inicial'),f.area('explanation','Convite ao experimento')]
+};

@@ -191,6 +191,7 @@ export function el(e, ctx, w, h) {
   if (e == null) return "";
   if (typeof e === "string" || typeof e === "number") return text(String(e), "body");
   if (Array.isArray(e)) return e.map((x) => el(x, ctx, w, h)).join("");
+  if((e.web_image||e.web_capture)&&!e.image){const v=e.web_capture||e.web_image;return `<div${attrs(e,'fig fig-pending')}><div class="fp-in"><span class="fp-tag f-label">Referência web pendente</span><span class="fp-text f-body">${esc(typeof v==='string'?v:v.url)}</span></div></div>`;}
   if (e.image_prompt && !e.image && !isFigure(e)) {
     return `<div${attrs(e, "fig fig-pending")}><div class="fp-in"><span class="fp-tag f-label">imagem a gerar</span><span class="fp-text f-body">${esc(String(e.image_prompt).slice(0, 180))}</span></div></div>`;
   }

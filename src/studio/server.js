@@ -536,7 +536,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/calc-fields.js" || pathname === "/art-preview.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
+      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/lab-fields.js" || pathname === "/calc-fields.js" || pathname === "/art-preview.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -715,7 +715,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      // revisão das mudanças e estilos da pessoa (src/studio/style-routes.js)
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
       if (await shares.api({ req, res, pathname, W, readJSON })) return;
       if (pathname === "/api/aspect" && req.method === "POST") {

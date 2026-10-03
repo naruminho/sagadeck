@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from "playwright-core";
 import { findBrowser } from "./browser.js";
 import { esc } from "../markup.js";
+import { buildHTML } from '../build.js';
+
+function interactiveStudy(s){if(!s.interactiveModel)return '';const m=s.interactiveModel,html=buildHTML({theme:m.theme,slides:[m.slide]}).html;return `<details class="study-experience"><summary>Experimentar ${s.layout==='graphlab'?'esta rede':'este código'}</summary><iframe title="${esc(s.title||'Laboratório interativo')}" sandbox="allow-scripts" srcdoc="${esc(html)}" style="border:0;width:100%;height:540px"></iframe></details>`;}
 
 function liveStudy(s) {
   const m = s.explorationModel;
@@ -26,7 +29,7 @@ function studyRuntime() {
 export function estudoHTML({ title, author, date, slidesMeta, shotFiles }) {
   const img = (f) => (f ? `<img src="data:image/${f.endsWith(".jpg") ? "jpeg" : "png"};base64,${fs.readFileSync(f).toString("base64")}" alt="">` : "");
   const exploration = s => !s.exploration ? '' : `<div class="txt"><h3>Explore e compare</h3>${s.illustrative ? '<p>Simulação ilustrativa.</p>' : ''}${s.prediction ? `<p>${esc(s.prediction)}</p>` : ''}${s.exploration.map(state => `<article><h4>${esc(state.label)}</h4><p>Entradas: ${Object.entries(state.values).map(([k, v]) => `${esc(k)} = ${esc(v)}`).join('; ')}</p><ul>${Object.entries(state.results).map(([k, r]) => `<li>${esc(s.outputLabels?.[k] || k)}: ${r.error ? esc(r.error) : r.value != null ? esc(Number(r.value).toLocaleString('pt-BR', { maximumSignificantDigits: 6 })) : ''} ${esc(r.text)}</li>`).join('')}</ul>${state.explanation ? `<p>${esc(state.explanation)}</p>` : ''}</article>`).join('')}</div>`;
-  const rows = slidesMeta.map((s, i) => `<section class="sl"><div class="shot">${img(shotFiles[i])}</div>${liveStudy(s)}${exploration(s)}${s.consulta ? `<div class="txt">${s.consulta}</div>` : ""}</section>`).join("\n");
+  const rows = slidesMeta.map((s, i) => `<section class="sl"><div class="shot">${img(shotFiles[i])}</div>${liveStudy(s)}${interactiveStudy(s)}${exploration(s)}${s.consulta ? `<div class="txt">${s.consulta}</div>` : ""}</section>`).join("\n");
   const withText = slidesMeta.filter((s) => s.consulta).length;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title || "Material de estudo")}</title><style>
   :root{--fg:#1b1d22;--muted:#6b7080;--line:#e2e4ea;--bg:#fff}
