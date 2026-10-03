@@ -1,3 +1,4 @@
+import { videoPlayer } from './video-player.js';
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
 // anim (up|fade|pop|left|right|zoom|none), w, h, flex, align, class, style, card.
@@ -541,6 +542,7 @@ export function shape(e) {
   return `<div${attrs(e, `shape shape-${k}`, st)}>${e.content ? el(e.content) : ""}</div>`;
 }
 
-function video(e) {
+function video(e, ctx) {
+  const player=videoPlayer(e,ctx);if(player)return player;
   return `<a${attrs(e, "video")} href="${esc(e.video)}" target="_blank" rel="noopener"><span class="vd-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="vd-label t f-heading">${md(e.label || "Assistir")}</span><span class="vd-url t f-label">${esc(e.video.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</span></a>`;
 }

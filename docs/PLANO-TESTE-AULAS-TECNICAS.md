@@ -27,14 +27,16 @@ Gerar e testar duas aulas pelo agente do próprio SagaDeck, na biblioteca oficia
 - [x] Rede explorável com cartões semânticos, seleção, cor, vizinhança/BFS, menor custo, foco, zoom/pan, edição e restauração. Exemplo de logística demonstra generalização.
 - [x] Laboratório de código com edição de programa/entrada e execução rastreada offline; explicitar a diferença para Python com pacotes reais.
 - [x] Pesquisa preserva inventário visual; agente pode importar imagem observada ou capturar página oficial pública, com origem e arquivo local.
-- [ ] Testar funções e fluxos reais no browser/Studio, aplicar às aulas pelo chat, verificar imagens oficiais reais e desafios dos alunos.
+- [x] Testar funções e fluxos reais no browser/Studio, aplicar às aulas pelo chat, verificar imagens oficiais reais e desafios dos alunos.
 - [ ] Bundle, suíte completa, publicar e reiniciar na 3517. Sem deploy Oracle nesta etapa.
 
 ## Próxima etapa autorizada — execução, coleções e mídia
-- [ ] Python nativo e JavaScript nativo, com saída real e erros visíveis.
-- [ ] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
-- [ ] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
-- [ ] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
+- [x] Python nativo e JavaScript nativo, com saída real e erros visíveis.
+- [x] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
+- [x] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
+- [x] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
 - [ ] Validar com aulas reais, documentar limites, publicar e reiniciar na porta 3517.
 
 - Etapa de laboratórios: 716 testes, 696 passaram, 20 pulados, zero falhas; bundle atualizado. Próxima etapa de execução nativa, coleções e mídia ainda em implementação.
+
+- Recursos seguintes implementados e documentados; suíte final com 729 testes, 709 aprovados e 20 pulados. Nenhum deploy Oracle. Publicação final em andamento.

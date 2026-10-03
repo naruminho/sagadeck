@@ -1,0 +1,22 @@
+for(const root of document.querySelectorAll('[data-portal]')){
+ const $=s=>root.querySelector(s),items=JSON.parse($('.portal-model').textContent),reduced=matchMedia('(prefers-reduced-motion: reduce)'),stage=$('.portal-stage');let current=-1,after=false,timer;
+ function controls(inside){$('[data-portal-back]').hidden=!inside;$('[data-portal-transform]').hidden=!inside;}
+ function scene(){
+  const item=items[current];$('.portal-scene-title').textContent=item.title;$('.portal-floor-word').textContent=(after?item.afterWord:item.beforeWord)||item.title;
+  $('[data-portal-description]').textContent=(after?item.after:item.before)||item.text||'';$('[data-portal-transform]').textContent=after?'Ver cenário anterior':'Transformar cenário';
+  const nodes=Array.isArray(item.objects)&&item.objects.length?item.objects:[{label:item.title||'Elemento'}];
+  const box=$('.portal-objects');if(box.children.length!==nodes.length){box.replaceChildren(...nodes.map((node,i)=>{const e=document.createElement('div');e.className='portal-object';const number=document.createElement('small');number.textContent=String(i+1).padStart(2,'0');const label=document.createElement('strong');label.textContent=node.label||'Elemento';e.append(number,label);return e;}));}
+  const rows=Math.ceil(nodes.length/3),positions=nodes.map((_,i)=>after?{x:20+(Math.floor(i/3)%2?2-i%3:i%3)*30,y:26+Math.floor(i/3)*(48/Math.max(1,rows-1)),r:0}:{x:15+((i*43)%72),y:23+((i*29)%51),r:(i%2?1:-1)*(8+i%4*3)});
+  [...box.children].forEach((e,i)=>{e.dataset.shape=nodes[i].shape||'panel';e.querySelector('strong').textContent=nodes[i].label||'Elemento';e.querySelector('small').innerHTML=(nodes[i].glyph||'')+' '+String(i+1).padStart(2,'0');e.style.left=positions[i].x+'%';e.style.top=positions[i].y+'%';e.style.setProperty('--tilt',positions[i].r+'deg');e.style.setProperty('--order',i);});
+  const svg=$('.portal-paths');svg.replaceChildren();if(after)for(let i=1;i<positions.length;i++){const p=document.createElementNS('http://www.w3.org/2000/svg','path'),a=positions[i-1],b=positions[i];p.setAttribute('d',`M ${a.x*10} ${a.y*6} L ${b.x*10} ${b.y*6}`);svg.append(p);}
+  root.dataset.transformed=String(after);
+ }
+ function clear(){clearTimeout(timer);stage.querySelector('.portal-flight')?.remove();root.classList.remove('portal-travelling');}
+ function back(){clear();current=-1;after=false;root.dataset.view='catalog';root.dataset.transformed='false';$('.portal-catalog').hidden=false;$('.portal-inside').hidden=true;controls(false);$('[data-portal-description]').textContent='Escolha um elemento para entrar na cena.';}
+ function enter(index){if(root.classList.contains('portal-travelling'))return;clear();current=index;after=false;scene();const button=$(`[data-portal-enter="${index}"]`),r=button.getBoundingClientRect(),s=stage.getBoundingClientRect(),clone=button.cloneNode(true);clone.className='portal-card portal-flight';clone.removeAttribute('data-portal-enter');clone.setAttribute('aria-hidden','true');clone.tabIndex=-1;Object.assign(clone.style,{left:((r.left-s.left)/s.width*100)+'%',top:((r.top-s.top)/s.height*100)+'%',width:(r.width/s.width*100)+'%',height:(r.height/s.height*100)+'%'});stage.append(clone);root.classList.add('portal-travelling');requestAnimationFrame(()=>clone.classList.add('portal-flight-in'));
+  timer=setTimeout(()=>{clear();root.dataset.view='inside';$('.portal-catalog').hidden=true;$('.portal-inside').hidden=false;controls(true);$('[data-portal-transform]').focus({preventScroll:true});},reduced.matches?0:680);
+ }
+ root.querySelectorAll('[data-portal-enter]').forEach(b=>b.onclick=()=>enter(Number(b.dataset.portalEnter)));
+ $('[data-portal-transform]').onclick=()=>{after=!after;scene()};$('[data-portal-back]').onclick=back;$('[data-portal-reset]').onclick=back;
+ stage.onpointermove=e=>{if(reduced.matches)return;const r=stage.getBoundingClientRect();stage.style.setProperty('--px',((e.clientX-r.left)/r.width-.5)*12+'px');stage.style.setProperty('--py',((e.clientY-r.top)/r.height-.5)*12+'px')};stage.onpointerleave=()=>{stage.style.setProperty('--px','0px');stage.style.setProperty('--py','0px')};root.dataset.portalReady='true';
+}

@@ -1,4 +1,7 @@
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
+import { PUBLIC_SCRIPTS } from "./public-files.js";
+import {meetingRoutes,meetingPreview} from '../meeting.js';
+import { codeRoutes } from "./code-routes.js";
 import http from "node:http";
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -30,7 +33,7 @@ import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
-import { sendExport, lightVariant } from "./exporting.js";
+import { sendExport, sendHtml, lightVariant } from "./exporting.js";
 import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
@@ -536,7 +539,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (pathname === "/app.js" || pathname === "/ui-icons.js" || pathname === "/slide-form.js" || pathname === "/lab-fields.js" || pathname === "/calc-fields.js" || pathname === "/art-preview.js" || pathname === "/library.js" || pathname === "/screenshot-editor.js" || pathname === "/visual-editor.js" || pathname === "/inspector.js" || pathname === "/explorer.js" || pathname === "/viewers.js" || pathname === "/merge-decks.js" || pathname === "/history.js" || pathname === "/review-ui.js" || pathname === "/share-ui.js") {
+      if (PUBLIC_SCRIPTS.has(pathname)) {
         const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
@@ -547,7 +550,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/preview") {
         let out;
         try {
-          out = buildHTML(W.spec);
+          out = buildHTML(W.spec,{audience:url.searchParams.get('audience')||undefined});
         } catch (e) {
           W.lastPreview = { ok: false, error: e.message, warnings: [] };
           res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
@@ -557,7 +560,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         // avisos de montagem (ex.: CSS/widget ao lado do YAML que não foi achado) para o Studio mostrar
         W.lastPreview = { ok: true, error: null, warnings: out.warnings.filter((w) => !/palavras \(limite/.test(w)) };
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(out.html);
+        res.end(meetingPreview(out.html,W.spec,url.searchParams.get('audience')));
         return;
       }
 
@@ -715,6 +718,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      if (await codeRoutes({req,res,pathname,W,readJSON,commandsAllowed,commandEnv,isBundledTemplate})) return;
+      if (await meetingRoutes({req,res,pathname,W,readJSON,persist})) return;
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
       if (await shares.api({ req, res, pathname, W, readJSON })) return;
       if (pathname === "/api/aspect" && req.method === "POST") {
@@ -1360,7 +1365,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             const file = L.resolveId(url.searchParams.get("id"));
             const kind = url.searchParams.get("kind") || "sagadeck";
             if (!["sagadeck", "pptx", "pdf", "roteiro", "tudo", "estudo", "estudo-html"].includes(kind)) throw new Error("formato inválido");
-            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { notes: url.searchParams.get("notas") !== "0" });
+            await sendExport(res, kind, loadSpec(file), path.basename(file).replace(/\.ya?ml$/i, ""), { audience:url.searchParams.get('audience')||undefined, notes: url.searchParams.get("notas") !== "0" });
             return;
           }
           if (pathname === "/api/library/import" && req.method === "POST") {
@@ -1470,7 +1475,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
         // ?ver=1: o material de estudo abre na aba (o que o aluno recebe), em vez de baixar
-        await sendExport(res, exportKind, spec, name, { notes: url.searchParams.get("notas") !== "0", inline: exportKind === "estudo-html" && url.searchParams.get("ver") === "1" });
+        await sendExport(res, exportKind, spec, name, { audience:url.searchParams.get('audience')||undefined, notes: url.searchParams.get("notas") !== "0", inline: exportKind === "estudo-html" && url.searchParams.get("ver") === "1" });
         return;
       }
 
@@ -1505,13 +1510,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           return;
         }
         if (format === "html") {
-          const out = buildHTML(W.spec);
-          res.writeHead(200, {
-            "Content-Type": "text/html; charset=utf-8",
-            "Content-Disposition": 'attachment; filename="apresentacao.html"',
-          });
-          res.end(out.html);
-          return;
+          return sendHtml(res,W.spec,url.searchParams.get('audience')||undefined);
         }
         if (format === "patch") {
           const patchPath = path.resolve("sagadeck-v1.2.0.patch");

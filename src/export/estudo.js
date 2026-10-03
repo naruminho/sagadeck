@@ -9,7 +9,7 @@ import { findBrowser } from "./browser.js";
 import { esc } from "../markup.js";
 import { buildHTML } from '../build.js';
 
-function interactiveStudy(s){if(!s.interactiveModel)return '';const m=s.interactiveModel,html=buildHTML({theme:m.theme,slides:[m.slide]}).html;return `<details class="study-experience"><summary>Experimentar ${s.layout==='graphlab'?'esta rede':'este código'}</summary><iframe title="${esc(s.title||'Laboratório interativo')}" sandbox="allow-scripts" srcdoc="${esc(html)}" style="border:0;width:100%;height:540px"></iframe></details>`;}
+function interactiveStudy(s){if(!s.interactiveModel)return '';const m=s.interactiveModel,html=buildHTML({theme:m.theme,slides:[m.slide]}).html;return `<details class="study-experience"><summary>Experimentar ${s.layout==='graphlab'?'esta rede':s.layout==='playground'?'esta experiência':'este código'}</summary><iframe title="${esc(s.title||'Laboratório interativo')}" sandbox="allow-scripts" srcdoc="${esc(html)}" style="border:0;width:100%;height:540px"></iframe></details>`;}
 
 function liveStudy(s) {
   const m = s.explorationModel;

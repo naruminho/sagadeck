@@ -1114,11 +1114,34 @@ Versões já publicadas como MIT continuam MIT.
 - Chat nativo aplicando novos recursos à aula de grafos, com URLs reais da documentação Neo4j e galeria NetworkX. Nenhuma edição do YAML por script próprio.
 
 ## Próxima etapa autorizada — execução, coleções e mídia
-- [ ] Python nativo e JavaScript nativo, com saída real e erros visíveis.
-- [ ] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
-- [ ] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
-- [ ] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
+- [x] Python nativo e JavaScript nativo, com saída real e erros visíveis.
+- [x] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
+- [x] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
+- [x] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
 - [ ] Validar com aulas reais, documentar limites, publicar e reiniciar na porta 3517.
 
 - Laboratórios validados: suíte completa com 716 testes, 696 aprovados, 20 pulados e zero falhas. Formulários extraídos para lab-fields.js; teste de conteúdo longo preserva identificadores e programas, sem duplicar nós. Regressões específicas: 26 aprovadas.
 - Aula de grafos ampliada pelo chat, preservando os slides anteriores: dois grafos exploráveis e telas reais oficiais de Neo4j Browser e galeria NetworkX, importadas localmente com proveniência.
+
+### Execução e mídia — integração em curso
+- Etapa anterior publicada e mergeada no PR #119 (a234dbb).
+- Implementados codelab Python/Node nativos, coleções Postman/seletor e expansão estática no Studio, playground HTML/CSS/JS isolado e player YouTube/MP4 local. Formulários dedicados e permissões do chat reutilizadas.
+- Download real validado com vídeo da documentação YouTube: MP4 de 57.498.089 bytes, áudio e vídeo reunidos via FFmpeg. Ferramentas instaladas em AppData/SagaDeck, checksum yt-dlp validado. Testes de navegador/Studio em andamento.
+
+- Novo caso do usuário: divulgação do hackathon AI Apps. Usuário esclareceu que é somente brainstorm, sem gerar apresentação. Dados de agenda/regulamento ainda inexistentes; autorizou exemplos fictícios claramente identificados. Não criar deck de hackathon nesta etapa.
+- Oito testes novos de execução nativa, coleções/importação no Studio, exportação por serviço, frame isolado e MP4 real passaram. Nova rodada completa pendente.
+
+### Cena cinematográfica reutilizável — 03/10/2026
+- Usuário autorizou prosseguir com portal, transformação do cenário e tipografia integrada. Implementação genérica portal com catálogo ilustrativo, imagem própria por elemento, objetos persistentes antes/depois, movimento reduzido e demo cinematica; não criar a apresentação completa do hackathon.
+- Próximos passos: validar interação/formulário salvo e aspectos, revisar visualmente, suíte completa, publicar e reiniciar na 3517.
+
+### Reuniões com decisões e divulgação — implementação em curso
+- Novo pedido autoriza gerar a apresentação do evento e avaliar/corrigir a saída; substitui a restrição anterior de somente brainstorm. Conteúdo e planejamento pessoal ficam fora do repositório.
+- Enquete manual ampliada: contagens e abstenções salvas, aprovação explícita, empate bloqueado, reabertura e versão para participantes sem pendências internas. Valores aprovados atualizam calculadoras para simular consequências; exportação respeita o mesmo filtro.
+- Revisão visual real encontrou fonte inconsistente nos controles e convite cortado na cenografia. Corrigidos no motor; teste cenográfico falhou antes e passou depois. Votação, persistência, vinculação numérica e PPTX público passaram nos testes específicos.
+- Suíte completa anterior: 726 testes, 705 passaram, 20 pulados, uma falha no tamanho de ícone do portal; correção confirmada pelos testes específicos. Nova suíte em execução, publicação ainda pendente.
+
+### Validação final da etapa
+- Suíte completa: 729 testes, 709 passaram, 20 pulados, zero falhas (918,6 s). Correções finais de publicação/legibilidade verificadas novamente em testes específicos; anotações internas não entram na versão pública.
+- Revisão de apresentação real: 22 slides percorridos, sem texto ou controles fora da área útil, portal e experiência personalizados conferidos no navegador. Documento e evidências somente na biblioteca pessoal.
+- Recursos genéricos prontos: execução Python/Node, coleções, vídeo, frame isolado, portais e decisões persistentes; falta somente concluir publicação da etapa no GitHub.

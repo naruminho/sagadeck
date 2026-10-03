@@ -11,7 +11,7 @@ import { LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
 import { browserOrSkip } from "./helpers.js";
 
 const SKIP = new Set(["api", "video", "image", "full", "canvas"]);
-const KEEP = new Set(["layout", "theme", "icon", "image", "language", "algorithm", "scene", "kind", "id", "from", "to", "start", "goal", "program", "call", "tone", "ratio", "chart", "type"]);
+const KEEP = new Set(["layout", "theme", "icon", "image", "language", "algorithm", "scene", "kind", "id", "from", "to", "start", "goal", "program", "call", "html", "css", "javascript", "tone", "ratio", "chart", "type"]);
 function longer(v, k) {
   if (typeof v === "string" && !KEEP.has(k) && v.length > 3 && !/^#|^\d/.test(v)) return v.length < 60 ? `${v} ${v.toLowerCase()}` : `${v} ${v}`;
   if (Array.isArray(v)) { const a = v.map((x) => longer(x)); return a.length && a.length < 6 && typeof a[0] !== "number" && !["array", "values", "data", "nodes", "edges"].includes(k) ? [...a, ...a.slice(0, 2).map((x) => structuredClone(x))] : a; }
