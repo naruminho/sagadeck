@@ -558,6 +558,10 @@ Como no PowerPoint, são duas escolhas independentes:
 
 Os dois valem no deck todo ou num slide só (`theme:`/`palette:` no slide). No Studio, aba Design: clique aplica em todos os slides; botão direito, "Só neste slide".
 
+## Direção cinematográfica (quando pedirem "Tony Stark", "hacker", "futurista", "cinematográfico")
+
+Um filme só + slides vivos da mesma família. Receita: `theme: noite` com `palette: luzquente`; capa com `ambient: pontos`; chegadas importantes com `transition: morph` e viradas com `transition: saida`; cada slide estático com um `ambient` (`pontos` ou `grade`) que ecoa a capa sem repeti-la; o momento da demonstração com `{ points: { de: fone, para: mic } }` (formas: `fone`, `mic`, `doc`, `planilha`, `busca`, `chat`). Regras de gosto: fundo escuro quente ou branco quente; luz sempre champanhe, âmbar ou branca; cor forte só pontual, como joia (show de drones), nunca neon chapado; detalhe animado discreto por slide, nunca dois efeitos brigando no mesmo quadro. O clipe em vídeo fica só no momento da areia; o resto é slide vivo.
+
 ## Tema customizado
 
 ```yaml

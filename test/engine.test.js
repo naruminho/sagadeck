@@ -415,6 +415,15 @@ test("direções criativas: várias, e o sorteio cobre todas", () => {
   assert.equal(seen.size, CREATIVE_DIRECTIONS.length);
 });
 
+test("direções criativas: cada uma indica um tema que existe", async () => {
+  const { THEMES } = await import("../src/themes.js");
+  for (const d of CREATIVE_DIRECTIONS) {
+    const m = d.match(/Considere ([^.]+?)[;.]/);
+    assert.ok(m, `direção sem "Considere <tema>": ${d.slice(0, 60)}…`);
+    for (const t of m[1].split(/, | ou /)) assert.ok(THEMES[t.trim()], `tema "${t}" não existe`);
+  }
+});
+
 test("API Python: studio escuta só nesta máquina por padrão e aceita a pasta da biblioteca", () => {
   const api = fs.readFileSync(new URL("../python/sagadeck/api.py", import.meta.url), "utf8");
   const sig = api.match(/def studio\(([\s\S]*?)\) -> None:/)[1];
