@@ -3,6 +3,15 @@
 Um deck é um arquivo YAML com cabeçalho + lista de `slides`. Cada slide escolhe um **layout** e preenche os campos dele.
 Tudo que é texto aceita a **marcação inline** (abaixo), inclusive fórmula LaTeX no meio do texto: `$t_c = 57 (L^3/H)^{0,385}$` (e `$$…$$` em destaque; dinheiro como "R$ 10" continua texto). Qualquer slide aceita `notes`, `time`, `tone`.
 
+
+## Prioridade de composição para o agente
+
+Por padrão, sem exigir termos técnicos no pedido, monte a apresentação com layouts e elementos nativos separados e editáveis. Prefira essa composição a HTML/iframe de slide inteiro. Isso não limita criatividade nem proíbe HTML, playground, imagens ou vídeo: use experiências personalizadas isoladas quando o comportamento pedido não puder ser bem atendido pelos componentes existentes. Preserve textos e elementos editáveis ao redor delas.
+
+Antes de propor uma alternativa mais complexa, renderize e confira o resultado: legibilidade, composição, movimento e fidelidade à intenção. Se a solução nativa não atingir a qualidade visual desejada, explique a limitação concreta e sugira uma alternativa (por exemplo, animação personalizada ou vídeo gerado), em vez de insistir num resultado ruim ou anunciar qualidade sem olhar. Diferencie limites reais de implementação de escolhas de design.
+
+Mídia paga não é proibida por padrão. Quando for apropriada, proponha seu uso com benefício, briefing e custo estimado; siga a autorização e o orçamento já dados pela pessoa. Sem autorização aplicável, mostre a proposta antes de gerar. Restrições como “sem mídia paga” ou “sem HTML completo” só são limites específicos quando pedidas, não frases que a pessoa precise repetir para obter uma apresentação editável.
+
 ```yaml
 title: Nome da palestra          # obrigatório (vira rodapé e título da janela)
 author: Seu Nome · Cargo
