@@ -946,3 +946,5 @@ No chat de um PowerPoint importado, anexe referências e peça `recriar` com o a
 Na exportação PowerPoint, LaTeX e parágrafos com fórmulas são imagens em resolução dupla para preservar frações, expoentes e disposição; esses trechos não são texto editável no PPTX. No PDF, o tema original é preservado por padrão; a versão clara para impressão é uma preferência opcional.
 
 Calculadoras com quatro ou mais resultados usam uma grade compacta automaticamente: três colunas até seis resultados e quatro colunas a partir de sete. Os controles ficam acima, preservando todas as curvas, valores e comparações.
+
+No código guiado (codewalk), mudar de etapa rola apenas a área de código até o destaque, mantendo o palco parado. A conferência visual da IA fotografa as etapas do palco com movimento reduzido, preservando painéis e controles interativos; o resumo de exportação continua reservado para exportar.

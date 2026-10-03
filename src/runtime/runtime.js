@@ -338,6 +338,18 @@
       line.classList.toggle("hl", highlight.has(i + 1));
       line.classList.toggle("dim", highlight.size > 0 && !highlight.has(i + 1));
     });
+    if (root.dataset.lesson === "codewalk") {
+      const code = $(".code", root), lines = $$(".code .cl.hl", root);
+      if (code && lines.length && code.getClientRects().length) {
+        const box = code.getBoundingClientRect(), first = lines[0].getBoundingClientRect(), last = lines.at(-1).getBoundingClientRect();
+        const scale = box.width / code.offsetWidth || 1;
+        if (first.top < box.top || last.bottom > box.bottom) {
+          const offset = last.bottom - first.top > box.height
+            ? first.top - box.top : (first.top + last.bottom) / 2 - box.top - box.height / 2;
+          code.scrollTop += offset / scale;
+        }
+      }
+    }
     if (root.dataset.lesson === "solution") window.SagadeckFit.fitSteps(root); // o quadro novo só mede agora, à vista
     if (root.dataset.lesson === "kinetic") {
       window.SagadeckFit.fitText(root);

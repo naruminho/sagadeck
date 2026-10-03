@@ -14,11 +14,35 @@ import { startMockLLM } from './mock-llm.js';
 import { measureLLM } from '../src/ai/usage.js';
 import { chat } from '../src/ai/llm.js';
 import { browserOrSkip, newPage, tempDeck } from './helpers.js';
+import { slideSnapshots, closeSnapshots } from '../src/studio/snapshot.js';
 
 export const slide = { layout: 'calc', title: 'Quando a espera cresce?', illustrative: true, prediction: 'Dobrar a demanda dobra a espera?', explanation: 'Observe a mudança perto da capacidade.', sweep: 'demand',
   inputs: { demand: { label: 'Demanda', value: 2, min: 1, max: 9, step: 1 }, capacity: { label: 'Capacidade', value: 10, min: 10, max: 20, step: 1 } },
   outputs: [{ name: 'wait', label: 'Espera', fn: '1/(capacity-demand)', decimals: 3, scale: { min: 0, max: 1 } }],
   scenarios: [{ label: 'Perto do limite', values: { demand: 9 }, explanation: 'A espera cresce rapidamente.' }] };
+
+test('código guiado rola até o destaque da etapa sem deslocar o palco', async t => {
+  const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
+  try {
+    const file=path.join(deck.dir,'codigo-longo.html');
+    fs.writeFileSync(file,buildHTML({theme:'manual',slides:[{layout:'codewalk',title:'Programa longo',density:'compact',language:'python',code:Array.from({length:45},(_,i)=>`valor_${i+1} = ${i+1}`).join('\n'),steps:[{title:'Início',highlight:[1]},{title:'Final',highlight:[44,45]}]}]}).html);
+    const {page}=await newPage(browser,null,{width:1920,height:1080});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(pathToFileURL(file).href);await page.waitForFunction(()=>window.sagadeck);
+    await page.click('[data-lesson-go="1"]');
+    const bounds=await page.evaluate(()=>{const c=document.querySelector('.code').getBoundingClientRect(),line=document.querySelector('.code .cl.hl').getBoundingClientRect();return{line:line.top,bottom:line.bottom,top:c.top,limit:c.bottom,window:window.scrollY};});
+    assert.ok(bounds.line>=bounds.top&&bounds.bottom<=bounds.limit,JSON.stringify(bounds));assert.equal(bounds.window,0);
+  } finally {await browser.close();deck.cleanup();}
+});
+
+test('capturas de revisão mostram a etapa do palco, não o resumo de exportação', async t => {
+  const browser=await browserOrSkip(t);if(!browser)return;await browser.close();
+  try {
+    const frames=await slideSnapshots({theme:'manual',slides:[{layout:'codewalk',title:'Duas etapas',code:'a = 1\nb = 2',language:'python',steps:[{title:'Início',text:'Primeira linha',highlight:[1]},{title:'Final',text:'Segunda linha',highlight:[2]}]}]},0,{mode:'exploration',maxFrames:2});
+    assert.equal(frames[0].state?.stepText,'Início');
+    assert.equal(frames[1].state?.stepText,'Final');
+    assert.equal(frames[1].state?.stepVisible,true);
+    assert.deepEqual(frames[1].state?.highlightedLines,[2]);
+  } finally {await closeSnapshots();}
+});
 
 test('oito resultados com curvas deixam controles e explicação visíveis', async t => {
   const browser = await browserOrSkip(t); if (!browser) return;
