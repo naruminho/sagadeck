@@ -34,12 +34,21 @@ test('vídeo em loop: repete sozinho sem controles; com poster',()=>{
 });
 
 test('download usa URL canônica, não lê configurações/cookies e pede áudio com vídeo MP4',async()=>{
- const deck=tempDeck();try{
+ const deck=tempDeck();const old=process.env.SAGADECK_FFMPEG;process.env.SAGADECK_FFMPEG='C:/ffmpeg/ffmpeg.exe';try{
   const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE?list=outra',deck.dir,{spawnProcess:(exe,args)=>{
     assert.ok(args.includes('--ignore-config'));assert.ok(args.includes('--no-playlist'));assert.equal(args.at(-1),'https://www.youtube.com/watch?v=M7lc1UVf-VE');assert.match(args[args.indexOf('-f')+1],/bestaudio/);
     fs.writeFileSync(args[args.indexOf('-o')+1],Buffer.from('mp4-test'));const child=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};queueMicrotask(()=>child.emit('close',0));return child;
   }});assert.ok(fs.existsSync(path.join(deck.dir,result.url)));assert.match(result.source,/watch\?v=/);
- }finally{deck.cleanup();}
+ }finally{if(old===undefined)delete process.env.SAGADECK_FFMPEG;else process.env.SAGADECK_FFMPEG=old;deck.cleanup();}
+});
+
+test('download sem ffmpeg baixa arquivo único em vez de travar na junção',async()=>{
+ const deck=tempDeck();const old=process.env.SAGADECK_FFMPEG;delete process.env.SAGADECK_FFMPEG;try{
+  const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE',deck.dir,{spawnProcess:(exe,args)=>{
+    assert.match(args[args.indexOf('-f')+1],/^best\[ext=mp4\]/);assert.ok(!args.includes('--ffmpeg-location'));
+    fs.writeFileSync(args[args.indexOf('-o')+1],Buffer.from('mp4-test'));const child=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};queueMicrotask(()=>child.emit('close',0));return child;
+  }});assert.ok(fs.existsSync(path.join(deck.dir,result.url)));
+ }finally{if(old===undefined)delete process.env.SAGADECK_FFMPEG;else process.env.SAGADECK_FFMPEG=old;deck.cleanup();}
 });
 
 test('frame executa JavaScript, aluno altera a experiência e reinicia; pai e rede permanecem isolados',async t=>{
