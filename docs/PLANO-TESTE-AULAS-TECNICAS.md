@@ -28,15 +28,17 @@ Gerar e testar duas aulas pelo agente do próprio SagaDeck, na biblioteca oficia
 - [x] Laboratório de código com edição de programa/entrada e execução rastreada offline; explicitar a diferença para Python com pacotes reais.
 - [x] Pesquisa preserva inventário visual; agente pode importar imagem observada ou capturar página oficial pública, com origem e arquivo local.
 - [x] Testar funções e fluxos reais no browser/Studio, aplicar às aulas pelo chat, verificar imagens oficiais reais e desafios dos alunos.
-- [ ] Bundle, suíte completa, publicar e reiniciar na 3517. Sem deploy Oracle nesta etapa.
+- [x] Bundle, suíte completa, publicar e reiniciar na 3517. Sem deploy Oracle nesta etapa.
 
 ## Próxima etapa autorizada — execução, coleções e mídia
 - [x] Python nativo e JavaScript nativo, com saída real e erros visíveis.
 - [x] Coleções de APIs: importar/adicionar, selecionar serviço, editar pedido e executar; avaliar expansão para PDF/PPTX.
 - [x] Player do YouTube e importação opcional de vídeo MP4 para a biblioteca.
 - [x] Quadro isolado de HTML/CSS/JavaScript para animações personalizadas geradas pelo agente.
-- [ ] Validar com aulas reais, documentar limites, publicar e reiniciar na porta 3517.
+- [x] Validar código e interações reais, documentar limites, publicar e reiniciar na porta 3517.
 
 - Etapa de laboratórios: 716 testes, 696 passaram, 20 pulados, zero falhas; bundle atualizado. Próxima etapa de execução nativa, coleções e mídia ainda em implementação.
 
 - Recursos seguintes implementados e documentados; suíte final com 729 testes, 709 aprovados e 20 pulados. Nenhum deploy Oracle. Publicação final em andamento.
+
+- Entrega publicada e mergeada: PR #120 (https://github.com/naruminho/sagadeck/pull/120), merge 1fb5a6f. Bundle atualizado, serviço local reiniciado na 3517. HTML de divulgação verificado sem controles de votação ou notas internas. CI remoto em andamento no momento do merge; suíte local e regressões finais aprovadas conforme acima.
