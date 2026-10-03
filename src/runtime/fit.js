@@ -11,7 +11,7 @@
   function fitText(root) {
     root.querySelectorAll("[data-fit]").forEach((el) => {
       if (el.hasAttribute("data-vsize")) return; // tamanho escolhido à mão no Studio (visualEdits.size): o ajuste não mexe
-      const safe = el.closest(".safe") || el.closest(".slide");
+      const safe = el.closest('.scene-type') || el.closest(".safe") || el.closest(".slide");
       if (!safe) return;
       if (!el.dataset.fs0) el.dataset.fs0 = parseFloat(getComputedStyle(el).fontSize);
       let fs = +el.dataset.fs0;

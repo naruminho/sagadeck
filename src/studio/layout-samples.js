@@ -1,7 +1,11 @@
+import { portalExample } from '../portal-scene.js';
+import { playgroundExample } from '../playground.js';
 // Conteúdo de exemplo de cada layout — usado na galeria de layouts do Studio (prévia no tema do deck).
 import { graphLabExample } from '../graph-lab.js';
 import { codeLabExample } from '../code-lab.js';
 export const LAYOUT_INFO = {
+  portal: ["Portal e transformação", "Entre em um elemento, transforme o cenário e revele texto integrado ao ambiente"],
+  playground: ["Experiência personalizada", "HTML, CSS e JavaScript interativos em um frame isolado"],
   codelab: ['Código explorável', 'Alunos alteram código e entradas, executam offline e acompanham estruturas e variáveis passo a passo'],
   graphlab: ['Rede explorável', 'Navegue pelos nós, teste rotas, altere custos, remova conexões e reorganize a rede ao vivo'],
   mosaic: ["Grade adaptável", "De 1 a 12 itens: as colunas se ajustam à quantidade e ao tamanho do texto"],
@@ -54,7 +58,7 @@ export const LAYOUT_INFO = {
   api: ["API ao vivo", "Requisição que executa na hora (tipo Postman): síncrono, polling ou streaming, com código curl/Python"],
   spotlight: ["Foco guiado", "Conduza o olhar por detalhes de uma imagem ou diagrama"],
   kinetic: ["Tipografia cinética", "Frases em sequência viram parte da cena com ritmo e estilos tipográficos que mudam"],
-  video: ["Vídeo", "Cartão que abre um vídeo"],
+  video: ["Vídeo", "Player YouTube online ou MP4 incorporado"],
   blocks: ["Livre (blocos)", "Monte com blocos em linhas e colunas"],
   canvas: ["Livre (posições)", "Posicione cada elemento à mão"],
   references: ["Referências", "Fontes em duas colunas"],
@@ -62,6 +66,8 @@ export const LAYOUT_INFO = {
 };
 
 export const LAYOUT_SAMPLES = {
+  portal: portalExample,
+  playground: playgroundExample,
   codelab: codeLabExample,
   graphlab: graphLabExample,
   mosaic: {layout:"mosaic",title:"Uma ideia, vários caminhos",items:[{title:"Descobrir",text:"Entenda o problema."},{title:"Experimentar",text:"Teste a hipótese."},{title:"Construir",text:"Transforme em produto."},{title:"Aprender",text:"Use o resultado para melhorar."},{title:"Compartilhar",text:"Mostre o que funcionou."}]},

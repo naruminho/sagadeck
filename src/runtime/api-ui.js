@@ -870,7 +870,7 @@
     .pip-nav span{flex:1;text-align:center;color:#8d9ab1;font-size:13px}
     .pip-empty{padding:16px;color:#8d9ab1}`;
   let pipWin = null;
-  const currentRoot = () => { const i = window.sagadeck ? window.sagadeck.cur : 0; const sl = document.querySelectorAll(".slide")[i]; return sl ? $(".L-api[data-api]", sl) : null; };
+  const currentRoot = () => { const i = window.sagadeck ? window.sagadeck.cur : 0; const sl = document.querySelectorAll(".slide")[i]; return sl ? [...sl.querySelectorAll(".L-api[data-api]")].find(r=>!r.closest(".api-collection-panel[hidden]")) || null : null; };
   function renderPip() {
     if (!pipWin || pipWin.closed) return;
     const d = pipWin.document, root = currentRoot();

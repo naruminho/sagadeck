@@ -1,8 +1,11 @@
+import { manualPollHTML } from './meeting.js';
+import { portalHTML } from './portal-scene.js';
 // Layouts: cada um recebe o objeto do slide (YAML) e devolve o HTML da área útil.
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { tableHTML } from "./table.js";
 import { decisionLabHTML } from "./decision-lab.js";
 import { graphLabHTML } from './graph-lab.js';
+import { playgroundHTML } from './playground.js';
 import { codeLabHTML } from './code-lab.js';
 import { md, esc } from "./markup.js";
 import { adaptiveHTML } from "./adaptive-layouts.js";
@@ -95,6 +98,8 @@ function chartsSideBySide(content) {
 }
 
 export const LAYOUTS = {
+  portal(s,ctx){return portalHTML(s,ctx,head)+src(s)+add(s,ctx);},
+  playground(s,ctx){return playgroundHTML(s,ctx,head)+src(s)+add(s,ctx);},
   codelab(s,ctx){return codeLabHTML(s,ctx,head)+src(s)+add(s,ctx);},
   graphlab(s,ctx){return graphLabHTML(s,ctx,head)+src(s)+add(s,ctx);},
   mosaic(s) { return `${head(s)}${adaptiveHTML(s,'mosaic')}${src(s)}`; },
@@ -420,6 +425,7 @@ export const LAYOUTS = {
   },
 
   poll(s, ctx) {
+    if(s.manual)return manualPollHTML(s,head)+add(s,ctx);
     return `<div class="L-poll">${kicker(s)}${text(s.question || s.title, "h2", { class: "ttl e", style: "--d:1;", size: s.titleSize })}
       ${s.context ? text(s.context, "lead", { class: "muted" }) : ""}
       ${poll({ poll: s.id || s.poll, options: s.options, compare: s.compare, hint: s.hint, class: "e", style: "--d:2;" }, ctx)}</div>${add(s, ctx)}`;
@@ -597,6 +603,7 @@ export const LAYOUTS = {
   // pedido pelo Studio (síncrono, polling ou streaming) e mostra a resposta. Sem o Studio (HTML exportado,
   // servidor multiusuário), mostra a última resposta gravada. Ver src/runtime/api-ui.js e src/api-client.js.
   api(s, ctx) {
+    if (s.services?.length) return `<div class="L-api-collection" data-api-collection>${head(s)}<label class="api-service-picker">Serviço <select data-api-service>${s.services.map((x,i)=>`<option value="${i}">${esc(x.name||`Serviço ${i+1}`)}</option>`).join("")}</select></label>${s.services.map((x,i)=>`<div class="api-collection-panel"${i?" hidden":""}>${LAYOUTS.api({...s,...x,services:undefined,title:undefined,kicker:undefined,id:x.id||`${s.id||plainTitle(s)}-${i+1}`},ctx)}</div>`).join("")}</div>`;
     const A = globalThis.SagadeckApiCore;
     const a = A.normalize(s);
     const cfg = { ...a, key: A.key(s), title: s.title || "" };
@@ -706,6 +713,6 @@ export const LAYOUTS = {
     const scene = Object.hasOwn(SCENES, s.scene) ? s.scene : 'stage';
     const op = s.imageOpacity == null || s.imageOpacity === '' ? 0.85 : Math.max(0, Math.min(1, Number(s.imageOpacity) || 0));
     const props = SCENES[scene].props?.() || '';
-    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image" style="opacity:${op}">${el({image:s.image},ctx,1920,slideSize(ctx.spec).h)}</div>` : ''}${props ? `<div class="scene-props" aria-hidden="true">${props}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',size:s.titleSize || SCENES[scene].size})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
+    return `<div class="L-scenography raster scene-${scene}"><div class="scene-atmosphere"></div>${s.image ? `<div class="scene-image" style="opacity:${op}">${el({image:s.image},ctx,1920,slideSize(ctx.spec).h)}</div>` : ''}${props ? `<div class="scene-props" aria-hidden="true">${props}</div>` : ''}<div class="scene-architecture" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="scene-type"><div class="scene-eyebrow t f-label">${md(s.kicker || 'IDEIAS QUE OCUPAM ESPAÇO')}</div>${text(s.title || 'ALÉM DO\nÓBVIO','hero',{class:'scene-title',fit:true,size:s.titleSize || SCENES[scene].size})}${s.subtitle ? text(s.subtitle,'lead',{class:'scene-subtitle'}) : ''}</div>${s.foreground ? `<div class="scene-foreground">${el({image:s.foreground,fit:'contain'},ctx,1920,1080)}</div>` : '<div class="scene-sculpture" aria-hidden="true"><i></i><b></b></div>'}<div class="scene-caption f-label">${esc(s.caption || 'SAGA / NOVAS PERSPECTIVAS')}</div></div>${add(s,ctx)}`;
   },
 };

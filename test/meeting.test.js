@@ -1,0 +1,18 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import YAML from 'yaml';
+import JSZip from 'jszip';
+import {meetingSpec} from '../src/meeting.js';
+import {buildHTML} from '../src/build.js';
+import {browserOrSkip,newPage,tempDeck,startStudio} from './helpers.js';
+const spec=()=>({title:'Reunião',theme:'noite',slides:[{layout:'poll',manual:true,id:'days',question:'Quantos dias?',options:['Dois dias','Três dias'],values:[2,3]},{layout:'statement',title:'Convite',text:'Duração: {{decision:days}}',notes:'NÃO PUBLICAR: discussão interna'},{layout:'statement',audience:'organization',text:'Pendência interna do RH'},{layout:'calc',audience:'organization',inputs:{days:{label:'Dias',value:3,min:1,max:5,step:1,decision:'days'}},outputs:[{name:'capacity',fn:'100/days'}]}]});
+test('divulgação usa regras aprovadas, omite votação pendente e material interno sem modificar original',()=>{
+ const ordinary={slides:[{layout:'code',code:'{{decision:literal}}'}]};assert.equal(meetingSpec(ordinary),ordinary);assert.equal(meetingSpec(ordinary,'participants').slides[0].code,'{{decision:literal}}');
+ const s=spec();assert.equal(meetingSpec(s,'participants').slides.length,1);s.slides[0].decision={approved:true,selected:0,votes:[6,2],abstentions:1};const publicSpec=meetingSpec(s,'participants');assert.equal(publicSpec.slides.length,2);assert.equal(publicSpec.slides[1].text,'Duração: Dois dias');const html=buildHTML(s,{audience:'participants'}).html;assert.ok(!html.includes('Pendência interna do RH'));assert.ok(!html.includes('data-vote'));assert.ok(!html.includes('NÃO PUBLICAR'));assert.equal(s.slides[0].layout,'poll');
+});
+test('reunião: votos, abstenções, aprovação e reabertura ficam salvos; empate não vira decisão',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();fs.writeFileSync(deck.file,YAML.stringify(spec()));const studio=await startStudio(deck.file);try{
+  const {page,errors}=await newPage(browser,studio.url+'/preview');await page.locator('[data-vote="0"]').fill('6');await page.locator('[data-vote="1"]').fill('2');await page.locator('[data-abstain]').fill('1');await page.waitForTimeout(700);await page.locator('[data-meeting-approve]').click();await page.waitForFunction(()=>document.querySelector('[data-meeting-status]').textContent.includes('aprovada'));assert.equal(await page.locator('[data-calc-in="days"]').inputValue(),'2');const download=await fetch(studio.url+'/api/export/pptx?audience=participants');assert.equal(download.status,200);const zip=await JSZip.loadAsync(Buffer.from(await download.arrayBuffer()));assert.equal(Object.keys(zip.files).filter(f=>/^ppt\/slides\/slide\d+\.xml$/.test(f)).length,2);let saved=YAML.parse(fs.readFileSync(deck.file,'utf8'));assert.deepEqual(saved.slides[0].decision,{votes:[6,2],abstentions:1,approved:true,selected:0});await page.reload();assert.equal(await page.locator('[data-vote="0"]').inputValue(),'6');await page.goto(studio.url+'/preview?audience=participants');assert.equal(await page.locator('[data-meeting]').count(),0);assert.ok(!(await page.locator('#stage').textContent()).includes('Pendência interna'));await page.goto(studio.url+'/preview');await page.locator('[data-meeting-reopen]').click();await page.waitForTimeout(300);await page.locator('[data-vote="1"]').fill('6');await page.waitForTimeout(600);assert.equal(await page.locator('[data-meeting-approve]').isDisabled(),true);saved=YAML.parse(fs.readFileSync(deck.file,'utf8'));assert.equal(saved.slides[0].decision.approved,false);assert.deepEqual(errors,[]);
+ }finally{await browser.close();await studio.close();deck.cleanup();}
+});

@@ -82,7 +82,7 @@ export function calcHTML(s, ctx, head) {
   if (errs.length) ctx?.warnings?.push(...errs.map((e) => `calculadora: ${e}`));
   const input = (i) => i.fixed
     ? `<div class="calc-in fixed"><span class="calc-l t f-label">${esc(i.label)}</span><b class="calc-const">${i.latex ? tex(i.latex, false) : `${esc(formatNum(i.value, i))}${i.unit ? ` <small>${esc(i.unit)}</small>` : ""}`}</b></div>`
-    : `<label class="calc-in"><span class="calc-l t f-label">${esc(i.label)}${i.latex ? ` <span class="calc-sym">${tex(i.latex, false)}</span>` : ""}</span><input type="range" data-calc-in="${esc(i.name)}" min="${i.min}" max="${i.max}" step="${i.step}" value="${i.value}" aria-label="${esc(i.label)}"><output class="calc-v" data-calc-show="${esc(i.name)}">${esc(formatNum(i.value, i))}</output><small class="calc-u">${esc(i.unit)}</small></label>`;
+    : `<label class="calc-in"><span class="calc-l t f-label">${esc(i.label)}${i.latex ? ` <span class="calc-sym">${tex(i.latex, false)}</span>` : ""}</span><input type="range" data-calc-in="${esc(i.name)}"${s.inputs?.[i.name]?.decision ? ` data-decision-input="${esc(s.inputs[i.name].decision)}"` : ""} min="${i.min}" max="${i.max}" step="${i.step}" value="${i.value}" aria-label="${esc(i.label)}"><output class="calc-v" data-calc-show="${esc(i.name)}">${esc(formatNum(i.value, i))}</output><small class="calc-u">${esc(i.unit)}</small></label>`;
   const output = (o) => {
     const r = res[o.name];
     const scale = o.scale ? (() => {

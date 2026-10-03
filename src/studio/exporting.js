@@ -1,3 +1,5 @@
+import { expandApiCollections } from '../api-collections.js';
+import {meetingSpec} from '../meeting.js';
 // Exportar a apresentação aberta ou da biblioteca: .sagadeck, PowerPoint, PDF, roteiro, material de estudo e "Baixar
 // tudo". PPTX/PDF/roteiro/estudo usam o Chrome invisível (os mesmos exportadores do CLI), numa pasta temporária.
 // (Saiu de server.js: o servidor só decide o que exportar e chama sendExport.)
@@ -13,9 +15,14 @@ import { packDeck, EXTENSION, MIME } from "../package.js";
 const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
+export function sendHtml(res,spec,audience){
+ const out=buildHTML(spec,{audience});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Disposition':'attachment; filename="apresentacao.html"'});res.end(out.html);
+}
+
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-export async function sendExport(res, kind, spec, name, { notes = true, inline = false } = {}) {
+export async function sendExport(res, kind, spec, name, { notes = true, inline = false, audience } = {}) {
+  spec=meetingSpec(spec,audience);
   const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
   if (kind === "sagadeck") {
     const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
@@ -36,6 +43,7 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
   const k = kinds[kind];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${kind}-`));
   try {
+    if (["pptx","pdf","tudo"].includes(kind)) spec=expandApiCollections(spec);
     const r = buildHTML(spec);
     const htmlFile = path.join(tmp, "deck.html");
     fs.writeFileSync(htmlFile, r.html);
@@ -95,4 +103,3 @@ export function lightVariant(spec) {
   if (!deckTo && slides.every((s, i) => s === spec.slides[i])) return null;
   return { ...spec, theme: deckTo || spec.theme, slides };
 }
-
