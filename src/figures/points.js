@@ -21,6 +21,12 @@ const P = {
   },
   rect: (x0, y0, w, h) => (x, y) => x >= x0 && x < x0 + w && y >= y0 && y < y0 + h,
   line: (x0, y0, x1, y1, th) => (x, y) => distSeg(x, y, x0, y0, x1, y1) <= th / 2,
+  // moldura vazada (só a borda, como os óculos da foto: o vazio de dentro aparece)
+  frame: (x0, y0, w, h, th) => (x, y) => {
+    const ix = x >= x0 + th / 2 && x < x0 + w - th / 2, iy = y >= y0 + th / 2 && y < y0 + h - th / 2;
+    const ox = x >= x0 - th / 2 && x < x0 + w + th / 2, oy = y >= y0 - th / 2 && y < y0 + h + th / 2;
+    return ox && oy && !(ix && iy);
+  },
   tri: (x0, y0, x1, y1, x2, y2) => (x, y) => {
     const s = (ax, ay, bx, by, cx, cy) => (cx - bx) * (ay - by) - (ax - bx) * (cy - by);
     const d1 = s(x, y, x0, y0, x1, y1), d2 = s(x, y, x1, y1, x2, y2), d3 = s(x, y, x2, y2, x0, y0);
@@ -29,31 +35,32 @@ const P = {
 };
 const any = (...fs) => (x, y) => fs.some((f) => f(x, y));
 
-// Biblioteca de formas em grade 20×20 (tracejado grosso: cada forma tem 60–160 pontos).
+// Biblioteca de formas em grade 20×20: contornos vazados (o preto de dentro aparece),
+// nunca massa sólida. Espessura ~1 para o grão ficar fino.
 const SHAPES = {
-  // fone de ouvido: arco no topo + duas conchas
-  fone: any(P.arc(10, 10.5, 7, 1.8, 180, 360), P.rect(1.6, 9.5, 3, 6.5), P.rect(15.4, 9.5, 3, 6.5)),
-  // microfone: cabeça redonda + haste + base
-  mic: any(P.disc(10, 5.6, 3.2), P.line(10, 8.8, 10, 15, 1.7), P.arc(10, 15.5, 3.4, 1.5, 15, 165), P.line(6.6, 17.6, 13.4, 17.6, 1.6)),
-  // documento: folha + dobra + linhas de texto
+  // fone de ouvido: arco no topo + duas conchas vazadas
+  fone: any(P.arc(10, 10.5, 7, 1.4, 180, 360), P.frame(1.6, 9.5, 3, 6.5, 1.2), P.frame(15.4, 9.5, 3, 6.5, 1.2)),
+  // microfone: anel + haste + base
+  mic: any(P.ring(10, 5.6, 2.9, 1.4), P.line(10, 8.8, 10, 15, 1.3), P.arc(10, 15.5, 3.4, 1.2, 15, 165), P.line(6.6, 17.6, 13.4, 17.6, 1.2)),
+  // documento: moldura + dobra + linhas de texto
   doc: any(
-    P.rect(6, 2, 8, 16),
-    P.tri(14, 2, 14, 6, 10, 2),
-    P.rect(7.6, 8, 4.8, 1.1), P.rect(7.6, 10.2, 4.8, 1.1), P.rect(7.6, 12.4, 3.2, 1.1),
+    P.frame(6, 2, 8, 16, 1.2),
+    P.line(14, 2, 14, 6, 1.1), P.line(14, 6, 10, 2, 1.1),
+    P.line(7.8, 8.6, 12.2, 8.6, 0.8), P.line(7.8, 10.8, 12.2, 10.8, 0.8), P.line(7.8, 13, 11, 13, 0.8),
   ),
   // planilha: moldura + cabeçalho + grade
   planilha: any(
-    P.rect(3.5, 3.5, 13, 13),
-    P.rect(3.5, 3.5, 13, 3),
-    P.line(10, 3.5, 10, 16.5, 0.9), P.line(3.5, 9, 16.5, 9, 0.9), P.line(3.5, 13, 16.5, 13, 0.9),
+    P.frame(3.5, 3.5, 13, 13, 1.2),
+    P.line(3.5, 6.5, 16.5, 6.5, 1),
+    P.line(10, 3.5, 10, 16.5, 0.8), P.line(3.5, 10, 16.5, 10, 0.8), P.line(3.5, 13.2, 16.5, 13.2, 0.8),
   ),
-  // busca: lupa
-  busca: any(P.ring(8.4, 8.4, 5, 2), P.line(12, 12, 17, 17, 2.2)),
-  // conversa: balão + linhas de texto
+  // busca: lupa (já era contorno)
+  busca: any(P.ring(8.4, 8.4, 5, 1.6), P.line(12, 12, 17, 17, 1.8)),
+  // conversa: balão vazado + rabinho + uma linha de texto
   chat: any(
-    P.rect(2.5, 4, 15, 9),
-    P.tri(6, 13, 9, 13, 6.5, 17),
-    P.rect(4.5, 6.2, 8, 1.1), P.rect(4.5, 8.6, 11, 1.1), P.rect(4.5, 11, 6, 1.1),
+    P.frame(2.5, 4, 15, 9, 1.2),
+    P.line(6, 13, 9, 13, 1.1), P.line(9, 13, 6.5, 17, 1.1), P.line(6.5, 17, 6, 13, 1.1),
+    P.line(4.8, 7.5, 15.2, 7.5, 0.8), P.line(4.8, 10, 12.5, 10, 0.8),
   ),
 };
 export const POINT_SHAPES = Object.keys(SHAPES);
@@ -61,8 +68,9 @@ export const POINT_SHAPES = Object.keys(SHAPES);
 function sample(shape) {
   const f = SHAPES[shape];
   if (!f) throw new Error(`points: forma desconhecida "${shape}" (vale: ${POINT_SHAPES.join(", ")})`);
+  // passo quarto de ponto: areia fina (milhares de grãos), não bolinhas de macarrão
   const pts = [];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (f(x + 0.5, y + 0.5)) pts.push({ x: x + 0.5, y: y + 0.5 });
+  for (let y = 0; y < H; y += 0.25) for (let x = 0; x < W; x += 0.25) if (f(x + 0.125, y + 0.125)) pts.push({ x: x + 0.125, y: y + 0.125 });
   return pts;
 }
 
@@ -81,7 +89,12 @@ export function pointsSVG(spec, { id = "pts" } = {}) {
   const N = Math.max(A.length, B ? B.length : 0);
   const pad = (v) => Array.from({ length: N }, (_, i) => v[i % v.length]);
   const a = pad(A), b = B ? pad(B) : null;
-  const dots = a.map((p) => `<circle class="pts-dot" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="0.62"/>`).join("");
+  const dots = a.map((p, i) => {
+    // grão de areia: miúdo, opacidade variada; um em cada nove é joia (o magenta da foto)
+    const op = (0.5 + (((i * 2654435761) % 50) / 100)).toFixed(2);
+    const jewel = i % 9 === 8 ? ` class="pts-dot pts-jewel"` : ` class="pts-dot"`;
+    return `<circle${jewel} cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="0.18" fill-opacity="${op}"/>`;
+  }).join("");
   const model = b ? `<script class="pts-model" type="application/json">${JSON.stringify({ a, b }).replace(/</g, "\\u003c")}</script>` : "";
   const label = typeof spec === "object" && (spec.legenda || spec.legendaPara)
     ? `<div class="pts-legend f-label" data-legenda-a="${escAttr(spec.legenda || "")}" data-legenda-b="${escAttr(spec.legendaPara || spec.legenda || "")}" aria-live="polite">${escAttr(spec.legenda || "")}</div>`

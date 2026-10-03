@@ -486,7 +486,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | forma | `{ shape: rect|rounded|circle|pill|line|triangle|diamond|hexagon|star|arrow|chevron|bubble, fill: hi, stroke: fg, strokeWidth, w, h, content }` (circle vira elipse se w ≠ h; triangle…bubble são desenhos com preenchimento e contorno) |
 | selo | `{ badge: "NOVO" }` |
 | aviso | `{ aviso: { tipo: dica, titulo: "Dica", texto: "…" } }` — tipos: `importante`, `atencao`, `dica`, `perigo` (atalho: `{ aviso: "texto" }` vira dica). Caixa com ícone e cor do tema para o que não pode passar batido; slide denso fecha com 1 takeaway em ==destaque== mais um aviso quando couber |
-| vídeo | `{ video: "https://…", label: "Assistir" }` |
+| vídeo | `{ video: "https://…", label: "Assistir" }` · loop silencioso de fundo/detalhe: `{ video: cena.mp4, loop: true, poster: capa.jpg }` (repete sozinho, sem controles; PPTX/PDF usam o `poster` ou o primeiro quadro) |
 | HTML livre | `{ html: "<div>…</div>" }` |
 | widget | `{ widget: nome, …opções }` |
 | espaço | `{ spacer: true }` (empurra) ou `{ spacer: 40 }` |

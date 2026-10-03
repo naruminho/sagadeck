@@ -22,6 +22,10 @@ export function videoPlayer(e, ctx = {}) {
       url = `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`;
     } else { ctx.warnings?.push(`Vídeo não encontrado: ${url}`); return `<div class="fig-pending">${label}: arquivo não encontrado</div>`; }
   }
-  if (/\.(mp4|webm|ogg)(?:\?|$)|^data:video\//i.test(url)) return `<div class="video-player"><video title="${label}" controls preload="metadata" playsinline src="${esc(url)}"></video></div>`;
+  if (/\.(mp4|webm|ogg)(?:\?|$)|^data:video\//i.test(url)) {
+    // loop silencioso (fundo vivo, detalhe animado): sem controles, repete sozinho
+    if (e.loop) return `<div class="video-player video-loop"><video title="${label}" src="${esc(url)}"${e.poster ? ` poster="${esc(e.poster)}"` : ""} autoplay muted loop playsinline preload="auto" disablepictureinpicture></video></div>`;
+    return `<div class="video-player"><video title="${label}" controls preload="metadata" playsinline src="${esc(url)}"></video></div>`;
+  }
   return null;
 }

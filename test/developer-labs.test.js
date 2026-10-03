@@ -26,6 +26,13 @@ test('YouTube só aceita hosts reais; MP4 local fica incorporado, arquivo ausent
   const deck=tempDeck();try{fs.writeFileSync(path.join(deck.dir,'aula.mp4'),Buffer.from('test'));assert.match(videoPlayer({video:'aula.mp4'},{baseDir:deck.dir}),/data:video\/mp4;base64/);assert.match(videoPlayer({video:'ausente.mp4'},{baseDir:deck.dir}),/arquivo não encontrado/);}finally{deck.cleanup();}
 });
 
+test('vídeo em loop: repete sozinho sem controles; com poster',()=>{
+  const deck=tempDeck();try{fs.writeFileSync(path.join(deck.dir,'cena.mp4'),Buffer.from('test'));
+    const out=videoPlayer({video:'cena.mp4',loop:true,poster:'capa.jpg'},{baseDir:deck.dir});
+    assert.match(out,/autoplay muted loop playsinline/);assert.match(out,/poster="capa.jpg"/);assert.doesNotMatch(out,/controls/);
+    assert.match(videoPlayer({video:'cena.mp4'},{baseDir:deck.dir}),/controls/);}finally{deck.cleanup();}
+});
+
 test('download usa URL canônica, não lê configurações/cookies e pede áudio com vídeo MP4',async()=>{
  const deck=tempDeck();try{
   const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE?list=outra',deck.dir,{spawnProcess:(exe,args)=>{
