@@ -53,6 +53,7 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
         return {
           ...(panel ? { stepText: panel.querySelector('.lesson-title, .algo-name')?.textContent, stepVisible: !!panel.getClientRects().length } : {}),
           highlightedLines: [...(slide?.querySelectorAll('.code .cl.hl') || [])].map(line => Number(line.querySelector('.cn')?.textContent)),
+          ...(slide?.querySelector('[data-graphlab]')?{graphDirected:JSON.parse(slide.querySelector('.gl-model').textContent).directed,graphResult:slide.querySelector('[data-gl-result]')?.textContent}:{}),
         };
       });
       const buf = await page.screenshot({ type: "jpeg", quality: 80 });
@@ -66,6 +67,14 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
         await page.evaluate(n => document.querySelector(`.slide.current [data-calc-scenario="${n}"]`)?.click(), n);
         await shot(`Cenário: ${spec.slides[index].scenarios[n].label}`);
       }
+    } else if(mode==='exploration'&&spec.slides[index]?.layout==='graphlab'){
+      await shot('Rede inicial');
+      if(maxFrames>1){await page.click('[data-gl-action="route"]');await shot('Rota de menor custo');}
+      if(maxFrames>2){await page.locator('.gl-node').first().click();await page.click('[data-gl-action="focus"]');await shot('Foco no nó selecionado');}
+      if(maxFrames>3){await page.click('[data-gl-action="remove"]');await page.click('[data-gl-action="route"]');await shot('Rede após remover o nó');}
+    } else if(mode==='exploration'&&spec.slides[index]?.layout==='codelab'){
+      await shot('Programa e entrada inicial');
+      if(maxFrames>1){await page.evaluate(()=>{const n=document.querySelectorAll('.clab-stage .dyn-frame').length;for(let k=0;k<n;k++)document.querySelector('[data-clab-next]').click();});await shot('Resultado da execução inicial');}
     } else if ((mode === "steps" || mode === 'exploration') && steps > 0) {
       const count = Math.min(steps + 1, Math.max(2, maxFrames));
       const samples = [...new Set(Array.from({ length: count }, (_, i) => Math.round(i * steps / (count - 1))))];

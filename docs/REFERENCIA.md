@@ -948,3 +948,28 @@ Na exportação PowerPoint, LaTeX e parágrafos com fórmulas são imagens em re
 Calculadoras com quatro ou mais resultados usam uma grade compacta automaticamente: três colunas até seis resultados e quatro colunas a partir de sete. Os controles ficam acima, preservando todas as curvas, valores e comparações.
 
 No código guiado (codewalk), mudar de etapa rola apenas a área de código até o destaque, mantendo o palco parado. A conferência visual da IA fotografa as etapas do palco com movimento reduzido, preservando painéis e controles interativos; o resumo de exportação continua reservado para exportar.
+
+### Rede explorável (`graphlab`)
+Use para relações, rotas, dependências, logística ou redes de conhecimento. A IA deve escolher o contexto e os dados, sem converter todo assunto de rede numa figura genérica de círculos. Nós são cartões com `id` único, `label`, `icon` Lucide, `x`/`y` opcionais (coordenadas em 1000×620). `edges`: lista `{from, to, weight, label}`; custo não negativo, padrão 1. `directed: true` respeita direção. `start` e `goal` são ids; `explanation` propõe um experimento. O público seleciona nós/arestas, destaca com cor, arrasta, amplia com roda do mouse, desloca o mapa, foca a seleção, calcula menor custo, avança BFS, altera pesos, adiciona/remove e restaura. Alterações ao vivo são experiências locais, não mudam o documento salvo. HTML de estudo mantém a interação; PDF/PPTX mostram estado estático.
+
+```yaml
+layout: graphlab
+title: Qual rota resiste ao bloqueio?
+nodes:
+  - {id: fabrica, label: Fábrica, icon: factory, x: 160, y: 310}
+  - {id: porto, label: Porto, icon: ship, x: 500, y: 150}
+  - {id: loja, label: Loja, icon: store, x: 830, y: 310}
+edges:
+  - {from: fabrica, to: porto, weight: 2}
+  - {from: porto, to: loja, weight: 3}
+  - {from: fabrica, to: loja, weight: 8}
+start: fabrica
+goal: loja
+explanation: Remova o porto e compare o custo da rota restante.
+```
+
+### Código explorável (`codelab`)
+`program` contém Python simples; `call` a chamada/entrada; `maxSteps` limita quadros exibidos (padrão 120); `explanation` convida a prever, testar e explicar. O aluno muda chamada ou programa, executa e percorre o traço real com variáveis, estruturas e saída. Restaurar retorna ao original. Usa o mesmo interpretador offline do `algo`, sem acesso a arquivos/rede/processos. Não executa pacotes externos (HTTPX, NetworkX, NumPy); mostre esse código em `codewalk`/`api` e teste pelo chat com Python real. Exemplo: `program: "def dobro(x):\n    return x * 2"`, `call: "dobro(7)"`. Evite código extenso: a experiência deve isolar um conceito.
+
+### Referências visuais da web
+A pesquisa agora inclui imagens observadas nas páginas lidas. Para fotos reais ou gráficos oficiais, num elemento visual (por exemplo `figure` do `split`), use `web_image: {url: URL_EXATA_OBSERVADA, source: PAGINA_ORIGINAL, alt: DESCRICAO}`. Para mostrar uma página/aplicação pública, use `web_capture: {url: PAGINA, selector: SELETOR_CSS_OPCIONAL}`. Sem selector captura o viewport 1440×960. Não invente URLs, seletores, áreas de clique ou telas de aplicações. A captura não usa login nem sessão da pessoa. O Studio importa para `imagens/web`, registra URL/data/proveniência (`image_source` e `contexto/pesquisa/visuais.json`) e resolve para `image` relativo. Tudo fica embutido/offline no HTML; falha permanece explicitamente pendente. Para ensinar onde clicar, examine a captura e então use `spotlight` com áreas reais. A IA escolhe imagem real, screenshot ou ilustração conforme a intenção; `image_prompt` serve a ilustrações, não substitui a interface real.

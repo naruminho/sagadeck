@@ -2,6 +2,8 @@
 // Todos aceitam: kicker, title, source, add (elementos extras no fim), tone, notes, time.
 import { tableHTML } from "./table.js";
 import { decisionLabHTML } from "./decision-lab.js";
+import { graphLabHTML } from './graph-lab.js';
+import { codeLabHTML } from './code-lab.js';
 import { md, esc } from "./markup.js";
 import { adaptiveHTML } from "./adaptive-layouts.js";
 import { iconSVG, listIcons } from "./figures/icons.js";
@@ -93,6 +95,8 @@ function chartsSideBySide(content) {
 }
 
 export const LAYOUTS = {
+  codelab(s,ctx){return codeLabHTML(s,ctx,head)+src(s)+add(s,ctx);},
+  graphlab(s,ctx){return graphLabHTML(s,ctx,head)+src(s)+add(s,ctx);},
   mosaic(s) { return `${head(s)}${adaptiveHTML(s,'mosaic')}${src(s)}`; },
   ribbon(s) { return `${head(s)}${adaptiveHTML(s,'ribbon')}${src(s)}`; },
   dossier(s) { return `${head(s)}${adaptiveHTML(s,'dossier')}${src(s)}`; },

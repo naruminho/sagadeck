@@ -195,7 +195,7 @@
     if (opts.instant) { void slides[i].offsetWidth; slides[i].style.transition = ""; }
     setBg();
     const bar = $("#hud .bar"); if (bar) bar.style.width = ((i + (STEPS[i] ? k / (STEPS[i] + 1) : 0)) / Math.max(1, N - 1)) * 100 + "%";
-    if (!EXPORT && !PRESENTER) history.replaceState(null, "", "#" + (i + 1) + (k ? "." + k : ""));
+    if (!EXPORT && !PRESENTER && location.href!=='about:srcdoc') history.replaceState(null, "", "#" + (i + 1) + (k ? "." + k : ""));
     broadcast({ type: "state", i, k });
     if (PRESENTER && document.getElementById("pv")) presenterState(i, k);
   }
@@ -756,7 +756,7 @@
   let keepAwakeVideo = null;
 
   async function requestWakeLock() {
-    if (EXPORT) return;
+    if (EXPORT || window.parent!==window) return;
     try {
       if ("wakeLock" in navigator) {
         wakeLock = await navigator.wakeLock.request("screen");

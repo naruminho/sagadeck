@@ -225,6 +225,8 @@
       f.obj("answer", "Resposta", [f.text("latex", "Resultado (LaTeX)", { mono: true }), f.text("text", "Em palavras"), f.text("label", "Rótulo", { placeholder: "Resposta" })]),
       f.more([f.text("prompt", "Pergunta antes do primeiro passo", { placeholder: "Por onde você começaria?" })])],
     calc: window.SagaCalcFields(f, obj),
+    codelab: window.SagaLabFields.codelab(f, obj),
+    graphlab: window.SagaLabFields.graphlab(f, obj),
     algo: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.select("algorithm", "Algoritmo", [["bubble", "Bubble sort"], ["insertion", "Insertion sort"], ["selection", "Selection sort"], ["merge", "Merge sort"], ["quick", "Quicksort"], ["linear", "Busca linear"], ["binary", "Busca binária"],
         ["naive", "Busca em texto: ingênua"], ["kmp", "Busca em texto: KMP"], ["quicksearch", "Busca em texto: Quick Search"], ["bfs", "Grafo: busca em largura"], ["dijkstra", "Grafo: Dijkstra"], ["bst", "Árvore binária de busca"], ["program", "Meu código (Python)"]], { empty: false, default: "bubble", structural: true }),
       f.nums("array", "Números (até 16)", { when: (s) => !s.program && !["naive", "kmp", "quicksearch", "bfs", "dijkstra", "program"].includes(s.algorithm) }),

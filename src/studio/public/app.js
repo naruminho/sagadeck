@@ -32,7 +32,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "definition", "poster", "calendar", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "table", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo",
+    "chart", "table", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -44,6 +44,7 @@
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
+    graphlab: "Rede explorável", codelab: "Código explorável",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
     hub: "Mapa de caminhos", status: "Status semanal", onepage: "One-page", headline: "Manchete", full: "Página inteira", bento: "Mosaico", funnel: "Funil", pyramid: "Pirâmide", agenda: "Agenda",
   };
@@ -2473,7 +2474,7 @@
     ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "scenography", "kinetic"]],
     ["plateia", "Plateia", ["question", "poll"]],
     ["dinamicas", "Dinâmicas a dois", ["duel", "terminals", "turns"]],
-    ["aula", "Aula: exercícios e algoritmos", ["solution", "calc", "algo"]],
+    ["aula", "Aula: exercícios e algoritmos", ["solution", "calc", "algo", "graphlab", "codelab"]],
     ["livre", "Montar do zero", ["blocks", "canvas"]],
   ];
   const groupOf = (layout) => SLIDE_GROUPS.find(([, , ids]) => ids.includes(layout))?.[0] || "livre";

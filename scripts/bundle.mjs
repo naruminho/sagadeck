@@ -10,6 +10,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // SAGADECK_BUNDLE_OUT: outra pasta (os testes empacotam numa pasta temporária)
 const OUT = process.env.SAGADECK_BUNDLE_OUT ? path.resolve(process.env.SAGADECK_BUNDLE_OUT) : path.join(ROOT, "python", "sagadeck", "engine");
 const require = createRequire(import.meta.url);
+await import('./bundle-code-lab.mjs');
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 

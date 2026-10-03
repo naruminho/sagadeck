@@ -93,7 +93,8 @@ Decida se o que você JÁ SABE basta ou se é preciso PESQUISAR na web antes:
 - NÃO pesquise conceito clássico e estável, que qualquer livro explica igual (hash table, regressão logística, transformers, fotossíntese, a Revolução Francesa, a história dos videogames até poucos anos atrás).
 - PESQUISE o que muda com o tempo ou é posterior ao seu corte: ranking, "o melhor/maior hoje", lançamentos e datas futuras ("próximos filmes", calendário), preços, versões atuais de produtos e ferramentas, notícias, estatísticas recentes, pessoas em cargos atuais.
 - PESQUISE também o que é de nicho ou muito novo: uma tecnologia que ainda só existe em artigo científico, um paper específico, um método recente; aí a fonte é o próprio artigo (academico: true).
-- Se a pessoa anexou material que já cobre o assunto, não precisa pesquisar.
+- Tutoriais de ferramentas, aplicações, sites e repositórios precisam também de referências VISUAIS reais: pesquise documentação e telas oficiais mesmo quando o conceito é estável. Para calendário, personagens e produtos, procure páginas oficiais com imagens identificáveis.
+- Se a pessoa anexou material que já cobre o assunto, não precisa pesquisar, exceto quando pede telas ou fotos externas.
 ${materials.length ? `\nMaterial anexado: ${materials.map((m) => m.name).join(", ")}\n` : ""}
 Pedido:
 """
@@ -143,7 +144,7 @@ export async function runResearch(plan, { briefing = "", web = defaultWeb, onPro
       const pre = (await web.arxiv(f.title).catch(() => []))[0];
       if (pre?.pdf) { onProgress(`Artigo fechado; lendo o preprint no arXiv: ${clip(pre.title, 60)}`); doc = await web.fetch(pre.pdf); f = { ...f, url: pre.url, preprint: true }; }
     }
-    return { ...f, text: doc.text || "", detail: doc.detail || "" };
+    return { ...f, text: doc.text || "", detail: doc.detail || "",visuals:doc.visuals||[] };
   };
   const docs = [];
   for (let i = 0; i < chosen.length; i += 4) {
@@ -158,7 +159,7 @@ export async function runResearch(plan, { briefing = "", web = defaultWeb, onPro
     onProgress(`Anotando ${siteOf(d.url)}…`);
     try {
       const r = await askJSON(`Pedido: "${clip(briefing, 1500)}"\nHoje é ${today()}.\n\nTexto de uma fonte (${d.title} — ${d.url}):\n"""\n${clip(d.text, 30000)}\n"""\n\nTire desta fonte o que serve para o pedido: fatos com números, datas, nomes, definições, a explicação de como funciona, exemplos; para artigo científico, o problema, a ideia central, o método, os resultados e as limitações. Até 15 fatos, cada um com o trecho de onde saiu (até 25 palavras, nas palavras da fonte). Não invente nada que não esteja no texto.\nResponda só JSON: {"resumo": "2 a 4 frases", "data": "data da publicação, se aparecer", "fatos": [{"fato": "…", "trecho": "…"}]}`, { maxTokens: 12000 });
-      return { title: d.title, url: d.url, site: siteOf(d.url), tipo: d.tipo, preprint: !!d.preprint, data: String(r.data || d.date || ""), resumo: String(r.resumo || ""), fatos: (r.fatos || []).slice(0, 25), text: d.text, detail: d.detail };
+      return { title: d.title, url: d.url, site: siteOf(d.url), tipo: d.tipo, preprint: !!d.preprint, data: String(r.data || d.date || ""), resumo: String(r.resumo || ""), fatos: (r.fatos || []).slice(0, 25), text: d.text, detail: d.detail,visuals:d.visuals };
     } catch (e) { report.falhas.push(`anotação de ${siteOf(d.url)}: ${e.message}`); return null; }
   }));
   // numeradas depois do filtro: F1, F2, F3… sem buraco (a que não deu para anotar não tem número)
@@ -168,7 +169,7 @@ export async function runResearch(plan, { briefing = "", web = defaultWeb, onPro
     name: `[${s.id}] ${clip(s.title, 90)} — ${s.site}`,
     detail: `fonte da pesquisa (${s.tipo}${s.preprint ? ", preprint" : ""}${s.data ? `, ${s.data}` : ""}), lida em ${report.data}: ${s.url}`,
     kind: "pesquisa",
-    text: `${s.resumo}\n\n${s.fatos.map((f) => `- ${f.fato}${f.trecho ? ` (trecho: "${clip(f.trecho, 240)}")` : ""}`).join("\n")}`,
+    text: `${s.resumo}\n\n${s.fatos.map((f) => `- ${f.fato}${f.trecho ? ` (trecho: "${clip(f.trecho, 240)}")` : ""}`).join("\n")}\n\nREFERÊNCIAS VISUAIS OBSERVADAS (use a URL exata em web_image; não invente imagens):\n${JSON.stringify(s.visuals||[])}\nPara mostrar a página real, use web_capture: {url: "${s.url}"}. Um seletor CSS é opcional; não invente onde clicar sem ver a captura.`,
   }));
   if (saveDir) saveResearch(saveDir, report, sources);
   return { report, materials };

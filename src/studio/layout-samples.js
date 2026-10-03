@@ -1,5 +1,9 @@
 // Conteúdo de exemplo de cada layout — usado na galeria de layouts do Studio (prévia no tema do deck).
+import { graphLabExample } from '../graph-lab.js';
+import { codeLabExample } from '../code-lab.js';
 export const LAYOUT_INFO = {
+  codelab: ['Código explorável', 'Alunos alteram código e entradas, executam offline e acompanham estruturas e variáveis passo a passo'],
+  graphlab: ['Rede explorável', 'Navegue pelos nós, teste rotas, altere custos, remova conexões e reorganize a rede ao vivo'],
   mosaic: ["Grade adaptável", "De 1 a 12 itens: as colunas se ajustam à quantidade e ao tamanho do texto"],
   ribbon: ["Cápsulas", "Etapas em painéis arredondados, com colunas automáticas"],
   dossier: ["Página de consulta", "Material compacto com seções, código e notas na mesma página"],
@@ -58,6 +62,8 @@ export const LAYOUT_INFO = {
 };
 
 export const LAYOUT_SAMPLES = {
+  codelab: codeLabExample,
+  graphlab: graphLabExample,
   mosaic: {layout:"mosaic",title:"Uma ideia, vários caminhos",items:[{title:"Descobrir",text:"Entenda o problema."},{title:"Experimentar",text:"Teste a hipótese."},{title:"Construir",text:"Transforme em produto."},{title:"Aprender",text:"Use o resultado para melhorar."},{title:"Compartilhar",text:"Mostre o que funcionou."}]},
   ribbon: {layout:"ribbon",title:"Do primeiro passo ao resultado",items:[{title:"Explorar",text:"Encontre uma oportunidade."},{title:"Testar",text:"Experimente em pequena escala."},{title:"Evoluir",text:"Repita o que funciona."}]},
   dossier: {layout:"dossier",title:"Referência rápida",items:[{title:"Requisição",text:"GET consulta o recurso.",code:"GET /exemplos/42"},{title:"Resposta",text:"Confira o status antes de usar o corpo.",code:'{"id":42,"status":"ok"}'}]},

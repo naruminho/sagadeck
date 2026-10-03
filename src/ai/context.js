@@ -4,6 +4,7 @@
 // (anexo ou link colado na mensagem) e para o modal "Deck com IA".
 import JSZip from "jszip";
 import dns from "node:dns/promises";
+import { pageVisuals } from '../research/visuals.js';
 
 export const CONTEXT_MAX_CHARS = 12000; // texto por material no prompt
 export const CONTEXT_STORE_CHARS = 60000; // texto guardado por material na sessão
@@ -154,7 +155,13 @@ export async function fetchUrlDoc(raw, { allowLocal = process.env.SAGADECK_CONTE
   if (!/text\/|json|xml|octet-stream/.test(type) && type) throw new Error(`Não leio esse tipo de arquivo (${type}).`);
   const html = buf.toString("utf8");
   const title = decodeEnt((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/\s+/g, " ").trim());
-  return { name: title.slice(0, 120) || titleOf(u), text: /<html|<body|<p[ >]/i.test(html) ? htmlToText(html) : clean(html), detail: "página" };
+  return { name: title.slice(0, 120) || titleOf(u), text: /<html|<body|<p[ >]/i.test(html) ? htmlToText(html) : clean(html), detail: "página", visuals:pageVisuals(html,u.href) };
+}
+
+export async function fetchWebImage(raw,opts={}){
+  const{u,type,buf}=await fetchBuffer(raw,{allowLocal:!!opts.allowLocal,maxBytes:8*1024*1024});const mime=type.split(';')[0];
+  const valid=mime==='image/png'&&buf.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||mime==='image/jpeg'&&buf[0]===255&&buf[1]===216||mime==='image/webp'&&buf.subarray(0,4).toString()==='RIFF'&&buf.subarray(8,12).toString()==='WEBP';
+  if(!valid)throw new Error('A URL não devolveu PNG, JPEG ou WebP válido.');return{data:buf,mime,url:u.href};
 }
 
 async function fetchBuffer(raw, { allowLocal, maxBytes }) {

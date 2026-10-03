@@ -16,6 +16,7 @@ import { autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
 import { varietyReport } from "./variety.js";
 import { materialsBlock } from "./context.js";
+import { webVisualNodes, materializeWebVisuals } from '../research/visuals.js';
 import { COLLECTION_STYLE } from "../studio/template-collections.js";
 import { COMMAND_RULES, MAX_COMMANDS, commandRequest, envName } from "./commands.js";
 
@@ -65,6 +66,8 @@ ${images
   - pediu sem imagens (ou só ícones) → não gere.`
     : "- NÃO use `image_prompt` nem imagens externas; use as figuras geradas do sagadeck."}
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
+- Referências visuais REAIS são diferentes de ilustrações: para aplicações, tutoriais, personagens e produtos, use fotos/gráficos observados nas fontes com web_image: {url: URL_EXATA, source: PAGINA, alt: DESCRICAO}, ou uma captura pública com web_capture: {url: PAGINA, selector: SELETOR_OPCIONAL}. Não adivinhe URLs ou coordenadas de cliques. O motor importa a referência para a biblioteca e a apresentação funciona offline. Falhas aparecem; não substitua screenshot por desenho inventado. Não peça captura de páginas privadas ou autenticadas.
+- Para ensinar relações e redes (logística, dependências, pessoas, conhecimento), considere graphlab com nós semânticos e um experimento de rota/bloqueio. Para algoritmos, considere codelab com um desafio que o aluno possa alterar e executar. A escolha e o exemplo vêm do conteúdo, não do nome do assunto. HTTPX/NetworkX reais ficam em api/codewalk ou comandos Python; codelab interpreta Python simples, sem essas bibliotecas.
 
 === REFERÊNCIA DO YAML ===
 ${reference()}`;
@@ -293,10 +296,10 @@ function withoutImagePrompts(node) {
   if (Array.isArray(node)) return node.map(withoutImagePrompts);
   if (!node || typeof node !== "object") return node;
   const out = {};
-  for (const [k, v] of Object.entries(node)) if (k !== "image_prompt" && k !== "image_ref") out[k] = withoutImagePrompts(v);
+  for (const [k, v] of Object.entries(node)) if (!["image_prompt","image_ref","web_image","web_capture"].includes(k)) out[k] = withoutImagePrompts(v);
   // redesenho (image_ref): até gerar, vale a figura de base
   if ("image_prompt" in node && !out.image && typeof node.image_ref === "string" && node.image_ref) out.image = node.image_ref;
-  if ("image_prompt" in node && !out.image && Object.keys(out).every((k) => ["fit", "alt", "radius", "step", "anim", "w", "h"].includes(k))) {
+  if (("image_prompt" in node || node.web_image || node.web_capture) && !out.image && Object.keys(out).every((k) => ["fit", "alt", "radius", "step", "anim", "w", "h"].includes(k))) {
     out.icon = "image";
   }
   return out;
@@ -403,7 +406,7 @@ function collectImagePrompts(node, found = []) {
 }
 
 export function countImagePrompts(spec) {
-  return collectImagePrompts(spec.slides || []).length;
+  return collectImagePrompts(spec.slides || []).length + webVisualNodes(spec.slides||[]).length;
 }
 
 export async function materializeImages(spec, { assetsDir, baseDir, max = Infinity, onProgress, keepFailed = false } = {}) {
@@ -412,6 +415,7 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
   const failed = [];
   baseDir = baseDir || spec._dir || process.cwd();
   assetsDir = assetsDir || path.join(baseDir, "imagens");
+  if(max>0){const web=await materializeWebVisuals(spec,{baseDir,assetsDir:path.join(assetsDir,'web'),max:Math.min(max,4),onProgress});done.push(...web.done);failed.push(...web.failed);}
   for (const node of nodes.slice(0, max)) {
     const prompt = node.image_prompt.trim();
     // image_ref: a figura do deck que serve de base (redesenhar o xerox); falhou, fica ela mesma
