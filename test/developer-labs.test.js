@@ -45,7 +45,7 @@ test('download usa URL canônica, não lê configurações/cookies e pede áudio
 test('download sem ffmpeg baixa arquivo único em vez de travar na junção',async()=>{
  const deck=tempDeck();const old=process.env.SAGADECK_FFMPEG;delete process.env.SAGADECK_FFMPEG;try{
   const result=await downloadYoutube('https://youtu.be/M7lc1UVf-VE',deck.dir,{spawnProcess:(exe,args)=>{
-    assert.match(args[args.indexOf('-f')+1],/^best\[ext=mp4\]/);assert.ok(!args.includes('--ffmpeg-location'));
+    assert.match(args[args.indexOf('-f')+1],/^bv\[ext=mp4\]/);assert.ok(!args.includes('--ffmpeg-location'));
     fs.writeFileSync(args[args.indexOf('-o')+1],Buffer.from('mp4-test'));const child=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};queueMicrotask(()=>child.emit('close',0));return child;
   }});assert.ok(fs.existsSync(path.join(deck.dir,result.url)));
  }finally{if(old===undefined)delete process.env.SAGADECK_FFMPEG;else process.env.SAGADECK_FFMPEG=old;deck.cleanup();}
