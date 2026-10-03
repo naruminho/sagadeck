@@ -63,7 +63,7 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
     assert.ok(inside(studio.library, r.file), r.file);
     assert.equal(path.basename(path.dirname(r.file)) + ".yaml", path.basename(r.file), "pasta própria");
     assert.deepEqual(fs.readdirSync(fora), ["aberto.yaml"], "nada solto ao lado do deck aberto");
-    let pedido = llm.requests.at(-1).lastUser;
+    let pedido = llm.requests.findLast(r => /Crie a apresentação inteira/.test(r.lastUser)).lastUser;
     assert.match(pedido, /Use o tema "editorial"/);
     assert.match(pedido, /Duração planejada: 12 minutos/);
     assert.match(pedido, /Cerca de 8 slides/, "12 min → 8 slides");
@@ -75,7 +75,7 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
     assert.equal(status, 200, JSON.stringify(r));
     const file = path.join(studio.library, ...r.id.split("/"));
     assert.ok(fs.existsSync(file), file);
-    pedido = llm.requests.at(-1).lastUser;
+    pedido = llm.requests.findLast(r => /Crie a apresentação inteira/.test(r.lastUser)).lastUser;
     assert.match(pedido, /Receita de 3 bilhões/, "o anexo vai no pedido");
     assert.match(pedido, /Use o tema "prata"/, "estilo essencial → tema prata");
     assert.match(pedido, /Duração planejada: 20 minutos/);

@@ -8,6 +8,28 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Exportação PPTX/PDF — 03/10/2026
+
+- Diagnóstico com decks sintéticos de dois slides; a aula de 80 slides não foi usada nesta rodada.
+- LaTeX no PowerPoint preservado como imagem em resolução dupla: fórmula isolada ou parágrafo inteiro com fórmulas, mantendo também o texto entre elas. Evita reconstrução incorreta de frações, expoentes e fontes KaTeX.
+- Exportação aguarda gráficos, diagramas, fontes e decodificação de imagens, com limite de 15 s na preparação. PDF também espera as imagens das páginas antes de imprimir. Navegadores são fechados em finally, inclusive em erro.
+- PPTX emite estado inicial oculto para entradas por clique. Widgets escapam fechamento de script. Falha de salvar retorna 500; arquivos temporários têm identificador único e são limpos.
+- PDF preserva o tema por padrão; a preferência explícita de impressão clara continua disponível.
+- Verificação pontual: downloads HTTP PPTX/PDF válidos, PDF aberto por parser com duas páginas e imagens em ambas; PowerPoint instalado abriu e renderizou frações, integrais, derivadas e fórmulas inline. Entradas e saídas abriram com três efeitos. Downloads pelo menu do Studio também passaram.
+- Validação final: npm test, 700 testes (680 passaram, 20 pulados, zero falhas); regressão adicional de preferências passou. Bundle Python atualizado. A preferência local PDF claro foi desativada pela API do Studio para manter o visual do HTML.
+- Otimizações de singleton, cache e refatorações amplas ficaram fora desta correção, para manter diagnóstico e mudança pontuais.
+
+## Recriação visual fiel — 02/10/2026
+
+- Em curso: testar a aula PPTX de 83 slides pelo próprio SagaDeck, sem retoques manuais no deck. Importada uma cópia na biblioteca, tópico Laboratório de recriação.
+- Regressões encontradas: prompt de recriação proibia image_prompt enquanto outras regras exigiam imagens; escritor recebia apenas itens do plano, perdendo o pedido visual completo. Teste reproduziu a proibição.
+- Plano: corrigir instruções gerais; gerar a aula pelo chat; conferir conteúdo e figuras contra originais; corrigir falhas reproduzíveis no produto; repetir avaliações reais de capacidade/algoritmo/consulta; suíte, bundle, publicação e reinício na 3517.
+- Referências visuais: acabamento de maquete/corte 3D para conceitos; mapas específicos precisam manter evidência, sem inventar geografia.
+- Implementado: referências anexadas chegam à visão no planejamento, pedido completo chega à escrita; geração revisa automaticamente quando há ferramenta de revisão e admite três correções; resultado revelado tem estado explícito; curvas têm contraste e traços distinguíveis.
+- Revisão: JSON com texto ao redor é aceito; indisponibilidade registra motivo, e achados contraditórios passam por confirmação semântica. Não se declara conferido quando uma revisão falha.
+- Testes específicos desta frente: 57 passaram. A suíte anterior encontrou uma asserção desatualizada que examinava a revisão como se fosse o pedido de geração; ajustada para conferir a chamada correta.
+- Avaliações reais: capacidade teve revisão posterior aprovada; algoritmo e consulta ainda têm pendências. A validação integral da aula permanece pendente; o pedido de 03/10 mudou a prioridade para exportações pequenas, sem novos testes na aula longa.
+
 ## Experiências exploráveis e autonomia — 02/10/2026
 
 Plano completo e estado de retomada: `docs/PLANO-EXPERIENCIAS.md`. Pedido do usuário: implementar as sete frentes, registrar avanços e publicar etapas validadas.

@@ -14,6 +14,9 @@ test("preferências: sem arquivo valem os padrões; gravar é parcial, respeita 
   assert.equal(preferencesFile({ SAGADECK_PREFERENCIAS: f }), f);
   assert.equal(preferencesFile({}, "C:/casa"), path.join("C:/casa", ".sagadeck", "preferencias.json"));
   assert.deepEqual(loadPreferences(f).texto, { minCodePt: 10, minTextPt: 6, wrapCode: true });
+  assert.equal(loadPreferences(f).exportacao.pdfClaro, false, "PDF preserva o tema por padrão");
+  savePreferences({ exportacao: { pdfClaro: true } }, f);
+  assert.equal(loadPreferences(f).exportacao.pdfClaro, true, "impressão clara continua uma escolha explícita");
   savePreferences({ texto: { minCodePt: 12 } }, f);
   assert.deepEqual(loadPreferences(f).texto, { minCodePt: 12, minTextPt: 6, wrapCode: true }, "só o que mudou");
   savePreferences({ texto: { minCodePt: 99, wrapCode: false, inventada: 1 } }, f);

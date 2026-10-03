@@ -9,7 +9,7 @@ import { estudoHTML } from '../src/export/estudo.js';
 import { reviewExperience } from '../src/ai/quality.js';
 import { evaluateAutonomy } from '../src/ai/evaluation.js';
 import { explorationDemo } from '../src/studio/exploration-demo.js';
-import { editDeck } from '../src/ai/deck-ai.js';
+import { editDeck, generateDeck } from '../src/ai/deck-ai.js';
 import { startMockLLM } from './mock-llm.js';
 import { measureLLM } from '../src/ai/usage.js';
 import { chat } from '../src/ai/llm.js';
@@ -83,6 +83,7 @@ test('navegador: prever, revelar, comparar, cenário, curva e restaurar', async 
     await page.waitForSelector('[data-calc-ready]');
     assert.equal(await page.locator('.calc-outputs').isVisible(), false);
     await page.click('[data-calc-reveal]');
+    assert.equal(await page.locator('[data-calc-reveal]').innerText(), 'Resultado revelado');
     await page.click('[data-calc-freeze]');
     await page.click('[data-calc-scenario="0"]');
     assert.equal(await page.locator('[data-calc-out="wait"]').innerText(), '1,000');
@@ -137,4 +138,22 @@ test('resultado alterado mantém contraste no tema prata claro', async t => {
     assert.ok(Number(color.match(/\d+/)[0]) < 150, `texto precisa contrastar com o fundo claro: ${color}`);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); deck.cleanup(); }
+});
+
+test('geração confere mesmo sem review no YAML e corrige até a revisão passar', async () => {
+  let reviews = 0;
+  const llm = await startMockLLM(req => req.lastUser.includes('Corrija somente') ? '```yaml\nedit:\n  1:\n    title: Corrigida\n```' : '```yaml\ndeck:\n  title: Exemplo\nslides:\n  - layout: cover\n    title: Exemplo\n  - layout: statement\n    text: Conteúdo\n```');
+  const before = process.env.SAGADECK_LLM_URL; process.env.SAGADECK_LLM_URL = llm.url;
+  try {
+    const r = await generateDeck('Crie dois slides sem perguntar', { research:false, images:false, reviewCheck:async () => (++reviews < 3 ? { issues:[{slide:1,text:'Título ilegível'}], unchecked:[], verified:false } : {issues:[],unchecked:[],verified:true}) });
+    assert.equal(reviews,3); assert.equal(r.quality.verified,true); assert.equal(r.spec.slides[0].title,'Corrigida');
+  } finally { if(before==null) delete process.env.SAGADECK_LLM_URL; else process.env.SAGADECK_LLM_URL=before; await llm.close(); }
+});
+
+test('revisão confirma semanticamente defeitos sem tratar verificações corretas como erros',async()=>{
+  let call=0;
+  const r=await reviewExperience({slides:[slide]},[0],{snapshot:async()=>[{label:'Inicial',dataUrl:'data:image/png;base64,AA=='}],complete:async()=>({text:++call===1?'Texto antes. ```json\n{"issues":["O resultado está correto","Controle ilegível"]}\n```':'{"confirmed":[1]}'})});
+  assert.deepEqual(r.issues,[{slide:1,text:'Controle ilegível'}]);assert.deepEqual(r.unchecked,[]);
+  const failed=await reviewExperience({slides:[slide]},[0],{snapshot:async()=>{throw Error('Render indisponível');}});
+  assert.equal(failed.failures[0].reason,'Render indisponível');assert.equal(failed.verified,false);
 });

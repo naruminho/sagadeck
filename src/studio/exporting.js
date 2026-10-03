@@ -48,7 +48,7 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
       } else if (what === "pdf") {
         const { pdf } = await import("../export/shots.js");
         // Preferências › Exportação: tema escuro com par claro (manual-noite → manual) sai claro no PDF, bom para imprimir
-        const light = loadPreferences().exportacao.pdfClaro !== false ? lightVariant(spec) : null;
+        const light = loadPreferences().exportacao.pdfClaro === true ? lightVariant(spec) : null;
         let file = htmlFile;
         if (light) { file = path.join(tmp, "deck-claro.html"); fs.writeFileSync(file, buildHTML(light).html); }
         await pdf(file, out);

@@ -211,7 +211,7 @@ ${html}
 <div id="help"><b>Atalhos</b><br><kbd>→</kbd><kbd>espaço</kbd> avança · <kbd>←</kbd> volta<br><kbd>D</kbd> caneta ao vivo · <kbd>M</kbd> marca-texto · <kbd>C</kbd> limpa tela<br><kbd>P</kbd> janela do apresentador (notas + cronômetro)<br><kbd>F</kbd> tela cheia · <kbd>G</kbd> visão geral<br><kbd>B</kbd> tela preta · <kbd>W</kbd> tela branca<br><kbd>L</kbd> apontador laser · <kbd>R</kbd> zera timer<br><kbd>5</kbd><kbd>Enter</kbd> vai ao slide 5 · <kbd>H</kbd> esta ajuda</div>
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
 <script>window.Sagadeck={_q:[],widget:function(n,d){this._q.push([n,d])}};</script>
-<script>${widgets}</script>
+<script>${widgets.replace(/<\/script/gi, "<\\/script")}</script>
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
 ${spec.slides.some(s => s.layout === "decisionlab") ? `<script>${read("runtime/decision-lab.js")}</script>` : ""}

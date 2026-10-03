@@ -1,13 +1,14 @@
 // PNG de cada slide, folha de contato, PDF e verificação automática de qualidade.
 import fs from "node:fs";
 import path from "node:path";
-import { openDeck } from "./browser.js";
+import { openDeck, waitForResources } from "./browser.js";
 
 // Estado final de cada slide (todos os cliques revelados)
 export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, jpeg = false } = {}) {
   fs.mkdirSync(outDir, { recursive: true });
   for (const f of fs.readdirSync(outDir)) if (/^slide-\d+.*\.(png|jpg)$|^folha-\d+\.png$/.test(f)) fs.unlinkSync(path.join(outDir, f));
   const { browser, page, errors } = await openDeck(htmlFile, { scale });
+  try {
   const n = await page.evaluate(() => window.sagadeck.n);
   const files = [];
   for (let i = 0; i < n; i++) {
@@ -22,8 +23,8 @@ export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, 
       files.push(f);
     }
   }
-  await browser.close();
   return { files, errors };
+  } finally { await browser.close(); }
 }
 
 // Junta miniaturas em folhas (12 por folha) para revisão rápida
@@ -31,23 +32,25 @@ export async function contactSheet(files, outDir, { perSheet = 12, cols = 3 } = 
   const { chromium } = await import("playwright-core");
   const { findBrowser } = await import("./browser.js");
   const browser = await chromium.launch({ executablePath: findBrowser() });
+  try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   const out = [];
   for (let s = 0; s < files.length; s += perSheet) {
     const chunk = files.slice(s, s + perSheet);
     const cells = chunk.map((f) => `<figure><img src="data:image/png;base64,${fs.readFileSync(f).toString("base64")}"><figcaption>${path.basename(f, ".png").replace("slide-", "")}</figcaption></figure>`).join("");
     await page.setContent(`<style>body{margin:0;background:#1a1a1a;font:600 22px system-ui;color:#ddd}main{display:grid;grid-template-columns:repeat(${cols},1fr);gap:18px;padding:18px}figure{margin:0;position:relative}img{width:100%;display:block;border-radius:6px}figcaption{position:absolute;left:8px;top:6px;background:#000c;padding:2px 8px;border-radius:5px}</style><main>${cells}</main>`);
-    await page.waitForTimeout(100);
+    await waitForResources(page);
     const f = path.join(outDir, `folha-${Math.floor(s / perSheet) + 1}.png`);
     await page.screenshot({ path: f, fullPage: true });
     out.push(f);
   }
-  await browser.close();
   return out;
+  } finally { await browser.close(); }
 }
 
 export async function pdf(htmlFile, outFile) {
   const { browser, page } = await openDeck(htmlFile, { scale: 1 });
+  try {
   const n = await page.evaluate(() => window.sagadeck.n);
   const imgs = [], links = [];
   for (let i = 0; i < n; i++) {
@@ -61,8 +64,9 @@ export async function pdf(htmlFile, outFile) {
   const hit = (l) => `<a href="#p${l.to}" style="position:absolute;left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px"></a>`;
   const { w: W, h: H } = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 }); // deck.aspect
   await page.setContent(`<style>@page{size:${W}px ${H}px;margin:0}body{margin:0}.pg{position:relative;width:${W}px;height:${H}px;page-break-after:always;overflow:hidden}img{width:${W}px;height:${H}px;display:block}</style>${imgs.map((b, i) => `<div class="pg" id="p${i}"><img src="data:image/jpeg;base64,${b}">${links[i].map(hit).join("")}</div>`).join("")}`);
+  await waitForResources(page);
   await page.pdf({ path: outFile, width: `${W}px`, height: `${H}px`, printBackground: true });
-  await browser.close();
+  } finally { await browser.close(); }
 }
 
 // Itens com goto do slide i (dentro do navegador): retângulo em pixels do slide e o índice do slide de destino
@@ -164,6 +168,7 @@ export function inPageCheck(i) {
 
 export async function check(htmlFile) {
   const { browser, page, errors } = await openDeck(htmlFile);
+  try {
   const n = await page.evaluate(() => window.sagadeck.n);
   const report = [];
   for (let i = 0; i < n; i++) {
@@ -172,6 +177,6 @@ export async function check(htmlFile) {
     const issues = await page.evaluate(inPageCheck, i);
     if (issues.length) report.push({ slide: i + 1, issues });
   }
-  await browser.close();
   return { report, errors };
+  } finally { await browser.close(); }
 }

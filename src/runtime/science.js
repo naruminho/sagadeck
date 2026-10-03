@@ -13,7 +13,26 @@
   function palette(p) {
     const cs = getComputedStyle(p);
     const pick = (n) => cs.getPropertyValue(`--${n}`).trim();
-    return { series: [1, 2, 3, 4, 5].map((i) => pick(`s${i}`) || ['#7760ed', '#e0672c', '#1b998b', '#c2185b', '#3d5a80'][i - 1]), named: (c) => pick(c) || c };
+    // Uma cor de preenchimento (hi) pode sumir como traço no mesmo tema.
+    const canvas = document.createElement('canvas').getContext('2d');
+    const rgb = color => {
+      const probe = document.createElement('i'); probe.style.color = color; p.append(probe);
+      canvas.fillStyle = getComputedStyle(probe).color; probe.remove();
+      canvas.clearRect(0, 0, 1, 1); canvas.fillRect(0, 0, 1, 1);
+      return [...canvas.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    };
+    const luminance = c => c.map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((s,v,i) => s + v * [.2126,.7152,.0722][i],0);
+    const bg = luminance(rgb(pick('bg') || '#fff'));
+    const readable = color => {
+      const source = rgb(color), target = bg > .4 ? 0 : 255;
+      for (let a = 0; a <= 1.01; a += .05) {
+        const c = source.map(v => Math.round(v * (1-a) + target * a));
+        const l = luminance(c);
+        if ((Math.max(l,bg)+.05)/(Math.min(l,bg)+.05) >= 3) return `rgb(${c.join(',')})`;
+      }
+      return target ? '#fff' : '#000';
+    };
+    return { series: [1, 2, 3, 4, 5].map((i) => readable(pick(`s${i}`) || ['#7760ed', '#e0672c', '#1b998b', '#c2185b', '#3d5a80'][i - 1])), named: (c) => readable(pick(c) || c) };
   }
   // fórmula -> traces: a mesma conta do motor (src/science.js), com os valores atuais dos controles
   function formulaTraces(m, values, p) {
@@ -21,7 +40,7 @@
     if (!m.surface) m.functions.forEach((f, i) => { // com superfície 3D, só ela (curva 2D e 3D juntas não combinam)
       if (!f.ok) return;
       const s = F.sample(F.compile(f.fn, ['x']), m.x, values, 400, m.xlog);
-      out.push({ type: 'scatter', mode: 'lines', name: f.name, x: s.x, y: s.y, line: { width: 4, color: f.color ? col.named(f.color) : col.series[i % 5] } });
+      out.push({ type: 'scatter', mode: 'lines', name: f.name, x: s.x, y: s.y, line: { width: 4, dash: ['solid','dash','dot','dashdot'][i % 4], color: f.color ? col.named(f.color) : col.series[i % 5] } });
     });
     if (m.points && !m.surface) out.push({ type: 'scatter', mode: 'markers', name: m.points.name, x: m.points.x, y: m.points.y, marker: { size: 11, color: col.series[out.length % 5] } });
     if (m.surface) {

@@ -66,6 +66,8 @@
       const setValues = (v) => rootEl.querySelectorAll('[data-calc-in]').forEach(el => { el.value = v[el.dataset.calcIn] ?? model.inputs.find(i => i.name === el.dataset.calcIn).value; });
       if (model.prediction) rootEl.classList.add('calc-unrevealed');
       const values = () => Object.fromEntries([...rootEl.querySelectorAll("[data-calc-in]")].map((i) => [i.dataset.calcIn, Number(i.value)]));
+      const revealButton = rootEl.querySelector('[data-calc-reveal]');
+      const reveal = () => { rootEl.classList.remove('calc-unrevealed'); if (revealButton) { revealButton.textContent = 'Resultado revelado'; revealButton.disabled = true; } };
       const redraw = () => {
         const v = values(), res = evaluate(model, v);
         for (const i of model.inputs) { const el = rootEl.querySelector(`[data-calc-show="${i.name}"]`); if (el) el.textContent = format(v[i.name], i); }
@@ -106,13 +108,14 @@
       freezeButton?.addEventListener('click', () => { frozen = { values: values(), results: evaluate(model, values()) }; freezeButton.textContent = 'Comparação fixada'; freezeButton.setAttribute('aria-pressed', 'true'); redraw(); });
       rootEl.querySelector('[data-calc-reset]')?.addEventListener('click', () => {
         frozen = null; previous = null; setValues({});
+        if (revealButton) { revealButton.textContent = 'Ver resultado'; revealButton.disabled = false; }
         if (freezeButton) { freezeButton.textContent = 'Comparar com este'; freezeButton.setAttribute('aria-pressed', 'false'); }
         rootEl.querySelectorAll('[data-calc-scenario]').forEach(b => b.setAttribute('aria-pressed', 'false'));
         if (explain) explain.textContent = model.explanation;
         rootEl.classList.toggle('calc-unrevealed', !!model.prediction); redraw();
       });
-      rootEl.querySelector('[data-calc-reveal]')?.addEventListener('click', () => rootEl.classList.remove('calc-unrevealed'));
-      rootEl.querySelector('[data-calc-free]')?.addEventListener('click', () => { rootEl.classList.remove('calc-unrevealed'); if (explain) explain.textContent = `Modo livre: ajuste as entradas. ${model.explanation || ''}`; rootEl.querySelector('[data-calc-in]')?.focus(); });
+      revealButton?.addEventListener('click', reveal);
+      rootEl.querySelector('[data-calc-free]')?.addEventListener('click', () => { reveal(); if (explain) explain.textContent = `Modo livre: ajuste as entradas. ${model.explanation || ''}`; rootEl.querySelector('[data-calc-in]')?.focus(); });
       rootEl.querySelectorAll("[data-calc-in]").forEach((inp) => {
         const stop = (e) => e.stopPropagation(); // setas e cliques no controle não trocam de slide
         ["keydown", "pointerdown", "click"].forEach((ev) => inp.addEventListener(ev, stop));

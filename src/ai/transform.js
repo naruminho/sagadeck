@@ -156,6 +156,9 @@ const TOOLBOX = `Ferramentas para cada item do plano (campo "acao"):
 - "novo": slide que não existia (exercício resolvido, calculadora, pergunta para a turma, gráfico feito a partir de uma tabela, algoritmo passo a passo de um método, resumo). "de" = os slides que dão a base (os dados vêm deles).
 Recursos do sagadeck que costumam fazer diferença numa aula: calc (fórmula com entradas que a turma mexe), science (curvas com controles), chart (toda tabela numérica pode virar gráfico), solution (exercício resolvido passo a passo com os dados do próprio material), algo com program: (um método passo a passo como programa: ordenar e classificar, redistribuir blocos…), spotlight (mapa ou figura com regiões explicadas), compare, timeline, diagram, infographic, question/poll, split com a figura original.`;
 const CONTENT_RULES = `Regras de conteúdo (valem sempre):
+- DIREÇÃO VISUAL: interprete o pedido completo, inclusive nível de acabamento. Quando pede recriação visual ambiciosa, reserve ilustrações protagonistas para os conceitos que se beneficiam delas, com composição editorial, materiais, luz e profundidade coerentes. Um conceito físico genérico pode ganhar um corte isométrico ou maquete 3D ilustrativa com image_prompt, em vez de apenas colorir o xerox. Não force este estilo se não foi pedido.
+- FIDELIDADE VISUAL: figuras específicas (cartografia de um lugar, medições, fronteiras, redes reais) preservam topologia, rótulos e fonte. Nunca invente relevo, coordenadas ou cotas para deixá-las bonitas. Se não houver dados para reconstrução exata, mantenha a evidência e use uma ilustração conceitual separada e identificada como tal. Figuras genéricas podem mudar perspectiva e composição preservando o mecanismo.
+- Nas ilustrações novas, prefira rótulos e explicações editáveis fora da imagem. A aparência 3D não implica dados geográficos reais. Imagens são parte da explicação, não enfeites repetidos em todos os slides.
 - NADA do original pode se perder: números, unidades, fórmulas, nomes, siglas, leis, fontes/créditos das figuras, exemplos, tabelas inteiras, observações. Se não couber no slide, vai para outro slide, para \`consulta\` ou para notes.
 - Figuras: pense como um designer que entende do assunto, figura por figura. REDESENHE bonito com os recursos do sagadeck sempre que der para reconstruir sem perder nada: gráfico cujos dados ou cuja equação estão no material (\`chart\` com os pontos, ou \`science\` com a curva da equação), tabela em imagem legível (\`table\`), esquema, fluxo ou ciclo (\`infographic\`, \`diagram\`), equação (LaTeX). Original feio, borrado ou escaneado que dá para reconstruir: reconstrua. MANTENHA a imagem original (image: …, ou figure: { image: … }, pelo caminho dado) só quando ela é insubstituível: foto real, mapa de um lugar, figura com dado que não dá para ler ou reproduzir com fidelidade; aí ela fica, mesmo feia, com a fonte. NUNCA as duas: redesenhou ou transcreveu (tabela, equação, gráfico), a imagem original não entra, nem como "versão alternativa" ou "imagem original". Confira o caminho: a imagem tem de ser a do assunto do slide.
 - Não invente dado. Se o original parecer ter um erro (fórmula que contradiz o gráfico, número que não fecha), NÃO troque em silêncio: aponte em "alertas" e, no slide, mostre o que o material sustenta com uma nota curta para o professor validar.
@@ -205,7 +208,7 @@ export function jobStatus(dir, mode) {
   } catch { return null; }
 }
 
-export async function transformDeck({ spec, dir, mode = "melhorar", request = "", onProgress = () => {}, textModel, visionModel, maxRounds = 2, signal, limits = {}, log = () => {}, resume = true }) {
+export async function transformDeck({ spec, dir, mode = "melhorar", request = "", visualReferences = [], onProgress = () => {}, textModel, visionModel, maxRounds = 2, signal, limits = {}, log = () => {}, resume = true }) {
   if (!["melhorar", "recriar"].includes(mode)) throw new Error(`modo desconhecido: ${mode}`);
   const originals = (spec.slides || []).filter((s) => s.layout === "canvas" && s.original);
   if (!originals.length) throw new Error("Esta apresentação não veio de uma importação (importe o PowerPoint primeiro: Biblioteca › Importar apresentação).");
@@ -349,7 +352,7 @@ Responda só JSON: {"slides":[{"n":6,"figuras":[{"arquivo":"imagens/original/ima
     job.stage = "plano"; save();
     progress("plano", "Planejando o que fazer com cada slide…");
     const planMsg = [
-      { role: "system", content: `${systemPrompt({ images: false })}\n\n${TOOLBOX}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}` },
+      { role: "system", content: `${systemPrompt({ images: true, maxImages: 6 })}\n\n${TOOLBOX}\n\n${CONTENT_RULES}\n\n${MODE_RULES[mode]}` },
       { role: "user", content: `Pedido do professor: ${request || (mode === "melhorar" ? "melhore a apresentação mantendo o estilo" : "recrie a apresentação do zero")}
 
 Apresentação original (${originals.length} slides; proporção ${spec.aspect || "16:9"}):
@@ -359,6 +362,7 @@ Faça o PLANO. Responda só com um bloco \`\`\`json:
 {"tema": "${mode === "recriar" ? "um dos temas do sagadeck" : "(ignorado no modo melhorar)"}", ${mode === "recriar" ? '"paleta": "uma das paletas do sagadeck, se o pedido ou o assunto pedir (senão omita)", ' : ""}"proposito": "palestra (para apresentar; o padrão) ou consulta (para o aluno estudar depois), pelo pedido", "titulo": "título da apresentação", "alertas": ["possível erro no conteúdo, com o slide"], "slides": [{"acao": "manter|juntar|escrever|novo", "de": [3], "ideia": "o que vai ter e qual layout/recurso", "imagens": ["imagens/…"]}]}
 Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mantenha "ideia" curta (1 a 2 frases).` },
     ];
+    if (visualReferences.length) planMsg[1].content = [{ type: "text", text: planMsg[1].content + "\nReferências visuais anexadas: inspire-se no acabamento; descreva a direção de arte nas ideias de cada item, sem copiar dados ou geografia." }, ...visualReferences.slice(0, 5).map(v => ({ type: "image_url", image_url: { url: v.dataUrl } }))];
     try {
       for (let attempt = 1; attempt <= 3 && !job.plan; attempt++) {
         const r = await ask(planMsg, { maxTokens: 24000 });
@@ -400,7 +404,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
     if (typeof deckBase.theme === "string" && !THEMES[deckBase.theme]) deckBase.theme = "oceano";
     if (mode === "recriar" && typeof plan.paleta === "string" && PALETTES[plan.paleta]) deckBase.palette = plan.paleta;
   } catch {}
-  const writeSystem = `${systemPrompt({ images: false })}\n\n${CONTENT_RULES}\n${PURPOSE_RULES[deckBase.purpose]}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
+  const writeSystem = `${systemPrompt({ images: true, maxImages: 6 })}\n\n${CONTENT_RULES}\n${PURPOSE_RULES[deckBase.purpose]}\n\n${MODE_RULES[mode]}\n\nFormato: responda com UM bloco \`\`\`yaml com \`slides:\` (a lista de slides completos). Cada slide leva \`origem: N\` (o número do ITEM do plano de onde ele saiu) e \`mudou: "uma frase: o que mudou em relação ao original"\`. Um item pode virar mais de um slide. Caminhos de imagem: só os que foram dados. Coloque entre aspas todo texto com ": " ou que comece com marcação.`;
   const srcOf = (it) => (it.de || []).map((n) => orig.get(Number(n))).filter(Boolean);
   const vocab = vocabularyOf(originals);
   // manter e juntar: código (sem IA)
@@ -529,7 +533,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       const before = plan.slides.slice(Math.max(0, batch[0].k - 3), batch[0].k).map((it) => `- ${it.ideia}`).join("\n");
       const messages = [
         { role: "system", content: writeSystem },
-        { role: "user", content: `Deck: título "${deckBase.title}", tema ${typeof deckBase.theme === "string" ? deckBase.theme : "o do original (mestre já aplicado)"}.${before ? `\nLogo antes vêm:\n${before}` : ""}\n\nEscreva os slides destes itens do plano:\n\n${itemsText}` },
+        { role: "user", content: `Pedido completo da pessoa (preserve a direção visual em cada bloco): ${job.request}\n\nDeck: título "${deckBase.title}", tema ${typeof deckBase.theme === "string" ? deckBase.theme : "o do original (mestre já aplicado)"}.${before ? `\nLogo antes vêm:\n${before}` : ""}\n\nEscreva os slides destes itens do plano:\n\n${itemsText}` },
       ];
       let produced = null, lastErr = null;
       for (let attempt = 1; attempt <= 3 && !produced; attempt++) {

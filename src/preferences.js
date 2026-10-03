@@ -19,7 +19,7 @@ export const PREF_SCHEMA = {
     idioma: { def: "auto" },   // auto = o idioma do pedido
   },
   exportacao: {
-    pdfClaro: { def: true },   // PDF e impressão na versão clara do tema (quando o tema tem par claro/escuro)
+    pdfClaro: { def: false },   // PDF e impressão na versão clara do tema (quando o tema tem par claro/escuro)
   },
 };
 
