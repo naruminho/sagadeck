@@ -227,6 +227,7 @@ ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/ven
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="portal") ? `<script>${read("runtime/portal-scene.js")}</script>` : ""}
+${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runtime/points.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}
 </body></html>`;
@@ -248,10 +249,18 @@ export function setFitDefaults(d = {}) {
 }
 export const fitDefaults = () => ({ ...FIT_DEFAULTS });
 
+// eco ambiente: camada viva discreta atrás do conteúdo (só no HTML; PPTX/PDF usam o quadro parado)
+const AMBIENT = ["pontos", "grade"];
+function ambientOf(s, i, ctx) {
+  if (s.ambient == null || s.ambient === "") return "";
+  if (!AMBIENT.includes(s.ambient)) { ctx.warnings?.push(`slide ${i + 1}: ambiente "${s.ambient}" desconhecido (vale: ${AMBIENT.join(", ")})`); return ""; }
+  return s.ambient;
+}
 // <section> de um slide: tom, textura, estilo do destaque, fundo, área, cabeçalho e rodapé.
 // Única montagem para o Studio (renderSlide) e para a apresentação/exportação (buildHTML).
 function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, current = false }) {
   let inner = innerIn;
+  const ambient = ambientOf(s, i, ctx);
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
@@ -274,7 +283,8 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
     const hd = inner.match(/<header class="hd">[\s\S]*?<\/header>/);
     if (hd) { bandTitle = `<div class="master-title">${hd[0].replace(/<[a-z0-9]+ [^>]*class="[^"]*\bttl\b[^"]*"[^>]*/, (tag) => `${tag}${/\sdata-fit[\s=>]|\sdata-fit$/.test(tag) ? "" : " data-fit"} data-fit-self`)}</div>`; inner = inner.replace(hd[0], ""); }
   }
-  let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${ambient ? ` data-ambient="${ambient}"` : ""}${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  if (ambient) html += `<div class="ambient" aria-hidden="true"></div>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;
   // mestre do deck (logos, faixas, número da página: src/master.js), atrás do conteúdo
   if (withMaster) html += `<div class="master" aria-hidden="true">${masterElements(spec, layout, i).map((e) => el(e, ctx)).join("")}</div>`;

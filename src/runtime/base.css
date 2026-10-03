@@ -28,6 +28,20 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-k
 @keyframes trMorphOut{to{opacity:0;transform:scale(.985)}}
 @keyframes trMorphIn{from{opacity:0;transform:scale(1.045)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.slide.tr-leaving-saida,.slide.current[data-tr="saida"],.slide.tr-leaving-morph,.slide.current[data-tr="morph"]{animation:none}}
+/* eco ambiente: camada viva discreta atrás do conteúdo; ecoa a capa sem repeti-la (só no HTML) */
+.slide .ambient{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5}
+.slide[data-ambient="pontos"] .ambient{background-image:radial-gradient(color-mix(in srgb,var(--em) 55%,transparent) 2px,transparent 2.5px);background-size:44px 44px;animation:ambientDrift 26s ease-in-out infinite alternate}
+.slide[data-ambient="grade"] .ambient{background-image:linear-gradient(color-mix(in srgb,var(--em) 22%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--em) 22%,transparent) 1px,transparent 1px);background-size:72px 72px;mask-image:radial-gradient(ellipse at 50% 120%,#000 30%,transparent 75%);animation:ambientPan 32s linear infinite}
+@keyframes ambientDrift{from{transform:translateY(-14px)}to{transform:translateY(14px)}}
+@keyframes ambientPan{from{background-position:0 0,0 0}to{background-position:0 72px,72px 0}}
+@media(prefers-reduced-motion:reduce){.slide .ambient{animation:none}}
+/* figura de pontos: luzinhas que viajam de uma forma a outra (só no HTML; PPTX/PDF usam a inicial) */
+.fig-points .pts-svg{width:100%;height:auto;color:var(--em)}
+.pts-dot{fill:currentColor;transition:transform .9s var(--ease)}
+[data-points-morph]{cursor:pointer}
+[data-points-morph]:focus-visible{outline:3px solid var(--em);outline-offset:8px;border-radius:12px}
+.pts-legend{text-align:center}
+@media(prefers-reduced-motion:reduce){.pts-dot{transition:none}}
 .safe{position:absolute;left:120px;right:120px;top:92px;bottom:104px;display:flex;flex-direction:column;isolation:isolate}
 .master{position:absolute;inset:0;pointer-events:none;z-index:0}
 .free{position:absolute;inset:0;isolation:isolate}

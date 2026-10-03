@@ -377,6 +377,49 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
   } finally { await browser.close(); deck.cleanup(); }
 });
 
+test("eco ambiente: poeira de luz e grade em movimento, sem erros", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(), file = path.join(deck.dir, "ambient.html");
+  fs.writeFileSync(file, buildHTML({ title: "Ambiente", theme: "noite", palette: "luzquente", slides: [
+    { layout: "statement", text: "Ar quente", ambient: "pontos" },
+    { layout: "statement", text: "Chão de grade", ambient: "grade" },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    const anim = (idx) => page.locator(`[data-idx="${idx}"] .ambient`).evaluate((e) => getComputedStyle(e).animationName);
+    assert.equal(await anim(0), "ambientDrift");
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await anim(1), "ambientPan");
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
+});
+
+test("figura de pontos: clique viaja as luzinhas e troca a legenda, sem erros", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(), file = path.join(deck.dir, "points.html");
+  fs.writeFileSync(file, buildHTML({ title: "Pontos", theme: "noite", palette: "luzquente", slides: [
+    { layout: "split", title: "Uma conversa vira ação", body: "Do áudio ao resumo.", figure: { points: { de: "fone", para: "mic", legenda: "Ouvindo", legendaPara: "Agindo" } } },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    const fig = page.locator("[data-points-morph]");
+    assert.equal(await fig.count(), 1);
+    assert.match(await page.locator(".pts-legend").innerText(), /Ouvindo/i);
+    await fig.click();
+    await page.waitForFunction(() => document.querySelector("[data-points-morph]")?.dataset.morphed === "true");
+    const moved = await page.locator(".pts-dot").first().evaluate((e) => e.style.transform);
+    assert.match(moved, /translate\(/);
+    assert.match(await page.locator(".pts-legend").innerText(), /Agindo/i);
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
+});
+
 test("transições saida e morph: saída e entrada comparáveis, sem erros", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;

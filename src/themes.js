@@ -427,6 +427,22 @@ export const THEMES = {
   },
 };
 
+// Prisma usa tipografia já vendorizada; a pele clara deixa a cor nos pontos de atenção.
+THEMES.prisma = {
+  ...THEMES.manual,
+  label: 'Prisma — claro contemporâneo: azul, verde, violeta, laranja e magenta',
+  pair: undefined,
+  colors: {paper:'FBFCFF',ink:'182642',accent:'3769E8',alert:'CC1856',muted:'64728B',line:'DFE5F0',surface:'F0F4FC',surfaceDark:'182642',c1:'3769E8',c2:'0B9475',c3:'7954D4',c4:'E47B28',c5:'CC1856'},
+  tones: {
+    ...THEMES.manual.tones,
+    light: {bg:'paper',fg:'ink',muted:'muted',line:'line',surface:'surface',hi:'E9EFFF',em:'accent',onHi:'ink'},
+    accent: {bg:'EDF2FF',fg:'ink',muted:'muted',line:'D7E2FF',surface:'FFFFFF',hi:'accent',em:'alert',onHi:'FFFFFF'},
+    alert: {bg:'FFF0F5',fg:'ink',muted:'muted',line:'F3D6E1',surface:'FFFFFF',hi:'alert',em:'alert',onHi:'FFFFFF'},
+  },
+  faces: THEMES.aurora.faces,
+  radius: 24, deco: 'none',
+};
+
 // Paletas: só as cores, independentes do tema (o tema cuida de fonte, arranjo e ornamentos). Qualquer tema aceita
 // qualquer paleta, no deck (palette:) ou num slide. De quatro cores saem os quatro tons (claro, escuro, destaque,
 // alerta). "tema" (ou nada) = as cores do próprio tema.
@@ -449,6 +465,7 @@ export const PALETTES = {
   tangerina: { label: "Tangerina (laranja e marinho)", paper: "FFFFFF", ink: "14213D", accent: "EC7000", alert: "1F4E8C", family: ["FFE3C7", "F9B26B", "EC7000", "1F4E8C", "0E2A55"] },
   safira: { label: "Safira (azuis)", paper: "FFFFFF", ink: "1B2A3A", accent: "1F6FB2", alert: "E8A317", family: ["DCEBF7", "A7CBEA", "5C9FD6", "1F6FB2", "0F3F6E"] },
   esmeralda: { label: "Esmeralda (verdes)", paper: "FFFFFF", ink: "1D2B24", accent: "2E8B57", alert: "0B5D3B", family: ["DDF2E6", "A8DDBE", "5DBB86", "2E8B57", "1B5E3A"] },
+  luzquente: { label: "Luz quente (brancos e âmbar, sem neon)", paper: "FFFDF6", ink: "26221A", accent: "B97F14", alert: "8C3B1B", family: ["FFF3D6", "F0D49A", "D9A441", "B97F14", "6E4E0C"] },
 };
 
 const rgb = (h) => [0, 2, 4].map((i) => parseInt(String(h).replace("#", "").slice(i, i + 2), 16));
