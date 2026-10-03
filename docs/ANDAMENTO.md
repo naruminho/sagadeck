@@ -1171,3 +1171,11 @@ Versões já publicadas como MIT continuam MIT.
 - Controle de palco incluído: início manual sem autoplay, avanço por clique ou pelo frame/fim do vídeo, revelação da composição por baixo sem recriar título, fade sincronizado ao mediaTime. Formulário do Studio salva início/final; testes verificam título persistente, ausência de timer e geometria/continuidade do vídeo (antes, el descartava x/y/w/h).
 - Primeira suíte completa: 750 testes, 727 passaram, 20 pulados, 3 falhas diagnosticadas (descoberta local de FFmpeg interferia no teste sem FFmpeg; quebra CRLF no exemplo da documentação; formato da dica de tema). As três regressões passaram após correção. Nova rodada completa necessária com os controles de palco finais.
 - Validação final: 754 testes, 734 passaram, 20 pulados e nenhuma falha. Bundle atualizado. Controles de abertura manual, revelação sincronizada e ferramenta de vídeo prontos para publicação.
+
+### Abertura de palco e pesquisa sem espera indefinida — 03/10/2026
+- `controls: stage`: início e avanço por clique ou teclado, sem controles visíveis para a audiência. O primeiro comando inicia; outro permite pular. O próximo slide pode ser a capa final nativa. Campo exposto no formulário e documentado para o agente.
+- Regressão reproduzida antes da correção: controles denunciavam a abertura e Espaço avançava em vez de iniciar. Teste de navegador agora verifica espera, ausência de controles, início, avanço e zero erros. Formulário salva o modo no deck.
+- Pesquisa: “Anotando…” era uma chamada ao LLM, com respostas de até 12 mil tokens e tentativas longas. Anotação agora curta, sem raciocínio adicional, com prazo total de 45s compartilhado pelas tentativas; ao esgotar avisa e continua. Teste com provedor lento falhou antes e passa após a correção, sem chamada repetida.
+- Geração: quantidade e formato explicitamente pedidos prevalecem sobre estimativa de duração; slide único não recebe capas/encerramentos/referências extras. Teste confere o prompt e resultado de um slide, sem heurística de palavras no código.
+- Testes focados passaram. Suíte completa em execução; dados pessoais, frames e vídeos permanecem somente na biblioteca.
+- Validação concluída: suíte completa com 757 testes, 737 passaram, 20 pulados e zero falhas. Bundle atualizado; abertura de palco e pesquisa com prazo prontas para publicação.

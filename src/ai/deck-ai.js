@@ -1046,7 +1046,7 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
   const wishes = [
     researchReport ? (await import("../research/research.js")).researchInstruction(researchReport) : "",
     theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
-    slides ? `Cerca de ${slides} slides.` : "",
+    slides ? `Cerca de ${slides} slides (estimativa por duração). Se o pedido da pessoa especificar uma quantidade ou um formato como slide único / one single page, o pedido prevalece; não adicione capa, encerramento ou referências como slides extras nesse caso.` : "",
     duration ? `Duração planejada: ${duration} minutos (grave duration e o time de cada slide).` : "",
     direction ? `Estilo que a pessoa escolheu: ${direction}` : "",
     decided?.purpose ? `Para que serve o material (já decidido): purpose: ${decided.purpose}${decided.why ? ` — ${decided.why}` : ""}.` : "",
