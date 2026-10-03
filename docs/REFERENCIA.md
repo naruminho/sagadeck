@@ -50,7 +50,7 @@ slides:
 | `steps: N` | força N cliques no slide (útil para widgets) |
 | `background` | figura de fundo atrás do conteúdo |
 | `bg` / `fg` | cor de fundo / texto (hex) só neste slide |
-| `transition` | `fade` (padrão) ou `cut` |
+| `transition` | `fade` (padrão), `cut` (seca), `saida` (o anterior recua e dissolve, o próximo entra de baixo) ou `morph` (crossfade longo com respiro de escala; combine com `continuity:` nos elementos que continuam) — só no HTML; PPTX/PDF usam o quadro final |
 | `footer: false` | esconde o rodapé neste slide |
 | `id` | nome curto do slide, destino dos links (`goto`, `back`, `next`, `[texto](#id)`); ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
 | `back` | id (ou número) do slide para onde o botão **Voltar** do canto leva; o botão mostra o título do destino |
@@ -984,7 +984,9 @@ A pesquisa agora inclui imagens observadas nas páginas lidas. Para fotos reais 
 ### Portal e transformação de cenário
 `portal` (`layout: portal`) é uma cena offline reutilizável, sem iframe/login do sistema real. `title`, `label` (convite no cenário), `caption` e `items` (elementos para explorar). Cada item aceita `title`, `text`, `icon` Lucide, `image` (imagem/screenshot local opcional), `beforeWord`, `afterWord` (texto grande integrado ao chão), `before`, `after` (explicação dos estados), `objects: [{label, icon}]` (as mesmas entidades se reorganizam). A pessoa entra num card com movimento de aproximação, transforma os objetos dispersos em um fluxo conectado e retorna ao catálogo. Alterne os estados sem perder os objetos. Tem movimento reduzido e botões nativos acessíveis. Use em produtos, aulas, logística ou processos; não restrinja ao hackathon. Não represente o catálogo ilustrativo como tela real nem simulação como app funcionando. Para interações particulares mais complexas, use playground. Demo de fábrica: cinematica.
 
-No `portal`, `skin: neon | editorial | industrial` muda o ambiente. Cada objeto aceita `shape: panel | sheet | orb | column`; rótulo e ícone continuam editáveis. O fluxo usa percurso em serpentina para evitar conexões diagonais entre linhas.
+No `portal`, `skin: aurora | neon | editorial | industrial` muda o ambiente. `aurora` é claro, com ícones planos em azul, verde, laranja e magenta, sem perspectiva retrô ou objetos com volume. A entrada revela a cena gradualmente durante a aproximação, sem esperar o fim da viagem para mostrá-la. Cada objeto aceita `shape: panel | sheet | orb | column`; na aparência clara os objetos usam painéis planos consistentes. Rótulo e ícone continuam editáveis. O fluxo usa percurso em serpentina para evitar conexões diagonais entre linhas.
+
+Tema `prisma`: fundo claro contemporâneo, tipografia Plus Jakarta Sans offline, azul, verde, violeta, laranja e magenta. Os tons `light`, `accent` e `alert` mantêm superfícies claras; use `dark` somente se pedido. Fluxos têm trilhas coloridas, números e ícones recebem cores por item. Recomendado para apresentações de inovação sem estética retrô. Varie a composição conforme a função narrativa: capa com ilustração, pôster para uma jornada, seção para uma ideia central e portal claro para explorar exemplos; não transforme todos os slides em cards.
 # Reunião de decisão e versão para participantes
 
 Uma enquete com `layout: poll`, `manual: true`, `id` único, `question` e `options` (textos) permite ao apresentador digitar votos e abstenções. Não coleta votos pela rede dos participantes. No preview do Studio, contagens e aprovação são salvas no YAML; empate e ausência de votos impedem aprovação. Reabrir permite corrigir. HTML offline informa que salvar decisões exige Studio.

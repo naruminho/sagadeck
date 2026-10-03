@@ -1147,3 +1147,9 @@ Versões já publicadas como MIT continuam MIT.
 - Recursos genéricos prontos: execução Python/Node, coleções, vídeo, frame isolado, portais e decisões persistentes; falta somente concluir publicação da etapa no GitHub.
 
 - Entrega publicada e mergeada: PR #120 (https://github.com/naruminho/sagadeck/pull/120), merge 1fb5a6f. Bundle atualizado, serviço local reiniciado na 3517. HTML de divulgação verificado sem controles de votação ou notas internas. CI remoto em andamento no momento do merge; suíte local e regressões finais aprovadas conforme acima.
+
+### Transições A/B capa→próximo (saida × morph) — em curso na feat/light-portal-direction
+- Pedido do Naru para o hackathon: comparar duas transições high-tech entre slides — A) capa sai / próximo entra, B) morph que se transforma no próximo — com a IA do sagadeck refazendo só pelo que vê no `ref`.
+- Implementado: `transition: saida` (anterior recua com escala 1.06 e dissolve em 450ms, próximo sobe 48px em 600ms) e `transition: morph` (crossfade 850ms com respiro de escala + FLIP de `continuity:` já existente) em `src/runtime/base.css` + gancho no `goto()` em `src/runtime/runtime.js` (sem movimento em `instant`, exportação ou preferência reduzida). Documentado em `docs/REFERENCIA.md`; formulário do Studio trocou a lista fantasma (`slide/zoom/none`, que nunca existiram) pelas reais (`fade/cut/saida/morph`).
+- Testes: `data-tr` emitido (`engine.test.js`) + classes de saída aplicadas/removidas e zero erros JS (`runtime.test.js`, navegação por teclado como a pessoa usa — o `goto` exposto é sempre `instant`). Suítes afetadas verdes: engine 59/59, runtime 34/34.
+- Falta nesta frente: eco ambiente mini nos estáticos, figura de pontos declarativa (fone→mic, docs caóticos→organizado) e paleta quente de bom gosto.

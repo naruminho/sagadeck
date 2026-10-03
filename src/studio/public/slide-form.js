@@ -89,7 +89,7 @@
     f.text("back", "Botão Voltar para", { hint: "Id do slide (ex.: mapa): mostra 'Voltar' no canto" }),
     f.text("next", "No fim, avançar para", { hint: "Id do slide: o fim de um caminho volta ao mapa em vez de seguir a ordem" }),
     f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
-    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.text("transition", "Transição", { datalist: ["fade", "slide", "zoom", "none"] }),
+    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.text("transition", "Transição", { datalist: ["fade", "cut", "saida", "morph"] }),
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".

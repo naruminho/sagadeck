@@ -713,3 +713,9 @@ test("gráfico de dados: várias séries viram colunas/barras agrupadas (com leg
   assert.match(figureHTML({ chart: "bar", csv: "dados/nao.csv", data: [{ label: "x", value: 1 }] }, ctx, 1200, 600), /class="gx"/, "arquivo sumido: ficam os dados do slide");
   assert.match(ctx.warnings.at(-1), /não encontrado/);
 });
+
+test("transição do slide vira data-tr: saida e morph para comparar", () => {
+  assert.match(html({ layout: "statement", text: "Saída", transition: "saida" }), /data-tr="saida"/);
+  assert.match(html({ layout: "statement", text: "Morph", transition: "morph" }), /data-tr="morph"/);
+  assert.match(html({ layout: "statement", text: "Padrão" }), /data-tr="fade"/);
+});

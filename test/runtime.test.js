@@ -376,3 +376,39 @@ test("tipografia cinética: avanço manual e automático, pausa, saída e export
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
   } finally { await browser.close(); deck.cleanup(); }
 });
+
+test("transições saida e morph: saída e entrada comparáveis, sem erros", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(), file = path.join(deck.dir, "transitions.html");
+  fs.writeFileSync(file, buildHTML({ title: "Transições", theme: "prisma", slides: [
+    { layout: "cover", title: "Capa viva", kicker: "HACKATHON" },
+    { layout: "statement", text: "Segunda cena", transition: "saida" },
+    { layout: "statement", text: "Terceira cena", transition: "morph" },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    await t.test("saida: o anterior recua e dissolve enquanto o próximo entra", async () => {
+      await page.keyboard.press("ArrowRight");
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 1);
+      assert.equal(await page.locator('[data-idx="0"].tr-leaving-saida').count(), 1);
+      await page.waitForTimeout(650);
+      assert.equal(await page.locator(".tr-leaving-saida").count(), 0, "a classe de saída é removida ao fim");
+    });
+    await t.test("morph: crossfade longo com respiro de escala", async () => {
+      await page.keyboard.press("ArrowRight");
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 2);
+      assert.equal(await page.locator('[data-idx="1"].tr-leaving-morph').count(), 1);
+      assert.equal(await page.locator('.slide.current[data-tr="morph"]').count(), 1);
+      await page.waitForTimeout(900);
+      assert.equal(await page.locator(".tr-leaving-morph").count(), 0, "a classe de morph é removida ao fim");
+    });
+    await t.test("navegação instantânea não deixa rastro de transição", async () => {
+      await page.evaluate(() => window.sagadeck.goto(0, 0, true));
+      assert.equal(await page.locator("[class*=tr-leaving]").count(), 0);
+    });
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
+});
