@@ -9,15 +9,16 @@ export const needsApproval = ({ autoRun, command }) => !autoRun && !videoFreeRun
 export const approvalLabel = ({ autoRun, command }) =>
   autoRun ? "liberado" : videoFreeRun(command) ? "livre" : "aprovado";
 
-// espera a pessoa no chat (10 min sem resposta = recusado); aborta junto com o pedido
-export async function awaitApproval({ command, user, signal, emit, approvals }) {
+// espera a pessoa no chat (10 min sem resposta = recusado); aborta junto com o pedido.
+// cost (opcional): texto de custo estimado exibido junto ao pedido ("~$4.00").
+export async function awaitApproval({ command, cost, user, signal, emit, approvals }) {
   const id = crypto.randomUUID();
   const decision = await new Promise((resolve) => {
     const timer = setTimeout(() => { approvals.delete(id); resolve("deny"); }, 10 * 60 * 1000);
     const abort = () => { clearTimeout(timer); approvals.delete(id); resolve("deny"); };
     signal?.addEventListener("abort", abort, { once: true });
     approvals.set(id, { user: user || "", answer: (d) => { clearTimeout(timer); approvals.delete(id); resolve(d); } });
-    emit({ phase: "approve", id, command, text: "Esperando você autorizar o comando…" });
+    emit({ phase: "approve", id, command, cost: cost || null, text: "Esperando você autorizar o comando…" });
   });
   return decision;
 }

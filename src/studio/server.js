@@ -44,7 +44,7 @@ import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
 export { lightVariant };
-import { VERSION } from "./instance.js";
+import { VERSION, buildInfo } from "./instance.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
 import { prepareDocumentMaterials, takeMaterials } from '../ai/document-materials.js';
@@ -80,6 +80,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Modo multiusuário (servidor atrás do BabsDeck): uma área por usuário, biblioteca <raiz>/usuarios/<usuário>.
   const libraryRoot = path.resolve(opts.library || defaultLibraryRoot());
   const STARTED = new Date().toISOString();
+  const BUILD = buildInfo(); // carimbo calculado uma vez na subida (git pode demorar)
   const workspaces = new Map();
   const slideClipboard = new Map();
   function sampleSpec() {
@@ -187,7 +188,18 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return async (command) => {
       signal?.throwIfAborted();
       if (needsApproval({ autoRun: body.autoRun, command })) {
-        const decision = await awaitApproval({ command, user: W.user || "", signal, emit, approvals });
+        // submit de vídeo mostra o preço antes de pedir: catálogo é de graça, nunca bloqueia a aprovação
+        let cost = null;
+        try {
+          const req = typeof command.code === "object" && command.code !== null ? command.code : JSON.parse(String(command.code || "{}"));
+          if (String(command.language || "").toLowerCase() === "video" && req?.action === "submit") {
+            const { estimateVideoCost } = await import("../ai/video-generation.js");
+            const { env } = await commandEnv(W).catch(() => ({ env: {} }));
+            const key = env.SAGADECK_VIDEO_KEY || env.OPENROUTER_API_KEY || process.env.SAGADECK_VIDEO_KEY || process.env.OPENROUTER_API_KEY;
+            cost = await estimateVideoCost({ model: req.model, duration: req.duration, resolution: req.resolution }, { key });
+          }
+        } catch { /* sem preço, a aprovação segue normal */ }
+        const decision = await awaitApproval({ command, cost, user: W.user || "", signal, emit, approvals });
         if (decision === "deny") { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: "recusado" }); return { denied: true }; }
         if (decision === "always") body.autoRun = true;
       }
@@ -595,7 +607,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       // quem é esta instância (o CLI confere antes de abrir outra na mesma porta)
       if (pathname === "/api/instance" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ app: "sagadeck-studio", version: VERSION, pid: process.pid, library: libraryRoot, started: STARTED, multiuser: !!opts.multiuser }));
+        res.end(JSON.stringify({ app: "sagadeck-studio", ...BUILD, library: libraryRoot, started: STARTED, multiuser: !!opts.multiuser }));
         return;
       }
       if (pathname === "/api/deck" && req.method === "GET") {

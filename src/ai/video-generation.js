@@ -12,9 +12,23 @@ export function parseVideoArgs(args){
  }return result;
 }
 export function videoApiURL(value){
- const url=new URL(String(value).startsWith('/api/v1/')?value:String(value).replace(/^\//,''),BASE+'/');
- if(url.origin!=='https://openrouter.ai'||!url.pathname.startsWith('/api/v1/videos'))throw new Error('Polling precisa usar a API de vídeo do OpenRouter.');
- return url.href;
+  const url=new URL(String(value).startsWith('/api/v1/')?value:String(value).replace(/^\//,''),BASE+'/');
+  if(url.origin!=='https://openrouter.ai'||!url.pathname.startsWith('/api/v1/videos'))throw new Error('Polling precisa usar a API de vídeo do OpenRouter.');
+  return url.href;
+}
+// quanto custa ANTES de gerar (para mostrar na aprovação): catálogo é de graça; null se não der para estimar
+export async function estimateVideoCost({model,duration,resolution},{key=process.env.SAGADECK_VIDEO_KEY||process.env.OPENROUTER_API_KEY,fetcher=fetch}={}){
+  try{
+   if(!key)return null;
+   const r=await fetcher(`${BASE}/videos/models`,{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000)});
+   if(!r.ok)return null;
+   const meta=(await r.json()).data?.find((m)=>m.id===model||m.canonical_slug===model);
+   const skus=meta?.pricing_skus||meta?.pricing||null;
+   const perSec=Number(skus?.[/1080|1k|2k|4k/i.test(String(resolution||''))?'per-video-second-1080p':'per-video-second']);
+   if(!Number.isFinite(perSec)||perSec<0)return null;
+   const total=perSec*Number(duration||0);
+   return Number.isFinite(total)&&total>0?`~$${total.toFixed(2)}`:null;
+  }catch{return null;}
 }
 function within(dir,name){
  const target=path.resolve(dir,name),rel=path.relative(path.resolve(dir),target);

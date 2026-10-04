@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseVideoArgs,videoApiURL,videoOperation} from '../src/ai/video-generation.js';
+import {parseVideoArgs,videoApiURL,videoOperation,estimateVideoCost} from '../src/ai/video-generation.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,10 +37,18 @@ test('planejar não envia POST; submissão persiste job e download retoma sem ex
 });
 
 test('chat local expõe operação video e informa ausência de chave sem fingir geração',async()=>{
- const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'saga-video-chat-'));
- try{
-  const result=await runCommand({language:'video',why:'Conferir plano sem gasto',code:'{"action":"plan","prompt":"areia fina"}'},{cwd,env:{SAGADECK_VIDEO_KEY:'',OPENROUTER_API_KEY:''}});
-  // Sem credencial local, a falha precisa voltar ao agente como falha de ferramenta.
-  if(!process.env.SAGADECK_VIDEO_KEY&&!process.env.OPENROUTER_API_KEY){assert.equal(result.exitCode,1);assert.match(result.stderr,/Configure/);}
- }finally{fs.rmSync(cwd,{recursive:true,force:true});}
+  const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'saga-video-chat-'));
+  try{
+   const result=await runCommand({language:'video',why:'Conferir plano sem gasto',code:'{"action":"plan","prompt":"areia fina"}'},{cwd,env:{SAGADECK_VIDEO_KEY:'',OPENROUTER_API_KEY:''}});
+   // Sem credencial local, a falha precisa voltar ao agente como falha de ferramenta.
+   if(!process.env.SAGADECK_VIDEO_KEY&&!process.env.OPENROUTER_API_KEY){assert.equal(result.exitCode,1);assert.match(result.stderr,/Configure/);}
+  }finally{fs.rmSync(cwd,{recursive:true,force:true});}
+});
+test('estimativa de custo usa o catálogo (de graça); sem preço, null',async()=>{
+ const catalog={data:[{id:'google/veo-3.1-lite',pricing_skus:{'per-video-second':'0.50','per-video-second-1080p':'0.75'}}]};
+ const fetcher=async()=>({ok:true,json:async()=>catalog});
+ assert.equal(await estimateVideoCost({model:'google/veo-3.1-lite',duration:8,resolution:'720p'},{key:'k',fetcher}),'~$4.00');
+ assert.equal(await estimateVideoCost({model:'google/veo-3.1-lite',duration:8,resolution:'1080p'},{key:'k',fetcher}),'~$6.00');
+ assert.equal(await estimateVideoCost({model:'desconhecido',duration:8},{key:'k',fetcher}),null);
+ assert.equal(await estimateVideoCost({model:'google/veo-3.1-lite',duration:8},{key:''}),null,'sem chave não estima');
 });

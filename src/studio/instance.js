@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 export const DEFAULT_PORT = 3517;
 // a versão: o package.json mais perto (no repositório, dois níveis acima; no motor empacotado do pip, ao lado)
@@ -15,9 +16,20 @@ export const VERSION = (() => {
   return "0.0.0";
 })();
 
+// carimbo do código rodando (para o "é antigão?" nunca mais): versão + commit curto + início.
+// fora de um clone git (pacote instalado), commit vira "empacotado".
+export function buildInfo({ exec = null } = {}) {
+  let commit = "empacotado";
+  try {
+    commit = String(execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: path.dirname(fileURLToPath(import.meta.url)), stdio: ["ignore", "pipe", "ignore"], timeout: 5000 }).toString().trim() || "empacotado");
+  } catch { /* sem git por perto */ }
+  if (exec) commit = String(exec);
+  if (!/^[0-9a-f]{4,40}$/.test(commit)) commit = "empacotado";
+  return { version: VERSION, commit, started: new Date().toISOString(), pid: process.pid };
+}
+
 // quem está na porta: { app: "sagadeck-studio", version, pid, library, ... } | null (ninguém ou outra coisa)
-export async function probeInstance(port, host = "127.0.0.1") {
-  const h = host === "0.0.0.0" ? "127.0.0.1" : host;
+export async function probeInstance(port, host = "127.0.0.1") {  const h = host === "0.0.0.0" ? "127.0.0.1" : host;
   try {
     const r = await fetch(`http://${h.includes(":") ? `[${h}]` : h}:${port}/api/instance`, { signal: AbortSignal.timeout(1500) });
     if (!r.ok) return null;

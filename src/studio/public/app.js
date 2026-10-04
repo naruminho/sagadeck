@@ -333,7 +333,9 @@
       startPresentation();
     }
     refreshAIStatus();
+    refreshBuildStamp();
     setInterval(refreshAIStatus, 30000);
+    setInterval(refreshBuildStamp, 30000);
     watchTransform();
     // Ctrl+Z / Ctrl+Y (e Ctrl+Shift+Z): o histórico do deck; dentro de um campo de texto vale o desfazer do campo
     document.getElementById("btn-undo")?.addEventListener("click", () => stepHistory(-1));
@@ -1183,6 +1185,12 @@
     if (ev.type !== "progress") return false;
     if (ev.phase === "approve" && ev.command) {
       const box = commandCard(ev.command), acts = box.querySelector(".cmd-actions");
+      if (ev.cost) {
+        const tag = document.createElement("div");
+        tag.className = "cmd-cost";
+        tag.textContent = `Custo estimado: ${ev.cost} (só cobra se executar)`;
+        acts.before(tag);
+      }
       acts.innerHTML = `<button type="button" class="btn btn-primary" data-d="run"><i class="ic" data-ic="play"></i> Executar</button><button type="button" class="btn" data-d="always">Executar e liberar os próximos</button><button type="button" class="btn" data-d="deny"><i class="ic" data-ic="x"></i> Não executar</button>`;
       hydrateIcons(acts);
       acts.querySelectorAll("[data-d]").forEach((b) => b.onclick = async () => {
@@ -3520,6 +3528,17 @@
       if(setup.url){link.href=setup.url;link.hidden=false;if(setupWindow){setupWindow.opener=null;setupWindow.location.href=setup.url;dialog.close();}}
       else {setupWindow?.close();link.hidden=true;}
     } catch { setupWindow?.close();info.textContent='Não foi possível consultar a configuração. Verifique a conexão e tente novamente.'; }
+  }
+
+  async function refreshBuildStamp() {
+    try {
+      const info = await (await fetch("api/instance")).json();
+      const el = document.getElementById("build-stamp");
+      if (!el) return;
+      const when = info.started ? new Date(info.started) : null;
+      el.textContent = `Motor ${info.version || "?"} · #${info.commit || "?"}`;
+      el.title = `Código rodando neste Studio: versão ${info.version || "?"} (commit ${info.commit || "?"}), no ar desde ${when ? when.toLocaleString("pt-BR") : "?"} (processo ${info.pid || "?"}). Se não bater com seu último push, reinicie o Studio.`;
+    } catch { /* barra de status não pode quebrar a sessão */ }
   }
 
   async function refreshAIStatus(force = false) {

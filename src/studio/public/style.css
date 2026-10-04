@@ -915,6 +915,7 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .cmd-actions .btn { font-size: 12px; padding: 4px 10px; }
 .cmd-state { font-size: 12px; color: var(--text-2); }
 .cmd-state.cmd-bad { color: var(--danger); }
+.cmd-cost { font-size: 12px; font-weight: 700; color: #b7791f; margin: 6px 0 2px; }
 .cmd-out { margin-top: 6px; font-size: 12px; }
 .cmd-out summary { cursor: pointer; color: var(--text-2); }
 /* faixas de tema e paleta: só cartões inteiros (largura calculada no app), setas e "Ver todos" em grade */
