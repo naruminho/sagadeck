@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseVideoArgs,videoApiURL,videoOperation,estimateVideoCost} from '../src/ai/video-generation.js';
+import {parseVideoArgs,videoApiURL,videoOperation,estimateVideoCost,pollVideoJobs} from '../src/ai/video-generation.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -51,4 +51,27 @@ test('estimativa de custo usa o catálogo (de graça); sem preço, null',async()
  assert.equal(await estimateVideoCost({model:'google/veo-3.1-lite',duration:8,resolution:'1080p'},{key:'k',fetcher}),'~$6.00');
  assert.equal(await estimateVideoCost({model:'desconhecido',duration:8},{key:'k',fetcher}),null);
  assert.equal(await estimateVideoCost({model:'google/veo-3.1-lite',duration:8},{key:''}),null,'sem chave não estima');
+});
+test('vigia baixa sozinho o clipe terminado; andamento sem rede mantém o último',async()=>{
+ const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'saga-watch-'));
+ const rec={id:'job-9',polling_url:'https://openrouter.ai/api/v1/videos/job-9',output:'videos/cena.mp4',status:'in_progress'};
+ try{
+  assert.deepEqual(await pollVideoJobs(cwd,{key:'k'}),[],'sem pasta, sem jobs');
+  fs.mkdirSync(path.join(cwd,'.sagadeck','videos'),{recursive:true});
+  fs.writeFileSync(path.join(cwd,'.sagadeck','videos','job-9.json'),JSON.stringify(rec));
+  let mode='working';
+  const mp4=Buffer.concat([Buffer.alloc(4),Buffer.from('ftyp'),Buffer.alloc(100)]);
+  async function* body(){yield mp4;}
+  const fetcher=async(url)=>{
+   if(String(url).includes('/content'))return{ok:true,headers:{get:()=>'video/mp4'},body:body()};
+   if(mode==='down')throw new Error('sem rede');
+   return{ok:true,json:async()=>({status:mode==='done'?'completed':'in_progress'})};
+  };
+  assert.deepEqual(await pollVideoJobs(cwd,{key:'k',fetcher,cooldownMs:0}),[{id:'job-9',status:'in_progress',video:null}]);
+  mode='done';
+  assert.deepEqual(await pollVideoJobs(cwd,{key:'k',fetcher,cooldownMs:0}),[{id:'job-9',status:'downloaded',video:'videos/cena.mp4'}]);
+  assert.ok(fs.existsSync(path.join(cwd,'videos','cena.mp4')),'baixou sozinho');
+  mode='down';
+  assert.deepEqual(await pollVideoJobs(cwd,{key:'k',fetcher,cooldownMs:0}),[{id:'job-9',status:'downloaded',video:'videos/cena.mp4'}],'sem rede mantém');
+ }finally{fs.rmSync(cwd,{recursive:true,force:true});}
 });

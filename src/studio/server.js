@@ -593,8 +593,37 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, identities: Object.values(d.identities).map((x) => ({ id: x.id, name: x.name, fonts: x.fonts, palette: typeof x.palette === "string" ? x.palette : x.palette ? "propria" : null })) }));
         return;
       }
-      if (pathname === "/api/identities/setup" && req.method === "POST") {
+      // Direções aprovadas pela pessoa (~/.sagadeck/direcoes.yaml; ver src/ai/directions.js).
+      // GET lista; POST {name} fotografa a capa atual como receita reutilizável. Só no Studio local.
+      if (pathname === "/api/directions" && req.method === "GET") {
+        const { loadDirections } = await import("../ai/directions.js");
+        const d = loadDirections();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, directions: Object.values(d.directions) }));
+        return;
+      }
+      if (pathname === "/api/directions" && req.method === "POST") {
         const blocked = apiBlocked(req);
+        if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Salvar direções só no Studio desta máquina." })); return; }
+        if (!W?.spec) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Abra uma apresentação primeiro." })); return; }
+        const body = await readJSON(req);
+        const cover = (W.spec.slides || []).find((s) => s && s.layout === "cover") || (W.spec.slides || [])[0] || {};
+        const { saveDirection } = await import("../ai/directions.js");
+        try {
+          const name = saveDirection(body.name, {
+            theme: W.spec.theme || null, palette: W.spec.palette || null,
+            tone: cover.tone || null, ambient: cover.ambient || null, transition: cover.transition || null,
+            notes: `capa "${String(cover.title || "").slice(0, 80)}"`,
+          });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ name }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+      if (pathname === "/api/identities/setup" && req.method === "POST") {        const blocked = apiBlocked(req);
         if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
         const { ensureIdentitiesFile } = await import("../identity.js");
         const file = ensureIdentitiesFile();

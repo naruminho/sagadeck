@@ -1,4 +1,5 @@
 import { ART_DIRECTION } from './art-direction.js';
+import { directionPrompt } from './directions.js';
 // sagadeck · IA de verdade: editar deck pelo chat, texto -> slide (Napkin), gerar deck do zero e imagens.
 // Toda saída do LLM passa por: extrair YAML -> normalizar -> renderizar cada slide (validação) ->
 // se falhar, devolve o erro ao LLM e tenta de novo -> auto-cura geométrica.
@@ -39,7 +40,7 @@ export function systemPrompt({ images = false, maxImages = 3 } = {}) {
   return `Você é o motor de IA do sagadeck, que gera apresentações a partir de YAML.
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
 
-${ART_DIRECTION}\n\nRegras de qualidade:
+ ${ART_DIRECTION}${directionPrompt() ? "\n\n" + directionPrompt() : ""}\n\nRegras de qualidade:
 - Figuras informativas recebem mais área que a prosa. Gráficos largos e mapas detalhados pedem composição vertical com figura dominante e texto breve; esquemas altos podem usar figura em dois terços da largura. Evite fontes enormes disputando espaço com evidências pequenas. Não coloque cards ou títulos sobre eixos, legendas ou rótulos. Respeite proporções e fit: contain. O usuário pode escolher outra composição explicitamente.
 - Planeje a explicação: o que a audiência precisa perceber, representação, interação útil, estados a testar e conclusão. Não transforme todo slide em controle ou animação.
 - Quando houver identidade visual animada, integre os detalhes à composição: transparência, cores da paleta, geometria conectada ao conteúdo e escala coerente. Não cole mini monitores opacos em páginas genéricas. A direção pedida deve aparecer nas formas, cor e hierarquia também, sem depender somente de uma firula; escolha pelo contexto e pedido, não por uma receita de assunto.
