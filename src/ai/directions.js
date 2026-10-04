@@ -1,12 +1,12 @@
 // Direções aprovadas pela pessoa: capas que ela gostou viram receita reutilizável.
-// ~/.sagadeck/direcoes.yaml (ou SAGADECK_DIRECOES): a IA cita pelo nome ("use a direção Stark").
+// ~/.sagadeck/direcoes.json (ou SAGADECK_DIRECOES): a IA cita pelo nome ("use a direção Stark").
+// JSON (não YAML): arquivo gerenciado pelo Studio; edição manual continua possível.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import YAML from "yaml";
 
 export function directionsFile(env = process.env, home = os.homedir()) {
-  return env.SAGADECK_DIRECOES || path.join(home, ".sagadeck", "direcoes.yaml");
+  return env.SAGADECK_DIRECOES || path.join(home, ".sagadeck", "direcoes.json");
 }
 
 let cache = { file: null, mtime: 0, data: null };
@@ -18,7 +18,7 @@ export function loadDirections(env = process.env) {
   if (cache.file === file && cache.mtime === st.mtimeMs && cache.data) return cache.data;
   let data;
   try {
-    const raw = YAML.parse(fs.readFileSync(file, "utf8") || {});
+    const raw = JSON.parse(fs.readFileSync(file, "utf8") || "{}");
     if (typeof raw !== "object" || Array.isArray(raw)) throw new Error("o arquivo precisa ser um mapa nome: { receita }");
     const directions = {};
     for (const [name, v] of Object.entries(raw)) {
@@ -35,7 +35,7 @@ export function loadDirections(env = process.env) {
     }
     data = { file, exists: true, directions, error: null };
   } catch (e) {
-    data = { file, exists: true, directions: {}, error: `direcoes.yaml com erro: ${e.message}` };
+    data = { file, exists: true, directions: {}, error: `direcoes.json com erro: ${e.message}` };
   }
   cache = { file, mtime: st.mtimeMs, data };
   return data;
@@ -67,7 +67,7 @@ export function saveDirection(name, recipe, env = process.env) {
     ...(recipe.notes ? { notes: String(recipe.notes).slice(0, 500) } : {}),
   };
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, YAML.stringify(raw), "utf8");
+  fs.writeFileSync(file, JSON.stringify(raw, null, 2), "utf8");
   cache = { file: null, mtime: 0, data: null };
   return clean;
 }

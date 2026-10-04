@@ -1,4 +1,4 @@
-// Rotas das direções aprovadas (~/.sagadeck/direcoes.yaml; ver src/ai/directions.js).
+// Rotas das direções aprovadas (~/.sagadeck/direcoes.json; ver src/ai/directions.js).
 // GET lista; POST {name} fotografa a capa atual como receita reutilizável. Só no Studio local.
 import { loadDirections, saveDirection } from "../ai/directions.js";
 

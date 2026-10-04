@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { loadDirections, saveDirection, directionPrompt } from "../src/ai/directions.js";
 
-const envFor = (dir) => ({ ...process.env, SAGADECK_DIRECOES: path.join(dir, "direcoes.yaml") });
+const envFor = (dir) => ({ ...process.env, SAGADECK_DIRECOES: path.join(dir, "direcoes.json") });
 
 test("direções aprovadas: salva, lista e entra no prompt; arquivo ruim não quebra", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "saga-dir-"));
