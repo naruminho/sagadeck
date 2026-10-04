@@ -33,7 +33,7 @@ import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { reviewExperience } from '../ai/quality.js';
 import { saveGenReport } from './generation-report.js';
-import { runCommand, envName, logCommand } from "../ai/commands.js";
+import { runCommand, envName, logCommand, videoFreeRun } from "../ai/commands.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -185,7 +185,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
     const cwd = path.dirname(W.file);
     return async (command) => {
       signal?.throwIfAborted();
-      if (!body.autoRun) {
+      // ações gratuitas (ex.: consultar status do vídeo) rodam sem pedir aprovação; só o que pode cobrar pede
+      const free = videoFreeRun(command);
+      if (!body.autoRun && !free) {
         const id = crypto.randomUUID();
         const decision = await new Promise((resolve) => {
           const timer = setTimeout(() => { approvals.delete(id); resolve("deny"); }, 10 * 60 * 1000);
@@ -203,8 +205,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
       const t0 = Date.now();
       let result;
       try { result = await runCommand(command, { cwd, env, mask, signal }); }
-      catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", error: e.message }, { mask }); throw e; }
-      logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
+      catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : free ? "livre" : "aprovado", error: e.message }, { mask }); throw e; }
+      logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : free ? "livre" : "aprovado", exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
       emit({ phase: "command-result", command, result, text: "Analisando o resultado…" });
       return result;
     };

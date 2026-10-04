@@ -1244,3 +1244,5 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 - Prova nativa de direção holográfica encontrou cores hex de seis dígitos convertidas em números pelo YAML: reprodução falhou com c.replace; corrigido em elementos, gráficos e motion, teste numeric-colors passou. A criação continua pelo chat, sem edição manual da apresentação.
 
 - Teste nativo encontrou SVG ocultado por tipo anterior após merge: guard devolve renderizadores incompatíveis e pede null ao trocar figura. Outro achado: review:true no slide era ignorado sem flag no topo; agora solicita revisão dos alterados, com opt-out explícito preservado. Ambos reproduzidos antes da correção.
+
+- Chat de vídeo sem burocracia (Rose): plan/status/frame/download rodam sem aprovação, só submit pede; IA resume em frase e só mostra tudo em erro. Achado crítico no caminho: code YAML sem aspas virava objeto e commandRequest destruía em "[object Object]" — preservado para video/web. Teste de chat de verdade no navegador (status livre + submit negado).
