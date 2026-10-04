@@ -1249,3 +1249,7 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 
 ### Consolidação 04/10 (Rose): pendências antigas que os merges resolveram- Resolvidas pelos PRs #120–#127: rodadas/suítes "pendentes" das seções de execução e mídia, cena cinematográfica, reuniões com decisões, validação final, abertura de palco, motion declarativo, chat cancelável e documentos como fonte (inclui CHAPTER 4 e staged-generation via #126).
 - Seguem ABERTAS de verdade: aprovação da capa (bloqueia vídeo e resto, gerações pausadas pelo Narumi), avaliação estética final da direção holográfica, liberação de budget dos clipes (teste + filme da areia) e a decisão MIT vs AGPL-3.0.
+
+### Autonomia total (Rose): o agente vigia, a pessoa não
+- Carimbo do motor na barra de status (versão + commit + início) via /api/instance; aprovação de submit mostra preço do catálogo; direções aprovadas salvas e injetadas no prompt; vigia baixa clipe pronto sozinho e avisa com toast; versões fotografadas a cada save com modal lado a lado e restaurar com rede.
+- Caça própria: YAML inexistente no cliente quebrava o init em silêncio (botões mortos); show do servidor agora manda slides prontos. Módulos extraídos para respeitar a trava de 100KB do server.js.
