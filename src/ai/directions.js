@@ -9,13 +9,14 @@ export function directionsFile(env = process.env, home = os.homedir()) {
   return env.SAGADECK_DIRECOES || path.join(home, ".sagadeck", "direcoes.json");
 }
 
-let cache = { file: null, mtime: 0, data: null };
+let cache = { file: null, mtime: 0, size: -1, data: null };
 
 export function loadDirections(env = process.env) {
   const file = directionsFile(env);
   let st = null;
   try { st = fs.statSync(file); } catch { return { file, exists: false, directions: {}, error: null }; }
-  if (cache.file === file && cache.mtime === st.mtimeMs && cache.data) return cache.data;
+  // mtime sozinho mente em FS com granularidade grossa: tamanho junto desempata
+  if (cache.file === file && cache.mtime === st.mtimeMs && cache.size === st.size && cache.data) return cache.data;
   let data;
   try {
     const raw = JSON.parse(fs.readFileSync(file, "utf8") || "{}");
@@ -37,7 +38,7 @@ export function loadDirections(env = process.env) {
   } catch (e) {
     data = { file, exists: true, directions: {}, error: `direcoes.json com erro: ${e.message}` };
   }
-  cache = { file, mtime: st.mtimeMs, data };
+  cache = { file, mtime: st.mtimeMs, size: st.size, data };
   return data;
 }
 
@@ -68,6 +69,6 @@ export function saveDirection(name, recipe, env = process.env) {
   };
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(raw, null, 2), "utf8");
-  cache = { file: null, mtime: 0, data: null };
+  cache = { file: null, mtime: 0, size: -1, data: null };
   return clean;
 }

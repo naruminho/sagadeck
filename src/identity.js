@@ -39,14 +39,14 @@ trabalho:
   paleta: rubi
 `;
 
-let cache = { file: null, mtime: 0, data: null };
+let cache = { file: null, mtime: 0, size: -1, data: null };
 
 // { file, exists, identities: { id: { id, name, fonts: { titulo, corpo, compacta, codigo }, palette } }, error }
 export function loadIdentities(env = process.env) {
   const file = identitiesFile(env);
   let st = null;
   try { st = fs.statSync(file); } catch { return { file, exists: false, identities: {}, error: null }; }
-  if (cache.file === file && cache.mtime === st.mtimeMs && cache.data) return cache.data;
+  if (cache.file === file && cache.mtime === st.mtimeMs && cache.size === st.size && cache.data) return cache.data;
   let data;
   try {
     const raw = YAML.parse(fs.readFileSync(file, "utf8")) || {};
@@ -66,7 +66,7 @@ export function loadIdentities(env = process.env) {
   } catch (e) {
     data = { file, exists: true, identities: {}, error: `identidades.yaml com erro: ${e.message}` };
   }
-  cache = { file, mtime: st.mtimeMs, data };
+  cache = { file, mtime: st.mtimeMs, size: st.size, data };
   return data;
 }
 

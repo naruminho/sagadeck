@@ -24,6 +24,7 @@ test("direções aprovadas: salva, lista e entra no prompt; arquivo ruim não qu
     assert.throws(() => saveDirection("", {}, env), /nome/i);
     assert.throws(() => saveDirection("a/b", {}, env), /inválido/);
     fs.writeFileSync(env.SAGADECK_DIRECOES, "[[[quebrado");
+    fs.utimesSync(env.SAGADECK_DIRECOES, new Date(0), new Date(0)); // FS com mtime grosso não pode esconder a mudança
     assert.deepEqual(loadDirections(env).directions, {});
     assert.match(loadDirections(env).error || "", /erro/);
     assert.equal(directionPrompt(env), "", "com erro, some do prompt em vez de vazar");
