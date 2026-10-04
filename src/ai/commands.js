@@ -44,7 +44,8 @@ export function commandRequest(raw) {
 }
 
 // executa (sem perguntar nada: quem chama já tem a aprovação). env: variáveis extras; mask: esconde segredos na saída
-export async function runCommand(request, { cwd, env = {}, mask = (s) => s, timeoutMs = MAX_SECONDS * 1000 } = {}) {
+export async function runCommand(request, { cwd, env = {}, mask = (s) => s, timeoutMs = MAX_SECONDS * 1000, signal } = {}) {
+  signal?.throwIfAborted();
   if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error("Abra uma apresentação salva na biblioteca para executar comandos.");
   const { language, code } = commandRequest(request);
   if(language==='video'){
@@ -69,6 +70,7 @@ export async function runCommand(request, { cwd, env = {}, mask = (s) => s, time
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       resolve({ language, exitCode, stdout: mask(stdout), stderr: mask(error || stderr), timedOut });
     };
     const timer = setTimeout(() => {
@@ -76,6 +78,13 @@ export async function runCommand(request, { cwd, env = {}, mask = (s) => s, time
       if (win) spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
       else child.kill("SIGKILL");
     }, Math.max(100, Math.min(timeoutMs, MAX_SECONDS * 1000)));
+    const abort = () => {
+      if (win) spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      else child.kill("SIGKILL");
+      finish(null, "Parado a pedido.");
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
     child.on("error", (e) => finish(null, e.code === "ENOENT" ? `${exe} não está instalado neste computador` : e.message));
     child.on("close", (c) => finish(c));
   });

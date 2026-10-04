@@ -1,4 +1,8 @@
+import { lookAt, readBody, readJSON } from "./request-helpers.js";
+import { workspaceResolver, scopePreviewHTML, staleTab } from "./workspaces.js";
+import { cancellable, respond } from "./ai-response.js";
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
+import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { PUBLIC_SCRIPTS } from "./public-files.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
@@ -73,6 +77,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const libraryRoot = path.resolve(opts.library || defaultLibraryRoot());
   const STARTED = new Date().toISOString();
   const workspaces = new Map();
+  const slideClipboard = new Map();
   function sampleSpec() {
     const samplePath = TEMPLATE_DIRS.map((d) => path.join(d, "exemplo.yaml")).find((f) => fs.existsSync(f)) || "";
     if (samplePath) return { spec: loadSpec(samplePath), file: samplePath };
@@ -106,28 +111,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
   workspaces.set("", localWs);
   // quem é: no modo multiusuário, o cabeçalho que o proxy (nginx + BabsDeck) põe; senão, a área local
   const USER_HEADER = String(opts.userHeader || "x-sagadeck-user").toLowerCase();
-  function workspaceOf(req) {
-    if (!opts.multiuser) return localWs;
-    const user = String(req.headers[USER_HEADER] || "").trim();
-    if (!user) return null;
-    if (!workspaces.has(user)) workspaces.set(user, newWorkspace(user));
-    return workspaces.get(user);
-  }
+  const workspaceOf = workspaceResolver({ opts, USER_HEADER, workspaces, newWorkspace });
   // links de ver, só leitura (Arquivo › Compartilhar link; src/studio/share-routes.js): a biblioteca de quem compartilhou
   const shares = shareRoutes({ libraryRoot, multiuser: !!opts.multiuser, libraryOf: (u) => {
     if (!workspaces.has(u || "")) workspaces.set(u || "", newWorkspace(u || null));
     return workspaces.get(u || "").library;
   } });
-  // A aba diz qual arquivo está vendo (expectFile). O Studio tem uma apresentação aberta para todas as abas e aparelhos:
-  // se outra aba (ou um script) abriu outra, o que esta manda gravar (salvar, YAML, chat) iria parar no arquivo errado.
-  // Recusa e avisa para recarregar.
-  const sameFile = (a, b) => { const n = (x) => path.resolve(String(x)); return process.platform === "win32" ? n(a).toLowerCase() === n(b).toLowerCase() : n(a) === n(b); };
-  function staleTab(body, W, res) {
-    if (!body?.expectFile || !W.file || sameFile(body.expectFile, W.file)) return false;
-    res.writeHead(409, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: "Outra aba ou aparelho abriu outra apresentação neste Studio. Recarregue a página para continuar; esta mudança não foi gravada.", stale: true, file: W.file }));
-    return true;
-  }
+  // Arquivo esperado protege gravações de clientes antigos sem escopo de aba.
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
   // Slide "api": ambientes (dev/hom…) e token ficam na máquina, fora do deck.
@@ -186,25 +176,29 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const approvals = new Map(); // id -> { user, answer }
   // transformações em andamento (continuam se o navegador fechar; o andamento e o Parar vêm pelas rotas /api/ai/transform/*)
   const transforms = new Map(); // "<arquivo do deck>|<modo>" -> { controller, mode, progress, started }
-  function commandRunner(req, emit, body, W) {
+  function commandRunner(req, emit, body, W, signal) {
     if (!body.stream || !commandsAllowed(req, W) || !W.file || isBundledTemplate(W.file)) return null;
     const cwd = path.dirname(W.file);
     return async (command) => {
+      signal?.throwIfAborted();
       if (!body.autoRun) {
         const id = crypto.randomUUID();
         const decision = await new Promise((resolve) => {
           const timer = setTimeout(() => { approvals.delete(id); resolve("deny"); }, 10 * 60 * 1000);
+          const abort = () => { clearTimeout(timer); approvals.delete(id); resolve("deny"); };
+          signal?.addEventListener("abort", abort, { once: true });
           approvals.set(id, { user: W.user || "", answer: (d) => { clearTimeout(timer); approvals.delete(id); resolve(d); } });
           emit({ phase: "approve", id, command, text: "Esperando você autorizar o comando…" });
         });
         if (decision === "deny") { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: "recusado" }); return { denied: true }; }
         if (decision === "always") body.autoRun = true;
       }
+      signal?.throwIfAborted();
       emit({ phase: "command", command, text: `Rodando: ${command.why || command.language}…` });
       const { env, mask } = await commandEnv(W);
       const t0 = Date.now();
       let result;
-      try { result = await runCommand(command, { cwd, env, mask }); }
+      try { result = await runCommand(command, { cwd, env, mask, signal }); }
       catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", error: e.message }, { mask }); throw e; }
       logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
       emit({ phase: "command-result", command, result, text: "Analisando o resultado…" });
@@ -435,7 +429,10 @@ export function createStudioServer(deckPath = null, opts = {}) {
     // link de ver (só leitura): o público não tem usuário; o "ver" exige o do portal no multiusuário
     if (shares.serveView(req, res, pathname, opts.multiuser ? String(req.headers[USER_HEADER] || "").trim() : "")) return;
 
-    const W = workspaceOf(req);
+    let W;
+    try { W = workspaceOf(req); } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: e.message })); return;
+    }
     if (!W) { // multiusuário sem o cabeçalho do proxy: ninguém autenticado
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "sessão ausente: entre pelo portal" }));
@@ -560,7 +557,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         // avisos de montagem (ex.: CSS/widget ao lado do YAML que não foi achado) para o Studio mostrar
         W.lastPreview = { ok: true, error: null, warnings: out.warnings.filter((w) => !/palavras \(limite/.test(w)) };
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(meetingPreview(out.html,W.spec,url.searchParams.get('audience')));
+        res.end(scopePreviewHTML(meetingPreview(out.html,W.spec,url.searchParams.get('audience')),req));
         return;
       }
 
@@ -1113,7 +1110,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       // melhorar / recriar a apresentação importada (src/ai/transform.js), a pedido do chat. A tarefa segue no servidor
       // mesmo se o navegador fechar (a página reaberta acompanha por /api/ai/transform/status); pedir de novo retoma.
       const transformLimits = () => ({ calls: Number(process.env.SAGADECK_TRANSFORM_CALLS) || 0, tokens: Number(process.env.SAGADECK_TRANSFORM_TOKENS) || 0, minutes: Number(process.env.SAGADECK_TRANSFORM_MINUTES) || 0 });
-      async function runTransform(W, spec, result, emit, request, visualReferences = []) {
+      async function runTransform(W, spec, result, emit, request, visualReferences = [], signal) {
         if (!W.file || isBundledTemplate(W.file)) return { ...result, reply: "Para transformar, a apresentação precisa estar salva na biblioteca.", spec, talk: true };
         // o deck da tarefa fica guardado: a pessoa pode abrir outra apresentação durante os minutos de trabalho, e o
         // resultado tem de ir para ESTE arquivo (W.file passa a ser o outro)
@@ -1124,6 +1121,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         if (transforms.has(key)) return { ...result, reply: `Já estou ${mode === "melhorar" ? "melhorando" : "recriando"} esta apresentação; o andamento aparece aqui no chat.`, spec, talk: true };
         const job = { controller: new AbortController(), mode, progress: null, started: Date.now() };
         transforms.set(key, job);
+        const abort = () => job.controller.abort();
+        signal?.addEventListener("abort", abort, { once: true });
         const tell = (ev) => { job.progress = ev; try { emit(ev); } catch {} };
         // retomar o melhorar: a fonte é o original importado (o deck pode já ter a parte pronta aplicada)
         const origFile = path.join(dir, "original", "original.yaml");
@@ -1139,7 +1138,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           if (e.kind) return { ...result, reply: `Parei antes de terminar o plano (${e.message}). Peça de novo para continuar de onde parou.`, spec, talk: true };
           console.error("[Studio] transformação:", e.message);
           return { ...result, reply: `A transformação parou por um erro (${e.message}). Nada mudou na apresentação; o que ficou pronto está guardado e pedir de novo continua de onde parou.`, spec, talk: true };
-        } finally { transforms.delete(key); }
+        } finally { transforms.delete(key); signal?.removeEventListener("abort", abort); }
         const r = t.report;
         if (r.status === "parcial" && job.controller.signal.aborted) {
           return { ...result, reply: `Parei a pedido. O que já estava pronto (${jobStatus(dir, mode)?.feitos || 0} de ${t.plan.slides.length} itens) ficou guardado: peça de novo para continuar de onde parou.`, spec, talk: true, transformReport: r };
@@ -1211,16 +1210,36 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         res.end(JSON.stringify({ ok: true, stopped: n }));
         return;
       }
+      if (await slideCopyRoutes({pathname,req,res,W,readJSON,staleTab,slideClipboard,isBundledTemplate,materializePreview})) return;
+      if (pathname === "/api/ai/chat/cancel" && req.method === "POST") {
+        const body = await readJSON(req);
+        const job = W.aiChats?.get(body.requestId);
+        job?.abort();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, stopped: !!job }));
+        return;
+      }
       if (pathname === "/api/ai/chat" && req.method === "POST") {
         const body = await readJSON(req);
         if (staleTab(body, W, res)) return;
+        const owner = W;
+        owner.aiChats ||= new Map();
+        const requestId = body.requestId || crypto.randomUUID();
+        const controller = new AbortController();
+        owner.aiChats.set(requestId, controller);
+        const signal = controller.signal;
+        const onClose = () => { if (!res.writableEnded && !['melhorar','recriar'].some(m => transforms.has(`${taskWorkspace.file}|${m}`))) controller.abort(); };
+        res.on('close', onClose);
+        // Capture o arquivo da tarefa: abrir outro deck não redireciona a escrita.
+        const taskWorkspace = { ...owner, spec: structuredClone(owner.spec) };
         const prompt = body.message || "";
-        const spec = body.spec || W.spec;
+        const spec = body.spec || taskWorkspace.spec;
         const issues = body.issues || [];
         // a IA vê (e testa) os slides api no ambiente atual, que pode ser o embutido "ensaio"
         if (!apiBlocked(req) && (spec.slides || []).some((sl) => sl && sl.layout === "api")) await ensureEnsaio();
 
-        await respond(res, body.stream, async (emit) => {
+        try { await respond(res, body.stream, async (send) => cancellable(async () => {
+          const emit = ev => { signal.throwIfAborted(); send(ev); };
           let result;
           const history = Array.isArray(body.history) ? body.history : [];
           // o cache pode ter guardado uma queda de segundos do relay: confere de novo antes de desistir
@@ -1234,42 +1253,46 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           }
           try {
             const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
-            const visuals = await lookAt(withBase(W, spec), target, prompt, emit);
+            const visuals = await lookAt(withBase(taskWorkspace, spec), target, prompt, emit);
             // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
-            const materials = takeMaterials(W, (Array.isArray(body.attachments) ? body.attachments : [])
+            const materials = takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
               .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id));
             for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
               if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
             }
             // arquivos do projeto (contexto/): material para a IA, junto com os anexos da mensagem
-            const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
+            const P = taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? Project.projectOf(taskWorkspace.file) : null;
             if (P) for (const doc of await Project.contextMaterials(P)) if (!materials.some((m) => m.name === doc.name || m.name === doc.name.split("/").pop())) materials.push(doc);
             // links colados na mensagem: o servidor lê sozinho e conta nas ações
             const linkActions = [];
-            for (const doc of await readPastedLinks(W, prompt, linkActions)) materials.push(doc);
+            for (const doc of await readPastedLinks(taskWorkspace, prompt, linkActions)) materials.push(doc);
             result = await editDeck({
-              spec: withBase(W, spec),
+              spec: withBase(taskWorkspace, spec), signal,
               instruction: prompt,
               targetSlide: target,
               issues,
               images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
-              imageOptions: imageOptions(W, withBase(W, spec)),
+              imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)),
               history,
               onProgress: emit,
               visuals,
               materials,
               renderNotes: Array.isArray(body.renderNotes) ? body.renderNotes.slice(0, 8) : [],
-              apiContext: apiContextFor(req, W),
+              apiContext: apiContextFor(req, taskWorkspace),
               drawCheck: diagramCheck,
-              runCommand: commandRunner(req, emit, body, W),
-              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit }),
-              styles: W.file && !isBundledTemplate(W.file) ? { list: W.library.listStyles(), current: W.spec?.style?.name || null } : null,
+              runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
+              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit, signal }),
+              styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
             });
+            signal.throwIfAborted();
             if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
             // a IA decidiu transformar a apresentação inteira (transform:): o trabalho em etapas, com o andamento aqui
-            if (result.transform) return await runTransform(W, withBase(W, spec), result, emit, prompt, visuals.filter(v => v.label.startsWith("imagem colada pelo usuário")));
+            if (result.transform) {
+              const transformed = await runTransform(taskWorkspace, withBase(taskWorkspace, spec), result, emit, prompt, visuals.filter(v => v.label.startsWith("imagem colada pelo usuário")), signal);
+              return owner.file === taskWorkspace.file ? transformed : { ...transformed, spec: owner.spec, talk: true, reply: transformed.reply + '\nO resultado ficou no arquivo original; você está em outra apresentação.' };
+            }
             // a IA decidiu mexer no estilo (estilo:): aplicar, salvar, tirar ou padrão das novas
-            if (result.style) return styleAction({ W, spec: withBase(W, spec), result, persist, isBundledTemplate });
+            if (result.style) return styleAction({ W: taskWorkspace, spec: withBase(taskWorkspace, spec), result, persist, isBundledTemplate });
             // Slides api: a IA pediu para testar (test: [n]) → o Studio executa, devolve o relatório e ela
             // corrige, até 3 rodadas. Quem decide testar e o que corrigir é a IA; aqui só executa.
             const convo = [...history, { role: "user", text: prompt }]
@@ -1279,12 +1302,13 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               for (const i of result.test) {
                 const slide = result.spec.slides[i];
                 emit({ phase: "test", text: `Testando o slide ${i + 1} (${apiEnv.currentName() || "sem ambiente"})…` });
-                const r = await apiEnv.runSlide(slide, { vars: W.apiVars || {}, deckDir: W.file ? path.dirname(W.file) : null });
-                if (r.saved) W.apiVars = { ...(W.apiVars || {}), ...r.saved };
+                const r = await apiEnv.runSlide(slide, { vars: taskWorkspace.apiVars || {}, deckDir: taskWorkspace.file ? path.dirname(taskWorkspace.file) : null });
+                signal.throwIfAborted();
+                if (r.saved) taskWorkspace.apiVars = { ...(taskWorkspace.apiVars || {}), ...r.saved };
                 if (r.record) {
                   const key = globalThis.SagadeckApiCore.key(slide);
-                  if (W.file && !isBundledTemplate(W.file)) writeRecording(W.file, key, r.record);
-                  else (W.apiRecordings = W.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
+                  if (taskWorkspace.file && !isBundledTemplate(taskWorkspace.file)) writeRecording(taskWorkspace.file, key, r.record);
+                  else (taskWorkspace.apiRecordings = taskWorkspace.apiRecordings || {})[key] = { ...r.record, at: new Date().toISOString() };
                 }
                 reports.push({ slide: i + 1, ...r.report });
                 result.actions.push(`Teste do slide ${i + 1}: ${r.report.ok ? "funcionou" : "falhou, " + String(r.report.erro || (r.report.status ? `HTTP ${r.report.status}` : "falhou")).slice(0, 140)}`);
@@ -1293,26 +1317,30 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               const instruction = `Resultado do teste (rodada ${round} de 3), executado no ambiente ${apiEnv.currentName()}:\n\`\`\`json\n${JSON.stringify(reports, null, 2).slice(0, 12000)}\n\`\`\`\nSe algo falhou ou tem "NÃO EXISTE", corrija os slides com base na resposta real e peça test de novo. Se tudo funcionou, confirme em uma frase, sem yaml.`;
               emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
               const next = await editDeck({
-                spec: withBase(W, result.spec), instruction, targetSlide: target, images: false,
-                imageOptions: imageOptions(W, withBase(W, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, W),
-                drawCheck: diagramCheck, runCommand: commandRunner(req, emit, body, W),
+                spec: withBase(taskWorkspace, result.spec), signal, instruction, targetSlide: target, images: false,
+                imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, taskWorkspace),
+                drawCheck: diagramCheck, runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
               });
               convo.push({ role: "user", text: instruction });
               result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
             }
             result.mode = "llm";
           } catch (e) {
+            if (signal.aborted) return { reply: "Parado a pedido. Nenhuma resposta pendente foi aplicada.", spec, actions: [], talk: true, mode: "cancelled" };
             // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
             console.error("[Studio] IA falhou:", e.message);
             return { reply: `A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
           }
           // o que a pessoa salvou enquanto a IA pensava não some: junção a três (base = o que foi para a IA)
-          const merged = globalThis.SagadeckMerge.mergeDecks(spec, W.spec || spec, result.spec);
-          W.spec = merged.deck;
-          carryVisualEdits(spec, W.spec); // a IA mudou o texto de um objeto ajustado: o ajuste acompanha
-          persist(W);
-          return { ...result, spec: W.spec, conflicts: merged.conflicts, kept: merged.kept };
-        });
+          signal.throwIfAborted();
+          const current = taskWorkspace.file && fs.existsSync(taskWorkspace.file) ? loadSpec(taskWorkspace.file) : owner.spec;
+          const merged = globalThis.SagadeckMerge.mergeDecks(spec, current || spec, result.spec);
+          taskWorkspace.spec = merged.deck;
+          carryVisualEdits(spec, taskWorkspace.spec); // a IA mudou o texto de um objeto ajustado: o ajuste acompanha
+          persist(taskWorkspace);
+          if (owner.file === taskWorkspace.file) owner.spec = taskWorkspace.spec;
+          return { ...result, spec: taskWorkspace.spec, conflicts: merged.conflicts, kept: merged.kept };
+        }, signal)); } finally { owner.aiChats.delete(requestId); res.off("close", onClose); }
         return;
       }
 
@@ -1558,73 +1586,4 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
 
   server.on("close", () => { ensaio?.then((mock) => mock?.close()); });
   return server;
-}
-
-// "Olhos" da IA: foto do slide renderizado (uma por clique se o pedido falar de animação/ordem).
-// Sem Chrome disponível, segue sem foto — a IA só perde a visão, o pedido continua.
-const ANIM_WORDS = /clique|click|anima|aparec|revel|ordem|sequ[eê]n|entra|some|surge|transi/i;
-async function lookAt(spec, index, prompt, emit) {
-  if (typeof index !== "number" || !spec?.slides?.[index]) return [];
-  try {
-    emit({ phase: "looking", text: "Olhando o slide…" });
-    const { slideSnapshots } = await import("./snapshot.js");
-    return await slideSnapshots(spec, index, { mode: ANIM_WORDS.test(prompt) ? "steps" : "final" });
-  } catch (e) {
-    console.warn("[Studio] sem foto do slide para a IA:", e.message);
-    return [];
-  }
-}
-
-// Resposta de uma tarefa de IA. Com stream, manda NDJSON: uma linha {type:"progress",…} por etapa/pedaço
-// de texto e, no fim, {type:"result", data} ou {type:"error", error}. Sem stream, um JSON só.
-async function respond(res, stream, work) {
-  if (!stream) {
-    try {
-      const data = await work(() => {});
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch (e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
-    }
-    return;
-  }
-  res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
-  const send = (obj) => res.write(JSON.stringify(obj) + "\n");
-  const started = Date.now();
-  const heartbeat = setInterval(() => send({ type: "tick", elapsed: Date.now() - started }), 1000);
-  try {
-    const data = await work((ev) => send({ type: "progress", elapsed: Date.now() - started, ...ev }));
-    send({ type: "result", data });
-  } catch (e) {
-    console.error("[Studio] tarefa de IA falhou:", e.message);
-    send({ type: "error", error: e.message });
-  } finally {
-    clearInterval(heartbeat);
-    res.end();
-  }
-}
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
-  });
-}
-
-function readJSON(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk) => (data += chunk));
-    req.on("end", () => {
-      try {
-        resolve(data ? JSON.parse(data) : {});
-      } catch (e) {
-        reject(new Error("JSON inválido no corpo da requisição"));
-      }
-    });
-    req.on("error", reject);
-  });
 }

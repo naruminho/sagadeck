@@ -318,14 +318,14 @@ test("Studio: Parar a transformação pelo chat; reabrir a página no meio acomp
     await p.click("#tab-btn-chat");
     await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
     await p.click("#chat-send");
-    await p.click(".work-stop", { timeout: 20000 });
+    await p.click('#chat-send[aria-label="Parar"]', { timeout: 20000 });
     await p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 30000 });
-    assert.match(await lastAI(), /Parei a pedido/);
+    assert.match(await lastAI(), /Parado a pedido/);
     assert.equal(saved().slides[1].layout, "canvas", "parar não mexe no deck");
     // de novo; no meio, a página recarrega (fechou o navegador): o servidor segue e a página reaberta acompanha
     await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
     await p.click("#chat-send");
-    await p.waitForSelector(".work-stop", { timeout: 20000 });
+    await p.waitForFunction(() => /Transformando|melhorando|Reescrevendo|Preparando|Planejando/i.test(document.querySelector('.ai-working')?.innerText || ''), null, { timeout: 20000 });
     await p.reload({ waitUntil: "networkidle" });
     await p.click("#tab-btn-chat").catch(() => {});
     await p.waitForFunction(() => /A transformação terminou/.test(document.querySelector("#chat-messages")?.innerText || ""), null, { timeout: 60000 });

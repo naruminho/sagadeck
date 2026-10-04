@@ -1,6 +1,5 @@
-// O Studio local tem uma apresentação aberta por vez, para todas as abas (e aparelhos) que o abrem. Uma aba que ficou
-// numa apresentação não pode gravar a dela (salvar, YAML, chat) por cima da que outra aba abriu depois: recusa (409)
-// e avisa para recarregar. Aconteceu de verdade: um pedido de IA para o original foi gravado numa recriada.
+// Abas atuais têm contextos independentes. Clientes antigos sem escopo continuam protegidos
+// por expectFile: uma gravação nunca pode ir para a apresentação errada.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -43,7 +42,7 @@ test("servidor: salvar, YAML e chat de uma aba que ficou noutra apresentação s
   } finally { await studio.close(); fs.rmSync(L.root, { recursive: true, force: true }); }
 });
 
-test("Studio: a aba que ficou na apresentação antiga avisa para recarregar e não grava por cima da outra", async (t) => {
+test("Studio: abrir outra apresentação não impede a aba original de salvar seu próprio arquivo", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const L = lib();
   const studio = await startStudio(L.a, { library: L.root });
@@ -52,16 +51,14 @@ test("Studio: a aba que ficou na apresentação antiga avisa para recarregar e n
     await page.waitForFunction(() => document.body.innerText.includes("texto da A"));
     await post(`${studio.url}/api/library/open`, { id: "Aulas/Aula B/Aula B.yaml" }); // outra aba/aparelho
     // a pessoa mexe na aba antiga (a A): o Studio tenta salvar
-    const saved = page.waitForResponse((r) => r.url().endsWith("/api/deck") && r.request().method() === "POST");
+    const saved = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/deck" && r.request().method() === "POST");
     const campo = page.locator('#slide-fields-form .sf-field:has(.sf-label:text-is("Frase")) textarea, #slide-fields-form .sf-field:has(.sf-label:text-is("Frase")) input').first();
     await campo.fill("texto da A mudado na aba antiga");
     const res = await saved;
-    assert.equal(res.status(), 409);
-    await page.waitForSelector("#toast-notification:not(.hidden) [data-toast-undo]");
-    assert.match(await page.textContent("#toast-notification"), /Recarregue/);
-    assert.match(await page.textContent("#save-status"), /Erro ao salvar/);
+    assert.equal(res.status(), 200);
+    assert.equal(YAML.parse(fs.readFileSync(L.a, "utf8")).slides[0].text, "texto da A mudado na aba antiga");
     assert.deepEqual(YAML.parse(fs.readFileSync(L.b, "utf8")).slides.map((s) => s.text), ["texto da B"]);
-    assert.deepEqual(errors.filter((e) => !/409/.test(e)), []);
+    assert.deepEqual(errors, []);
     await page.close();
   } finally { await studio.close(); await browser.close(); fs.rmSync(L.root, { recursive: true, force: true }); }
 });

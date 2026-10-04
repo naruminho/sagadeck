@@ -1077,3 +1077,8 @@ Para o filme, planeje pelo comando video, mostre prompt detalhado e quadros inic
 ### Composição pelo agente
 
 Use os elementos nativos para textos, logos/imagens, figuras e motion. Não entregue a apresentação inteira como HTML/iframe opaco só para contornar os recursos disponíveis: prejudica edição e exportação. Combine área clara de texto com painel tecnológico quando o briefing pedir; hierarquia tipográfica e respiro continuam importantes. Escolha cores e geometria pelo assunto e restrições, sem receitas fixas por nome de evento. Logo próprio pode ser SVG via html, com formas simples e significado explícito; logo oficial deve vir do arquivo correto, sem reinventar. `review: true` pede conferência visual. Só declare capacidade comprovada após gerar pelo chat e inspecionar o resultado; teste a criação em outro assunto para verificar que não depende da apresentação usada como exemplo.
+
+
+### Trabalho no Studio
+
+Cada aba do editor mantém sua apresentação independente. Enquanto o chat processa, a entrada permanece disponível e o botão de enviar vira Parar; cancelar impede aplicar resposta pendente. Slides podem ser copiados para outra apresentação com Copiar/Colar na faixa Início (Ctrl+C/Ctrl+V com foco na lista); arquivos locais referenciados acompanham a cópia. O slide passa a usar o tema da apresentação de destino.
