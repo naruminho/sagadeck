@@ -1164,7 +1164,8 @@
   function saveChatHistory() {
     return fetch("api/chat/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: state.chatHistory }) }).catch(() => {});
   }
-  // ---- comandos da IA: nada roda sem a pessoa ver o código e clicar (a liberação vale só nesta página e neste deck) ----
+  // ---- comandos da IA: a pessoa vê o código e clica para rodar (a liberação vale só nesta página e neste deck).
+  // Ações gratuitas de vídeo (plan/status/frame/download) rodam direto, sem clique; só o que pode cobrar pede.
   state.autoRunCommands = false;
   function commandCard(cmd) {
     const msg = appendChatMessage("ai", "");
@@ -1173,7 +1174,7 @@
     box.innerHTML = `<div class="cmd-head"><i class="ic" data-ic="terminal"></i><b></b></div><div class="cmd-why"></div><pre class="cmd-code"></pre><div class="cmd-actions"></div>`;
     box.querySelector("b").textContent = `A IA quer rodar um comando (${cmd.language})`;
     box.querySelector(".cmd-why").textContent = cmd.why || "";
-    box.querySelector(".cmd-code").textContent = cmd.code;
+    box.querySelector(".cmd-code").textContent = cmd.code && typeof cmd.code === "object" ? JSON.stringify(cmd.code, null, 1) : cmd.code;
     hydrateIcons(box);
     dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
     return box;

@@ -34,6 +34,7 @@ import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { reviewExperience } from '../ai/quality.js';
 import { saveGenReport } from './generation-report.js';
 import { runCommand, envName, logCommand } from "../ai/commands.js";
+import { needsApproval, approvalLabel, awaitApproval } from "./command-approval.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -185,15 +186,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
     const cwd = path.dirname(W.file);
     return async (command) => {
       signal?.throwIfAborted();
-      if (!body.autoRun) {
-        const id = crypto.randomUUID();
-        const decision = await new Promise((resolve) => {
-          const timer = setTimeout(() => { approvals.delete(id); resolve("deny"); }, 10 * 60 * 1000);
-          const abort = () => { clearTimeout(timer); approvals.delete(id); resolve("deny"); };
-          signal?.addEventListener("abort", abort, { once: true });
-          approvals.set(id, { user: W.user || "", answer: (d) => { clearTimeout(timer); approvals.delete(id); resolve(d); } });
-          emit({ phase: "approve", id, command, text: "Esperando você autorizar o comando…" });
-        });
+      if (needsApproval({ autoRun: body.autoRun, command })) {
+        const decision = await awaitApproval({ command, user: W.user || "", signal, emit, approvals });
         if (decision === "deny") { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: "recusado" }); return { denied: true }; }
         if (decision === "always") body.autoRun = true;
       }
@@ -201,10 +195,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
       emit({ phase: "command", command, text: `Rodando: ${command.why || command.language}…` });
       const { env, mask } = await commandEnv(W);
       const t0 = Date.now();
+      const dec = () => approvalLabel({ autoRun: body.autoRun, command });
       let result;
       try { result = await runCommand(command, { cwd, env, mask, signal }); }
-      catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", error: e.message }, { mask }); throw e; }
-      logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: body.autoRun ? "liberado" : "aprovado", exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
+      catch (e) { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: dec(), error: e.message }, { mask }); throw e; }
+      logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: dec(), exit: result.exitCode ?? result.code ?? null, ms: Date.now() - t0, output: [result.stdout, result.stderr].filter(Boolean).join("\n") }, { mask });
       emit({ phase: "command-result", command, result, text: "Analisando o resultado…" });
       return result;
     };
