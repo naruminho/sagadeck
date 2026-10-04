@@ -1,3 +1,4 @@
+import { mediaPrompt } from './art-direction.js';
 // Operações curtas e retomáveis: o chat não fica preso esperando o render do provedor.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,6 +22,7 @@ function within(dir,name){
  return target;
 }
 export async function videoOperation(request,{cwd,key=process.env.SAGADECK_VIDEO_KEY||process.env.OPENROUTER_API_KEY,fetcher=fetch}={}){
+ if(request.action==='frame'){const {videoFrame}=await import('./video-frames.js');return videoFrame(request,{cwd});}
  if(!key)throw new Error('Configure SAGADECK_VIDEO_KEY ou OPENROUTER_API_KEY para a API de vídeo. O modelo de texto não gera vídeo.');
  const api=async(value,body)=>{
   const r=await fetcher(videoApiURL(value),{method:body?'POST':'GET',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
@@ -32,6 +34,7 @@ export async function videoOperation(request,{cwd,key=process.env.SAGADECK_VIDEO
   const meta=catalog.data?.find(m=>m.id===model||m.canonical_slug===model);if(!meta)throw new Error(`Modelo de vídeo indisponível: ${model}`);
   const body={model,prompt:String(request.prompt||''),duration:Number(request.duration||4),resolution:request.resolution||'720p',aspect_ratio:request.aspect||'16:9',generate_audio:false};
   if(!body.prompt.trim())throw new Error('Descreva o clipe antes de gerar.');
+  body.prompt=mediaPrompt(body.prompt); // plan mostra exatamente o prompt que submit enviará.
   if(!Number.isInteger(body.duration)||body.duration<1)throw new Error('Duração precisa ser um número inteiro positivo.');
   for(const [field,list] of [['duration',meta.supported_durations],['resolution',meta.supported_resolutions],['aspect_ratio',meta.supported_aspect_ratios]])if(list?.length&&!list.map(String).includes(String(body[field])))throw new Error(`${field} não suportado por ${model}.`);
   if(request.seed!=null){body.seed=Number(request.seed);if(!Number.isInteger(body.seed)||body.seed<0)throw new Error('seed precisa ser inteiro não negativo.');}

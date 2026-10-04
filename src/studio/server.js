@@ -1,6 +1,7 @@
 import { lookAt, readBody, readJSON } from "./request-helpers.js";
 import { workspaceResolver, scopePreviewHTML, staleTab } from "./workspaces.js";
 import { cancellable, respond } from "./ai-response.js";
+import {chatErrorResult,installErrorResponses} from './errors.js';
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { PUBLIC_SCRIPTS } from "./public-files.js";
@@ -45,6 +46,8 @@ export { lightVariant };
 import { VERSION } from "./instance.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
+import { prepareDocumentMaterials, takeMaterials } from '../ai/document-materials.js';
+import { webOnlyRunner } from '../ai/web-operation.js';
 import { docxToHtml } from "../docx.js";
 import { ensureUids } from "../uid.js";
 import { migrateLegacyKeys, carryVisualEdits } from "./visual-keys.js";
@@ -177,7 +180,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // transformações em andamento (continuam se o navegador fechar; o andamento e o Parar vêm pelas rotas /api/ai/transform/*)
   const transforms = new Map(); // "<arquivo do deck>|<modo>" -> { controller, mode, progress, started }
   function commandRunner(req, emit, body, W, signal) {
-    if (!body.stream || !commandsAllowed(req, W) || !W.file || isBundledTemplate(W.file)) return null;
+    if (!body.stream || !W.file || isBundledTemplate(W.file)) return null;
+    if (!commandsAllowed(req,W)) return webOnlyRunner({signal,onProgress:emit});
     const cwd = path.dirname(W.file);
     return async (command) => {
       signal?.throwIfAborted();
@@ -308,12 +312,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return spec;
   }
 
-  // Materiais de contexto (arquivos e links) para a IA: o texto extraído fica na sessão (W),
-  // o binário nunca vai para o modelo. POST /api/ai/context guarda; o chat e a geração referenciam por id.
-  function keepMaterial(W, name, text, detail) {
+  // Anexos por sessão; persistidos no projeto antes de gerar.
+  // O modelo recebe texto e inventário visual, nunca o binário.
+  function keepMaterial(W, name, text, detail, bytes) {
     if (!(W.contextDocs instanceof Map)) W.contextDocs = new Map();
     const id = crypto.randomBytes(4).toString("hex");
-    W.contextDocs.set(id, { name: String(name).slice(0, 120), text: String(text).slice(0, CONTEXT_STORE_CHARS), detail, at: Date.now() });
+    W.contextDocs.set(id, { name: String(name).slice(0, 120), text: String(text).slice(0, CONTEXT_STORE_CHARS), detail, bytes, at: Date.now() });
     while (W.contextDocs.size > CONTEXT_MAX_DOCS) W.contextDocs.delete(W.contextDocs.keys().next().value);
     return { id, name, chars: text.length, detail };
   }
@@ -333,12 +337,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
         slides: Number(b.slides) || undefined,
         duration: Number(b.duration) || undefined,
         direction: b.direction || undefined,
-        materials: takeMaterials(W, b.materials),
+        materials: await prepareDocumentMaterials(takeMaterials(W, b.materials), dir, {onProgress:emit}),
         images: prefs.imagens !== false, // o briefing diz se quer imagens (e onde); Preferências podem desligar
         imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
         onEvent: emit,
         drawCheck: diagramCheck,
-        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: emit }),
+        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: emit, briefing:b.briefing }),
         // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
         // as fontes lidas ficam em contexto/pesquisa/ do deck
         research: prefs.pesquisa === false ? false : "auto",
@@ -363,13 +367,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
     if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return "";
     const parts = rel.split(/[\\/]/);
     return parts.length > 1 ? parts[0] : "";
-  }
-  function takeMaterials(W, ids) {
-    if (!(W.contextDocs instanceof Map)) return [];
-    return (Array.isArray(ids) ? ids : []).map((a) => {
-      const d = typeof a === "string" ? W.contextDocs.get(a) : W.contextDocs.get(a?.id);
-      return d ? { name: d.name, text: d.text, detail: d.detail } : null;
-    }).filter(Boolean);
   }
   // Links colados na mensagem: o servidor lê sozinho (até 2) e conta nas ações; falha não trava o pedido.
   async function readPastedLinks(W, text, actions) {
@@ -417,6 +414,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
     res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
     res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 
+    installErrorResponses(res);
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const pathname = url.pathname;
 
@@ -943,10 +941,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
             const m = String(body.dataUrl).match(/^data:([^;]+);base64,([\s\S]*)$/);
             if (!m) throw new Error("Anexo inválido.");
             const fname = String(body.name).split(/[\\/]/).pop();
-            doc = { ...(await extractDocText(fname, Buffer.from(m[2], "base64"))), name: fname };
+            const bytes = Buffer.from(m[2], "base64");
+            doc = { ...(await extractDocText(fname, bytes)), name: fname, bytes };
           } else throw new Error("Mande { name, dataUrl } ou { url }.");
-          if (!doc.text.trim()) throw new Error("Não achei texto legível no material.");
-          const kept = keepMaterial(W, doc.name, doc.text, doc.detail);
+          if (!doc.text.trim()) {
+            if (doc.bytes && /\.(pdf|docx)$/i.test(doc.name)) doc.text = 'Documento sem texto extraível: examine o inventário visual; não invente conteúdo.';
+            else throw new Error("Não achei texto legível no material.");
+          }
+          const kept = keepMaterial(W, doc.name, doc.text, doc.detail, doc.bytes);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ...kept, preview: doc.text.slice(0, 200) }));
         } catch (e) {
@@ -1255,8 +1257,8 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
             const visuals = await lookAt(withBase(taskWorkspace, spec), target, prompt, emit);
             // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
-            const materials = takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
-              .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id));
+            const materials = await prepareDocumentMaterials(takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
+              .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id)), path.dirname(taskWorkspace.file), {signal,onProgress:emit});
             for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
               if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
             }
@@ -1281,7 +1283,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
               apiContext: apiContextFor(req, taskWorkspace),
               drawCheck: diagramCheck,
               runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
-              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit, signal }),
+              reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit, signal, briefing:prompt }),
               styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
             });
             signal.throwIfAborted();
@@ -1329,7 +1331,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             if (signal.aborted) return { reply: "Parado a pedido. Nenhuma resposta pendente foi aplicada.", spec, actions: [], talk: true, mode: "cancelled" };
             // Falhou no meio: não "chuta" com as regras (poderiam fazer outra coisa); deck fica como estava.
             console.error("[Studio] IA falhou:", e.message);
-            return { reply: `A IA falhou e não mudei nada: ${e.message}`, spec, actions: [], targetSlide: body.targetSlide, mode: "error" };
+            return chatErrorResult(e,spec,body.targetSlide);
           }
           // o que a pessoa salvou enquanto a IA pensava não some: junção a três (base = o que foi para a IA)
           signal.throwIfAborted();

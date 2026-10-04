@@ -12,6 +12,7 @@ export function pageVisuals(html,base){
   const found=[];
   const add=(url,alt,kind)=>{try{const u=new URL(url,base);if(!/^https?:$/.test(u.protocol)||!url||found.some(v=>v.url===u.href))return;found.push({url:u.href,alt:alt||'',kind,source:base});}catch{}};
   for(const m of html.matchAll(/<meta\b[^>]*>/gi)){const tag=m[0];if(/^(og:image|twitter:image)$/.test(attr(tag,'property')||attr(tag,'name')))add(attr(tag,'content'),'Imagem de divulgação','social');}
+  for(const m of html.matchAll(/<a\b[^>]*>/gi)){const url=attr(m[0],'href');if(/\.(svg|png|jpe?g|webp)(?:[?#]|$)/i.test(url||''))add(url,attr(m[0],'title'),'original');}
   for(const m of html.matchAll(/<img\b[^>]*>/gi)){const tag=m[0];if(Number(attr(tag,'width'))&&Number(attr(tag,'width'))<100)continue;add(attr(tag,'src')||attr(tag,'data-src'),attr(tag,'alt'),'image');}
   return found.slice(0,20);
 }

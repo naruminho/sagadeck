@@ -121,3 +121,8 @@ test("materialsBlock: rotula, trunca e ignora vazio", () => {
   assert.ok(b.length < 15000, "truncado");
   assert.match(b, /truncado/);
 });
+
+test('documento inventariado mantém resultados e conclusões além do antigo corte de 12 mil caracteres',()=>{
+  const text='Introdução '.repeat(1300)+'CONCLUSÃO ORIGINAL NO FINAL';
+  assert.match(materialsBlock([{name:'paper.pdf',text,inventory:{items:[]}}]),/CONCLUSÃO ORIGINAL NO FINAL/);
+});

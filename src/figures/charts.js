@@ -15,7 +15,7 @@ import { esc } from "../markup.js";
 import { iconSVG } from "./icons.js";
 import { humanBody } from "./pictos.js";
 
-const cvar = (c, d) => (!c ? `var(--${d})` : /^#?[0-9a-f]{6}$/i.test(c) ? `#${c.replace("#", "")}` : `var(--${c})`);
+const cvar = (c, d) => (!c ? `var(--${d})` : /^#?[0-9a-f]{6}$/i.test(c) ? `#${String(c).replace("#", "")}` : `var(--${c})`);
 const fmt = (v, o) => {
   if (v == null || isNaN(v)) return "";
   const d = o.decimals ?? (Math.abs(v) < 10 && v % 1 ? 1 : 0);

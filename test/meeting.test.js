@@ -6,6 +6,13 @@ import JSZip from 'jszip';
 import {meetingSpec} from '../src/meeting.js';
 import {buildHTML} from '../src/build.js';
 import {browserOrSkip,newPage,tempDeck,startStudio} from './helpers.js';
+import {pathToFileURL} from 'node:url';
+
+test('votação com título longo e detalhe animado mantém opções separadas dos controles',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
+ try{const file=deck.file+'.html';fs.writeFileSync(file,buildHTML({theme:'prisma',slides:[{layout:'poll',manual:true,id:'size',question:'Qual tamanho de equipe funciona melhor?',options:['3 a 4 pessoas','5 a 6 pessoas','7 ou mais'],motionAccent:{type:'flow'}}]}).html);const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);const last=await page.locator('.meeting-option').last().boundingBox(),actions=await page.locator('.meeting-actions').boundingBox();assert.ok(last.y+last.height<=actions.y,'controles não cobrem a última opção');await page.locator('[data-vote="2"]').fill('7');assert.equal(await page.locator('[data-vote="2"]').inputValue(),'7');assert.deepEqual(errors,[]);}
+ finally{await browser.close();deck.cleanup();}
+});
 const spec=()=>({title:'Reunião',theme:'noite',slides:[{layout:'poll',manual:true,id:'days',question:'Quantos dias?',options:['Dois dias','Três dias'],values:[2,3]},{layout:'statement',title:'Convite',text:'Duração: {{decision:days}}',notes:'NÃO PUBLICAR: discussão interna'},{layout:'statement',audience:'organization',text:'Pendência interna do RH'},{layout:'calc',audience:'organization',inputs:{days:{label:'Dias',value:3,min:1,max:5,step:1,decision:'days'}},outputs:[{name:'capacity',fn:'100/days'}]}]});
 test('divulgação usa regras aprovadas, omite votação pendente e material interno sem modificar original',()=>{
  const ordinary={slides:[{layout:'code',code:'{{decision:literal}}'}]};assert.equal(meetingSpec(ordinary),ordinary);assert.equal(meetingSpec(ordinary,'participants').slides[0].code,'{{decision:literal}}');

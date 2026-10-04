@@ -1,3 +1,4 @@
+import { ART_DIRECTION } from './art-direction.js';
 // sagadeck · IA de verdade: editar deck pelo chat, texto -> slide (Napkin), gerar deck do zero e imagens.
 // Toda saída do LLM passa por: extrair YAML -> normalizar -> renderizar cada slide (validação) ->
 // se falhar, devolve o erro ao LLM e tenta de novo -> auto-cura geométrica.
@@ -38,10 +39,14 @@ export function systemPrompt({ images = false, maxImages = 3 } = {}) {
   return `Você é o motor de IA do sagadeck, que gera apresentações a partir de YAML.
 Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e figuras que existem nela.
 
-Regras de qualidade:
+${ART_DIRECTION}\n\nRegras de qualidade:
+- Figuras informativas recebem mais área que a prosa. Gráficos largos e mapas detalhados pedem composição vertical com figura dominante e texto breve; esquemas altos podem usar figura em dois terços da largura. Evite fontes enormes disputando espaço com evidências pequenas. Não coloque cards ou títulos sobre eixos, legendas ou rótulos. Respeite proporções e fit: contain. O usuário pode escolher outra composição explicitamente.
 - Planeje a explicação: o que a audiência precisa perceber, representação, interação útil, estados a testar e conclusão. Não transforme todo slide em controle ou animação.
+- Quando houver identidade visual animada, integre os detalhes à composição: transparência, cores da paleta, geometria conectada ao conteúdo e escala coerente. Não cole mini monitores opacos em páginas genéricas. A direção pedida deve aparecer nas formas, cor e hierarquia também, sem depender somente de uma firula; escolha pelo contexto e pedido, não por uma receita de assunto.
 - Experiências usam entradas compartilhadas e fórmulas reais (calc), cenários, previsão, comparação e explicação. Dados fictícios levam illustrative: true. Consulte os estados extremos; não esconda erro matemático em gráfico bonito.
 - Ao reformular composição ou criar uma experiência pelo chat, inclua review: true para a conferência visual. Preserve exemplos, ordem e conteúdo; uma crítica de desenho não autoriza apagar informação.
+- Adapte tom, estilo, tema, densidade e recursos ao conteúdo, público e objetivo. Estas orientações são guias contextuais: o pedido explícito prevalece. Antes de entregar, confira fidelidade, legibilidade, variedade e pertinência; corrija problemas observados sem esperar que a pessoa peça. Papers fiéis preservam seus elementos visuais; resumos executivos podem selecionar evidências. Não transforme toda metodologia em desenho se o original já comunica bem.
+- Capacidades reais: quando pesquisa/comandos estiverem disponíveis, use-os antes de alegar falta de acesso à web. Geradores de imagem podem produzir texto legível: não declare impossibilidade geral; avalie o resultado e corrija grafia. Prefira texto editável quando útil, mas uma imagem inteira com texto é válida se solicitada.
 - Direção de arte: se pedirem propostas visuais, use variants com três composições do MESMO conteúdo real; varie hierarquia, enquadramento e tipografia, não só cor. Cada opção pode levar direction: {theme, rationale}. Escolher aplica o tema ao deck, mantendo outros slides intactos.
 - Para integrar texto ao cenário, componha camadas editáveis em canvas (imagem, texto, primeiro plano). continuity no mesmo objeto em slides consecutivos mantém continuidade espacial. Prefira uma imagem estática forte quando movimento não explicar nada.
 - Leia PARA QUE SERVE o material e grave em \`purpose:\` no deck. São só dois usos, e quanto texto vai na tela depende disso:
@@ -301,7 +306,7 @@ function withoutImagePrompts(node) {
   for (const [k, v] of Object.entries(node)) if (!["image_prompt","image_ref","web_image","web_capture"].includes(k)) out[k] = withoutImagePrompts(v);
   // redesenho (image_ref): até gerar, vale a figura de base
   if ("image_prompt" in node && !out.image && typeof node.image_ref === "string" && node.image_ref) out.image = node.image_ref;
-  if (("image_prompt" in node || node.web_image || node.web_capture) && !out.image && Object.keys(out).every((k) => ["fit", "alt", "radius", "step", "anim", "w", "h"].includes(k))) {
+  if (("image_prompt" in node || node.web_image || node.web_capture) && !out.image && Object.keys(out).every((k) => ["fit", "alt", "radius", "step", "anim", "x", "y", "w", "h", "continuity"].includes(k))) {
     out.icon = "image";
   }
   return out;
@@ -333,21 +338,25 @@ async function askUntilValid(messages, parse, opts = {}) {
   let firstProse = "";
   const commands = [];
   const progress = opts.onProgress || (() => {});
+  let recoveredLimit=false,lastTick=0;
+  const complete=async current=>{
+    const options={signal:opts.signal,temperature:opts.temperature??0.4,
+      onRetry:({attempt,maxAttempts})=>progress({phase:'retry',text:`O provedor falhou temporariamente; tentando novamente (${attempt}/${maxAttempts})…`}),
+      onDelta:opts.onProgress?(_piece,all)=>{if(Date.now()-lastTick<250)return;lastTick=Date.now();progress({phase:'writing',text:'Escrevendo a resposta…',chars:all.length,preview:extractYaml(all).prose.slice(0,280)});}:undefined};
+    try{return await chat(current,options);}catch(e){
+      if(e.code!=='AI_TOKEN_LIMIT'||recoveredLimit)throw e;
+      opts.signal?.throwIfAborted();recoveredLimit=true;
+      progress({phase:'retry',text:'A resposta atingiu o limite de tokens; refazendo uma vez sem raciocínio, preservando o pedido e as ferramentas…'});
+      const configured=Number(process.env.SAGADECK_CHAT_RECOVERY_TOKENS),maxTokens=Number.isFinite(configured)&&configured>0?Math.max(4096,Math.min(65536,configured)):24000;
+      return chat([...current,{role:'user',content:'A resposta anterior foi interrompida por limite de tokens e NÃO foi aplicada. Complete o pedido original no formato exigido, sem raciocínio textual extenso. Para alterações pontuais use edit com somente campos alterados; não reimprima slides intactos. Para uma criação integral preserve todo o conteúdo solicitado. Preserve resultados das ferramentas e não repita comandos já executados. Não elimine recursos pedidos para economizar tokens.'}],{...options,think:false,maxTokens});
+    }
+  };
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     progress({ phase: "llm", text: attempt === 1 ? "Pensando…"
       : lastError?.soft ? "Revisando a consistência com os outros slides…"
       : `A resposta veio com erro; pedindo correção (tentativa ${attempt}/${MAX_ATTEMPTS})…` });
-    let lastTick = 0;
     opts.signal?.throwIfAborted();
-    let res = await chat(messages, {
-      signal: opts.signal,
-      temperature: opts.temperature ?? 0.4,
-      onDelta: opts.onProgress ? (_piece, all) => {
-        if (Date.now() - lastTick < 250) return;
-        lastTick = Date.now();
-        progress({ phase: "writing", text: "Escrevendo a resposta…", chars: all.length, preview: extractYaml(all).prose.slice(0, 280) });
-      } : undefined,
-    });
+    let res = await complete(messages);
     while (opts.runCommand && RUN_BLOCK.test(res.text)) {
       let note;
       if (commands.length >= MAX_COMMANDS) note = `Limite de ${MAX_COMMANDS} comandos neste pedido atingido: responda agora SEM comandos, com o patch ou a explicação do que descobriu.`;
@@ -365,7 +374,7 @@ async function askUntilValid(messages, parse, opts = {}) {
       }
       messages = [...messages, { role: "assistant", content: res.text }, { role: "user", content: note }];
       progress({ phase: "llm", text: "Analisando o resultado…" });
-      res = await chat(messages, { temperature: opts.temperature ?? 0.4, signal: opts.signal });
+      res = await complete(messages);
     }
     progress({ phase: "validating", text: "Validando os slides…", chars: res.text.length });
     if (attempt === 1) firstProse = extractYaml(res.text).prose;
@@ -393,7 +402,7 @@ async function askUntilValid(messages, parse, opts = {}) {
       }
     }
   }
-  throw new LLMError(`O LLM não conseguiu produzir um YAML válido em ${MAX_ATTEMPTS} tentativas. Último erro: ${lastError.message}`);
+  throw new LLMError(`O LLM não conseguiu produzir um YAML válido em ${MAX_ATTEMPTS} tentativas. Último erro: ${lastError.message}`,{code:'AI_INVALID_OUTPUT',cause:lastError});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -482,6 +491,7 @@ const AUTOMATION_NOTES = `Comportamentos automáticos do sagadeck (não são dec
 - Um layout só desenha os campos dele (ex.: \`cover\` ignora \`content\`) — campo ignorado não aparece, por mais que exista no YAML.`;
 
 const EDIT_RULES = `Regras de edição:
+- edit faz merge recursivo: ao trocar o tipo de uma figura, remova com null o renderizador anterior e seus campos específicos. Não deixe diagram e svg/image competindo no mesmo objeto; para camadas use elementos separados.
 - Preserve o SIGNIFICADO do que você altera. Se o usuário não gostou de uma figura, a nova precisa representar a mesma coisa: uma pessoa continua sendo uma pessoa/cena com pessoas (outra pose, outra cena, outro picto), um processo continua sendo um processo. NUNCA troque uma figura específica por um símbolo genérico (escudo, check, estrela, raio) sem o usuário pedir.
 - CONSISTÊNCIA: se o que você muda é um motivo que se repete no deck (o mesmo personagem/picto, o mesmo tipo de figura, o mesmo estilo de elemento), mude TODAS as ocorrências do mesmo jeito e diga na resposta quais slides mudou. Harmonia visual entre os slides vale mais que acertar um slide isolado.
 - Pictos (human, crowd, scene…) são desenhados pelo motor num estilo fixo: você só controla os parâmetros (pose, sign, name, count…). Se a reclamação é sobre o traço de um picto em si, diga isso com franqueza e ofereça alternativas (ex.: outro tipo de figura no deck todo, ou ilustrações geradas se as imagens estiverem ligadas) — de preferência perguntando antes de mudar vários slides.
@@ -688,7 +698,13 @@ export function sanitizeCheck(spec, indices) {
       if (v.includes("```")) problems.push(`${where}: o texto traz uma cerca de bloco (\`\`\`), pedaço da resposta colado no slide`);
       else if (DUMPED_PATCH.test(v)) problems.push(`${where}: o texto parece um pedaço do patch/resposta (slides:, layout:…), não conteúdo`);
     } else if (Array.isArray(v)) v.forEach((x, i) => scan(x, `${where}[${i}]`, key));
-    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) scan(x, `${where}.${k}`, k);
+    else if (v && typeof v === "object") {
+      if (v.svg) {
+        const competing = ["diagram", "chart", "picto", "ufmap", "qr", "points", "image"].filter(k => v[k]);
+        if (competing.length) problems.push(`${where}: renderizadores incompatíveis svg e ${competing.join(", ")}; um ocultaria o outro. Ao trocar a figura, remova o tipo anterior com null no edit, ou use elementos separados em row/col/canvas para sobrepor.`);
+      }
+      for (const [k, x] of Object.entries(v)) scan(x, `${where}.${k}`, k);
+    }
   };
   for (const i of indices) {
     const s = spec.slides[i];
@@ -812,7 +828,7 @@ function parseEditText(text, base) {
     const { spec } = parseDeckText(text, base);
     const changed = spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(base.slides[i]) ? i : -1)).filter((i) => i >= 0);
     sanitizeCheck(spec, changed);
-    return { spec, prose, changed, review: raw.review === true };
+    return { spec, prose, changed, review: raw.review === true || (raw.review !== false && changed.some(i => spec.slides[i]?.review === true)) };
   }
   const { spec, changed } = applyPatch(base, raw);
   if (spec.theme && !THEMES[spec.theme]) throw new Error(`Tema "${spec.theme}" não existe. Use um de: ${Object.keys(THEMES).join(", ")}.`);
@@ -825,7 +841,7 @@ function parseEditText(text, base) {
     // objeção de conteúdo (soft): refaz o pedido com o fato, e vale a explicação da resposta nova
     if ((spec.slides[n - 1].layout || "") !== "api") throw Object.assign(new Error(`FATO DO DECK: o slide ${n} não é um slide api; só slides api podem ser testados (test:).`), { soft: true });
   }
-  return { spec, prose, changed, review: raw.review === true, test: test.map((n) => n - 1) };
+  return { spec, prose, changed, review: raw.review === true || (raw.review !== false && changed.some(i => spec.slides[i]?.review === true)), test: test.map((n) => n - 1) };
 }
 
 // Nomes que o comando recebe (valores nunca vão para o modelo)
@@ -875,7 +891,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     : text;
   const convo = conversationFor(history);
   const messages = [
-    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? `${COMMAND_RULES}\n${VIDEO_COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
+    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? runCommand.description || `${COMMAND_RULES}\n${VIDEO_COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
     // a conversa deste deck: o que a pessoa disse lá atrás (compactado) + as últimas trocas inteiras
     ...(convo.memory ? [{ role: "user", content: convo.memory }, { role: "assistant", content: "Certo, levo isso em conta." }] : []),
     ...convo.recent,
@@ -932,7 +948,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     onProgress?.({ phase: 'review', text: 'Conferindo a composição e os estados da experiência…' });
     quality = await reviewCheck(edited, changed);
     if (quality.issues.length && reviewDepth < 1) {
-      const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, signal, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
+      const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, runCommand, apiContext, visuals, renderNotes, maxImages, styles, signal, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
       const finalQuality = await reviewCheck(repaired.spec, changed);
       const status = finalQuality.verified ? 'Composição e estados conferidos após a correção.' : `Revisão incompleta: ${finalQuality.issues.length} problemas; ${finalQuality.unchecked.length} slides sem conferência.`;
       return { ...repaired, test: [...new Set([...test, ...(repaired.test || [])])], actions: [...actions, ...repaired.actions, status], quality: finalQuality };
@@ -1054,7 +1070,7 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     decided?.purpose ? `Para que serve o material (já decidido): purpose: ${decided.purpose}${decided.why ? ` — ${decided.why}` : ""}.` : "",
     decided?.texto ? `A pessoa disse quanto texto quer: ${decided.texto} texto na tela (grave maxWords: ${decided.texto === "muito" ? 200 : 35}).` : "",
     answer ? `Resposta da pessoa à sua pergunta sobre o material: ${answer}` : "",
-    author ? `Autor: ${author} (use em author).` : "",
+    author ? `Autor padrão das preferências: ${author}. É apenas um padrão; autoria ou organização explicitamente indicada no pedido tem prioridade. Grave a atribuição solicitada em author para não aplicar este padrão.` : "",
     language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
   ].filter(Boolean).join("\n");
   const starter = { title: "Nova apresentação", ...(theme ? { theme } : {}), slides: [{ layout: "cover", title: "Nova apresentação" }] };
@@ -1068,7 +1084,14 @@ ${briefing}
 
 Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o que ela quer.`;
   say("pedindo o deck ao LLM…");
-  const r = await editDeck({ spec: starter, instruction, images, maxImages: 8, deferImages: true, drawCheck, materials, onProgress: onEvent });
+  const creationOptions = { images, maxImages: 8, deferImages: true, drawCheck, materials, onProgress: onEvent };
+  let r;
+  try { r = await editDeck({ ...creationOptions, spec: starter, instruction }); }
+  catch (error) {
+    if (error.code !== 'AI_TOKEN_LIMIT') throw error;
+    const { stagedGeneration } = await import('./staged-generation.js');
+    r = await stagedGeneration(briefing, { starter, wishes, edit: editDeck, options: creationOptions, say });
+  }
   // a IA preferiu perguntar (como faria no chat): a pergunta volta para a pessoa
   if (r.talk) return { question: { question: r.reply, options: r.options || [] } };
   let spec = r.spec;
@@ -1092,7 +1115,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
     for (let round = 0; quality.issues.length && round < 3; round++) {
       try {
-        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados, preservando conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
+        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
         const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i));
         spec = repaired.spec; quality = nextQuality;
       } catch (error) {

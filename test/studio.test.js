@@ -357,6 +357,9 @@ test("tema e edição direta de objetos ficam integrados ao Studio", async (t) =
     await again.click();
     assert.equal(await again.evaluate((el) => el.classList.contains("visual-selected")), true, "um clique no texto seleciona o objeto");
     assert.equal(await again.evaluate((el) => document.activeElement === el), false, "o primeiro clique não entra na escrita");
+    // Ajuste de fonte/escala pode mover o objeto depois da seleção: a barra acompanha, sem cobrir o texto.
+    await again.evaluate(el=>el.style.transform+=' translateY(45px)');
+    await p.waitForFunction(()=>{const s=document.querySelector('#rendered-slide-container .visual-selected'),b=document.querySelector('.visual-toolbar');if(!s||!b)return false;const r=s.getBoundingClientRect(),t=b.getBoundingClientRect();return t.bottom<=r.top||t.top>=r.bottom;});
     await again.click();
     assert.equal(await again.evaluate((el) => document.activeElement === el && el.isContentEditable), true, "o segundo clique escreve");
     await p.keyboard.press("Escape"); await p.waitForTimeout(700);
@@ -2008,12 +2011,13 @@ test("multiusuário: comandos só para quem está em --agentes; ninguém respond
     rq.end(JSON.stringify({ message: "teste a API", stream: true, targetSlide: 0 }));
   });
   try {
-    // Mary (fora da lista): a IA dela não tem comandos e nada pede aprovação
+    // Mary (fora da lista): pesquisa somente leitura disponível; código local continua bloqueado.
     await openDeck("mary");
     const n = llm.requests.length;
     const evMary = await chat("mary");
     assert.ok(!evMary.some((e) => e.phase === "approve"), "nenhum pedido de aprovação para quem não está na lista");
-    assert.match(llm.requests[n].system, /Comandos: indisponíveis aqui/);
+    assert.match(llm.requests[n].system, /PESQUISA WEB disponível/);
+    assert.match(llm.requests[n].system, /Não peça javascript\/python\/shell\/video/);
     assert.doesNotMatch(llm.requests[n].system, /COMANDOS \(Studio local\)/);
     assert.equal((await post("mary", "/api/ai/approve", { id: "x", decision: "run" })).status, 403);
     // Naru (na lista): o pedido chega; a Mary não consegue responder por ele; ele responde

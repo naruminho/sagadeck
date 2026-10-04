@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
+import vm from 'node:vm';
 import { browserOrSkip, newPage, startStudio } from "./helpers.js";
 
 const DECK = { title: "Manejo de Águas Pluviais", theme: "sinal", slides: [
@@ -32,6 +33,25 @@ async function raw(url, { method = "GET", headers = {}, body } = {}) {
     req.end(body ? JSON.stringify(body) : undefined);
   });
 }
+
+test('link compartilhado não injeta controles dentro do JavaScript do Mermaid', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(),'saga-share-diagram-'));
+  const file = libraryWithDeck(root);
+  fs.writeFileSync(file,YAML.stringify({title:'Diagrama',slides:[{layout:'diagram',title:'Fluxo',mermaid:'flowchart LR\n A --> B'}]}));
+  const studio = await startStudio(file,{library:root});
+  try {
+    const shared = await raw(studio.url+'/api/share',{method:'POST',body:{}});
+    const data = shared.json();
+    assert.equal(shared.status,200);
+    const view = await raw(new URL(data.link.path,studio.url+'/').href);
+    assert.equal(view.status,200);
+    const html = view.body;
+    assert.ok([...html.matchAll(/<script/gi)].length > 5);
+    for (const script of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      if (!/application\/json/.test(script[1])) assert.doesNotThrow(()=>new vm.Script(script[2]));
+    }
+  } finally {await studio.close();fs.rmSync(root,{recursive:true,force:true});}
+});
 
 test("Studio: Arquivo › Compartilhar link cria um link só de leitura (sem as notas, sem indexar), copia e revoga", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;

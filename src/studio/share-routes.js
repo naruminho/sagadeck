@@ -91,7 +91,8 @@ export function shareRoutes({ libraryRoot, multiuser, libraryOf }) {
     if (!l.notas) spec.slides = spec.slides.map((s) => { if (!s || typeof s !== "object") return s; const { notes, ...rest } = s; return rest; });
     if (download) return sendDownload(req, res, l, spec, file, download), true;
     const html = buildHTML(spec).html.replace(/<head>/i, '<head><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">');
-    send(200, req.method === "HEAD" ? html : html.replace(/<\/body>/i, `${downloadBar(l)}</body>`));
+    // O Mermaid contém "</body>" em strings: inserir somente no fechamento real do HTML.
+    send(200, req.method === "HEAD" ? html : html.replace(/<\/body>(\s*<\/html>\s*)$/i, (_, end) => `${downloadBar(l)}</body>${end}`));
     return true;
   }
 

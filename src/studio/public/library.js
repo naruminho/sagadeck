@@ -353,7 +353,7 @@
       </div>
       <label>Material de apoio <span class="muted">(opcional: arquivos ou links; dá para arrastar arquivos para cá)</span></label>
       <div class="dlg-att"><button class="lib-btn ghost" id="dlg-file" type="button">${ic("paperclip")}Anexar arquivo</button>
-        <input type="file" id="dlg-files" multiple hidden accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv">
+        <input type="file" id="dlg-files" multiple hidden accept=".pdf,.doc,.docx,.pptx,.xlsx,.txt,.md,.csv">
         <input type="text" id="dlg-link" placeholder="ou cole um link (https://…)"><button class="lib-btn ghost" id="dlg-link-add" type="button">Adicionar</button></div>
       <div class="dlg-chips" id="dlg-chips"></div>
       <div class="status" id="dlg-status"></div>

@@ -10,6 +10,6 @@ for(const frame of document.querySelectorAll('iframe[data-motion]')){
   document.addEventListener('keydown',begin,true);slide.addEventListener('click',begin,true);
  }
  window.addEventListener('message',e=>{if(e.source!==frame.contentWindow)return;if(e.data?.sagaMotion==='done')finish();if(e.data?.sagaMotion==='start-request'&&slide?.classList.contains('current')&&!done){if(started)finish();else{started=true;send('start');}}});
- const activate=()=>{const active=slide?.classList.contains('current');send('active',active);if(!active){started=false;done=false;frame.style.visibility='';send('reset');}};
+ const activate=()=>{const active=slide?.classList.contains('current');send('active',active);if(document.documentElement.classList.contains('export')||document.documentElement.dataset.motion==='none'||matchMedia('(prefers-reduced-motion: reduce)').matches)send('poster');if(!active){started=false;done=false;frame.style.visibility='';send('reset');}};
  frame.addEventListener('load',activate);if(slide)new MutationObserver(activate).observe(slide,{attributes:true,attributeFilter:['class']});
 }

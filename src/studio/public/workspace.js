@@ -8,7 +8,11 @@ window.SagaWorkspace = function () {
     if (url.origin !== location.origin) return originalFetch(input, options);
     const headers = new Headers(options?.headers || input?.headers);
     headers.set('x-sagadeck-workspace', workspaceId);
-    return originalFetch(input, { ...options, headers });
+    return originalFetch(input, { ...options, headers }).catch(error=>{
+      if(error.name==='AbortError')throw error;
+      if(error instanceof TypeError)throw new Error('Não foi possível conectar ao SagaDeck. Verifique a conexão e tente novamente. Código: CONNECTION_FAILED. Se persistir, informe esse código ao responsável pelo SagaDeck.',{cause:error});
+      throw error;
+    });
   };
   return scopedURL;
 };

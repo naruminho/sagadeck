@@ -12,7 +12,7 @@ import { adaptiveHTML } from "./adaptive-layouts.js";
 import { iconSVG, listIcons } from "./figures/icons.js";
 let iconNames = null;
 const diagramIconNames = () => (iconNames ||= new Set(listIcons()));
-import { el, text, figureHTML, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
+import { el, text, figureHTML, imageSize, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import { mathHTML, plotHTML } from "./science.js";
 import { infographicHTML, itemColors } from "./infographic.js";
@@ -327,12 +327,17 @@ export const LAYOUTS = {
   },
 
   split(s, ctx) {
-    const ratio = String(s.ratio || "1:1").split(":").map(Number);
+    const image=s.figure?.image, dimensions=image?imageSize(image,ctx):null;
+    const documentImage=typeof image==='string'&&image.replace(/\\/g,'/').includes('contexto/visuais/');
+    const visual=s.figure&&(documentImage||s.figure.fit==='contain'||s.figure.chart||s.figure.diagram||s.figure.math||s.figure.table);
+    const stacked=s.arrangement==='stacked'||(!s.arrangement&&!s.ratio&&visual&&(!dimensions||dimensions.w/dimensions.h>1.2));
+    if(stacked) return `<div class="L-split sp-stacked">${head({...s,titleSize:s.titleSize||64})}<div class="sp-fig e" style="--d:2" ${s.figureStep?`data-step="${s.figureStep}"`:''}>${el({...s.figure,...(image?{fit:'contain'}:{})},ctx,1680,620)}</div><div class="sp-summary">${s.body?text(s.body,'body',{size:s.bodySize||32}):''}${s.bullets?list({list:s.bullets,build:s.build,size:s.bulletSize||30}):''}${s.content?el(s.content,ctx):''}</div></div>${src(s)}${add(s,ctx)}`;
+    const ratio = String(s.ratio || (visual?'1:2':'1:1')).split(":").map(Number);
     const left = `${s.body ? text(s.body, s.bodyAs || "lead", { class: "sp-body e", style: "--d:2;" }) : ""}
       ${s.bullets ? list({ list: s.bullets, build: s.build, size: s.bulletSize }) : ""}
       ${s.content ? el(s.content, ctx) : ""}`;
     const W = Math.round(1680 * ratio[1] / (ratio[0] + ratio[1]));
-    const right = s.figure ? `<div class="sp-fig e" style="--d:2;flex:${ratio[1]}" ${s.figureStep ? `data-step="${s.figureStep}"` : ""}>${el(s.figure, ctx, W - 40, 740)}</div>` : "";
+    const right = s.figure ? `<div class="sp-fig e" style="--d:2;flex:${ratio[1]}" ${s.figureStep ? `data-step="${s.figureStep}"` : ""}>${el(documentImage?{...s.figure,fit:'contain'}:s.figure, ctx, W - 40, 740)}</div>` : "";
     return `<div class="L-split ${s.reverse ? "rev" : ""}">
       <div class="sp-text" style="flex:${ratio[0]}">${head(s, s.titleAs || "h2")}${left}</div>${right}
     </div>${src(s)}${add(s, ctx)}`;
@@ -434,7 +439,7 @@ export const LAYOUTS = {
   image(s, ctx) {
     // figura inteira à vista (fit: contain: gráfico, tabela, esquema): a legenda vai embaixo, sem cobrir; foto (cover)
     // segue sangrando, com o cartão por cima
-    const contain = (s.figure?.fit || s.fit) === "contain";
+    const contain = (s.figure?.fit || s.fit) === "contain" || (!s.fit&&!s.figure?.fit&&String(s.figure?.image||s.image||'').replace(/\\/g,'/').includes('contexto/visuais/'));
     // figura inteira: título no alto, como nos outros slides (não a frase gigante embaixo), e a legenda pequena embaixo
     if (contain) return `<div class="L-image im-contain">${s.title || s.kicker ? head(s) : ""}<div class="im-fig">${el(s.figure || { image: s.image, fit: "contain" }, ctx, 1680, slideSize(ctx.spec).h)}</div>${s.caption ? text(s.caption, "small", { class: "im-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
     return `<div class="L-image"><div class="im-fig">${el(s.figure || { image: s.image, fit: s.fit || "cover" }, ctx, 1920, slideSize(ctx.spec).h)}</div>

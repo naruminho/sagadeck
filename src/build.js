@@ -266,6 +266,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
   const area = layout === "canvas" || layout === "full" || layout === "kinetic" || layout === "scenography" ? "free" : "safe";
+  const motionAccent = area === 'safe' && s.motionAccent && typeof s.motionAccent === 'object';
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
   const total = spec.slides?.length || i + 1;
@@ -293,7 +294,8 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   if (area === "safe") html += `<div class="orn" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
   if (bandTitle) html += applyVisualEdits(bandTitle, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p });
-  html += `<div class="${area}">${applyVisualEdits(inner, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p })}</div>`;
+  html += `<div class="${area}${motionAccent ? ' with-motion-accent' : ''}">${applyVisualEdits(inner, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p })}</div>`;
+  if (motionAccent) {const fg=s.fg||theme.tones[tone]?.fg||'ink';html += `<div class="motion-accent" aria-hidden="true">${el({motion:{background:'transparent',foreground:theme.colors[fg]||fg,...s.motionAccent}},ctx,320,90)}</div>`;}
   if (bars) html += barHTML("footer", spec, i, total);
   if (s.back != null && s.back !== "") {
     const alvo = (spec.slides || []).find((x) => x && String(x.id) === String(s.back));

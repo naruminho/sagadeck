@@ -150,6 +150,10 @@ export function openLibrary(root) {
   }
   function createTopic(name, color) {
     const n = safeName(name, "Novo tópico");
+    fs.mkdirSync(root, { recursive: true });
+    // Repeated requests (including Enter + click) reuse the topic, never multiply folders.
+    const existing = fs.readdirSync(root, { withFileTypes: true }).find(e => e.isDirectory() && !hidden(e.name) && e.name.normalize("NFC").toLocaleLowerCase("pt-BR") === n.toLocaleLowerCase("pt-BR"));
+    if (existing) return existing.name;
     const dir = uniquePath(root, n);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, TOPIC_META), JSON.stringify({ color: color || COLORS[list().topics.length % COLORS.length], created: Date.now() }));

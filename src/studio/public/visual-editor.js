@@ -121,6 +121,7 @@
     if(shapes)toolbar.querySelector('[data-fill]').value=toHex(fillOf(el));
     if(sel.length===1) { const h=document.createElement('button');h.type='button';h.className='visual-handle';h.ariaLabel='Redimensionar elemento';el.append(h); }
     placeToolbar();
+    trackToolbar();
     notify();
   }
   const toHex=c=>{const m=String(c).match(/\d+(\.\d+)?/g);if(!m||m.length<3)return '#000000';return '#'+m.slice(0,3).map(v=>Math.round(+v).toString(16).padStart(2,'0')).join('');};
@@ -131,6 +132,12 @@
     const h=toolbar.offsetHeight,w=toolbar.offsetWidth;
     toolbar.style.top=`${Math.round(top-h-12<70?bottom+12:top-h-12)}px`;
     toolbar.style.left=`${Math.round(Math.max(8,Math.min(innerWidth-w-8,left)))}px`;
+  }
+  let toolbarFrame;
+  function trackToolbar() {
+    cancelAnimationFrame(toolbarFrame);
+    const tick=()=>{if(toolbar.hidden||!sel.length)return;placeToolbar();toolbarFrame=requestAnimationFrame(tick);};
+    toolbarFrame=requestAnimationFrame(tick);
   }
   // cor ao vivo enquanto a pessoa escolhe; grava (com Desfazer) quando ela solta
   function liveColor(kind,value) {

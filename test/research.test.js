@@ -18,6 +18,16 @@ test('anotação lenta tem prazo total, não repete a chamada e libera a geraç�
 });
 
 const deckYaml = (title) => "```yaml\ntitle: " + title + "\nslides:\n  - layout: cover\n    title: " + title + "\n  - layout: statement\n    text: \"Dados de hoje\"\n  - layout: references\n    title: Referências\n    items: [\"Fonte F1\"]\n```";
+test('planejamento de pesquisa separa contexto interno de recursos públicos', async () => {
+ const llm = await startMockLLM(() => '{"pesquisar":false,"buscas":[]}');
+ process.env.SAGADECK_LLM_URL = llm.url;
+ try {
+  const {decideResearch} = await import('../src/research/research.js');
+  await decideResearch('Divulgue nosso evento interno com a plataforma Bridge e logo oficial.');
+  assert.match(llm.requests[0].lastUser,/não fatos públicos a confirmar/);
+  assert.match(llm.requests[0].lastUser,/produtos homônimos/);
+ } finally { await llm.close(); }
+});
 test('slide único no pedido prevalece sobre estimativa de duração no prompt',async()=>{
  const llm=await startMockLLM(()=> '```yaml\ntitle: Página única\nslides:\n  - layout: statement\n    text: Um infográfico\n```');process.env.SAGADECK_LLM_URL=llm.url;
  try{const {generateDeck}=await import('../src/ai/deck-ai.js');const result=await generateDeck('Quero um único slide, sem capa extra',{duration:1,research:false,images:false});assert.equal(result.spec.slides.length,1);assert.match(llm.requests.at(-1).lastUser,/pedido prevalece/);assert.match(llm.requests.at(-1).lastUser,/não adicione capa/);}finally{await llm.close()}
@@ -41,6 +51,20 @@ function fakeWeb() {
     },
   };
 }
+
+test('anexos exclusivos bloqueiam pesquisa sem autorização; complemento explícito libera', async () => {
+  let allowed = false;
+  const llm = await startMockLLM(() => JSON.stringify({pesquisar:true,externalAuthorized:allowed,buscas:['tema']}));
+  process.env.SAGADECK_LLM_URL = llm.url;
+  try {
+    const {decideResearch} = await import('../src/research/research.js');
+    const options = {materials:[{name:'paper.pdf',text:'Fonte primária'}]};
+    assert.equal((await decideResearch('Apresente o paper',options)).pesquisar,false);
+    allowed = true;
+    assert.equal((await decideResearch('Complemente com fontes externas',options)).pesquisar,true);
+    assert.match(llm.requests[0].lastUser,/fonte exclusiva/);
+  } finally {await llm.close();}
+});
 
 test("o que a IA já sabe (hash table): não pesquisa, não abre a web", async () => {
   const llm = await startMockLLM((req) => (/Decida se o que você JÁ SABE basta/.test(req.lastUser) ? '{"pesquisar": false, "motivo": "conceito clássico", "academico": false, "buscas": []}' : deckYaml("Hash table")));

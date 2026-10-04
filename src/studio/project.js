@@ -12,6 +12,7 @@ import JSZip from "jszip";
 import { toNum as rawNum } from "../science.js";
 import { parseCSV, toCSV } from "../csv.js";
 import { extractDocText } from "../ai/context.js";
+import { storedDocumentMaterials } from '../ai/document-materials.js';
 
 // número de planilha: 1.234,5 · 40% · R$ 10 · -3
 const toNum = (v) => rawNum(String(v ?? "").trim().replace(/^R\$\s*/i, "").replace(/\s*%$/, ""));
@@ -320,8 +321,9 @@ export async function contextMaterials(P, { maxDocs = 8, maxChars = 20000 } = {}
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else files.push(f); });
   walk(dir);
   const cacheDir = path.join(P.dir, META, "cache");
-  const out = [];
+  const out = storedDocumentMaterials(P.dir);
   for (const f of files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)) {
+    if (f.startsWith(path.join(dir,'documentos') + path.sep) || f.startsWith(path.join(dir,'visuais') + path.sep)) continue;
     if (out.length >= maxDocs) break;
     const k = kindOf(f);
     if (k === "image" || k === "other") continue;

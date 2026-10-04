@@ -23,7 +23,7 @@ export const SIZES = { hero: 210, number: 250, title: 128, h2: 92, h3: 56, quote
 const FACE = { hero: "display", number: "display", title: "display", h2: "display", h3: "heading", quote: "quote", lead: "body", body: "body", small: "body", label: "label", mono: "mono", tiny: "label" };
 
 const px = (v) => (v == null ? null : typeof v === "number" ? `${v}px` : String(v));
-const colorVal = (c) => (!c ? null : /^#?[0-9a-f]{6}$/i.test(c) ? `#${c.replace("#", "")}` : `var(--${c})`);
+const colorVal = (c) => (!c ? null : /^#?[0-9a-f]{6}$/i.test(c) ? `#${String(c).replace("#", "")}` : `var(--${c})`);
 // cor de texto: "hi" (cor de destaque) vira a versão legível sobre o fundo (--hi-ink, src/themes.js)
 const textColorVal = (c) => (c === "hi" ? "var(--hi-ink,var(--hi))" : colorVal(c));
 
@@ -225,7 +225,7 @@ export function el(e, ctx, w, h) {
   if (e.badge) return `<div${attrs(e, "badge f-label")}>${md(e.badge)}</div>`;
   if (e.aviso) return aviso(e);
   if (e.video) return video(e, ctx);
-  if (e.motion) return `<div${attrs(e, "motion")}>${motionHTML(e.motion)}</div>`;
+  if (e.motion) return `<div${attrs(e, "motion")}>${motionHTML(e.motion,ctx?.theme?.colors)}</div>`;
   if (e.widget) return `<div${attrs(e, "widget")} data-widget="${esc(e.widget)}" data-opts="${esc(JSON.stringify(e))}"></div>`;
   if (e.html) return `<div${attrs(e, "raw")}>${e.html}</div>`;
   if (e.spacer != null) return `<div class="spacer" style="flex:${e.spacer === true ? 1 : 0} 0 ${px(e.spacer === true ? 0 : e.spacer)}"></div>`;

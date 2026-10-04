@@ -1,3 +1,4 @@
+import { mediaPrompt } from './art-direction.js';
 // sagadeck · Cliente de LLM (qualquer endpoint compatível com OpenAI: /v1/chat/completions)
 //
 // Por padrão fala com o `modelrelay serve` local (http://127.0.0.1:8765/v1), que decide pela
@@ -14,14 +15,16 @@
 //   SAGADECK_LLM_FIRST_TIMEOUT  em streaming, segundos até a 1ª palavra (o modelo pensa antes) (padrão: 600)
 
 import { currentUsage, recordUsage } from './usage.js';
+import {setTimeout as delay} from 'node:timers/promises';
 
 export class LLMError extends Error {
-  constructor(message, { status, cause, aborted } = {}) {
+  constructor(message, { status, cause, aborted, code } = {}) {
     super(message);
     this.name = "LLMError";
     this.status = status;
     if (aborted) this.aborted = true;
     if (cause) this.cause = cause;
+    if(code)this.code=code;
   }
 }
 
@@ -81,14 +84,23 @@ const withTimeout = (signal, ms) => (signal ? AbortSignal.any([signal, AbortSign
 // Se o modelo não aceita imagem, refaz sem as imagens e marca `imagesDropped` (quem chamou avisa o usuário).
 export async function chat(messages, opts = {}) {
   const metrics = currentUsage();
-  if (metrics) metrics.calls++;
-  try {
-    const result = await chatUnmetered(messages, opts);
-    if (metrics) recordUsage(metrics, result);
-    return result;
-  } catch (error) {
-    if (metrics) { metrics.failedCalls++; metrics.missingUsage++; metrics.missingCost++; }
-    throw error;
+  const configured=Number(opts.retries??process.env.SAGADECK_LLM_RETRIES??2);
+  const retries=Number.isInteger(configured)&&configured>=0&&configured<=3?configured:2;
+  for(let attempt=0;attempt<=retries;attempt++) {
+    opts.signal?.throwIfAborted();
+    if(metrics)metrics.calls++;
+    try {
+      const result=await chatUnmetered(messages,opts);
+      if(metrics)recordUsage(metrics,result);
+      if(result.finishReason==='length'&&!opts.allowTruncated)throw new LLMError('A IA atingiu o limite de tokens da resposta.',{code:'AI_TOKEN_LIMIT'});
+      return result;
+    } catch(error) {
+      if(metrics){metrics.failedCalls++;metrics.missingUsage++;metrics.missingCost++;}
+      const temporary=[408,429,500,502,503,504].includes(error.status)||error.code==='AI_PROVIDER_INTERRUPTED'||['ECONNRESET','EAI_AGAIN'].includes(error.cause?.code);
+      if(!temporary||attempt>=retries||opts.signal?.aborted||error.aborted)throw error;
+      opts.onRetry?.({attempt:attempt+2,maxAttempts:retries+1,status:error.status,code:error.code});
+      await delay(Math.min(10000,Math.max(0,opts.retryDelayMs??1000)*2**attempt),undefined,{signal:opts.signal});
+    }
   }
 }
 
@@ -168,6 +180,7 @@ async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, s
     images: (message.images || []).map((p) => decodeImage(p?.image_url?.url || p?.url || "")).filter(Boolean),
     usage: data.usage,
     model: data.model,
+    finishReason: data.choices?.[0]?.finish_reason,
   };
 }
 
@@ -211,12 +224,13 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
     const data = await res.json();
     const text = data?.choices?.[0]?.message?.content || "";
     if (text) onDelta(text, text);
-    return { text, images: [], usage: data.usage, model: data.model };
+    return { text, images: [], usage: data.usage, model: data.model, finishReason:data.choices?.[0]?.finish_reason };
   }
 
   let text = "";
   let usage;
   let model;
+  let finishReason;
   let buffer = "";
   const decoder = new TextDecoder();
   try {
@@ -232,7 +246,7 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
         if (payload === "[DONE]") continue;
         let ev;
         try { ev = JSON.parse(payload); } catch { continue; }
-        if (ev.error) throw new LLMError(`LLM falhou no meio da resposta: ${ev.error.message || JSON.stringify(ev.error)}`);
+        if (ev.error) throw new LLMError(`LLM falhou no meio da resposta: ${ev.error.message || JSON.stringify(ev.error)}`,{status:Number(ev.error.status||ev.error.code)||undefined,code:/upstream.*terminated.*stream|provider_unavailable/i.test(ev.error.message||'')?'AI_PROVIDER_INTERRUPTED':undefined});
         const piece = ev.choices?.[0]?.delta?.content;
         if (piece) {
           text += piece;
@@ -240,6 +254,7 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
         }
         if (ev.usage) usage = ev.usage;
         if (ev.model) model = ev.model;
+        if (ev.choices?.[0]?.finish_reason) finishReason=ev.choices[0].finish_reason;
       }
     }
   } catch (e) {
@@ -248,7 +263,7 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
     const why = e.name === "TimeoutError" ? `nada chegou em ${cfg.timeoutMs / 1000} s` : e.message;
     throw new LLMError(`A resposta do LLM foi interrompida (${why}).`, { cause: e });
   }
-  return { text, images: [], usage, model };
+  return { text, images: [], usage, model, finishReason };
 }
 
 function decodeImage(url) {
@@ -260,7 +275,7 @@ function decodeImage(url) {
 // Gera uma imagem com o modelo de imagem. Devolve { mime, data: Buffer }.
 // ref: imagens (data URL) que o modelo usa como base, para redesenhar uma figura (xerox, escaneada) em vez de inventar
 export async function generateImage(prompt, { model, cfg = llmConfig(), ref = [] } = {}) {
-  const text = `Generate an image: ${prompt}`;
+  const text = `Generate an image: ${mediaPrompt(prompt)}`;
   const content = ref.length ? [{ type: "text", text }, ...ref.map((url) => ({ type: "image_url", image_url: { url } }))] : text;
   const res = await chat([{ role: "user", content }], { model: model || cfg.imageModel, cfg });
   let img = res.images[0];
