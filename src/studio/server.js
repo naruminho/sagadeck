@@ -7,6 +7,7 @@ import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { PUBLIC_SCRIPTS } from "./public-files.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
+import { directionRoutes } from "./direction-routes.js";
 import http from "node:http";
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -19,6 +20,7 @@ import { buildHTML, renderSlide, loadSpec, inferLayout, setFitDefaults } from ".
 import { loadPreferences, savePreferences, preferencesFile, PREF_SCHEMA } from "../preferences.js";
 import { THEMES, PALETTES } from "../themes.js";
 import { writeDeckFile } from "../deck-file.js";
+import { snapshotVersion, versionRoutes } from "./versions.js";
 import "./public/merge-decks.js"; // globalThis.SagadeckMerge (o mesmo que o Studio usa no navegador)
 import { LAYOUTS } from "../layouts.js";
 import { listIcons } from "../figures/icons.js";
@@ -33,8 +35,8 @@ import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { reviewExperience } from '../ai/quality.js';
 import { saveGenReport } from './generation-report.js';
-import { runCommand, envName, logCommand } from "../ai/commands.js";
-import { needsApproval, approvalLabel, awaitApproval } from "./command-approval.js";
+import { runCommand, logCommand } from "../ai/commands.js";
+import { needsApproval, approvalLabel, awaitApproval, commandEnv, estimateSubmitCost } from "./command-approval.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
 import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
@@ -188,24 +190,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
     return async (command) => {
       signal?.throwIfAborted();
       if (needsApproval({ autoRun: body.autoRun, command })) {
-        // submit de vídeo mostra o preço antes de pedir: catálogo é de graça, nunca bloqueia a aprovação
-        let cost = null;
-        try {
-          const req = typeof command.code === "object" && command.code !== null ? command.code : JSON.parse(String(command.code || "{}"));
-          if (String(command.language || "").toLowerCase() === "video" && req?.action === "submit") {
-            const { estimateVideoCost } = await import("../ai/video-generation.js");
-            const { env } = await commandEnv(W).catch(() => ({ env: {} }));
-            const key = env.SAGADECK_VIDEO_KEY || env.OPENROUTER_API_KEY || process.env.SAGADECK_VIDEO_KEY || process.env.OPENROUTER_API_KEY;
-            cost = await estimateVideoCost({ model: req.model, duration: req.duration, resolution: req.resolution }, { key });
-          }
-        } catch { /* sem preço, a aprovação segue normal */ }
+        const cost = await estimateSubmitCost(command, { commandEnv: (W) => commandEnv(W, apiEnv), W });
         const decision = await awaitApproval({ command, cost, user: W.user || "", signal, emit, approvals });
         if (decision === "deny") { logCommand({ user: W.user || null, deck: W.file, cwd, language: command.language, why: command.why, code: command.code, decision: "recusado" }); return { denied: true }; }
         if (decision === "always") body.autoRun = true;
       }
       signal?.throwIfAborted();
       emit({ phase: "command", command, text: `Rodando: ${command.why || command.language}…` });
-      const { env, mask } = await commandEnv(W);
+      const { env, mask } = await commandEnv(W, apiEnv);
       const t0 = Date.now();
       const dec = () => approvalLabel({ autoRun: body.autoRun, command });
       let result;
@@ -216,16 +208,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       return result;
     };
   }
-  // variáveis, segredos e token do ambiente ativo para o comando (a IA só conhece os nomes; a saída volta mascarada)
-  async function commandEnv(W) {
-    try {
-      const e = apiEnv.env(), env = {};
-      for (const [k, v] of Object.entries({ ...(W.apiVars || {}), ...(e.vars || {}) })) if (v != null && typeof v !== "object") env[`SAGA_VAR_${envName(k)}`] = String(v);
-      for (const [k, v] of Object.entries(apiEnv.secretVars(e))) env[`SAGA_SECRET_${envName(k.replace(/^secret\./, ""))}`] = v;
-      try { const t = await apiEnv.token(e); if (t) env.SAGA_TOKEN = String(t); } catch {}
-      return { env, mask: (s) => apiEnv.maskText(e, s) };
-    } catch { return { env: {}, mask: (s) => s }; }
-  }
+  // variáveis, segredos e token do ambiente ativo: ver commandEnv em ./command-approval.js
 
   // Motivo para NÃO executar pedidos, ou null. Vale para toda rota /api/http/* que executa algo.
   function apiBlocked(req) {
@@ -304,6 +287,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         finally { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); }
       }
       else writeDeckFile(W.file, W.spec);
+      try { snapshotVersion(W.file, fs.readFileSync(W.file, "utf8")); } catch {}
     } catch (e) { console.error("[Studio] Erro ao salvar:", e.message); throw e; }
   }
 
@@ -593,36 +577,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, identities: Object.values(d.identities).map((x) => ({ id: x.id, name: x.name, fonts: x.fonts, palette: typeof x.palette === "string" ? x.palette : x.palette ? "propria" : null })) }));
         return;
       }
-      // Direções aprovadas pela pessoa (~/.sagadeck/direcoes.yaml; ver src/ai/directions.js).
-      // GET lista; POST {name} fotografa a capa atual como receita reutilizável. Só no Studio local.
-      if (pathname === "/api/directions" && req.method === "GET") {
-        const { loadDirections } = await import("../ai/directions.js");
-        const d = loadDirections();
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ file: d.file, exists: d.exists, error: d.error, directions: Object.values(d.directions) }));
-        return;
-      }
-      if (pathname === "/api/directions" && req.method === "POST") {
-        const blocked = apiBlocked(req);
-        if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Salvar direções só no Studio desta máquina." })); return; }
-        if (!W?.spec) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Abra uma apresentação primeiro." })); return; }
-        const body = await readJSON(req);
-        const cover = (W.spec.slides || []).find((s) => s && s.layout === "cover") || (W.spec.slides || [])[0] || {};
-        const { saveDirection } = await import("../ai/directions.js");
-        try {
-          const name = saveDirection(body.name, {
-            theme: W.spec.theme || null, palette: W.spec.palette || null,
-            tone: cover.tone || null, ambient: cover.ambient || null, transition: cover.transition || null,
-            notes: `capa "${String(cover.title || "").slice(0, 80)}"`,
-          });
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ name }));
-        } catch (e) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: e.message }));
-        }
-        return;
-      }
+      if (await directionRoutes({ req, res, pathname, W, readJSON, apiBlocked })) return;
       if (pathname === "/api/identities/setup" && req.method === "POST") {        const blocked = apiBlocked(req);
         if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
         const { ensureIdentitiesFile } = await import("../identity.js");
@@ -749,7 +704,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      if (await codeRoutes({req,res,pathname,W,readJSON,commandsAllowed,commandEnv,isBundledTemplate})) return;
+      if (await codeRoutes({req,res,pathname,W,readJSON,commandsAllowed,commandEnv:(W) => commandEnv(W, apiEnv),isBundledTemplate})) return;
+      if (await versionRoutes({req,res,pathname,W,readJSON})) return;
       if (await meetingRoutes({req,res,pathname,W,readJSON,persist})) return;
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
       if (await shares.api({ req, res, pathname, W, readJSON })) return;

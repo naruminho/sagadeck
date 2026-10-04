@@ -1247,6 +1247,5 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 
 - Chat de vídeo sem burocracia (Rose): plan/status/frame/download rodam sem aprovação, só submit pede; IA resume em frase e só mostra tudo em erro. Achado crítico no caminho: code YAML sem aspas virava objeto e commandRequest destruía em "[object Object]" — preservado para video/web. Teste de chat de verdade no navegador (status livre + submit negado).
 
-### Consolidação 04/10 (Rose): pendências antigas que os merges resolveram
-- Resolvidas pelos PRs #120–#127: rodadas/suítes "pendentes" das seções de execução e mídia, cena cinematográfica, reuniões com decisões, validação final, abertura de palco, motion declarativo, chat cancelável e documentos como fonte (inclui CHAPTER 4 e staged-generation via #126).
+### Consolidação 04/10 (Rose): pendências antigas que os merges resolveram- Resolvidas pelos PRs #120–#127: rodadas/suítes "pendentes" das seções de execução e mídia, cena cinematográfica, reuniões com decisões, validação final, abertura de palco, motion declarativo, chat cancelável e documentos como fonte (inclui CHAPTER 4 e staged-generation via #126).
 - Seguem ABERTAS de verdade: aprovação da capa (bloqueia vídeo e resto, gerações pausadas pelo Narumi), avaliação estética final da direção holográfica, liberação de budget dos clipes (teste + filme da areia) e a decisão MIT vs AGPL-3.0.

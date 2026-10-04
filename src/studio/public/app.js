@@ -333,12 +333,8 @@
       startPresentation();
     }
     refreshAIStatus();
-    refreshBuildStamp();
-    watchVideoJobs();
     setInterval(refreshAIStatus, 30000);
-    setInterval(refreshBuildStamp, 30000);
-    setInterval(watchVideoJobs, 30000);
-    watchTransform();
+    window.SagaAwareness?.mount({ state, showToast, hydrateIcons, fitRendered, ensureSlideStyles });    watchTransform();
     // Ctrl+Z / Ctrl+Y (e Ctrl+Shift+Z): o histórico do deck; dentro de um campo de texto vale o desfazer do campo
     document.getElementById("btn-undo")?.addEventListener("click", () => stepHistory(-1));
     document.getElementById("btn-redo")?.addEventListener("click", () => stepHistory(1));
@@ -3532,33 +3528,6 @@
     } catch { setupWindow?.close();info.textContent='Não foi possível consultar a configuração. Verifique a conexão e tente novamente.'; }
   }
 
-  async function refreshBuildStamp() {    try {
-      const info = await (await fetch("api/instance")).json();
-      const el = document.getElementById("build-stamp");
-      if (!el) return;
-      const when = info.started ? new Date(info.started) : null;
-      el.textContent = `Motor ${info.version || "?"} · #${info.commit || "?"}`;
-      el.title = `Código rodando neste Studio: versão ${info.version || "?"} (commit ${info.commit || "?"}), no ar desde ${when ? when.toLocaleString("pt-BR") : "?"} (processo ${info.pid || "?"}). Se não bater com seu último push, reinicie o Studio.`;
-    } catch { /* barra de status não pode quebrar a sessão */ }
-  }
-
-  // vigia de clipes: o servidor baixa sozinho o que terminou; aqui só avisamos uma vez por job
-  state.seenVideoJobs = {};
-  async function watchVideoJobs() {
-    let jobs = [];
-    try { jobs = (await (await fetch("api/video/jobs")).json()).jobs || []; } catch { return; }
-    for (const j of jobs) {
-      const before = state.seenVideoJobs[j.id];
-      state.seenVideoJobs[j.id] = j.status;
-      if (!before || before === j.status) continue;
-      if ((j.status === "completed" || j.status === "downloaded") && j.video) {
-        showToast(`Clipe pronto: ${j.video} — já baixado na pasta.`, 12000);
-      } else if (j.status === "failed") {
-        showToast("A geração do clipe falhou — veja o motivo no chat.", 12000);
-      }
-    }
-  }
-
   async function refreshAIStatus(force = false) {
     try {
       const res = await fetch("api/ai/status" + (force ? "?refresh=1" : ""));
@@ -4623,37 +4592,6 @@ ${ta.value}`;
     });
     window.addEventListener("focus", loadIdentities); // editou o arquivo e voltou: a lista acompanha
     loadIdentities();
-
-    // direções aprovadas: a capa atual vira receita que a IA usa ao ouvir o nome
-    async function loadDirections() {
-      try {
-        const j = await (await fetch("api/directions")).json();
-        state.directions = j.directions || [];
-        state.directionsError = j.error || "";
-      } catch { state.directions = []; state.directionsError = ""; }
-      syncDirections();
-    }
-    function syncDirections() {
-      const sel = document.getElementById("direction-select"), note = document.getElementById("direction-note");
-      if (!sel) return;
-      const list = state.directions || [];
-      sel.innerHTML = `<option value="">Nenhuma</option>` + list.map((d) => `<option value="${d.name.replace(/"/g, "&quot;")}">${d.name.replace(/</g, "&lt;")}</option>`).join("");
-      if (state.directionsError) { note.textContent = state.directionsError; note.hidden = false; }
-      else { note.textContent = list.length ? "Cite o nome no chat e a IA veste a capa com ela." : ""; note.hidden = !list.length; }
-    }
-    document.getElementById("btn-direction-save")?.addEventListener("click", async () => {
-      const name = (prompt("Nome da direção (ex.: Stark dourado):", "") || "").trim();
-      if (!name) return;
-      try {
-        const r = await fetch("api/directions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || r.statusText);
-        showToast(`Direção "${j.name}" salva. Cite o nome no chat para a IA usar.`, 9000);
-        loadDirections();
-      } catch (e) { showToast(`Não deu para salvar: ${e.message}`, 8000); }
-    });
-    window.addEventListener("focus", loadDirections);
-    loadDirections();
 
     // assistente: "Transformar em slides" aparece depois de uma conversa
     document.getElementById("btn-brainstorm-apply").addEventListener("click", applyBrainstorm);
