@@ -1,6 +1,8 @@
+import {errorDiagnostic} from './errors.js';
+
 export function cancellable(work, signal) {
   return new Promise((resolve, reject) => {
-    const abort = () => reject(new Error('Parado a pedido.'));
+    const abort = () => reject(Object.assign(new Error('Parado a pedido.'),{aborted:true}));
     signal.addEventListener('abort', abort, { once: true });
     Promise.resolve().then(() => { signal.throwIfAborted(); return work(); }).then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
   });
@@ -13,7 +15,7 @@ export async function respond(res, stream, work) {
       res.end(JSON.stringify(data));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
+      res.end(JSON.stringify(errorDiagnostic(e)));
     }
     return;
   }
@@ -26,10 +28,9 @@ export async function respond(res, stream, work) {
     send({ type: "result", data });
   } catch (e) {
     console.error("[Studio] tarefa de IA falhou:", e.message);
-    send({ type: "error", error: e.message });
+    send({ type: "error", ...errorDiagnostic(e) });
   } finally {
     clearInterval(heartbeat);
     res.end();
   }
 }
-

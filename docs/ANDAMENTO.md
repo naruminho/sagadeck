@@ -1197,3 +1197,50 @@ Versões já publicadas como MIT continuam MIT.
 - Copiar/Colar na faixa Início e Ctrl+C/Ctrl+V na lista: slide vai para outra apresentação com novos identificadores e arquivos locais copiados sem colidir; somente mídias referenciadas, não pastas inteiras ou credenciais. Clipboard do Studio separado por usuário.
 - Testes regressivos falharam antes e passaram após a correção: cancelamento de chamada pendente, isolamento entre apresentações, cópia entre abas com imagem gravada no destino. Suíte completa e publicação pendentes.
 - Validação concluída: npm test com 764 testes, 744 aprovados, 20 pulados e zero falhas. Isolamento por cabeçalho de aba preserva endpoints e autenticação; transformações sobrevivem ao recarregamento, cancelamento explícito continua disponível.
+
+### Documentos como fonte e direção contextual — 03/10/2026
+- PDF/Word anexados são persistidos na pasta da apresentação com inventário visual. Word recupera imagens, tabelas e OMML; PDF recorta elementos via visão e preserva a página inteira com aviso quando a identificação falha. Inventário acompanha pedidos futuros no chat.
+- Anexos são fonte exclusiva por padrão; pesquisa exige autorização explícita reconhecida pelo modelo. Documentos não fornecem instruções. Seleção, tom, densidade e estilo dependem de conteúdo, público e objetivo; pedido explícito prevalece. Humor permite fontes informais como opinião.
+- Compartilhamento: reproduzida corrupção do Mermaid pela inserção do botão de download dentro de uma string `</body>` do fornecedor. Inserção agora ocorre somente no fechamento real do HTML; regressão de compilação JavaScript passou após falhar antes.
+- Modelos do Oracle alinhados ao Windows, incluindo configuração de vídeo Veo 3.1 Lite; planejamento validado sem submissão paga. PR #125 publicado e serviço local reiniciado na 3517.
+- Limites: gráficos Word sem cache ou de tipos não suportados ficam sinalizados; recortes PDF exigem revisão quando o modelo não enxerga. Aplicação visual completa de template PPTX não implementada nesta etapa.
+- Testes focados aprovados: inventário Word/PDF, fallback, seleção editorial, anexo no chat com imagem gravada no slide e reutilização na próxima mensagem, pesquisa exclusiva/complementação. Suíte completa em validação.
+
+- Teste real de paper encontrou respostas de visão truncadas antes do inventário. Visão agora usa orçamento por página configurável, sem raciocínio nessa tarefa, coordenadas explícitas e limites de texto do PDF para proteger rótulos e legendas. Inventário incompleto pode ser refeito; texto do material inventariado não perde conclusões no antigo corte de 12 mil caracteres.
+- Barra flutuante acompanha reflow/movimento da seleção, deixando o texto livre. Regressão reproduziu a barra sobre o objeto e testou o segundo clique para digitar.
+- Diagnóstico geral: motivo de término preservado em JSON e streaming; tokens, timeout, créditos, acesso, conexão e arquivos distinguíveis. Código e referência para suporte, causa desconhecida explícita, sem resposta bruta/credenciais no aviso. Cancelamento permanece uma ação normal. Testes específicos aprovados; nova suíte completa em andamento.
+- Busca web real testada com sucesso após desligar raciocínio na resposta estruturada do buscador. Pesquisa somente leitura continua disponível para usuários sem execução local; teste de permissão atualizado para esse contrato, mantendo isolamento e bloqueio de comandos locais.
+
+Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tratadas como fotografias. Split agora prioriza figura informativa, empilha figuras largas e mantém contain; orientação do agente exige reconstrução de equações/tabelas legíveis sem duplicar original. CHAPTER 4.doc convertido com Word: 19 páginas, 151 objetos OLE de fórmulas, sem OMML. Teste real pelo upload em andamento usando inventário da renderização. Falhas transitórias do LLM têm retry limitado e cancelável; diagnósticos preservam mensagens específicas de APIs e conflitos de aba. Validação final e merge pendentes.
+
+### Validação integral pelo chat — 04/10/2026
+- Foco confirmado pelo usuário: o agente deve criar abertura com piada, capa tecnológica animada e conteúdo com pequenos movimentos coerentes, somente por instruções no chat. Decks continuam sendo validadores descartáveis, não solução personalizada escrita por fora.
+- Nova geração nativa iniciada com sequência completa e briefing consolidado; vídeo pago não será submetido antes de apresentar o prompt detalhado exigido anteriormente.
+- Regressões de movimento verificadas: chat digita no campo antes de enviar, pensa, responde e inicia vídeo manual; requests continuam variando; zero erros de navegador. Isso prova o runtime, não a qualidade da composição gerada.
+
+- Prova integral encontrou AI_TOKEN_LIMIT antes de produzir o deck. Implementada recuperação em src/ai/staged-generation.js: planejamento conciso compartilhado, grupos de três slides e rejeição de etapas incompletas. Nenhum roteiro de evento foi hardcodado. Testes focados passaram; nova prova nativa em andamento após bundle/restart3517. Ainda não concluído nem mergeado.
+- Revisor recebe recursos de movimento/vídeo dos demais slides, além de títulos, para avaliar coerência da sequência. Pesquisa instruída a não substituir eventos/plataformas internos por homônimos públicos.
+
+- A revisão da prova tentou remover movimentos obrigatórios para corrigir colisões. Reparo agora deve reposicionar/redimensionar recursos explicitamente pedidos, não eliminá-los. Acrescentado motionAccent: região reservada para detalhe nativo pequeno nos layouts seguros; teste real de navegador verifica conteúdo, movimento e rodapé separados.
+- Primeira prova completa após reinício gerou 17 slides, mas revisão terminou com 8 achados e faltavam movimentos em vários slides. Não aprovada. Nova prova precisa validar melhorias e conferir visualmente, depois planejar filme via chat.
+
+- A capa criada pelo agente tinha código estático. Recurso genérico motion/terminal implementado: digita roteiro de lines/code, cursor, pausa de leitura, pausa fora do slide; documentação disponível ao agente. Teste no navegador passou.
+- Suíte completa: 787 testes, 766 passaram, 20 pulados, uma falha por CRLF no exemplo Mermaid da referência. Normalizado LF; teste de regressão passou. Nova suíte completa necessária após as alterações mais recentes.
+
+- Prova nativa pelo chat executou video/frame e video/plan: captura real do slide em 1920px e consulta ao catálogo Veo, sem submit/custo. Ferramenta frame agora permite ao agente preparar suas próprias referências sem scripts externos. Frames e plano permanecem na biblioteca pessoal.
+- Movimento reduzido/exportação comunicam modo poster às cenas isoladas; terminal mostra roteiro completo para não confundir digitação inicial com texto cortado na revisão.
+- Nova prova criada em branco pelas APIs nativas e conduzida por /api/ai/chat com referência visual da capa anteriormente aprovada. Avaliação visual e filme final continuam pendentes; não declarar experiência completa.
+
+- A referência aprovada é somente um caso de validação: o usuário reforçou que o chat precisa criar direções variadas, sem receita de capa específica no motor. Prova integral pelo chat gerou 18 slides; inspeção real encontrou título cortado, logo provisório, iframe ambiente maior que seu contêiner e votação com controles sobre a última opção. Ainda não aprovada.
+- Regressões reproduzidas e corrigidas: reparo automático agora preserva ferramentas e contexto; iframe ocupa integralmente a região reservada; votação distribui linhas sem sobrepor controles. Testes específicos falharam antes e passaram depois. Direção genérica de vídeo distingue poster/espera manual, texto existente versus letras novas, loop ambiente versus abertura e camadas chat/vídeo.
+- Studio reiniciado na 3517; refinamento solicitado pelo próprio chat com busca de logo real e preservação de recursos. Nenhum vídeo pago submetido nesta etapa. Suíte completa e avaliação final pendentes.
+
+- Suíte completa anterior aprovada: 794 testes, 774 passaram, 20 condicionais pulados. Corrigidas depois as falhas reais de camadas/controles/ferramentas, com regressões específicas; nova suíte em curso.
+- Referências web agora incluem links observados aos arquivos de imagem originais, além de thumbnails. SVG autocontido é rasterizado em PNG transparente, sem conteúdo ativo/rede externa; testes de proporção, validação e importação aprovados.
+- Refinamento nativo falhou por limite de tokens após ferramentas, sem gravar o deck. Chat agora faz uma recuperação limitada, sem raciocínio, mantendo resultados e execução única; orçamento configurável. Regressão reproduziu a falha e passou com a correção, incluindo limite da segunda tentativa. Streaming/progresso continuam depois dos comandos. Nova prova real chegou à revisão das capas.
+
+- Direção transversal implementada no agente, revisão e geradores de imagem/vídeo. Plano de vídeo mostra o prompt completo sem cobrança. Testes focados: 6 passaram; avaliação estética real continua necessária.
+
+- Prova nativa de direção holográfica encontrou cores hex de seis dígitos convertidas em números pelo YAML: reprodução falhou com c.replace; corrigido em elementos, gráficos e motion, teste numeric-colors passou. A criação continua pelo chat, sem edição manual da apresentação.
+
+- Teste nativo encontrou SVG ocultado por tipo anterior após merge: guard devolve renderizadores incompatíveis e pede null ao trocar figura. Outro achado: review:true no slide era ignorado sem flag no topo; agora solicita revisão dos alterados, com opt-out explícito preservado. Ambos reproduzidos antes da correção.

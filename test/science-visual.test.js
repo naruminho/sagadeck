@@ -87,7 +87,8 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       // continua selecionado depois de arrastar: Delete exclui (clicar de novo no texto entraria na escrita)
       await p.keyboard.press('Delete');await p.waitForTimeout(600);
       sl=saved().slides.find(s=>s.layout==='science');assert.ok(Object.values(sl.visualEdits).some(e=>e.hidden));
-      await p.keyboard.press('Control+z');await p.waitForTimeout(600);
+      await p.keyboard.press('Control+z');
+      await p.waitForFunction(async()=>!Object.values((await(await fetch('/api/deck')).json()).spec.slides.find(s=>s.layout==='science').visualEdits||{}).some(e=>e.hidden));
       assert.ok(!Object.values(saved().slides.find(s=>s.layout==='science').visualEdits).some(e=>e.hidden));
     });
     assert.deepEqual(errors,[]);

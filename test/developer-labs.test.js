@@ -145,10 +145,16 @@ test('seletor preserva edição de cada serviço; PDF/PPTX recebem um slide por 
  }finally{await browser.close();await studio.close();deck.cleanup();}
 });
 
+async function waitSaved(file,predicate){
+ const deadline=Date.now()+10000;
+ while(Date.now()<deadline){if(predicate(YAML.parse(fs.readFileSync(file,'utf8'))))return;await new Promise(r=>setTimeout(r,50));}
+ assert.fail('A alteração não foi persistida no prazo.');
+}
+
 test('Studio grava engine nativo e programa personalizado pelo formulário',async t=>{
  const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck(),studio=await startStudio(deck.file);try{
-  const {page,errors}=await newPage(browser,studio.url+'/editor');await novoSlide(page,'codelab');await page.locator('#slide-fields-form .sf-field').filter({has:page.locator('.sf-label',{hasText:/^Execução$/})}).locator('select').selectOption('javascript');await page.waitForTimeout(650);assert.equal(YAML.parse(fs.readFileSync(deck.file,'utf8')).slides.find(s=>s.layout==='codelab').engine,'javascript');
-  await novoSlide(page,'playground');const field=page.locator('#slide-fields-form .sf-field').filter({has:page.locator('.sf-label',{hasText:/^JavaScript$/})}).locator('textarea');await field.fill('console.log("Aula personalizada")');await field.blur();await page.waitForTimeout(1600);assert.match(YAML.parse(fs.readFileSync(deck.file,'utf8')).slides.find(s=>s.layout==='playground').javascript,/Aula personalizada/);assert.deepEqual(errors,[]);
+  const {page,errors}=await newPage(browser,studio.url+'/editor');await novoSlide(page,'codelab');await page.locator('#slide-fields-form .sf-field').filter({has:page.locator('.sf-label',{hasText:/^Execução$/})}).locator('select').selectOption('javascript');await waitSaved(deck.file,d=>d.slides.find(s=>s.layout==='codelab')?.engine==='javascript');
+  await novoSlide(page,'playground');const field=page.locator('#slide-fields-form .sf-field').filter({has:page.locator('.sf-label',{hasText:/^JavaScript$/})}).locator('textarea');await field.fill('console.log("Aula personalizada")');await field.blur();await waitSaved(deck.file,d=>/Aula personalizada/.test(d.slides.find(s=>s.layout==='playground')?.javascript||''));assert.deepEqual(errors,[]);
  }finally{await browser.close();await studio.close();deck.cleanup();}
 });
 

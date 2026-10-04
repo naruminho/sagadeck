@@ -12,6 +12,13 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-lib-"));
 const deck = (title, n = 2) => ({ title, theme: "bauhaus", slides: Array.from({ length: n }, (_, i) => ({ layout: "statement", text: `slide ${i + 1}` })) });
 const byTitle = (lib, t) => lib.list().decks.find((d) => d.title === t);
 
+test("repetir a criação de tópico reutiliza a pasta e preserva sua cor", () => {
+  const lib = openLibrary(tmp());
+  assert.equal(lib.createTopic("Laboratório", "#d33a2c"), "Laboratório");
+  assert.equal(lib.createTopic(" laboratório ", "#0f6cbd"), "Laboratório");
+  assert.deepEqual(lib.list().topics.map(t => [t.name, t.color]), [["Laboratório", "#d33a2c"]]);
+});
+
 test("tópicos e apresentações: criar, listar (com contagem, cor, slides) e pasta real no disco", () => {
   const lib = openLibrary(tmp());
   const t = lib.createTopic("Palestras", "#d33a2c");

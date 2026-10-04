@@ -45,6 +45,9 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-k
 .pts-legend{text-align:center}
 @media(prefers-reduced-motion:reduce){.pts-dot{transition:none}}
 .safe{position:absolute;left:120px;right:120px;top:92px;bottom:104px;display:flex;flex-direction:column;isolation:isolate}
+.slide .safe.with-motion-accent{bottom:220px}
+.motion-accent{position:absolute;right:120px;bottom:104px;width:320px;height:90px;pointer-events:none}
+.motion-accent>.motion{width:100%;height:100%;overflow:hidden}
 .master{position:absolute;inset:0;pointer-events:none;z-index:0}
 .free{position:absolute;inset:0;isolation:isolate}
 .bgfig{position:absolute;inset:0;pointer-events:none}
@@ -1766,3 +1769,6 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
 .video-composite video{background:#000}
 
 .video-opening[data-video-stage] .video-opening-controls{visibility:hidden;pointer-events:none}.video-opening[data-video-stage]{cursor:default}
+
+/* Figuras informativas dominam a composição; texto auxilia a leitura. */
+.L-split.sp-stacked{flex-direction:column;gap:20px}.sp-stacked>.hd{flex:0 0 auto}.sp-stacked>.hd .ttl{font-size:64px}.sp-stacked>.sp-fig{flex:1;min-height:0}.sp-stacked>.sp-summary{flex:0 0 auto;display:flex;gap:32px}.sp-summary>.t,.sp-summary>.list{flex:1;margin:0}.sp-stacked .sp-fig>.fig{min-height:0}

@@ -1,3 +1,4 @@
+import { MEDIA_FINISH } from '../src/ai/art-direction.js';
 // IA com um LLM falso (test/mock-llm.js): o que o sagadeck manda para o modelo e como usa a resposta.
 // Não testa a "inteligência" do modelo — testa o encanamento: prompt, visão, patch, perguntas, brainstorm.
 import { test, before, after } from "node:test";
@@ -308,7 +309,8 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   assert.match(reqs[0].system, /pediu para VOCÊ decidir/);
   assert.match(reqs[0].system, /não falou de imagem → VOCÊ decide/, "sem falar de imagem, a IA decide onde ilustrar (antes: nunca gerava)");
   assert.match(reqs[0].system, /pediu sem imagens \(ou só ícones\) → não gere/);
-  const asked = reqs.filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
+  const asked = reqs.filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(`\n\n${MEDIA_FINISH}`, "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
+  assert.ok(reqs.filter(q => /^Generate an image/.test(q.lastUser)).every(q => q.lastUser.includes(MEDIA_FINISH)), "acabamento acompanha todas as imagens");
   assert.deepEqual(asked.sort(), ["a bank vault at night", "a crowded subway station"], "só os slides que a IA escolheu ilustrar");
 });
 
@@ -604,7 +606,7 @@ test("carrossel pelo chat: cada item com image_prompt vira foto gerada (a refer�
     : "Montei o carrossel.\n```yaml\nedit:\n  1:\n    layout: carousel\n    items:\n      - { title: Montanha, image_prompt: \"a misty mountain at sunrise, realistic photo\" }\n      - { title: Mar, image_prompt: \"calm ocean at noon, realistic photo\" }\n```");
   const n = llm.requests.length;
   await editDeck({ spec: base(), instruction: "faça um carrossel com fotos realistas", targetSlide: 0, images: true, imageOptions: { baseDir: process.cwd(), assetsDir: "imagens-teste-nao-cria" } });
-  const asked = genReqs(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
+  const asked = genReqs(n).filter((q) => /^Generate an image/.test(q.lastUser)).map((q) => q.lastUser.replace("Generate an image: ", "").replace(`\n\n${MEDIA_FINISH}`, "").replace(/\.? No text, letters, numbers or labels anywhere in the image\.$/, ""));
   assert.deepEqual(asked.sort(), ["a misty mountain at sunrise, realistic photo", "calm ocean at noon, realistic photo"]);
 });
 
