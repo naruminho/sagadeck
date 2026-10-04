@@ -1190,3 +1190,10 @@ Versões já publicadas como MIT continuam MIT.
 - Segundo caso real pelo chat: slide de logística com motion flow, sem referência ao hackathon ou à Bridge; elemento criado pelo modelo. Nenhuma regra de código depende do tema de apresentação.
 - Validação final: suíte completa existente com 757 testes (737 passaram, 20 pulados, zero falhas), mais três testes novos de motion executados separadamente e verdes. Testes antigos de movimento preservados. Bundle atualizado; pronto para publicação.
 - Preferência confirmada pelo usuário: composição nativa/editável é o padrão sem precisar pedir; conferir saída antes de sugerir experiência personalizada ou mídia paga. Mídia paga não é proibida; benefício, briefing, custo e autorização existente guiam a alternativa. Diretriz adicionada no início da referência do agente.
+
+### Chat cancelável, apresentações por aba e transferência de slides — 03/10/2026
+- Reproduzidos: entrada bloqueada durante IA e abertura de outra apresentação redirecionando contexto global. Contextos agora separados por usuário + aba; tarefa captura arquivo de origem, faz junção com arquivo atual e não aplica resultado cancelado.
+- Entrada permanece disponível para preparar mensagem; enviar vira Parar (ícone quadrado), volta ao terminar. Cancelamento chega ao modelo, revisão, transformação e subprocessos; fechar aba corta o chat.
+- Copiar/Colar na faixa Início e Ctrl+C/Ctrl+V na lista: slide vai para outra apresentação com novos identificadores e arquivos locais copiados sem colidir; somente mídias referenciadas, não pastas inteiras ou credenciais. Clipboard do Studio separado por usuário.
+- Testes regressivos falharam antes e passaram após a correção: cancelamento de chamada pendente, isolamento entre apresentações, cópia entre abas com imagem gravada no destino. Suíte completa e publicação pendentes.
+- Validação concluída: npm test com 764 testes, 744 aprovados, 20 pulados e zero falhas. Isolamento por cabeçalho de aba preserva endpoints e autenticação; transformações sobrevivem ao recarregamento, cancelamento explícito continua disponível.

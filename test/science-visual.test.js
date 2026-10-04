@@ -32,12 +32,13 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       await p.click('#ai-settings-dialog [data-close]');
     });
     await t.test('console configurado abre em aba própria, sem iframe bloqueado',async()=>{
-      await p.route('**/api/ai/setup',route=>route.fulfill({json:{url:studio.url+'/editor'}}));
+      const setupRoute = /\/api\/ai\/setup(?:\?.*)?$/;
+      await p.route(setupRoute,route=>route.fulfill({json:{url:studio.url+'/editor'}}));
       const popupPromise=p.waitForEvent('popup');
       await p.click('#ai-status');const popup=await popupPromise;
       await popup.waitForURL(studio.url+'/editor');
       assert.equal(await p.locator('#ai-settings-dialog iframe').count(),0);
-      await popup.close();await p.unroute('**/api/ai/setup');
+      await popup.close();await p.unroute(setupRoute);
     });
     await t.test('insere cena estática',async()=>{
       await novoSlide(p,'scenography');

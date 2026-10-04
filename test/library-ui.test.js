@@ -301,7 +301,10 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     assert.equal(fs.existsSync(process.env.SAGADECK_AMBIENTES), false, "o ENSAIO não grava nada no arquivo de ambientes");
 
     // apresentando: ENSAIO no selo, e o Executar funciona de verdade (token → LLM → upload → OCR)
-    const { page: pv, errors: pvErrors } = await newPage(browser, `${studio.url}/preview`, { width: 1920, height: 1080 });
+    const contextRequest = p.waitForRequest(r => new URL(r.url()).pathname === '/api/deck');
+    await p.evaluate(() => fetch('api/deck'));
+    const scope = '?_workspace=' + (await contextRequest).headers()['x-sagadeck-workspace'];
+    const { page: pv, errors: pvErrors } = await newPage(browser, `${studio.url}/preview${scope}`, { width: 1920, height: 1080 });
     await pv.waitForFunction(() => window.sagadeckApi && window.sagadeckApi.state.live);
     const idx = (id) => saved.slides.findIndex((s) => s.id === id);
     const run = async (id) => {

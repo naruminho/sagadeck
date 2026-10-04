@@ -5,6 +5,9 @@
 (function () {
   "use strict";
 
+  const scopedURL = window.SagaWorkspace();
+  let chatJob = null;
+
   // Estado da Aplicação
   const state = {
     deck: null,
@@ -1010,7 +1013,9 @@
 
   async function handleChatSubmit(e) {
     if (e) e.preventDefault();
+    if (chatJob) { if(e?.type === "submit") chatJob.stop(); return; }
     const message = dom.chatInput.value.trim();
+    if (state.chatAttachments.some(a => a.t === "doc" && !a.id)) { showToast("Aguarde a leitura do anexo antes de enviar.", 4000); return; }
     if (!message) return;
 
     // Adicionar bolha do usuário (com os anexos: imagens e documentos)
@@ -1031,11 +1036,18 @@
     const targetIdx = state.currentSlideIndex;
 
     // Indicador de progresso ao vivo (etapa, segundos, texto chegando)
+    const job = chatJob = { file: state.file, id: crypto.randomUUID(), controller: new AbortController() };
+    job.stop = async () => {
+      job.controller.abort();
+      await fetch("api/ai/chat/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: job.id }) }).catch(() => {});
+    };
     const work = createProgressBubble(state.ai.available
       ? `Enviando para o LLM (${state.ai.textModel})…`
       : "Verificando se a IA está no ar…");
-    dom.chatSend.disabled = true;
-    dom.chatInput.disabled = true;
+    dom.chatSend.disabled = false;
+    dom.chatSend.title = 'Parar processamento'; dom.chatSend.setAttribute('aria-label','Parar');
+    dom.chatSend.innerHTML = '<i class="ic" data-ic="square"></i>'; hydrateIcons(dom.chatSend);
+    dom.chatInput.disabled = false;
     // a conversa inteira deste deck (o servidor compacta as mensagens antigas; nada é esquecido)
     const history = state.chatHistory.slice();
     const baseDeck = JSON.parse(JSON.stringify(state.deck));
@@ -1050,7 +1062,7 @@
 
     try {
       const data = await streamAI("api/ai/chat", {
-        message,
+        message, requestId: job.id,
         targetSlide: targetIdx,
         spec: state.deck,
         issues: state.issues,
@@ -1059,7 +1071,8 @@
         renderNotes: state.renderNotes || [],
         autoRun: !!state.autoRunCommands, // a pessoa liberou os comandos desta conversa (só enquanto a página está aberta)
         expectFile: state.file,
-      }, (ev) => { if (!commandEvent(ev)) work.update(ev); });
+      }, (ev) => { if (!commandEvent(ev)) work.update(ev); }, job.controller.signal);
+      if (state.file !== job.file) { work.done(); showToast("O pedido terminou na apresentação em que começou; a apresentação atual foi preservada.", 6000); return; }
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
       // conversa salva antes de dispensar o indicador: quem espera o fim da resposta já encontra o arquivo gravado
       const finishWork = async () => { await saveChatHistory(); work.done(); };
@@ -1133,8 +1146,12 @@
       }
       updateBrainstormApply();
     } catch (err) {
-      work.fail(err.message);
+      if (job.controller.signal.aborted) { work.done(); appendChatMessage("ai", "Parado a pedido. Nenhuma resposta pendente foi aplicada."); await saveChatHistory(); }
+      else work.fail(err.message);
     } finally {
+      chatJob = null;
+      dom.chatSend.title = "Enviar (Enter)"; dom.chatSend.setAttribute("aria-label","Enviar");
+      dom.chatSend.innerHTML = '<i class="ic" data-ic="send"></i>'; hydrateIcons(dom.chatSend);
       dom.chatSend.disabled = false;
       dom.chatInput.disabled = false;
       dom.chatInput.focus();
@@ -1952,7 +1969,7 @@
     { title: "Baixar PDF", cat: "Arquivo", ic: "file-text", fn: () => document.getElementById("export-pdf").click() },
     { title: "Baixar roteiro (PDF)", cat: "Arquivo", ic: "sticky-note", fn: () => document.getElementById("export-roteiro").click() },
     { title: "Baixar material de estudo (PDF)", cat: "Arquivo", ic: "graduation-cap", fn: () => document.getElementById("export-estudo").click() },
-    { title: "Ver o que o aluno recebe", cat: "Exibir", ic: "graduation-cap", fn: () => window.open("api/export/estudo-html?ver=1", "_blank") },
+    { title: "Ver o que o aluno recebe", cat: "Exibir", ic: "graduation-cap", fn: () => window.open(scopedURL("api/export/estudo-html?ver=1"), "_blank") },
     { title: "Baixar HTML", cat: "Arquivo", ic: "file-code", fn: () => dom.exportHtml.click() },
   ];
 
@@ -2649,6 +2666,7 @@
     showToast(`Slide adicionado na posição ${at + 1}`);
   }
 
+  const { copyCurrentSlide, pasteCopiedSlide } = window.SagaSlideClipboard({ state, showToast, trackDeck, syncDeckToServer, renderThumbnails, renderCurrentSlide });
   function duplicateCurrentSlide() {
     const cur = state.deck.slides[state.currentSlideIndex];
     if (!cur) return;
@@ -2665,6 +2683,8 @@
   // Delete/Backspace com o foco na lista de slides (à esquerda) exclui o slide selecionado. Só ali: digitando
   // num campo ou mexendo num elemento do slide, as teclas continuam fazendo o que já faziam.
   function bindSlideListKeys() {
+    document.getElementById("btn-copy-slide").onclick = copyCurrentSlide;
+    document.getElementById("btn-paste-slide").onclick = pasteCopiedSlide;
     if (dom.thumbnailsList._keys) return;
     dom.thumbnailsList._keys = true;
     dom.thumbnailsList.tabIndex = 0;
@@ -2672,6 +2692,7 @@
     dom.thumbnailsList.addEventListener("keydown", (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
       // ↑/↓ (e Home/End) trocam de slide, como no PowerPoint; nunca rolam a visualização
+      if ((e.ctrlKey || e.metaKey) && ["c","v"].includes(e.key.toLowerCase())) { e.preventDefault(); e.key.toLowerCase()==="c" ? copyCurrentSlide() : pasteCopiedSlide(); return; }
       const go = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[e.key];
       if (go || e.key === "Home" || e.key === "End") {
         e.preventDefault();
@@ -3054,7 +3075,7 @@
     await syncDeckToServer(); // a prévia é montada a partir do deck do servidor
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
-    dom.presFrame.src = `preview?t=${Date.now()}#${start}`;
+    dom.presFrame.src = scopedURL(`preview?t=${Date.now()}#${start}`);
     document.documentElement.requestFullscreen?.().catch(() => {});
     dom.presFrame.onload = async () => {
       const win = dom.presFrame.contentWindow;
@@ -3674,8 +3695,9 @@
   }
 
   // Chama um endpoint de IA com stream NDJSON; onEvent recebe {type:"progress"|"tick", …}. Devolve o resultado.
-  async function streamAI(url, body, onEvent) {
+  async function streamAI(url, body, onEvent, signal) {
     const res = await fetch(url, {
+      signal,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, stream: true }),
@@ -3726,49 +3748,7 @@
     tick();
   }
 
-  function createProgressBubble(initial) {
-    const el = appendChatMessage("ai", "");
-    el.classList.add("ai-working");
-    const content = el.querySelector(".ai-content");
-    content.innerHTML = `<div class="work-line"><span class="work-dots"><i></i><i></i><i></i></span><span class="work-text"></span><span class="work-time">0s</span></div><div class="work-preview"></div>`;
-    const text = content.querySelector(".work-text");
-    const time = content.querySelector(".work-time");
-    const preview = content.querySelector(".work-preview");
-    const started = Date.now();
-    text.textContent = initial;
-    const timer = setInterval(() => {
-      const s = Math.round((Date.now() - started) / 1000);
-      time.textContent = `${s}s`;
-    }, 500);
-    return {
-      el,
-      update(ev) {
-        if (ev.type !== "progress") return;
-        text.textContent = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
-        // transformação da apresentação inteira: pode levar muitos minutos, então dá para parar (o feito fica guardado)
-        if (String(ev.phase || "").startsWith("transform") && !content.querySelector(".work-stop")) {
-          const stop = document.createElement("button");
-          stop.type = "button"; stop.className = "btn btn-ghost btn-sm work-stop";
-          stop.title = "Parar; o que já ficou pronto fica guardado e pedir de novo continua de onde parou";
-          stop.innerHTML = '<i class="ic" data-ic="square"></i> Parar'; hydrateIcons(stop);
-          stop.onclick = async () => { stop.disabled = true; await fetch("api/ai/transform/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: ev.mode }) }).catch(() => {}); };
-          content.querySelector(".work-line").append(stop);
-        }
-        if (ev.preview) preview.textContent = ev.preview;
-        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
-      },
-      done() { clearInterval(timer); el.remove(); },
-      fail(msg) {
-        clearInterval(timer);
-        el.classList.remove("ai-working");
-        content.innerHTML = "";
-        const span = document.createElement("span");
-        span.style.color = "var(--danger)";
-        span.textContent = `Erro: ${msg}`;
-        content.appendChild(span);
-      },
-    };
-  }
+  const createProgressBubble = window.SagaChatProgress({ dom, appendChatMessage, hydrateIcons, getChatJob: () => chatJob });
 
   // ==========================================================================
   // ESTRUTURA DA TELA: faixa de opções, popovers, painel lateral, anotações
@@ -5056,7 +5036,7 @@ ${ta.value}`;
     };
     dom.exportHtml.onclick = (e) => {
       e.preventDefault();
-      window.location.href = "api/export/html";
+      window.location.href = scopedURL("api/export/html");
     };
     dom.actionSaveYaml.onclick = (e) => {
       e.preventDefault();

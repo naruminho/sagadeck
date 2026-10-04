@@ -338,7 +338,9 @@ async function askUntilValid(messages, parse, opts = {}) {
       : lastError?.soft ? "Revisando a consistência com os outros slides…"
       : `A resposta veio com erro; pedindo correção (tentativa ${attempt}/${MAX_ATTEMPTS})…` });
     let lastTick = 0;
+    opts.signal?.throwIfAborted();
     let res = await chat(messages, {
+      signal: opts.signal,
       temperature: opts.temperature ?? 0.4,
       onDelta: opts.onProgress ? (_piece, all) => {
         if (Date.now() - lastTick < 250) return;
@@ -363,7 +365,7 @@ async function askUntilValid(messages, parse, opts = {}) {
       }
       messages = [...messages, { role: "assistant", content: res.text }, { role: "user", content: note }];
       progress({ phase: "llm", text: "Analisando o resultado…" });
-      res = await chat(messages, { temperature: opts.temperature ?? 0.4 });
+      res = await chat(messages, { temperature: opts.temperature ?? 0.4, signal: opts.signal });
     }
     progress({ phase: "validating", text: "Validando os slides…", chars: res.text.length });
     if (attempt === 1) firstProse = extractYaml(res.text).prose;
@@ -835,7 +837,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, reviewCheck = null, reviewDepth = 0, repairSlides = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, signal, reviewCheck = null, reviewDepth = 0, repairSlides = null }) {
   const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -892,7 +894,7 @@ Antes de responder, verifique (e siga as Regras de edição):
       }
       if (motifObjected) return parsed; // já objetou uma vez: a 2ª resposta vale, mesmo insistindo
       try { return checkMotifs(parsed, spec); } catch (e) { if (e.soft) motifObjected = true; throw e; }
-    }, { onProgress, runCommand });
+    }, { onProgress, runCommand, signal });
   const actions = [];
   commands.forEach((c, i) => actions.push(c.result?.denied ? `Comando ${i + 1} não autorizado: ${c.why || c.language}`
     : `Comando ${i + 1} (${c.language}): ${c.why || ""}${c.result?.timedOut ? " (tempo esgotado)" : c.result?.exitCode === 0 ? " (ok)" : ` (saída ${c.result?.exitCode ?? "erro"})`}`));
@@ -930,7 +932,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     onProgress?.({ phase: 'review', text: 'Conferindo a composição e os estados da experiência…' });
     quality = await reviewCheck(edited, changed);
     if (quality.issues.length && reviewDepth < 1) {
-      const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
+      const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, signal, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
       const finalQuality = await reviewCheck(repaired.spec, changed);
       const status = finalQuality.verified ? 'Composição e estados conferidos após a correção.' : `Revisão incompleta: ${finalQuality.issues.length} problemas; ${finalQuality.unchecked.length} slides sem conferência.`;
       return { ...repaired, test: [...new Set([...test, ...(repaired.test || [])])], actions: [...actions, ...repaired.actions, status], quality: finalQuality };
