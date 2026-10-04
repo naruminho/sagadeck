@@ -915,8 +915,22 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .cmd-actions .btn { font-size: 12px; padding: 4px 10px; }
 .cmd-state { font-size: 12px; color: var(--text-2); }
 .cmd-state.cmd-bad { color: var(--danger); }
+.cmd-cost { font-size: 12px; font-weight: 700; color: #b7791f; margin: 6px 0 2px; }
 .cmd-out { margin-top: 6px; font-size: 12px; }
 .cmd-out summary { cursor: pointer; color: var(--text-2); }
+/* versões: lista + lado a lado (reusa .thumb-screen das miniaturas) */
+.versions-dialog { width: min(1100px, 94vw); }
+.versions-body { display: grid; grid-template-columns: 230px 1fr; gap: 12px; max-height: 62vh; }
+.versions-list { overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.ver-item { text-align: left; font: inherit; color: inherit; background: var(--chrome); border: 1px solid var(--ui-line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.ver-item.active { border-color: var(--brand); }
+.ver-item small { display: block; color: var(--text-2); }
+.versions-compare { overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.ver-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+.ver-cell { border: 1px solid var(--ui-line); border-radius: 8px; overflow: hidden; }
+.ver-cell.changed { border-color: var(--brand); }
+.ver-cell figcaption { font-size: 12px; color: var(--text-2); padding: 4px 8px; }
+.versions-count { font-size: 12px; color: var(--text-2); margin-right: auto; }
 /* faixas de tema e paleta: só cartões inteiros (largura calculada no app), setas e "Ver todos" em grade */
 .look-strip { display: flex; align-items: center; gap: 2px; min-width: 0; width: 100%; }
 .rgroup-gallery .look-strip .theme-gallery { flex: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-snap-type: x mandatory; padding: 2px 0; }

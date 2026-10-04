@@ -334,7 +334,7 @@
     }
     refreshAIStatus();
     setInterval(refreshAIStatus, 30000);
-    watchTransform();
+    window.SagaAwareness?.mount({ state, showToast, hydrateIcons, fitRendered, ensureSlideStyles });    watchTransform();
     // Ctrl+Z / Ctrl+Y (e Ctrl+Shift+Z): o histórico do deck; dentro de um campo de texto vale o desfazer do campo
     document.getElementById("btn-undo")?.addEventListener("click", () => stepHistory(-1));
     document.getElementById("btn-redo")?.addEventListener("click", () => stepHistory(1));
@@ -1183,6 +1183,12 @@
     if (ev.type !== "progress") return false;
     if (ev.phase === "approve" && ev.command) {
       const box = commandCard(ev.command), acts = box.querySelector(".cmd-actions");
+      if (ev.cost) {
+        const tag = document.createElement("div");
+        tag.className = "cmd-cost";
+        tag.textContent = `Custo estimado: ${ev.cost} (só cobra se executar)`;
+        acts.before(tag);
+      }
       acts.innerHTML = `<button type="button" class="btn btn-primary" data-d="run"><i class="ic" data-ic="play"></i> Executar</button><button type="button" class="btn" data-d="always">Executar e liberar os próximos</button><button type="button" class="btn" data-d="deny"><i class="ic" data-ic="x"></i> Não executar</button>`;
       hydrateIcons(acts);
       acts.querySelectorAll("[data-d]").forEach((b) => b.onclick = async () => {

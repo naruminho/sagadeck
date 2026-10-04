@@ -12,9 +12,23 @@ export function parseVideoArgs(args){
  }return result;
 }
 export function videoApiURL(value){
- const url=new URL(String(value).startsWith('/api/v1/')?value:String(value).replace(/^\//,''),BASE+'/');
- if(url.origin!=='https://openrouter.ai'||!url.pathname.startsWith('/api/v1/videos'))throw new Error('Polling precisa usar a API de vídeo do OpenRouter.');
- return url.href;
+  const url=new URL(String(value).startsWith('/api/v1/')?value:String(value).replace(/^\//,''),BASE+'/');
+  if(url.origin!=='https://openrouter.ai'||!url.pathname.startsWith('/api/v1/videos'))throw new Error('Polling precisa usar a API de vídeo do OpenRouter.');
+  return url.href;
+}
+// quanto custa ANTES de gerar (para mostrar na aprovação): catálogo é de graça; null se não der para estimar
+export async function estimateVideoCost({model,duration,resolution},{key=process.env.SAGADECK_VIDEO_KEY||process.env.OPENROUTER_API_KEY,fetcher=fetch}={}){
+  try{
+   if(!key)return null;
+   const r=await fetcher(`${BASE}/videos/models`,{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000)});
+   if(!r.ok)return null;
+   const meta=(await r.json()).data?.find((m)=>m.id===model||m.canonical_slug===model);
+   const skus=meta?.pricing_skus||meta?.pricing||null;
+   const perSec=Number(skus?.[/1080|1k|2k|4k/i.test(String(resolution||''))?'per-video-second-1080p':'per-video-second']);
+   if(!Number.isFinite(perSec)||perSec<0)return null;
+   const total=perSec*Number(duration||0);
+   return Number.isFinite(total)&&total>0?`~$${total.toFixed(2)}`:null;
+  }catch{return null;}
 }
 function within(dir,name){
  const target=path.resolve(dir,name),rel=path.relative(path.resolve(dir),target);
@@ -70,7 +84,43 @@ export async function videoOperation(request,{cwd,key=process.env.SAGADECK_VIDEO
  if(!r.ok)throw new Error(`Download retornou HTTP ${r.status}.`);
  const mime=r.headers.get('content-type')||'';if(!/^video\/|application\/octet-stream/i.test(mime))throw new Error('O provedor não retornou um arquivo de vídeo.');
  const chunks=[];let bytes=0;for await(const chunk of r.body){bytes+=chunk.length;if(bytes>100*1024*1024)throw new Error('Vídeo excede 100 MB.');chunks.push(chunk);}
- const data=Buffer.concat(chunks);if(data.length<12||data.toString('ascii',4,8)!=='ftyp')throw new Error('O resultado não é um MP4 válido.');
- fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,data,{flag:'wx'});
- return{id:record.id,status:'downloaded',video:record.output,bytes,cost:job.usage?.cost??null};
+  const data=Buffer.concat(chunks);if(data.length<12||data.toString('ascii',4,8)!=='ftyp')throw new Error('O resultado não é um MP4 válido.');
+  fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,data,{flag:'wx'});
+  return{id:record.id,status:'downloaded',video:record.output,bytes,cost:job.usage?.cost??null};
+}
+
+// vigia os jobs do deck: confere andamento (grátis), baixa sozinho o que terminou.
+// para o ticker do Studio avisar "clipe pronto" sem a pessoa ficar olhando.
+const lastCheck = new Map(); // polling_url -> { at, status }
+export async function pollVideoJobs(cwd,{key=process.env.SAGADECK_VIDEO_KEY||process.env.OPENROUTER_API_KEY,fetcher=fetch,cooldownMs=60000}={}){
+  const dir=path.join(path.resolve(cwd),'.sagadeck','videos');
+  let files=[];
+  try{files=fs.readdirSync(dir).filter((f)=>f.endsWith('.json'));}catch{return[];}
+  const out=[];
+  for(const f of files){
+   let record;try{record=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));}catch{continue;}
+   if(!record?.id||!record?.polling_url)continue;
+   const done=record.downloadedAt||(record.output&&fs.existsSync(path.join(path.resolve(cwd),record.output))&&record.status==='completed');
+   const cached=lastCheck.get(record.polling_url);
+   let status=record.status||'unknown';
+   if(cached&&Date.now()-cached.at<cooldownMs) status=cached.status;
+   else if(!done&&key){
+    try{
+     const r=await fetcher(record.polling_url,{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000)});
+     if(r.ok){const job=await r.json();status=job.status||status;lastCheck.set(record.polling_url,{at:Date.now(),status});}
+    }catch{/* sem rede: mantém o último */}
+   }
+   let video=record.output&&fs.existsSync(path.join(path.resolve(cwd),record.output))?record.output:null;
+   if(status==='completed'&&!video&&key){
+    try{
+     const dl=await videoOperation({action:'download',id:record.id},{cwd,key,fetcher});
+     video=dl.video;status='downloaded';
+     record.downloadedAt=new Date().toISOString();record.status='completed';
+     try{fs.writeFileSync(path.join(dir,f),JSON.stringify(record,null,2));}catch{}
+    }catch{/* tenta de novo no próximo ciclo */}
+   }
+   if(video)status='downloaded'; // arquivo em disco manda: pronto para usar, em qualquer chamada
+   out.push({id:record.id,status,video:video||null});
+  }
+  return out;
 }

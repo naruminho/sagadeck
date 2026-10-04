@@ -31,6 +31,7 @@
     <span class="undo-redo">
       <button id="btn-undo" type="button" class="icon-btn" disabled aria-label="Desfazer" title="Nada para desfazer"><i class="ic" data-ic="undo-2"></i></button>
       <button id="btn-redo" type="button" class="icon-btn" disabled aria-label="Refazer" title="Nada para refazer"><i class="ic" data-ic="redo-2"></i></button>
+      <button id="btn-versions" type="button" class="icon-btn" aria-label="Versões" title="Versões: comparar lado a lado e restaurar"><i class="ic" data-ic="git-compare"></i></button>
     </span>
 
     <button id="btn-spotlight" class="search-box" title="Buscar comandos (Ctrl+K)">
@@ -239,8 +240,15 @@
               </select>
             </label>
             <button id="btn-identity-setup" class="rbtn rbtn-icon" title="Configurar as fontes da empresa (arquivo identidades.yaml, só neste computador)" aria-label="Configurar as fontes da empresa"><i class="ic" data-ic="sliders-horizontal"></i></button>
+            <button id="btn-direction-save" class="rbtn rbtn-icon" title="Salvar a capa atual como direção aprovada (a IA usa ao ouvir o nome)" aria-label="Salvar a capa atual como direção"><i class="ic" data-ic="bookmark-plus"></i></button>
           </div>
           <span id="identity-note" class="rnote" hidden></span>
+          <span id="direction-note" class="rnote" hidden></span>
+          <label class="rfield"><span>Direção aprovada</span>
+            <select id="direction-select" class="rselect" title="Capas que você aprovou, salvas como receita para a IA usar">
+              <option value="">Nenhuma</option>
+            </select>
+          </label>
         </div>
         <div class="rgroup-label">Identidade</div>
       </div>
@@ -523,6 +531,7 @@
     <span id="status-fit" class="status-item" title=""></span>
     <span class="spacer"></span>
     <button id="ai-status" class="status-item status-btn" title=""></button>
+    <span id="build-stamp" class="status-item" title="Versão do motor rodando neste Studio"></span>
     <button id="btn-notes-toggle-status" class="status-item status-btn" title="Anotações"><i class="ic" data-ic="sticky-note"></i> Anotações</button>
     <div class="zoom-ctrl">
       <button id="zoom-out" class="icon-btn icon-btn-sm" title="Reduzir"><i class="ic" data-ic="zoom-out"></i></button>
@@ -531,6 +540,18 @@
       <button id="zoom-fit" class="icon-btn icon-btn-sm" title="Ajustar à janela"><i class="ic" data-ic="maximize"></i></button>
     </div>
   </footer>
+
+  <!-- VERSÕES: comparar e restaurar -->
+  <div id="versions-modal" class="modal-dialog-overlay hidden">
+    <div class="modal-dialog-box versions-dialog" role="dialog" aria-modal="true" aria-labelledby="versions-title">
+      <div class="modal-dialog-header"><div><span class="scene-eyebrow">VERSÕES</span><h3 id="versions-title">Comparar e restaurar</h3></div><button id="versions-close" class="btn-close-modal" title="Fechar (Esc)" aria-label="Fechar"><i class="ic" data-ic="x"></i></button></div>
+      <div class="modal-dialog-body versions-body">
+        <div class="versions-list" role="listbox" aria-label="Versões salvas"></div>
+        <div class="versions-compare" aria-live="polite"><p class="versions-hint">Escolha uma versão à esquerda para ver o que mudou.</p></div>
+      </div>
+      <div class="modal-dialog-footer"><span class="versions-count"></span><button id="versions-restore" class="btn" disabled>Restaurar versão</button></div>
+    </div>
+  </div>
 
   <!-- NAVEGAÇÃO MOBILE -->
   <nav id="mobile-nav-bar" class="mobile-nav-bar">
@@ -840,6 +861,7 @@
   <script src="slide-clipboard.js"></script>
   <script src="chat-progress.js"></script>
   <script src="workspace.js"></script>
+  <script src="studio-awareness.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

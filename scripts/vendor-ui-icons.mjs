@@ -23,7 +23,7 @@ const NAMES = [
   "clock", "layout-grid", "ellipsis", "pencil", "folder", "arrow-left", "library", "rotate-ccw", "upload", "file-plus", "moon", "sun", "folder-plus", "presentation",
   "server-cog", "plug-zap", "graduation-cap", "theater", "square", "minimize-2", "braces", "link", "paperclip",
   "type", "chevron-left", "chevron-right", "layout-grid", "maximize-2", "eye", "baseline", "paint-bucket", "bring-to-front", "send-to-back", "settings",
-  "swatch-book", "stamp", "git-compare", "undo-2", "redo-2",
+  "swatch-book", "stamp", "git-compare", "bookmark-plus", "undo-2", "redo-2",
   "align-start-vertical", "align-center-vertical", "align-end-vertical", "align-start-horizontal", "align-center-horizontal", "align-end-horizontal",
   "align-horizontal-distribute-center", "align-vertical-distribute-center", "paintbrush", "clipboard-paste", "lock", "lock-open", "eye-off", "share-2", "globe",
 ];
