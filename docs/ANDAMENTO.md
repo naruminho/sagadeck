@@ -1253,3 +1253,10 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 ### Autonomia total (Rose): o agente vigia, a pessoa não
 - Carimbo do motor na barra de status (versão + commit + início) via /api/instance; aprovação de submit mostra preço do catálogo; direções aprovadas salvas e injetadas no prompt; vigia baixa clipe pronto sozinho e avisa com toast; versões fotografadas a cada save com modal lado a lado e restaurar com rede.
 - Caça própria: YAML inexistente no cliente quebrava o init em silêncio (botões mortos); show do servidor agora manda slides prontos. Módulos extraídos para respeitar a trava de 100KB do server.js.
+
+### PPTX legível no Mac sem Office (Rose) — 05/10/2026
+- Pedido do Narumi: melhorar export PPTX/PDF, começando pela fidelidade no Mac (limitação conhecida do README: PPTX usava fontes Windows/Office e o PowerPoint trocava a fonte).
+- Novo `sagadeck pptx deck.yaml --mac-fonts` (vale no `all`): o PPTX troca as 18 faces só-Windows por equivalentes dos dois sistemas (Bahnschrift→Arial Narrow, Segoe UI→Arial, Cascadia Mono→Courier New, Century Gothic→Verdana, Franklin Gothic Heavy→Arial Black, resto Franklin→Arial, mão→Comic Sans MS, pixel→Courier New); HTML e PDF não mudam. No Studio, `/api/export/pptx?macFonts=1`.
+- Código: `PPTX_MAC_SAFE` + `macFallbackFace` em `src/themes.js`, `fontFallback` em `exportPptx` (`src/export/pptx.js`, cobre texto, tabela e o `VARIABLE` do Bahnschrift), `macFonts` em `sendExport` + rota do Studio. Docs em `README.md` e `docs/REFERENCIA.md`.
+- Testes: `test/pptx-mac-fonts.test.js` (mapa só-safe em todos os temas sem navegador + export real com/sem flag). Validação: suíte foca verde (export, guards, engine, 74 testes); suíte completa com 780 testes tem as mesmas 5 falhas do baseline sem a mudança (bundle/pip sem esbuild, diagram, retorno-recriada, ribbon-fit, share-link — pré-existentes, ambiente).
+- Fronteira do teste: verificado XML do PPTX (sem Bahnschrift/Segoe, com Arial Narrow; tabela segue nativa) e CLI de ponta a ponta; NÃO verificado num Mac de verdade (sem acesso a um) — quem tiver Mac confirma visualmente.

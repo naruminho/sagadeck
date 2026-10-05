@@ -40,7 +40,7 @@ sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
 sagadeck check <deck.yaml>                   fiscal: estouro de texto, sobreposição, contraste, excesso de texto
 sagadeck shots <deck.yaml> [--steps]         PNG de cada slide + folhas de contato (para revisar)
-sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas]  PowerPoint editável (--sem-notas: para mandar sem a sua cola)
+sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas] [--mac-fonts]  PowerPoint editável (--sem-notas: para mandar sem a sua cola; --mac-fonts: fontes dos dois sistemas, para abrir igual no Mac)
 sagadeck pdf <deck.yaml>                     PDF
 sagadeck roteiro <deck.yaml>                 roteiro do apresentador em PDF
 sagadeck all <deck.yaml>                     tudo acima
@@ -300,6 +300,6 @@ tools/test-live.mjs     teste automático do modo apresentação e dos widgets
 
 ## Limitações conhecidas
 
-- O PPTX usa as fontes do Windows/Office dos temas. Aberto num Mac sem essas fontes, o PowerPoint troca a fonte (o HTML e o PDF continuam iguais).
+- O PPTX usa as fontes do Windows/Office dos temas. Para abrir igual num Mac sem Office, exporte com `sagadeck pptx deck.yaml --mac-fonts` (só o PPTX troca as fontes por equivalentes dos dois sistemas; o HTML e o PDF continuam iguais).
 - Widgets interativos (jogos, simuladores) viram imagem do estado final no PowerPoint e no PDF — a interação existe só no HTML.
 - Gráficos entram como imagem nítida no PPTX; com `--native-charts`, barras/colunas/linhas/rosca viram gráficos nativos editáveis (com visual mais simples).

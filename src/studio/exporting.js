@@ -21,7 +21,7 @@ export function sendHtml(res,spec,audience){
 
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-export async function sendExport(res, kind, spec, name, { notes = true, inline = false, audience } = {}) {
+export async function sendExport(res, kind, spec, name, { notes = true, inline = false, audience, macFonts = false } = {}) {
   spec=meetingSpec(spec,audience);
   const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
   if (kind === "sagadeck") {
@@ -52,7 +52,7 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
       const out = path.join(tmp, `saida-${what}`);
       if (what === "pptx") {
         const { exportPptx } = await import("../export/pptx.js");
-        errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes })).errors);
+        errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes, fontFallback: macFonts ? "mac" : undefined })).errors);
       } else if (what === "pdf") {
         const { pdf } = await import("../export/shots.js");
         // Preferências › Exportação: tema escuro com par claro (manual-noite → manual) sai claro no PDF, bom para imprimir
