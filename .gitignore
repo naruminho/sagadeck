@@ -11,3 +11,4 @@ vitrine/
 
 .artifacts/
 .task-*.mjs
+browsers/
