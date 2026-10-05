@@ -599,6 +599,36 @@ export function themeCSS(theme) {
 }
 
 // Mapa usado pelo exportador de PPTX: alias CSS da família -> face do PowerPoint.
-export function pptxFontMap(theme) {
-  return Object.fromEntries(Object.entries(theme.faces).map(([k, f]) => [k, { regular: f.pptx, bold: f.pptxBold || { ...f.pptx, bold: true } }]));
+export function pptxFontMap(theme, { fallback } = {}) {
+  const map = Object.fromEntries(Object.entries(theme.faces).map(([k, f]) => [k, { regular: f.pptx, bold: f.pptxBold || { ...f.pptx, bold: true } }]));
+  if (fallback === "mac") {
+    for (const m of Object.values(map)) {
+      m.regular = { ...m.regular, face: macFallbackFace(m.regular.face) };
+      m.bold = { ...m.bold, face: macFallbackFace(m.bold.face) };
+    }
+  }
+  return map;
+}
+
+// Fontes presentes no Windows e no macOS mesmo sem o Office instalado: o PPTX
+// com --mac-fonts só usa estas. O HTML e o PDF não mudam (continuam idênticos).
+export const PPTX_MAC_SAFE = new Set([
+  "Arial", "Arial Narrow", "Arial Black", "Verdana", "Courier New",
+  "Georgia", "Comic Sans MS", "Times New Roman",
+]);
+
+// Windows/Office (e as OFL vendorizadas no HTML) -> equivalente dos dois sistemas.
+// A cara é preservada: condensada vira condensada, mono vira mono, mão vira mão.
+export function macFallbackFace(face) {
+  if (!face || PPTX_MAC_SAFE.has(face)) return face;
+  if (/^Bahnschrift/i.test(face)) return "Arial Narrow";
+  if (/^Segoe UI/i.test(face)) return "Arial";
+  if (/^Cascadia Mono/i.test(face)) return "Courier New";
+  if (/^Century Gothic/i.test(face)) return "Verdana";
+  if (/^Franklin Gothic Heavy/i.test(face)) return "Arial Black";
+  if (/^Franklin Gothic/i.test(face)) return "Arial";
+  if (/^(Ink Free|Segoe Print|Caveat|Patrick Hand|Comic Neue)$/i.test(face)) return "Comic Sans MS";
+  if (/^(Press Start 2P|VT323)$/i.test(face)) return "Courier New";
+  if (/^(Plus Jakarta Sans|Fredoka|Inter|Futura)$/i.test(face)) return "Arial";
+  return "Arial";
 }

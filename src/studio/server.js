@@ -1497,7 +1497,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         const spec = withBase(W, W.spec);
         const name = W.file && !isBundledTemplate(W.file) ? path.basename(W.file).replace(/\.ya?ml$/i, "") : slugify(spec.title);
         // ?ver=1: o material de estudo abre na aba (o que o aluno recebe), em vez de baixar
-        await sendExport(res, exportKind, spec, name, { audience:url.searchParams.get('audience')||undefined, notes: url.searchParams.get("notas") !== "0", inline: exportKind === "estudo-html" && url.searchParams.get("ver") === "1" });
+        await sendExport(res, exportKind, spec, name, { audience:url.searchParams.get('audience')||undefined, notes: url.searchParams.get("notas") !== "0", inline: exportKind === "estudo-html" && url.searchParams.get("ver") === "1", macFonts: url.searchParams.get("macFonts") === "1" });
         return;
       }
 

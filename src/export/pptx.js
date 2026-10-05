@@ -10,7 +10,7 @@ import fs from "node:fs";
 import PptxGenJS from "pptxgenjs";
 import JSZip from "jszip";
 import { openDeck } from "./browser.js";
-import { pptxFontMap } from "../themes.js";
+import { pptxFontMap, macFallbackFace } from "../themes.js";
 import { notesPlain } from "../markup.js";
 
 const PX = 1 / 144; // 1920 px = 13,333 in
@@ -247,11 +247,12 @@ const VARIABLE = {
   },
 };
 const near = (arr, v) => arr.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
-function fontFor(run, fmap, aliases = {}) {
+function fontFor(run, fmap, aliases = {}, fallback) {
   const fam = aliases[run.family] || run.family;
   if (VARIABLE[fam]) {
     const V = VARIABLE[fam];
     const r = V.name(near(V.weights, run.weight), near(V.widths, run.stretch || 100));
+    if (fallback === "mac") return { face: macFallbackFace(r.face), bold: r.bold, italic: run.italic };
     return { face: r.face, bold: r.bold, italic: run.italic };
   }
   const m = fmap[run.role];
@@ -261,6 +262,7 @@ function fontFor(run, fmap, aliases = {}) {
     const f = extraBold ? m.bold : m.regular;
     face = f.face; bold = !!f.bold; italic = !!f.italic || (run.italic && !run.baseItalic);
   }
+  if (fallback === "mac") face = macFallbackFace(face);
   return { face, bold, italic };
 }
 
@@ -325,7 +327,7 @@ function materializePseudos() {
 }
 
 // notes: false tira as notas do apresentador (mandar a apresentação para alguém sem a "cola")
-export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, log = () => {} } = {}) {
+export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, fontFallback, log = () => {} } = {}) {
   const notesOpt = notes !== false;
   const { browser, page, errors } = await openDeck(htmlFile, { scale: 2 });
   try {
@@ -336,7 +338,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
     html.solo *{visibility:hidden!important}
     html.solo .solo-t,html.solo .solo-t *{visibility:visible!important}
     html.solo .solo-t.solo-bg *{visibility:hidden!important}` });
-  const fmap = pptxFontMap(theme);
+  const fmap = pptxFontMap(theme, { fallback: fontFallback });
   // apelidos CSS (ex.: SagaDIN -> Bahnschrift) declarados em fontFaces do tema
   const aliases = Object.fromEntries((theme.fontFaces || []).map((f) => [f.family, (f.src.match(/local\(['"]?([^'")]+)/) || [])[1]]).filter((x) => x[1]));
   const pres = new PptxGenJS();
@@ -371,7 +373,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
       } else if (it.kind === "text") {
         const runs = [];
         it.paras.forEach((p, pi) => p.forEach((r, ri) => {
-          const f = fontFor(r, fmap, aliases);
+          const f = fontFor(r, fmap, aliases, fontFallback);
           const o = { fontFace: f.face, fontSize: +(r.size * PT).toFixed(2), bold: f.bold, italic: f.italic, color: r.color };
           const tr = Math.round((1 - r.alpha * alpha) * 100); if (tr > 0) o.transparency = tr;
           if (r.spacing) o.charSpacing = +(r.spacing * PT).toFixed(2);
@@ -411,7 +413,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
         anims.push({ name, step: it.step, exit: it.exit, isSp: false });
       } else if (it.kind === "table") {
         const rows = it.rows.map((r) => r.map((c) => {
-          const f = fontFor(c.run, fmap, aliases);
+          const f = fontFor(c.run, fmap, aliases, fontFallback);
           const o = { fontFace: f.face, bold: f.bold, italic: f.italic, fontSize: +(c.size * PT).toFixed(2), color: c.color, align: c.align, valign: "middle", margin: c.pad.map((v) => +(v * PT).toFixed(2)) };
           o.fill = c.fill ? { color: c.fill, transparency: Math.round((1 - c.fillA * alpha) * 100) } : { type: "none" };
           const none = { type: "none" };

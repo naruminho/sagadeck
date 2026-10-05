@@ -585,7 +585,7 @@ theme:
   faces:
     display: { css: "font-family: 'Rockwell Extra Bold', serif; line-height: .95;", pptx: { face: "Rockwell Extra Bold" } }
 ```
-Cada face tem `css` (navegador) e `pptx` (nome exato da fonte no PowerPoint). Use fontes instaladas no Windows/Office para o PPTX sair idêntico.
+Cada face tem `css` (navegador) e `pptx` (nome exato da fonte no PowerPoint). Use fontes instaladas no Windows/Office para o PPTX sair idêntico. Para mandar a alguém que abre num Mac sem Office: `sagadeck pptx deck.yaml --mac-fonts` (no Studio, `/api/export/pptx?macFonts=1`): o PPTX troca as fontes só-Windows (Bahnschrift, Segoe UI, Cascadia Mono, Century Gothic, Franklin Gothic…) por equivalentes dos dois sistemas (Arial Narrow, Arial, Courier New, Verdana…); o HTML e o PDF não mudam.
 
 ## Widgets próprios
 

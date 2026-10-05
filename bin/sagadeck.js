@@ -51,7 +51,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
   sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
   sagadeck shots <deck.yaml> [--steps] [--only=3,5]  PNG de cada slide + folhas de contato (para revisar)
-  sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas]  gera <deck>.pptx editável (com animações dos cliques e notas; --sem-notas tira as notas, para mandar a alguém)
+  sagadeck pptx <deck.yaml> [--native-charts] [--sem-notas] [--mac-fonts]  gera <deck>.pptx editável (com animações dos cliques e notas; --sem-notas tira as notas, para mandar a alguém; --mac-fonts usa só fontes do Windows e do Mac, para abrir igual sem Office)
   sagadeck pdf <deck.yaml>                     gera <deck>.pdf (um slide por página)
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck estudo <deck.yaml> [--html]         gera <deck> - material de estudo.pdf (cada slide + texto de consulta)
@@ -260,7 +260,7 @@ async function main() {
       const p = paths(args[0]); const r = doBuild(p, true);
       const { exportPptx } = await import("../src/export/pptx.js");
       console.log("… exportando PowerPoint");
-      const { errors } = await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"], log: flags.verbose ? console.log : () => {} });
+      const { errors } = await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"], fontFallback: flags["mac-fonts"] ? "mac" : undefined, log: flags.verbose ? console.log : () => {} });
       errors.forEach((e) => console.log("  ✗ " + e));
       console.log(`✓ PPTX: ${p.pptx}`);
       break;
@@ -294,7 +294,7 @@ async function main() {
       await doCheck(p);
       const files = await doShots(p, flags.revisao ? p.shots : p.tmpShots);
       const { exportPptx } = await import("../src/export/pptx.js");
-      await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"] });
+      await exportPptx(p.html, p.pptx, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, nativeCharts: !!flags["native-charts"], notes: !flags["sem-notas"], fontFallback: flags["mac-fonts"] ? "mac" : undefined });
       console.log(`✓ PPTX: ${p.pptx}`);
       const { pdf } = await import("../src/export/shots.js");
       await pdf(p.html, p.pdf); console.log(`✓ PDF: ${p.pdf}`);
