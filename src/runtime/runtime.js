@@ -809,8 +809,21 @@
       document.body.classList.add("mouse"); clearTimeout(mt); mt = setTimeout(() => document.body.classList.remove("mouse"), 1600);
       const l = $("#laser"); l.style.left = e.clientX + "px"; l.style.top = e.clientY + "px";
     });
-    let tx = null; document.addEventListener("touchstart", (e) => (tx = e.touches[0].clientX));
-    document.addEventListener("touchend", (e) => { if (tx == null) return; const d = e.changedTouches[0].clientX - tx; if (Math.abs(d) > 50) cmd(d < 0 ? "next" : "prev"); tx = null; });
+    // Mobile: arrastar pro lado troca de slide; tocar (sem arrastar) avança. Toque em controle
+    // (botão, link, campo, vídeo, widget, ir-para) continua sendo do controle, nunca avança.
+    let tx = null, ty = null, tt = 0;
+    document.addEventListener("touchstart", (e) => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; tt = Date.now(); }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      if (tx == null) return;
+      const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty, dt = Date.now() - tt;
+      tx = ty = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { cmd(dx < 0 ? "next" : "prev"); return; }
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 500 && !e.target.closest("a,button,input,textarea,select,[contenteditable],video,audio,iframe,.widget,[data-goto]")) {
+        const sel = typeof getSelection === "function" && getSelection();
+        if (sel && !sel.isCollapsed) return; // selecionando texto: não avança
+        cmd("next");
+      }
+    }, { passive: true });
     const [i, k] = parseHash();
     slides.forEach((s) => s.classList.remove("current"));
     cur = -1;

@@ -115,3 +115,29 @@ test('Studio: anexo Word chega ao chat com imagem local e continua disponível n
     assert.match(llm.requests.at(-1).lastUser,/INVENTÁRIO VISUAL/);
   } finally {await studio.close();await llm.close();deck.cleanup();}
 });
+
+
+test('Word: barra horizontal, pizza e tipo desconhecido (vira tabela, nada se perde)', async () => {
+  const chartXML = (plot) => `<c:chartSpace><c:chart><c:plotArea>${plot}</c:plotArea></c:chart></c:chartSpace>`;
+  const ser = (name, labels, values) => `<c:ser><c:tx><c:v>${name}</c:v></c:tx><c:cat>${labels.map((l, i) => `<c:pt idx="${i}"><c:v>${l}</c:v></c:pt>`).join('')}</c:cat><c:val>${values.map((v, i) => `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`).join('')}</c:val></c:ser>`;
+  const zip = new JSZip();
+  zip.file('word/document.xml', `<w:document><w:body><w:p><w:drawing><c:chart r:id="ch1"/></w:drawing></w:p><w:p><w:drawing><c:chart r:id="ch2"/></w:drawing></w:p><w:p><w:drawing><c:chart r:id="ch3"/></w:drawing></w:p></w:body></w:document>`);
+  zip.file('word/_rels/document.xml.rels', '<Relationships><Relationship Id="ch1" Target="charts/chart1.xml"/><Relationship Id="ch2" Target="charts/chart2.xml"/><Relationship Id="ch3" Target="charts/chart3.xml"/></Relationships>');
+  zip.file('word/charts/chart1.xml', chartXML(`<c:barChart><c:barDir val="bar"/>${ser('A', ['J', 'F'], [5, 7])}</c:barChart>`));
+  zip.file('word/charts/chart2.xml', chartXML(`<c:pieChart>${ser('', ['X', 'Y'], [3, 9])}</c:pieChart>`));
+  zip.file('word/charts/chart3.xml', chartXML(`<c:scatterChart>${ser('S', ['1', '2'], [4, 8])}</c:scatterChart>`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-doc-chart-'));
+  try {
+    const inventory = await extractDocumentVisuals('charts.docx', await zip.generateAsync({ type: 'nodebuffer' }), dir);
+    assert.equal(inventory.items.length, 3);
+    const [bar, pie, tab] = inventory.items;
+    assert.equal(bar.chart.chart, 'bar');
+    assert.deepEqual(bar.chart.series, [{ name: 'A', values: [5, 7] }]);
+    assert.equal(pie.chart.chart, 'donut');
+    assert.deepEqual(pie.chart.parts, [{ label: 'X', value: 3 }, { label: 'Y', value: 9 }]);
+    assert.equal(tab.kind, 'table');
+    assert.deepEqual(tab.rows, [['Série', '1', '2'], ['S', '4', '8']]);
+    assert.ok(inventory.warnings.some(w => w.includes('scatter')), JSON.stringify(inventory.warnings));
+    for (const item of inventory.items) assert.ok(fs.existsSync(path.join(dir, item.image)));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

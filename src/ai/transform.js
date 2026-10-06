@@ -106,6 +106,50 @@ function textOfProduced(slides) {
   slides.forEach((s) => walk(s));
   return acc.join("\n");
 }
+// Slides repetidos (o mesmo conteúdo escrito por dois itens do plano): assinatura normalizada de
+// conteúdo + mídias. Só vale para slide produzido sem decisão pendente (sem review e sem original);
+// par original/proposta e capa repetida de propósito ficam intactos.
+function slideSignature(s) {
+  const media = [];
+  const walk = (v) => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (v && typeof v === "object") {
+      for (const [k, vv] of Object.entries(v)) {
+        if ((k === "image" || k === "image_prompt" || k === "image_ref" || k === "video") && typeof vv === "string" && vv) media.push(`${k}=${vv}`);
+        else walk(vv);
+      }
+    }
+  };
+  walk(s);
+  const text = textOfProduced([s]).toLowerCase().replace(/\s+/g, " ").trim();
+  return JSON.stringify({ layout: s.layout || "", title: (s.title || "").toLowerCase().trim(), text, media: [...new Set(media)].sort() });
+}
+export function dedupeSlides(slides) {
+  const seen = new Map(), out = [], dropped = [];
+  slides.forEach((s, i) => {
+    if (s?.review || s?.original) { out.push(s); return; }
+    const sig = slideSignature(s);
+    if (seen.has(sig)) { dropped.push({ index: i, title: s.title || "" }); return; }
+    seen.set(sig, true);
+    out.push(s);
+  });
+  return { slides: out, dropped };
+}
+export function hasImagePrompt(s) {
+  let found = false;
+  const walk = (v) => {
+    if (found) return;
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (v && typeof v === "object") {
+      for (const [k, vv] of Object.entries(v)) {
+        if (k === "image_prompt" && typeof vv === "string" && vv.trim()) { found = true; return; }
+        walk(vv);
+      }
+    }
+  };
+  walk(s);
+  return found;
+}
 export function missingFacts(facts, slides) {
   const text = textOfProduced(slides);
   const nums = new Set((text.match(/\d+(?:[.,]\d+)*/g) || []).flatMap(numVals));
@@ -559,6 +603,10 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
           // dica, não erro: palavra certa também pode ser a do original com uma letra a menos ("estão" de "gestão")
           if (typos.length) hints.push(`ITEM ${k + 1}: confira a grafia (letra faltando ou sem acento?): ${typos.slice(0, 15).join(", ")}`);
         }
+        if (/imagem|foto|ilustra|realista|desenho|maquete|3d/i.test(request || job.request || "") && !produced.some(hasImagePrompt)) {
+          // dica, não erro: ilustrar de menos não carimba revisão, mas entra na correção quando há outra rodada
+          hints.push(`ITENS ${batch.map(({ k }) => k + 1).join(", ")}: o pedido pede imagens/ilustração e nenhum slide trouxe image_prompt — prefira ilustrar capa e conceitos onde a imagem explica melhor que ícone ou diagrama, com moderação`);
+        }
         for (const { j, img, f } of equationImages(produced)) {
           issues.push({ k: (produced[j]?.origem || batch[0].k + 1) - 1, kind: "desenho", text: `slide novo ${j + 1} (item ${produced[j]?.origem}): a imagem ${img} é uma EQUAÇÃO${f.dados ? ` (${clip(f.dados, 200)})` : ""}, não uma figura: escreva a fórmula em LaTeX ($…$ no texto, ou equations/latex) e tire a imagem; se o slide precisava de outra figura, use o arquivo certo` });
         }
@@ -677,7 +725,8 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
       return rv ? { ...s, review: rv } : s;
     }));
   });
-  const out = { ...deckBase, ...(mode === "melhorar" ? { import: spec.import, style: { name: style.name } } : { recreatedFrom: spec.import?.from || spec.title }), slides };
+  const dedup = dedupeSlides(slides);
+  const out = { ...deckBase, ...(mode === "melhorar" ? { import: spec.import, style: { name: style.name } } : { recreatedFrom: spec.import?.from || spec.title }), slides: dedup.slides };
   ensureUids(out);
   // mapa de cobertura: cada trecho do original e para onde foi
   const itemOfSlide = new Map();
@@ -701,7 +750,7 @@ Todos os slides de 1 a ${originals.length} precisam aparecer em algum "de". Mant
   const status = stop || missingItems ? "parcial" : report.pendentes.length || report.revisar.length ? "revisar" : "concluido";
   job.status = status; job.stage = "montado"; save();
   return {
-    spec: out, plan,
+    spec: out, plan, duplicados: dedup.dropped.length,
     report: { ...report, status, parou: stop ? stop.message : missingItems ? `${missingItems} item(ns) não saíram` : null, retomada: resumed, mode, textModel: T, visionModel: V, calls: job.calls, usage: job.usage, seconds: Math.round(job.spentMs / 1000), alertas: plan.alertas || [], cobertura: { trechos: coverage.length, localizados: literal, reescritos: coverage.length - literal, arquivo: `original/cobertura-${mode}.md` } },
   };
 }

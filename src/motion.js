@@ -26,7 +26,7 @@ function scene(o){
  const message=(kind)=>parent.postMessage({sagaMotion:kind},'*');
  const chat=document.querySelector('.chat'),input=document.querySelector('.input'),thread=document.querySelector('.thread'),status=document.querySelector('.status');
  function reset(){started=false;phase='idle';elapsed=0;chat.hidden=true;input.textContent='';thread.replaceChildren();status.textContent='';}
- window.addEventListener('message',e=>{if(e.source!==parent)return;if(e.data?.sagaMotion==='poster'){reduced=true;if(o.type==='terminal')document.querySelector('.feed').textContent=o.lines.join('\n');}if(e.data?.sagaMotion==='active')active=!!e.data.active;if(e.data?.sagaMotion==='reset')reset();if(e.data?.sagaMotion==='start'){reset();started=true;active=true;phase='recognize';chat.hidden=false;}});
+ message('ready');window.addEventListener('message',e=>{if(e.source!==parent)return;if(e.data?.sagaMotion==='poster'){reduced=true;if(o.type==='terminal')document.querySelector('.feed').textContent=o.lines.join('\n');}if(e.data?.sagaMotion==='active')active=!!e.data.active;if(e.data?.sagaMotion==='reset')reset();if(e.data?.sagaMotion==='start'){reset();started=true;active=true;phase='recognize';chat.hidden=false;}});
  if(o.type==='chat'&&o.manual){const request=e=>{if(!active)return;if(e.type==='keydown'&&![' ','Enter','ArrowRight','PageDown'].includes(e.key))return;e.preventDefault();message('start-request');};document.addEventListener('click',request);document.addEventListener('keydown',request);}
  if(o.type==='chat'&&!o.manual){started=true;phase='recognize';chat.hidden=false;}
  function bubble(text,kind){const el=document.createElement('div');el.className='bubble '+kind;el.textContent=text;thread.append(el);return el;}

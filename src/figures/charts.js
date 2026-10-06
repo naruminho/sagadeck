@@ -34,11 +34,13 @@ const grouped = (o) => !Array.isArray(o.data) && Array.isArray(o.labels) && Arra
 const axisTitles = (o, W, H, left = 0) => `${o.xLabel ? `<text x="${left + (W - left) / 2}" y="${H - 6}" text-anchor="middle" class="ch-axis f-label" font-size="22" style="fill:var(--muted)">${esc(o.xLabel)}</text>` : ""}${o.yLabel ? `<text x="0" y="0" transform="translate(22 ${H / 2}) rotate(-90)" text-anchor="middle" class="ch-axis f-label" font-size="22" style="fill:var(--muted)">${esc(o.yLabel)}</text>` : ""}`;
 const seriesColor = (s, i) => (s.color ? cvar(s.color) : `var(--s${(i % 5) + 1})`);
 function legendSVG(series, W, y = 30) {
+  // f-label renderiza em maiúsculas espaçadas em todo tema (ver faces em themes.js):
+  // medir sempre com EM.caps, senão o texto estoura por baixo do quadrado vizinho
   let x = W, g = "";
   [...series].reverse().forEach((s, ri) => {
     const i = series.length - 1 - ri, name = String(s.name || `Série ${i + 1}`);
-    x -= textW(name, 24) + 60;
-    g += `<rect x="${x}" y="${y - 20}" width="24" height="24" rx="5" style="fill:${seriesColor(s, i)}"/><text x="${x + 34}" y="${y}" class="f-label" font-size="24" style="fill:var(--muted)">${esc(name)}</text>`;
+    x -= textW(name, 24, EM.caps) + 60;
+    g += `<rect class="ch-leg" x="${x}" y="${y - 20}" width="24" height="24" rx="5" style="fill:${seriesColor(s, i)}"/><text class="ch-leg" x="${x + 34}" y="${y}" class="f-label" font-size="24" style="fill:var(--muted)">${esc(name)}</text>`;
   });
   return g;
 }

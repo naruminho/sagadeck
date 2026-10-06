@@ -360,7 +360,7 @@ export function autofixDeck(spec, issuesReport = []) {
   };
 }
 
-function countSlideWords(s) {
+export function countSlideWords(s) {
   const txt = [];
   const walk = (v, k) => {
     if (k === "notes" || k === "source" || k === "id" || k === "layout" || k === "tone") return;

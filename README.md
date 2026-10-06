@@ -42,6 +42,8 @@ sagadeck new <nome> [--topic=T] [--theme=x]  cria um deck de exemplo na bibliote
 sagadeck studio [deck.yaml] [--port=3517]    sem arquivo: a biblioteca; com arquivo: o editor com chat IA (já aberto: usa o aberto)
 sagadeck ensaio-api [--port=3000]            exemplo de slides de API rodando contra uma API de mentira
 sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
+sagadeck diff <a.yaml> <b.yaml> [--json]      o que entrou, saiu, mudou e andou entre dois decks (por uid)
+sagadeck enxugar <deck.yaml> [--fix]          palavras por slide contra o limite do material (--fix: excedente para as notas)
 sagadeck build <deck.yaml>                   gera o .html
 sagadeck watch <deck.yaml>                   recompila o .html a cada vez que você salva o YAML
 sagadeck check <deck.yaml>                   fiscal: estouro de texto, sobreposição, contraste, excesso de texto
@@ -53,6 +55,7 @@ sagadeck all <deck.yaml>                     tudo acima
 sagadeck mcp                                 servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
 sagadeck themes                              vitrine com os 6 temas
 sagadeck icons [filtro]                      lista os ícones (ex.: sagadeck icons car)
+sagadeck links <deck.yaml>                  confere se as fontes da pesquisa (contexto/pesquisa) continuam de pe
 sagadeck ref                                 referência completa do YAML
 sagadeck skill                               instruções para agentes de IA
 ```

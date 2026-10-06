@@ -109,11 +109,38 @@ Responda só JSON: {"pesquisar": true|false, "externalAuthorized": true|false, "
   return { pesquisar: !!r.pesquisar && (!materials.some(m=>m.kind !== 'pesquisa') || r.externalAuthorized === true), motivo: String(r.motivo || ""), academico: !!r.academico, buscas: (Array.isArray(r.buscas) ? r.buscas : []).map(String).filter(Boolean).slice(0, 5) };
 }
 
+// ---- cache de busca: a mesma pergunta não paga o buscador duas vezes (TTL em dias) -------------------------------
+const cacheFile = (saveDir) => (saveDir ? path.join(saveDir, "contexto", "pesquisa", "busca-cache.json") : null);
+const cacheDays = () => Number(process.env.SAGADECK_SEARCH_CACHE_DIAS || 7);
+function readSearchCache(saveDir) {
+  try { return JSON.parse(fs.readFileSync(cacheFile(saveDir), "utf8")); } catch { return {}; }
+}
+function writeSearchCache(saveDir, cache) {
+  fs.mkdirSync(path.dirname(cacheFile(saveDir)), { recursive: true });
+  fs.writeFileSync(cacheFile(saveDir), JSON.stringify(cache));
+}
+export function cachedWeb(web, saveDir) {
+  if (!saveDir) return web;
+  const memo = async (kind, q, fn) => {
+    const key = `${kind}:${String(q).trim().toLowerCase()}`;
+    const hit = readSearchCache(saveDir)[key];
+    if (hit && Array.isArray(hit.resultados) && Date.now() - hit.quando < cacheDays() * 864e5) return hit.resultados;
+    const r = await fn(q);
+    try { const c = readSearchCache(saveDir); c[key] = { quando: Date.now(), resultados: r }; writeSearchCache(saveDir, c); } catch {}
+    return r;
+  };
+  return { ...web,
+    search: (q) => memo("web", q, (x) => web.search(x)),
+    ...(web.arxiv ? { arxiv: (q) => memo("arxiv", q, (x) => web.arxiv(x)) } : {}),
+  };
+}
+
 // ---- 2 a 5 -------------------------------------------------------------------------------------------------------
 const siteOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 const isArxiv = (u) => /arxiv\.org\/(abs|pdf)\//.test(u);
 
 export async function runResearch(plan, { briefing = "", web = defaultWeb, onProgress = () => {}, saveDir = null, maxSources = 8, annotationTimeoutMs = 45000 } = {}) {
+  web = cachedWeb(web, saveDir);
   const report = { pesquisou: true, motivo: plan.motivo, buscas: plan.buscas, fontes: [], descartadas: 0, falhas: [], offline: false, data: today() };
   // 2. buscar
   onProgress(`Pesquisando: ${plan.buscas.join(" · ")}`);

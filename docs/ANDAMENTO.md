@@ -1287,3 +1287,6 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 - Pacote pronto: nome `sagadeck` livre, `bin` executável, `files` completo (fonte + deps, 11 MB, sem bundle). Instalação via tarball testada de ponta a ponta (`npm i <tgz>` + `sagadeck build` gera o HTML).
 - `publish.yml` ganha job `publish-npm` (trusted publishing OIDC + provenance, mesma release). Falta o passo manual único: publicar a 1.2.0 à mão (`npm login` + `npm publish`) e ligar o Trusted Publisher em npmjs.com.
 - PyPI continua (público Python + banco); docs no README.
+
+### Legenda e marca-texto — reconciliação Windows + Oracle (Rose)
+- Branch dela (`fix/legenda-e-marca`) revisada por diff: mesma causa-raiz na legenda, mas o condicional dela (só maiúsculas) submedia nomes mistos — o CSS prova `text-transform: uppercase` + `letter-spacing` em todo `f-label`, então vale caps sempre. Mantida a estrutura dela (right-aligned + `ch-leg`) com medida sempre-caps; mark 84%/58% dela; teste de navegador dela (getBBox + pixel) + meu teste de cordas. Verdes: chart-legend-mark 2/2, engine 63/63, blocks 1/1.

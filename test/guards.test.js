@@ -10,7 +10,7 @@ import path from "node:path";
 import { ROOT } from "./helpers.js";
 
 const LIMITS = { // bytes
-  "src/studio/public/app.js": 274_000,
+  "src/studio/public/app.js": 250_000,
   "src/studio/server.js": 100_000,
   "src/studio/public/slide-form.js": 109_200,
 };

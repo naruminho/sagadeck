@@ -723,6 +723,22 @@ test("gráfico de dados: várias séries viram colunas/barras agrupadas (com leg
   assert.match(ctx.warnings.at(-1), /não encontrado/);
 });
 
+test("legenda com 2+ séries: nome medido como maiúscula espaçada, sem cobrir o quadrado vizinho", async () => {
+  const { chart } = await import("../src/figures/charts.js");
+  const svg = chart({ chart: "column", labels: ["2024", "2025"], series: [{ name: "Receita líquida", values: [10, 14] }, { name: "Custo total", values: [8, 9] }] });
+  const items = [...svg.matchAll(/<rect[^>]*x="([\d.]+)"[^>]*width="24" height="24"[^>]*\/><text[^>]*x="([\d.]+)"[^>]*class="f-label"[^>]*>([^<]*)<\/text>/g)]
+    .map((m) => ({ rx: +m[1], tx: +m[2], name: m[3] }));
+  assert.equal(items.length, 2, "duas séries na legenda");
+  for (const it of items) {
+    const end = it.tx + it.name.length * 24 * 0.86;
+    for (const o of items) {
+      if (o === it) continue;
+      assert.ok(end <= o.rx || it.tx >= o.rx + 24, `"${it.name}" não cobre o quadrado de "${o.name}"`);
+    }
+    assert.ok(end <= 1200, "legenda não estoura a largura");
+  }
+});
+
 test("transição do slide vira data-tr: saida e morph para comparar", () => {
   assert.match(html({ layout: "statement", text: "Saída", transition: "saida" }), /data-tr="saida"/);
   assert.match(html({ layout: "statement", text: "Morph", transition: "morph" }), /data-tr="morph"/);
