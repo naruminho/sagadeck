@@ -1234,10 +1234,23 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Deck com IA: modo simples por padrão, avançado dobrável", async () => {
+    await tab("ia");
+    await p.click("#btn-ai-deck");
+    assert.ok(await p.isVisible("#modal-ai-deck"), "modal abriu");
+    assert.ok(await p.isVisible("#ai-deck-briefing"), "o pedido está à vista");
+    assert.ok(await p.isHidden("#ai-deck-minutes"), "minutos dobrados por padrão");
+    await p.click("#ai-deck-advanced summary");
+    assert.ok(await p.isVisible("#ai-deck-minutes"), "expandiu: minutos à vista");
+    assert.ok(await p.isVisible("#ai-deck-style"), "expandiu: estilo à vista");
+    await p.click("#btn-cancel-ai-deck");
+  });
+
   await t.test("Deck com IA: minutos calculam os slides, estilo sugere o tema e o pedido leva tudo", async () => {
     await tab("ia");
     await p.click("#btn-ai-deck");
     assert.ok(await p.isVisible("#modal-ai-deck"), "modal abriu");
+    if (await p.isHidden("#ai-deck-minutes")) await p.click("#ai-deck-advanced summary");
     assert.equal(await p.inputValue("#ai-deck-minutes"), "15");
     assert.equal(await p.inputValue("#ai-deck-slides"), "10");
     await p.fill("#ai-deck-minutes", "30");
@@ -1270,6 +1283,7 @@ test("studio", async (t) => {
     await tab("ia");
     await p.click("#btn-ai-deck");
     // upload de verdade (o servidor extrai sem LLM); a geração é interceptada
+    await p.click("#ai-deck-advanced summary");
     await p.setInputFiles("#ai-deck-files", { name: "dados.txt", mimeType: "text/plain", buffer: Buffer.from("Fraudes: 40% em 2025.") });
     await p.waitForFunction(() => [...document.querySelectorAll("#ai-deck-materials .chat-doc b")]
       .some((b) => b.textContent === "dados.txt" && !/lendo/.test(b.closest(".chat-att").textContent)));

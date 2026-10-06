@@ -448,6 +448,9 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 8px; resize
 .modal-dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px 20px; }
 .modal-dialog-header h3 { font-size: 18px; font-weight: 600; }
 .modal-dialog-body { padding: 8px 20px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.modal-dialog-body details summary { cursor: pointer; font-size: 13px; color: var(--text-2); }
+.modal-dialog-body details[open] summary { margin-bottom: 10px; }
+.modal-dialog-body details .form-row { margin-top: 10px; }
 .modal-dialog-body .form-control { width: 100%; }
 .modal-dialog-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; }
 .form-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }

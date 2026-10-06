@@ -3078,6 +3078,7 @@
     dom.aiDeckStyle.value = "";
     state.deckMaterials = [];
     renderDeckMaterials();
+    dom.modalAiDeck.querySelector("details").open = false; // simples por padrão, sempre
     dom.modalAiDeck.classList.remove("hidden");
     dom.aiDeckBriefing.focus();
   }
