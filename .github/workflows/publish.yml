@@ -1,6 +1,10 @@
-# Publica no PyPI ao criar uma release no GitHub (tag vX.Y.Z).
-# Pré-requisito (uma vez): em pypi.org > Your projects > Publishing, adicionar um
-# "trusted publisher" para naruminho/sagadeck com o workflow publish.yml e o ambiente "pypi".
+# Publica no PyPI e no npm ao criar uma release no GitHub (tag vX.Y.Z).
+# Pré-requisitos (uma vez):
+# - PyPI: em pypi.org > Your projects > Publishing, adicionar um "trusted publisher"
+#   para naruminho/sagadeck com o workflow publish.yml e o ambiente "pypi".
+# - npm: publicar a primeira versão à mão (`npm login` + `npm publish` numa máquina
+#   sua) e, em npmjs.com > Package Settings > Trusted Publisher, ligar o repositório
+#   naruminho/sagadeck com este mesmo workflow. Depois disso as releases saem sozinhas.
 name: publish
 on:
   release:
@@ -33,3 +37,17 @@ jobs:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist/ }
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-npm:
+    needs: build
+    if: github.event_name == 'release'  # disparo manual só testa o build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # provenance (trusted publishing, sem token)
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, registry-url: 'https://registry.npmjs.org' }
+      - run: npm ci
+      - run: npm publish --provenance --access public

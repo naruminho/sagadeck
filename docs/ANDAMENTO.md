@@ -1281,3 +1281,9 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 - Detalhe: o fetch só acontece com usuário (no Studio local o 404 sujava o console e quebrava os testes de zero-erro); o proxy fake do teste de prefixo ganhou `/whoami` com `logged_in:false` (portal sem nome → mostra o id, sem pedido quebrado).
 - Teste: `biblioteca mostra o username do portal em vez do id cru` (whoami mockado); `library-ui` 27/27.
 - Fronteira: verificado com whoami mockado; a confirmação visual no portal de verdade (nome "narumi" no topo) fica com o Narumi.
+
+### Publicação no npm (Rose) — 06/10/2026
+- Pedido do Narumi: o app é Node, merece casa no npm (e aposenta a gambiarra do zip/fonte).
+- Pacote pronto: nome `sagadeck` livre, `bin` executável, `files` completo (fonte + deps, 11 MB, sem bundle). Instalação via tarball testada de ponta a ponta (`npm i <tgz>` + `sagadeck build` gera o HTML).
+- `publish.yml` ganha job `publish-npm` (trusted publishing OIDC + provenance, mesma release). Falta o passo manual único: publicar a 1.2.0 à mão (`npm login` + `npm publish`) e ligar o Trusted Publisher em npmjs.com.
+- PyPI continua (público Python + banco); docs no README.
