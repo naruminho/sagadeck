@@ -45,6 +45,7 @@ import { sendExport, sendHtml, lightVariant } from "./exporting.js";
 import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
+import { maybeResearch } from "../research/chat-research.js";
 export { lightVariant };
 import { VERSION, buildInfo } from "./instance.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
@@ -1251,7 +1252,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
             const visuals = await lookAt(withBase(taskWorkspace, spec), target, prompt, emit);
             // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
-            const materials = await prepareDocumentMaterials(takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
+            let materials = await prepareDocumentMaterials(takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
               .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id)), path.dirname(taskWorkspace.file), {signal,onProgress:emit});
             for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
               if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
@@ -1262,9 +1263,14 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
             // links colados na mensagem: o servidor lê sozinho e conta nas ações
             const linkActions = [];
             for (const doc of await readPastedLinks(taskWorkspace, prompt, linkActions)) materials.push(doc);
+            // pesquisa na web no chat (fase 2): a IA decide se o que ela sabe basta; as fontes
+            // lidas entram nos materiais e a instrução de citação vai junto do pedido
+            const chatResearch = await maybeResearch({ prompt, materials, saveDir: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? path.dirname(taskWorkspace.file) : null, onProgress: (s) => emit({ phase: "step", text: s }) });
+            materials = chatResearch.materials;
+            if (chatResearch.report?.fontes?.length) linkActions.push(`Pesquisa na web: ${chatResearch.report.fontes.length} fonte(s) (${chatResearch.report.fontes.map((f) => f.site).join(", ")})`);
             result = await editDeck({
               spec: withBase(taskWorkspace, spec), signal,
-              instruction: prompt,
+              instruction: chatResearch.instruction ? `${chatResearch.instruction}\n${prompt}` : prompt,
               targetSlide: target,
               issues,
               images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
