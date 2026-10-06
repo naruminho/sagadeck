@@ -18,6 +18,12 @@ pip install sagadeck
 ```
 Requer **Node.js 18+** e **Chrome ou Edge** instalados (o motor é JavaScript e vem empacotado no pacote Python).
 
+Quem já vive no Node pode instalar direto, sem Python e sem bundle (vai a fonte + dependências):
+```bash
+npm install -g sagadeck
+```
+A IA funciona apontando para um modelrelay ou gateway compatível (`SAGADECK_LLM_URL`, veja abaixo); o `pip install "sagadeck[ia]"` continua sendo o caminho com o modelrelay junto.
+
 ## Como usar
 
 Toda apresentação mora na **biblioteca**: `SAGADECK_HOME`, ou `~/sagadeck` (no Windows, `C:Users<você>sagadeck`). Uma pasta por tópico, uma por apresentação.
