@@ -78,6 +78,21 @@ export async function packDeck(spec, { baseDir, name = "apresentacao", generator
     created: new Date().toISOString(), generator }, null, 2));
   root.file(main, YAML.stringify(packagedSpec(spec, assets), { indent: 2, lineWidth: 0 }));
   const files = [], missing = [];
+  const pesquisa = [];
+  try {
+    const pdir = path.join(dir, "contexto", "pesquisa");
+    for (const f of fs.readdirSync(pdir)) {
+      const abs = path.join(pdir, f);
+      if (fs.statSync(abs).isFile()) pesquisa.push({ rel: `contexto/pesquisa/${f}`, abs });
+    }
+  } catch {}
+  let budget = 2 * 1024 * 1024; // a pesquisa viaja junto, sem estourar o pacote
+  const skipped = [];
+  for (const q of pesquisa) {
+    const size = fs.statSync(q.abs).size;
+    if (size <= budget) { root.file(q.rel, fs.readFileSync(q.abs)); files.push(q.rel); budget -= size; }
+    else skipped.push(q.rel);
+  }
   for (const a of assets) {
     if (a.exists) { root.file(a.rel, fs.readFileSync(a.abs)); files.push(a.rel); }
     else missing.push(a.ref);
@@ -86,7 +101,7 @@ export async function packDeck(spec, { baseDir, name = "apresentacao", generator
     root.file("FALTANDO.txt", `Estes arquivos são usados pela apresentação, mas não foram encontrados em ${dir}:\n\n` +
       missing.map((m) => `- ${m}`).join("\n") + "\n\nColoque-os nesta pasta (mesmo caminho) para a apresentação ficar completa.\n");
   }
-  return { zip: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), files, missing };
+  return { zip: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), files, missing, pesquisaSkipped: skipped };
 }
 
 // Extrai um pacote numa pasta nova (nunca sobrescreve) e devolve o .yaml principal.

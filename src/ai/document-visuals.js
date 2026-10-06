@@ -61,11 +61,28 @@ async function wordVisuals(bytes, folder, dir, prefix) {
       return { name:textOf(kid(ser, 'c:tx')) || '', values, labels };
     });
     if (!series.length || series.some(s => !s.values.length || s.values.some(v => !Number.isFinite(v)))) { warnings.push(`Gráfico sem dados em cache: ${target}`); continue; }
-    const type = all(node, 'c:lineChart').length ? 'line' : all(node, 'c:barChart').length ? 'column' : null;
-    if (!type) { warnings.push(`Tipo de gráfico Word ainda não reconstruído: ${target}`); continue; }
-    const native = { chart:type, labels:series[0].labels, series:series.map(({name,values}) => ({name,values})) };
-    const image = save(`chart-${items.length+1}.svg`, chartSVG(native));
-    add({ kind:'chart', caption:`Gráfico ${items.filter(x => x.kind === 'chart').length+1}`, chart:native, image });
+    const plot = all(node, 'c:plotArea')[0];
+    const kind = plot ? kids(plot).map(k => String(k.name).split(':').pop()).find(n => /Chart$/.test(n)) : '';
+    const nChart = items.filter(x => x.kind === 'chart').length + 1;
+    if (kind === 'lineChart' || kind === 'barChart') {
+      const dir = kind === 'barChart' ? kid(all(node, 'c:barChart')[0], 'barDir')?.attrs?.val : null;
+      const type = kind === 'lineChart' ? 'line' : (dir === 'bar' ? 'bar' : 'column');
+      const native = { chart:type, labels:series[0].labels, series:series.map(({name,values}) => ({name,values})) };
+      const image = save(`chart-${items.length+1}.svg`, chartSVG(native));
+      add({ kind:'chart', caption:`Gráfico ${nChart}`, chart:native, image });
+    } else if (kind === 'pieChart' || kind === 'doughnutChart') {
+      const first = series[0];
+      const native = { chart:'donut', parts:first.labels.map((label, i) => ({ label:label || `Fatia ${i+1}`, value:first.values[i] ?? 0 })) };
+      const image = save(`chart-${items.length+1}.svg`, chartSVG(native));
+      add({ kind:'chart', caption:`Gráfico ${nChart}`, chart:native, image });
+    } else {
+      // tipo sem reconstrução nativa: vira tabela real com os dados do cache em vez de se perder
+      const kindLabel = (kind || 'desconhecido').replace(/Chart$/, '');
+      const rows = [['Série', ...series[0].labels], ...series.map((s, i) => [s.name || `Série ${i+1}`, ...s.values.map(String)])];
+      const image = save(`table-${items.length+1}.svg`, tablePoster(rows));
+      warnings.push(`Gráfico Word ${kindLabel} sem reconstrução nativa (${target}): importado como tabela.`);
+      add({ kind:'table', caption:`Gráfico ${items.length+1} (${kindLabel}: dados em tabela)`, rows, image });
+    }
   }
   return { items, warnings };
 }

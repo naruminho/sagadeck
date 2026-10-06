@@ -68,11 +68,14 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck importar <arquivo.pptx> [--topico=X] [--titulo=Y] [--sem-fotos]
                                                traz um PowerPoint para a biblioteca, fiel ao original
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
+  sagadeck diff <a.yaml> <b.yaml> [--json]      o que entrou, saiu, mudou e andou entre dois decks (por uid)
+  sagadeck enxugar <deck.yaml> [--fix]          palavras por slide contra o limite do material (--fix: excedente para as notas)
   sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
   sagadeck themes [--out=pasta]                gera uma vitrine com todos os temas
   sagadeck icons [filtro]                      lista ícones disponíveis (2.100+)
   sagadeck search <termo> [--limit=5]          pesquisa na web via DuckDuckGo (sem bloqueio) para enriquecer dados
+  sagadeck links <deck.yaml>                  confere se as fontes da pesquisa (contexto/pesquisa) continuam de pe
   sagadeck ref                                 imprime a referência completa do YAML (ótimo para dar a um LLM)
   sagadeck skill                               imprime as instruções para agentes de IA
   sagadeck --version
@@ -454,6 +457,28 @@ async function main() {
       }
       break;
     }
+    case "diff": {
+      const [fa, fb] = args;
+      if (!fa || !fb) { console.error("Uso: sagadeck diff <a.yaml> <b.yaml> [--json]"); process.exit(1); }
+      const { diffDecks, formatDiff } = await import("../src/diff.js");
+      const d = diffDecks(loadSpec(path.resolve(fa)), loadSpec(path.resolve(fb)));
+      if (flags.json) console.log(JSON.stringify(d, null, 2));
+      else console.log(formatDiff(d, { aName: fa, bName: fb }));
+      break;
+    }
+    case "enxugar": {
+      const p = paths(args[0]);
+      const spec = loadSpec(p.abs);
+      const { enxugarReport, formatEnxugar } = await import("../src/fiscal/enxugar.js");
+      console.log(formatEnxugar(enxugarReport(spec)));
+      if (flags.fix) {
+        const { autofixDeck } = await import("../src/fiscal/autofix.js");
+        const res = autofixDeck(spec);
+        (await import("../src/deck-file.js")).writeDeckFile(p.abs, res.spec);
+        console.log(`enxugado: ${res.modifiedSlidesCount} slide(s) corrigido(s), excedente nas notas.`);
+      }
+      break;
+    }
     case "mcp": {
       const { runMCPServer } = await import("../src/mcp/server.js");
       runMCPServer();
@@ -499,6 +524,14 @@ async function main() {
       } catch (err) {
         console.error(`✗ Erro na pesquisa: ${err.message}`);
       }
+      break;
+    }
+    case "links": {
+      const p = paths(args[0]);
+      const { linksOfDeck, checkLinks, formatLinks } = await import("../src/research/links.js");
+      const urls = linksOfDeck(path.dirname(p.abs));
+      if (!urls.length) { console.log("sem pesquisa salva ao lado do deck (contexto/pesquisa/fontes.json)."); break; }
+      console.log(formatLinks(await checkLinks(urls)));
       break;
     }
     case "ref": case "referencia": process.stdout.write(fs.readFileSync(path.join(DOCS, "REFERENCIA.md"), "utf8")); break;
