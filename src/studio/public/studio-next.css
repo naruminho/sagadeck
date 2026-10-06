@@ -72,6 +72,14 @@
 .studio-next .rbtn-lg { height: 56px; min-width: 65px; padding: 7px 10px; gap: 5px; font-size: 11px; }
 .studio-next .rbtn-lg > .ic { width: 21px; height: 21px; }
 .studio-next .rgroup-fields { gap: 5px; }
+/* aviso de identidade/direção à vista (máquina nova): o grupo continua cabendo na faixa */
+.studio-next .rgroup-body:has(> .rnote:not([hidden])) { gap: 1px; }
+/* Identidade: 2 fileiras + aviso cabem na faixa (controles compactos só neste grupo; */
+/* tamanhos em px fixos para a conta não depender da fonte instalada) */
+#identity-select, #direction-select { height: 24px; font-size: 11px; }
+#btn-identity-setup, #btn-direction-save { height: 24px; width: 26px; }
+/* nada se esmaga em silêncio neste grupo: o que não couber aparece na rolagem e o teste acusa */
+.studio-next .rgroup:has(#identity-select) > .rgroup-body > * { flex-shrink: 0; }
 .studio-next .rfield > span { font-size: 11px; }
 .studio-next .workspace { grid-template-columns: 200px minmax(0, 1fr) auto; }
 .studio-next .slide-rail { background: var(--chrome); }
@@ -135,6 +143,26 @@
   .studio-next .doc-title { max-width: 280px; }
   .scene-tools > span { display: none; }
 }
+@media (max-width: 1440px) {
+  /* notebook: 3 temas + 3 paletas à vista mesmo com o aviso de identidade (controles e vãos compactos) */
+  .studio-next .ribbon { padding: 6px 8px; }
+  .studio-next .ribbon .rgroup { padding: 0 6px; }
+  .studio-next .ribbon .rselect { min-width: 104px; }
+  .studio-next .ribbon .rfield { gap: 6px; }
+  .studio-next .ribbon .rfield > span { min-width: 0; }
+  .studio-next .ribbon .rrow { gap: 1px; }
+  .studio-next .ribbon .rbtn-icon { width: 26px; }
+}
+@media (max-width: 1024px) {
+  /* janela estreita/tablet em pé: a faixa continua cabendo sem rolagem (menos respiro, rótulos e vãos compactos) */
+  .studio-next .ribbon .rgroup { padding: 0 4px; }
+  .studio-next .ribbon .rselect { min-width: 96px; }
+  .studio-next .ribbon .rfield { gap: 4px; }
+  .studio-next .ribbon .rfield > span { min-width: 0; }
+  .studio-next .ribbon .rrow { gap: 1px; }
+  .studio-next .ribbon .rbtn-icon { width: 26px; }
+  .studio-next .rgroup-body:has(> .rnote:not([hidden])) { gap: 0; }
+}
 @media (max-width: 900px) {
   .studio-next .titlebar { height: 54px; }
   .studio-next .titlebar .doc-title { max-width: none; min-width: 40px; flex: 1; }
@@ -143,7 +171,6 @@
   .studio-next .ribbon-tab { padding: 0 10px; }
   .studio-next .ribbon { padding: 5px; height: 70px; }
   .studio-next .workspace { grid-template-columns: minmax(0, 1fr); }
-  .studio-next .rgroup { padding: 0 7px; }
   .studio-next .rgroup-body { gap: 3px; }
   .motion-control { padding: 0 6px; gap: 2px; }
   .motion-control .ic { display: none; }
