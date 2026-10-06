@@ -39,10 +39,21 @@
   }
   async function load() {
     data = await api("api/library");
+    // atrás do portal, o id cru não diz nada: mostra o username (/whoami, mesma origem).
+    // só pergunta quando há usuário (no Studio local o 404 sujaria o console sem motivo).
+    let name = data.user;
     if (data.user) {
+      try {
+        const r = await fetch("/whoami");
+        const w = r.ok ? await r.json() : null;
+        if (w && w.logged_in) name = w.username || w.email || name;
+      } catch {}
+    }
+    if (name) {
       $("#user").hidden = false;
-      $("#avatar").textContent = String(data.user).slice(0, 1);
-      $("#uname").textContent = data.user;
+      $("#avatar").textContent = String(name).trim().slice(0, 1).toUpperCase();
+      $("#uname").textContent = name;
+      $("#user").title = data.user && data.user !== name ? data.user : "";
     }
     if (view !== "recentes" && view !== "todas" && view !== "lixeira" && !topicOf(view)) view = "recentes";
     render();

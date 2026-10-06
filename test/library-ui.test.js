@@ -226,6 +226,8 @@ test("atrás de um proxy com prefixo (/apresentacoes/): biblioteca e editor sem 
   const studio = await startStudio(null, { multiuser: true });
   const target = new URL(studio.url);
   const proxy = http.createServer((req, res) => {
+    // portal sem /whoami (só id): a biblioteca mostra o id e segue, sem pedido quebrado
+    if (req.url === "/whoami") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ logged_in: false })); }
     if (!req.url.startsWith("/apresentacoes/")) { res.writeHead(404); return res.end("fora do prefixo: " + req.url); }
     const up = http.request({ host: target.hostname, port: target.port, method: req.method, path: req.url.slice("/apresentacoes".length),
       headers: { ...req.headers, "x-sagadeck-user": "ana" } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
@@ -466,6 +468,30 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
     });
 
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});
+
+test("biblioteca mostra o username do portal em vez do id cru", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null, { multiuser: true });
+  try {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, extraHTTPHeaders: { "X-Sagadeck-User": "305cc6c7416383c8" } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    await page.route("**/whoami", (route) => route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ logged_in: true, id: "305cc6c7416383c8", username: "narumi", email: "naru@exemplo.com", role: "user" }) }));
+    await page.goto(studio.url, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => !document.getElementById("user").hidden, null, { timeout: 15000 });
+    assert.equal(await page.innerText("#uname"), "narumi", "nome amigável, não o id");
+    assert.equal(await page.innerText("#avatar"), "N", "avatar com a inicial");
+    assert.deepEqual(errors, []);
+    await ctx.close();
   } finally {
     await browser.close();
     await studio.close();
