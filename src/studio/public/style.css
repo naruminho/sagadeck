@@ -294,6 +294,9 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .thumb-card:hover .thumb-screen { outline-color: var(--ui-line-strong); }
 .thumb-card.active .thumb-screen { outline-color: var(--brand); }
 .thumb-card.active .thumb-num { color: var(--brand); font-weight: 700; }
+/* multisseleção (Ctrl+click, Shift+click, Ctrl+setas): tracejado nos marcados sem foco */
+.thumb-card.selected:not(.active) .thumb-screen { outline-style: dashed; outline-color: var(--brand); }
+.thumb-card.selected:not(.active) .thumb-num { color: var(--brand); }
 .thumb-render { position: absolute; left: 0; top: 0; width: 1920px; height: var(--sh, 1080px); transform-origin: 0 0; transform: scale(var(--thumb-scale, .09)); pointer-events: none; }
 .thumb-render .slide { opacity: 1 !important; visibility: visible !important; }
 .thumb-render mark { background-size: 100% 92% !important; transition: none !important; }
