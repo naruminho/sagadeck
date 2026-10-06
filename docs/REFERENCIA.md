@@ -1095,7 +1095,7 @@ Use os elementos nativos para textos, logos/imagens, figuras e motion. Não entr
 
 ### Trabalho no Studio
 
-Cada aba do editor mantém sua apresentação independente. Enquanto o chat processa, a entrada permanece disponível e o botão de enviar vira Parar; cancelar impede aplicar resposta pendente. Slides podem ser copiados para outra apresentação com Copiar/Colar na faixa Início (Ctrl+C/Ctrl+V com foco na lista); arquivos locais referenciados acompanham a cópia. O slide passa a usar o tema da apresentação de destino.
+Cada aba do editor mantém sua apresentação independente. Enquanto o chat processa, a entrada permanece disponível e o botão de enviar vira Parar; cancelar impede aplicar resposta pendente. Slides podem ser copiados para outra apresentação com Copiar/Colar na faixa Início, no botão direito da miniatura ou Ctrl+C/Ctrl+V com foco na lista (vale para vários de uma vez); arquivos locais referenciados acompanham a cópia. Na lista, Ctrl+click (ou Shift+click, Ctrl+setas) seleciona vários; Delete exclui o bloco com Desfazer. O slide passa a usar o tema da apresentação de destino.
 
 ## Documentos e direção contextual
 

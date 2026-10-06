@@ -12,6 +12,7 @@
   const state = {
     deck: null,
     currentSlideIndex: 0,
+    selectedSlides: [],
     zoomScale: 0.6,
     autoFit: true,
     showGuides: true,
@@ -2319,7 +2320,8 @@
 
     state.deck.slides.forEach((slide, idx) => {
       const card = document.createElement("div");
-      card.className = `thumb-card ${idx === state.currentSlideIndex ? "active" : ""}`;
+      const selNow = new Set(selectedSlides());
+      card.className = `thumb-card ${idx === state.currentSlideIndex ? "active" : ""}${selNow.has(idx) ? " selected" : ""}`;
       card.dataset.idx = idx;
       card.title = `${idx + 1}. ${plainTitle(slide, idx)} — ${layoutLabel(slide.layout)}`;
 
@@ -2372,7 +2374,7 @@
       });
       card.appendChild(actions);
 
-      card.addEventListener("click", () => { selectSlide(idx); dom.thumbnailsList.focus({ preventScroll: true }); });
+      card.addEventListener("click", (e) => { selectSlide(idx, { add: e.ctrlKey || e.metaKey, range: e.shiftKey }); dom.thumbnailsList.focus({ preventScroll: true }); });
       // arrastar para reordenar
       card.draggable = true;
       card.addEventListener("dragstart", (e) => {
@@ -2452,20 +2454,15 @@
   }
 
   function markActiveThumb() {
+    const sel = new Set(selectedSlides());
     dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((c) => {
       const on = +c.dataset.idx === state.currentSlideIndex;
       c.classList.toggle("active", on);
+      c.classList.toggle("selected", sel.has(+c.dataset.idx));
       if (on) c.scrollIntoView({ block: "nearest" });
     });
   }
 
-  function selectSlide(idx) {
-    if (idx < 0 || idx >= state.deck.slides.length) return;
-    if (idx !== state.currentSlideIndex) state.editorStep = "all"; // outro slide: volta a mostrar tudo
-    state.currentSlideIndex = idx;
-    markActiveThumb();
-    renderCurrentSlide();
-  }
 
   function moveSlide(idx, dir) {
     moveSlideTo(idx, idx + dir);
@@ -2479,6 +2476,8 @@
     const item = state.deck.slides.splice(from, 1)[0];
     state.deck.slides.splice(to, 0, item);
     state.currentSlideIndex = state.deck.slides.indexOf(current);
+    // a seleção acompanha os slides (o movido vai para `to`, os do meio andam um)
+    state.selectedSlides = selectedSlides().map((i) => i === from ? to : from < to && i > from && i <= to ? i - 1 : from > to && i >= to && i < from ? i + 1 : i);
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
@@ -2667,13 +2666,15 @@
     const at = state.currentSlideIndex + 1;
     state.deck.slides.splice(at, 0, newSlide);
     state.currentSlideIndex = at;
+    state.selectedSlides = [at];
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
     showToast(`Slide adicionado na posição ${at + 1}`);
   }
 
-  const { copyCurrentSlide, pasteCopiedSlide } = window.SagaSlideClipboard({ state, showToast, trackDeck, syncDeckToServer, renderThumbnails, renderCurrentSlide });
+  const { copySelectedSlides, pasteCopiedSlide } = window.SagaSlideClipboard({ state, showToast, trackDeck, syncDeckToServer, renderThumbnails, renderCurrentSlide });
+  const { selectedSlides, selectSlide, bindSlideListKeys } = window.SagaSlideSelect({ state, dom, markActiveThumb, renderCurrentSlide, copySelectedSlides, pasteCopiedSlide, deleteCurrentSlide });
   function duplicateCurrentSlide() {
     const cur = state.deck.slides[state.currentSlideIndex];
     if (!cur) return;
@@ -2681,66 +2682,36 @@
     const at = state.currentSlideIndex + 1;
     state.deck.slides.splice(at, 0, clone);
     state.currentSlideIndex = at;
+    state.selectedSlides = [at];
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
     showToast(`Slide duplicado na posição ${at + 1}`);
   }
 
-  // Delete/Backspace com o foco na lista de slides (à esquerda) exclui o slide selecionado. Só ali: digitando
-  // num campo ou mexendo num elemento do slide, as teclas continuam fazendo o que já faziam.
-  function bindSlideListKeys() {
-    document.getElementById("btn-copy-slide").onclick = copyCurrentSlide;
-    document.getElementById("btn-paste-slide").onclick = pasteCopiedSlide;
-    if (dom.thumbnailsList._keys) return;
-    dom.thumbnailsList._keys = true;
-    dom.thumbnailsList.tabIndex = 0;
-    dom.thumbnailsList.setAttribute("aria-label", "Slides (Delete exclui o selecionado)");
-    dom.thumbnailsList.addEventListener("keydown", (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
-      // ↑/↓ (e Home/End) trocam de slide, como no PowerPoint; nunca rolam a visualização
-      if ((e.ctrlKey || e.metaKey) && ["c","v"].includes(e.key.toLowerCase())) { e.preventDefault(); e.key.toLowerCase()==="c" ? copyCurrentSlide() : pasteCopiedSlide(); return; }
-      const go = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[e.key];
-      if (go || e.key === "Home" || e.key === "End") {
-        e.preventDefault();
-        const last = state.deck.slides.length - 1;
-        const to = e.key === "Home" ? 0 : e.key === "End" ? last : Math.max(0, Math.min(last, state.currentSlideIndex + go));
-        if (to !== state.currentSlideIndex) selectSlide(to);
-        // rola só a lista (scrollIntoView rolaria também a tela em volta)
-        const card = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${to}"]`), list = dom.thumbnailsList;
-        if (card) {
-          const c = card.getBoundingClientRect(), l = list.getBoundingClientRect();
-          if (c.top < l.top) list.scrollTop -= l.top - c.top + 8;
-          else if (c.bottom > l.bottom) list.scrollTop += c.bottom - l.bottom + 8;
-        }
-        return;
-      }
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-      e.preventDefault();
-      deleteCurrentSlide();
-      dom.thumbnailsList.focus({ preventScroll: true });
-    });
-  }
-
   function deleteCurrentSlide() {
-    if (state.deck.slides.length <= 1) {
-      showToast("Não é possível excluir o único slide da apresentação.");
+    const sel = selectedSlides();
+    if (state.deck.slides.length - sel.length < 1) {
+      showToast(sel.length > 1 ? "Não é possível excluir todos os slides da apresentação." : "Não é possível excluir o único slide da apresentação.");
       return;
     }
-    const at = state.currentSlideIndex;
-    const [removed] = state.deck.slides.splice(at, 1);
-    state.currentSlideIndex = Math.min(at, state.deck.slides.length - 1);
+    const removed = sel.map((i) => ({ idx: i, slide: state.deck.slides[i] }));
+    state.deck.slides = state.deck.slides.filter((_, i) => !sel.includes(i));
+    state.currentSlideIndex = Math.min(sel[0], state.deck.slides.length - 1);
+    state.selectedSlides = [state.currentSlideIndex];
     syncDeckToServer();
     renderThumbnails();
     renderCurrentSlide();
-    // sem desfazer geral no editor: o aviso devolve o slide no mesmo lugar
-    showToast(`Slide ${at + 1} excluído.`, 8000, { label: "Desfazer", fn: () => {
-      state.deck.slides.splice(Math.min(at, state.deck.slides.length), 0, removed);
-      state.currentSlideIndex = at;
+    // sem desfazer geral no editor: o aviso devolve os slides nos mesmos lugares
+    const nome = sel.length > 1 ? `${sel.length} slides excluídos.` : `Slide ${sel[0] + 1} excluído.`;
+    showToast(nome, 8000, { label: "Desfazer", fn: () => {
+      for (const { idx, slide } of removed) state.deck.slides.splice(Math.min(idx, state.deck.slides.length), 0, slide);
+      state.currentSlideIndex = sel[0];
+      state.selectedSlides = [...sel];
       syncDeckToServer();
       renderThumbnails();
       renderCurrentSlide();
-      showToast(`Slide ${at + 1} de volta.`);
+      showToast(sel.length > 1 ? `${sel.length} slides de volta.` : `Slide ${sel[0] + 1} de volta.`);
     } });
   }
 
@@ -4533,16 +4504,23 @@ ${ta.value}`;
       const card = e.target.closest(".thumb-card"); if (!card) return;
       e.preventDefault();
       const idx = +card.dataset.idx;
-      selectSlide(idx);
+      // na seleção múltipla, o clique direito foca sem desmarcar; fora dela, seleciona só este
+      if (selectedSlides().includes(idx)) { state.currentSlideIndex = idx; markActiveThumb(); renderCurrentSlide(); }
+      else selectSlide(idx);
+      const sel = selectedSlides(), n = sel.length, varios = n > 1;
+      const nome = (um, muitos) => (varios ? muitos.replace("{}", String(n)) : um);
       contextMenu(e, [
+        { label: nome("Copiar slide", "Copiar {} slides"), ic: "copy", fn: () => copySelectedSlides() },
+        { label: "Colar slide", ic: "clipboard-paste", fn: () => pasteCopiedSlide() },
+        { sep: true },
         { label: "Novo slide depois deste", ic: "plus", fn: () => openSceneLibrary() },
-        { label: "Duplicar slide", ic: "copy", fn: () => duplicateCurrentSlide() },
-        { label: "Mover para cima", ic: "arrow-up", disabled: idx === 0, fn: () => moveSlide(idx, -1) },
-        { label: "Mover para baixo", ic: "arrow-down", disabled: idx === state.deck.slides.length - 1, fn: () => moveSlide(idx, 1) },
+        { label: "Duplicar slide", ic: "copy", fn: () => duplicateCurrentSlide(), disabled: varios },
+        { label: "Mover para cima", ic: "arrow-up", disabled: varios || idx === 0, fn: () => moveSlide(idx, -1) },
+        { label: "Mover para baixo", ic: "arrow-down", disabled: varios || idx === state.deck.slides.length - 1, fn: () => moveSlide(idx, 1) },
         { label: "Pedir à IA para melhorar este slide", ic: "sparkles", fn: () => askAI(`Melhore o slide ${idx + 1}: `) },
         { label: "Apresentar a partir daqui", ic: "play", fn: () => startPresentation() },
         { sep: true },
-        { label: "Excluir slide", ic: "trash-2", danger: true, fn: () => deleteCurrentSlide() },
+        { label: nome("Excluir slide", "Excluir {} slides"), ic: "trash-2", danger: true, fn: () => deleteCurrentSlide() },
       ]);
     });
 
