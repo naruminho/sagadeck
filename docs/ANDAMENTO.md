@@ -1274,3 +1274,10 @@ Atualização 04/10: screenshots revelaram hierarquia invertida e evidências tr
 - Copiar/colar vale para N slides (cliente `slide-clipboard.js` + `slide-copy-routes.js` aceitam lista, com compat para o formato de 1; colados ganham uids novos). Menu do botão direito com Copiar/Colar/Excluir com contagem; Mover/Duplicar só no singular.
 - Achado no caminho: `PUBLIC_SCRIPTS` (`src/studio/public-files.js`) barrou o módulo novo com 404 — registrado.
 - Testes: `test/slide-select.test.js` (menu copiar/colar, Ctrl+click+Delete+Desfazer, Ctrl+seta). Validação: slide-select (3), guards/engine/delete/undo (74), studio (87+1skip), share+export (14); suíte completa com 820 testes: 796 passed, 3 falhas pré-existentes/ambiente (bundle precisa escrita em árvore root; motion e transform passam isolados, instáveis sob carga — o transform já caía no CI).
+
+### Nome amigável na biblioteca atrás do portal (Rose) — 06/10/2026
+- Narumi viu o id cru (`305cc...`, avatar "3") no topo da biblioteca: `api/library` devolve o id e a página mostrava direto.
+- A página agora lê o username do `/whoami` do portal (mesma origem, convenção `username || email`, avatar com a inicial maiúscula; sem portal, segue como antes). Sem tocar no filmes-api nem no nginx.
+- Detalhe: o fetch só acontece com usuário (no Studio local o 404 sujava o console e quebrava os testes de zero-erro); o proxy fake do teste de prefixo ganhou `/whoami` com `logged_in:false` (portal sem nome → mostra o id, sem pedido quebrado).
+- Teste: `biblioteca mostra o username do portal em vez do id cru` (whoami mockado); `library-ui` 27/27.
+- Fronteira: verificado com whoami mockado; a confirmação visual no portal de verdade (nome "narumi" no topo) fica com o Narumi.
