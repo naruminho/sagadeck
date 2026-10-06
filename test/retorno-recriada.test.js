@@ -96,9 +96,11 @@ test("no navegador: cartões da mesma grade com o mesmo tamanho de letra (um só
     const r = await page.evaluate(() => {
       const s = document.querySelector(".slide"), fs = (sel) => [...s.querySelectorAll(sel)].map((e) => getComputedStyle(e).fontSize);
       const k = s.querySelector(".kicker"), em = k.querySelector(".em");
-      return { text: fs(".cd-text"), title: fs(".cd-title"), shrunk: !!s.querySelector(".cd-text[data-fw0]"), kicker: getComputedStyle(k).color, em: getComputedStyle(em).color };
+      return { text: fs(".cd-text"), title: fs(".cd-title"), shrunk: !!s.querySelector(".cd-text[data-fw0]"), hyphen: !!s.querySelector(".cd-text.fit-hy"), kicker: getComputedStyle(k).color, em: getComputedStyle(em).color };
     });
-    assert.ok(r.shrunk, "a palavra comprida encolheu o seu cartão");
+    // Chrome novo hifeniza pt-BR (fit-hy) e a palavra cabe sem encolher; Chrome do CI não hifeniza e encolhe (data-fw0).
+    // Nos dois caminhos os irmãos ficam do mesmo tamanho, sem estouro e sem erro (é isso que as asserts abaixo cobram).
+    assert.ok(r.shrunk || r.hyphen, "a palavra comprida encolheu o seu cartão ou hifenizou para caber");
     assert.equal(new Set(r.text).size, 1, `textos: ${r.text.join(", ")}`);
     assert.equal(new Set(r.title).size, 1, `títulos: ${r.title.join(", ")}`);
     assert.equal(r.em, r.kicker, "a ênfase no kicker em pílula tem a cor do texto da pílula, não a da pílula");
