@@ -512,7 +512,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
   - `console` (`screen: "TEXTO"`, `alarm: true`) · `desk` (`papers: true`) · `pair` · `judge` · `elevator` (`button: false`)
   - `car-top` — carro visto de cima: `driver` / `passenger`: `human | human-watch | human-phone | machine`, `back: sleep | human`, `button: true`
 
-**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: 1 }` · `{ diagram: venn, a, b, both }`
+**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: 1, cols: 5 }` (mais de 5 passos desce em serpentina, ida e volta, sem encolher a letra) · `{ diagram: venn, a, b, both }`
 
 **Gráficos** (animados no HTML; com `--native-charts` viram gráficos nativos editáveis no PowerPoint):
 ```yaml

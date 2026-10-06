@@ -1,7 +1,7 @@
 // Diagramas gerados em SVG.
 //   { diagram: loop, nodes: [dados, modelo, decisão, ação], actor: in|on|out|none, at: 3 }
 //   { diagram: spectrum, stops: [HITL, HOTL, HOOTL], at: 1, left: "humano decide", right: "máquina decide" }
-//   { diagram: flow, steps: [a, b, c], highlight: 1 }
+//   { diagram: flow, steps: [a, b, c], highlight: 1, cols: 5 } (fila longa desce em serpentina)
 //   { diagram: venn, a: "…", b: "…", both: "…" }
 import { esc } from "../markup.js";
 import { humanBody } from "./pictos.js";
@@ -84,18 +84,46 @@ export function spectrum(o = {}) {
 
 export function flow(o = {}) {
   const steps = o.steps || [];
-  const n = steps.length, bw = 300, gap = 90, bh = 150;
-  const W = n * bw + (n - 1) * gap;
+  const n = steps.length, bw = 300, gap = 90, bh = 150, vgap = 130;
+  const perRow = Math.max(1, o.cols || 5);
+  const rows = Math.max(1, Math.ceil(n / perRow));
   const id = `ar${++uid}`;
+  const box = (x, y, s, hl) =>
+    `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="18" style="fill:var(${hl ? "--hi" : "--surface"});stroke:var(--fg)" stroke-width="${hl ? 0 : 4}"/>` +
+    `<foreignObject x="${x + 16}" y="${y + 10}" width="${bw - 32}" height="${bh - 20}"><div xmlns="http://www.w3.org/1999/xhtml" class="f-heading" style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:36px;color:var(${hl ? "--on-hi" : "--fg"})">${esc(s)}</div></foreignObject>`;
+  const arrow = (x1, y1, x2, y2) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" style="stroke:var(--fg)" stroke-width="8" marker-end="url(#${id})"/>`;
   let g = arrowDefs(id);
+  if (rows === 1) {
+    const W = n * bw + (n - 1) * gap;
+    steps.forEach((s, i) => {
+      const x = i * (bw + gap);
+      g += box(x, 0, s, o.highlight === i);
+      if (i < n - 1) g += arrow(x + bw + 12, bh / 2, x + bw + gap - 20, bh / 2);
+    });
+    return wrap([-4, -4, W + 8, bh + 8], g, "flow");
+  }
+  // fila longa (10 a 12 caixas): serpentina em fileiras, ida e volta — a letra continua legível
+  const W = perRow * bw + (perRow - 1) * gap;
+  const at = (i) => {
+    const r = Math.floor(i / perRow), k = i % perRow;
+    const y = r * (bh + vgap);
+    return { x: r % 2 === 0 ? k * (bw + gap) : W - bw - k * (bw + gap), y };
+  };
   steps.forEach((s, i) => {
-    const x = i * (bw + gap);
-    const hl = o.highlight === i;
-    g += `<rect x="${x}" y="0" width="${bw}" height="${bh}" rx="18" style="fill:var(${hl ? "--hi" : "--surface"});stroke:var(--fg)" stroke-width="${hl ? 0 : 4}"/>`;
-    g += `<foreignObject x="${x + 16}" y="10" width="${bw - 32}" height="${bh - 20}"><div xmlns="http://www.w3.org/1999/xhtml" class="f-heading" style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:36px;color:var(${hl ? "--on-hi" : "--fg"})">${esc(s)}</div></foreignObject>`;
-    if (i < n - 1) g += `<line x1="${x + bw + 12}" y1="${bh / 2}" x2="${x + bw + gap - 20}" y2="${bh / 2}" style="stroke:var(--fg)" stroke-width="8" marker-end="url(#${id})"/>`;
+    const { x, y } = at(i);
+    g += box(x, y, s, o.highlight === i);
+    if (i >= n - 1) return;
+    const a = at(i), b = at(i + 1);
+    if (a.y === b.y) {
+      const dir = b.x > a.x ? 1 : -1;
+      g += arrow(a.x + (dir > 0 ? bw + 12 : -12), a.y + bh / 2, b.x + (dir > 0 ? -20 : bw + 20), b.y + bh / 2);
+    } else {
+      const cx1 = a.x + bw / 2, cx2 = b.x + bw / 2, my = a.y + bh + vgap / 2;
+      g += `<path d="M${cx1} ${a.y + bh} V${my} H${cx2} V${b.y}" fill="none" style="stroke:var(--fg)" stroke-width="8" marker-end="url(#${id})"/>`;
+    }
   });
-  return wrap([-4, -4, W + 8, bh + 8], g, "flow");
+  return wrap([-4, -4, W + 8, rows * bh + (rows - 1) * vgap + 8], g, "flow");
 }
 
 export function venn(o = {}) {
