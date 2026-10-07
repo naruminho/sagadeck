@@ -33,6 +33,7 @@ test('legenda de cima (caption no topo) também fica de fora',()=>{
 
 test('parágrafo acima e coluna ao lado não entram no recorte (só o que cruza a borda)',()=>{
   const box=protectPDFText([100,300,800,500],[
+    {text:'parágrafo continua acima',left:100,top:252,right:900,bottom:266},
     {text:'body text above',left:100,top:270,right:900,bottom:290},
     {text:'side column',left:910,top:400,right:990,bottom:700},
     {text:'y axis',left:90,top:400,right:120,bottom:420},
@@ -44,7 +45,9 @@ test('parágrafo acima e coluna ao lado não entram no recorte (só o que cruza 
 
 test('última linha larga do parágrafo cruzando o topo não estica o recorte',()=>{
   const box=protectPDFText([142,312,716,239],[
+    {text:'well-instrumented basin with data',left:60,top:266,right:500,bottom:280},
     {text:'…ten years,',left:60,top:282,right:300,bottom:296},
+    {text:'rainfall from four monitoring stations at',left:300,top:282,right:700,bottom:296},
     {text:'…providing a robust dataset for modeling and flood analysis.',left:60,top:298,right:940,bottom:314},
     {text:'46°32’0”W',left:300,top:330,right:380,bottom:346},
   ],'Figure 1: Land use and land cover');
@@ -52,8 +55,7 @@ test('última linha larga do parágrafo cruzando o topo não estica o recorte',(
   assert.ok(box[0]<=296, `rótulo curto cruzando continua dentro: ${box}`);
 });
 
-test('limpeza de borda: parágrafo inteiro grudado no topo é aparado, rótulo espaçado fica',()=>{
-  const box=protectPDFText([142,322,677,206],[
+test('limpeza de borda: parágrafo inteiro grudado no topo é aparado, rótulo espaçado fica',()=>{  const box=protectPDFText([142,322,677,206],[
     {text:'rainfall from four monitoring stations',left:118,top:287,right:560,bottom:300},
     {text:'(Gauge control in Fig. 1), and water level',left:118,top:303,right:590,bottom:316},
     {text:'approximately ten years, providing a robust dataset',left:118,top:319,right:723,bottom:332},
@@ -62,6 +64,15 @@ test('limpeza de borda: parágrafo inteiro grudado no topo é aparado, rótulo e
   ],'Figure 1: Land use and land cover');
   assert.ok(box[1]>=334, `parágrafo aparado: ${box}`);
   assert.ok(box[1]<344, `rótulos de coordenada preservados: ${box}`);
+});
+
+test('halo do topo salva rótulo curto (eixo, letra de painel), mas não prosa',()=>{
+  const box=protectPDFText([100,300,800,200],[
+    {text:'a)',left:110,top:288,right:130,bottom:302},
+    {text:'previous paragraph line',left:300,top:276,right:820,bottom:290},
+    {text:'body text above the figure line',left:300,top:294,right:820,bottom:308},
+  ]);
+  assert.ok(box[1]<=284, `letra do painel absorvida: ${box}`);
 });
 
 test('legenda da figura SEGUINTE também fica de fora (número diferente)',()=>{
