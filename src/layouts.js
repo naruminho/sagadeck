@@ -124,9 +124,10 @@ export const LAYOUTS = {
   },
 
   statement(s, ctx) {
-    // o tamanho pelo comprimento: frase curta é manchete; parágrafo inteiro em letra de título ocupava a tela toda
-    const words = String(s.text || (s.lines || []).map((l) => (typeof l === "string" ? l : l?.text || "")).join(" ")).split(/\s+/).filter(Boolean).length;
-    const role = s.as || (words > 45 ? "lead" : words > 22 ? "h2" : "title");
+    // o tamanho pelo comprimento EM CARACTERES: contar palavras falhava com palavra longa
+    // (14 palavras de 110 caracteres saíam em title/128px e ocupavam a tela). `as` explícito vence.
+    const chars = String(s.text || (s.lines || []).map((l) => (typeof l === "string" ? l : l?.text || "")).join(" ")).length;
+    const role = s.as || (chars > 160 ? "lead" : chars > 70 ? "h2" : "title");
     const lines = s.lines
       ? s.lines.map((l, i) => {
           const o = typeof l === "string" ? { text: l } : l;

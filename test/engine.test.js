@@ -247,6 +247,17 @@ test("auto-correção registra o que mudou em `auto` (campo, antes, motivo)", ()
   assert.equal(log2[0].antes, 110);
 });
 
+test("statement longo usa papel menor (frase de 100+ caracteres não sai em title gigante)", () => {
+  const curta = html({ layout: "statement", text: "Circulação não é evidência." });
+  assert.match(curta, /font-size:128px/, "frase curta continua manchete");
+  const longa = html({ layout: "statement", text: "Dense urbanization, unplanned growth and impervious surfaces amplify flood risk across the Global South." });
+  assert.match(longa, /font-size:92px/, "frase longa cai para h2");
+  const para = html({ layout: "statement", text: "x".repeat(200) });
+  assert.match(para, /font-size:46px/, "parágrafo vira lead");
+  const manual = html({ layout: "statement", text: "x".repeat(200), as: "title" });
+  assert.match(manual, /font-size:128px/, "as explícito vence");
+});
+
 test("auto-correção de sobreposição fica registrada no slide", () => {
   const slide = { layout: "statement", text: "Uma frase" };
   const r = autofixSlide(slide, spec, [{ kind: "sobreposicao", text: "x" }]);
