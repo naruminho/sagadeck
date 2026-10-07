@@ -513,7 +513,8 @@ const EDIT_RULES = `Regras de edição:
 - Pictos (human, crowd, scene…) são desenhados pelo motor num estilo fixo: você só controla os parâmetros (pose, sign, name, count…). Se a reclamação é sobre o traço de um picto em si, diga isso com franqueza e ofereça alternativas (ex.: outro tipo de figura no deck todo, ou ilustrações geradas se as imagens estiverem ligadas) — de preferência perguntando antes de mudar vários slides.
 - Se a mudança certa afetar muitos slides de um jeito que o usuário talvez não espere, PERGUNTE antes (responda sem bloco yaml).
 - Quando houver imagens do slide renderizado, OLHE para elas antes de responder: elas mostram o que a plateia vê (sobreposição, texto cortado, ordem dos cliques). Descreva o que você vê em vez de perguntar o que o usuário quis dizer.
-- Imagens coladas pelo usuário são referência (ex.: "recrie este slide"): reproduza a estrutura, a hierarquia e o conteúdo com os recursos do sagadeck.`;
+- Imagens coladas pelo usuário são referência (ex.: "recrie este slide"): reproduza a estrutura, a hierarquia e o conteúdo com os recursos do sagadeck.
+- Tabela colada (CSV/Excel) pedindo gráfico: NÃO monte um chart direto. Devolva variants com 2 a 3 TIPOS de gráfico (ex.: barras, linhas, pizza) usando OS MESMOS dados, um por opção com o tipo no label — a pessoa escolhe vendo a prévia. Só faça direto se ela já disse o tipo.`;
 
 // Você decide, a cada mensagem, o que a pessoa quer — não existe "modo".
 const CONVERSATION_RULES = `Como responder (você decide pelo que a pessoa quer AGORA, lendo a mensagem e a conversa):

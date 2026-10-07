@@ -809,18 +809,21 @@
       <div class="modal-dialog-body">
         <label class="field-label" for="ai-deck-briefing">Sobre o que é, para quem e com que objetivo?</label>
         <textarea id="ai-deck-briefing" class="form-control" rows="5" placeholder="ex.: Palestra de 20 minutos para gerentes de agência sobre usar IA com segurança no atendimento. Comece com um caso real, mostre 3 cuidados e feche com um checklist.&#10;(imagens: peça no texto — 'com fotos', 'você decide onde ilustrar'… sem pedir, não gera)"></textarea>
-        <div class="form-row">
-          <label class="field-label">Minutos <input id="ai-deck-minutes" type="number" min="3" max="120" value="15" class="form-control" title="A quantidade de slides sai daqui (~1 a cada 1,5 min)"></label>
-          <label class="field-label">Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control" title="Ajuste fino: mexer aqui vale até trocar os minutos"></label>
-        </div>
-        <div class="form-row">
-          <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option><option value="manual">Documentação técnica — clara</option><option value="manual-noite">Documentação técnica — escura</option></select></label>
-          <label class="field-label">Tema <select id="ai-deck-theme" class="form-control"><option value="">A IA escolhe</option></select></label>
-        </div>
-        <div class="form-row">
-          <label class="field-label">Arquivos <input id="ai-deck-files" type="file" multiple accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.csv" class="form-control" title="pdf, docx, xlsx, pptx, txt, md, csv: a IA lê o conteúdo"></label>
-          <label class="field-label">Link <span class="form-inline"><input id="ai-deck-link" type="url" placeholder="https://…" class="form-control"><button type="button" id="ai-deck-add-link" class="btn btn-secondary">Anexar</button></span></label>
-        </div>
+        <details id="ai-deck-advanced">
+          <summary>Opções avançadas (minutos, estilo, arquivos…)</summary>
+          <div class="form-row">
+            <label class="field-label">Minutos <input id="ai-deck-minutes" type="number" min="3" max="120" value="15" class="form-control" title="A quantidade de slides sai daqui (~1 a cada 1,5 min)"></label>
+            <label class="field-label">Slides <input id="ai-deck-slides" type="number" min="3" max="40" value="10" class="form-control" title="Ajuste fino: mexer aqui vale até trocar os minutos"></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Estilo <select id="ai-deck-style" class="form-control"><option value="">A IA escolhe</option><option value="perspectiva">Perspectiva — corporativo fotográfico</option><option value="essencial">Essencial — minimalismo</option><option value="revista">Revista — editorial</option><option value="cromatico">Cromático — cor e fotografia</option><option value="tracos">Traços — geometria criativa</option><option value="manual">Documentação técnica — clara</option><option value="manual-noite">Documentação técnica — escura</option></select></label>
+            <label class="field-label">Tema <select id="ai-deck-theme" class="form-control"><option value="">A IA escolhe</option></select></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Arquivos <input id="ai-deck-files" type="file" multiple accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.csv" class="form-control" title="pdf, docx, xlsx, pptx, txt, md, csv: a IA lê o conteúdo"></label>
+            <label class="field-label">Link <span class="form-inline"><input id="ai-deck-link" type="url" placeholder="https://…" class="form-control"><button type="button" id="ai-deck-add-link" class="btn btn-secondary">Anexar</button></span></label>
+          </div>
+        </details>
         <div id="ai-deck-materials" class="chat-attachments" hidden></div>
         <div id="ai-deck-status" class="status-line"></div>
       </div>

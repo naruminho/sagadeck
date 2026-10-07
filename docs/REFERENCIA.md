@@ -512,7 +512,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
   - `console` (`screen: "TEXTO"`, `alarm: true`) · `desk` (`papers: true`) · `pair` · `judge` · `elevator` (`button: false`)
   - `car-top` — carro visto de cima: `driver` / `passenger`: `human | human-watch | human-phone | machine`, `back: sleep | human`, `button: true`
 
-**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: 1 }` · `{ diagram: venn, a, b, both }`
+**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: 1, cols: 5 }` (mais de 5 passos desce em serpentina, ida e volta, sem encolher a letra) · `{ diagram: venn, a, b, both }`
 
 **Gráficos** (animados no HTML; com `--native-charts` viram gráficos nativos editáveis no PowerPoint):
 ```yaml
@@ -529,6 +529,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 `null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
 `xLabel` / `yLabel` dão nome aos eixos (linhas e colunas). `from: { file, sheet, columns: [rótulo, série…] }` num slide de gráfico diz de que planilha do projeto os dados vieram (o Studio põe ao inserir uma sugestão; "Atualizar da planilha" relê o arquivo). Não invente `from`.
 `csv:` (qualquer tipo com dados) troca `data`/`labels`/`series` pelo conteúdo do arquivo (`;`, `,` ou tab; vírgula decimal; cabeçalho vira o nome das séries): atualizou o arquivo, o slide atualiza. Arquivo sumido: ficam os dados do slide e o fiscal avisa. No Studio, os dados ficam numa **planilha** no Formatar: cola do Excel (Ctrl+V em qualquer célula preenche a partir dela), importa CSV e ganha colunas de série.
+Tabela colada no chat pedindo gráfico: a IA sugere com prévia (`variants` com 2 a 3 tipos — barras, linhas, pizza — nos mesmos dados) em vez de montar um `chart` direto; só faz direto com o tipo já dito.
 
 **Mapa do Brasil por UF** (em grade: cada estado é um quadrado na posição aproximada; a cor mais forte é o maior
 valor): `{ ufmap: { SP: 320, RJ: 140, MG: 150 }, suffix: " mil", prefix: "R$ ", highlight: [SP], legend: "cadastros", showValues: true }`.

@@ -14,6 +14,8 @@ import path from "node:path";
 import { chat } from "../ai/llm.js";
 import { fetchUrlDoc } from "../ai/context.js";
 import { searchDuckDuckGo } from "./duckduckgo.js";
+import { searchWikipedia } from "./wikipedia.js";
+import { searchBrave } from "./brave.js";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const clip = (s, n) => (String(s ?? "").length > n ? String(s).slice(0, n - 1) + "…" : String(s ?? ""));
@@ -73,10 +75,21 @@ export async function llmSearch(q, { limit = 8 } = {}) {
   const t = r.text || "", m = t.match(/```(?:json)?\s*([\s\S]*?)```/), raw = m ? m[1] : t.slice(t.indexOf("["), t.lastIndexOf("]") + 1);
   return (JSON.parse(raw) || []).filter((x) => /^https?:\/\//.test(x?.url || "")).slice(0, limit).map((x) => ({ title: String(x.title || x.url), url: String(x.url), snippet: String(x.snippet || ""), date: String(x.date || "") }));
 }
+const BACKENDS = {
+  llm: (q) => llmSearch(q),
+  duckduckgo: (q) => searchDuckDuckGo(q, { limit: 8, timeoutMs: 12000 }),
+  brave: (q) => searchBrave(q),
+  wikipedia: (q) => searchWikipedia(q),
+};
+// cadeia configurável: SAGADECK_SEARCH_BACKENDS="brave,llm,duckduckgo" (nomes desconhecidos são ignorados)
+export function searchChain() {
+  const names = String(process.env.SAGADECK_SEARCH_BACKENDS || "llm,duckduckgo,wikipedia").split(",").map((s) => s.trim()).filter(Boolean);
+  return names.filter((n) => BACKENDS[n]);
+}
 async function searchAny(q) {
   const errors = [];
-  for (const f of [() => llmSearch(q), () => searchDuckDuckGo(q, { limit: 8, timeoutMs: 12000 })]) {
-    try { const r = await f(); if (r.length) return r; errors.push("nenhum resultado"); } catch (e) { errors.push(e.message); }
+  for (const name of searchChain()) {
+    try { const r = await BACKENDS[name](q); if (r.length) return r; errors.push(`${name}: nenhum resultado`); } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
   throw new Error(`nenhum buscador respondeu (${errors.join("; ")})`);
 }

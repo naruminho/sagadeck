@@ -18,6 +18,7 @@ import { NAPKIN_EXAMPLES } from "../src/diagram/napkin-examples.js";
 import { fillTokens, formatDate } from "../src/chrome.js";
 import { varietyReport, CREATIVE_DIRECTIONS, pickDirection } from "../src/ai/variety.js";
 import { ROOT, FIXTURE } from "./helpers.js";
+import { flow } from "../src/figures/diagrams.js";
 
 const spec = { title: "Teste", theme: "bauhaus", slides: [] };
 const html = (slide) => renderSlide(slide, 0, spec).html;
@@ -768,4 +769,22 @@ test("figura de pontos: luzinhas da forma; morph com modelo; forma inválida vir
   const ruim = buildHTML({ slides: [split({ points: "nave" })] });
   assert.match(ruim.html, /figura de pontos indisponível/);
   assert.ok(ruim.warnings.some((w) => /forma desconhecida "nave"/.test(w)), "avisa a forma inválida");
+});
+
+test("fluxo longo (10 a 12 caixas) desce em serpentina em vez de sair miúdo", () => {
+  const vb = (svg) => svg.match(/viewBox="([^"]+)"/)[1].split(" ").map(Number);
+  const steps12 = Array.from({ length: 12 }, (_, i) => `Etapa ${i + 1}`);
+  const short = flow({ steps: steps12.slice(0, 4) });
+  assert.deepEqual(vb(short), [-4, -4, 4 * 300 + 3 * 90 + 8, 150 + 8], "fila curta: igual a antes");
+  const long = flow({ steps: steps12 });
+  const [, , w, h] = vb(long);
+  assert.equal(w, 5 * 300 + 4 * 90 + 8, "largura travada em 5 caixas");
+  assert.equal(h, 3 * 150 + 2 * 130 + 8, "3 fileiras em zigue-zague");
+  assert.equal((long.match(/<rect /g) || []).length, 12, "as 12 caixas");
+  for (const m of long.matchAll(/<rect x="([\d.]+)" y="([\d.]+)"/g)) {
+    const [x, y] = [+m[1], +m[2]];
+    assert.ok(x >= 0 && x + 300 <= w && y >= 0 && y + 150 <= h, `caixa dentro do palco (${x},${y})`);
+  }
+  assert.match(long, /font-size:36px/, "letra sem encolher");
+  assert.ok(long.includes("Etapa 12"), "todos os rótulos");
 });

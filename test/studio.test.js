@@ -1234,10 +1234,23 @@ test("studio", async (t) => {
     await tab("inicio");
   });
 
+  await t.test("Deck com IA: modo simples por padrão, avançado dobrável", async () => {
+    await tab("ia");
+    await p.click("#btn-ai-deck");
+    assert.ok(await p.isVisible("#modal-ai-deck"), "modal abriu");
+    assert.ok(await p.isVisible("#ai-deck-briefing"), "o pedido está à vista");
+    assert.ok(await p.isHidden("#ai-deck-minutes"), "minutos dobrados por padrão");
+    await p.click("#ai-deck-advanced summary");
+    assert.ok(await p.isVisible("#ai-deck-minutes"), "expandiu: minutos à vista");
+    assert.ok(await p.isVisible("#ai-deck-style"), "expandiu: estilo à vista");
+    await p.click("#btn-cancel-ai-deck");
+  });
+
   await t.test("Deck com IA: minutos calculam os slides, estilo sugere o tema e o pedido leva tudo", async () => {
     await tab("ia");
     await p.click("#btn-ai-deck");
     assert.ok(await p.isVisible("#modal-ai-deck"), "modal abriu");
+    if (await p.isHidden("#ai-deck-minutes")) await p.click("#ai-deck-advanced summary");
     assert.equal(await p.inputValue("#ai-deck-minutes"), "15");
     assert.equal(await p.inputValue("#ai-deck-slides"), "10");
     await p.fill("#ai-deck-minutes", "30");
@@ -1270,6 +1283,7 @@ test("studio", async (t) => {
     await tab("ia");
     await p.click("#btn-ai-deck");
     // upload de verdade (o servidor extrai sem LLM); a geração é interceptada
+    await p.click("#ai-deck-advanced summary");
     await p.setInputFiles("#ai-deck-files", { name: "dados.txt", mimeType: "text/plain", buffer: Buffer.from("Fraudes: 40% em 2025.") });
     await p.waitForFunction(() => [...document.querySelectorAll("#ai-deck-materials .chat-doc b")]
       .some((b) => b.textContent === "dados.txt" && !/lendo/.test(b.closest(".chat-att").textContent)));
@@ -2016,9 +2030,11 @@ test("multiusuário: comandos só para quem está em --agentes; ninguém respond
     const n = llm.requests.length;
     const evMary = await chat("mary");
     assert.ok(!evMary.some((e) => e.phase === "approve"), "nenhum pedido de aprovação para quem não está na lista");
-    assert.match(llm.requests[n].system, /PESQUISA WEB disponível/);
-    assert.match(llm.requests[n].system, /Não peça javascript\/python\/shell\/video/);
-    assert.doesNotMatch(llm.requests[n].system, /COMANDOS \(Studio local\)/);
+    // o chat pode pesquisar na web antes de editar (fase 2): a chamada de edição é a que leva o prompt de comandos
+    const edit = llm.requests.slice(n).find((r) => /PESQUISA WEB disponível/.test(r.system));
+    assert.ok(edit, "o prompt de edição chega ao modelo (depois da decisão de pesquisa)");
+    assert.match(edit.system, /Não peça javascript\/python\/shell\/video/);
+    assert.doesNotMatch(edit.system, /COMANDOS \(Studio local\)/);
     assert.equal((await post("mary", "/api/ai/approve", { id: "x", decision: "run" })).status, 403);
     // Naru (na lista): o pedido chega; a Mary não consegue responder por ele; ele responde
     await openDeck("naru");

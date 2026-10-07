@@ -42,7 +42,9 @@ test("chat: conversa por deck que sobrevive a recarregar, memória longa e nada 
       const n = llm.requests.length;
       reply = () => "Anotado.";
       await send("e o tom?");
-      assert.match(JSON.stringify(llm.requests[n]), /DIRETORIA-DO-BANCO/);
+      // o chat decide primeiro se pesquisa na web (fase 2); a regra antiga chega ao modelo no prompt de edição
+      const edit = llm.requests.slice(n).find((r) => /DIRETORIA-DO-BANCO/.test(JSON.stringify(r)));
+      assert.ok(edit, "a regra do começo da conversa chega ao modelo (no prompt de edição)");
       const h = conv();
       assert.equal(h.at(-2).text, "e o tom?");
       assert.ok(h.at(-1).text.startsWith("Anotado."));
