@@ -68,8 +68,17 @@ test("generateDeck: idioma explícito no pedido vira instrução sem perguntar",
   assert.match(genReq.lastUser, /Escreva todo o conteúdo em inglês\./);
 });
 
-test("ilustração: regra crítica na geração e critério na revisão (vale pro deck todo)", async () => {
+test("acadêmico: tudo que é figura leva número, inclusive diagrama criado pela IA", async () => {
   const at = llm.requests.length;
+  reply = () => DECK_YAML;
+  await generateDeck("Apresentação do paper no ICFM10", { ask: false, research: false, images: true });
+  const genReq = llm.requests.slice(at).find((r) => /Crie a apresentação inteira/.test(r.lastUser));
+  assert.match(genReq.system, /NUMERAÇÃO ACADÊMICA/);
+  assert.match(genReq.system, /seu diagrama é Figure 6/);
+  assert.match(genReq.system, /Fora do acadêmico, sem numeração forçada/);
+});
+
+test("ilustração: regra crítica na geração e critério na revisão (vale pro deck todo)", async () => {  const at = llm.requests.length;
   reply = () => DECK_YAML;
   await generateDeck("Estudo da bacia do Aricanduva", { ask: false, research: false, images: true });
   const genReq = llm.requests.slice(at).find((r) => /Crie a apresentação inteira/.test(r.lastUser));
