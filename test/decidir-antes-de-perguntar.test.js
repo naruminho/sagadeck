@@ -68,14 +68,13 @@ test("generateDeck: idioma explícito no pedido vira instrução sem perguntar",
   assert.match(genReq.lastUser, /Escreva todo o conteúdo em inglês\./);
 });
 
-test("acadêmico: tudo que é figura leva número, inclusive diagrama criado pela IA", async () => {
+test("legenda sem número: nada de Figure N em figura nem diagrama", async () => {
   const at = llm.requests.length;
   reply = () => DECK_YAML;
   await generateDeck("Apresentação do paper no ICFM10", { ask: false, research: false, images: true });
   const genReq = llm.requests.slice(at).find((r) => /Crie a apresentação inteira/.test(r.lastUser));
-  assert.match(genReq.system, /NUMERAÇÃO ACADÊMICA/);
-  assert.match(genReq.system, /seu diagrama é Figure 6/);
-  assert.match(genReq.system, /Fora do acadêmico, sem numeração forçada/);
+  assert.match(genReq.system, /LEGENDA SEM NÚMERO/);
+  assert.ok(!/NUMERAÇÃO ACADÊMICA/.test(genReq.system), "regra de numeração removida");
 });
 
 test("ilustração: regra crítica na geração e critério na revisão (vale pro deck todo)", async () => {  const at = llm.requests.length;

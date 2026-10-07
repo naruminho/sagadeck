@@ -121,7 +121,10 @@ export async function inspectPDFPage(image, page, { signal, onProgress=()=>{} } 
 // acima da figura e a coluna ao lado entravam no recorte por causa do halo. A margem sobrevive só para baixo,
 // onde moram legenda e notas da figura (com o teto do número da legenda). A margem final é só respiro.
 export function protectPDFText(box, textBoxes,caption='') {
-  const [x,y,w,h] = box, margin=8;
+  const [x,y,w,h] = box, margin=8, padTop=18;
+  // Topo com folga maior: rótulo de eixo e letra de painel são raster (sem camada de texto) e a visão
+  // costuma enquadrar rente — a folga salva o topo, e a prosa que entrar pela folga é aparada abaixo
+  // (proseLine + limpeza de borda). Nas laterais e embaixo a margem segue curta.
   // Linha larga cruzando a borda de CIMA é prosa do artigo, não rótulo da figura: o PDF quebra a linha em
   // fragmentos curtos, então a medida é a LINHA inteira (fragmentos na mesma base), e só vale se houver texto
   // empilhado logo acima (parágrafo; título isolado da figura continua protegido). A legenda larga mora
@@ -133,12 +136,17 @@ export function protectPDFText(box, textBoxes,caption='') {
     s.left = Math.min(s.left, t.left); s.right = Math.max(s.right, t.right); spans.set(k, s);
   }
   const crowdedAbove = (t) => textBoxes.some((o) => o.right > x && o.left < x + w && o.bottom <= t.top + 2 && t.top - o.bottom < 30);
-  const proseAbove = (t) => t.top < y && t.bottom > y && (spans.get(lineOf(t))?.right - spans.get(lineOf(t))?.left) > 0.6 * w && crowdedAbove(t);  const below = Math.min(1000,y+h+margin);
-  const hits=textBoxes.filter(t=>t.right>x&&t.left<x+w&&t.bottom>y&&(t.top<y+h||(t.top>=y+h&&t.top<below))
-    && !proseAbove(t));
+  const lineSpan = (k) => (spans.get(k)?.right - spans.get(k)?.left) || 0;
+  const lineTop = (k) => Math.min(...textBoxes.filter(o => lineOf(o) === k).map(o => o.top));
+  // prosa no topo (linha larga, com texto empilhado acima) nunca entra — nem cruzando, nem encostando
+  const proseLine = (t) => { const k = lineOf(t); return lineSpan(k) > 0.6 * w && crowdedAbove({ top: lineTop(k) }); };
+  const below = Math.min(1000,y+h+margin);
+  // halo em cima só para rótulo (eixo, letra de painel): encostou na borda, entra — prosa, não
+  const hits=textBoxes.filter(t=>t.right>x&&t.left<x+w&&t.bottom>y-padTop&&(t.top<y+h||(t.top>=y+h&&t.top<below))
+    && !(t.top<y+margin&&proseLine(t)));
   const area={left:x,top:y,right:x+w,bottom:below};
   const left=Math.max(0,Math.min(x-margin,...hits.map(t=>t.left-4)));
-  let top=Math.max(0,Math.min(y-margin,...hits.map(t=>t.top-4)));
+  let top=Math.max(0,Math.min(y-padTop,...hits.map(t=>t.top-4)));
   const right=Math.min(1000,Math.max(x+w+margin,...hits.map(t=>t.right+4)));
   let bottom=Math.min(1000,Math.max(area.bottom,...hits.map(t=>t.bottom+4)));
   // A legenda NÃO entra no recorte (nem a de baixo, nem a de cima): ela vai como texto, escrita pela IA
