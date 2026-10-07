@@ -118,10 +118,12 @@ export async function inspectPDFPage(image, page, { signal, onProgress=()=>{} } 
 // A visão localiza a figura; o PDF fornece limites exatos dos rótulos e legendas.
 // Expanda palavras que cruzam o recorte, em vez de confiar na precisão visual em pixels.
 // Só o que CRUZA o recorte é protegido: vizinho que só encosta na margem NÃO entra — parágrafos do artigo
-// acima da figura e a coluna ao lado entravam no recorte por causa do halo. A margem sobrevive só para baixo,
-// onde moram legenda e notas da figura (com o teto do número da legenda). A margem final é só respiro.
+// acima da figura e a coluna ao lado entravam no recorte por causa do halo. Nas laterais a folga é maior
+// porque rótulo de eixo e escala de cor são raster (sem camada de texto): sem respiro eles são cortados.
+// Mas a folga lateral PARA no primeiro texto vizinho (coluna ao lado continua de fora). Embaixo a folga é
+// curta de propósito (o corte antes da legenda governa) e a margem final é só respiro.
 export function protectPDFText(box, textBoxes,caption='') {
-  const [x,y,w,h] = box, margin=8, padTop=18;
+  const [x,y,w,h] = box, margin=16, padTop=18, marginBottom=10;
   // Topo com folga maior: rótulo de eixo e letra de painel são raster (sem camada de texto) e a visão
   // costuma enquadrar rente — a folga salva o topo, e a prosa que entrar pela folga é aparada abaixo
   // (proseLine + limpeza de borda). Nas laterais e embaixo a margem segue curta.
@@ -140,43 +142,62 @@ export function protectPDFText(box, textBoxes,caption='') {
   const lineTop = (k) => Math.min(...textBoxes.filter(o => lineOf(o) === k).map(o => o.top));
   // prosa no topo (linha larga, com texto empilhado acima) nunca entra — nem cruzando, nem encostando
   const proseLine = (t) => { const k = lineOf(t); return lineSpan(k) > 0.6 * w && crowdedAbove({ top: lineTop(k) }); };
-  const below = Math.min(1000,y+h+margin);
+  const below = Math.min(1000,y+h+marginBottom);
   // halo em cima só para rótulo (eixo, letra de painel): encostou na borda, entra — prosa, não
   const hits=textBoxes.filter(t=>t.right>x&&t.left<x+w&&t.bottom>y-padTop&&(t.top<y+h||(t.top>=y+h&&t.top<below))
     && !(t.top<y+margin&&proseLine(t)));
-  const area={left:x,top:y,right:x+w,bottom:below};
-  const left=Math.max(0,Math.min(x-margin,...hits.map(t=>t.left-4)));
+  const area={left:x,top:y,right:x+w,bottom:Math.min(1000,y+h+margin)};
+  // Folga lateral PARA no texto vizinho: rótulo raster não tem caixa de texto (expande livre),
+  // mas coluna ao lado ou parágrafo encostado barram a expansão a 2 unidades da tinta.
+  const nearVertically = (t) => t.bottom > y - padTop - 4 && t.top < y + h + margin + 4;
+  const leftStop = Math.max(0, ...textBoxes.filter(t=>t.right<=x&&nearVertically(t)).map(t=>t.right+2));
+  const rightStop = Math.min(1000, ...textBoxes.filter(t=>t.left>=x+w&&nearVertically(t)).map(t=>t.left-2));
+  const left=Math.max(leftStop,Math.min(x-margin,...hits.map(t=>t.left-4)));
   let top=Math.max(0,Math.min(y-padTop,...hits.map(t=>t.top-4)));
-  const right=Math.min(1000,Math.max(x+w+margin,...hits.map(t=>t.right+4)));
+  const right=Math.min(rightStop,Math.max(x+w+margin,...hits.map(t=>t.right+4)));
   let bottom=Math.min(1000,Math.max(area.bottom,...hits.map(t=>t.bottom+4)));
   // A legenda NÃO entra no recorte (nem a de baixo, nem a de cima): ela vai como texto, escrita pela IA
   // na apresentação — caption dentro da imagem vira duplicação, e a legenda da figura SEGUINTE vinha junto
   // (a âncora pelo próprio número não pega a legenda do vizinho: corta na primeira linha de caption abaixo do meio).
   const captionNumber=String(caption).match(/\b(?:fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i)?.[1];
   const captionLine=(t)=>/^(fig(?:ura|ure)?|table|tabela)\b/i.test(String(t.text).trim());
+  // Legenda fragmentada pelo extrator ("F"+"igure 2:…"): junta a linha inteira pela base
+  // antes de testar — fragmento cru nunca começa com "Figure" e o corte passava batido,
+  // deixando a legenda cortada dentro do recorte. Vale para a própria e para a seguinte.
+  const lineGroups = () => {
+    const groups = new Map();
+    for (const t of textBoxes) {
+      const k = lineOf(t), L = groups.get(k)||{top:1e9,bottom:-1e9,left:1e9,right:-1e9,text:[]};
+      L.top=Math.min(L.top,t.top); L.bottom=Math.max(L.bottom,t.bottom);
+      L.left=Math.min(L.left,t.left); L.right=Math.max(L.right,t.right); L.text.push([t.left,t.text]); groups.set(k,L);
+    }
+    for (const L of groups.values()) {
+      L.joined = L.text.sort((a,b)=>a[0]-b[0]).map(z=>String(z[1])).join(' ');
+      L.flat = L.joined.replace(/ /g,'');
+    }
+    return groups;
+  };
+  const captionStart = (s) => /^\s*(fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i.test(s)
+    || /^\s*(fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i.test(String(s||'').replace(/ /g,''));
+  const groups = lineGroups();
   if(captionNumber) {
     // a legenda de cima vem fragmentada ("Figure" | "4:" | resto): junta a linha inteira pela base
-    const lines=new Map();
-    for(const t of textBoxes) {
-      const k=lineOf(t), L=lines.get(k)||{top:1e9,bottom:-1e9,left:1e9,right:-1e9,text:[]};
-      L.top=Math.min(L.top,t.top); L.bottom=Math.max(L.bottom,t.bottom);
-      L.left=Math.min(L.left,t.left); L.right=Math.max(L.right,t.right); L.text.push([t.left,t.text]); lines.set(k,L);
-    }
-    for(const L of lines.values()) {
-      const joined=L.text.sort((a,b)=>a[0]-b[0]).map(x=>String(x[1])).join(' ');
-      const m=joined.match(/^\s*(fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i);
+    for(const L of groups.values()) {
+      const m=L.joined.match(/^\s*(fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i)
+        ||L.flat.match(/^\s*(fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i);
       if(m&&m[2]===captionNumber&&L.bottom<y+h/2&&(L.right-L.left)>0.5*w) top=Math.max(top,L.bottom+4);
     }
     const num=(t)=>t.text?.match(/\b(?:fig(?:ura|ure)?|table|tabela)[.\s]*(\d+(?:\.\d+)*)/i)?.[1];
     const above=textBoxes.filter(t=>num(t)===captionNumber&&captionLine(t)&&t.bottom<y+h/2&&(t.right-t.left)>0.5*w);
     if(above.length) top=Math.max(top,Math.max(...above.map(t=>t.bottom))+4); // legenda de cima também fica de fora
   }
-  const nextCaption=textBoxes.filter(t=>captionLine(t)&&t.top>y+h/2&&t.top<bottom).sort((a,b)=>a.top-b.top)[0];
+  const nextCaption = [...groups.values()]
+    .filter(L=>(captionStart(L.joined)||captionStart(L.flat))&&L.top>y+h/2&&L.top<bottom)
+    .sort((a,b)=>a.top-b.top)[0];
   if(nextCaption) {
     // a linha da legenda pode vir em fragmentos com bases levemente diferentes: o corte usa o mais alto,
     // com folga de uma linha — o topo medido do texto fica até ~10 unidades acima da tinta visível
-    const lineTop=Math.min(...textBoxes.filter(t=>Math.abs(t.top-nextCaption.top)<6).map(t=>t.top));
-    bottom=Math.min(bottom,lineTop-12); // corta ANTES da legenda (e do que vier depois)
+    bottom=Math.min(bottom,nextCaption.top-12); // corta ANTES da legenda (e do que vier depois)
   }
   // Limpeza da borda de cima: linha densa de prosa grudada no topo, com texto empilhado acima, é resto de
   // parágrafo que a visão deixou passar por inteiro — apara (até 3 linhas). Rótulo espaçado (coordenadas,
