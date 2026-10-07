@@ -167,6 +167,8 @@ test('Studio: anexo Word chega ao chat com imagem local e continua disponível n
   const bytes = await zip.generateAsync({type:'nodebuffer'});
   let calls = 0;
   const deck = tempDeck(), llm = await startMockLLM(req => {
+    // decisão de pesquisa do chat (fase 2): o anexo é fonte exclusiva, sem autorização externa — não pesquisa
+    if (!/INVENTÁRIO VISUAL/.test(req.lastUser)) return '{"pesquisar": false, "motivo": "anexo é fonte exclusiva"}';
     if (calls++) return 'Recebi os elementos do documento.';
     const inventory = JSON.parse(req.lastUser.match(/INVENTÁRIO VISUAL[^\n]*\n([^\n]+)/)[1]);
     return '```yaml\ninsert:\n  - after: 1\n    slide:\n      layout: split\n      title: Resultado da fonte\n      body: "Resultado: 12,5"\n      figure:\n        image: '+JSON.stringify(inventory.items[0].image)+'\n        fit: contain\n```';

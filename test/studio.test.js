@@ -2030,9 +2030,11 @@ test("multiusuário: comandos só para quem está em --agentes; ninguém respond
     const n = llm.requests.length;
     const evMary = await chat("mary");
     assert.ok(!evMary.some((e) => e.phase === "approve"), "nenhum pedido de aprovação para quem não está na lista");
-    assert.match(llm.requests[n].system, /PESQUISA WEB disponível/);
-    assert.match(llm.requests[n].system, /Não peça javascript\/python\/shell\/video/);
-    assert.doesNotMatch(llm.requests[n].system, /COMANDOS \(Studio local\)/);
+    // o chat pode pesquisar na web antes de editar (fase 2): a chamada de edição é a que leva o prompt de comandos
+    const edit = llm.requests.slice(n).find((r) => /PESQUISA WEB disponível/.test(r.system));
+    assert.ok(edit, "o prompt de edição chega ao modelo (depois da decisão de pesquisa)");
+    assert.match(edit.system, /Não peça javascript\/python\/shell\/video/);
+    assert.doesNotMatch(edit.system, /COMANDOS \(Studio local\)/);
     assert.equal((await post("mary", "/api/ai/approve", { id: "x", decision: "run" })).status, 403);
     // Naru (na lista): o pedido chega; a Mary não consegue responder por ele; ele responde
     await openDeck("naru");
