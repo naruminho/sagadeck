@@ -71,6 +71,11 @@ ${images
   - não falou de imagem → VOCÊ decide, do mesmo jeito: ilustre o que fica mais claro com uma imagem (um objeto, um lugar, uma cena, um processo físico, a capa) e deixe o resto com ícones, gráficos e diagramas do sagadeck;
   - pediu sem imagens (ou só ícones) → não gere.`
     : "- NÃO use `image_prompt` nem imagens externas; use as figuras geradas do sagadeck."}
+- PENSAMENTO CRÍTICO NA ILUSTRAÇÃO: cada imagem gerada tem que retratar o CONTEÚDO ESPECÍFICO do pedido e do material
+  (o lugar, o objeto, o processo nomeado — ex.: um paper sobre a bacia do Aricanduva pede o Aricanduva, rio urbano da
+  zona leste de São Paulo, nunca "uma cidade genérica"). Genérico bonito é ERRO, pior que ausência: se não der para
+  retratar o específico com fidelidade, prefira a figura do material, um diagrama, um mapa ou nada. A capa ilustrada
+  ancora no caso concreto do briefing, não num símbolo vago do tema. O alt descreve o que a imagem mostra de verdade.
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 - Referências visuais REAIS são diferentes de ilustrações: para aplicações, tutoriais, personagens e produtos, use fotos/gráficos observados nas fontes com web_image: {url: URL_EXATA, source: PAGINA, alt: DESCRICAO}, ou uma captura pública com web_capture: {url: PAGINA, selector: SELETOR_OPCIONAL}. Não adivinhe URLs ou coordenadas de cliques. O motor importa a referência para a biblioteca e a apresentação funciona offline. Falhas aparecem; não substitua screenshot por desenho inventado. Não peça captura de páginas privadas ou autenticadas.
 - Para ensinar relações e redes (logística, dependências, pessoas, conhecimento), considere graphlab com nós semânticos e um experimento de rota/bloqueio. Para algoritmos, considere codelab com um desafio que o aluno possa alterar e executar. A escolha e o exemplo vêm do conteúdo, não do nome do assunto. HTTPX/NetworkX reais ficam em api/codewalk ou comandos Python; codelab interpreta Python simples, sem essas bibliotecas.
@@ -85,22 +90,31 @@ ${reference()}`;
 // Parsing e validação da resposta
 // ---------------------------------------------------------------------------------------------
 
-// Para que serve o material: o modelo decide (JSON curto) e diz se falta informação para decidir
+// Para que serve o material: o modelo EXTRAI do pedido primeiro e só pergunta o que faltar de verdade.
+// Regra: nunca pergunte o que o pedido já respondeu (com todas as letras ou por implicação clara); só
+// pergunte o que for necessário para decidir e a pessoa não informou — ou o que vale confirmar por julgamento.
 export async function decidePurpose(briefing, materials = []) {
   const res = await chat([
     { role: "system", content: `Você decide PARA QUE SERVE um material de apresentação, lendo o pedido. São só dois usos:
-- palestra: PARA APRESENTAR — alguém fala e a plateia assiste (palestra, reunião, pitch, aula expositiva, workshop). Letra grande, respiro, pouco texto na tela, para não dar sono.
+- palestra: PARA APRESENTAR — alguém fala e a plateia assiste (palestra, reunião, pitch, aula expositiva, workshop, conferência, congresso). Letra grande, respiro, pouco texto na tela, para não dar sono.
 - consulta: PARA ESTUDAR DEPOIS — o material vai ser enviado e a audiência usa como fonte de estudo (apostila, documentação, guia, curso para guardar). Conteúdo denso, com bastante texto no slide.
-Se o pedido já disser com todas as letras quanto texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos"), isso resolve: não pergunte, escolha (muito texto: consulta; pouco: palestra) e diga em "texto": "muito" ou "pouco".
-Se o pedido não permitir decidir com segurança — típico: workshop, treinamento ou "uma apresentação sobre X" sem dizer se o material é só para a sessão ou se vai ser enviado para o pessoal estudar depois —, NÃO suponha: faça UMA pergunta curta com 2 opções curtas (apresentar × estudar depois).
-Responda só com JSON: {"purpose": "…" ou null, "texto": "muito" | "pouco" | null, "why": "motivo curto", "pergunta": "…" ou null, "opcoes": ["…"]}` },
+Primeiro EXTRAIA do pedido (cite a evidência em "extraido"):
+- uso: "apresentar", "congresso", "conferência", "pitch", "defesa", "aula" → palestra, sem perguntar; "apostila", "guia", "material de estudo", "para ler depois" → consulta, sem perguntar.
+- texto: se o pedido disser com todas as letras quanto texto quer ("bastante texto", "explicação completa", "pouco texto", "só tópicos"), isso resolve: não pergunte, registre em "texto" ("muito": consulta; "pouco": palestra).
+- idioma: se o pedido disser o idioma ("em inglês", "in English"), registre em "idioma" ("pt", "en" ou outro código) e não pergunte. Se NÃO disser mas a ocasião for internacional (congresso/conferência internacional, público estrangeiro, paper em inglês), proponha a confirmação em "perguntaIdioma" ("Confirmar o idioma?" com opcoes ["Português", "English"]).
+Só faça a pergunta de uso ("pergunta") se o pedido NÃO permitir decidir com segurança — típico: workshop, treinamento ou "uma apresentação sobre X" sem dizer se o material é só para a sessão ou se vai ser enviado para estudar depois. Nunca pergunte o que já foi extraído.
+Responda só com JSON: {"purpose": "…" ou null, "texto": "muito" | "pouco" | null, "idioma": "pt" | "en" | null, "extraido": "evidências curtas do pedido", "why": "motivo curto", "pergunta": "…" ou null, "opcoes": ["…"], "perguntaIdioma": "…" ou null}` },
     { role: "user", content: `${materials.length ? `(há ${materials.length} material(is) anexado(s))\n` : ""}Pedido:\n"""\n${briefing}\n"""` },
   ], { temperature: 0.1 });
   const m = String(res.text || "").match(/\{[\s\S]*\}/);
   if (!m) return null;
   const j = JSON.parse(m[0]);
   if (j.pergunta) return { question: { question: String(j.pergunta), options: (Array.isArray(j.opcoes) ? j.opcoes : []).map(String).filter(Boolean).slice(0, 4) } };
-  return PURPOSES[j.purpose] ? { purpose: j.purpose, texto: ["muito", "pouco"].includes(j.texto) ? j.texto : null, why: String(j.why || "").slice(0, 200) } : null;
+  const out = PURPOSES[j.purpose] ? { purpose: j.purpose, texto: ["muito", "pouco"].includes(j.texto) ? j.texto : null, why: String(j.why || "").slice(0, 200) } : null;
+  if (!out) return null;
+  if (j.idioma === "pt" || j.idioma === "en") out.idioma = j.idioma;
+  if (j.perguntaIdioma && !out.idioma) out.languageQuestion = { question: String(j.perguntaIdioma).slice(0, 300), options: ["Português", "English"] };
+  return out;
 }
 
 // A IA preferiu perguntar antes de gerar: bloco ```pergunta com {"pergunta", "opcoes"}
@@ -507,6 +521,16 @@ const CONVERSATION_RULES = `Como responder (você decide pelo que a pessoa quer 
    (dado, história, exemplo, pergunta para a plateia, jeito visual de mostrar), pergunte o que falta (no máximo 2 perguntas).
    Curto: até ~150 palavras. Termine com um bloco \`\`\`opcoes com 2 a 4 respostas curtas (até 8 palavras) que a pessoa poderia clicar,
    uma por linha — inclua uma que peça para aplicar o que foi sugerido (ex.: "Pode fazer isso").
+   1a. PERGUNTA sobre o assunto ou o material ("o que é…?", "por que…?", "me explica…?", "como funciona…?"): é CONVERSA, não
+   pedido de slide. RESPONDA a pergunta com o que você sabe (e com o material anexado, se houver), sem bloco yaml e sem
+   tocar nos slides. Só vira AÇÃO com verbo explícito de fazer ("crie", "adicione", "gere", "monte", "transforme em slides",
+   "aplica o que combinamos").
+   1b. BRAINSTORM ANTES DE GERAR — a pessoa diz que vai pedir a geração depois ("primeiro vamos discutir", "depois eu peço
+   para gerar", "só ideias por enquanto"): NÃO gere nada parcial nem antecipe slides. Discuta, combine e CONFIRME o plano;
+   a geração acontece quando ela pedir. Se ela aprovar uma sugestão tua ou vocês fecharem um ponto ("fechado", "isso mesmo",
+   "pode ser assim"), grave na hora com patch \`deck: { context: { decisoes: [...as que já havia, mais a nova] } }\`: a lista de
+   decisões é o CONTRATO do que gerar depois — nunca apague nem resuma um item sem ela pedir. Gerar depois usa a conversa
+   inteira MAIS essas decisões; nada combinado se perde.
 2. AÇÃO — pediu para corrigir, alterar, adicionar, remover, ou autorizou o que foi combinado ("pode fazer", "manda ver", "aplica"):
    faça, com o bloco yaml de patch. Se veio de uma conversa, aplique exatamente o que foi combinado nela.
 3. VERSÕES — pediu alternativas, opções ou "N versões" de um slide: devolva um bloco yaml com \`variants\` (2 a 4 versões completas e
@@ -723,6 +747,8 @@ export function sanitizeCheck(spec, indices) {
 // Memória da conversa: as últimas trocas vão inteiras; das mais antigas, o que a PESSOA disse fica (compactado,
 // em ordem), para o modelo não esquecer o que foi pedido lá no começo. As respostas antigas da IA saem: o que ela
 // fez está no próprio deck. A conversa é de um deck só (o Studio guarda uma por apresentação).
+// GARANTIA ANTI-RESUMO: o histórico nunca é reescrito por modelo — só há corte por tamanho (preserva o começo e o
+// fim, nunca o meio preferido), e o contrato sem perdas são as decisões travadas em context.decisoes no deck.
 // ---------------------------------------------------------------------------------------------
 const RECENT_TURNS = 16, OLD_MSG_CHARS = 700, MEMORY_CHARS = 9000;
 export function conversationFor(history = []) {
@@ -1040,6 +1066,8 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     say("entendendo para que serve o material…");
     decided = await decidePurpose(briefing, materials).catch(() => null);
     if (decided?.question) return { question: decided.question };
+    // ocasião internacional sem idioma informado: confirma antes de gerar no idioma errado
+    if (decided?.languageQuestion && (language === "auto" || !language)) return { question: decided.languageQuestion };
   }
   // pesquisa: a IA decide se o que ela sabe basta; se não, busca, escolhe as fontes, lê e anota (src/research)
   let researchReport;
@@ -1072,7 +1100,10 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     decided?.texto ? `A pessoa disse quanto texto quer: ${decided.texto} texto na tela (grave maxWords: ${decided.texto === "muito" ? 200 : 35}).` : "",
     answer ? `Resposta da pessoa à sua pergunta sobre o material: ${answer}` : "",
     author ? `Autor padrão das preferências: ${author}. É apenas um padrão; autoria ou organização explicitamente indicada no pedido tem prioridade. Grave a atribuição solicitada em author para não aplicar este padrão.` : "",
-    language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
+    // idioma respondido ou extraído do pedido vale como instrução (inclui a resposta à confirmação de idioma)
+    /english|ingl[eê]s/i.test(answer || "") || (!language || language === "auto") && decided?.idioma === "en" ? "Escreva todo o conteúdo em inglês."
+    : /portuguese|portugu[eê]s/i.test(answer || "") || (!language || language === "auto") && decided?.idioma === "pt" ? "Escreva todo o conteúdo em português."
+    : language && language !== "auto" ? `Escreva todo o conteúdo em ${language}.` : "",
   ].filter(Boolean).join("\n");
   const starter = { title: "Nova apresentação", ...(theme ? { theme } : {}), slides: [{ layout: "cover", title: "Nova apresentação" }] };
   const instruction = `Crie a apresentação inteira que a pessoa pediu abaixo. O deck atual é só um começo em branco: devolva preferencialmente o deck completo com slides como LISTA YAML. Se usar insert, todos os novos entram after: 1 (referência ao único slide original, nunca a um slide que você ainda está inserindo). Grave no deck o title, o theme, o purpose e, se o pedido disser a ocasião, o context.

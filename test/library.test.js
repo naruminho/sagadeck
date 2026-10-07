@@ -158,3 +158,48 @@ test("mover para 'sem tópico' vai para a pasta Sem tópico: na raiz só tópico
   assert.equal(byTitle(lib, "Solta").topic, "");
   assert.equal(lib.moveDeck("solta.yaml", ""), "solta.yaml", "já está sem tópico: não mexe");
 });
+
+test("geração em andamento é invisível: trabalha em pasta oculta e só aparece publicada", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Pedidos");
+  const { dir, file } = lib.createStagingDeck("Pedidos");
+  assert.ok(dir.includes(".gerando"), "pasta oculta de trabalho");
+  assert.deepEqual(lib.list().decks, [], "nada a meio fazer aparece na biblioteca");
+  // a IA escreve o deck e as imagens na pasta oculta…
+  fs.mkdirSync(path.join(dir, "imagens"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "imagens", "ia-1.png"), "png");
+  fs.writeFileSync(file, YAML.stringify(deck("Enchentes no Aricanduva", 3)));
+  const id = lib.publishStagedDeck("Pedidos", dir, "Enchentes no Aricanduva");
+  assert.equal(id, "Pedidos/Enchentes no Aricanduva/Enchentes no Aricanduva.yaml");
+  assert.ok(fs.existsSync(path.join(lib.root, ...id.split("/"))));
+  assert.ok(fs.existsSync(path.join(lib.root, "Pedidos", "Enchentes no Aricanduva", "imagens", "ia-1.png")), "imagens acompanham");
+  assert.deepEqual(byTitle(lib, "Enchentes no Aricanduva").slides, 3);
+});
+
+test("publicar sem slides não publica nada; interromper vai para a lixeira (restaurável)", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Pedidos");
+  const vazio = lib.createStagingDeck("Pedidos");
+  fs.writeFileSync(vazio.file, YAML.stringify({ title: "x", slides: [] }));
+  assert.throws(() => lib.publishStagedDeck("Pedidos", vazio.dir, "X"), /não produziu slides/);
+  assert.deepEqual(lib.list().decks, [], "falha não deixa resto visível");
+  const slot = lib.discardStaging("Pedidos", vazio.dir);
+  assert.ok(lib.listTrash().some((t) => t.id === slot && t.staging), "na lixeira, visível");
+  const id = lib.restoreDeck(slot);
+  assert.match(id, /Pedidos\//, "restaura no tópico");
+  assert.throws(() => lib.publishStagedDeck("Pedidos", "../fora", "X"), /inválida/, "pasta fora do .gerando não publica");
+});
+
+test("na subida, órfãs vão para a lixeira em vez de sumir ou sobrar para sempre", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Pedidos");
+  const { dir, file } = lib.createStagingDeck("Pedidos");
+  fs.writeFileSync(file, YAML.stringify(deck("Quase pronta", 5)));
+  assert.deepEqual(lib.list().decks, []);
+  const moved = lib.recoverStaging();
+  assert.equal(moved.length, 1);
+  assert.ok(!fs.existsSync(dir), "nada sobra na pasta temporária");
+  assert.ok(lib.listTrash().some((t) => t.staging && t.slides === 5), "órfã na lixeira, recuperável");
+  const id = lib.restoreDeck(moved[0]);
+  assert.equal(byTitle(lib, "Quase pronta").slides, 5, "nada se perdeu");
+});

@@ -102,6 +102,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
   function newWorkspace(user) {
     const W = { user, library: openLibrary(user ? path.join(libraryRoot, "usuarios", safeName(user, "usuario")) : libraryRoot),
       file: null, spec: null, lastPreview: { ok: true, error: null, warnings: [] } };
+    // gerações que morreram com o processo viram órfãs: vão para a lixeira (visíveis e restauráveis), nunca somem
+    try { const n = W.library.recoverStaging().length; if (n) console.warn(`[Studio] ${n} geração(ões) interrompida(s) na biblioteca de ${user || "local"}: movida(s) para a lixeira.`); } catch {}
     Object.assign(W, sampleSpec());
     return W;
   }
@@ -312,12 +314,12 @@ export function createStudioServer(deckPath = null, opts = {}) {
     while (W.contextDocs.size > CONTEXT_MAX_DOCS) W.contextDocs.delete(W.contextDocs.keys().next().value);
     return { id, name, chars: text.length, detail };
   }
-  // Gerar com IA (editor ou biblioteca): pasta nova na biblioteca ("Gerando…"), o deck gravado nela com as imagens
-  // em imagens/, e a pasta renomeada para o título. Falhou: a pasta vai para a lixeira. Minutos, estilo, anexos.
+  // Gerar com IA (editor ou biblioteca): a IA trabalha numa pasta oculta do tópico (invisível na biblioteca)
+  // e a apresentação só aparece quando pronta, publicada com o título final. Falhou ou a IA perguntou algo:
+  // a pasta vai para a lixeira (recuperável). Minutos, estilo, anexos.
   async function generateIntoLibrary(W, topic, b, emit) {
     const L = W.library;
-    const id = L.createDeck(topic, { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
-    const file = L.resolveId(id), dir = path.dirname(file);
+    const { dir, file } = L.createStagingDeck(topic);
     try {
       const prefs = loadPreferences().ia;
       const gen = await generateDeck(String(b.briefing || ""), {
@@ -339,15 +341,15 @@ export function createStudioServer(deckPath = null, opts = {}) {
         research: prefs.pesquisa === false ? false : "auto",
         researchDir: dir,
       });
-      if (gen.question) { L.trashDeck(id); return { question: gen.question }; } // a IA quer saber para que serve o material
+      if (gen.question) { L.discardStaging(topic, dir); return { question: gen.question }; } // a IA quer saber para que serve o material
       // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
       if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
       saveGenReport(dir, gen);
-      const finalId = L.renameDeck(id, gen.spec.title || "Nova apresentação");
+      const finalId = L.publishStagedDeck(topic, dir, gen.spec.title || "Nova apresentação");
       return { id: finalId, file: L.resolveId(finalId), images: gen.images, research: gen.research, quality: gen.quality, variety: gen.variety };
     } catch (e) {
-      L.trashDeck(id);
+      try { L.discardStaging(topic, dir); } catch {}
       throw e;
     }
   }

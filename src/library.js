@@ -249,9 +249,80 @@ export function openLibrary(root) {
     return idOf(yaml);
   }
 
+  // ---- geração em andamento (invisível): a IA trabalha numa pasta oculta do tópico e a apresentação
+  // só aparece na biblioteca quando pronta (publicada com o título final, num renomear atômico). Nada a meio
+  // fazer fica visível — nem pode ser apagado sem querer no meio da geração. Interrompida: vai para a lixeira
+  // (recuperável, como qualquer exclusão), nunca apagada direto; órfãs vão para a lixeira na subida do Studio.
+  const STAGING = ".gerando";
+  function stagingRoot(topic) {
+    const base = topicDir(topic || ensureTopic("Sem tópico"));
+    const stage = path.join(base, STAGING);
+    fs.mkdirSync(stage, { recursive: true });
+    return { base, stage };
+  }
+  function createStagingDeck(topic) {
+    const { stage } = stagingRoot(topic);
+    const dir = uniquePath(stage, String(Date.now()));
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, "deck.yaml");
+    writeDeckFile(file, { title: "Gerando…", slides: [{ layout: "cover", title: "Gerando…" }] });
+    return { dir, file };
+  }
+  function stagingOf(topic, dir) {
+    const { base } = stagingRoot(topic);
+    const abs = path.resolve(dir);
+    const rel = path.relative(base, abs);
+    if (!rel || rel.startsWith("..") || path.isAbsolute(rel) || path.dirname(rel) !== STAGING) throw new Error("pasta temporária inválida");
+    return { base, abs };
+  }
+  // publica: confere o .yaml ANTES de mover; o renomear é atômico (mesmo disco) e o .yaml acompanha a pasta
+  function publishStagedDeck(topic, dir, title) {
+    const { base, abs } = stagingOf(topic, dir);
+    const yaml = path.join(abs, "deck.yaml");
+    const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {};
+    if (!Array.isArray(spec.slides) || !spec.slides.length) throw new Error("a geração não produziu slides: nada foi publicado");
+    const dest = uniquePath(base, safeName(title || spec.title || "Nova apresentação"));
+    spec.title = title || spec.title || path.basename(dest);
+    fs.renameSync(abs, dest);
+    const final = path.join(dest, path.basename(dest) + ".yaml");
+    fs.renameSync(path.join(dest, "deck.yaml"), final);
+    writeDeckFile(final, spec); // só o título muda no arquivo
+    return idOf(final);
+  }
+  // descarta com cuidado: lixeira (visível e restaurável), nunca rm direto — pode ter material da pessoa lá dentro
+  function discardStaging(topic, dir, reason = "Geração interrompida") {
+    const { abs } = stagingOf(topic, dir);
+    const tdir = path.join(root, TRASH);
+    fs.mkdirSync(tdir, { recursive: true });
+    const slot = path.join(tdir, `${Date.now()}-${STAGING}`);
+    fs.mkdirSync(slot);
+    fs.renameSync(abs, path.join(slot, path.basename(abs)));
+    const yaml = path.join(slot, path.basename(abs), "deck.yaml");
+    let slides = 0, title = reason;
+    try { const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {}; slides = Array.isArray(spec.slides) ? spec.slides.length : 0; if (spec.title && spec.title !== "Gerando…") title = spec.title; } catch {}
+    fs.writeFileSync(path.join(slot, ".origem.json"), JSON.stringify({
+      topic, title, deleted: Date.now(), yaml: "deck.yaml",
+      unit: path.basename(abs), slides, staging: true,
+    }));
+    return path.basename(slot);
+  }
+  // na subida: toda pasta temporária é órfã (a geração morreu com o processo) — vai para a lixeira, nunca some
+  function recoverStaging() {
+    const moved = [];
+    for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!e.isDirectory() || hidden(e.name)) continue;
+      const stage = path.join(root, e.name, STAGING);
+      if (!fs.existsSync(stage)) continue;
+      for (const s of fs.readdirSync(stage, { withFileTypes: true })) {
+        if (!s.isDirectory()) continue;
+        try { moved.push(discardStaging(e.name, path.join(stage, s.name), "Geração interrompida (Studio reiniciado)")); } catch {}
+      }
+    }
+    return moved;
+  }
+
   // ---- lixeira ----
-  function trashDeck(id) {
-    const { file, unit, info } = unitOf(id);
+  function trashDeck(id) {    const { file, unit, info } = unitOf(id);
     const tdir = path.join(root, TRASH);
     fs.mkdirSync(tdir, { recursive: true });
     const slot = path.join(tdir, `${Date.now()}-${path.basename(unit)}`);
@@ -393,6 +464,7 @@ export function openLibrary(root) {
     root, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,
     createDeck, moveDeck, renameDeck, duplicateDeck,
+    createStagingDeck, publishStagedDeck, discardStaging, recoverStaging,
     trashDeck, restoreDeck, purgeDeck, purgeOld, listTrash, emptyTrash,
     importPackage,
   };
