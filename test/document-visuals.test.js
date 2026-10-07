@@ -92,6 +92,23 @@ test('título isolado da figura cruzando o topo continua protegido',()=>{  const
   assert.ok(box[1]<304, `sem texto acima, é da figura: ${box}`);
 });
 
+test('legenda fragmentada ("F"+"igure") abaixo do meio fica de fora (ICFM10 Fig.2)',()=>{
+  const box=protectPDFText([180,760,519,143],[
+    {text:'F',left:170,top:886,right:178,bottom:900},
+    {text:'igure 2: Flood occurrence (2013–2024)',left:180,top:886,right:700,bottom:900},
+  ],'Figure 2: Flood occurrence data (2013–2024)');
+  assert.ok(box[1]+box[3]<886, `corta antes da legenda fragmentada: ${box}`);
+  assert.ok(box[1]+box[3]>=860, `não come a figura: ${box}`);
+});
+
+test('margem lateral protege rótulo raster e para no texto vizinho',()=>{
+  const box=protectPDFText([200,400,600,200],[
+    {text:'coluna vizinha',left:830,top:450,right:990,bottom:470},
+  ]);
+  assert.equal(box[0],184, `margem 16 no vazio: ${box}`);
+  assert.equal(box[0]+box[2],816, `margem 16 sem engolir a coluna: ${box}`);
+});
+
 test('Word: todas as figuras, tabelas e equações são inventariadas com seus dados originais', async () => {
   const zip = new JSZip();
   zip.file('word/document.xml', '<w:document><w:body><w:p><w:r><w:t>Método</w:t></w:r></w:p><w:p><w:drawing><a:blip r:embed="img1"/></w:drawing></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Grupo</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Valor</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>12,5</w:t></w:r></w:p></w:tc></w:tr></w:tbl><m:oMath><m:f><m:num><m:r><m:t>a</m:t></m:r></m:num><m:den><m:r><m:t>b</m:t></m:r></m:den></m:f></m:oMath></w:body></w:document>');
