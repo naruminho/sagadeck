@@ -22,6 +22,35 @@ test('legenda identificada limita o recorte antes do título ou figura seguinte'
   assert.ok(box[1]+box[3]>=665&&box[1]+box[3]<700);
 });
 
+test('parágrafo acima e coluna ao lado não entram no recorte (só o que cruza a borda)',()=>{
+  const box=protectPDFText([100,300,800,500],[
+    {text:'body text above',left:100,top:270,right:900,bottom:290},
+    {text:'side column',left:910,top:400,right:990,bottom:700},
+    {text:'y axis',left:90,top:400,right:120,bottom:420},
+  ]);
+  assert.ok(box[1]>=292, `topo preservado, sem o parágrafo: ${box}`);
+  assert.ok(box[0]+box[2]<=908, `coluna ao lado de fora: ${box}`);
+  assert.ok(box[0]<=86, `rótulo que cruza a borda continua protegido: ${box}`);
+});
+
+test('última linha larga do parágrafo cruzando o topo não estica o recorte',()=>{
+  const box=protectPDFText([142,312,716,239],[
+    {text:'…ten years,',left:60,top:282,right:300,bottom:296},
+    {text:'…providing a robust dataset for modeling and flood analysis.',left:60,top:298,right:940,bottom:314},
+    {text:'46°32’0”W',left:300,top:330,right:380,bottom:346},
+  ],'Figure 1: Land use and land cover');
+  assert.ok(box[1]>=304, `parágrafo de fora: ${box}`);
+  assert.ok(box[0]<=296, `rótulo curto cruzando continua dentro: ${box}`);
+});
+
+test('título isolado da figura cruzando o topo continua protegido',()=>{
+  const box=protectPDFText([142,312,716,239],[
+    {text:'Experimental setup overview',left:200,top:298,right:800,bottom:314},
+    {text:'46°32’0”W',left:300,top:330,right:380,bottom:346},
+  ]);
+  assert.ok(box[1]<304, `sem texto acima, é da figura: ${box}`);
+});
+
 test('Word: todas as figuras, tabelas e equações são inventariadas com seus dados originais', async () => {
   const zip = new JSZip();
   zip.file('word/document.xml', '<w:document><w:body><w:p><w:r><w:t>Método</w:t></w:r></w:p><w:p><w:drawing><a:blip r:embed="img1"/></w:drawing></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Grupo</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Valor</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>12,5</w:t></w:r></w:p></w:tc></w:tr></w:tbl><m:oMath><m:f><m:num><m:r><m:t>a</m:t></m:r></m:num><m:den><m:r><m:t>b</m:t></m:r></m:den></m:f></m:oMath></w:body></w:document>');
