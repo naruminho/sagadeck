@@ -826,3 +826,34 @@ test("fluxo longo (10 a 12 caixas) desce em serpentina em vez de sair miúdo", (
   assert.match(long, /font-size:36px/, "letra sem encolher");
   assert.ok(long.includes("Etapa 12"), "todos os rótulos");
 });
+
+test("full com figura do documento (ou contain) não põe texto por cima: título no alto, figura inteira, legenda embaixo", () => {
+  const doc = html({ layout: "full", kicker: "Área de estudo", title: "Bacia do Rio Beberibe", image: "contexto/visuais/abc/abc-p4-figure-1.png", fit: "contain", caption: "Localização da bacia.", overlay: "bottom" });
+  assert.match(doc, /L-image im-contain/, "vira a composição de figura inteira");
+  assert.doesNotMatch(doc, /fl-over/, "sem véu de texto por cima do mapa");
+  assert.match(doc, /im-caption/);
+  // foto de capa gerada continua sangrando com o texto por cima
+  const photo = html({ layout: "full", title: "Abertura", image: "imagens/capa.png", caption: "Uma cena." });
+  assert.match(photo, /fl-over/);
+  // a casca do slide também é a da figura inteira (L-full-slide sangrava a figura e escondia o título)
+  assert.match(doc, /L-image-slide/);
+  assert.doesNotMatch(doc, /L-full-slide/);
+  // figura do documento com overlay: none e título: o título e a legenda não somem
+  const none = html({ layout: "full", title: "Da nuvem bruta ao fuste", figure: "contexto/visuais/a.png", caption: "Filtragem manual.", overlay: "none" });
+  assert.match(none, /im-contain/); assert.match(none, /Da nuvem bruta ao fuste/); assert.match(none, /Filtragem manual/);
+  // ilustração comum com contain e overlay: none pedido: só a figura, como antes
+  assert.doesNotMatch(html({ layout: "full", title: "x", image: "imagens/a.png", fit: "contain", overlay: "none" }), /im-contain/);
+});
+
+test("headline com frase longa não vira a frase gigante: o tamanho segue o comprimento", () => {
+  const long = html({ layout: "headline", text: "Caracterizar a fisiografia da bacia do Rio Beberibe e sua influência nos padrões hídricos." });
+  assert.doesNotMatch(long, /r-hero/, long.slice(0, 300));
+  assert.match(long, /r-title/);
+  const short = html({ layout: "headline", text: "Água acaba." });
+  assert.match(short, /r-hero/);
+});
+
+test("cartão cujo texto é só uma fórmula mostra a fórmula grande (não no tamanho de nota)", () => {
+  const out = html({ layout: "cards", title: "Da circunferência ao volume", items: [{ title: "Diâmetro", text: "$d_i = \frac{c_i}{\pi}$" }, { title: "Nota", text: "Medido em campo." }] });
+  assert.equal((out.match(/class="[^"]*cd-math/g) || []).length, 1);
+});

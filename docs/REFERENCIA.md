@@ -110,8 +110,8 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `canvas` | `elements: [{…, x, y, w, h}]` | posicionamento absoluto em 1920 × 1080 |
 | `end` | `title, subtitle, contacts, figure, qr, qrLabel` | encerramento; `qr: <link>` põe um QR code ao lado (ex.: LinkedIn) |
 | `references` | `title, items` | fontes (2 colunas) |
-| `headline` | `kicker, text, as, size, caption` | manchete: uma frase enorme ocupando o slide |
-| `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda |
+| `headline` | `kicker, text, as, size, caption` | manchete: uma frase CURTA (até ~12 palavras) enorme ocupando o slide; frase longa sai menor (como no `statement`) e conta como slide de frase única (no máximo 2 por deck) |
+| `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda. Figura do documento (`contexto/visuais/…`) ou `fit: contain` com texto não leva véu: sai com o título no alto, a figura inteira e a legenda embaixo (como `image`) |
 | `kinetic` | `figure, beats: [{text, style, position, color, size, tag}], autoplay, interval` | frases curtas em sequência sobre uma cena; avanço manual ou automático |
 | `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |

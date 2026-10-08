@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
-import { LAYOUTS, SCENES } from "./layouts.js";
+import { LAYOUTS, SCENES, fullAsFigure } from "./layouts.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el, imageSrc } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
@@ -38,6 +38,7 @@ const drawIcon = (name, size = 20) => iconSVG(name, { size, stroke: 2 }).replace
 const slug = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function inferLayout(s) {
+  if (fullAsFigure(s)) return "image"; // figura do documento em full: sem véu e sem sangrar (src/layouts.js)
   if (s.layout) return s.layout;
   if (s.elements) return "canvas";
   if (s.stats || s.kpis) return "stats";

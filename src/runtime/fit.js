@@ -225,6 +225,24 @@
     });
   }
 
+  // Recorte (crop): a região vira a caixa por porcentagem, o que só é proporcional quando a caixa tem a proporção da
+  // região. Medida a caixa de verdade, se não bater (mais de 3%), a região inteira é encaixada no centro (como
+  // contain), em vez de esticar a figura na largura ou na altura.
+  function fitCrops(root) {
+    root.querySelectorAll(".fig-crop img[data-crop]").forEach((img) => {
+      if (!img.naturalWidth) { if (!img.dataset.cropWait) { img.dataset.cropWait = "1"; img.addEventListener("load", () => fitCrops(img.parentElement || img), { once: true }); } return; }
+      const box = img.parentElement, W = box.clientWidth, H = box.clientHeight;
+      if (!W || !H) return;
+      const [l, t, r, b] = img.dataset.crop.split(",").map(Number);
+      const fw = Math.max(0.01, 1 - l - r), fh = Math.max(0.01, 1 - t - b);
+      const region = (fw * img.naturalWidth) / (fh * img.naturalHeight);
+      if (Math.abs(region - W / H) / (W / H) < 0.03) return;
+      const rw = region > W / H ? W : H * region, rh = rw / region; // a região inteira, sem esticar
+      const iw = rw / fw, ih = rh / fh;
+      Object.assign(img.style, { width: `${iw}px`, height: `${ih}px`, left: `${(W - rw) / 2 - l * iw}px`, top: `${(H - rh) / 2 - t * ih}px` });
+    });
+  }
+
   // Passos do exercício resolvido (solution): a coluna é alinhada pelo fim (o passo novo embaixo) e o que sobra vaza por
   // cima, apagando. Antes de cortar, encolhe (até 60%) para os passos caberem inteiros. Quadro escondido não mede: o
   // runtime chama de novo a cada clique.
@@ -257,6 +275,7 @@
   function fitAllIn(root) {
     fitStages(root);
     fitImages(root);
+    fitCrops(root);
     fitSteps(root);
     fitChartText(root);
     fitCode(root);
@@ -264,5 +283,5 @@
     fitText(root);
   }
 
-  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, fitWide, fitImages, fitSteps, fitStages, shrink };
+  g.SagadeckFit = { fitText: fitAllIn, fitChartText, fitCode, fitWide, fitImages, fitCrops, fitSteps, fitStages, shrink };
 })(typeof window !== "undefined" ? window : globalThis);

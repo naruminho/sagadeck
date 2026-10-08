@@ -6,7 +6,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { loadSpec } from "../build.js";
 import { writeRecording } from "../api-client.js";
-import { editDeck } from "../ai/deck-ai.js";
+import { editDeck, coverDocumentVisuals } from "../ai/deck-ai.js";
 import { reviewExperience } from "../ai/quality.js";
 import { maybeResearch } from "../research/chat-research.js";
 import { chatErrorResult } from "./errors.js";
@@ -96,6 +96,20 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
           styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
         });
         signal.throwIfAborted();
+        // documento anexado NESTA mensagem e a resposta montou/reescreveu a maior parte do deck (criar a apresentação
+        // do paper pelo chat): a mesma conferência de cobertura da geração. Pedido pontual ("use a figura 3 no slide
+        // 5") não dispara: mexe em poucos slides.
+        const attachedDocs = (Array.isArray(body.attachments) ? body.attachments : []).some((a) => a && typeof a === "object" && a.type === "doc");
+        if (attachedDocs && !result.talk && !result.transform && !result.style && !result.variants && result.spec?.slides) {
+          const rewritten = Array.isArray(result.changed) ? result.changed.length : 0;
+          if (rewritten >= Math.max(5, result.spec.slides.length / 2)) {
+            const covered = await coverDocumentVisuals(result.spec, { materials, briefing: prompt, say: (s) => emit({ phase: "step", text: s }),
+              edit: (o) => editDeck({ signal, images: true, imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
+            signal.throwIfAborted();
+            if (covered.spec !== result.spec) { result.spec = covered.spec; result.actions = [...(result.actions || []), ...covered.actions]; }
+            if (covered.coverage?.missing.length) result.actions = [...(result.actions || []), `Sem slide (figuras/tabelas do material): ${covered.coverage.missing.join("; ")}`];
+          }
+        }
         if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];
         // a IA decidiu transformar a apresentação inteira (transform:): o trabalho em etapas, com o andamento aqui
         if (result.transform) {

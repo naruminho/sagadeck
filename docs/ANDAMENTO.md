@@ -8,6 +8,54 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Apresentação de congresso a partir de paper: figuras, cobertura e frase gigante — 08/10/2026
+
+Retorno de quem usa: figuras ignoradas, com a legenda junto, cortadas ou fora de proporção; conteúdo fraco (contexto,
+objetivos, metodologia); slides de uma frase gigante; a IA sem senso crítico/ferramenta para se corrigir. Método:
+dois PDFs quaisquer (Rev. Bras. Cartogr. 2025, volume de eucalipto por ETR; RBGF 2020, LiDAR na bacia do Beberibe)
+gerados pelo caminho do Studio (`/api/ai/context` + `/api/library/decks/ai`, modelo do modelrelay), tópico
+"Laboratório congresso" da biblioteca. Os decks são diagnóstico, não foram retocados.
+
+- **Recorte pela imagem embutida** (`snapToImages`, `pdfLayout` em `src/ai/document-visuals.js`): o pdf.js dá a
+  posição exata de cada imagem da página (lista de operações). Caixa da visão sobre imagem(ns) vira a imagem (ou a
+  união dos painéis): sem legenda, sem "Fonte:", sem prosa, proporção do original. Antes: legenda de cima curta
+  (ABNT, centralizada) entrava sempre (a regra exigia linha mais larga que meia figura), "Fonte: Os autores" e o
+  parágrafo de baixo também, e os mapas de dois painéis do RBGF saíam em dois recortes com tira do vizinho.
+  Fundo de página escaneada e logo pequeno não servem de régua; prancha enorme fica com a caixa aparada.
+- **Duplicatas fundidas** (`mergeDuplicateCrops`): dois itens no mesmo recorte viram um, com a legenda numerada.
+- **Camada de texto** (gráfico vetorial, tabela, equação): legenda de cima de qualquer largura e linha de crédito
+  (`creditLineStart`: Fonte/Source/Elaboração) ficam de fora; linha de prosa passando pela borda não estica o recorte.
+- **Margem branca aparada** no recorte (`cropRegions` com `trim`; a tinta é medida antes de aparar) e o inventário
+  traz `width`/`height` do recorte. Cache do inventário: `visualVersion` 5 (recorta de novo o que já foi anexado).
+- **Cobertura** (`uncoveredVisuals` + `coverDocumentVisuals` em `deck-ai.js`): `ensureVisualCoverage` existia mas
+  ninguém chamava. Agora, depois do rascunho, figura/tabela NUMERADA sem slide volta para a IA encaixar no ponto da
+  narrativa (uma rodada; o resto vai em `coverage.missing`, sem slide enfiado no fim). Vale no Criar com IA e no
+  chat quando a mensagem anexa documento e a resposta monta a maior parte do deck (`changed` exposto pelo editDeck).
+- **Revisão de texto sem visão** (`auditText` em `src/ai/quality.js`, sempre roda dentro da revisão): frase longa
+  em statement/headline/quote e excesso de telas de frase única (mais de 2 ou 15%) viram achados para a correção.
+- **Legenda colada na imagem** (`clearCaptionEdges`): a caixa de texto do pdf.js termina na linha de base, então as
+  pernas da legenda logo acima da imagem entravam como uma tira; linha de legenda/crédito na borda empurra a borda.
+- **Motor**: `full` com figura do documento (ou `fit: contain`) e texto vira a composição de figura inteira (título
+  no alto, legenda embaixo; decidido em `inferLayout` via `fullAsFigure`, para a casca do slide não ser a de página
+  inteira que escondia o título), mesmo com `overlay: none`; `headline` longa sai em title/h2 (era o objetivo
+  inteiro a 300 px); cartão cujo texto é só fórmula mostra a fórmula grande (`cd-math`).
+- **Proporção e corte**: figura do documento é sempre `contain` (o cover automático de até 20% comia eixo e
+  legenda; `fill`/`stretch` achatavam o mapa). `crop:` em caixa de outra proporção esticava: a apresentação mede a
+  caixa e encaixa a região inteira (`fitCrops` em `src/runtime/fit.js`, `data-crop` no `<img>`).
+- Antes × depois (mesmos PDFs, mesmo modelo): Beberibe 16 → 24 slides, 4 → 7 figuras, nenhuma com texto por cima,
+  objetivo virou lista com três objetivos, arco completo; eucalipto 21 slides, todas as figuras limpas (antes com
+  legenda, "Fonte" e prosa no recorte). Ainda aberto: recorte de equação pela visão é impreciso (pega a vizinha e a
+  prosa); como toda equação vem com `latex`, o slide usa a fórmula nativa e o recorte não aparece.
+- Testes antigos que falhavam na main: `api-ai-loop` (o mock não previa a decisão de pesquisa do chat, fase 2) e
+  o da exploração (mesmo achado em todas as rodadas, desde a regra "achado idêntico encerra as tentativas").
+- **Prompt**: arco de apresentação de paper (contexto com dado, lacuna, objetivo geral/específicos em slide de
+  conteúdo, área/dados, método com variáveis e unidades, cada figura numerada no seu resultado com título-afirmação,
+  discussão, conclusões, limitações) e composição pela proporção do recorte. REFERENCIA: `full` e `headline`.
+- Testes: `test/document-visuals.test.js` (PDF real do Chrome com legenda, imagem 2:1, "Fonte" e painel duplicado;
+  snap, fusão, crédito, legenda curta, borda da legenda, cobertura pelo chat), `test/ai.test.js` (cobertura na
+  geração, auditText), `test/engine.test.js` (full, headline, cartão com fórmula), `test/fit-wide.test.js` (figura
+  do documento contain, crop sem esticar, no navegador).
+
 ## Avaliação fora da hidrologia — 03/10/2026
 
 - Plano: `docs/PLANO-TESTE-DESINFORMACAO.md`.

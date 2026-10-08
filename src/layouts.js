@@ -97,6 +97,20 @@ function chartsSideBySide(content) {
   return out;
 }
 
+// `full` com figura do documento (mapa, gráfico, tabela recortada do paper) ou figura inteira (fit: contain) e texto:
+// o véu por cima cobria a legenda do mapa e os eixos, e a figura sangrava cortando a borda. Evidência não leva texto
+// por cima nem sangra: vira a composição do layout image (título no alto, figura inteira, legenda embaixo). Para
+// figura do documento até overlay: none com título vale assim (senão título e legenda sumiam do slide).
+export function fullAsFigure(s) {
+  if (s?.layout !== "full") return false;
+  const f = s.figure ?? (s.image ? { image: s.image } : null);
+  const fig = typeof f === "string" ? { image: f } : f;
+  if (!fig || typeof fig !== "object" || !fig.image || fig.image_prompt || fig.video) return false;
+  if (!(s.title || s.caption || s.kicker)) return false;
+  const doc = /contexto\/visuais\//.test(String(fig.image).replace(/\\/g, "/"));
+  return doc || ((fig.fit || s.fit) === "contain" && s.overlay !== "none");
+}
+
 export const LAYOUTS = {
   portal(s,ctx){return portalHTML(s,ctx,head)+src(s)+add(s,ctx);},
   playground(s,ctx){return playgroundHTML(s,ctx,head)+src(s)+add(s,ctx);},
@@ -439,6 +453,7 @@ export const LAYOUTS = {
   },
 
   image(s, ctx) {
+    if (typeof s.figure === "string") s = { ...s, figure: { image: s.figure } }; // full com figure: caminho (fullAsFigure)
     // figura inteira à vista (fit: contain: gráfico, tabela, esquema): a legenda vai embaixo, sem cobrir; foto (cover)
     // segue sangrando, com o cartão por cima
     const contain = (s.figure?.fit || s.fit) === "contain" || (!s.fit&&!s.figure?.fit&&String(s.figure?.image||s.image||'').replace(/\\/g,'/').includes('contexto/visuais/'));
@@ -536,6 +551,7 @@ export const LAYOUTS = {
     const f = s.figure ?? (s.image || s.image_prompt ? { image: s.image, image_prompt: s.image_prompt } : null);
     const fig = f == null ? "" : typeof f === "object" ? { fit: s.fit || "cover", ...f } : { image: f, fit: s.fit || "cover" };
     const hasText = s.title || s.caption || s.kicker;
+    if (fullAsFigure(s)) return LAYOUTS.image({ ...s, figure: { ...fig, fit: "contain" }, fit: undefined }, ctx);
     const pos = s.overlay || (hasText ? "bottom" : "none");
     // figura desenhada (gráfico, ícone, diagrama) com texto à esquerda: vai para a direita em vez de ficar por baixo do texto
     const drawn = fig && !(fig.image || fig.image_prompt || fig.video);
@@ -545,7 +561,11 @@ export const LAYOUTS = {
 
   // Manchete: uma frase enorme que ocupa o slide (encolhe para caber)
   headline(s, ctx) {
-    return `<div class="L-headline">${kicker(s)}${text(s.text || s.title, s.as || "hero", { class: "hl-text e", style: "--d:1;", fit: true, size: s.size || 300 })}
+    // manchete é para frase curta; frase longa em "hero" de 300 px virava o slide de uma frase gigante (objetivo
+    // inteiro do paper na tela). Como no statement, o tamanho segue o comprimento; `as`/`size` explícitos vencem.
+    const chars = String(s.text || s.title || "").replace(/[=*_`^~]/g, "").length;
+    const role = s.as || (chars > 100 ? "h2" : chars > 60 ? "title" : "hero");
+    return `<div class="L-headline">${kicker(s)}${text(s.text || s.title, role, { class: "hl-text e", style: "--d:1;", fit: true, size: s.size || (role === "hero" ? 300 : undefined) })}
       ${s.caption ? text(s.caption, "lead", { class: "hl-cap muted e", style: "--d:2;" }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 

@@ -23,6 +23,7 @@ test("IA gera o slide api, testa, vê o caminho errado na resposta real, corrige
   fs.writeFileSync(path.join(dir, "contrato.txt"), "cláusula 12");
   let round = 0;
   const llm = await startMockLLM(({ lastUser }) => {
+    if (/Decida se o que você JÁ SABE basta/.test(lastUser)) return '{"pesquisar": false, "motivo": "pedido sobre o próprio deck", "academico": false, "buscas": []}'; // decisão de pesquisa do chat (fase 2)
     round++;
     if (round === 1) return "Criei o slide do OCR e vou testar.\n```yaml\n" + YAML.stringify({ insert: [{ after: 1, slide: ocrSlide("$.output") }], test: [2] }) + "```";
     if (round === 2) {
@@ -45,7 +46,7 @@ test("IA gera o slide api, testa, vê o caminho errado na resposta real, corrige
     assert.match(tests[0], /^Teste do slide 2: funcionou/, "a chamada em si funcionou (200)…");
     assert.match(tests[1], /: funcionou/);
     // o que a IA recebe: regras e ambiente, com nomes de segredos mas nunca o valor
-    const first = llm.requests[0];
+    const first = llm.requests.find((q) => !/Decida se o que você JÁ SABE basta/.test(q.lastUser));
     assert.match(first.system, /Slides "api"/);
     assert.match(first.system, /test: \[2, 3\]/);
     assert.match(first.lastUser, /\{\{base\}\} = http:\/\/127\.0\.0\.1:\d+\/v1/);
@@ -71,6 +72,7 @@ test("test: em slide que não é api é recusado e a IA refaz (sem executar nada
   fs.writeFileSync(deck, YAML.stringify({ title: "Aula", slides: [{ layout: "cover", title: "Aula" }] }));
   let n = 0;
   const llm = await startMockLLM(({ lastUser }) => {
+    if (/Decida se o que você JÁ SABE basta/.test(lastUser)) return '{"pesquisar": false, "motivo": "pedido sobre o próprio deck", "academico": false, "buscas": []}'; // decisão de pesquisa do chat (fase 2)
     n++;
     if (n === 1) return "Testando.\n```yaml\ntest: [1]\n```";
     assert.match(lastUser, /não é um slide api/);
