@@ -145,3 +145,11 @@ test('quantidade de texto explícita: "aula… com pouco texto, só tópicos" fi
   assert.ok(!r.question, `perguntou sem precisar: ${r.question?.question}`);
   assert.ok((r.spec.maxWords && r.spec.maxWords <= 60) || ["palestra", "workshop"].includes(r.spec.purpose), `limite ${r.spec.maxWords}, purpose ${r.spec.purpose}`);
 });
+
+test('opinião sem foco ("o que você acha desse slide?"): fala do conteúdo primeiro e oferece aprofundar os dois', opts, async () => {
+  const s = spec();
+  const r = await editDeck({ spec: s, instruction: "o que você acha desse slide?", targetSlide: idx(s, "timeline") });
+  assert.ok(r.talk, r.reply);
+  assert.match(r.reply, /conte[uú]do|afirma|hist[oó]ria|dado|argumento/i, `não falou do conteúdo: ${r.reply}`);
+  assert.ok((r.options || []).some((o) => /conte[uú]do/i.test(o)) && (r.options || []).some((o) => /visual|design|apar[eê]ncia/i.test(o)), `opções: ${r.options}`);
+});

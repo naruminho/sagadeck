@@ -366,8 +366,12 @@ export function snapToImages(box, images = []) {
   const taken = imgs.filter(i => { const o = area(inter(i,B)); return o/area(i) >= 0.5 || (o/area(B) >= 0.5 && o/area(i) >= 0.4); });
   if (taken.length) {
     const U = taken.reduce((u,i) => ({l:Math.min(u.l,i.l),t:Math.min(u.t,i.t),r:Math.max(u.r,i.r),b:Math.max(u.b,i.b)}));
-    // a união precisa explicar a caixa: logo pequeno dentro de um gráfico vetorial não vira "a figura"
-    if (area(inter(U,B)) / area(B) >= 0.5) return [U.l, U.t, U.r-U.l, U.b-U.t];
+    // a união precisa explicar a caixa: logo pequeno dentro de um gráfico vetorial não vira "a figura". Mas a visão
+    // às vezes desenha a caixa larga demais (a Figura 2 do ICFM10 ocupava 44% da caixa, o resto era papel): imagem
+    // de tamanho de figura (≥ 1% da página) que cobre um quarto da caixa já é a figura. Antes caía no corte pela
+    // camada de texto, que comia a ponta do mapa e trazia um pedaço da linha de cima.
+    const cover = area(inter(U,B)) / area(B);
+    if (cover >= 0.5 || (cover >= 0.25 && area(U) >= 10000)) return [U.l, U.t, U.r-U.l, U.b-U.t];
   }
   // caixa dentro de UMA imagem (a visão marcou um painel de uma figura composta exportada como imagem só):
   // imagem de tamanho de figura vale inteira — o painel recortado pela caixa da visão perdia o topo (anotação,

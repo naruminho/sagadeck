@@ -140,6 +140,8 @@ test('snapToImages: a caixa da visão cai sobre a imagem embutida e o recorte vi
   assert.deepEqual(snapToImages([90,200,820,270],img),[95,220,805,221]);
   // dois painéis que são duas imagens separadas: a união
   assert.deepEqual(snapToImages([90,200,500,300],[[95,220,330,400],[340,220,580,400]]),[95,220,485,180]);
+  // caixa da visão larga demais (Figura 2 do ICFM10: a imagem cobre 44% dela): a imagem de tamanho de figura manda
+  assert.deepEqual(snapToImages([187,760,590,100],[[384,761,616,873,432,271]]),[384,761,232,112]);
   // logo pequeno dentro de um gráfico vetorial não vira "a figura"; sem imagem, null (vale a camada de texto)
   assert.equal(snapToImages([100,300,800,400],[[150,320,190,350]]),null);
   assert.equal(snapToImages([100,300,800,400],[]),null);
