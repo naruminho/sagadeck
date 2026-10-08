@@ -10,9 +10,27 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ## Próximas frentes (levantadas em 08/10/2026, ainda não começadas)
 
-Saíram da rodada de paper → congresso e da mudança da biblioteca para o OneDrive. Ordem combinada: 1, depois 4,
-depois 8; o resto quando der. Cada item segue as regras do CLAUDE.md (teste que falha antes da correção, PR e
-merge na hora, este diário atualizado no mesmo commit).
+**Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:
+- Repositório GitHub `naruminho/sagadeck`, clonado em `C:\Users\narum\src\sagadeck`, branch `main`.
+- Publicado no npm como `sagadeck`. A versão atual, 1.4.0, ainda não tem as mudanças de 08/10.
+- Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
+- Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
+- Tem uma IA (via modelrelay em `http://127.0.0.1:8765/v1`) que cria e edita decks, inclusive a partir de PDFs de
+  artigos científicos para apresentar em congresso.
+
+Os itens abaixo vieram de duas rodadas de 08/10/2026, ambas descritas nas seções logo abaixo deste diário:
+- **Paper → congresso.** Geramos decks a partir de três PDFs, olhamos o resultado e corrigimos o motor (figuras,
+  equações, crítica, autoria, idioma).
+- **Biblioteca no OneDrive.** A pasta das apresentações passou de `C:\Users\narum\sagadeck` para a pasta Documentos
+  do Windows, que nesta máquina é redirecionada para o OneDrive: `C:\Users\narum\OneDrive\Documents\sagadeck`. O
+  caminho antigo virou junção.
+
+**Ordem combinada com quem mantém o projeto (Narumi):** 1, depois 4, depois 8. O resto fica para depois e só
+entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada item:
+- teste que falha antes da correção;
+- `npm test` passando;
+- uma branch por item, PR e merge na hora, sem perguntar;
+- este diário atualizado no mesmo commit. Item feito sai desta lista e vira uma seção datada com o que entrou.
 
 **OneDrive (a biblioteca agora mora em `C:\Users\narum\OneDrive\Documents\sagadeck` e sincroniza)**
 
