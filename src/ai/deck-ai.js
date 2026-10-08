@@ -51,6 +51,8 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Apresentação de paper (congresso, defesa, seminário): siga o arco do artigo, cada etapa com conteúdo de verdade e não uma frase solta — (1) contexto e problema, com um dado do próprio paper que mostre por que importa; (2) lacuna/justificativa: o que falta nos métodos ou estudos atuais; (3) objetivo geral e específicos/hipótese num slide de conteúdo (list, cards ou split; nunca o objetivo inteiro numa manchete); (4) área de estudo e dados (onde, quando, quanto, com que instrumento ou fonte); (5) método: o fluxo de etapas, as equações com o significado de cada variável e unidade, parâmetros e critérios de avaliação; (6) resultados: cada figura e tabela numerada do paper no slide do resultado dela, com título que afirma o achado ("O erro cresce com a altura") e 1–3 frases de leitura do que a figura mostra; (7) discussão: por que deu assim, comparando com o que o paper cita; (8) conclusões e (9) limitações/trabalhos futuros. Slide de frase única (statement/headline/quote) só para a mensagem principal, no máximo 2 no deck.
 - Figuras do inventário trazem width×height do recorte: figura larga (largura ≥ 1,6× a altura: mapa duplo, painéis lado a lado, gráfico largo) vai em composição vertical (split com arrangement: stacked, ou image) com o texto curto embaixo; figura alta ou quadrada vai em split lado a lado com a explicação. Nunca ponha título, legenda ou véu por cima de figura do documento (layout full com overlay): o texto cobre a legenda do mapa e os eixos. Não diminua titleSize para dar espaço à figura (o layout já reserva a área; título em tamanhos diferentes de slide a slide desorganiza o deck): se o título não couber, encurte o texto.
 - Figura mal feita do documento (sourcePx = tamanho nativo da imagem; abaixo de ~1000 px de largura ela fica borrada esticada no slide, ou é escaneada/pixelada) pode ser redesenhada: ESQUEMA de caixas e setas (fluxograma, etapas do método, organograma) vira \`diagram\`/\`flow\` nativo fiel, com os mesmos textos e ligações; GRÁFICO cujos valores estão no paper (tabela, texto, rótulos legíveis) vira \`chart\` nativo com os números exatos; gráfico sem os dados à mão (dispersão com centenas de pontos) e ILUSTRAÇÃO desenhada podem ser redesenhados pelo modelo de imagem a partir do original (\`image_prompt: "Clean up and redraw THIS EXACT figure…"\`, copiando eixos, rótulos e valores letra por letra, + \`image_ref\` com o arquivo do inventário, \`fit: contain\`). Mapa e foto ficam como estão. Toda reconstrução nativa (chart, diagram, table) de uma figura do documento leva no slide \`sourceFigure: <arquivo do inventário>\` (o redesenho pelo modelo de imagem guarda \`original\` sozinho): é o caminho de volta. Se a pessoa pedir para manter ou voltar à figura original, troque a reconstrução por \`figure: { image: <sourceFigure ou original>, fit: contain }\` no mesmo slide, sem mexer no texto.
+- AUTORIA E LIBERDADE: decida pela ocasião e grave em \`context.autoria\`. \`autor\`: a pessoa apresenta o PRÓPRIO trabalho (congresso, simpósio, conferência, defesa, banca, relatório da própria equipe; é o padrão quando o pedido é apresentar o paper anexado numa dessas ocasiões). \`livre\`: todo o resto (aula ou seminário sobre o trabalho de outros, journal club, resenha, divulgação, palestra temática, material sem documento anexado). Em \`autor\`, o deck é FIEL ao material: afirmações, conclusões e ênfases são do autor; achado que está no material e passa batido (uma coluna da tabela, uma comparação que o texto não explora) entra no slide; inconsistência, limitação não declarada e pergunta provável vão nas notes do slide relacionado ("Prepare-se: …"), nunca como afirmação no slide. Em \`livre\`, você tem liberdade de criar conteúdo próprio: contexto, analogias, exemplos, comparações, crítica, perguntas para a plateia, gráficos dos números; sem inventar fatos.
+- ORIGEM (provenance) de cada slide de conteúdo, quando houver material anexado: \`provenance: material\` (o que o slide afirma está no material), \`derivado\` (reorganização, cálculo ou gráfico seu a partir dos números do material) ou \`proprio\` (inclusão sua: contexto geral, analogia, exemplo, crítica, pergunta); com \`provenanceNote\` curta dizendo o que é seu quando não for \`material\`. A pessoa vê no Studio de onde veio cada slide; não esconda inclusão sua atrás de "material".
 - Iniciativa com os números: dados que o paper dá só no texto ou em tabela (valores por classe, por linha, por período, métricas de modelos, antes × depois) e que ficam mais claros vistos lado a lado viram \`chart\` nativo criado por você (barras para comparar, linha para série, donut para partes de um todo), com os valores exatos do paper e \`source\` dizendo de onde vieram (tabela, seção), mesmo que o paper não tenha esse gráfico. Não invente pontos nem interpole: só os números escritos. Esse gráfico novo entra em slide próprio ou ao lado da figura do paper, nunca no lugar de um mapa ou foto (o mapa mostra onde; o gráfico, quanto).
 - Capacidades reais: quando pesquisa/comandos estiverem disponíveis, use-os antes de alegar falta de acesso à web. Geradores de imagem podem produzir texto legível: não declare impossibilidade geral; avalie o resultado e corrija grafia. Prefira texto editável quando útil, mas uma imagem inteira com texto é válida se solicitada.
 - Direção de arte: se pedirem propostas visuais, use variants com três composições do MESMO conteúdo real; varie hierarquia, enquadramento e tipografia, não só cor. Cada opção pode levar direction: {theme, rationale}. Escolher aplica o tema ao deck, mantendo outros slides intactos.
@@ -1198,6 +1200,23 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
       }
     } catch (e) { say(`a pesquisa falhou (${e.message}); sigo com o que eu sei`); }
   }
+  // Leitura crítica do documento antes de escrever (src/ai/critique.js): inconsistências, achados escondidos,
+  // perguntas prováveis, limitações; cada item com trecho conferido. Fica na pasta da apresentação e vai no pedido;
+  // o uso (slide × notes) segue a autoria. Falhou: segue sem ela.
+  let critique = null;
+  {
+    const C = await import("./critique.js");
+    if (C.worthCritique(materials)) {
+      say("lendo o material com olho crítico…");
+      try {
+        critique = await C.critiqueMaterials(materials, { briefing });
+        C.saveCritique(imageOptions.baseDir || researchDir, critique);
+        const cm = C.critiqueMaterial(critique);
+        if (cm) materials = [...materials, cm];
+        say(`leitura crítica: ${critique.itens.length} achado(s) com trecho conferido${critique.naoConfirmados.length ? `, ${critique.naoConfirmados.length} descartado(s) sem trecho no material` : ""}`);
+      } catch (e) { say(`a leitura crítica falhou (${e.message}); sigo sem ela`); }
+    }
+  }
   const wishes = [
     researchReport ? (await import("../research/research.js")).researchInstruction(researchReport) : "",
     theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
@@ -1280,7 +1299,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   }
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(researchReport ? { research: researchReport } : {}) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(critique ? { critique: { itens: critique.itens.length, naoConfirmados: critique.naoConfirmados.length } } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

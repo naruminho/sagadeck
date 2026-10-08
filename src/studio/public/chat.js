@@ -451,9 +451,37 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
     return msgDiv;
   }
+  // Leitura crítica do material anexado (botão do chat): o servidor lê o documento como um revisor da área e devolve
+  // inconsistências, achados escondidos, perguntas prováveis e slides que representam mal o material, cada item com
+  // trecho conferido. Nada muda nos slides; vira uma mensagem da conversa com opções para aplicar.
+  async function runCritique() {
+    if (chatJob) return;
+    appendChatMessage("user", "Leitura crítica do material");
+    const job = chatJob = { file: state.file, id: crypto.randomUUID(), controller: new AbortController() };
+    job.stop = () => job.controller.abort();
+    const work = createProgressBubble("Lendo o material com olho crítico…");
+    try {
+      const data = await streamAI("api/ai/critique", { spec: state.deck, requestId: job.id }, (ev) => work.update(ev), job.controller.signal);
+      state.chatHistory.push({ role: "user", text: "Leitura crítica do material" });
+      state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
+      await saveChatHistory();
+      work.done();
+      const msg = appendChatMessage("ai", data.reply, data.actions || []);
+      msg.classList.add("bs");
+      const tag = document.createElement("div");
+      tag.className = "bs-tag";
+      tag.innerHTML = '<i class="ic" data-ic="scan-search"></i> Leitura crítica — nada mudou nos slides'; hydrateIcons(tag);
+      msg.querySelector(".ai-content").prepend(tag);
+      renderChatOptions(msg, data.options);
+      updateBrainstormApply();
+    } catch (e) {
+      work.done();
+      appendChatMessage("ai", `A leitura crítica não saiu: ${e.message}`);
+    } finally { chatJob = null; }
+  }
   // Bolha de progresso do chat e de outros fluxos (transformação usa a mesma).
   const createProgressBubble = window.SagaChatProgress({ dom, appendChatMessage, hydrateIcons, getChatJob });
-  const api = { getChatJob, handleChatSubmit, loadChatHistory, saveChatHistory, appendChatMessage,
+  const api = { getChatJob, handleChatSubmit, runCritique, loadChatHistory, saveChatHistory, appendChatMessage,
     createProgressBubble, commandEvent, updateBrainstormApply, renderVariants, applyBrainstorm,
     renderChatOptions, clearChatAttachments, renderChatAttachments, addChatImage, addChatDoc,
     addChatFile, autoGrowChat, commandCard };

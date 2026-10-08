@@ -8,6 +8,41 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Leitura crítica do material, autoria e origem do conteúdo — 08/10/2026
+
+Retorno: num brainstorm pelo chat, a IA achou o que a geração não achou (o resumo do ICFM10 promete variáveis
+socioeconômicas que o método não usa; o trade-off pico × volume escondido na tabela; o donut mostrando composição da
+amostra como resultado). Pedido: por que a geração não fez isso; é válido "interferir" se o original é ruim; botão de
+criticar; saber o que é do paper e o que é inclusão do sagadeck; e liberdade total fora do caso "autor apresenta o
+próprio paper".
+
+- Causa: a geração lia o paper para APRESENTAR, nunca para criticar. Agora há uma etapa de **leitura crítica**
+  (`src/ai/critique.js`): inconsistências, achados que passam batido, perguntas prováveis, limitações, slide que
+  representa mal o material e pontos fortes, cada item com trecho LITERAL do material, conferido pelo código (letras
+  e números, tolerando os espaços e hifens do PDF): sem trecho no texto, o item é descartado (anti-alucinação).
+  Roda na geração quando há documento (vai no pedido e fica em `.sagadeck/leitura-critica.json`) e no botão
+  **Leitura crítica** do chat (`/api/ai/critique`, ícone scan-search): vira mensagem com opções, nada muda nos slides,
+  e acompanha os próximos pedidos rotulada "feita pelo sagadeck, NÃO pelo autor".
+- **Autoria** (`context.autoria`): `autor` (congresso, simpósio, defesa: fiel ao material; o achado do material vai ao
+  slide, a crítica e as perguntas vão nas notes "Prepare-se: …") × `livre` (aula sobre o trabalho de outros, journal
+  club, resenha, divulgação, tema geral: conteúdo próprio liberado). Responde à dúvida "é válido interferir": no
+  modo autor, o sagadeck não reescreve a ciência do paper, prepara o autor; a decisão de mudar é da pessoa.
+- **Origem** (`provenance: material | derivado | proprio` + `provenanceNote`; `origin` já era a etimologia do layout
+  definition): selo na miniatura do Studio para o que o sagadeck incluiu ou calculou; a apresentação não mostra.
+- Ao vivo (deck do ICFM10): 12 pontos em 153 s, todos com trecho conferido; repetiu os do brainstorm e achou mais:
+  PEV e PBIAS idênticos na Tabela 1 (conferido no PDF: mesmas linhas, sinais trocados), validação com um evento só,
+  resumo promete "flood extents" que não existem, bacia "com poucos dados" muito bem instrumentada, referência
+  interna errada (2.1.1 × 2.2.1).
+- Geração ao vivo, mesmo paper, dois pedidos: "apresentação oral em congresso" → `autoria: autor`, todo slide com
+  provenance, o trade-off virou slide ("Volume simples, pico detalhado"), o donut virou "a base de treino tem três
+  classes bem desiguais" (derivado), e a crítica foi para as notes como "PREPARE-SE" (PEV = PBIAS no slide da
+  tabela, socioeconômicas no das variáveis, referência errada nas limitações). "Journal club da disciplina" →
+  `autoria: livre`: a crítica virou conteúdo marcado `proprio` (Prometido × entregue; Os números que não fecham;
+  Três furos no desenho; pergunta para a turma). Essa levou 43 min: o modelo travou pensando e a tentativa sem
+  raciocínio (da rodada anterior) destravou a tarefa.
+- Testes: `test/critique.test.js` (trecho conferido × inventado, bloco no prompt, geração com a leitura),
+  `test/studio-critique.test.js` (botão, trecho na conversa, arquivo salvo, próximo pedido leva a leitura, selo).
+
 ## O chat pode VER o material anexado (ver:) — 08/10/2026
 
 Retorno: no chat do deck do ICFM10, "vc tem acesso ao pdf?" levou a IA a dizer que "consegue ler as figuras

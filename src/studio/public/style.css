@@ -1227,6 +1227,11 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .thumb-review.rv-changed { background: #bc4b09; }
 .thumb-review.rv-pending { background: #8764b8; }
 .thumb-review.rv-check { background: #0063b1; }
+/* origem do conteúdo: o que o sagadeck incluiu (sagadeck) ou calculou do material (derivado) */
+.thumb-prov { position: absolute; right: 8px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 3px; height: 17px; padding: 0 6px; border-radius: 9px; font-size: 10.5px; font-weight: 600; color: #fff; box-shadow: var(--shadow-1); }
+.thumb-prov .ic, .thumb-prov .ic svg { width: 11px; height: 11px; }
+.thumb-prov.prov-proprio { background: #8764b8; }
+.thumb-prov.prov-derivado { background: #4f6bed; }
 .review-bar { position: absolute; left: 12px; right: 12px; top: 40px; z-index: 6; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 6px 4px 12px; border-radius: 8px; background: var(--chrome); border: 1px solid var(--ui-line); border-left: 4px solid #bc4b09; box-shadow: var(--shadow-2); font-size: 12px; }
 .review-bar.rv-new { border-left-color: #107c10; }
 .review-bar.rv-pending { border-left-color: #8764b8; }
