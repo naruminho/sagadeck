@@ -52,6 +52,8 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Figuras do inventário trazem width×height do recorte: figura larga (largura ≥ 1,6× a altura: mapa duplo, painéis lado a lado, gráfico largo) vai em composição vertical (split com arrangement: stacked, ou image) com o texto curto embaixo; figura alta ou quadrada vai em split lado a lado com a explicação. Nunca ponha título, legenda ou véu por cima de figura do documento (layout full com overlay): o texto cobre a legenda do mapa e os eixos. Não diminua titleSize para dar espaço à figura (o layout já reserva a área; título em tamanhos diferentes de slide a slide desorganiza o deck): se o título não couber, encurte o texto.
 - Figura mal feita do documento (sourcePx = tamanho nativo da imagem; abaixo de ~1000 px de largura ela fica borrada esticada no slide, ou é escaneada/pixelada) pode ser redesenhada: ESQUEMA de caixas e setas (fluxograma, etapas do método, organograma) vira \`diagram\`/\`flow\` nativo fiel, com os mesmos textos e ligações; GRÁFICO cujos valores estão no paper (tabela, texto, rótulos legíveis) vira \`chart\` nativo com os números exatos; gráfico sem os dados à mão (dispersão com centenas de pontos) e ILUSTRAÇÃO desenhada podem ser redesenhados pelo modelo de imagem a partir do original (\`image_prompt: "Clean up and redraw THIS EXACT figure…"\`, copiando eixos, rótulos e valores letra por letra, + \`image_ref\` com o arquivo do inventário, \`fit: contain\`). Mapa e foto ficam como estão. Toda reconstrução nativa (chart, diagram, table) de uma figura do documento leva no slide \`sourceFigure: <arquivo do inventário>\` (o redesenho pelo modelo de imagem guarda \`original\` sozinho): é o caminho de volta. Se a pessoa pedir para manter ou voltar à figura original, troque a reconstrução por \`figure: { image: <sourceFigure ou original>, fit: contain }\` no mesmo slide, sem mexer no texto.
 - AUTORIA E LIBERDADE: decida pela ocasião e grave em \`context.autoria\`. \`autor\`: a pessoa apresenta o PRÓPRIO trabalho (congresso, simpósio, conferência, defesa, banca, relatório da própria equipe; é o padrão quando o pedido é apresentar o paper anexado numa dessas ocasiões). \`livre\`: todo o resto (aula ou seminário sobre o trabalho de outros, journal club, resenha, divulgação, palestra temática, material sem documento anexado). Em \`autor\`, o deck é FIEL ao material: afirmações, conclusões e ênfases são do autor; achado que está no material e passa batido (uma coluna da tabela, uma comparação que o texto não explora) entra no slide; inconsistência, limitação não declarada e pergunta provável vão nas notes do slide relacionado ("Prepare-se: …"), nunca como afirmação no slide. Em \`livre\`, você tem liberdade de criar conteúdo próprio: contexto, analogias, exemplos, comparações, crítica, perguntas para a plateia, gráficos dos números; sem inventar fatos.
+- QUEM ASSINA o deck feito de um documento: \`author\` (e a capa) são os autores do DOCUMENTO, como estão nele (todos, ou o primeiro "et al." se forem muitos), com a instituição em \`role\`; nunca o "autor padrão das preferências", que é de quem usa o sagadeck, não de quem escreveu o artigo. Em \`autoria: autor\`, quem apresenta é um dos autores do artigo (o primeiro, se o pedido não disser outro). Em \`livre\`, a capa credita os autores do artigo e, se o pedido disser quem apresenta, ele vai em \`role\` ("apresentado por …").
+- Apresentação acadêmica (congresso, simpósio, conferência, defesa, banca, seminário de disciplina, journal club): sem enquete, votação, quiz, cronômetro ou contador de votos, a menos que o pedido peça interação; pergunta para discussão vai como slide de texto (question sem options, statement) ou nas notes.
 - ORIGEM (provenance) de cada slide de conteúdo, quando houver material anexado: \`provenance: material\` (o que o slide afirma está no material), \`derivado\` (reorganização, cálculo ou gráfico seu a partir dos números do material) ou \`proprio\` (inclusão sua: contexto geral, analogia, exemplo, crítica, pergunta); com \`provenanceNote\` curta dizendo o que é seu quando não for \`material\`. A pessoa vê no Studio de onde veio cada slide; não esconda inclusão sua atrás de "material".
 - Iniciativa com os números: dados que o paper dá só no texto ou em tabela (valores por classe, por linha, por período, métricas de modelos, antes × depois) e que ficam mais claros vistos lado a lado viram \`chart\` nativo criado por você (barras para comparar, linha para série, donut para partes de um todo), com os valores exatos do paper e \`source\` dizendo de onde vieram (tabela, seção), mesmo que o paper não tenha esse gráfico. Não invente pontos nem interpole: só os números escritos. Esse gráfico novo entra em slide próprio ou ao lado da figura do paper, nunca no lugar de um mapa ou foto (o mapa mostra onde; o gráfico, quanto).
 - Capacidades reais: quando pesquisa/comandos estiverem disponíveis, use-os antes de alegar falta de acesso à web. Geradores de imagem podem produzir texto legível: não declare impossibilidade geral; avalie o resultado e corrija grafia. Prefira texto editável quando útil, mas uma imagem inteira com texto é válida se solicitada.
@@ -566,6 +568,13 @@ const CONVERSATION_RULES = `Como responder (você decide pelo que a pessoa quer 
    pedido de slide. RESPONDA a pergunta com o que você sabe (e com o material anexado, se houver), sem bloco yaml e sem
    tocar nos slides. Só vira AÇÃO com verbo explícito de fazer ("crie", "adicione", "gere", "monte", "transforme em slides",
    "aplica o que combinamos").
+   1c. OPINIÃO SEM FOCO ("o que você acha desse slide?", "está bom?", "como ficou?") não diz se é sobre o CONTEÚDO ou a
+   APARÊNCIA, e a foto do slide puxa a resposta para o visual. Responda os dois, CONTEÚDO PRIMEIRO: o que o slide afirma
+   está certo e fiel ao material? falta o porquê, o número, a evidência, a conclusão? a ordem conta a história? o que a
+   plateia ou a banca vai perguntar? (use o material e a leitura crítica, se houver). Depois a FORMA em uma ou duas
+   frases (hierarquia, leitura, o que distrai). Até ~180 palavras; opções incluem "Aprofundar o conteúdo" e "Aprofundar o
+   visual". Se a pessoa já disse o foco ("o visual", "o design", "a cor" × "o conteúdo", "o texto", "o argumento",
+   "os dados"), fale só dele.
    1b. BRAINSTORM ANTES DE GERAR — a pessoa diz que vai pedir a geração depois ("primeiro vamos discutir", "depois eu peço
    para gerar", "só ideias por enquanto"): NÃO gere nada parcial nem antecipe slides. Discuta, combine e CONFIRME o plano;
    a geração acontece quando ela pedir. Se ela aprovar uma sugestão tua ou vocês fecharem um ponto ("fechado", "isso mesmo",
@@ -1146,6 +1155,19 @@ ${briefing}
   return { spec: next, coverage: { total: missing.length, missing: still.map((m) => m.caption) }, actions };
 }
 
+// Slide idêntico a outro (mesmo conteúdo, só o uid diferente) é cópia: o deck novo do ICFM10 saiu com duas capas
+// iguais, até nas notes (a IA trocou o slide em branco pela capa e inseriu a capa de novo). Fica o primeiro.
+export function dropDuplicateSlides(spec) {
+  const seen = new Set(), removed = [];
+  const key = (s) => JSON.stringify({ ...s, uid: undefined, auto: undefined });
+  const slides = (spec.slides || []).filter((s, i) => {
+    const k = key(s);
+    if (seen.has(k)) { removed.push(i + 1); return false; }
+    seen.add(k); return true;
+  });
+  return { spec: removed.length ? { ...spec, slides } : spec, removed };
+}
+
 // Checagem dos números (ferramenta de autocrítica): todo número visível do deck que não está no material volta para a
 // IA conferir. Uma rodada; o que sobrar vai no relatório (facts.unsupported) e no aviso.
 export async function checkNumbers(spec, { materials = [], edit, say = () => {} } = {}) {
@@ -1217,6 +1239,7 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
       } catch (e) { say(`a leitura crítica falhou (${e.message}); sigo sem ela`); }
     }
   }
+  const fromDocument = (materials || []).some((m) => m?.inventory);
   const wishes = [
     researchReport ? (await import("../research/research.js")).researchInstruction(researchReport) : "",
     theme ? `Use o tema "${theme}".` : "Escolha o tema que combina com o assunto.",
@@ -1226,7 +1249,10 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
     decided?.purpose ? `Para que serve o material (já decidido): purpose: ${decided.purpose}${decided.why ? ` — ${decided.why}` : ""}.` : "",
     decided?.texto ? `A pessoa disse quanto texto quer: ${decided.texto} texto na tela (grave maxWords: ${decided.texto === "muito" ? 200 : 35}).` : "",
     answer ? `Resposta da pessoa à sua pergunta sobre o material: ${answer}` : "",
-    author ? `Autor padrão das preferências: ${author}. É apenas um padrão; autoria ou organização explicitamente indicada no pedido tem prioridade. Grave a atribuição solicitada em author para não aplicar este padrão.` : "",
+    // documento anexado tem autores próprios: o autor das Preferências (quem usa o sagadeck) não assina o artigo dos
+    // outros (a capa do ICFM10 saiu "Narumi Abe" no lugar de Maria Clara Fava)
+    author && !fromDocument ? `Autor padrão das preferências: ${author}. É apenas um padrão; autoria ou organização explicitamente indicada no pedido tem prioridade. Grave a atribuição solicitada em author para não aplicar este padrão.` : "",
+    author && fromDocument ? `Quem usa o sagadeck (Preferências): ${author}. NÃO é o autor do documento anexado: o deck credita os autores do documento; use este nome só se o pedido disser que é quem apresenta.` : "",
     // idioma respondido ou extraído do pedido vale como instrução (inclui a resposta à confirmação de idioma)
     /english|ingl[eê]s/i.test(answer || "") || (!language || language === "auto") && decided?.idioma === "en" ? "Escreva todo o conteúdo em inglês."
     : /portuguese|portugu[eê]s/i.test(answer || "") || (!language || language === "auto") && decided?.idioma === "pt" ? "Escreva todo o conteúdo em português."
@@ -1271,9 +1297,10 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
 
   // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
-  if (author && !spec.author) spec.author = author;
+  if (author && !spec.author && !fromDocument) spec.author = author;
   if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
   if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
+  { const d = dropDuplicateSlides(spec); if (d.removed.length) { spec = d.spec; say(`slide(s) repetido(s) removido(s): ${d.removed.join(", ")}`); } }
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
   // foco guiado sobre uma imagem: a visão põe cada destaque no lugar
   try { const { groundSpotlights } = await import("./ground.js"); await groundSpotlights(spec.slides, { baseDir: imageOptions.baseDir || spec._dir, onProgress: say }); } catch {}
@@ -1299,6 +1326,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   }
+  spec = dropDuplicateSlides(spec).spec; // a correção visual também pode duplicar
   return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(critique ? { critique: { itens: critique.itens.length, naoConfirmados: critique.naoConfirmados.length } } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 

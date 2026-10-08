@@ -869,3 +869,9 @@ test("expoente e índice no valor do stats e no sufixo do contador aparecem form
   for (const value of ["1521 km^2^", "37,67%", "1.403", "R$ 2,5 mi"]) assert.doesNotMatch(html({ layout: "number", value, label: "x" }), /NaN/, value);
   assert.match(html({ layout: "number", value: "37,67%", label: "x" }), /data-to="37.67"[^>]*data-dec="2"/);
 });
+
+test("compare: o símbolo do meio (vs) passa pela marcação (saía \"^^≠^^\" cru)", () => {
+  const out = html({ layout: "compare", title: "Prometido × entregue", vs: "^^≠^^", left: { title: "A", items: ["x"] }, right: { title: "B", items: ["y"] } });
+  assert.doesNotMatch(out, /\^\^/);
+  assert.match(out, /≠/);
+});

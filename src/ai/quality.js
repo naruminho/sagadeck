@@ -11,9 +11,36 @@ const oneLinerText = s => s.text || s.quote || (Array.isArray(s.lines) ? s.lines
 
 // Conferência de texto sem visão (determinística, roda sempre): frase longa em layout de impacto vira tela de uma
 // frase gigante; uma apresentação feita de frases soltas não explica nada. Os achados voltam para a correção da IA.
-export function auditText(spec, indices) {
+// Interação de plateia (enquete, votação, quiz, cronômetro): em apresentação acadêmica não entra sem pedido.
+const VOTING = (s) => s.layout === 'poll' || (s.layout === 'question' && Array.isArray(s.options) && s.options.length) || s.poll != null || s.timer != null;
+const ASKED_INTERACTION = /vota|votação|enquete|quiz|interativ|dinâmica|gamific|perguntas? (?:para|à) plateia/i;
+// marcação que sobrou crua no texto visível (campo que não passa pela marcação): "^^≠^^", "==x==", "**x**"
+const RAW_MARKUP = /\^\^[^^\n]{1,40}\^\^|==[^=\n]{1,60}==|\*\*[^*\n]{1,60}\*\*/;
+const CODE_LAYOUTS = new Set(['code', 'codewalk', 'codelab', 'api', 'algo', 'terminals', 'duel', 'turns', 'playground']);
+
+export function auditText(spec, indices, { briefing = '', render = null } = {}) {
   const issues = [];
   const slides = spec.slides || [];
+  // deck feito de um artigo (autoria decidida) é acadêmico: votação só se o pedido quis interação
+  const academic = !!spec.context?.autoria || /congresso|simp[óo]sio|confer[êe]ncia|defesa|banca|journal club|semin[áa]rio/i.test(`${briefing} ${JSON.stringify(spec.context || {})}`);
+  if (academic && !ASKED_INTERACTION.test(briefing)) for (const index of indices) {
+    const s = slides[index];
+    if (s && VOTING(s)) issues.push({ slide: index + 1, text: 'Votação/enquete numa apresentação acadêmica que não pediu interação. Tire o mecanismo de voto (options, timer, poll): a pergunta para discussão vira slide de texto (question sem options, statement ou split) ou vai nas notes.' });
+  }
+  // slide repetido (mesmo layout e mesmo título de outro): duas capas, o mesmo resultado em dois slides seguidos
+  const sig = (s) => `${s?.layout}|${String(s?.title || s?.text || s?.question || '').replace(/[=*^_~`]/g, '').trim().toLowerCase()}`;
+  for (const index of indices) {
+    const s = slides[index]; if (!s || !(s.title || s.text || s.question)) continue;
+    const first = slides.findIndex((o) => sig(o) === sig(s));
+    if (first >= 0 && first < index) issues.push({ slide: index + 1, text: `Slide repetido: mesmo layout e mesmo título do slide ${first + 1}. Tire a cópia ou faça este slide dizer outra coisa.` });
+  }
+  if (render) for (const index of indices) {
+    const s = slides[index]; if (!s || CODE_LAYOUTS.has(s.layout)) continue;
+    let visible = '';
+    try { visible = render(s, index).replace(/<(code|pre|script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' '); } catch { continue; }
+    const m = RAW_MARKUP.exec(visible);
+    if (m) issues.push({ slide: index + 1, text: `Marcação aparecendo crua na tela ("${m[0]}"): esse campo não aceita marcação. Escreva o texto sem ^^, == ou ** nesse campo.` });
+  }
   for (const index of indices) {
     const s = slides[index]; if (!s || !ONE_LINER.has(s.layout)) continue;
     const n = words(oneLinerText(s));
@@ -38,7 +65,8 @@ export function auditText(spec, indices) {
 export async function reviewExperience(spec, indices, { snapshot, complete = chat, onProgress, signal, briefing = '' } = {}) {
   const issues = [], unchecked = [], failures = [];
   const selected = [...new Set(indices)].filter(index => spec.slides[index]);
-  issues.push(...auditText(spec, selected));
+  const { renderSlide } = await import('../build.js');
+  issues.push(...auditText(spec, selected, { briefing, render: (s, i) => renderSlide(s, i, spec).html }));
   for (const [position, index] of selected.entries()) {
     signal?.throwIfAborted();
     const slide = spec.slides[index];

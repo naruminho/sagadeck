@@ -774,3 +774,62 @@ test("Criar com IA confere os números contra o material e pede a correção do 
   assert.match(r.spec.slides[1].body, /inferior a 0,05/);
   assert.deepEqual(r.facts, { checked: 1, unsupported: [] });
 });
+
+test("deck feito de documento não assina com o autor das Preferências (é de quem usa o sagadeck, não de quem escreveu o artigo)", async () => {
+  const doc = { name: "paper.pdf", text: "Maria Clara Fava, UFSCar. Resultados.", detail: "pdf", inventory: { items: [] } };
+  const n = llm.requests.length;
+  reply = (req) => /LEITURA CRÍTICA de um material/.test(req.system) ? '{"itens":[]}'
+    : "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Paper }\n  - { layout: end, title: Obrigada }\n```";
+  const r = await generateDeck("Apresentação do artigo no congresso", { images: false, author: "Narumi Abe", materials: [doc] });
+  const ask = genReqs(n).find((q) => /Crie a apresentação inteira/.test(q.lastUser));
+  assert.match(ask.lastUser, /NÃO é o autor do documento anexado/);
+  assert.doesNotMatch(ask.lastUser, /Autor padrão das preferências: Narumi/);
+  assert.equal(r.spec.author, undefined, "o autor das Preferências não é colado no deck do artigo");
+  assert.match((await import("../src/ai/deck-ai.js")).systemPrompt(), /QUEM ASSINA o deck feito de um documento/);
+  // sem documento, o padrão continua valendo
+  reply = () => "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Ovo }\n  - { layout: end, title: Fim }\n```";
+  assert.equal((await generateDeck("ovo frito", { images: false, author: "Narumi Abe" })).spec.author, "Narumi Abe");
+});
+
+test("revisão de texto: votação em apresentação acadêmica sem pedido e marcação crua na tela viram achados", async () => {
+  const { auditText } = await import("../src/ai/quality.js");
+  const { renderSlide } = await import("../src/build.js");
+  const spec = { context: { autoria: "livre" }, slides: [
+    { layout: "question", question: "O que o ML acrescenta ao HAND?", options: ["Nada", "Algo"], timer: 45 },
+    { layout: "question", question: "Pergunta para discussão" },
+    { layout: "stats", title: "x", stats: [{ value: "1", label: "a", trend: "^^+5%^^" }] },
+    { layout: "code", title: "py", code: "f(**kwargs)" },
+  ] };
+  const render = (s, i) => renderSlide(s, i, spec).html;
+  const issues = auditText(spec, [0, 1, 2, 3], { briefing: "journal club da disciplina", render });
+  assert.ok(issues.some((x) => x.slide === 1 && /Votação/.test(x.text)));
+  assert.ok(!issues.some((x) => x.slide === 2), "pergunta sem options é discussão, não votação");
+  assert.ok(issues.some((x) => x.slide === 3 && /Marcação aparecendo crua/.test(x.text)));
+  assert.ok(!issues.some((x) => x.slide === 4), "código pode ter ** (kwargs)");
+  // pediu interação: votação vale
+  assert.ok(!auditText(spec, [0], { briefing: "journal club com enquete para a turma votar", render }).some((x) => /Votação/.test(x.text)));
+});
+
+test("prompt: opinião sem foco cobre conteúdo primeiro e forma depois (a foto do slide puxava só para o visual)", async () => {
+  const { editDeck } = await import("../src/ai/deck-ai.js");
+  reply = () => "Conteúdo: bom.\n```opcoes\nAprofundar o conteúdo\nAprofundar o visual\n```";
+  const at = llm.requests.length;
+  await editDeck({ spec: base(), instruction: "o que você acha desse slide?", targetSlide: 1 });
+  const sys = llm.requests.slice(at).map((q) => q.system).join("\n");
+  assert.match(sys, /OPINIÃO SEM FOCO/);
+  assert.match(sys, /CONTEÚDO PRIMEIRO/);
+});
+
+test("slide idêntico sai do deck gerado (duas capas iguais); repetido com mesmo título vira achado da revisão", async () => {
+  const { dropDuplicateSlides } = await import("../src/ai/deck-ai.js");
+  const { auditText } = await import("../src/ai/quality.js");
+  const cover = { layout: "cover", title: "Metodologias integradas", author: "Maria Clara Fava et al.", notes: "Bom dia." };
+  const d = dropDuplicateSlides({ slides: [{ ...cover, uid: "a" }, { ...cover, uid: "b" }, { layout: "end", title: "Obrigada" }] });
+  assert.deepEqual(d.removed, [2]);
+  assert.equal(d.spec.slides.length, 2);
+  reply = () => "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Paper, author: Maria }\n  - { layout: cover, title: Paper, author: Maria }\n  - { layout: end, title: Fim }\n```";
+  const r = await generateDeck("ovo", { images: false });
+  assert.deepEqual(r.spec.slides.map((s) => s.layout), ["cover", "end"]);
+  const issues = auditText({ slides: [{ layout: "split", title: "Resultados", body: "a" }, { layout: "split", title: "==Resultados==", body: "b" }] }, [0, 1]);
+  assert.ok(issues.some((x) => x.slide === 2 && /Slide repetido/.test(x.text)));
+});

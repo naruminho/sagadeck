@@ -8,6 +8,30 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Retorno dos decks do ICFM10: autor errado, figura cortada, "^^≠^^", votação — 08/10/2026
+
+- **Autor**: os dois decks saíram "Narumi Abe" (o autor das Preferências), não Maria Clara Fava. Bug da rodada
+  anterior: a regra "autor = a pessoa apresenta o próprio trabalho" + o autor padrão viraram "quem usa é o autor do
+  artigo". Agora, com documento anexado, o autor das Preferências não vai como padrão nem é colado no deck; regra:
+  quem assina é quem assina o documento (o primeiro apresenta em `autor`; em `livre`, quem apresenta vai em `role`).
+- **Figura 2 cortada**: a caixa da visão era larga demais (a imagem cobria 44% dela) e a regra exigia 50%: caía no
+  corte pela camada de texto, que comia a ponta do mapa e trazia um pedaço da linha de cima. Imagem de tamanho de
+  figura (≥ 1% da página) que cobre um quarto da caixa já é a figura.
+- **"^^≠^^"** no compare: o `vs` saía com esc(), sem a marcação. Corrigido, e a revisão de texto agora renderiza o
+  slide e acusa qualquer marcação crua visível (^^, ==, **), fora dos slides de código: pega os outros campos assim.
+- **Votação no journal club**: apresentação acadêmica (deck de artigo, congresso, defesa, seminário, journal club)
+  não leva enquete, votação, quiz ou cronômetro sem pedido de interação: regra no prompt e achado da revisão.
+- Prova ao vivo ("apresentação que a Maria Clara vai fazer no ICFM10 sobre o artigo dela"): capa "Maria Clara Fava et
+  al. · UFSCar", `autoria: autor`, sem votação, Figura 2 inteira. Achou outro defeito: duas capas idênticas (até as
+  notes; o "slide repetido" que o diário já registrava). Cópia exata sai na geração (`dropDuplicateSlides`), e
+  mesmo layout + mesmo título vira achado da revisão.
+- **Opinião sem foco** ("o que você acha desse slide?"): a foto do slide puxava a resposta para o design. Regra 1c:
+  responder conteúdo PRIMEIRO (fiel ao material? falta o porquê, o número? o que a banca pergunta?) e forma depois,
+  com opções para aprofundar cada um; foco dito pela pessoa vale sozinho. Ao vivo, no slide da Tabela 1 do ICFM10:
+  apontou que o achado mais forte (HYMOD empata com o HEC-HMS) passava batido e só depois o texto lateral longo.
+- Biblioteca: os decks de teste do ICFM10 superados foram para a lixeira (recuperáveis); ficaram o do congresso
+  (Maria Clara) e o do journal club.
+
 ## Leitura crítica do material, autoria e origem do conteúdo — 08/10/2026
 
 Retorno: num brainstorm pelo chat, a IA achou o que a geração não achou (o resumo do ICFM10 promete variáveis
