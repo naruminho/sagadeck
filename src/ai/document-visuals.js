@@ -518,7 +518,7 @@ export function mergeDuplicateCrops(items) {
 }
 
 // Por página: o texto (caixas de cada fragmento) e as imagens embutidas, tudo em 0..1000 da página.
-async function pdfLayout(bytes) {
+export async function pdfLayout(bytes) {
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const task=pdfjs.getDocument({data:new Uint8Array(bytes),verbosity:0}),doc=await task.promise;
   const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];

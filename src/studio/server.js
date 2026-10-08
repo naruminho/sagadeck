@@ -34,13 +34,13 @@ import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
-import { reviewExperience } from '../ai/quality.js';
 import { saveGenReport } from './generation-report.js';
+import { generateForStudio } from "./generate.js";
 import { runCommand, logCommand } from "../ai/commands.js";
 import { needsApproval, approvalLabel, awaitApproval, commandEnv, estimateSubmitCost } from "./command-approval.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
 import { llmAvailable, llmConfig } from "../ai/llm.js";
-import { editDeck, textToSlide, generateDeck, toYaml, materializeImages } from "../ai/deck-ai.js";
+import { editDeck, textToSlide, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
 import { sendExport, sendHtml, lightVariant } from "./exporting.js";
 import { styleRoutes, styleAction } from "./style-routes.js";
@@ -52,7 +52,7 @@ export { lightVariant };
 import { VERSION, buildInfo } from "./instance.js";
 import { extractDocText, fetchUrlText, CONTEXT_STORE_CHARS, CONTEXT_MAX_DOCS, pastedUrls } from "../ai/context.js";
 import * as Project from "./project.js";
-import { prepareDocumentMaterials, takeMaterials } from '../ai/document-materials.js';
+import { takeMaterials } from '../ai/document-materials.js';
 import { webOnlyRunner } from '../ai/web-operation.js';
 import { docxToHtml } from "../docx.js";
 import { ensureUids } from "../uid.js";
@@ -324,26 +324,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
     const L = W.library;
     const { dir, file } = L.createStagingDeck(topic);
     try {
-      const prefs = loadPreferences().ia;
-      const gen = await generateDeck(String(b.briefing || ""), {
-        ask: prefs.perguntar !== false && !b.answer, answer: b.answer ? String(b.answer).slice(0, 500) : "",
-        author: prefs.autor || "", language: prefs.idioma || "auto",
-        theme: b.theme || undefined,
-        style: b.style || undefined,
-        slides: Number(b.slides) || undefined,
-        duration: Number(b.duration) || undefined,
-        direction: b.direction || undefined,
-        materials: await prepareDocumentMaterials(takeMaterials(W, b.materials), dir, {onProgress:emit}),
-        images: prefs.imagens !== false, // o briefing diz se quer imagens (e onde); Preferências podem desligar
-        imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
-        onEvent: emit,
-        drawCheck: diagramCheck,
-        reviewCheck: (deck, indices) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: emit, briefing:b.briefing }),
-        // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
-        // as fontes lidas ficam em contexto/pesquisa/ do deck
-        research: prefs.pesquisa === false ? false : "auto",
-        researchDir: dir,
-      });
+      const gen = await generateForStudio(b, { dir, materials: takeMaterials(W, b.materials), emit });
       if (gen.question) { L.discardStaging(topic, dir); return { question: gen.question }; } // a IA quer saber para que serve o material
       // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
       if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
