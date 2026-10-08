@@ -4,7 +4,7 @@ import { cancellable, respond } from "./ai-response.js";
 import {chatErrorResult,installErrorResponses} from './errors.js';
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
-import { PUBLIC_SCRIPTS } from "./public-files.js";
+import { publicScript } from "./public-files.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
 import { directionRoutes } from "./direction-routes.js";
@@ -511,8 +511,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, "fit.js"), "utf8"));
         return;
       }
-      if (PUBLIC_SCRIPTS.has(pathname)) {
-        const js = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
+      const script = publicScript(PUBLIC_DIR, pathname);
+      if (script) {
+        const js = fs.readFileSync(script, "utf8");
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
         res.end(js);
         return;

@@ -60,6 +60,20 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
 
+## Studio aberto antes da atualização não abria slide — 08/10/2026
+
+Retorno logo depois do item 8: "tentando abrir um slide e não abre". O Studio da pessoa tinha subido antes do merge.
+O servidor lia o `app.js` do disco a cada pedido (veio o novo, que chama `window.SagaHeaderFooter`), mas a lista de
+scripts que ele entregava (`PUBLIC_SCRIPTS`) era fixa na memória: `header-footer.js` e `preferences-ui.js` davam 404,
+o `app.js` quebrava ao carregar e nada abria. Reiniciar o Studio resolvia; a correção evita a próxima vez.
+
+- `publicScript` (`src/studio/public-files.js`): todo `.js` direto na pasta `public` é entregue, decidido a cada
+  pedido olhando o disco (só nome simples: nada de subir de pasta). A lista fixa acabou; módulo novo não precisa
+  mais ser registrado em lugar nenhum além do `index.html`.
+- Teste (`test/studio-scripts.test.js`): todo `<script src>` do `index.html` e do `library.html` responde 200, e um
+  módulo criado depois que o Studio subiu também (falhava com 404 antes); `..`, arquivo inexistente e nome estranho
+  não passam.
+
 ## Bancada de qualidade da geração a partir de paper — 08/10/2026
 
 Item 4 das próximas frentes. Saber se a geração a partir de PDF melhorou dependia de gerar decks e olhar um por um.
@@ -98,7 +112,8 @@ inteiros e autocontidos, no molde de `slide-select.js` (fábrica que recebe o es
 
 - `header-footer.js` (`window.SagaHeaderFooter`): modelos prontos, campos com variáveis e prévia do cabeçalho/rodapé.
 - `preferences-ui.js` (`window.SagaPrefs`): a tela única de Preferências, com busca e gravação automática.
-- Registrados em `PUBLIC_SCRIPTS` (`src/studio/public-files.js`) e no `index.html`, antes do `app.js`.
+- Carregados no `index.html`, antes do `app.js` (o servidor entrega todo `.js` da pasta `public`; ver a seção
+  seguinte).
 - `app.js` foi a 235.619 bytes; o limite desceu para 240.000 (a trava continua sendo catraca: sobra espaço para
   ajustes pequenos, recurso novo vai para módulo próprio).
 - Testes: os de Preferências e de cabeçalho e rodapé do `test/studio.test.js` (clicam de verdade e conferem o deck e
