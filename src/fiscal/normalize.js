@@ -14,8 +14,19 @@ const COLOR_MAP = {
   branco: "FFFFFF",
 };
 
-export function normalizeSpec(rawSpec) {
-  if (!rawSpec || typeof rawSpec !== "object") return rawSpec;
+// Vírgula em valor de fluxo (`text: 3,5 peixes…` dentro de [{...}]) que o YAML partiu em
+// {text: 3, "5 peixes…": null}: junta de volta. Chave nula começando com dígito nunca é intencional.
+function fixCommaSplit(o) {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return;
+  for (const k of Object.keys(o)) {
+    if (o[k] === null && /^\d/.test(k)) {
+      const target = ["text", "title", "label", "when"].find((f) => typeof o[f] === "number" || typeof o[f] === "string");
+      if (target) { o[target] = `${o[target]},${k}`; delete o[k]; }
+    }
+  }
+}
+
+export function normalizeSpec(rawSpec) {  if (!rawSpec || typeof rawSpec !== "object") return rawSpec;
   const spec = JSON.parse(JSON.stringify(rawSpec));
 
   // 1. Normalização no nível da raiz
@@ -98,6 +109,12 @@ export function normalizeSpec(rawSpec) {
         if (it.avaliacao != null && it.rating == null) { it.rating = it.avaliacao; delete it.avaliacao; }
         return it;
       });
+    }
+
+    // Vírgula em valor de fluxo YAML (`text: 3,5 peixes…` dentro de [{...}]) quebra em
+    // {text: 3, "5 peixes…": null}: junta de volta antes que vire dado truncado no slide.
+    for (const f of ["events", "steps", "items"]) {
+      if (Array.isArray(s[f])) s[f].forEach(fixCommaSplit);
     }
 
     // Cores comuns em português

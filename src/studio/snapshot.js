@@ -39,6 +39,9 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`${pathToFileURL(file).href}#${index + 1}`, { waitUntil: "load" });
     await page.addStyleTag({ content: '#hud,#laser,.draw-fab,.draw-toolbar,#draw-canvas{display:none!important}' });
+    // Fotos para conferência (e exportação estática): animações de gráfico concluídas, senão o instantâneo
+    // pega linhas no meio do traço e a revisão acusa "linhas faltando" que o usuário nunca veria.
+    await page.addStyleTag({ content: '.chart .draw,.chart .fade-in,.chart .pop,.chart .gx,.chart .gy,.chart .arc{animation:none!important;opacity:1!important;transform:none!important}.chart .draw{stroke-dashoffset:0!important}' });
     await page.waitForFunction(() => window.sagadeck && typeof window.sagadeck.goto === "function", null, { timeout: 10000 });
     await page.evaluate(() => window.SagaScienceReady);
     await page.evaluate(() => window.SagaDiagramsReady);

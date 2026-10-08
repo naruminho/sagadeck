@@ -9,7 +9,7 @@ import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
 import { materialsBlock } from '../src/ai/context.js';
-import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText } from '../src/ai/document-visuals.js';
+import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop } from '../src/ai/document-visuals.js';
 
 test('recorte PDF protege a palavra e a legenda que cruzam a borda, sem capturar linhas distantes',()=>{
   const box=protectPDFText([300,400,380,215],[{left:650,top:500,right:740,bottom:520},{left:100,top:620,right:900,bottom:632},{left:100,top:800,right:900,bottom:815}]);
@@ -92,6 +92,57 @@ test('título isolado da figura cruzando o topo continua protegido',()=>{  const
   assert.ok(box[1]<304, `sem texto acima, é da figura: ${box}`);
 });
 
+test('legenda fragmentada ("F"+"igure") abaixo do meio fica de fora (ICFM10 Fig.2)',()=>{
+  const box=protectPDFText([180,760,519,143],[
+    {text:'F',left:170,top:886,right:178,bottom:900},
+    {text:'igure 2: Flood occurrence (2013–2024)',left:180,top:886,right:700,bottom:900},
+  ],'Figure 2: Flood occurrence data (2013–2024)');
+  assert.ok(box[1]+box[3]<886, `corta antes da legenda fragmentada: ${box}`);
+  assert.ok(box[1]+box[3]>=860, `não come a figura: ${box}`);
+});
+
+test('margem lateral protege rótulo raster e para no texto vizinho',()=>{
+  const box=protectPDFText([200,400,600,200],[
+    {text:'coluna vizinha',left:830,top:450,right:990,bottom:470},
+  ]);
+  assert.equal(box[0],184, `margem 16 no vazio: ${box}`);
+  assert.equal(box[0]+box[2],816, `margem 16 sem engolir a coluna: ${box}`);
+});
+
+test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()=>{  const prose=[
+    {text:'linha um de prosa corrida aqui',left:100,top:500,right:900,bottom:520},
+    {text:'linha dois de prosa corrida aqui',left:100,top:525,right:900,bottom:545},
+    {text:'linha três de prosa corrida aqui',left:100,top:550,right:900,bottom:570},
+    {text:'linha quatro de prosa corrida',left:100,top:575,right:900,bottom:596},
+  ];
+  assert.ok(proseSuspect([100,490,800,120],prose), 'prosa densa é suspeita');
+  const arte=[
+    {text:'Flow (m³/s)',left:40,top:400,right:95,bottom:560},
+    {text:'Figure 2: mapa da bacia',left:100,top:700,right:700,bottom:720},
+  ];
+  assert.ok(!proseSuspect([100,200,700,400],arte), 'arte com legenda não é suspeita');
+  assert.ok(!proseSuspect([100,200,700,400],[]), 'vazio não é suspeito');
+});
+
+test('orphanCaptions: legenda sem item que a cubra (inclui "Quadro")',()=>{  const boxes=[
+    {text:'Figura 1 - A: Localização da região',left:100,top:600,right:900,bottom:620},
+    {text:'como mostra a Figura 1, os viveiros',left:100,top:300,right:900,bottom:320},
+    {text:'Quadro 1 - Ingredientes da ração',left:100,top:800,right:900,bottom:820},
+  ];
+  const inv={items:[{caption:'Tabela 1 - Mann-Whitney'}]};
+  const orphans=orphanCaptions(inv,boxes);
+  assert.deepEqual(orphans.map(o=>o.n),['1'], `Figura 1 órfã; menção em prosa não conta; Tabela 1 coberta: ${JSON.stringify(orphans)}`);
+  const inv2={items:[{caption:'Figura 1 - mapa'},{caption:'Quadro 1 - ingredientes'}]};
+  assert.deepEqual(orphanCaptions(inv2,boxes),[],'tudo coberto, nada órfão');
+});
+
+test('isBlankCrop: quase-branco grande é suspeito; com tinta ou pequeno, não',()=>{
+  assert.ok(isBlankCrop(0.01,[100,100,800,400]),'legenda + papel = suspeito');
+  assert.ok(!isBlankCrop(0.06,[100,100,800,400]),'mapa claro passa');
+  assert.ok(!isBlankCrop(0.01,[100,100,10,10]),'miniatura não conta');
+  assert.ok(!isBlankCrop(undefined,[100,100,800,400]),'sem medida não acusa');
+});
+
 test('Word: todas as figuras, tabelas e equações são inventariadas com seus dados originais', async () => {
   const zip = new JSZip();
   zip.file('word/document.xml', '<w:document><w:body><w:p><w:r><w:t>Método</w:t></w:r></w:p><w:p><w:drawing><a:blip r:embed="img1"/></w:drawing></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Grupo</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Valor</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>12,5</w:t></w:r></w:p></w:tc></w:tr></w:tbl><m:oMath><m:f><m:num><m:r><m:t>a</m:t></m:r></m:num><m:den><m:r><m:t>b</m:t></m:r></m:den></m:f></m:oMath></w:body></w:document>');
@@ -124,6 +175,51 @@ test('seleção editorial explícita não força slides nem restaura valores edi
   const source = {name:'paper',items:[{id:'a',kind:'equation',latex:'x=1'}]};
   const deck = {slides:[{layout:'statement',text:'Resumo executivo'}]};
   assert.deepEqual(ensureVisualCoverage(deck,[source],{preserve:false}).spec,deck);
+});
+
+test('PDF: caixa de figura em cima de prosa pede localização de novo (retry com dica)', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-retry-'));
+  try {
+    const page = await browser.newPage();
+    const prose = Array.from({ length: 20 }, (_, i) => `<p>Parágrafo ${i + 1} de prosa corrida para encher a metade de cima da página com palavras e mais palavras.</p>`).join('');
+    await page.setContent(`<h1>Estudo</h1>${prose}<svg width="400" height="200"><rect x="10" y="10" width="380" height="180" fill="none" stroke="black"/></svg>`);
+    const bytes = await page.pdf();
+    const material = { name: 'paper.pdf', text: 'Estudo', detail: 'pdf', bytes };
+    const calls = [];
+    const inspect = async (image, n, opts) => {
+      calls.push(opts?.hint || null);
+      if (calls.length === 1) return { complete: true, items: [{ kind: 'figure', caption: 'Figura 1: desenho', bounds: { left: 50, top: 50, right: 950, bottom: 450 } }] };
+      return { complete: true, items: [{ kind: 'figure', caption: 'Figura 1: desenho', bounds: { left: 50, top: 800, right: 950, bottom: 950 } }] };
+    };
+    const docs = await prepareDocumentMaterials([material], dir, { inspect });
+    assert.equal(calls.length, 2, 'pediu de novo após caixa suspeita');
+    assert.match(calls[1] || '', /texto corrido/, 'dica menciona o problema');
+    const final = docs[0].inventory.items[0].box;
+    assert.ok(final[0] >= 30 && final[0] <= 50 && final[1] >= 770 && final[1] <= 800, `valeu a segunda localização: ${final}`);
+    assert.ok(fs.existsSync(path.join(dir, docs[0].inventory.items[0].image)));
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('PDF: resposta inválida da visão tenta de novo uma vez (sem travar em fallback)', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-retry2-'));
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<h1>Resultados</h1><svg width="300" height="100"><path d="M0 90L300 10" stroke="black"/></svg>');
+    const bytes = await page.pdf();
+    const material = { name: 'paper.pdf', text: 'Resultados', detail: 'pdf', bytes };
+    let calls = 0;
+    const inspect = async () => {
+      calls++;
+      if (calls === 1) throw Error('Inventário inválido (término informado pelo provedor: stop).');
+      return { complete: true, items: [{ kind: 'figure', caption: 'Gráfico', bounds: { left: 50, top: 300, right: 950, bottom: 700 } }] };
+    };
+    const docs = await prepareDocumentMaterials([material], dir, { inspect });
+    assert.equal(calls, 2, 'tentou de novo após erro transitório');
+    assert.equal(docs[0].inventory.items.length, 1, 'valeu a segunda leitura');
+    assert.ok(fs.existsSync(path.join(dir, docs[0].inventory.items[0].image)));
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('PDF: recortes completos e fallback conservador sem perder a página original', async t => {

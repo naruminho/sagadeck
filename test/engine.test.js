@@ -8,6 +8,9 @@ import path from "node:path";
 import { LAYOUTS } from "../src/layouts.js";
 import { renderSlide, buildHTML, wordCount, loadSpec } from "../src/build.js";
 import { md, plain } from "../src/markup.js";
+import { matchCropAspect } from "../src/elements.js";
+import { normalizeSpec } from "../src/fiscal/normalize.js";
+import { chart } from "../src/figures/charts.js";
 import { autofixSlide, recordAuto } from "../src/fiscal/autofix.js";
 import { applyPatch, toYaml, countImagePrompts, extractYaml } from "../src/ai/deck-ai.js";
 import { THEMES } from "../src/themes.js";
@@ -245,6 +248,41 @@ test("auto-correção registra o que mudou em `auto` (campo, antes, motivo)", ()
   const log2 = recordAuto({ ...after, auto: log }, { ...after, titleSize: 70 }, ["de novo"]);
   assert.equal(log2.length, 1);
   assert.equal(log2[0].antes, 110);
+});
+
+test("statement longo usa papel menor (frase de 100+ caracteres não sai em title gigante)", () => {  const curta = html({ layout: "statement", text: "Circulação não é evidência." });
+  assert.match(curta, /font-size:128px/, "frase curta continua manchete");
+  const media = html({ layout: "statement", text: "Dense urbanization, unplanned growth and impervious surfaces amplify flood risk." });
+  assert.match(media, /font-size:92px/, "frase média cai para h2");
+  const longa = html({ layout: "statement", text: "Avaliar o desempenho produtivo de tilápia nilótica e carpa comum em policultivo, comparando a ração feita na propriedade com a ração comercial." });
+  assert.match(longa, /font-size:46px/, "frase longa vira lead");
+  const manual = html({ layout: "statement", text: "x".repeat(200), as: "title" });
+  assert.match(manual, /font-size:128px/, "as explícito vence");
+});
+
+test("crop casa com a proporção da caixa (sem esticar print de página)", () => {
+  // página retrato 1000x1400, janela t:0.5 em caixa 1100x660: cresce nas laterais, nunca encolhe o pedido
+  const grown = matchCropAspect({ l: 0.03, t: 0.5, r: 0.03, b: 0.01 }, { w: 1000, h: 1400 }, 1100, 660);
+  assert.equal(grown.t, 0.5, "topo pedido preservado");
+  assert.ok(grown.l <= 0.03 && grown.r <= 0.03, "abriu para os lados");
+  const fw = 1 - grown.l - grown.r, fh = 1 - grown.t - grown.b;
+  const aspect = (fw * 1000) / (fh * 1400), box = 1100 / 660;
+  assert.ok(Math.abs(aspect - box) / box < 0.15, `proporção próxima: ${aspect.toFixed(2)} vs ${box.toFixed(2)}`);
+  // já casando: não mexe; sem medidas: não mexe
+  assert.deepEqual(matchCropAspect({ l: 0, t: 0, r: 0, b: 0 }, { w: 1600, h: 900 }, 1600, 900), { l: 0, t: 0, r: 0, b: 0 });
+  assert.deepEqual(matchCropAspect({ l: 0.1, t: 0.1, r: 0.1, b: 0.1 }, null, 1600, 900), { l: 0.1, t: 0.1, r: 0.1, b: 0.1 });
+});
+
+test("normalize junta vírgula partida do YAML ([{text: 3, '5 peixes': null}])", () => {
+  const out = normalizeSpec({ slides: [{ layout: "timeline", events: [{ when: "jul/2009", title: "Peixamento", text: 3, "5 peixes por m³ em cada viveiro": null }] }] });
+  assert.equal(out.slides[0].events[0].text, "3,5 peixes por m³ em cada viveiro");
+});
+
+test("cor de série c3/c4 resolve para a paleta do tema (nunca preto)", () => {
+  const svg = chart({ chart: "line", labels: ["0", "60"], series: [{ name: "A", color: "c3", values: [1, 2] }, { name: "B", color: "c4", values: [2, 3] }] }, 900, 500);
+  assert.match(svg, /var\(--c-c3\)/, "c3 vira --c-c3");
+  assert.match(svg, /var\(--c-c4\)/, "c4 vira --c-c4");
+  assert.doesNotMatch(svg, /var\(--c3\)/, "sem var pelada");
 });
 
 test("auto-correção de sobreposição fica registrada no slide", () => {

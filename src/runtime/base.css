@@ -439,16 +439,16 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .av-perigo .av-icon{color:var(--alert)}
 .av-perigo .av-title{text-transform:uppercase;letter-spacing:.04em}
 
-.tl{position:relative;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:40px;flex:1;align-content:center}
+.tl{position:relative;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:40px;flex:1;align-content:center;min-height:520px}
 .tl-line{position:absolute;left:0;right:0;top:50%;height:6px;background:var(--line);border-radius:3px;display:none}
-.tl-ev{position:relative;display:flex;flex-direction:column;gap:16px;padding-top:62px}
+.tl-ev{position:relative;display:flex;flex-direction:column;gap:20px;padding-top:62px;min-width:0}
 .tl-dot{position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:var(--bg);border:8px solid var(--fg)}
 .tl-ev::before{content:"";position:absolute;left:44px;right:-40px;top:19px;height:6px;background:var(--line)}
 .tl-ev:last-child::before{display:none}
 .tl-ev.hl .tl-dot{background:var(--hi)}
-.tl-when{font-size:96px;line-height:.9}
+.tl-when{font-size:calc(max(54px, 96px - max(0px, (var(--n, 3) - 3) * 13px)));line-height:.95;overflow-wrap:anywhere}
 .tl-ev.hl .tl-when{color:var(--em)}
-.tl-title{font-size:42px}
+.tl-title{font-size:42px;overflow-wrap:anywhere}
 .tl-text{font-size:30px;color:var(--muted)}
 .tl-tag{font-size:20px;color:var(--em)}
 .tl-after{margin-top:auto}
