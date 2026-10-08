@@ -8,6 +8,61 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Próximas frentes (levantadas em 08/10/2026, ainda não começadas)
+
+Saíram da rodada de paper → congresso e da mudança da biblioteca para o OneDrive. Ordem combinada: 1, depois 4,
+depois 8; o resto quando der. Cada item segue as regras do CLAUDE.md (teste que falha antes da correção, PR e
+merge na hora, este diário atualizado no mesmo commit).
+
+**OneDrive (a biblioteca agora mora em `C:\Users\narum\OneDrive\Documents\sagadeck` e sincroniza)**
+
+1. **Gravação tolerante a arquivo travado.** Toda gravação e mudança de lugar usa `fs.renameSync` direto:
+   `src/deck-file.js:117` (o `writeDeckFile`, gravação atômica tmp → final) e uns dez pontos em `src/library.js`
+   (mover para a lixeira, restaurar, renomear deck e tópico, migração). Enquanto sincroniza, o OneDrive (e
+   antivírus, indexador) pode segurar o arquivo por alguns segundos, e o rename falha com `EPERM`/`EBUSY`/`EACCES`:
+   o salvamento da pessoa se perde com erro. Fazer um `renameRetry` (algumas tentativas com espera curta e
+   crescente, ~1 s no total, só para esses códigos) e usar em todos os pontos. Teste: simular a trava (stub do
+   `fs.renameSync` que falha N vezes com `EPERM`) e conferir que o deck foi gravado; e que um erro de outro tipo
+   continua subindo na hora.
+2. **Cache e lixeira fora da nuvem.** Dos ~560 MB da biblioteca, 407 MB são `.lixeira` (e há `.cache`, 5 MB, e
+   `.historico`). Tudo vai para o OneDrive. Decidir: lixeira e cache em `%LOCALAPPDATA%\sagadeck` (são da máquina,
+   não documentos) e/ou lixeira que se esvazia sozinha depois de 30 dias. O histórico de versões talvez deva
+   continuar junto do deck (portável). Cuidado com a migração do que já existe.
+3. **Arquivos só na nuvem (Files On-Demand).** Com espaço liberado, o OneDrive deixa só o marcador do arquivo, e
+   ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
+   cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
+
+**Geração de apresentações**
+
+4. **Bancada de qualidade repetível (a maior lacuna).** Hoje, saber se a geração a partir de PDF melhorou depende
+   de gerar decks e olhar um por um. Montar um teste ao vivo (só com `SAGADECK_LIVE=1`, como o
+   `test/ai-live.test.js`) que gera a partir de PDFs fixos e dá nota: figuras do paper cobertas
+   (`coverDocumentVisuals`/`uncoveredVisuals`), recorte sem legenda, equações numeradas transcritas, números que
+   não estão no paper (`checkNumbers`), autor do documento (não o das Preferências), sem votação em deck acadêmico,
+   sem slide de uma frase gigante (`auditText`), idioma pedido. Grava um relatório com as notas para comparar
+   entre versões. PDFs usados nesta rodada (baixados da internet, NÃO entram no repositório; apontar por variável
+   de ambiente, ex. `SAGADECK_BENCH_DIR`): `C:\Users\narum\Downloads\75286_pt.pdf` (eucalipto/ETR, o das
+   equações), `C:\Users\narum\Downloads\93d854559fbed77d3b0fb078919cdb3e9edb.pdf` (Beberibe/LiDAR, mapas) e
+   `C:\Users\narum\Downloads\ICFM10 Full - 080.pdf` (Maria Clara, ICFM10; pedido em inglês e em português, "ela
+   vai apresentar o artigo dela").
+5. **Equações que a leitura da página deixou passar.** `assignEquations` (`src/ai/document-visuals.js`) já põe em
+   `out.missed` as equações numeradas do texto que a visão não listou, mas só registra. Dar a elas uma segunda
+   leitura focada (recortar a região pelo `equationBox` e chamar `transcribeEquation`).
+6. **Etapas em paralelo e progresso visível.** `generateDeck` (`src/ai/deck-ai.js`) faz em fila pesquisa, crítica
+   (`critiqueMaterials`), escrita, cobertura, números, duplicados, imagens e revisão. Crítica e inventário visual
+   não dependem um do outro: rodar juntos. E o Studio mostrar a etapa em vez de só "Pensando…".
+7. **Crítica acionável.** A leitura crítica (`src/ai/critique.js`, botão "Criticar documento") chega só como texto
+   no chat. Virar lista com "aplicar no slide X" / "ignorar", ligada ao slide de cada ponto.
+
+**Saúde do repositório**
+
+8. **`src/studio/public/app.js` no limite.** 249.491 dos 250.000 bytes que o teste do monólito permite: qualquer
+   acréscimo quebra. Tirar um ou dois blocos inteiros para módulos (o chat é o candidato óbvio), registrados em
+   `PUBLIC_SCRIPTS` (`src/studio/public-files.js`), como foi feito com `provenance.js`.
+9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
+   (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
+   da condição de verdade.
+
 ## Biblioteca padrão em Documentos\sagadeck — 08/10/2026
 
 Pedido: a biblioteca padrão no Windows é a pasta `sagadeck` dentro de Documentos (antes, `~/sagadeck`, direto na
