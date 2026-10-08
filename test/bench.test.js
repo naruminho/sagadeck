@@ -91,3 +91,13 @@ test("relatório: grava json e md e compara com a rodada anterior", () => {
   assert.match(second.markdown, /Erro: LLM fora do ar/);
   assert.equal(fs.readdirSync(dir).length, 4);
 });
+
+test("relatório: média só é comparada quando a rodada anterior teve os mesmos casos", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-bancada-"));
+  const caso = (id, total) => ({ id, file: `${id}.pdf`, slides: 10, seconds: 60, total, checks: {} });
+  saveBenchReport(dir, { date: "2026-10-08T10:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("icfm10-en", 70)] });
+  const outro = saveBenchReport(dir, { date: "2026-10-08T11:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("eucalipto", 90)] });
+  assert.match(outro.markdown, /Média: \*\*90\*\*\n/, "casos diferentes: sem (+20)");
+  const mesmo = saveBenchReport(dir, { date: "2026-10-08T12:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("eucalipto", 95)] });
+  assert.match(mesmo.markdown, /Média: \*\*95\*\* \(\+5\)/);
+});
