@@ -6,6 +6,7 @@ import { videoPlayer } from './video-player.js';
 import { tableHTML } from "./table.js";
 import { qrSVG } from "./figures/qr.js";
 import katex from "katex";
+import { formatNumber, decimalSeparator } from "./locale.js";
 import fs from "node:fs";
 import path from "node:path";
 import { md, esc } from "./markup.js";
@@ -394,7 +395,13 @@ export function parseCounterValue(raw) {
   const m = /^(\D*?)(-?\d[\d.,]*)(.*)$/s.exec(String(raw ?? "").trim());
   if (!m) return null;
   let num = m[2].replace(/[.,]$/, ""), dec = 0;
-  if (num.includes(",")) { dec = num.split(",").pop().length; num = num.replace(/\./g, "").replace(",", "."); }
+  if (decimalSeparator() === ".") {
+    // deck em inglês: vírgula é milhar ("1,403"), ponto é decimal ("37.67")
+    num = num.replace(/,(?=\d{3}(?:\D|$))/g, "");
+    if (num.includes(".")) dec = num.split(".").pop().length;
+    else if (num.includes(",")) { dec = num.split(",").pop().length; num = num.replace(",", "."); }
+  }
+  else if (num.includes(",")) { dec = num.split(",").pop().length; num = num.replace(/\./g, "").replace(",", "."); }
   else if (/^-?\d{1,3}(\.\d{3})+$/.test(num)) num = num.replace(/\./g, "");
   else if (num.includes(".")) dec = num.split(".").pop().length;
   const value = Number(num);
@@ -407,7 +414,7 @@ export function counter(e) {
   e = { ...e, prefix: unicodeScripts(`${e.prefix ?? ""}${parsed.prefix ?? ""}`), suffix: unicodeScripts(`${parsed.suffix ?? ""}${e.suffix ?? ""}`), decimals: e.decimals ?? (typeof e.counter === "number" ? undefined : parsed.dec) };
   const v = parsed.value;
   const dec = e.decimals ?? (v % 1 ? 1 : 0);
-  const shown = v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const shown = formatNumber(v, { minimumFractionDigits: dec, maximumFractionDigits: dec }); // no idioma do deck
   const size = e.size || SIZES[e.as || "number"];
   return `<div${attrs(e, `t f-display r-number counter pl`, `font-size:${size}px;`)}${e.fit ? " data-fit" : ""} data-to="${v}" data-from="${e.from ?? 0}" data-dec="${dec}" data-prefix="${esc(e.prefix || "")}" data-suffix="${esc(e.suffix || "")}"><span class="cv">${esc(e.prefix || "")}${shown}${esc(e.suffix || "")}</span></div>`;
 }

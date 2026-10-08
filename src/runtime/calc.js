@@ -6,10 +6,10 @@
     if (v == null || !Number.isFinite(v)) return "—";
     if (o.sci || Math.abs(v) >= 1e7 || (Math.abs(v) < 1e-3 && v !== 0)) {
       const [m, e] = v.toExponential(2).split("e");
-      return `${m.replace(".", ",")} × 10${String(Number(e)).split("").map((c) => SUP[c] ?? c).join("")}`;
+      return `${(1.5).toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || "pt-BR").includes(",") ? m.replace(".", ",") : m} × 10${String(Number(e)).split("").map((c) => SUP[c] ?? c).join("")}`;
     }
-    if (o.decimals != null) return v.toLocaleString("pt-BR", { minimumFractionDigits: o.decimals, maximumFractionDigits: o.decimals });
-    return v.toLocaleString("pt-BR", { maximumSignificantDigits: Math.abs(v) >= 1000 ? 7 : 4 });
+    if (o.decimals != null) return v.toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || "pt-BR", { minimumFractionDigits: o.decimals, maximumFractionDigits: o.decimals });
+    return v.toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || "pt-BR", { maximumSignificantDigits: Math.abs(v) >= 1000 ? 7 : 4 });
   }
   // todas as saídas na ordem (uma saída usa as anteriores); `cases` escolhe texto/cor/fórmula pela faixa de `of`
   function evaluate(model, values = {}) {

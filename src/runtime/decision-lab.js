@@ -17,7 +17,7 @@
     return { ...s, automatic, caught, introduced, reviewed: automatic - caught + introduced,
       hours: s.volume * r * s.seconds / 3600, delta: introduced - caught };
   }
-  const fmt = n => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  const fmt = n => n.toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || "pt-BR", { maximumFractionDigits: 1 });
   function mount(container = document) {
     container.querySelectorAll('[data-decision-lab]').forEach(el => {
       if (el.dataset.mounted) return;

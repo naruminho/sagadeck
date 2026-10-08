@@ -36,6 +36,8 @@ test("nova sem tópico vai para 'Sem tópico'; nomes do Windows são respeitados
   assert.match(id, /^Sem tópico\/Resultados Q3 2026\//);
   assert.equal(safeName("CON"), "Sem título");
   assert.equal(safeName("  a<b>c.  "), "a b c");
+  // nome longo corta entre palavras, nunca no meio ("…Urban Flood Predic")
+  assert.equal(safeName("Integrated Methodologies for Flood Susceptibility Mapping and Urban Flood Prediction in São Paulo"), "Integrated Methodologies for Flood Susceptibility Mapping and Urban Flood");
   const again = lib.createDeck("", deck("Resultados: Q3/2026"));
   assert.match(again, /Resultados Q3 2026 \(2\)/, "mesmo nome não sobrescreve");
 });

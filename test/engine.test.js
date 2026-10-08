@@ -875,3 +875,19 @@ test("compare: o símbolo do meio (vs) passa pela marcação (saía \"^^≠^^\" 
   assert.doesNotMatch(out, /\^\^/);
   assert.match(out, /≠/);
 });
+
+test("números no idioma do deck: em inglês 1,403 e 0.93; em português 1.403 e 0,93 (gráfico com as casas do valor)", () => {
+  const en = { title: "d", lang: "en", slides: [{}] }, pt = { title: "d", slides: [{}] };
+  const cv = (sp, value) => renderSlide({ layout: "number", value, label: "x" }, 0, sp).html.match(/class="cv">([^<]*)/)[1];
+  assert.equal(cv(en, "1,403"), "1,403");
+  assert.equal(cv(en, "37.67%"), "37.67%");
+  assert.equal(cv(en, 1403), "1,403");
+  assert.equal(cv(pt, 1403), "1.403");
+  assert.equal(cv(pt, "37,67%"), "37,67%");
+  const bars = (sp) => renderSlide({ layout: "chart", title: "x", chart: { chart: "bar", data: [{ label: "a", value: 0.93 }, { label: "b", value: 37.6692 }] } }, 0, sp).html;
+  assert.match(bars(en), />0\.93</);
+  assert.match(bars(en), />37\.67</, "duas casas no máximo, sem arredondar para 38");
+  assert.match(bars(pt), />0,93</);
+  // o idioma volta ao padrão no deck seguinte (sem vazar de um render para o outro)
+  assert.equal(cv(pt, 0.5), "0,5");
+});

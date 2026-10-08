@@ -66,7 +66,7 @@ slides:
 | `back` | id (ou número) do slide para onde o botão **Voltar** do canto leva; o botão mostra o título do destino |
 | `next` | id (ou número) do slide para onde o avanço leva **no fim deste slide** (o fim de um caminho volta ao mapa, em vez de seguir a ordem) |
 
-Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`).
+Títulos equilibram as linhas sem quebrar palavras arbitrariamente. A hifenização automática respeita o idioma do deck (`lang`, padrão `pt-BR`). Deck em outro idioma grava `lang` (`en`, `es`…): os números de contadores, gráficos e mapas seguem o idioma (em inglês, `1,403` e `0.93`).
 
 ## Marcação inline (qualquer texto)
 

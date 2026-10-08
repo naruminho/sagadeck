@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Apresentação da Maria Clara em inglês — 08/10/2026
+
+Gerada pelo caminho do Studio ("…que a Maria Clara vai fazer no ICFM10 sobre o artigo dela, em inglês"): 19 slides,
+`lang: en`, autor "Maria Clara Fava et al.", sem votação, figuras inteiras, trade-off em gráfico. Problemas do motor:
+
+- **Números em português num deck em inglês**: contador, gráficos, mapas, calculadora e laboratório de decisão
+  formatavam sempre em pt-BR ("1.403", "0,93"). `src/locale.js`: o idioma do deck (`lang`) vale para os números
+  (build define antes de renderizar; na apresentação, `<html lang>`); ler "1,403"/"37.67%" segue o idioma. Deck
+  gerado sem `lang` ganha o idioma pelo texto (`guessDeckLang`, palavras de ligação).
+- **Precisão do paper perdida**: "0.90" sem aspas virava 0.9 no YAML (tabela do NSE em inglês com 0.9, 7.8, 0.2).
+  Em tabela (rows/head/cells) e em value exibido, o número fica como foi escrito; dado de gráfico continua número. E o
+  gráfico mostrava 1 casa abaixo de 10 (0.93 → 0.9) e 0 acima (37.67 → 38): agora as casas do próprio valor, até 2.
+- **Texto vazando da caixa do diagrama flow** ("Low-lying areas near the drainage network" a 36 px fixos):
+  `boxFontSize` simula a quebra e desce até caber.
+- Nome da pasta cortado no meio da palavra ("…Urban Flood Predic"): corta no último espaço antes de 80.
+- Sem texto do motor em português no HTML (conferido no build: nenhum rótulo automático em pt).
+
 ## Retorno dos decks do ICFM10: autor errado, figura cortada, "^^≠^^", votação — 08/10/2026
 
 - **Autor**: os dois decks saíram "Narumi Abe" (o autor das Preferências), não Maria Clara Fava. Bug da rodada

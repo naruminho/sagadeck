@@ -1,6 +1,7 @@
 // Mapa do Brasil por UF em grade (cartograma de ladrilhos): cada estado é um quadrado na posição aproximada dele.
 // Sem geodados de fora (nada pede coisa à internet) e legível em slide: a cor diz o valor, o rótulo diz a UF.
 import { esc } from "../markup.js";
+import { formatNumber } from "../locale.js";
 
 // [coluna, linha] de cada UF, do norte ao sul, do oeste ao leste
 export const UF_GRID = {
@@ -14,7 +15,7 @@ export const UF_GRID = {
   RS: [1, 7],
 };
 
-const fmt = (v) => (Number.isFinite(v) ? v.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : "");
+const fmt = (v) => (Number.isFinite(v) ? formatNumber(v, { maximumFractionDigits: 1 }) : "");
 
 // o: { ufmap: { SP: 120, RJ: 80, … }, suffix, prefix, highlight: [SP], legend: "texto", showValues }
 export function ufmap(o, warnings) {

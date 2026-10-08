@@ -82,6 +82,20 @@ export function spectrum(o = {}) {
   return wrap([0, 0, W, 190], g, "spectrum");
 }
 
+// Tamanho da letra que cabe na caixa (largura × altura): simula a quebra por palavras e desce de 36 até 18 px.
+// Com 36 px fixos, "Low-lying areas near the drainage network" pedia 4 linhas e vazava por baixo da caixa.
+export function boxFontSize(text, w, h, { max = 36, min = 18, lh = 1.15, em = 0.56 } = {}) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  for (let fs = max; fs > min; fs -= 2) {
+    const cpl = Math.max(1, Math.floor(w / (fs * em)));
+    if (words.some((wd) => wd.length > cpl)) continue;
+    let lines = 1, len = 0;
+    for (const wd of words) { if (len && len + 1 + wd.length > cpl) { lines++; len = wd.length; } else len += (len ? 1 : 0) + wd.length; }
+    if (lines * fs * lh <= h) return fs;
+  }
+  return min;
+}
+
 export function flow(o = {}) {
   const steps = o.steps || [];
   const n = steps.length, bw = 300, gap = 90, bh = 150, vgap = 130;
@@ -90,7 +104,7 @@ export function flow(o = {}) {
   const id = `ar${++uid}`;
   const box = (x, y, s, hl) =>
     `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="18" style="fill:var(${hl ? "--hi" : "--surface"});stroke:var(--fg)" stroke-width="${hl ? 0 : 4}"/>` +
-    `<foreignObject x="${x + 16}" y="${y + 10}" width="${bw - 32}" height="${bh - 20}"><div xmlns="http://www.w3.org/1999/xhtml" class="f-heading" style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:36px;color:var(${hl ? "--on-hi" : "--fg"})">${esc(s)}</div></foreignObject>`;
+    `<foreignObject x="${x + 16}" y="${y + 10}" width="${bw - 32}" height="${bh - 20}"><div xmlns="http://www.w3.org/1999/xhtml" class="f-heading" style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;font-size:${boxFontSize(s, bw - 32, bh - 20)}px;color:var(${hl ? "--on-hi" : "--fg"})">${esc(s)}</div></foreignObject>`;
   const arrow = (x1, y1, x2, y2) =>
     `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" style="stroke:var(--fg)" stroke-width="8" marker-end="url(#${id})"/>`;
   let g = arrowDefs(id);
