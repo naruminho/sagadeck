@@ -25,8 +25,9 @@ Os itens abaixo vieram de duas rodadas de 08/10/2026, ambas descritas nas seçõ
   do Windows, que nesta máquina é redirecionada para o OneDrive: `C:\Users\narum\OneDrive\Documents\sagadeck`. O
   caminho antigo virou junção.
 
-**Ordem combinada com quem mantém o projeto (Narumi):** 1, depois 4, depois 8 (o 1 já entrou: seção "Gravação
-tolerante a arquivo travado" abaixo). O resto fica para depois e só entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada item:
+**Ordem combinada com quem mantém o projeto (Narumi):** 1, depois 4, depois 8: os três entraram em 08/10 (seções
+datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de começar, leia o `CLAUDE.md`
+(regras). Para cada item:
 - teste que falha antes da correção;
 - `npm test` passando;
 - uma branch por item, PR e merge na hora, sem perguntar;
@@ -44,17 +45,6 @@ tolerante a arquivo travado" abaixo). O resto fica para depois e só entra se fo
 
 **Geração de apresentações**
 
-4. **Bancada de qualidade repetível (a maior lacuna).** Hoje, saber se a geração a partir de PDF melhorou depende
-   de gerar decks e olhar um por um. Montar um teste ao vivo (só com `SAGADECK_LIVE=1`, como o
-   `test/ai-live.test.js`) que gera a partir de PDFs fixos e dá nota: figuras do paper cobertas
-   (`coverDocumentVisuals`/`uncoveredVisuals`), recorte sem legenda, equações numeradas transcritas, números que
-   não estão no paper (`checkNumbers`), autor do documento (não o das Preferências), sem votação em deck acadêmico,
-   sem slide de uma frase gigante (`auditText`), idioma pedido. Grava um relatório com as notas para comparar
-   entre versões. PDFs usados nesta rodada (baixados da internet, NÃO entram no repositório; apontar por variável
-   de ambiente, ex. `SAGADECK_BENCH_DIR`): `C:\Users\narum\Downloads\75286_pt.pdf` (eucalipto/ETR, o das
-   equações), `C:\Users\narum\Downloads\93d854559fbed77d3b0fb078919cdb3e9edb.pdf` (Beberibe/LiDAR, mapas) e
-   `C:\Users\narum\Downloads\ICFM10 Full - 080.pdf` (Maria Clara, ICFM10; pedido em inglês e em português, "ela
-   vai apresentar o artigo dela").
 5. **Equações que a leitura da página deixou passar.** `assignEquations` (`src/ai/document-visuals.js`) já põe em
    `out.missed` as equações numeradas do texto que a visão não listou, mas só registra. Dar a elas uma segunda
    leitura focada (recortar a região pelo `equationBox` e chamar `transcribeEquation`).
@@ -69,6 +59,34 @@ tolerante a arquivo travado" abaixo). O resto fica para depois e só entra se fo
 9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
+
+## Bancada de qualidade da geração a partir de paper — 08/10/2026
+
+Item 4 das próximas frentes. Saber se a geração a partir de PDF melhorou dependia de gerar decks e olhar um por um.
+Agora há uma bancada repetível que gera pelos mesmos PDFs e dá nota.
+
+- **Nota** (`src/ai/bench.js`, `scoreDeck`): de 0 a 100 por quesito, com as mesmas ferramentas da autocrítica:
+  figuras/tabelas numeradas com slide (`uncoveredVisuals`), recorte de figura sem legenda nem "Fonte:" dentro (linha
+  de legenda/crédito da camada de texto do PDF cruzando a caixa do recorte), equações numeradas do texto com LaTeX
+  (`equationGroups` × inventário), números na tela sem base no documento (`unsupportedNumbers`), autor do documento
+  e não o das Preferências, sem votação em deck acadêmico, sem slide de frase gigante (`auditText`) e idioma pedido
+  (texto e `lang`). Quesito sem como medir fica "—" (não conta como bom). Total = média.
+- **Mesmo caminho do Studio**: as opções da geração saíram do servidor para `src/studio/generate.js`
+  (`generateForStudio`: Preferências, anexos com inventário na pasta do deck, revisão pelos slides renderizados); o
+  `generateIntoLibrary` e a bancada usam a mesma função. A bancada passa Preferências fixas (autor de mentira para
+  pegar autor errado, sem perguntar, sem imagens geradas).
+- **Rodar** (lento; os PDFs não entram no repositório):
+  `SAGADECK_LIVE=1 SAGADECK_BENCH_DIR=C:\Users\narum\Downloads node --test test/bench-live.test.js`.
+  Casos: `eucalipto` (75286_pt.pdf, o das equações), `beberibe` (mapas), `icfm10-en` e `icfm10-pt` (Maria Clara
+  apresenta o artigo dela, em inglês e em português). Só alguns: `SAGADECK_BENCH_CASOS=eucalipto,icfm10-en`.
+- **Relatório**: `<data>-<versão>.json` e `.md` em `SAGADECK_BENCH_OUT` (senão `<SAGADECK_BENCH_DIR>\sagadeck-bancada`),
+  com o quadro caso × quesito, a diferença para a rodada anterior e, por caso, o que puxou a nota para baixo (figura
+  que faltou, recorte com legenda, número sem base). Os decks ficam na biblioteca temporária da suíte.
+- Primeira rodada (modelo do modelrelay, `text`/`vision`): `icfm10-en` tirou 100 em 14 min (19 slides, 6/6 figuras
+  e tabelas, 6/6 recortes limpos, nenhum número sem base, "Maria Clara Fava et al.", inglês com `lang: en`; sem
+  equação numerada no paper). O eucalipto (o das equações) estava rodando quando este PR entrou.
+- Testes: `test/bench.test.js` (cada quesito num deck e material montados à mão, legenda na coluna vizinha não
+  conta, relatório com a comparação) e `test/bench-live.test.js` (só com `SAGADECK_LIVE=1` e `SAGADECK_BENCH_DIR`).
 
 ## app.js abaixo do limite: Preferências e Cabeçalho/Rodapé em módulos — 08/10/2026
 

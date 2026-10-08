@@ -12,7 +12,7 @@ const oneLinerText = s => s.text || s.quote || (Array.isArray(s.lines) ? s.lines
 // Conferência de texto sem visão (determinística, roda sempre): frase longa em layout de impacto vira tela de uma
 // frase gigante; uma apresentação feita de frases soltas não explica nada. Os achados voltam para a correção da IA.
 // Interação de plateia (enquete, votação, quiz, cronômetro): em apresentação acadêmica não entra sem pedido.
-const VOTING = (s) => s.layout === 'poll' || (s.layout === 'question' && Array.isArray(s.options) && s.options.length) || s.poll != null || s.timer != null;
+export const votingSlide = (s) => s.layout === 'poll' || (s.layout === 'question' && Array.isArray(s.options) && s.options.length) || s.poll != null || s.timer != null;
 const ASKED_INTERACTION = /vota|votação|enquete|quiz|interativ|dinâmica|gamific|perguntas? (?:para|à) plateia/i;
 // marcação que sobrou crua no texto visível (campo que não passa pela marcação): "^^≠^^", "==x==", "**x**"
 const RAW_MARKUP = /\^\^[^^\n]{1,40}\^\^|==[^=\n]{1,60}==|\*\*[^*\n]{1,60}\*\*/;
@@ -25,7 +25,7 @@ export function auditText(spec, indices, { briefing = '', render = null } = {}) 
   const academic = !!spec.context?.autoria || /congresso|simp[óo]sio|confer[êe]ncia|defesa|banca|journal club|semin[áa]rio/i.test(`${briefing} ${JSON.stringify(spec.context || {})}`);
   if (academic && !ASKED_INTERACTION.test(briefing)) for (const index of indices) {
     const s = slides[index];
-    if (s && VOTING(s)) issues.push({ slide: index + 1, text: 'Votação/enquete numa apresentação acadêmica que não pediu interação. Tire o mecanismo de voto (options, timer, poll): a pergunta para discussão vira slide de texto (question sem options, statement ou split) ou vai nas notes.' });
+    if (s && votingSlide(s)) issues.push({ slide: index + 1, text: 'Votação/enquete numa apresentação acadêmica que não pediu interação. Tire o mecanismo de voto (options, timer, poll): a pergunta para discussão vira slide de texto (question sem options, statement ou split) ou vai nas notes.' });
   }
   // slide repetido (mesmo layout e mesmo título de outro): duas capas, o mesmo resultado em dois slides seguidos
   const sig = (s) => `${s?.layout}|${String(s?.title || s?.text || s?.question || '').replace(/[=*^_~`]/g, '').trim().toLowerCase()}`;
