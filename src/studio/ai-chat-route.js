@@ -16,6 +16,25 @@ import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
 
+// Arquivos que a IA pode pedir para ver (ver: […]): imagens DENTRO da pasta da apresentação (os recortes e as
+// páginas do material ficam em contexto/visuais/). Caminho que sai da pasta, que não existe ou que não é imagem fica
+// de fora; no máximo 6.
+export function lookableFiles(deckDir, wanted = []) {
+  if (!deckDir) return [];
+  const root = path.resolve(deckDir);
+  const out = [];
+  for (const w of wanted) {
+    const rel = String(w || "").replace(/\\/g, "/").replace(/^\.\//, "").trim();
+    if (!rel || !/\.(png|jpe?g|webp|gif)$/i.test(rel)) continue;
+    const abs = path.resolve(root, rel);
+    if (abs !== root && !abs.startsWith(root + path.sep)) continue;
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
+    if (!out.some((o) => o.abs === abs)) out.push({ rel, abs });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, staleTab, llmAvailable, llmConfig, lookAt, withBase, apiBlocked, ensureEnsaio, readPastedLinks, imageOptions, apiContextFor, commandRunner, diagramCheck, slideSnapshots, persist, isBundledTemplate, runTransform, transforms, apiEnv }) {
   if (pathname === "/api/ai/chat/cancel" && req.method === "POST") {
     const body = await readJSON(req);
@@ -77,9 +96,10 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
         const chatResearch = await maybeResearch({ prompt, materials, saveDir: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? path.dirname(taskWorkspace.file) : null, onProgress: (s) => emit({ phase: "step", text: s }) });
         materials = chatResearch.materials;
         if (chatResearch.report?.fontes?.length) linkActions.push(`Pesquisa na web: ${chatResearch.report.fontes.length} fonte(s) (${chatResearch.report.fontes.map((f) => f.site).join(", ")})`);
-        result = await editDeck({
+        const firstInstruction = chatResearch.instruction ? `${chatResearch.instruction}\n${prompt}` : prompt;
+        const editOpts = (extra = {}) => ({
           spec: withBase(taskWorkspace, spec), signal,
-          instruction: chatResearch.instruction ? `${chatResearch.instruction}\n${prompt}` : prompt,
+          instruction: firstInstruction,
           targetSlide: target,
           issues,
           images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
@@ -94,8 +114,34 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
           runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
           reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit, signal, briefing:prompt }),
           styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
+          ...extra,
         });
+        result = await editDeck(editOpts());
         signal.throwIfAborted();
+        // A IA pediu para VER o material (ver: [recortes, páginas]): do documento ela só recebe o texto e o
+        // inventário. O Studio carrega as imagens (só arquivos da pasta desta apresentação) e chama de novo, com elas
+        // anexadas; até 2 rodadas. Antes ela respondia "não tenho acesso ao PDF" ou dizia ter visto o que não viu.
+        const deckDir = taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? path.dirname(taskWorkspace.file) : null;
+        const seen = [];
+        for (let round = 1; result.look?.length && round <= 2; round++) {
+          const files = lookableFiles(deckDir, result.look);
+          const missing = result.look.filter((f) => !files.some((x) => x.rel === f.replace(/\\/g, "/").replace(/^\.\//, "")));
+          emit({ phase: "step", text: files.length ? `Olhando o material: ${files.map((f) => path.basename(f.rel)).join(", ")}…` : "Os arquivos pedidos não estão na pasta da apresentação." });
+          const { imagesAsDataUrls } = await import("../import/crop.js");
+          const urls = files.length ? await imagesAsDataUrls(files.map((f) => f.abs), { width: 1600, quality: 0.9 }) : [];
+          signal.throwIfAborted();
+          files.forEach((f, k) => urls[k] && seen.push({ label: `material: ${f.rel}`, dataUrl: urls[k] }));
+          result.actions = [...(result.actions || []), files.length ? `Olhei no material: ${files.map((f) => f.rel).join(", ")}` : "Pedido de ver o material sem arquivo válido"];
+          const before = result;
+          result = await editDeck(editOpts({
+            visuals: [...visuals, ...seen],
+            history: [...history, { role: "user", text: prompt }, { role: "assistant", text: before.reply }],
+            instruction: `${files.length ? `Aqui estão as imagens do material que você pediu para ver (${files.map((f) => f.rel).join(", ")}), anexadas com o rótulo "material: <arquivo>".` : "Nenhuma das imagens pedidas existe na pasta da apresentação."}${missing.length ? ` Não encontrei: ${missing.join(", ")} (use os caminhos exatos do inventário: recortes em items[].image e páginas inteiras em pages).` : ""} Agora atenda o pedido da pessoa já vendo, sem pedir de novo o que já está aqui:\n"""\n${firstInstruction}\n"""`,
+          }));
+          signal.throwIfAborted();
+          result.actions = [...before.actions, ...(result.actions || [])];
+        }
+        if (result.look?.length) result = { ...result, look: undefined, talk: true, reply: `${result.reply}\n(Já mostrei as imagens duas vezes; me diga o que procurar nelas.)` };
         // documento anexado NESTA mensagem e a resposta montou/reescreveu a maior parte do deck (criar a apresentação
         // do paper pelo chat): a mesma conferência de cobertura da geração. Pedido pontual ("use a figura 3 no slide
         // 5") não dispara: mexe em poucos slides.

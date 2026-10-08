@@ -563,6 +563,40 @@ test('Studio: criar a apresentação do paper pelo chat confere a cobertura (fig
   } finally {await studio.close();await llm.close();deck.cleanup();}
 });
 
+test('Studio: o chat pede para VER o material (ver: página/recorte) e responde já vendo; caminho fora da pasta é recusado', async () => {
+  const zip = new JSZip();
+  zip.file('word/document.xml','<w:document><w:body><w:p><w:r><w:t>Resultados</w:t><a:blip r:embed="a"/></w:r></w:p></w:body></w:document>');
+  zip.file('word/_rels/document.xml.rels','<Relationships><Relationship Id="a" Target="media/a.png"/></Relationships>');
+  zip.file('word/media/a.png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
+  const bytes = await zip.generateAsync({type:'nodebuffer'});
+  const asked = [];
+  const deck = tempDeck(), llm = await startMockLLM(req => {
+    if (/Decida se o que você JÁ SABE basta/.test(req.lastUser)) return '{"pesquisar": false, "motivo": "pergunta sobre o anexo", "academico": false, "buscas": []}';
+    asked.push(req);
+    if (asked.length === 1) {
+      const inventory = JSON.parse(req.lastUser.match(/INVENTÁRIO VISUAL[^\n]*\n([^\n]+)/)[1]);
+      return 'Vou olhar a figura antes de responder.\n```yaml\nver: [' + JSON.stringify(inventory.items[0].image) + ', "../../fora.png"]\n```';
+    }
+    return 'Vi a figura: é um quadrado preto, sem rótulos.';
+  }), studio = await startStudio(deck.file,{llmUrl:llm.url});
+  const call = async (route,body) => (await fetch(studio.url+route,{method:body?'POST':'GET',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined})).json();
+  try {
+    fs.writeFileSync(path.join(path.dirname(deck.dir), 'fora.png'), 'x');
+    const attached = await call('/api/ai/context',{name:'paper.docx',dataUrl:'data:application/octet-stream;base64,'+bytes.toString('base64')});
+    const current = await call('/api/deck');
+    const result = await call('/api/ai/chat',{message:'O que a figura 1 mostra?',spec:current.spec,attachments:[{type:'doc',id:attached.id}]});
+    assert.equal(result.error, undefined);
+    assert.equal(asked.length, 2, 'pediu para ver e foi chamada de novo com as imagens');
+    assert.match(asked[0].system, /VER O MATERIAL ANEXADO/);
+    const images = (asked[1].messages.at(-1).content || []).filter(p => p.type === 'image_url');
+    assert.equal(images.length, 1, 'só a imagem do material; o arquivo fora da pasta não foi');
+    assert.match(JSON.stringify(asked[1].messages.at(-1).content), /material: contexto\/visuais\//);
+    assert.match(asked[1].lastUser, /Não encontrei: \.\.\/\.\.\/fora\.png/);
+    assert.match(result.reply, /Vi a figura/);
+    assert.ok(result.actions.some(a => /Olhei no material: contexto\/visuais\//.test(a)));
+  } finally {await studio.close();await llm.close();deck.cleanup();}
+});
+
 test('Word: barra horizontal, pizza e tipo desconhecido (vira tabela, nada se perde)', async () => {
   const chartXML = (plot) => `<c:chartSpace><c:chart><c:plotArea>${plot}</c:plotArea></c:chart></c:chartSpace>`;
   const ser = (name, labels, values) => `<c:ser><c:tx><c:v>${name}</c:v></c:tx><c:cat>${labels.map((l, i) => `<c:pt idx="${i}"><c:v>${l}</c:v></c:pt>`).join('')}</c:cat><c:val>${values.map((v, i) => `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`).join('')}</c:val></c:ser>`;

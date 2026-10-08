@@ -623,6 +623,15 @@ delete: [7]        # números (atuais) dos slides a remover
 test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
 review: true       # conferir visualmente os slides alterados; use ao criar experiências ou reformular composição
 \`\`\`
+VER O MATERIAL ANEXADO: do documento você recebe o texto inteiro e o INVENTÁRIO (legendas, caminhos dos recortes e
+das páginas inteiras em \`pages\`), mas NÃO as imagens. Quando a resposta depender do que uma figura, tabela ou página
+mostra (ler um valor de gráfico, conferir um rótulo, comparar o recorte com a página, avaliar se a figura presta),
+peça para ver ANTES de responder ou mexer: responda uma frase e um bloco yaml só com
+\`\`\`yaml
+ver: [contexto/visuais/…/page-06.png, contexto/visuais/…/…-figure-….png]   # até 6 arquivos do inventário
+\`\`\`
+O Studio devolve as imagens e você continua o pedido já vendo. Nunca diga que viu ou leu uma figura que não pediu
+para ver; e não diga que não tem acesso ao material: você tem o texto e pode ver qualquer página ou recorte assim.
 TRANSFORMAR A APRESENTAÇÃO INTEIRA (só quando o deck atual veio de um PowerPoint importado, com \`import:\` no deck e slides
 com \`importado:\`): se a pessoa pedir para MELHORAR a apresentação toda mantendo o estilo do original, ou para RECRIAR do zero,
 não faça patch: responda uma frase dizendo o que vai fazer e um bloco yaml só com
@@ -742,7 +751,7 @@ export function applyPatch(base, patch) {
 const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "image_ref", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
 const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "consulta", "output", "json"]);
-const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test"]);
+const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test", "ver"]);
 let knownKeysCache = null;
 function knownSlideKeys() {
   if (knownKeysCache) return knownKeysCache;
@@ -873,7 +882,7 @@ function parseEditText(text, base) {
   const { text: body, options } = parseOptions(text);
   text = body;
   // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete"/"variants:", é YAML.
-  const bare = /^(slides|edit|deck|insert|delete|variants|test)\s*:/m.exec(text);
+  const bare = /^(slides|edit|deck|insert|delete|variants|test|ver)\s*:/m.exec(text);
   if (!/```/.test(text) && bare) text = `${text.slice(0, bare.index)}\n\`\`\`yaml\n${text.slice(bare.index)}\n\`\`\``;
   const hasYaml = /```/.test(text);
   if (!hasYaml) {
@@ -885,6 +894,12 @@ function parseEditText(text, base) {
   const raw = parseYaml(yaml);
   if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete (ou variants).");
   if (raw.variants) return parseVariants(raw.variants, base, prose);
+  // ver: [arquivos] → a IA quer OLHAR o material (recorte, página inteira) antes de responder; quem mostra é o Studio
+  if (raw.ver || raw.look) {
+    const files = [].concat(raw.ver || raw.look).map((f) => String(f || "").trim()).filter(Boolean);
+    if (!files.length) throw new Error("ver: mande a lista de arquivos do inventário (recortes ou páginas) que quer ver.");
+    return { spec: base, prose, changed: [], look: files.slice(0, 6) };
+  }
   if (raw.estilo || raw.style) {
     const e = raw.estilo || raw.style;
     const act = typeof e === "string" ? { aplicar: e } : e || {};
@@ -974,7 +989,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review, look } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
       if (repairSlides && (parsed.spec.slides.length !== spec.slides.length || parsed.changed?.some(i => !repairSlides.includes(i)))) throw new Error('A revisão só pode corrigir os slides indicados, sem inserir, excluir ou alterar outros slides.');
@@ -995,6 +1010,8 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
   // transformar a apresentação inteira: quem executa é o servidor (src/ai/transform.js), com o andamento no chat
   if (transform) return { reply: prose || "Vou transformar a apresentação.", spec, actions, targetSlide, transform };
+  // quer ver o material antes de responder: o Studio mostra as imagens e chama de novo (src/studio/ai-chat-route.js)
+  if (look) return { reply: prose || "Vou olhar o material.", spec, actions, targetSlide, look };
   // estilo (Brand Kit): quem aplica/salva é o servidor, com a biblioteca
   if (style) return { reply: prose || "Certo.", spec, actions, targetSlide, style };
   // versões para escolher: nada muda até a pessoa escolher uma

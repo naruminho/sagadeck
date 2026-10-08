@@ -8,6 +8,21 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## O chat pode VER o material anexado (ver:) — 08/10/2026
+
+Retorno: no chat do deck do ICFM10, "vc tem acesso ao pdf?" levou a IA a dizer que "consegue ler as figuras
+recortadas e abrir a página inteira", o que era falso: do documento o chat recebe o texto e o inventário (legendas,
+caminhos), nunca as imagens. Sem jeito de olhar, ela não conseguia consultar o material de verdade.
+
+- `ver: [arquivos]` na resposta da IA (como o `test:` dos slides api): o Studio carrega as imagens pedidas (só de
+  dentro da pasta da apresentação, até 6: recortes em items[].image e páginas inteiras em pages), chama de novo com
+  elas anexadas ("material: <arquivo>") e a IA responde já vendo; até 2 rodadas (`lookableFiles`, `ai-chat-route.js`).
+- Regra no formato da resposta: pedir para ver antes de responder sobre o que a figura mostra; nunca dizer que viu o
+  que não pediu; nunca dizer que não tem acesso ao material.
+- Ao vivo (deck do ICFM10, modelo de verdade): "qual a ordem das 5 variáveis mais importantes da Figura 4b?" — pediu
+  o recorte e a página 6, leu hand ≈ 100, elevation ≈ 45… e avisou que são leituras do eixo; 22 s, nada mudou.
+- Teste: `test/document-visuals.test.js` (pede, recebe a imagem rotulada, caminho para fora da pasta recusado).
+
 ## Paper para congresso, 2ª rodada: equações, redesenho com volta ao original, dados corrompidos — 08/10/2026
 
 Pedido: equação não precisa de recorte se vira LaTeX (e, se precisar, que o recorte preste); gráfico pode ser
