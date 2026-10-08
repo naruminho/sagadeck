@@ -57,7 +57,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck estudo <deck.yaml> [--html]         gera <deck> - material de estudo.pdf (cada slide + texto de consulta)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
   sagadeck studio [deck.yaml|x.sagadeck] [--port=3517] [--library=PASTA]  sem arquivo: abre a biblioteca; já aberto: usa o aberto
-                                   (PASTA padrão: SAGADECK_HOME ou ~/sagadeck); com arquivo: abre o editor dele
+                                   (PASTA padrão: SAGADECK_HOME, senão Documentossagadeck no Windows, ~/sagadeck fora dele); com arquivo: abre o editor dele
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
                                    --agentes=naru,ana: no multiusuário, quem pode deixar a IA rodar comandos (padrão: ninguém)
@@ -124,6 +124,14 @@ async function doShots(p, dir = p.shots) {
 }
 
 async function main() {
+  // biblioteca antiga (~/sagadeck) vai para Documentos\sagadeck no Windows, uma vez (src/library.js)
+  if (!flags.library) {
+    const { migrateLegacyLibrary } = await import("../src/library.js");
+    const m = migrateLegacyLibrary();
+    if (m.moved) console.log(`✓ biblioteca movida para ${m.target} (o caminho antigo ${m.legacy} continua levando até ela)`);
+    else if (m.error) console.log(`! não deu para mover a biblioteca para ${m.target} (${m.error}); sigo usando ${m.legacy}`);
+    else if (m.skipped === "as duas têm conteúdo") console.log(`! há apresentações em ${m.legacy} e em ${m.target}; uso ${m.target}. Junte as duas pelo Explorer se quiser.`);
+  }
   switch (cmd) {
     case "napkin":
     case "visual": {

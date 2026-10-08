@@ -8,6 +8,16 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Biblioteca padrão em Documentos\sagadeck — 08/10/2026
+
+Pedido: a biblioteca padrão no Windows é a pasta `sagadeck` dentro de Documentos (antes, `~/sagadeck`, direto na
+pasta do usuário). `defaultLibraryRoot`: `SAGADECK_HOME`, senão `<Documentos>\sagadeck` no Windows (a pasta
+conhecida "Personal" do registro: a que o Explorer mostra, inclusive redirecionada; aqui é
+`C:\Users\narum\OneDrive\Documents`, então a biblioteca sincroniza com o OneDrive) e `~/sagadeck` fora dele.
+`migrateLegacyLibrary` (na partida do `sagadeck`): move a biblioteca antiga inteira (mesma unidade: instantâneo) e
+deixa uma junção no caminho antigo; não mistura se as duas têm conteúdo; falhou, a antiga continua valendo (nunca
+abre vazia). CLAUDE.md, README, ajuda, MCP e Python atualizados. Teste: `test/library.test.js`.
+
 ## Apresentação da Maria Clara em inglês — 08/10/2026
 
 Gerada pelo caminho do Studio ("…que a Maria Clara vai fazer no ICFM10 sobre o artigo dela, em inglês"): 19 slides,

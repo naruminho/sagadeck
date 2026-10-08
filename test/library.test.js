@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
-import { openLibrary, safeName, defaultLibraryRoot, TRASH_DAYS } from "../src/library.js";
+import { openLibrary, safeName, defaultLibraryRoot, migrateLegacyLibrary, TRASH_DAYS } from "../src/library.js";
 import { packDeck } from "../src/package.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-lib-"));
@@ -129,9 +129,34 @@ test("não dá para sair da biblioteca por um id malicioso", () => {
   }
 });
 
-test("pasta padrão: SAGADECK_HOME, senão ~/sagadeck", () => {
+test("pasta padrão: SAGADECK_HOME, senão Documentos\\sagadeck no Windows e ~/sagadeck fora dele", () => {
   assert.equal(defaultLibraryRoot({ SAGADECK_HOME: "D:/decks" }), path.resolve("D:/decks"));
-  assert.equal(defaultLibraryRoot({}), path.join(os.homedir(), "sagadeck"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-home-")), docs = path.join(home, "OneDrive", "Documents");
+  try {
+    assert.equal(defaultLibraryRoot({}, { platform: "linux", home, documents: null }), path.join(home, "sagadeck"));
+    assert.equal(defaultLibraryRoot({}, { platform: "win32", home, documents: docs }), path.join(docs, "sagadeck"), "Windows sem biblioteca antiga: Documentos");
+    // biblioteca antiga com apresentações e ainda não movida: continua valendo (nunca abre vazia)
+    fs.mkdirSync(path.join(home, "sagadeck", "Palestras"), { recursive: true });
+    assert.equal(defaultLibraryRoot({}, { platform: "win32", home, documents: docs }), path.join(home, "sagadeck"));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test("biblioteca antiga (~/sagadeck) vai para Documentos\\sagadeck uma vez, e o caminho antigo continua levando até ela", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-mig-")), docs = path.join(home, "OneDrive", "Documents");
+  const opt = { platform: "win32", home, documents: docs };
+  try {
+    const deck = path.join(home, "sagadeck", "Palestras", "Minha", "Minha.yaml");
+    fs.mkdirSync(path.dirname(deck), { recursive: true });
+    fs.writeFileSync(deck, "title: Minha\nslides: []\n");
+    const m = migrateLegacyLibrary({}, opt);
+    assert.equal(m.moved, true, JSON.stringify(m));
+    assert.ok(fs.existsSync(path.join(docs, "sagadeck", "Palestras", "Minha", "Minha.yaml")), "a apresentação está em Documentos");
+    assert.equal(defaultLibraryRoot({}, opt), path.join(docs, "sagadeck"));
+    assert.equal(fs.readFileSync(deck, "utf8"), "title: Minha\nslides: []\n", "o caminho antigo ainda chega ao arquivo (junção)");
+    assert.equal(migrateLegacyLibrary({}, opt).skipped, "nada a mover", "a segunda vez não faz nada");
+    assert.equal(migrateLegacyLibrary({ SAGADECK_HOME: "D:/x" }, opt).skipped, "SAGADECK_HOME");
+    assert.equal(migrateLegacyLibrary({}, { ...opt, platform: "linux", documents: null }).skipped, "fora do Windows");
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
 test("pasta da biblioteca apagada por fora (Explorer, limpeza): volta a existir em vez de quebrar", () => {
