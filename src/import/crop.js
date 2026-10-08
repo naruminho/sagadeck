@@ -48,11 +48,18 @@ export async function cropRegions(jobs) {
           const x = Math.max(0, Math.floor(j.x)), y = Math.max(0, Math.floor(j.y));
           const w = Math.max(1, Math.min(img.width - x, Math.ceil(j.w))), h = Math.max(1, Math.min(img.height - y, Math.ceil(j.h)));
           const c = document.createElement("canvas"); c.width = w; c.height = h;
-          c.getContext("2d").drawImage(img, x, y, w, h, 0, 0, w, h);
-          return c.toDataURL("image/png");
+          const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, x, y, w, h, 0, 0, w, h);
+          // densidade de tinta (fração de pixels não-papel): recorte quase em branco = caixa errada
+          let ink = 0;
+          try {
+            const d = g.getImageData(0, 0, w, h).data;
+            for (let i = 0; i < d.length; i += 16) { if ((d[i] + d[i + 1] + d[i + 2]) / 3 < 235) ink++; }
+            ink /= d.length / 16;
+          } catch { ink = 1; }
+          return { png: c.toDataURL("image/png"), ink };
         });
       }, [data, list.map(({ x, y, w, h }) => ({ x, y, w, h }))]);
-      outs.forEach((u, k) => { fs.writeFileSync(list[k].dst, Buffer.from(u.split(",")[1], "base64")); done.push(list[k].dst); });
+      outs.forEach((u, k) => { fs.writeFileSync(list[k].dst, Buffer.from(u.png.split(",")[1], "base64")); list[k].ink = u.ink; done.push(list[k].dst); });
     }
   } finally { await browser.close(); }
   return done;

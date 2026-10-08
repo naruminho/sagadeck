@@ -9,7 +9,7 @@ import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
 import { materialsBlock } from '../src/ai/context.js';
-import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions } from '../src/ai/document-visuals.js';
+import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop } from '../src/ai/document-visuals.js';
 
 test('recorte PDF protege a palavra e a legenda que cruzam a borda, sem capturar linhas distantes',()=>{
   const box=protectPDFText([300,400,380,215],[{left:650,top:500,right:740,bottom:520},{left:100,top:620,right:900,bottom:632},{left:100,top:800,right:900,bottom:815}]);
@@ -124,8 +124,7 @@ test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()
   assert.ok(!proseSuspect([100,200,700,400],[]), 'vazio não é suspeito');
 });
 
-test('orphanCaptions: legenda sem item que a cubra (inclui "Quadro")',()=>{
-  const boxes=[
+test('orphanCaptions: legenda sem item que a cubra (inclui "Quadro")',()=>{  const boxes=[
     {text:'Figura 1 - A: Localização da região',left:100,top:600,right:900,bottom:620},
     {text:'como mostra a Figura 1, os viveiros',left:100,top:300,right:900,bottom:320},
     {text:'Quadro 1 - Ingredientes da ração',left:100,top:800,right:900,bottom:820},
@@ -135,6 +134,13 @@ test('orphanCaptions: legenda sem item que a cubra (inclui "Quadro")',()=>{
   assert.deepEqual(orphans.map(o=>o.n),['1'], `Figura 1 órfã; menção em prosa não conta; Tabela 1 coberta: ${JSON.stringify(orphans)}`);
   const inv2={items:[{caption:'Figura 1 - mapa'},{caption:'Quadro 1 - ingredientes'}]};
   assert.deepEqual(orphanCaptions(inv2,boxes),[],'tudo coberto, nada órfão');
+});
+
+test('isBlankCrop: quase-branco grande é suspeito; com tinta ou pequeno, não',()=>{
+  assert.ok(isBlankCrop(0.01,[100,100,800,400]),'legenda + papel = suspeito');
+  assert.ok(!isBlankCrop(0.06,[100,100,800,400]),'mapa claro passa');
+  assert.ok(!isBlankCrop(0.01,[100,100,10,10]),'miniatura não conta');
+  assert.ok(!isBlankCrop(undefined,[100,100,800,400]),'sem medida não acusa');
 });
 
 test('Word: todas as figuras, tabelas e equações são inventariadas com seus dados originais', async () => {
@@ -191,6 +197,27 @@ test('PDF: caixa de figura em cima de prosa pede localização de novo (retry co
     assert.match(calls[1] || '', /texto corrido/, 'dica menciona o problema');
     const final = docs[0].inventory.items[0].box;
     assert.ok(final[0] >= 30 && final[0] <= 50 && final[1] >= 770 && final[1] <= 800, `valeu a segunda localização: ${final}`);
+    assert.ok(fs.existsSync(path.join(dir, docs[0].inventory.items[0].image)));
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('PDF: resposta inválida da visão tenta de novo uma vez (sem travar em fallback)', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-retry2-'));
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<h1>Resultados</h1><svg width="300" height="100"><path d="M0 90L300 10" stroke="black"/></svg>');
+    const bytes = await page.pdf();
+    const material = { name: 'paper.pdf', text: 'Resultados', detail: 'pdf', bytes };
+    let calls = 0;
+    const inspect = async () => {
+      calls++;
+      if (calls === 1) throw Error('Inventário inválido (término informado pelo provedor: stop).');
+      return { complete: true, items: [{ kind: 'figure', caption: 'Gráfico', bounds: { left: 50, top: 300, right: 950, bottom: 700 } }] };
+    };
+    const docs = await prepareDocumentMaterials([material], dir, { inspect });
+    assert.equal(calls, 2, 'tentou de novo após erro transitório');
+    assert.equal(docs[0].inventory.items.length, 1, 'valeu a segunda leitura');
     assert.ok(fs.existsSync(path.join(dir, docs[0].inventory.items[0].image)));
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

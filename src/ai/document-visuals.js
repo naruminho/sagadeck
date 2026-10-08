@@ -169,6 +169,14 @@ export function orphanCaptions(inventory, textBoxes) {
   return out;
 }
 
+// Recorte quase em branco (só legenda + papel): a caixa errou a arte. Vale para figuras;
+// gráficos e tabelas legítimos têm tinta própria e passam longe do teto.
+export function isBlankCrop(ink, box) {
+  if (typeof ink !== 'number' || !Array.isArray(box)) return false;
+  const [, , w, h] = box;
+  return ink < 0.025 && w * h > 300;
+}
+
 // Caixa de "figura" em cima de texto corrido (a visão marcou prosa, não arte): fração da
 // área coberta por texto que NÃO é legenda. Arte de verdade tem pouca ou nenhuma palavra.
 export function proseSuspect(box, textBoxes) {
@@ -297,7 +305,16 @@ async function pdfVisuals(bytes, folder, dir, prefix, { inspect = inspectPDFPage
   for (let i=0; i<pages.length; i++) {
     signal?.throwIfAborted(); onProgress({phase:'document',text:`Conferindo figuras, tabelas e equações: página ${i+1} de ${pages.length}…`});
     const loadInventory = async (hint) => {
-      const inv = await inspect(previews[i], i+1, {signal,onProgress, ...(hint?{hint}:{})});
+      let inv;
+      try {
+        inv = await inspect(previews[i], i+1, {signal,onProgress, ...(hint?{hint}:{})});
+      } catch (e) {
+        // resposta inválida/erro transitório do provedor: UMA segunda chance antes do fallback
+        // (mas não em timeout/abort: esperar de novo só atrasa o inevitável)
+        if (signal?.aborted || /esgotado|abort|tempo/i.test(e.message || '')) throw e;
+        onProgress({phase:'document',text:`Página ${i+1}: primeira leitura falhou (${e.message}); tentando de novo…`});
+        inv = await inspect(previews[i], i+1, {signal,onProgress, ...(hint?{hint}:{})});
+      }
       if (!inv.complete || !Array.isArray(inv.items)) throw Error('Inventário visual incompleto.');
       for (const item of inv.items) {
         if (item.bounds) {
@@ -350,6 +367,15 @@ async function pdfVisuals(bytes, folder, dir, prefix, { inspect = inspectPDFPage
       items.push({id,kind:source.kind,page:i+1,caption:String(source.caption || `${source.kind} — página ${i+1}`),image:rel(dir,dst),box,...(source.needsReview?{needsReview:true}:{}),...(source.kind==='equation'&&typeof source.latex==='string'?{latex:source.latex}:{}),...(source.kind==='table'&&Array.isArray(source.rows)?{rows:source.rows}:{})});
     }
     await cropRegions(jobs);
+    // recorte quase em branco (só legenda + papel): a caixa errou a arte de novo — sinaliza
+    // em vez de fingir que extraiu. Vale para figuras; gráfico/tabela legítimos têm tinta própria.
+    for (const [k, job] of jobs.entries()) {
+      const item = items[items.length - inventory.items.length + k];
+      if (item?.kind === 'figure' && !item.needsReview && isBlankCrop(job.ink, inventory.items[k]?.box)) {
+        item.needsReview = true;
+        warnings.push(`Página ${i+1}: recorte de "${item.caption}" saiu quase em branco; a arte pode estar em outra página. Exige revisão.`);
+      }
+    }
   }
   return {items,warnings,pages:pages.map(file => rel(dir,file))};
 }
