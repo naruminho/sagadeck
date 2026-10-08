@@ -66,12 +66,23 @@ tolerante a arquivo travado" abaixo). O resto fica para depois e só entra se fo
 
 **Saúde do repositório**
 
-8. **`src/studio/public/app.js` no limite.** 249.491 dos 250.000 bytes que o teste do monólito permite: qualquer
-   acréscimo quebra. Tirar um ou dois blocos inteiros para módulos (o chat é o candidato óbvio), registrados em
-   `PUBLIC_SCRIPTS` (`src/studio/public-files.js`), como foi feito com `provenance.js`.
 9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
+
+## app.js abaixo do limite: Preferências e Cabeçalho/Rodapé em módulos — 08/10/2026
+
+Item 8 das próximas frentes. O `src/studio/public/app.js` estava com 249.491 dos 250.000 bytes que a trava do monólito
+(`test/guards.test.js`) permite: qualquer acréscimo quebrava. O chat já tinha saído (`chat.js`); saíram dois blocos
+inteiros e autocontidos, no molde de `slide-select.js` (fábrica que recebe o estado e os ajudantes e devolve a API):
+
+- `header-footer.js` (`window.SagaHeaderFooter`): modelos prontos, campos com variáveis e prévia do cabeçalho/rodapé.
+- `preferences-ui.js` (`window.SagaPrefs`): a tela única de Preferências, com busca e gravação automática.
+- Registrados em `PUBLIC_SCRIPTS` (`src/studio/public-files.js`) e no `index.html`, antes do `app.js`.
+- `app.js` foi a 235.619 bytes; o limite desceu para 240.000 (a trava continua sendo catraca: sobra espaço para
+  ajustes pequenos, recurso novo vai para módulo próprio).
+- Testes: os de Preferências e de cabeçalho e rodapé do `test/studio.test.js` (clicam de verdade e conferem o deck e
+  o arquivo salvos, sem erro de JavaScript) passam iguais; comportamento não mudou.
 
 ## Gravação tolerante a arquivo travado (OneDrive) — 08/10/2026
 
