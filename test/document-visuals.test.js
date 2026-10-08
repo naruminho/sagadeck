@@ -9,12 +9,13 @@ import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
 import { materialsBlock } from '../src/ai/context.js';
-import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop } from '../src/ai/document-visuals.js';
+import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop, snapToImages, mergeDuplicateCrops, uncoveredVisuals, creditLineStart, clearCaptionEdges } from '../src/ai/document-visuals.js';
 
-test('recorte PDF protege a palavra e a legenda que cruzam a borda, sem capturar linhas distantes',()=>{
+test('recorte PDF protege a palavra que cruza a borda; linha larga de prosa passando embaixo não estica o recorte',()=>{
   const box=protectPDFText([300,400,380,215],[{left:650,top:500,right:740,bottom:520},{left:100,top:620,right:900,bottom:632},{left:100,top:800,right:900,bottom:815}]);
-  assert.ok(box[0]<=100 && box[0]+box[2]>=900);
-  assert.ok(box[1]+box[3]>=632 && box[1]+box[3]<800);
+  assert.ok(box[0]+box[2]>=744, `rótulo cruzando a borda direita entra: ${box}`);
+  assert.ok(box[0]>=284 && box[0]+box[2]<=760, `a linha de 100 a 900 é prosa, não rótulo: ${box}`);
+  assert.ok(box[1]+box[3]<800, `linha distante de fora: ${box}`);
 });
 
 test('legenda identificada fica FORA do recorte (a IA escreve a legenda; nada da figura seguinte entra)',()=>{
@@ -109,6 +110,90 @@ test('margem lateral protege rótulo raster e para no texto vizinho',()=>{
   assert.equal(box[0]+box[2],816, `margem 16 sem engolir a coluna: ${box}`);
 });
 
+test('legenda de cima CURTA e centralizada (ABNT: "Figura 1 – Mapa…") fica de fora, com a frase que a anuncia',()=>{
+  const box=protectPDFText([130,60,740,380],[
+    {text:'A metodologia do estudo é mostrada na Figura 2.',left:150,top:62,right:520,bottom:74},
+    {text:'Figura 2 – Fluxograma do estudo.',left:380,top:82,right:620,bottom:94},
+    {text:'ETR',left:300,top:110,right:330,bottom:122},
+  ],'Figura 2 – Fluxograma do estudo.');
+  assert.ok(box[1]>=94, `topo abaixo da legenda curta: ${box}`);
+  assert.ok(box[1]<110, `rótulo da figura preservado: ${box}`);
+});
+
+test('linha "Fonte: Os autores" embaixo da figura fica de fora, e o parágrafo depois dela também',()=>{
+  const box=protectPDFText([80,186,844,91],[
+    {text:'Estatística',left:100,top:184,right:200,bottom:196},
+    {text:'RMSE%',left:100,top:213,right:160,bottom:225},
+    {text:'Fonte: Os Autores (2023).',left:412,top:228,right:600,bottom:240},
+    {text:'Foram obtidos valores inferiores a 33% para ambas as linhas.',left:155,top:258,right:900,bottom:270},
+  ],'Tabela 1 – Análise de RMSE');
+  assert.ok(box[1]+box[3]<228, `corta antes do crédito: ${box}`);
+  assert.ok(box[1]+box[3]>=225, `a última linha da tabela fica: ${box}`);
+  assert.ok(creditLineStart('Source: authors (2024)') && creditLineStart('Fonte : IBGE') && !creditLineStart('Fontes de dados abertos'));
+});
+
+test('snapToImages: a caixa da visão cai sobre a imagem embutida e o recorte vira a imagem exata',()=>{
+  const img=[[95,220,900,441],[95,587,919,803]];
+  // a visão marcou só o painel esquerdo de uma figura de dois painéis exportada como uma imagem: vale a figura toda
+  assert.deepEqual(snapToImages([106,248,389,192],img),[95,220,805,221]);
+  // caixa frouxa, pegando a legenda de cima e o "Fonte" de baixo: a imagem manda
+  assert.deepEqual(snapToImages([90,200,820,270],img),[95,220,805,221]);
+  // dois painéis que são duas imagens separadas: a união
+  assert.deepEqual(snapToImages([90,200,500,300],[[95,220,330,400],[340,220,580,400]]),[95,220,485,180]);
+  // logo pequeno dentro de um gráfico vetorial não vira "a figura"; sem imagem, null (vale a camada de texto)
+  assert.equal(snapToImages([100,300,800,400],[[150,320,190,350]]),null);
+  assert.equal(snapToImages([100,300,800,400],[]),null);
+  // página escaneada (uma imagem do tamanho da página) não é régua
+  assert.equal(snapToImages([100,300,800,400],[[0,0,1000,1000]]),null);
+  // prancha enorme de painéis: fica a caixa, aparada pela imagem
+  const big=snapToImages([120,120,300,300],[[50,50,800,800]]);
+  assert.ok(big[0]>=50&&big[0]<120&&big[2]<400, `painel da prancha: ${big}`);
+});
+
+test('clearCaptionEdges: legenda grudada na imagem (pernas das letras dentro da caixa) e crédito embaixo saem da borda',()=>{
+  // caso real (Rev. Bras. Cartogr., Figura 5): a imagem começa em 752 e a legenda termina em 755
+  const box=clearCaptionEdges([95,752,806,107],[
+    {text:'Figura 5 – Filtragem da nuvem de pontos (continua).',left:322,top:741,right:678,bottom:755},
+    {text:'a) Nuvem Bruta',left:258,top:760,right:345,bottom:769},
+    {text:'Fonte: Os autores (2024).',left:412,top:852,right:588,bottom:866},
+  ]);
+  assert.ok(box[1]>=755, `topo depois da legenda: ${box}`);
+  assert.ok(box[1]<760, `rótulo do painel continua: ${box}`);
+  assert.ok(box[1]+box[3]<=852, `base antes do crédito: ${box}`);
+  // nada de legenda na borda: a caixa fica igual
+  assert.deepEqual(clearCaptionEdges([95,220,805,221],[{text:'c) Volume Real linha 1',left:150,top:224,right:420,bottom:233}]),[95,220,805,221]);
+});
+
+test('mergeDuplicateCrops: dois itens no mesmo recorte viram um, com a legenda numerada',()=>{
+  const out=mergeDuplicateCrops([
+    {kind:'figure',caption:'figure — página 4',box:[95,112,810,413]},
+    {kind:'figure',caption:'Figura 1. Mapa de localização da bacia',box:[95,112,810,413]},
+    {kind:'table',caption:'Tabela 1',box:[95,600,810,200]},
+  ]);
+  assert.equal(out.length,2);
+  assert.match(out[0].caption,/^Figura 1/);
+  assert.equal(out[1].kind,'table');
+  // figuras diferentes na mesma página continuam separadas
+  assert.equal(mergeDuplicateCrops([{kind:'chart',caption:'Figura 8',box:[95,220,805,221]},{kind:'chart',caption:'Figura 9',box:[95,587,824,216]}]).length,2);
+});
+
+test('uncoveredVisuals: lista figura/tabela numerada sem slide (tabela reconstruída pelos números conta)',()=>{
+  const doc={name:'paper.pdf',inventory:{items:[
+    {id:'a',kind:'figure',page:3,caption:'Figura 1 – Mapa',image:'contexto/visuais/x/a.png'},
+    {id:'b',kind:'figure',page:3,caption:'Figura 2 – Fluxograma',image:'contexto/visuais/x/b.png'},
+    {id:'c',kind:'table',page:10,caption:'Tabela 1 – RMSE',image:'contexto/visuais/x/c.png',rows:[['Estatística','Linha 1'],['RMSE','0,03162'],['RMSE%','37,6692%']]},
+    {id:'d',kind:'table',page:11,caption:'Tabela 2 – Diâmetro',image:'contexto/visuais/x/d.png',rows:[['Seção','RMSE'],['0,5 m','0,834'],['1,0 m','0,798']]},
+    {id:'e',kind:'equation',page:5,caption:'Eq. 1',latex:'d=c/\pi'},
+    {id:'f',kind:'figure',page:14,caption:'Foto do autor',image:'contexto/visuais/x/f.png'},
+  ]}};
+  const spec={slides:[
+    {layout:'split',figure:{image:'contexto\\visuais\\x\\a.png'}},
+    {layout:'chart',chart:{chart:'bar',data:[{label:'Linha 1',value:'0,03162'},{label:'RMSE%',value:'37,6692%'}]}},
+  ]};
+  const missing=uncoveredVisuals(spec,[doc]);
+  assert.deepEqual(missing.map(m=>m.id),['b','d']);
+});
+
 test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()=>{  const prose=[
     {text:'linha um de prosa corrida aqui',left:100,top:500,right:900,bottom:520},
     {text:'linha dois de prosa corrida aqui',left:100,top:525,right:900,bottom:545},
@@ -201,6 +286,40 @@ test('PDF: caixa de figura em cima de prosa pede localização de novo (retry co
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('PDF: figura raster sai pela imagem embutida (sem legenda nem "Fonte", proporção exata) e os painéis não duplicam', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-snap-'));
+  try {
+    const page = await browser.newPage();
+    // a "arte": PNG 2:1 com duas metades (dois painéis numa imagem só, como o mapa duplo do paper)
+    await page.setViewportSize({ width: 600, height: 300 });
+    await page.setContent('<body style="margin:0;display:flex"><div style="width:300px;height:300px;background:#2a7"></div><div style="width:300px;height:300px;background:#27a"></div></body>');
+    const png = (await page.screenshot()).toString('base64');
+    await page.setContent(`<body style="font:16px serif;margin:40px">
+      <p>Parágrafo anterior do artigo, com texto corrido que não pertence à figura e segue até o fim da linha.</p>
+      <p style="text-align:center">Figura 1 – Mapa da área de localização.</p>
+      <div style="text-align:center"><img src="data:image/png;base64,${png}" style="width:500px;height:250px"></div>
+      <p style="text-align:center">Fonte: Os autores (2024).</p>
+      <p>A realização dos levantamentos de campo ocorreu em condições climáticas que influenciaram a qualidade dos dados.</p></body>`);
+    const bytes = await page.pdf({ format: 'A4' });
+    // a visão erra como no caso real: caixa frouxa (pega legenda e "Fonte") e um segundo item só sobre o painel direito
+    const inspect = async () => ({ complete: true, items: [
+      { kind: 'figure', caption: 'Figura 1 – Mapa da área de localização.', bounds: { left: 80, top: 60, right: 920, bottom: 330 } },
+      { kind: 'figure', caption: 'Mapa da área de estudo (sem legenda visível)', bounds: { left: 500, top: 100, right: 880, bottom: 290 } },
+    ] });
+    const r = await extractDocumentVisuals('paper.pdf', bytes, dir, { inspect });
+    assert.equal(r.items.length, 1, `os dois painéis viram uma figura só: ${JSON.stringify(r.items.map(i => i.caption))}`);
+    const item = r.items[0];
+    assert.match(item.caption, /^Figura 1/, 'fica a legenda numerada');
+    assert.ok(Math.abs(item.width / item.height - 2) < 0.04, `proporção da imagem original (2:1), sem legenda nem crédito: ${item.width}×${item.height}`);
+    // o recorte começa na arte: a primeira linha tem a cor do painel, não papel nem texto
+    const shot = await browser.newPage();
+    await shot.setContent(`<img id="i" src="data:image/png;base64,${fs.readFileSync(path.join(dir, item.image)).toString('base64')}">`);
+    const corner = await shot.evaluate(async () => { const i = document.getElementById('i'); await i.decode(); const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight; const g = c.getContext('2d'); g.drawImage(i, 0, 0); return [...g.getImageData(Math.round(c.width * 0.25), 2, 1, 1).data].slice(0, 3); });
+    assert.ok(corner[1] > corner[0] + 40, `topo do recorte já é a arte verde: ${corner}`);
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('PDF: resposta inválida da visão tenta de novo uma vez (sem travar em fallback)', async t => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-retry2-'));
@@ -284,6 +403,38 @@ test('Studio: anexo Word chega ao chat com imagem local e continua disponível n
   } finally {await studio.close();await llm.close();deck.cleanup();}
 });
 
+
+test('Studio: criar a apresentação do paper pelo chat confere a cobertura (figura esquecida volta para a IA) e o deck salvo tem as duas', async () => {
+  const zip = new JSZip();
+  zip.file('word/document.xml','<w:document><w:body><w:p><w:r><w:t>Resultados</w:t><a:blip r:embed="a"/><a:blip r:embed="b"/></w:r></w:p></w:body></w:document>');
+  zip.file('word/_rels/document.xml.rels','<Relationships><Relationship Id="a" Target="media/a.svg"/><Relationship Id="b" Target="media/b.svg"/></Relationships>');
+  zip.file('word/media/a.svg','<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20"/></svg>');
+  zip.file('word/media/b.svg','<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20"/></svg>');
+  const bytes = await zip.generateAsync({type:'nodebuffer'});
+  const asks = [];
+  const deck = tempDeck(), llm = await startMockLLM(req => {
+    if (!/INVENTÁRIO VISUAL/.test(req.lastUser)) return '{"pesquisar": false, "motivo": "anexo é fonte exclusiva"}';
+    const inventory = JSON.parse(req.lastUser.match(/INVENTÁRIO VISUAL[^\n]*\n([^\n]+)/)[1]);
+    const [a, b] = inventory.items.map(i => JSON.stringify(i.image));
+    if (/Releia a figura 1/.test(req.lastUser)) return '```yaml\nslides:\n  3:\n    body: "Leitura revisada."\n```';
+    if (/Conferência de cobertura/.test(req.lastUser)) { asks.push(req.lastUser); return '```yaml\ninsert:\n  - after: 3\n    slide: { layout: split, title: Segundo resultado, body: "Leitura do segundo resultado.", figure: { image: '+b+', fit: contain } }\n```'; }
+    return '```yaml\nslides:\n  - { layout: cover, title: Paper }\n  - { layout: split, title: Contexto, body: "Problema." }\n  - { layout: split, title: Primeiro resultado, body: "Leitura.", figure: { image: '+a+', fit: contain } }\n  - { layout: list, title: Conclusões, items: [Um, Dois] }\n  - { layout: end, title: Obrigado }\n```';
+  }), studio = await startStudio(deck.file,{llmUrl:llm.url});
+  const call = async (route,body) => (await fetch(studio.url+route,{method:body?'POST':'GET',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined})).json();
+  try {
+    const attached = await call('/api/ai/context',{name:'paper.docx',dataUrl:'data:application/octet-stream;base64,'+bytes.toString('base64')});
+    const current = await call('/api/deck');
+    const result = await call('/api/ai/chat',{message:'Monte a apresentação de congresso deste paper',spec:current.spec,attachments:[{type:'doc',id:attached.id}]});
+    assert.equal(result.error,undefined);
+    assert.equal(asks.length,1,'uma conferência de cobertura');
+    assert.match(asks[0],/Figura 2/);
+    const saved = (await call('/api/deck')).spec.slides.map(s => s.figure?.image).filter(Boolean);
+    assert.equal(saved.length,2,`as duas figuras no deck salvo: ${saved}`);
+    // pedido pontual com o anexo (mexe num slide só): sem conferência
+    await call('/api/ai/chat',{message:'Releia a figura 1',spec:(await call('/api/deck')).spec,attachments:[{type:'doc',id:attached.id}]});
+    assert.equal(asks.length,1,'pedido pontual não dispara a cobertura');
+  } finally {await studio.close();await llm.close();deck.cleanup();}
+});
 
 test('Word: barra horizontal, pizza e tipo desconhecido (vira tabela, nada se perde)', async () => {
   const chartXML = (plot) => `<c:chartSpace><c:chart><c:plotArea>${plot}</c:plotArea></c:chart></c:chartSpace>`;

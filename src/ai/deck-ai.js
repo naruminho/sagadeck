@@ -48,6 +48,8 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Ao reformular composição ou criar uma experiência pelo chat, inclua review: true para a conferência visual. Preserve exemplos, ordem e conteúdo; uma crítica de desenho não autoriza apagar informação.
 - Adapte tom, estilo, tema, densidade e recursos ao conteúdo, público e objetivo. Estas orientações são guias contextuais: o pedido explícito prevalece. Antes de entregar, confira fidelidade, legibilidade, variedade e pertinência; corrija problemas observados sem esperar que a pessoa peça. Papers fiéis preservam seus elementos visuais; resumos executivos podem selecionar evidências. Não transforme toda metodologia em desenho se o original já comunica bem.
 - Paper científico anexado (congresso, defesa, aula): metodologia merece slides de verdade, respeitando a natureza do paper — SE tiver método quantitativo, detalhe modelos com parâmetros e calibração, métricas com valores E fontes (tabela comparativa quando houver); se for teórico, revisão ou qualitativo, apresente a estrutura do argumento sem inventar números. Números sempre do próprio texto com a origem ("n=1.403", "NSE 0,90–0,96"). Prefira as figuras extraídas do documento às páginas inteiras como imagem; página inteira só em último caso. Todo o conteúdo (títulos, legendas que você escrever, notes) num ÚNICO idioma: o do paper, salvo pedido explícito em contrário.
+- Apresentação de paper (congresso, defesa, seminário): siga o arco do artigo, cada etapa com conteúdo de verdade e não uma frase solta — (1) contexto e problema, com um dado do próprio paper que mostre por que importa; (2) lacuna/justificativa: o que falta nos métodos ou estudos atuais; (3) objetivo geral e específicos/hipótese num slide de conteúdo (list, cards ou split; nunca o objetivo inteiro numa manchete); (4) área de estudo e dados (onde, quando, quanto, com que instrumento ou fonte); (5) método: o fluxo de etapas, as equações com o significado de cada variável e unidade, parâmetros e critérios de avaliação; (6) resultados: cada figura e tabela numerada do paper no slide do resultado dela, com título que afirma o achado ("O erro cresce com a altura") e 1–3 frases de leitura do que a figura mostra; (7) discussão: por que deu assim, comparando com o que o paper cita; (8) conclusões e (9) limitações/trabalhos futuros. Slide de frase única (statement/headline/quote) só para a mensagem principal, no máximo 2 no deck.
+- Figuras do inventário trazem width×height do recorte: figura larga (largura ≥ 1,6× a altura: mapa duplo, painéis lado a lado, gráfico largo) vai em composição vertical (split com arrangement: stacked, ou image) com o texto curto embaixo; figura alta ou quadrada vai em split lado a lado com a explicação. Nunca ponha título, legenda ou véu por cima de figura do documento (layout full com overlay): o texto cobre a legenda do mapa e os eixos.
 - Capacidades reais: quando pesquisa/comandos estiverem disponíveis, use-os antes de alegar falta de acesso à web. Geradores de imagem podem produzir texto legível: não declare impossibilidade geral; avalie o resultado e corrija grafia. Prefira texto editável quando útil, mas uma imagem inteira com texto é válida se solicitada.
 - Direção de arte: se pedirem propostas visuais, use variants com três composições do MESMO conteúdo real; varie hierarquia, enquadramento e tipografia, não só cor. Cada opção pode levar direction: {theme, rationale}. Escolher aplica o tema ao deck, mantendo outros slides intactos.
 - Para integrar texto ao cenário, componha camadas editáveis em canvas (imagem, texto, primeiro plano). continuity no mesmo objeto em slides consecutivos mantém continuidade espacial. Prefira uma imagem estática forte quando movimento não explicar nada.
@@ -994,6 +996,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     quality,
     reviewRequested: !!review,
     test,
+    changed,
     actions,
     targetSlide: changed.includes(targetSlide) ? targetSlide : (changed[0] ?? pickTarget(spec, edited, targetSlide)),
   };
@@ -1059,6 +1062,31 @@ export function styleFor(kind) {
 // Gera um deck inteiro a partir de um briefing. É o MESMO caminho do chat (editDeck): o pedido vai como uma conversa
 // sobre um deck em branco, com as mesmas regras e a mesma temperatura. Antes havia um caminho próprio (direção
 // criativa sorteada, regras rígidas de ritmo, rodadas de reescrita) que saía bem pior que pedir a mesma coisa no chat.
+// Conferência de cobertura do material (ferramenta de autocrítica da IA): figuras e tabelas numeradas do documento
+// anexado que nenhum slide usa voltam para a IA encaixar no ponto certo da narrativa. Uma rodada; o que ficar de
+// fora vai no relatório (coverage.missing), sem slide enfiado no fim à força.
+export async function coverDocumentVisuals(spec, { materials = [], briefing = "", edit, say = () => {} } = {}) {
+  const { uncoveredVisuals } = await import("./document-visuals.js");
+  const missing = uncoveredVisuals(spec, materials);
+  if (!missing.length) return { spec, coverage: null, actions: [] };
+  say(`${missing.length} figura(s)/tabela(s) do material ainda sem slide; pedindo para encaixar…`);
+  let next = spec, actions = [];
+  try {
+    const r = await edit({ spec, instruction: `Conferência de cobertura: estas figuras e tabelas numeradas do material anexado não aparecem em nenhum slide:
+${missing.map((m) => `- ${m.caption} (página ${m.page}; arquivo ${m.image}${m.width ? `; ${m.width}×${m.height} px` : ""})`).join("\n")}
+Encaixe cada uma no ponto da narrativa em que o assunto dela é discutido (no slide que já fala dele ou num slide novo logo ao lado), com a figura dominante e 1–3 frases de leitura do que ela mostra, sem repetir a legenda numerada. Figuras do mesmo resultado podem dividir um slide. Não mexa no resto do deck. Só deixe alguma de fora se o pedido da pessoa limitou explicitamente a seleção (resumo, poucos slides): nesse caso diga qual e por quê.
+
+Pedido original da pessoa:
+"""
+${briefing}
+"""` });
+    if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = r.actions || []; }
+  } catch (e) { say(`a conferência de cobertura falhou (${e.message}); sigo com o deck como está`); }
+  const still = uncoveredVisuals(next, materials);
+  if (still.length) say(`Ficaram sem slide: ${still.map((m) => m.caption.slice(0, 60)).join("; ")}.`);
+  return { spec: next, coverage: { total: missing.length, missing: still.map((m) => m.caption) }, actions };
+}
+
 export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, reviewCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
@@ -1139,6 +1167,12 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   }
   if (spec.slides.length < 2 && spec.slides[0]?.title === "Nova apresentação") throw new Error("A IA não criou a apresentação. Tente de novo ou descreva com mais detalhe.");
   (r.actions || []).filter((x) => /corrigido|não enxerga/.test(x)).forEach(say);
+  // Cobertura do material: figura/tabela numerada do documento que nenhum slide usa volta para a IA decidir onde
+  // entra (ou dizer por que fica de fora, quando o pedido limitou a seleção). Era o "muitas figuras são ignoradas".
+  const covered = await coverDocumentVisuals(spec, { materials, briefing, say, edit: (o) => editDeck({ ...creationOptions, ...o }) });
+  spec = covered.spec;
+  const coverage = covered.coverage;
+
   // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
   if (author && !spec.author) spec.author = author;
@@ -1169,7 +1203,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   }
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(researchReport ? { research: researchReport } : {}) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

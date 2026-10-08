@@ -218,7 +218,7 @@ test('geração confere mesmo sem review no YAML e corrige até a revisão passa
   const llm = await startMockLLM(req => req.lastUser.includes('Corrija somente') ? '```yaml\nedit:\n  1:\n    title: Corrigida\n```' : '```yaml\ndeck:\n  title: Exemplo\nslides:\n  - layout: cover\n    title: Exemplo\n  - layout: statement\n    text: Conteúdo\n```');
   const before = process.env.SAGADECK_LLM_URL; process.env.SAGADECK_LLM_URL = llm.url;
   try {
-    const r = await generateDeck('Crie dois slides sem perguntar', { research:false, images:false, reviewCheck:async () => (++reviews < 3 ? { issues:[{slide:1,text:'Título ilegível'}], unchecked:[], verified:false } : {issues:[],unchecked:[],verified:true}) });
+    const r = await generateDeck('Crie dois slides sem perguntar', { research:false, images:false, reviewCheck:async () => (++reviews < 3 ? { issues:[{slide:1,text:`Título ilegível (rodada ${reviews})`}], unchecked:[], verified:false } : {issues:[],unchecked:[],verified:true}) });
     assert.equal(reviews,3); assert.equal(r.quality.verified,true); assert.equal(r.spec.slides[0].title,'Corrigida');
     assert.match(llm.requests.find(req => req.lastUser.includes('Corrija somente')).lastUser,/Não elimine recursos explicitamente pedidos/);
   } finally { if(before==null) delete process.env.SAGADECK_LLM_URL; else process.env.SAGADECK_LLM_URL=before; await llm.close(); }

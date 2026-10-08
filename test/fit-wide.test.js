@@ -232,3 +232,34 @@ test("tabela do add embaixo de um split com texto longo: o ajuste vê a tabela (
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("figura do documento nunca é cortada nem esticada; recorte (crop) em caixa de outra proporção não estica", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-docfig-"));
+  try {
+    fs.mkdirSync(path.join(dir, "contexto", "visuais"), { recursive: true });
+    await grayPng(path.join(dir, "contexto", "visuais", "mapa.png"), 1000, 1000);
+    await grayPng(path.join(dir, "largo.png"), 2000, 1300);
+    const spec = { title: "x", theme: "sinal", _dir: dir, slides: [
+      // proporção perto da coluna: o cover automático cortaria até 20% da borda do mapa
+      { layout: "split", title: "Área de estudo", body: "Talhão.", figure: { image: "contexto/visuais/mapa.png" } },
+      { layout: "split", title: "Pedido de cover", body: "x", figure: { image: "contexto/visuais/mapa.png", fit: "fill" } },
+      // região 1000×1300 numa coluna larga: sem a medida da caixa, a região esticava na largura
+      { layout: "split", title: "Recorte", body: "x", figure: { image: "largo.png", crop: { l: 0, t: 0, r: 0.5, b: 0 } } },
+    ] };
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML(spec).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    const out = [];
+    for (const n of [1, 2, 3]) {
+      await page.goto(`file://${file.replace(/\\/g, "/")}?export#${n}`); await page.waitForTimeout(400);
+      out.push(await page.evaluate((i) => { const img = document.querySelectorAll(".slide")[i].querySelector(".fig-img img"); const r = img.getBoundingClientRect(); return { fit: getComputedStyle(img).objectFit, ratio: r.width / r.height }; }, n - 1));
+    }
+    assert.equal(out[0].fit, "contain", "figura do documento sem fit: inteira");
+    assert.equal(out[1].fit, "contain", "fill numa figura do documento achataria o mapa");
+    assert.ok(Math.abs(out[2].ratio - 2000 / 1300) < 0.03, `imagem do recorte na proporção do arquivo: ${out[2].ratio.toFixed(3)}`);
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

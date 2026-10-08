@@ -122,6 +122,11 @@ export function captionLineStart(s) {
     || /^\s*(fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*(\d+(?:\.\d+)*)/i.test(t.replace(/ /g, ''));
 }
 
+// Linha de crédito embaixo da figura ("Fonte: Os autores (2024).", "Source: …", "Elaboração: …").
+export function creditLineStart(s) {
+  return /^\s*(fonte|source|sources|elabora[çc][ãa]o|adaptad[oa] de|reproduzid[oa] de)\s*[:.]/i.test(String(s || ''));
+}
+
 // Agrupa fragmentos de texto por linha (pela base) com texto unido.
 export function groupTextLines(textBoxes) {
   const lineOf = (t) => Math.round(t.top / 5);
@@ -224,9 +229,12 @@ export function protectPDFText(box, textBoxes,caption='') {
   // prosa no topo (linha larga, com texto empilhado acima) nunca entra — nem cruzando, nem encostando
   const proseLine = (t) => { const k = lineOf(t); return lineSpan(k) > 0.6 * w && crowdedAbove({ top: lineTop(k) }); };
   const below = Math.min(1000,y+h+marginBottom);
+  // Fragmento comprido quase todo FORA da caixa é linha de prosa passando pela borda, não rótulo: rótulo de eixo
+  // e letra de painel são curtos. Sem isto, a linha do parágrafo debaixo esticava o recorte até a margem da página.
+  const strayLine=(t)=>{ const fw=t.right-t.left, ov=Math.min(t.right,x+w)-Math.max(t.left,x); return fw>Math.max(60,0.25*w)&&ov/fw<0.5; };
   // halo em cima só para rótulo (eixo, letra de painel): encostou na borda, entra — prosa, não
   const hits=textBoxes.filter(t=>t.right>x&&t.left<x+w&&t.bottom>y-padTop&&(t.top<y+h||(t.top>=y+h&&t.top<below))
-    && !(t.top<y+margin&&proseLine(t)));
+    && !(t.top<y+margin&&proseLine(t)) && !strayLine(t));
   const area={left:x,top:y,right:x+w,bottom:Math.min(1000,y+h+margin)};
   // Folga lateral PARA no texto vizinho: rótulo raster não tem caixa de texto (expande livre),
   // mas coluna ao lado ou parágrafo encostado barram a expansão a 2 unidades da tinta.
@@ -246,17 +254,23 @@ export function protectPDFText(box, textBoxes,caption='') {
   // antes de testar — fragmento cru nunca começa com "Figure" e o corte passava batido,
   // deixando a legenda cortada dentro do recorte. Vale para a própria e para a seguinte.
   const groups = groupTextLines(textBoxes);
+  const overlapsX=(L)=>L.right>left&&L.left<right;
+  // Legenda de cima ("Figura 1 – Mapa…", centralizada e CURTA no estilo ABNT): qualquer linha que começa com
+  // Figura/Tabela N na metade de cima do recorte fica de fora, com tudo o que está acima dela (a frase "como
+  // mostra a Figura 2" vinha junto). Antes só valia linha mais larga que meia figura, e a legenda curta passava.
+  for(const L of groups.values()) {
+    if((captionLineStart(L.joined)||captionLineStart(L.flat))&&L.bottom<y+h/2&&overlapsX(L)) top=Math.max(top,L.bottom+4);
+  }
   if(captionNumber) {
-    // a legenda de cima vem fragmentada ("Figure" | "4:" | resto): junta a linha inteira pela base
-    for(const L of groups.values()) {
-      const m=L.joined.match(/^\s*(fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*(\d+(?:\.\d+)*)/i)
-        ||L.flat.match(/^\s*(fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*(\d+(?:\.\d+)*)/i);
-      if(m&&m[2]===captionNumber&&L.bottom<y+h/2&&(L.right-L.left)>0.5*w) top=Math.max(top,L.bottom+4);
-    }
     const num=(t)=>t.text?.match(/\b(?:fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*(\d+(?:\.\d+)*)/i)?.[1];
-    const above=textBoxes.filter(t=>num(t)===captionNumber&&captionLine(t)&&t.bottom<y+h/2&&(t.right-t.left)>0.5*w);
+    const above=textBoxes.filter(t=>num(t)===captionNumber&&captionLine(t)&&t.bottom<y+h/2&&t.right>left&&t.left<right);
     if(above.length) top=Math.max(top,Math.max(...above.map(t=>t.bottom))+4); // legenda de cima também fica de fora
   }
+  // "Fonte: Os autores (2024)." embaixo da figura é crédito, não figura: vai como texto (a IA cita a fonte), e o
+  // parágrafo que vem depois dela também ficava no recorte.
+  const credit=[...groups.values()].filter(L=>creditLineStart(L.joined)&&L.top>y+h*0.25&&overlapsX(L)).sort((a,b)=>a.top-b.top)[0];
+  // (o topo medido do crédito já tem a folga das maiúsculas; mais que isso cortava a base da última linha da tabela)
+  if(credit) bottom=Math.min(bottom,credit.top-0.5);
   const nextCaption = [...groups.values()]
     .filter(L=>(captionLineStart(L.joined)||captionLineStart(L.flat))&&L.top>y+h/2&&L.top<bottom)
     .sort((a,b)=>a.top-b.top)[0];
@@ -280,18 +294,105 @@ export function protectPDFText(box, textBoxes,caption='') {
   return [left,top,right-left,bottom-top];
 }
 
-async function pdfTextBoxes(bytes) {
+// Imagem embutida no PDF (mapa, foto, gráfico exportado como PNG) tem posição EXATA na página: é a melhor
+// régua para o recorte. A visão diz ONDE está a figura (e o que é); o PDF diz onde ela começa e termina.
+// Recortar pela imagem deixa de fora, sem heurística, a legenda, o "Fonte: …" e a prosa ao redor (que são
+// texto da página) e não corta pedaço da arte. Devolve [x,y,w,h] (0..1000) ou null quando a caixa não cai
+// sobre imagens (gráfico vetorial, tabela, equação: aí vale o recorte pela camada de texto).
+export function snapToImages(box, images = []) {
+  const [x,y,w,h] = box, B = {l:x,t:y,r:x+w,b:y+h};
+  const area = a => Math.max(0,a.r-a.l)*Math.max(0,a.b-a.t);
+  const inter = (a,b) => ({l:Math.max(a.l,b.l),t:Math.max(a.t,b.t),r:Math.min(a.r,b.r),b:Math.min(a.b,b.b)});
+  // fundo da página inteira (PDF escaneado) e enfeite minúsculo (logo do cabeçalho) não são régua
+  const imgs = images.map(([l,t,r,b]) => ({l:Math.max(0,l),t:Math.max(0,t),r:Math.min(1000,r),b:Math.min(1000,b)}))
+    .filter(i => area(i) >= 1500 && area(i) <= 700000);
+  if (!imgs.length || area(B) <= 0) return null;
+  // imagens que a caixa pega em boa parte: a figura é a união delas (painéis de uma figura composta, ou a caixa
+  // que a visão desenhou só sobre metade de uma imagem que é a figura inteira)
+  const taken = imgs.filter(i => { const o = area(inter(i,B)); return o/area(i) >= 0.5 || (o/area(B) >= 0.5 && o/area(i) >= 0.4); });
+  if (taken.length) {
+    const U = taken.reduce((u,i) => ({l:Math.min(u.l,i.l),t:Math.min(u.t,i.t),r:Math.max(u.r,i.r),b:Math.max(u.b,i.b)}));
+    // a união precisa explicar a caixa: logo pequeno dentro de um gráfico vetorial não vira "a figura"
+    if (area(inter(U,B)) / area(B) >= 0.5) return [U.l, U.t, U.r-U.l, U.b-U.t];
+  }
+  // caixa dentro de UMA imagem (a visão marcou um painel de uma figura composta exportada como imagem só):
+  // imagem de tamanho de figura vale inteira — o painel recortado pela caixa da visão perdia o topo (anotação,
+  // título do painel) e a figura do paper é a composição toda. Só imagem enorme (meia página ou mais, uma
+  // prancha de painéis) fica com a caixa, aparada pela imagem: o que passava da borda dela é página.
+  const host = imgs.find(i => area(inter(i,B)) / area(B) >= 0.7);
+  if (host && area(host) <= 350000) return [host.l, host.t, host.r-host.l, host.b-host.t];
+  if (host) { const pad = 15, I = inter({l:B.l-pad,t:B.t-pad,r:B.r+pad,b:B.b+pad}, host); return [I.l, I.t, I.r-I.l, I.b-I.t]; }
+  return null;
+}
+
+// Recorte pela imagem: a legenda colada na imagem ("Figura 5 – …" logo acima, com as pernas das letras dentro da
+// caixa da imagem; "Fonte: …" logo abaixo) ainda deixava uma tira de texto na borda. Linha de legenda ou de crédito
+// que cruza a borda de cima/baixo empurra a borda para fora dela.
+export function clearCaptionEdges(box, textBoxes = []) {
+  let [x, y, w, h] = box, top = y, bottom = y + h;
+  for (const L of groupTextLines(textBoxes).values()) {
+    if (!(L.right > x && L.left < x + w)) continue;
+    if (!(captionLineStart(L.joined) || captionLineStart(L.flat) || creditLineStart(L.joined))) continue;
+    // a caixa do texto do pdf.js termina na linha de base: as pernas (g, p, ç) descem ~30% da altura da letra abaixo dela
+    const foot = L.bottom + 0.3 * (L.bottom - L.top);
+    if (L.top < top + h * 0.15 && foot > top && L.top < y + h / 2) top = Math.max(top, foot + 0.3);
+    else if (L.bottom > bottom - h * 0.15 && L.top < bottom && L.top > y + h / 2) bottom = Math.min(bottom, L.top - 0.5);
+  }
+  return bottom - top > h * 0.5 ? [x, top, w, bottom - top] : box;
+}
+
+// Dois itens que viraram o MESMO recorte (a visão separou os dois painéis de um mapa e os dois caíram na mesma
+// imagem; ou listou a figura e um painel dela): fica um só, com a legenda numerada ("Figura 3 …") e não a
+// descrição solta. Itens de tipos de dado diferentes (tabela, equação) nunca se fundem com figura.
+export function mergeDuplicateCrops(items) {
+  const area = ([,,w,h]) => w*h;
+  const overlap = (a,b) => Math.max(0,Math.min(a[0]+a[2],b[0]+b[2])-Math.max(a[0],b[0]))*Math.max(0,Math.min(a[1]+a[3],b[1]+b[3])-Math.max(a[1],b[1]));
+  const visual = k => k === 'figure' || k === 'chart';
+  const numbered = it => /\b(fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*\d/i.test(String(it.caption||''));
+  const out = [];
+  for (const it of items) {
+    const twin = out.find(o => (o.kind === it.kind || (visual(o.kind) && visual(it.kind))) && o.box && it.box
+      && overlap(o.box,it.box) >= 0.8*Math.min(area(o.box),area(it.box)) && Math.min(area(o.box),area(it.box)) >= 0.6*Math.max(area(o.box),area(it.box)));
+    if (!twin) { out.push(it); continue; }
+    const keep = numbered(twin) || !numbered(it) ? twin : it, drop = keep === twin ? it : twin;
+    if (area(drop.box) > area(keep.box)) keep.box = drop.box; // a moldura maior cobre os dois painéis
+    if (keep === it) out[out.indexOf(twin)] = it;
+  }
+  return out;
+}
+
+// Por página: o texto (caixas de cada fragmento) e as imagens embutidas, tudo em 0..1000 da página.
+async function pdfLayout(bytes) {
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const task=pdfjs.getDocument({data:new Uint8Array(bytes),verbosity:0}),doc=await task.promise;
+  const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
+  const paint=new Set([pdfjs.OPS.paintImageXObject,pdfjs.OPS.paintInlineImageXObject,pdfjs.OPS.paintImageMaskXObject,pdfjs.OPS.paintImageXObjectRepeat].filter(v=>v!=null));
   try {
     const out=[];
     for(let n=1;n<=doc.numPages;n++) {
       const page=await doc.getPage(n), viewport=page.getViewport({scale:1}), text=await page.getTextContent();
-      out.push(text.items.filter(t=>t.str?.trim()).map(t=>{
+      const textBoxes=text.items.filter(t=>t.str?.trim()).map(t=>{
         const [a,b,,,x,y]=t.transform, angle=Math.atan2(b,a), height=t.height||Math.hypot(a,b);
         const points=[[x,y],[x+t.width*Math.cos(angle),y+t.width*Math.sin(angle)],[x-height*Math.sin(angle),y+height*Math.cos(angle)],[x+t.width*Math.cos(angle)-height*Math.sin(angle),y+t.width*Math.sin(angle)+height*Math.cos(angle)]].map(p=>viewport.convertToViewportPoint(...p));
         return {text:t.str,left:Math.min(...points.map(p=>p[0]))/viewport.width*1000,right:Math.max(...points.map(p=>p[0]))/viewport.width*1000,top:Math.min(...points.map(p=>p[1]))/viewport.height*1000,bottom:Math.max(...points.map(p=>p[1]))/viewport.height*1000};
-      }));
+      });
+      // a imagem ocupa o quadrado unitário transformado pela matriz corrente (save/restore/transform)
+      const images=[];
+      try {
+        const ops=await page.getOperatorList(); let ctm=[1,0,0,1,0,0]; const stack=[];
+        for(let i=0;i<ops.fnArray.length;i++) {
+          const f=ops.fnArray[i];
+          if(f===pdfjs.OPS.save) stack.push(ctm);
+          else if(f===pdfjs.OPS.restore) ctm=stack.pop()||ctm;
+          else if(f===pdfjs.OPS.transform) ctm=mul(ctm,ops.argsArray[i]);
+          else if(paint.has(f)) {
+            const pts=[[0,0],[1,0],[0,1],[1,1]].map(([u,v])=>viewport.convertToViewportPoint(ctm[0]*u+ctm[2]*v+ctm[4],ctm[1]*u+ctm[3]*v+ctm[5]));
+            const xs=pts.map(p=>p[0]/viewport.width*1000), ys=pts.map(p=>p[1]/viewport.height*1000);
+            images.push([Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]);
+          }
+        }
+      } catch { /* sem a lista de operações, fica só a camada de texto */ }
+      out.push({text:textBoxes,images});
     }
     return out;
   } finally {await task.destroy();}
@@ -299,7 +400,7 @@ async function pdfTextBoxes(bytes) {
 
 async function pdfVisuals(bytes, folder, dir, prefix, { inspect = inspectPDFPage, signal, onProgress = () => {} } = {}) {
   const pages = await renderPdfPages(bytes, folder, { width:1920, prefix:'page-' });
-  const textBoxes = await pdfTextBoxes(bytes);
+  const layout = await pdfLayout(bytes), textBoxes = layout.map(p => p.text);
   const items = [], warnings = [];
   const previews = await imagesAsDataUrls(pages, { width:1600, quality:0.92 });
   for (let i=0; i<pages.length; i++) {
@@ -358,20 +459,29 @@ async function pdfVisuals(bytes, folder, dir, prefix, { inspect = inspectPDFPage
       items.push({id:`${prefix}-page-${i+1}`,kind:'page',page:i+1,caption:`Página ${i+1} do documento original`,image:rel(dir,pages[i]),needsReview:true}); continue;
     }
     const png = fs.readFileSync(pages[i]), width = png.readUInt32BE(16), height = png.readUInt32BE(20), jobs = [];
-    for (const source of inventory.items) {
+    // recorte: pela imagem embutida quando a caixa cai sobre uma (exato); senão pela camada de texto
+    const sources = mergeDuplicateCrops(inventory.items.map(source => {
+      const onImage = source.kind !== 'equation' ? snapToImages(source.box, layout[i].images) : null;
+      const snapped = onImage ? clearCaptionEdges(onImage, textBoxes[i]) : null;
+      return { ...source, cropBox: snapped || protectPDFText(source.box,textBoxes[i],source.caption), snapped: !!snapped, box: snapped || source.box };
+    }));
+    const pageItems = [];
+    for (const source of sources) {
       const key=crypto.createHash('sha256').update(JSON.stringify({kind:source.kind,caption:source.caption,box:source.box})).digest('hex').slice(0,10);
       const id = `${prefix}-p${i+1}-${source.kind}-${key}`, dst = path.join(folder, `${id}.png`);
-      const box=protectPDFText(source.box,textBoxes[i],source.caption);
+      const box=source.cropBox;
       const [x,y,w,h] = box;
-      jobs.push({src:pages[i],dst,x:x/1000*width,y:y/1000*height,w:w/1000*width,h:h/1000*height});
-      items.push({id,kind:source.kind,page:i+1,caption:String(source.caption || `${source.kind} — página ${i+1}`),image:rel(dir,dst),box,...(source.needsReview?{needsReview:true}:{}),...(source.kind==='equation'&&typeof source.latex==='string'?{latex:source.latex}:{}),...(source.kind==='table'&&Array.isArray(source.rows)?{rows:source.rows}:{})});
+      jobs.push({src:pages[i],dst,x:x/1000*width,y:y/1000*height,w:w/1000*width,h:h/1000*height,trim:true});
+      const item={id,kind:source.kind,page:i+1,caption:String(source.caption || `${source.kind} — página ${i+1}`),image:rel(dir,dst),box,...(source.needsReview?{needsReview:true}:{}),...(source.kind==='equation'&&typeof source.latex==='string'?{latex:source.latex}:{}),...(source.kind==='table'&&Array.isArray(source.rows)?{rows:source.rows}:{})};
+      items.push(item); pageItems.push({item,source});
     }
     await cropRegions(jobs);
+    for (const [k, job] of jobs.entries()) if (job.size) Object.assign(pageItems[k].item, { width: job.size.w, height: job.size.h });
     // recorte quase em branco (só legenda + papel): a caixa errou a arte de novo — sinaliza
     // em vez de fingir que extraiu. Vale para figuras; gráfico/tabela legítimos têm tinta própria.
     for (const [k, job] of jobs.entries()) {
-      const item = items[items.length - inventory.items.length + k];
-      if (item?.kind === 'figure' && !item.needsReview && isBlankCrop(job.ink, inventory.items[k]?.box)) {
+      const { item, source } = pageItems[k];
+      if (item?.kind === 'figure' && !item.needsReview && !source.snapped && isBlankCrop(job.ink, source.box)) {
         item.needsReview = true;
         warnings.push(`Página ${i+1}: recorte de "${item.caption}" saiu quase em branco; a arte pode estar em outra página. Exige revisão.`);
       }
@@ -396,6 +506,29 @@ function sourceSlide(item, document) {
   if (item.kind === 'table' && item.rows?.length && !item.merged) return {...common,layout:'table',head:item.rows[0],rows:item.rows.slice(1)};
   if (item.kind === 'chart' && item.chart) return {...common,layout:'chart',chart:structuredClone(item.chart)};
   return {...common,layout:'split',figure:{image:item.image,fit:'contain'},body:item.needsReview ? 'Elemento original preservado; identificação visual pendente de revisão.' : ''};
+}
+
+// Figuras e tabelas NUMERADAS do material ("Figura 3", "Tabela 2") que nenhum slide usa: a lista que volta para a IA
+// conferir a própria cobertura (era a queixa "muitas figuras são ignoradas"). Figura conta quando a imagem aparece
+// no deck; tabela também conta quando a maior parte dos números dela está num slide (a IA reconstruiu como tabela
+// nativa ou gráfico). Equação não entra: uma apresentação pode escolher as equações que mostra.
+export function uncoveredVisuals(spec, documents) {
+  const deckText = JSON.stringify(spec?.slides || []).replace(/\\\\/g, '/');
+  const out = [];
+  for (const document of documents || []) for (const item of document?.inventory?.items || document?.items || []) {
+    if (!['figure','chart','table'].includes(item.kind) || item.needsReview) continue;
+    if (!/\b(fig(?:ura|ure)?|table|tabela|quadros?|gr[áa]fico|mapa)[.\s]*\d/i.test(String(item.caption || ''))) continue;
+    if (item.image && deckText.includes(String(item.image).replace(/\\/g, '/'))) continue;
+    if (item.kind === 'table' && Array.isArray(item.rows)) {
+      const cells = item.rows.slice(1).flat().map(v => String(v).trim()).filter(v => /\d/.test(v));
+      if (cells.length && cells.filter(v => deckText.includes(v)).length >= 0.6 * cells.length) continue;
+    }
+    // o mesmo número de figura com outro recorte já usado (painéis da mesma figura) conta como coberto
+    const n = String(item.caption).match(/\b(fig(?:ura|ure)?|table|tabela|quadros?)[.\s]*(\d+)/i);
+    if (n && out.some(o => o.key === `${/^t|^q/i.test(n[1]) ? 't' : 'f'}${n[2]}`)) continue;
+    out.push({ id: item.id, kind: item.kind, page: item.page, caption: String(item.caption).slice(0, 160), image: item.image, ...(item.width ? { width: item.width, height: item.height } : {}), key: n ? `${/^t|^q/i.test(n[1]) ? 't' : 'f'}${n[2]}` : item.id });
+  }
+  return out.map(({ key, ...o }) => o);
 }
 
 export function ensureVisualCoverage(spec, documents, { preserve = true } = {}) {

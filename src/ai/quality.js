@@ -4,9 +4,34 @@ import { chat } from './llm.js';
 import { auditExploration } from '../exploration.js';
 import { varietyReport } from './variety.js';
 
+// Slide de uma frase só: statement, headline e quote (o "slide com uma frase gigante" das reclamações).
+const ONE_LINER = new Set(['statement', 'headline', 'quote']);
+const words = s => String(s || '').replace(/\$[^$]*\$/g, 'x').replace(/[=*_`^~#>\[\]()]/g, ' ').split(/\s+/).filter(Boolean).length;
+const oneLinerText = s => s.text || s.quote || (Array.isArray(s.lines) ? s.lines.map(l => (typeof l === 'string' ? l : l?.text || '')).join(' ') : '') || s.title || '';
+
+// Conferência de texto sem visão (determinística, roda sempre): frase longa em layout de impacto vira tela de uma
+// frase gigante; uma apresentação feita de frases soltas não explica nada. Os achados voltam para a correção da IA.
+export function auditText(spec, indices) {
+  const issues = [];
+  const slides = spec.slides || [];
+  for (const index of indices) {
+    const s = slides[index]; if (!s || !ONE_LINER.has(s.layout)) continue;
+    const n = words(oneLinerText(s));
+    const limit = s.layout === 'quote' ? 40 : 16;
+    if (n > limit) issues.push({ slide: index + 1, text: `Slide de frase única (${s.layout}) com ${n} palavras: vira uma frase gigante na tela. Encurte para a ideia central (até ~12 palavras) ou troque por um layout de conteúdo (split, list, cards, compare) que explique com evidência.` });
+  }
+  // muitas telas de frase solta: a partir da terceira (ou de 15% do deck), cada uma precisa justificar o lugar
+  const singles = slides.map((s, i) => (ONE_LINER.has(s.layout) ? i : -1)).filter(i => i >= 0);
+  const allowed = Math.max(2, Math.round(slides.length * 0.15));
+  for (const index of singles.slice(allowed)) if (indices.includes(index) && !issues.some(x => x.slide === index + 1))
+    issues.push({ slide: index + 1, text: `Há ${singles.length} slides de frase única (statement/headline/quote) no deck; o máximo é ${allowed}. Transforme este em conteúdo (o que, por que, evidência do material) ou junte a frase ao slide vizinho.` });
+  return issues;
+}
+
 export async function reviewExperience(spec, indices, { snapshot, complete = chat, onProgress, signal, briefing = '' } = {}) {
   const issues = [], unchecked = [], failures = [];
   const selected = [...new Set(indices)].filter(index => spec.slides[index]);
+  issues.push(...auditText(spec, selected));
   for (const [position, index] of selected.entries()) {
     signal?.throwIfAborted();
     const slide = spec.slides[index];

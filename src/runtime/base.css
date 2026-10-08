@@ -247,6 +247,9 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 .cd-num{font-size:110px;line-height:.9}
 .cd-title{font-size:52px}
 .cd-text{font-size:33px;color:var(--muted)}
+/* cartão cujo texto é só uma fórmula: a fórmula é o conteúdo, não nota de rodapé (no tamanho do texto ela sumia) */
+.cd-text.cd-math{font-size:52px;color:var(--fg);margin:.15em 0}
+.card-hi .cd-text.cd-math{color:var(--on-hi)}
 .card-hi .cd-text{color:var(--on-hi)}
 .cd-foot{margin-top:auto;font-size:20px;color:var(--muted)}
 

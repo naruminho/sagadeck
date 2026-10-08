@@ -645,3 +645,55 @@ test("YAML da IA: texto com ': ' sem aspas e LaTeX entre aspas duplas são conse
   // o que já era válido continua igual (quebra de linha escapada, aspas escapadas)
   assert.equal(parseYaml(String.raw`a: "linha 1\nlinha 2 \"x\""`).a, 'linha 1\nlinha 2 "x"');
 });
+
+test("Criar com IA confere a cobertura do paper: figura numerada sem slide volta para a IA encaixar", async () => {
+  const doc = { name: "paper.pdf", text: "Resultados do artigo.", detail: "pdf", inventory: { items: [
+    { id: "f1", kind: "figure", page: 3, caption: "Figura 1 – Mapa da área", image: "contexto/visuais/x/f1.png", width: 1200, height: 800 },
+    { id: "f2", kind: "figure", page: 9, caption: "Figura 8 – Correlação da linha 1", image: "contexto/visuais/x/f8.png", width: 1500, height: 420 },
+    { id: "e1", kind: "equation", page: 5, caption: "Eq. 1", latex: "d = c/\pi" },
+  ] } };
+  const n = llm.requests.length;
+  reply = (req) => /Conferência de cobertura/.test(req.lastUser)
+    ? "Encaixei a figura 8.\n```yaml\ninsert:\n  - after: 2\n    slide: { layout: split, arrangement: stacked, title: A linha 1 acompanha a cubagem, figure: { image: contexto/visuais/x/f8.png, fit: contain }, body: Correlação forte entre os métodos. }\n```"
+    : "Pronto.\n```yaml\ndeck:\n  title: Paper\nslides:\n  - { layout: cover, title: Paper }\n  - { layout: split, title: Área de estudo, figure: { image: contexto/visuais/x/f1.png, fit: contain }, body: Talhão em Monte Carmelo. }\n  - { layout: end, title: Obrigado }\n```";
+  const r = await generateDeck("Apresentação de congresso do paper anexado", { images: false, materials: [doc] });
+  const reqs = genReqs(n);
+  const check = reqs.find((q) => /Conferência de cobertura/.test(q.lastUser));
+  assert.ok(check, "pediu a conferência de cobertura");
+  assert.match(check.lastUser, /Figura 8 – Correlação da linha 1/);
+  assert.match(check.lastUser, /1500×420 px/, "a IA recebe a proporção do recorte");
+  const asked = check.lastUser.split("Conferência de cobertura")[1].split("Pedido original")[0];
+  assert.doesNotMatch(asked, /Figura 1 – Mapa/, "a figura já usada não volta");
+  assert.doesNotMatch(asked, /Eq\. 1/, "equação não é cobrança de cobertura");
+  assert.ok(JSON.stringify(r.spec.slides).includes("contexto/visuais/x/f8.png"));
+  assert.deepEqual(r.coverage, { total: 1, missing: [] });
+});
+
+test("Criar com IA sem material: nenhuma chamada extra de cobertura", async () => {
+  const n = llm.requests.length;
+  reply = () => "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Ovo }\n  - { layout: end, title: Fim }\n```";
+  const r = await generateDeck("ovo frito", { images: false });
+  assert.equal(genReqs(n).length, 1);
+  assert.equal(r.coverage, undefined);
+});
+
+test("revisão de texto sem visão: frase longa em slide de impacto e excesso de telas de frase única viram achados", async () => {
+  const { auditText, reviewExperience } = await import("../src/ai/quality.js");
+  const spec = { slides: [
+    { layout: "cover", title: "Capa" },
+    { layout: "headline", text: "Caracterizar a fisiografia da bacia do Rio Beberibe e sua influência nos padrões hídricos da região metropolitana" },
+    { layout: "statement", text: "Água é limitada." },
+    { layout: "split", title: "Método", body: "Texto." },
+    { layout: "quote", quote: "Curta." },
+    { layout: "statement", text: "Outra frase." },
+    { layout: "end", title: "Fim" },
+  ] };
+  const issues = auditText(spec, spec.slides.map((_, i) => i));
+  assert.ok(issues.some((x) => x.slide === 2 && /16|palavras/.test(x.text)), JSON.stringify(issues));
+  assert.ok(issues.some((x) => x.slide === 6 && /frase única/.test(x.text)), "a 4ª tela de frase solta passa do limite");
+  assert.ok(!issues.some((x) => x.slide === 3), "frase curta de impacto é legítima");
+  // entra no relatório da revisão mesmo sem visão (e não aprova o deck)
+  const q = await reviewExperience(spec, [1], {});
+  assert.ok(q.issues.some((x) => x.slide === 2));
+  assert.equal(q.verified, false);
+});

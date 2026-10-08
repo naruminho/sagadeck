@@ -116,13 +116,20 @@ export function figureHTML(el, ctx, w, h) {
       const grown = matchCropAspect(el.crop, imageSize(el.image, ctx), w, h);
       const c = { l: +grown.l || 0, t: +grown.t || 0, r: +grown.r || 0, b: +grown.b || 0 };
       const fw = Math.max(0.01, 1 - c.l - c.r), fh = Math.max(0.01, 1 - c.t - c.b);
-      return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
+      // data-crop: a apresentação mede a caixa de verdade e, se a proporção não bater com a da região (caixa sem
+      // tamanho aqui, janela que não pôde crescer), encaixa a região inteira sem esticar (src/runtime/fit.js: fitCrops)
+      return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" data-crop="${[c.l, c.t, c.r, c.b].map((v) => +v.toFixed(5)).join(",")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
     }
     // sem fit escolhido: preenche (cover), mas quando a proporção da imagem é muito diferente da caixa (fórmula, esquema
     // largo numa coluna alta; gráfico com eixo e legenda na borda) cortar perderia informação: passou de 1,25× (corte de
     // mais de 20%), cabe inteira (contain). Sem o tamanho da caixa aqui (figura do split, do layout), a mesma conta é feita
     // na apresentação, com a caixa medida (data-autofit; src/runtime/fit.js: fitImages)
     let fit = el.fit;
+    // figura recortada do documento (mapa, gráfico, tabela do paper) é evidência: nunca deforma nem perde borda.
+    // fill/stretch achatavam o mapa na caixa do slide, e o cover automático (até 20% de corte) comia eixo, legenda e
+    // escala; vira contain (inteira, na proporção do original)
+    const docImage = /contexto\/visuais\//.test(String(el.image || "").replace(/\\/g, "/"));
+    if (docImage && (!fit || /^(fill|stretch|none|cover)$/i.test(String(fit)))) fit = "contain";
     if (!fit) {
       const sz = w && h ? imageSize(el.image, ctx) : null;
       const box = w && h ? w / h : 0, img = sz && sz.h ? sz.w / sz.h : 0;
@@ -141,7 +148,7 @@ export function figureHTML(el, ctx, w, h) {
         if (pct) { box = { ...el }; delete box.w; }
       }
     }
-    return `<div${attrs(box, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}"${el.fit ? "" : " data-autofit"} style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
+    return `<div${attrs(box, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}"${el.fit || docImage ? "" : " data-autofit"} style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
 }
@@ -447,7 +454,7 @@ export function cards(e, ctx) {
         ${badgeHtml}
       </div>
       ${c.title ? `<div class="cd-title t f-heading">${md(c.title)}</div>` : ""}
-      ${c.text ? `<div class="cd-text t f-body">${md(c.text)}</div>` : ""}
+      ${c.text ? `<div class="cd-text t f-body${/^\s*\$\$?[^$]+\$\$?\s*$/.test(String(c.text)) ? " cd-math" : ""}">${md(c.text)}</div>` : ""}
       ${extraWidgets}
       ${c.foot ? `<div class="cd-foot t f-label">${md(c.foot)}</div>` : ""}
       ${c.goto != null && c.goto !== "" ? `<span class="goto-mark" aria-hidden="true">${iconSVG("arrow-up-right", { size: 30, stroke: 2 })}</span>` : ""}

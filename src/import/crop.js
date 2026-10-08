@@ -45,21 +45,40 @@ export async function cropRegions(jobs) {
       const outs = await page.evaluate(async ([data, list]) => {
         const img = new Image(); img.src = data; await img.decode();
         return list.map((j) => {
-          const x = Math.max(0, Math.floor(j.x)), y = Math.max(0, Math.floor(j.y));
-          const w = Math.max(1, Math.min(img.width - x, Math.ceil(j.w))), h = Math.max(1, Math.min(img.height - y, Math.ceil(j.h)));
-          const c = document.createElement("canvas"); c.width = w; c.height = h;
-          const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, x, y, w, h, 0, 0, w, h);
-          // densidade de tinta (fração de pixels não-papel): recorte quase em branco = caixa errada
+          let x = Math.max(0, Math.floor(j.x)), y = Math.max(0, Math.floor(j.y));
+          let w = Math.max(1, Math.min(img.width - x, Math.ceil(j.w))), h = Math.max(1, Math.min(img.height - y, Math.ceil(j.h)));
+          let c = document.createElement("canvas"); c.width = w; c.height = h;
+          let g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, x, y, w, h, 0, 0, w, h);
+          // densidade de tinta (fração de pixels não-papel): recorte quase em branco = caixa errada (medida antes de aparar)
           let ink = 0;
           try {
             const d = g.getImageData(0, 0, w, h).data;
             for (let i = 0; i < d.length; i += 16) { if ((d[i] + d[i + 1] + d[i + 2]) / 3 < 235) ink++; }
             ink /= d.length / 16;
           } catch { ink = 1; }
-          return { png: c.toDataURL("image/png"), ink };
+          // trim: apara a margem de papel em volta (linha/coluna inteira branca), com um respiro de 6 px.
+          // Só papel puro sai: céu claro numa foto ou fundo cinza de gráfico não é branco puro em toda a linha.
+          if (j.trim && w > 24 && h > 24) {
+            const d = g.getImageData(0, 0, w, h).data;
+            const paper = (i) => d[i] >= 246 && d[i + 1] >= 246 && d[i + 2] >= 246;
+            const rowBlank = (r) => { for (let q = 0; q < w; q++) if (!paper((r * w + q) * 4)) return false; return true; };
+            const colBlank = (q, t0, t1) => { for (let r = t0; r <= t1; r++) if (!paper((r * w + q) * 4)) return false; return true; };
+            let t = 0, b = h - 1, l = 0, r = w - 1;
+            while (t < b && rowBlank(t)) t++;
+            while (b > t && rowBlank(b)) b--;
+            while (l < r && colBlank(l, t, b)) l++;
+            while (r > l && colBlank(r, t, b)) r--;
+            const pad = 6, nl = Math.max(0, l - pad), nt = Math.max(0, t - pad), nw = Math.min(w, r + pad + 1) - nl, nh = Math.min(h, b + pad + 1) - nt;
+            if (r > l && b > t && (nw < w || nh < h)) {
+              const c2 = document.createElement("canvas"); c2.width = nw; c2.height = nh;
+              const g2 = c2.getContext("2d", { willReadFrequently: true }); g2.drawImage(c, nl, nt, nw, nh, 0, 0, nw, nh);
+              c = c2; g = g2; w = nw; h = nh;
+            }
+          }
+          return { png: c.toDataURL("image/png"), ink, size: { w, h } };
         });
-      }, [data, list.map(({ x, y, w, h }) => ({ x, y, w, h }))]);
-      outs.forEach((u, k) => { fs.writeFileSync(list[k].dst, Buffer.from(u.png.split(",")[1], "base64")); list[k].ink = u.ink; done.push(list[k].dst); });
+      }, [data, list.map(({ x, y, w, h, trim }) => ({ x, y, w, h, trim }))]);
+      outs.forEach((u, k) => { fs.writeFileSync(list[k].dst, Buffer.from(u.png.split(",")[1], "base64")); list[k].ink = u.ink; list[k].size = u.size; done.push(list[k].dst); });
     }
   } finally { await browser.close(); }
   return done;
