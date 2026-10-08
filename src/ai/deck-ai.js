@@ -64,6 +64,7 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Layouts válidos (\`layout:\`): ${Object.keys(LAYOUTS).join(", ")}. Conteúdo → layout (use o que comunica, não o mais fácil): processo/fluxo/arquitetura/UML: layout \`diagram\` (Mermaid); itens em volta de uma ideia: layout \`infographic\`; gráfico: \`chart\` (fórmula/curva/3D: \`science\`); datas: \`calendar\` (grade) ou \`timeline\` (marcos); página densa estilo revista: \`poster\`; jornada+problema+solução+painel: \`onepage\`; status semanal: \`status\`; definição: \`definition\`; citação: \`quote\`; número gigante: \`number\`; KPIs: \`stats\`; A×B: \`compare\`; 2×2: \`matrix\`; pergunta à plateia: \`question\`/\`poll\`; código: \`code\`, guiado: \`codewalk\`; screenshot com foco: \`spotlight\`; API ao vivo: \`api\`; conta/calculadora: \`solution\`/\`calc\`; algoritmo animado: \`algo\`; redes/rotas: \`graphlab\`; código executável pelo aluno: \`codelab\`; experimento: \`playground\`; decisão: \`decisionlab\`; duelo/terminais/turnos: \`duel\`/\`terminals\`/\`turns\`; carrossel: \`carousel\`; funil/pirâmide/agenda: \`funnel\`/\`pyramid\`/\`agenda\`; grade/consulta: \`bento\`/\`mosaic\`/\`ribbon\`/\`dossier\`; tipografia em cena: \`kinetic\`; texto no cenário: \`scenography\`; caminhos com volta ao mapa: \`hub\`+\`goto\`/\`back\`/\`next\`; manchete: \`headline\`; imagem total: \`full\`/\`image\`. Diagramas simples (\`diagram: loop/flow/venn…\`) e gráficos também existem como ELEMENTOS, dentro de figure/content/side.
 - Temas disponíveis: ${themes}.
 - YAML: coloque entre aspas duplas todo texto que comece com marcação (\`**\`, \`*\`, \`==\`, \`^^\`, \`~~\`, \`[\`) ou que contenha ": ".
+- Em sequências inline ([{...}]): coloque entre aspas todo valor de texto com vírgula ("3,5 peixes por m³"). Sem aspas a vírgula parte o objeto e o dado sai truncado.
 - Números com milhar em \`stats\`/\`number\`: escreva sem separador ("7400") ou por extenso — nunca "7,400" solto (vira dado quebrado no slide).
 ${images
     ? `- Você PODE pedir ilustrações geradas por IA com \`image_prompt: "descrição visual detalhada, em inglês"\` no lugar de \`image\` — por exemplo \`figure: { image_prompt: "...", fit: cover }\` num split/cover, ou um slide \`layout: image\` ou \`full\` com \`image_prompt\`. No máximo ${maxImages} imagens novas por resposta.
@@ -79,6 +80,7 @@ ${images
   retratar o específico com fidelidade, prefira a figura do material, um diagrama, um mapa ou nada. A capa ilustrada
   ancora no caso concreto do briefing, não num símbolo vago do tema. O alt descreve o que a imagem mostra de verdade.
 - LEGENDA SEM NÚMERO: a legenda de figura, diagrama ou esquema é só a descrição curta do que se vê (sem "Figure N:", "Figura N:", "Table N:"). Nada de numerar visual — nem os do paper, nem os criados por você.
+- statement é frase curta de impacto (até ~12 palavras); texto mais longo vai em split, quote ou lead — nunca jogue parágrafo em statement gigante.
 - Nunca invente campos começando com "_" e não use caminhos de imagem que não existam no deck.
 - Referências visuais REAIS são diferentes de ilustrações: para aplicações, tutoriais, personagens e produtos, use fotos/gráficos observados nas fontes com web_image: {url: URL_EXATA, source: PAGINA, alt: DESCRICAO}, ou uma captura pública com web_capture: {url: PAGINA, selector: SELETOR_OPCIONAL}. Não adivinhe URLs ou coordenadas de cliques. O motor importa a referência para a biblioteca e a apresentação funciona offline. Falhas aparecem; não substitua screenshot por desenho inventado. Não peça captura de páginas privadas ou autenticadas.
 - Para ensinar relações e redes (logística, dependências, pessoas, conhecimento), considere graphlab com nós semânticos e um experimento de rota/bloqueio. Para algoritmos, considere codelab com um desafio que o aluno possa alterar e executar. A escolha e o exemplo vêm do conteúdo, não do nome do assunto. HTTPX/NetworkX reais ficam em api/codewalk ou comandos Python; codelab interpreta Python simples, sem essas bibliotecas.
@@ -1149,9 +1151,14 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   if (reviewCheck) {
     say('Conferindo a apresentação e os estados interativos…');
     quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
+    // problema idêntico ao de rodada anterior = tentativa sem efeito: não queima token de novo
+    const attempted = new Set();
     for (let round = 0; quality.issues.length && round < 3; round++) {
+      const fresh = quality.issues.filter(x => !attempted.has(JSON.stringify(x)));
+      if (!fresh.length) { say('Revisão: nada novo para corrigir; encerro as tentativas.'); break; }
+      fresh.forEach(x => attempted.add(JSON.stringify(x)));
       try {
-        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(quality.issues)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: quality.issues.map(x => x.slide - 1), onProgress: onEvent });
+        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(fresh)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: fresh.map(x => x.slide - 1), onProgress: onEvent });
         const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i));
         spec = repaired.spec; quality = nextQuality;
       } catch (error) {

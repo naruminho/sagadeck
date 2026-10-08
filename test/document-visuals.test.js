@@ -9,7 +9,7 @@ import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
 import { materialsBlock } from '../src/ai/context.js';
-import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect } from '../src/ai/document-visuals.js';
+import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions } from '../src/ai/document-visuals.js';
 
 test('recorte PDF protege a palavra e a legenda que cruzam a borda, sem capturar linhas distantes',()=>{
   const box=protectPDFText([300,400,380,215],[{left:650,top:500,right:740,bottom:520},{left:100,top:620,right:900,bottom:632},{left:100,top:800,right:900,bottom:815}]);
@@ -109,8 +109,7 @@ test('margem lateral protege rótulo raster e para no texto vizinho',()=>{
   assert.equal(box[0]+box[2],816, `margem 16 sem engolir a coluna: ${box}`);
 });
 
-test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()=>{
-  const prose=[
+test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()=>{  const prose=[
     {text:'linha um de prosa corrida aqui',left:100,top:500,right:900,bottom:520},
     {text:'linha dois de prosa corrida aqui',left:100,top:525,right:900,bottom:545},
     {text:'linha três de prosa corrida aqui',left:100,top:550,right:900,bottom:570},
@@ -123,6 +122,19 @@ test('proseSuspect: caixa cheia de prosa é suspeita; arte com legenda, não',()
   ];
   assert.ok(!proseSuspect([100,200,700,400],arte), 'arte com legenda não é suspeita');
   assert.ok(!proseSuspect([100,200,700,400],[]), 'vazio não é suspeito');
+});
+
+test('orphanCaptions: legenda sem item que a cubra (inclui "Quadro")',()=>{
+  const boxes=[
+    {text:'Figura 1 - A: Localização da região',left:100,top:600,right:900,bottom:620},
+    {text:'como mostra a Figura 1, os viveiros',left:100,top:300,right:900,bottom:320},
+    {text:'Quadro 1 - Ingredientes da ração',left:100,top:800,right:900,bottom:820},
+  ];
+  const inv={items:[{caption:'Tabela 1 - Mann-Whitney'}]};
+  const orphans=orphanCaptions(inv,boxes);
+  assert.deepEqual(orphans.map(o=>o.n),['1'], `Figura 1 órfã; menção em prosa não conta; Tabela 1 coberta: ${JSON.stringify(orphans)}`);
+  const inv2={items:[{caption:'Figura 1 - mapa'},{caption:'Quadro 1 - ingredientes'}]};
+  assert.deepEqual(orphanCaptions(inv2,boxes),[],'tudo coberto, nada órfão');
 });
 
 test('Word: todas as figuras, tabelas e equações são inventariadas com seus dados originais', async () => {

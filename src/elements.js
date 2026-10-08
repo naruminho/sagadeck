@@ -23,7 +23,13 @@ export const SIZES = { hero: 210, number: 250, title: 128, h2: 92, h3: 56, quote
 const FACE = { hero: "display", number: "display", title: "display", h2: "display", h3: "heading", quote: "quote", lead: "body", body: "body", small: "body", label: "label", mono: "mono", tiny: "label" };
 
 const px = (v) => (v == null ? null : typeof v === "number" ? `${v}px` : String(v));
-const colorVal = (c) => (!c ? null : /^#?[0-9a-f]{6}$/i.test(c) ? `#${String(c).replace("#", "")}` : `var(--${c})`);
+const colorVal = (c) => {
+  if (!c) return null;
+  if (/^#?[0-9a-f]{6}$/i.test(c)) return `#${String(c).replace("#", "")}`;
+  // paleta do tema é namespaced (--c-c1…): nome pelado ("c2") viraria var indefinida = preto
+  if (/^c[1-9]\d*$/.test(c) || /^(accent|alert|ink|paper)$/.test(c)) return `var(--c-${c})`;
+  return `var(--${c})`;
+};
 // cor de texto: "hi" (cor de destaque) vira a versão legível sobre o fundo (--hi-ink, src/themes.js)
 const textColorVal = (c) => (c === "hi" ? "var(--hi-ink,var(--hi))" : colorVal(c));
 
@@ -104,8 +110,11 @@ export function figureHTML(el, ctx, w, h) {
     if (!src) return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="Imagem não encontrada: ${esc(el.image)}"><div class="fp-in"><span class="fp-tag f-label">imagem não encontrada</span><span class="fp-text f-body">${esc(el.image)}</span></div></div>`;
     const flip = el.flipH || el.flipV ? `transform:scale(${el.flipH ? -1 : 1},${el.flipV ? -1 : 1});` : "";
     // recorte (crop: l/t/r/b em fração do lado, como o srcRect do PowerPoint): a imagem cresce e a caixa corta
+    // A janela é expandida (nunca encolhida) até a proporção da caixa: posicionar por % com
+    // proporções diferentes ESTICA a imagem (print de página retrato espremido na caixa paisagem).
     if (el.crop) {
-      const c = { l: +el.crop.l || 0, t: +el.crop.t || 0, r: +el.crop.r || 0, b: +el.crop.b || 0 };
+      const grown = matchCropAspect(el.crop, imageSize(el.image, ctx), w, h);
+      const c = { l: +grown.l || 0, t: +grown.t || 0, r: +grown.r || 0, b: +grown.b || 0 };
       const fw = Math.max(0.01, 1 - c.l - c.r), fh = Math.max(0.01, 1 - c.t - c.b);
       return `<div${attrs(el, "fig fig-img fig-crop")}><img src="${src}" alt="${esc(el.alt || "")}" style="left:${(-c.l / fw) * 100}%;top:${(-c.t / fh) * 100}%;width:${100 / fw}%;height:${100 / fh}%;${flip}"></div>`;
     }
@@ -135,6 +144,32 @@ export function figureHTML(el, ctx, w, h) {
     return `<div${attrs(box, "fig fig-img", flow)}><img src="${src}" alt="${esc(el.alt || "")}"${el.fit ? "" : " data-autofit"} style="object-fit:${fit};${el.radius ? `border-radius:${el.radius}px;` : ""}${flip}"></div>`;
   }
   return "";
+}
+
+// Expande a janela de recorte {l,t,r,b} (fração) até a proporção boxW/boxH, sem nunca
+// encolher o pedido: cresce para os lados vizinhos (respeitando 0..1). Sem w/h da caixa
+// ou sem tamanho do arquivo, devolve como veio.
+export function matchCropAspect(crop, img, boxW, boxH) {
+  const out = { l: +crop?.l || 0, t: +crop?.t || 0, r: +crop?.r || 0, b: +crop?.b || 0 };
+  if (!img?.w || !img?.h || !boxW || !boxH) return out;
+  const fw = 1 - out.l - out.r, fh = 1 - out.t - out.b;
+  if (fw <= 0 || fh <= 0) return out;
+  const boxAspect = boxW / boxH, regionAspect = (fw * img.w) / (fh * img.h);
+  if (Math.abs(regionAspect - boxAspect) / boxAspect < 0.03) return out;
+  if (regionAspect > boxAspect) {
+    // região mais larga que a caixa: cresce em cima/embaixo
+    let need = (fw * img.w) / (boxAspect * img.h) - fh;
+    const takeTop = Math.min(out.t, need);
+    out.t -= takeTop; need -= takeTop;
+    out.b = Math.max(0, out.b - need);
+  } else {
+    // região mais alta que a caixa: cresce nas laterais
+    let need = ((fh * img.h) * boxAspect) / img.w - fw;
+    const takeLeft = Math.min(out.l, need);
+    out.l -= takeLeft; need -= takeLeft;
+    out.r = Math.max(0, out.r - need);
+  }
+  return out;
 }
 
 // largura × altura do arquivo de imagem (cabeçalho de PNG, JPEG, GIF, WebP) ou null
