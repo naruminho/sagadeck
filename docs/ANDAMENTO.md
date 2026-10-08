@@ -25,8 +25,8 @@ Os itens abaixo vieram de duas rodadas de 08/10/2026, ambas descritas nas seçõ
   do Windows, que nesta máquina é redirecionada para o OneDrive: `C:\Users\narum\OneDrive\Documents\sagadeck`. O
   caminho antigo virou junção.
 
-**Ordem combinada com quem mantém o projeto (Narumi):** 1, depois 4, depois 8. O resto fica para depois e só
-entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada item:
+**Ordem combinada com quem mantém o projeto (Narumi):** 1, depois 4, depois 8 (o 1 já entrou: seção "Gravação
+tolerante a arquivo travado" abaixo). O resto fica para depois e só entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada item:
 - teste que falha antes da correção;
 - `npm test` passando;
 - uma branch por item, PR e merge na hora, sem perguntar;
@@ -34,14 +34,6 @@ entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada i
 
 **OneDrive (a biblioteca agora mora em `C:\Users\narum\OneDrive\Documents\sagadeck` e sincroniza)**
 
-1. **Gravação tolerante a arquivo travado.** Toda gravação e mudança de lugar usa `fs.renameSync` direto:
-   `src/deck-file.js:117` (o `writeDeckFile`, gravação atômica tmp → final) e uns dez pontos em `src/library.js`
-   (mover para a lixeira, restaurar, renomear deck e tópico, migração). Enquanto sincroniza, o OneDrive (e
-   antivírus, indexador) pode segurar o arquivo por alguns segundos, e o rename falha com `EPERM`/`EBUSY`/`EACCES`:
-   o salvamento da pessoa se perde com erro. Fazer um `renameRetry` (algumas tentativas com espera curta e
-   crescente, ~1 s no total, só para esses códigos) e usar em todos os pontos. Teste: simular a trava (stub do
-   `fs.renameSync` que falha N vezes com `EPERM`) e conferir que o deck foi gravado; e que um erro de outro tipo
-   continua subindo na hora.
 2. **Cache e lixeira fora da nuvem.** Dos ~560 MB da biblioteca, 407 MB são `.lixeira` (e há `.cache`, 5 MB, e
    `.historico`). Tudo vai para o OneDrive. Decidir: lixeira e cache em `%LOCALAPPDATA%\sagadeck` (são da máquina,
    não documentos) e/ou lixeira que se esvazia sozinha depois de 30 dias. O histórico de versões talvez deva
@@ -80,6 +72,22 @@ entra se for pedido. Antes de começar, leia o `CLAUDE.md` (regras). Para cada i
 9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
+
+## Gravação tolerante a arquivo travado (OneDrive) — 08/10/2026
+
+Item 1 das próximas frentes. Com a biblioteca no OneDrive, a sincronização (e antivírus, indexador) segura o arquivo
+por um instante e o `rename` falha com `EPERM`/`EBUSY`/`EACCES`: o salvamento da pessoa se perdia com erro.
+
+- `renameRetry` (`src/fs-retry.js`): tenta de novo só nesses três códigos, com espera curta e crescente (20 → 450 ms,
+  ~1 s no total); outro erro (disco cheio, destino inexistente) sobe na hora. Espera síncrona (`Atomics.wait`), para
+  servir aos chamadores síncronos sem mudar a assinatura deles.
+- Usado em todo rename do código: `writeDeckFile`, biblioteca (lixeira, restaurar, mover, renomear deck e tópico,
+  publicar a geração, migração), arquivos do projeto, Preferências, conversa do chat, links compartilhados e
+  ambientes do slide api.
+- Testes (`test/deck-file.test.js`, `test/library.test.js`): stub do `fs.renameSync` que falha N vezes com cada código
+  e o deck é gravado; erro de outro tipo sobe na primeira tentativa; trava que não solta desiste em ~1 s sem estragar
+  o arquivo; lixeira/restaurar/mover/renomear com a pasta travada; e uma trava de código: `fs.renameSync` direto em
+  `src/` ou `bin/` faz o teste falhar.
 
 ## Biblioteca padrão em Documentos\sagadeck — 08/10/2026
 

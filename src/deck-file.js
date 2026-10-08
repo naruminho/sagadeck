@@ -8,6 +8,7 @@
 //   3. o texto final é relido e comparado com o deck: se não bater, grava o deck inteiro (correção primeiro);
 //   4. a troca é atômica: escreve num temporário ao lado e renomeia (nunca fica um arquivo pela metade).
 import fs from "node:fs";
+import { renameRetry } from "./fs-retry.js";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import YAML from "yaml";
@@ -114,6 +115,6 @@ export function writeDeckFile(file, spec) {
   if (text === current) return false;
   const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`);
   fs.writeFileSync(tmp, text, "utf8");
-  try { fs.renameSync(tmp, file); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; }
+  try { renameRetry(tmp, file); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; }
   return true;
 }

@@ -6,6 +6,7 @@
 //                   Protegida: só some junto com o projeto inteiro. Nada disso vai no pacote .sagadeck
 //                   (src/package.js leva só o que o deck usa).
 import fs from "node:fs";
+import { renameRetry } from "../fs-retry.js";
 import path from "node:path";
 import crypto from "node:crypto";
 import JSZip from "jszip";
@@ -82,7 +83,7 @@ export function ensureMeta(P) {
   fs.mkdirSync(path.join(P.dir, CONTEXT), { recursive: true }); // à vista: é aqui que moram anexos, prints e planilhas
   const conv = path.join(P.dir, META, "conversa.json"), legacy = P.file.replace(/\.ya?ml$/i, ".conversa.json");
   // conversa antiga (ao lado do deck) passa para dentro do projeto
-  if (fs.existsSync(legacy) && !fs.existsSync(conv)) { try { fs.renameSync(legacy, conv); } catch {} }
+  if (fs.existsSync(legacy) && !fs.existsSync(conv)) { try { renameRetry(legacy, conv); } catch {} }
   return conv;
 }
 export const conversationFile = (P) => ensureMeta(P);
@@ -101,7 +102,7 @@ export function writeText(P, rel, text) {
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   const tmp = `${abs}.tmp-${process.pid}`;
   fs.writeFileSync(tmp, String(text ?? ""), "utf8");
-  fs.renameSync(tmp, abs);
+  renameRetry(tmp, abs);
   return { path: r };
 }
 export function createFile(P, dirRel, name, text = "") {
@@ -136,7 +137,7 @@ export function rename(P, fromRel, toName) {
   const to = resolveIn(P, path.posix.join(path.posix.dirname(r), n));
   if (fs.existsSync(to)) throw new Error(`Já existe "${n}" nessa pasta.`);
   if (isMeta(relOf(P, to))) throw new Error(`A pasta ${META} é do Studio.`);
-  fs.renameSync(abs, to);
+  renameRetry(abs, to);
   return { path: relOf(P, to) };
 }
 export function move(P, fromRel, toDirRel) {
@@ -146,7 +147,7 @@ export function move(P, fromRel, toDirRel) {
   if (isMeta(d)) throw new Error(`A pasta ${META} é do Studio.`);
   if (dest === abs || dest.startsWith(abs + path.sep)) throw new Error("Não dá para mover uma pasta para dentro dela mesma.");
   const to = unique(path.join(dest, path.basename(abs)));
-  fs.renameSync(abs, to);
+  renameRetry(abs, to);
   return { path: relOf(P, to) };
 }
 // apagar = mandar para a lixeira do projeto (.sagadeck/lixeira), de onde dá para restaurar
@@ -158,7 +159,7 @@ export function remove(P, rel) {
   fs.mkdirSync(bin, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const to = path.join(bin, `${stamp}__${r.replace(/\//g, "__")}`);
-  fs.renameSync(abs, to);
+  renameRetry(abs, to);
   return { trashed: relOf(P, to) };
 }
 export function restore(P, trashedRel) {
@@ -167,7 +168,7 @@ export function restore(P, trashedRel) {
   const orig = path.basename(abs).split("__").slice(1).join("/");
   const to = unique(resolveIn(P, orig));
   fs.mkdirSync(path.dirname(to), { recursive: true });
-  fs.renameSync(abs, to);
+  renameRetry(abs, to);
   return { path: relOf(P, to) };
 }
 
@@ -228,7 +229,7 @@ export function writeSheet(P, rel, rows) {
   const clean = rows.map((r) => r.map((c) => String(c ?? "")));
   while (clean.length > 1 && clean.at(-1).every((c) => c === "")) clean.pop(); // linha vazia no fim (o cursor passou dela) não vai para o arquivo
   fs.writeFileSync(tmp, toCSV(clean, old));
-  fs.renameSync(tmp, abs);
+  renameRetry(tmp, abs);
   return { path: relOf(P, abs), delimiter: old.delimiter };
 }
 
