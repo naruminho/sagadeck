@@ -20,6 +20,13 @@ export function auditText(spec, indices) {
     const limit = s.layout === 'quote' ? 40 : 16;
     if (n > limit) issues.push({ slide: index + 1, text: `Slide de frase única (${s.layout}) com ${n} palavras: vira uma frase gigante na tela. Encurte para a ideia central (até ~12 palavras) ou troque por um layout de conteúdo (split, list, cards, compare) que explique com evidência.` });
   }
+  // título encolhido à mão (titleSize pequeno) para "dar espaço à figura": o deck fica com cada slide num tamanho de
+  // título; o layout da figura já reserva a área. Vale para os layouts com cabeçalho comum (não capa/seção/manchete).
+  for (const index of indices) {
+    const s = slides[index];
+    if (!s || !Number.isFinite(Number(s.titleSize)) || ONE_LINER.has(s.layout) || ['cover', 'section', 'end', 'kinetic', 'scenography', 'full'].includes(s.layout)) continue;
+    if (Number(s.titleSize) < 60) issues.push({ slide: index + 1, text: `Título com titleSize ${s.titleSize}, bem menor que o dos outros slides: a hierarquia do deck fica desigual. Tire o titleSize (o layout já dá a área da figura); se o título não couber, encurte o texto.` });
+  }
   // muitas telas de frase solta: a partir da terceira (ou de 15% do deck), cada uma precisa justificar o lugar
   const singles = slides.map((s, i) => (ONE_LINER.has(s.layout) ? i : -1)).filter(i => i >= 0);
   const allowed = Math.max(2, Math.round(slides.length * 0.15));

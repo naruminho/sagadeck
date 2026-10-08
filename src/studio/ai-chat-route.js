@@ -6,7 +6,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { loadSpec } from "../build.js";
 import { writeRecording } from "../api-client.js";
-import { editDeck, coverDocumentVisuals } from "../ai/deck-ai.js";
+import { editDeck, coverDocumentVisuals, checkNumbers } from "../ai/deck-ai.js";
 import { reviewExperience } from "../ai/quality.js";
 import { maybeResearch } from "../research/chat-research.js";
 import { chatErrorResult } from "./errors.js";
@@ -108,6 +108,11 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
             signal.throwIfAborted();
             if (covered.spec !== result.spec) { result.spec = covered.spec; result.actions = [...(result.actions || []), ...covered.actions]; }
             if (covered.coverage?.missing.length) result.actions = [...(result.actions || []), `Sem slide (figuras/tabelas do material): ${covered.coverage.missing.join("; ")}`];
+            const checked = await checkNumbers(result.spec, { materials, say: (s) => emit({ phase: "step", text: s }),
+              edit: (o) => editDeck({ signal, images: true, imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
+            signal.throwIfAborted();
+            if (checked.spec !== result.spec) { result.spec = checked.spec; result.actions = [...(result.actions || []), ...checked.actions]; }
+            if (checked.facts?.unsupported.length) result.actions = [...(result.actions || []), `Números sem base no material: ${checked.facts.unsupported.map((b) => `${b.number} (slide ${b.slide})`).join(", ")}`];
           }
         }
         if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];

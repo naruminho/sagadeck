@@ -49,7 +49,9 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Adapte tom, estilo, tema, densidade e recursos ao conteúdo, público e objetivo. Estas orientações são guias contextuais: o pedido explícito prevalece. Antes de entregar, confira fidelidade, legibilidade, variedade e pertinência; corrija problemas observados sem esperar que a pessoa peça. Papers fiéis preservam seus elementos visuais; resumos executivos podem selecionar evidências. Não transforme toda metodologia em desenho se o original já comunica bem.
 - Paper científico anexado (congresso, defesa, aula): metodologia merece slides de verdade, respeitando a natureza do paper — SE tiver método quantitativo, detalhe modelos com parâmetros e calibração, métricas com valores E fontes (tabela comparativa quando houver); se for teórico, revisão ou qualitativo, apresente a estrutura do argumento sem inventar números. Números sempre do próprio texto com a origem ("n=1.403", "NSE 0,90–0,96"). Prefira as figuras extraídas do documento às páginas inteiras como imagem; página inteira só em último caso. Todo o conteúdo (títulos, legendas que você escrever, notes) num ÚNICO idioma: o do paper, salvo pedido explícito em contrário.
 - Apresentação de paper (congresso, defesa, seminário): siga o arco do artigo, cada etapa com conteúdo de verdade e não uma frase solta — (1) contexto e problema, com um dado do próprio paper que mostre por que importa; (2) lacuna/justificativa: o que falta nos métodos ou estudos atuais; (3) objetivo geral e específicos/hipótese num slide de conteúdo (list, cards ou split; nunca o objetivo inteiro numa manchete); (4) área de estudo e dados (onde, quando, quanto, com que instrumento ou fonte); (5) método: o fluxo de etapas, as equações com o significado de cada variável e unidade, parâmetros e critérios de avaliação; (6) resultados: cada figura e tabela numerada do paper no slide do resultado dela, com título que afirma o achado ("O erro cresce com a altura") e 1–3 frases de leitura do que a figura mostra; (7) discussão: por que deu assim, comparando com o que o paper cita; (8) conclusões e (9) limitações/trabalhos futuros. Slide de frase única (statement/headline/quote) só para a mensagem principal, no máximo 2 no deck.
-- Figuras do inventário trazem width×height do recorte: figura larga (largura ≥ 1,6× a altura: mapa duplo, painéis lado a lado, gráfico largo) vai em composição vertical (split com arrangement: stacked, ou image) com o texto curto embaixo; figura alta ou quadrada vai em split lado a lado com a explicação. Nunca ponha título, legenda ou véu por cima de figura do documento (layout full com overlay): o texto cobre a legenda do mapa e os eixos.
+- Figuras do inventário trazem width×height do recorte: figura larga (largura ≥ 1,6× a altura: mapa duplo, painéis lado a lado, gráfico largo) vai em composição vertical (split com arrangement: stacked, ou image) com o texto curto embaixo; figura alta ou quadrada vai em split lado a lado com a explicação. Nunca ponha título, legenda ou véu por cima de figura do documento (layout full com overlay): o texto cobre a legenda do mapa e os eixos. Não diminua titleSize para dar espaço à figura (o layout já reserva a área; título em tamanhos diferentes de slide a slide desorganiza o deck): se o título não couber, encurte o texto.
+- Figura mal feita do documento (sourcePx = tamanho nativo da imagem; abaixo de ~1000 px de largura ela fica borrada esticada no slide, ou é escaneada/pixelada) pode ser redesenhada: ESQUEMA de caixas e setas (fluxograma, etapas do método, organograma) vira \`diagram\`/\`flow\` nativo fiel, com os mesmos textos e ligações; GRÁFICO cujos valores estão no paper (tabela, texto, rótulos legíveis) vira \`chart\` nativo com os números exatos; gráfico sem os dados à mão (dispersão com centenas de pontos) e ILUSTRAÇÃO desenhada podem ser redesenhados pelo modelo de imagem a partir do original (\`image_prompt: "Clean up and redraw THIS EXACT figure…"\`, copiando eixos, rótulos e valores letra por letra, + \`image_ref\` com o arquivo do inventário, \`fit: contain\`). Mapa e foto ficam como estão. Toda reconstrução nativa (chart, diagram, table) de uma figura do documento leva no slide \`sourceFigure: <arquivo do inventário>\` (o redesenho pelo modelo de imagem guarda \`original\` sozinho): é o caminho de volta. Se a pessoa pedir para manter ou voltar à figura original, troque a reconstrução por \`figure: { image: <sourceFigure ou original>, fit: contain }\` no mesmo slide, sem mexer no texto.
+- Iniciativa com os números: dados que o paper dá só no texto ou em tabela (valores por classe, por linha, por período, métricas de modelos, antes × depois) e que ficam mais claros vistos lado a lado viram \`chart\` nativo criado por você (barras para comparar, linha para série, donut para partes de um todo), com os valores exatos do paper e \`source\` dizendo de onde vieram (tabela, seção), mesmo que o paper não tenha esse gráfico. Não invente pontos nem interpole: só os números escritos. Esse gráfico novo entra em slide próprio ou ao lado da figura do paper, nunca no lugar de um mapa ou foto (o mapa mostra onde; o gráfico, quanto).
 - Capacidades reais: quando pesquisa/comandos estiverem disponíveis, use-os antes de alegar falta de acesso à web. Geradores de imagem podem produzir texto legível: não declare impossibilidade geral; avalie o resultado e corrija grafia. Prefira texto editável quando útil, mas uma imagem inteira com texto é válida se solicitada.
 - Direção de arte: se pedirem propostas visuais, use variants com três composições do MESMO conteúdo real; varie hierarquia, enquadramento e tipografia, não só cor. Cada opção pode levar direction: {theme, rationale}. Escolher aplica o tema ao deck, mantendo outros slides intactos.
 - Para integrar texto ao cenário, componha camadas editáveis em canvas (imagem, texto, primeiro plano). continuity no mesmo objeto em slides consecutivos mantém continuidade espacial. Prefira uma imagem estática forte quando movimento não explicar nada.
@@ -252,8 +254,34 @@ function protectLatex(src) {
   return src.replace(/"(?:[^"\\\n]|\\.)*"/g, (q) => (/\\[A-Za-z]{2,}/.test(q) ? q.replace(LATEX_CMD, "\\\\") : q));
 }
 
+// Vírgula decimal numa sequência ou mapa entre colchetes/chaves: `[07/04/2017, HEC-HMS, 0,93, 0,97]` — no YAML a
+// vírgula ali SEMPRE separa itens, e "0,93" virava duas células (0 e 93): a tabela do paper saiu com NSE 0 e R² 93,
+// as colunas todas deslocadas, sem erro nenhum. Quando os itens são separados por ", " (vírgula e espaço), um
+// "dígitos,dígitos" sem espaço só pode ser número com vírgula decimal: vai entre aspas. `[10,20,30]` (sem ", ") fica.
+export function quoteFlowDecimals(src) {
+  return String(src).split("\n").map((line) => {
+    if (!/[[{]/.test(line) || !/\d,\d/.test(line)) return line;
+    let out = "", depth = 0, quote = null;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (quote) { out += c; if (c === quote && line[i - 1] !== "\\") quote = null; continue; }
+      if (c === '"' || c === "'") { quote = c; out += c; continue; }
+      if (c === "#" && /\s/.test(line[i - 1] || " ")) { out += line.slice(i); break; }
+      if (c === "[" || c === "{") depth++;
+      if (c === "]" || c === "}") depth = Math.max(0, depth - 1);
+      // início de item no fluxo: número com vírgula decimal colada, terminando no separador ", " ou no fecho
+      if (depth > 0 && /[\s[{:,]/.test(line[i - 1] || "[")) {
+        const m = /^-?\d+,\d+%?(?=\s*(?:,\s|[\]}]|$))/.exec(line.slice(i));
+        if (m && /,\s/.test(line)) { out += `"${m[0]}"`; i += m[0].length - 1; continue; }
+      }
+      out += c;
+    }
+    return out;
+  }).join("\n");
+}
+
 export function parseYaml(src) {
-  src = protectLatex(src);
+  src = quoteFlowDecimals(protectLatex(src));
   try {
     return rejoinFlowCommas(YAML.parse(src));
   } catch (first) {
@@ -476,6 +504,9 @@ export async function materializeImages(spec, { assetsDir, baseDir, max = Infini
       // sem fit escolhido, o encaixe automático decide: a ilustração 16:9 numa caixa em pé cabia cortada ("cover")
       // e a criança da capa saía pela metade
       if (!node.alt) node.alt = prompt.slice(0, 120);
+      // a figura de base fica anotada: "volte para a figura original" pelo chat troca image por original (antes o
+      // caminho se perdia junto com o image_ref e não havia como voltar)
+      if (refFile && !node.original) node.original = node.image_ref;
       delete node.image_prompt;
       delete node.image_ref;
       done.push({ prompt, file, ref: refFile ? path.relative(baseDir, refFile).split(path.sep).join("/") : undefined });
@@ -732,6 +763,13 @@ export function sanitizeCheck(spec, indices) {
       else if (DUMPED_PATCH.test(v)) problems.push(`${where}: o texto parece um pedaço do patch/resposta (slides:, layout:…), não conteúdo`);
     } else if (Array.isArray(v)) v.forEach((x, i) => scan(x, `${where}[${i}]`, key));
     else if (v && typeof v === "object") {
+      // tabela com linha de tamanho diferente do cabeçalho: coluna deslocada (vírgula decimal partindo célula,
+      // célula esquecida) — o número aparece na coluna errada sem erro nenhum
+      const head = Array.isArray(v.head) ? v.head : Array.isArray(v.headers) ? v.headers : null;
+      if (head && Array.isArray(v.rows)) {
+        const bad = v.rows.map((r, k) => (Array.isArray(r) && r.length !== head.length ? k + 1 : 0)).filter(Boolean);
+        if (bad.length) problems.push(`${where}: linha(s) ${bad.slice(0, 5).join(", ")} da tabela com número de células diferente do cabeçalho (${head.length}); número com vírgula decimal vai entre aspas ("0,93") e cada linha tem uma célula por coluna`);
+      }
       if (v.svg) {
         const competing = ["diagram", "chart", "picto", "ufmap", "qr", "points", "image"].filter(k => v[k]);
         if (competing.length) problems.push(`${where}: renderizadores incompatíveis svg e ${competing.join(", ")}; um ocultaria o outro. Ao trocar a figura, remova o tipo anterior com null no edit, ou use elementos separados em row/col/canvas para sobrepor.`);
@@ -742,6 +780,8 @@ export function sanitizeCheck(spec, indices) {
   for (const i of indices) {
     const s = spec.slides[i];
     if (!s || typeof s !== "object") continue;
+    // a tabela pode ser o próprio slide (layout table: head + rows)
+    if (Array.isArray(s.head) && Array.isArray(s.rows)) scan({ head: s.head, rows: s.rows }, `slide ${i + 1}`, null);
     for (const [k, v] of Object.entries(s)) {
       if (PATCH_WORDS.has(k) && k !== "steps") problems.push(`slide ${i + 1}: "${k}" não existe dentro de um slide (é palavra do patch; o slide ficou com um pedaço da resposta)`);
       else if (!known.has(k)) problems.push(`slide ${i + 1}: o campo "${k}" não existe (veja os campos do layout ${s.layout || "?"} na referência)`);
@@ -1087,6 +1127,23 @@ ${briefing}
   return { spec: next, coverage: { total: missing.length, missing: still.map((m) => m.caption) }, actions };
 }
 
+// Checagem dos números (ferramenta de autocrítica): todo número visível do deck que não está no material volta para a
+// IA conferir. Uma rodada; o que sobrar vai no relatório (facts.unsupported) e no aviso.
+export async function checkNumbers(spec, { materials = [], edit, say = () => {} } = {}) {
+  const { unsupportedNumbers } = await import("./document-visuals.js");
+  const bad = unsupportedNumbers(spec, materials);
+  if (!bad.length) return { spec, facts: null, actions: [] };
+  say(`${bad.length} número(s) no deck sem base no material; pedindo para conferir…`);
+  let next = spec, actions = [];
+  try {
+    const r = await edit({ spec, instruction: `Checagem de números: estes números aparecem nos slides, mas não estão escritos no material anexado:\n${bad.map((b) => `- slide ${b.slide}: ${b.number}`).join("\n")}\nPara cada um: se for o valor do material com erro de leitura (por exemplo, lido de um gráfico), troque pelo valor que o texto ou a tabela do material traz; se for uma conta sua a partir de valores do material, deixe só se a conta aparecer no slide ou nas notes; se não houver base, tire o número (reescreva a frase sem ele). Não mexa em mais nada.`, repairSlides: [...new Set(bad.map((b) => b.slide - 1))] });
+    if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = r.actions || []; }
+  } catch (e) { say(`a checagem de números falhou (${e.message}); sigo com o deck como está`); }
+  const still = unsupportedNumbers(next, materials);
+  if (still.length) say(`Números sem base no material ainda no deck: ${still.map((b) => `${b.number} (slide ${b.slide})`).join(", ")}.`);
+  return { spec: next, facts: { checked: bad.length, unsupported: still }, actions };
+}
+
 export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, reviewCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
   // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
   const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
@@ -1172,6 +1229,9 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   const covered = await coverDocumentVisuals(spec, { materials, briefing, say, edit: (o) => editDeck({ ...creationOptions, ...o }) });
   spec = covered.spec;
   const coverage = covered.coverage;
+  const checked = await checkNumbers(spec, { materials, say, edit: (o) => editDeck({ ...creationOptions, ...o }) });
+  spec = checked.spec;
+  const facts = checked.facts;
 
   // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
@@ -1203,7 +1263,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   }
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(researchReport ? { research: researchReport } : {}) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

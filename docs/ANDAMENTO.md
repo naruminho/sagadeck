@@ -8,6 +8,49 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Paper para congresso, 2ª rodada: equações, redesenho com volta ao original, dados corrompidos — 08/10/2026
+
+Pedido: equação não precisa de recorte se vira LaTeX (e, se precisar, que o recorte preste); gráfico pode ser
+redesenhado, desde que o chat consiga voltar ao original; a IA cria gráficos dos números do texto por iniciativa.
+Teste com o paper do eucalipto (o das equações) e o ICFM10 (Aricanduva).
+
+- **Equação pela camada de texto** (`equationGroups`, `assignEquations`): equação de Word/LaTeX é texto (𝑑, 𝜋, ∑);
+  os grupos de caracteres matemáticos da página dão a caixa exata (sem a vizinha, a prosa e o "(4)"). A visão punha
+  as caixas deslocadas uma equação para baixo (a Eq. 4 sumia e a 5 levava o recorte e o LaTeX da 6): agora casa
+  pelo número impresso, depois pelo conteúdo (letras do LaTeX × texto do PDF, 𝑅𝑀𝑆𝐸→RMSE), por último pela
+  posição. Numerada que a visão esqueceu entra; item repetido sai; equação como imagem cai na régua da imagem.
+- **Releitura no recorte** (`transcribeEquation`): cada equação é relida na própria imagem; a leitura que encolhe
+  (recorte parcial) não troca a da página; "\quad (3)" sai. Com LaTeX, o inventário vai ao modelo SEM o arquivo do
+  recorte (`promptInventory`): o slide usa a fórmula nativa. Resultado: 16/16 equações dos dois papers corretas.
+- **Tabela sem rows** relida no recorte (`transcribeTable`): vira table nativa e a cobertura reconhece.
+- Um item com caixa inválida sai sozinho (antes a página inteira virava uma imagem só).
+- "Figure 5 shows…" não é legenda (`captionLineStrict`): parava de cobrar "legenda sem arte" na página.
+- **Redesenho com volta**: `sourcePx` (tamanho nativo da imagem embutida) no inventário; regra: esquema → diagram
+  nativo, gráfico com valores no paper → chart nativo, gráfico sem dados/ilustração → modelo de imagem, mapa e foto
+  ficam. O redesenho guarda `original` no elemento (antes o caminho sumia com o image_ref); reconstrução nativa
+  leva `sourceFigure` no slide; "volte ao original" troca o visual por ele (REFERENCIA). Iniciativa: números do
+  texto/tabelas viram chart criado pela IA, com `source`.
+- **Dado corrompido**: `[07/04/2017, HEC-HMS, 0,93, 0,97]` partia "0,93" em 0 e 93 (YAML) e a tabela do ICFM saiu
+  com NSE 0 e R² 93, colunas deslocadas, sem erro. `quoteFlowDecimals` põe entre aspas "dígitos,dígitos" sem espaço
+  em lista separada por ", " (`[10,20,30]` fica); `sanitizeCheck` recusa tabela com linha de tamanho diferente do
+  cabeçalho (volta para a IA).
+- **"NaN" e "km^2^"**: `number` com valor "37,67%" ou "1521 km^2^" mostrava NaN (o contador só aceitava número):
+  `parseCounterValue` lê no formato brasileiro e separa prefixo/sufixo; expoente/índice viram ²/₂; valor do
+  `stats` passa pela marcação.
+- **Título encolhido pela IA** (titleSize 40 "para dar espaço à figura"): regra no prompt e achado da revisão.
+- **Tarefa parada horas em "Pensando…"**: o relay manda "estou vivo" e o raciocínio enquanto o modelo pensa, e cada
+  pedaço zerava o relógio; um modelo em laço nunca terminava. Agora o limite da 1ª palavra de TEXTO (600 s) vale
+  mesmo com os sinais de vida (`AI_THINKING_LOOP`), e a chamada ganha uma tentativa a mais SEM raciocínio (a mesma
+  tarefa sai em segundos). Aconteceu duas vezes seguidas com o DeepSeek Flash na conferência de cobertura.
+- **Checagem de números** (`unsupportedNumbers` + `checkNumbers`, na geração e no chat com anexo): todo número
+  visível (texto e dados de gráfico/tabela) que não está no material volta para a IA corrigir, mostrar a conta ou
+  tirar; arredondamento do valor do paper vale, contagem pequena não é cobrada. Pegou "ANOVA p = 0,109" que o artigo
+  do eucalipto não tem (lido errado do gráfico); nos outros dois decks, nenhum alarme falso.
+- Resultado (mesmos PDFs): eucalipto com o fluxograma como diagram nativo (`sourceFigure`), equações nativas com as
+  variáveis explicadas, dois gráficos criados dos números do texto; ICFM10 com a tabela certa, km² e todas as
+  figuras. "Volte para a figura original" pelo chat (modelo de verdade) trocou o donut pelo mapa em 8 s, citando o
+  `sourcePx` baixo. Regra nova: gráfico criado por iniciativa não substitui mapa ou foto.
+
 ## Apresentação de congresso a partir de paper: figuras, cobertura e frase gigante — 08/10/2026
 
 Retorno de quem usa: figuras ignoradas, com a legenda junto, cortadas ou fora de proporção; conteúdo fraco (contexto,

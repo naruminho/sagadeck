@@ -132,6 +132,13 @@ async function chatUnmetered(messages, opts = {}) {
 const noThinkField = new Set();
 async function chatOnce(messages, opts = {}) {
   const cfg = opts.cfg || llmConfig();
+  // modelo que entrou em laço pensando (o limite da 1ª palavra estourou sem texto nenhum): uma tentativa a mais, sem
+  // raciocínio; a mesma tarefa sem pensar sai em segundos. Sem isso a conferência de cobertura e a correção visual
+  // se perdiam depois de 10 min de espera.
+  if (opts.think !== false && !opts.noLoopRetry) {
+    try { return await chatOnce(messages, { ...opts, noLoopRetry: true }); }
+    catch (e) { if (e.code !== "AI_THINKING_LOOP" || opts.signal?.aborted) throw e; opts.onRetry?.({ attempt: 2, maxAttempts: 2, code: e.code }); return chatOnce(messages, { ...opts, think: false, noLoopRetry: true }); }
+  }
   if (opts.think === false && !noThinkField.has(cfg.url)) {
     try { return await chatOnceRaw(messages, { ...opts, cfg, reasoningOff: true }); }
     catch (e) { if (e.status !== 400 || !/reasoning/i.test(e.message)) throw e; noThinkField.add(cfg.url); }
@@ -192,12 +199,18 @@ async function chatStream(body, onDelta, cfg, signal) {
   let timer;
   const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => idle.abort(Object.assign(new Error("tempo esgotado"), { name: "TimeoutError" })), ms); };
   arm(cfg.firstTimeoutMs ?? cfg.timeoutMs);
+  // Até a 1ª palavra de TEXTO o limite é o firstTimeoutMs, mesmo com o relay mandando "estou vivo" (e o raciocínio)
+  // a cada poucos segundos: o modelo que entra em laço pensando zerava o relógio para sempre e a tarefa ficava
+  // parada horas em "Pensando…". Quem chamou trata o erro (a correção visual preserva o deck que já existe).
+  const firstMs = cfg.firstTimeoutMs ?? cfg.timeoutMs;
+  let firstTimer = setTimeout(() => idle.abort(Object.assign(new Error("sem texto"), { name: "TimeoutError", noText: true })), firstMs);
+  const wrote = () => { clearTimeout(firstTimer); firstTimer = null; };
   const sig = signal ? AbortSignal.any([signal, idle.signal]) : idle.signal;
-  try { return await readStream(body, onDelta, cfg, signal, sig, () => arm(cfg.timeoutMs)); }
-  finally { clearTimeout(timer); }
+  try { return await readStream(body, onDelta, cfg, signal, sig, () => arm(cfg.timeoutMs), wrote, () => idle.signal.reason?.noText ? firstMs : 0); }
+  finally { clearTimeout(timer); if (firstTimer) clearTimeout(firstTimer); }
 }
 
-async function readStream(body, onDelta, cfg, signal, sig, alive) {
+async function readStream(body, onDelta, cfg, signal, sig, alive, wrote = () => {}, noTextFor = () => 0) {
   let res;
   try {
     res = await fetch(`${cfg.url}/chat/completions`, {
@@ -249,6 +262,7 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
         if (ev.error) throw new LLMError(`LLM falhou no meio da resposta: ${ev.error.message || JSON.stringify(ev.error)}`,{status:Number(ev.error.status||ev.error.code)||undefined,code:/upstream.*terminated.*stream|provider_unavailable/i.test(ev.error.message||'')?'AI_PROVIDER_INTERRUPTED':undefined});
         const piece = ev.choices?.[0]?.delta?.content;
         if (piece) {
+          wrote();
           text += piece;
           onDelta(piece, text);
         }
@@ -260,8 +274,8 @@ async function readStream(body, onDelta, cfg, signal, sig, alive) {
   } catch (e) {
     if (e instanceof LLMError) throw e;
     if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
-    const why = e.name === "TimeoutError" ? `nada chegou em ${cfg.timeoutMs / 1000} s` : e.message;
-    throw new LLMError(`A resposta do LLM foi interrompida (${why}).`, { cause: e });
+    const why = noTextFor() ? `${noTextFor() / 1000} s pensando sem escrever nada` : e.name === "TimeoutError" ? `nada chegou em ${cfg.timeoutMs / 1000} s` : e.message;
+    throw new LLMError(`A resposta do LLM foi interrompida (${why}).`, { cause: e, ...(noTextFor() ? { code: "AI_THINKING_LOOP" } : {}) });
   }
   return { text, images: [], usage, model, finishReason };
 }
