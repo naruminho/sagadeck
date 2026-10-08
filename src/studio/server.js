@@ -10,6 +10,7 @@ import { codeRoutes } from "./code-routes.js";
 import { directionRoutes } from "./direction-routes.js";
 import http from "node:http";
 import fs from "node:fs";
+import { renameRetry } from "../fs-retry.js";
 import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -287,7 +288,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
     try {
       if (text != null) {
         const tmp = W.file + ".tmp-" + crypto.randomUUID();
-        try { fs.writeFileSync(tmp, text, "utf8"); fs.renameSync(tmp, W.file); }
+        try { fs.writeFileSync(tmp, text, "utf8"); renameRetry(tmp, W.file); }
         finally { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); }
       }
       else writeDeckFile(W.file, W.spec);
@@ -1085,7 +1086,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
           const history = (Array.isArray(body.history) ? body.history : []).filter((m) => m && typeof m.text === "string")
             .slice(-400).map((m) => ({ role: m.role === "user" ? "user" : "assistant", text: m.text.slice(0, 8000), ...(m.talk ? { talk: true } : {}) }));
           W.chatHistory = history;
-          if (file) try { const tmp = `${file}.tmp-${process.pid}`; fs.writeFileSync(tmp, JSON.stringify({ history }, null, 1)); fs.renameSync(tmp, file); } catch (e) { console.error("[Studio] conversa:", e.message); }
+          if (file) try { const tmp = `${file}.tmp-${process.pid}`; fs.writeFileSync(tmp, JSON.stringify({ history }, null, 1)); renameRetry(tmp, file); } catch (e) { console.error("[Studio] conversa:", e.message); }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true }));
           return;

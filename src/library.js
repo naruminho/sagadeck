@@ -14,6 +14,7 @@
 //
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
 import fs from "node:fs";
+import { renameRetry } from "./fs-retry.js";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -72,7 +73,7 @@ export function migrateLegacyLibrary(env = process.env, { platform = process.pla
   try {
     fs.mkdirSync(docs, { recursive: true });
     if (fs.existsSync(target)) fs.rmdirSync(target); // pasta vazia criada antes
-    fs.renameSync(legacy, target);
+    renameRetry(legacy, target);
   } catch (e) { return { error: e.message, legacy, target }; }
   try { fs.symlinkSync(target, legacy, "junction"); } catch { /* sem a junção, a nova pasta já é a biblioteca */ }
   return { moved: true, legacy, target };
@@ -215,7 +216,7 @@ export function openLibrary(root) {
     if (color) fs.writeFileSync(path.join(dir, TOPIC_META), JSON.stringify({ ...topicMeta(dir), color }));
     if (name && safeName(name) !== path.basename(dir)) {
       const to = uniquePath(root, safeName(name));
-      fs.renameSync(dir, to);
+      renameRetry(dir, to);
       dir = to;
     }
     return path.basename(dir);
@@ -259,7 +260,7 @@ export function openLibrary(root) {
     if (path.dirname(unit) === dest) return id;
     const ext = unit === file ? path.extname(file) : "";
     const to = uniquePath(dest, path.basename(unit, ext), ext);
-    fs.renameSync(unit, to);
+    renameRetry(unit, to);
     return idOf(unit === file ? to : path.join(to, path.basename(file)));
   }
 
@@ -271,12 +272,12 @@ export function openLibrary(root) {
     if (unit === file) return id; // .yaml solto: só o título
     const to = uniquePath(path.dirname(unit), safeName(title));
     if (path.basename(to) === path.basename(unit)) return id;
-    fs.renameSync(unit, to);
+    renameRetry(unit, to);
     // o .yaml com o nome da pasta acompanha a pasta
     let yaml = path.join(to, path.basename(file));
     if (path.basename(file).replace(/\.ya?ml$/i, "") === path.basename(unit)) {
       const renamed = path.join(to, path.basename(to) + path.extname(file));
-      fs.renameSync(yaml, renamed);
+      renameRetry(yaml, renamed);
       yaml = renamed;
     }
     return idOf(yaml);
@@ -291,7 +292,7 @@ export function openLibrary(root) {
     let yaml = unit === file ? to : path.join(to, path.basename(file));
     if (unit !== file && path.basename(file).replace(/\.ya?ml$/i, "") === path.basename(unit)) {
       const renamed = path.join(to, path.basename(to) + path.extname(file));
-      fs.renameSync(yaml, renamed);
+      renameRetry(yaml, renamed);
       yaml = renamed;
     }
     const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {};
@@ -334,9 +335,9 @@ export function openLibrary(root) {
     if (!Array.isArray(spec.slides) || !spec.slides.length) throw new Error("a geração não produziu slides: nada foi publicado");
     const dest = uniquePath(base, safeName(title || spec.title || "Nova apresentação"));
     spec.title = title || spec.title || path.basename(dest);
-    fs.renameSync(abs, dest);
+    renameRetry(abs, dest);
     const final = path.join(dest, path.basename(dest) + ".yaml");
-    fs.renameSync(path.join(dest, "deck.yaml"), final);
+    renameRetry(path.join(dest, "deck.yaml"), final);
     writeDeckFile(final, spec); // só o título muda no arquivo
     return idOf(final);
   }
@@ -347,7 +348,7 @@ export function openLibrary(root) {
     fs.mkdirSync(tdir, { recursive: true });
     const slot = path.join(tdir, `${Date.now()}-${STAGING}`);
     fs.mkdirSync(slot);
-    fs.renameSync(abs, path.join(slot, path.basename(abs)));
+    renameRetry(abs, path.join(slot, path.basename(abs)));
     const yaml = path.join(slot, path.basename(abs), "deck.yaml");
     let slides = 0, title = reason;
     try { const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {}; slides = Array.isArray(spec.slides) ? spec.slides.length : 0; if (spec.title && spec.title !== "Gerando…") title = spec.title; } catch {}
@@ -378,7 +379,7 @@ export function openLibrary(root) {
     fs.mkdirSync(tdir, { recursive: true });
     const slot = path.join(tdir, `${Date.now()}-${path.basename(unit)}`);
     fs.mkdirSync(slot);
-    fs.renameSync(unit, path.join(slot, path.basename(unit)));
+    renameRetry(unit, path.join(slot, path.basename(unit)));
     fs.writeFileSync(path.join(slot, ".origem.json"), JSON.stringify({
       topic: info.topic, title: info.title, deleted: Date.now(), yaml: path.relative(unit === file ? path.dirname(file) : unit, file),
       unit: path.basename(unit), slides: info.slides,
@@ -399,7 +400,7 @@ export function openLibrary(root) {
     const isFile = /\.ya?ml$/i.test(o.unit);
     const ext = isFile ? path.extname(o.unit) : "";
     const to = uniquePath(dest, path.basename(o.unit, ext), ext);
-    fs.renameSync(path.join(slot, o.unit), to);
+    renameRetry(path.join(slot, o.unit), to);
     fs.rmSync(slot, { recursive: true, force: true });
     return idOf(isFile ? to : path.join(to, o.yaml));
   }

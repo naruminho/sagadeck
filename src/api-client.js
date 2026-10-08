@@ -14,6 +14,7 @@
 //         ttl_minutes: 30
 //       ca: "C:/certs/empresa.pem"                        # certificado da empresa (proxy/inspeção TLS)
 import fs from "node:fs";
+import { renameRetry } from "./fs-retry.js";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
@@ -187,7 +188,7 @@ export class ApiEnvironments {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.tmp-${process.pid}`;
     fs.writeFileSync(tmp, String(doc), { encoding: "utf8", mode: 0o600 });
-    fs.renameSync(tmp, this.file);
+    renameRetry(tmp, this.file);
   }
 
   // Ambiente de exemplo (embutido) editado pela pessoa: vira um ambiente dela, cópia completa no arquivo (o do arquivo

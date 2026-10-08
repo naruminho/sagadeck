@@ -206,3 +206,60 @@ test("nenhum código regrava um deck existente com YAML inteiro (use writeDeckFi
   }
   assert.deepEqual(achados, PERMITIDO);
 });
+
+// OneDrive (e antivírus, indexador) seguram o arquivo por um instante enquanto sincronizam: o rename falha com
+// EPERM/EBUSY/EACCES. O salvamento tenta de novo em vez de se perder; outro erro sobe na hora.
+function travarRename(falhas, code) {
+  const real = fs.renameSync;
+  const calls = { n: 0 };
+  fs.renameSync = (...a) => { calls.n++; if (calls.n <= falhas) { const e = new Error(`${code}: travado`); e.code = code; throw e; } return real(...a); };
+  return { calls, restore: () => { fs.renameSync = real; } };
+}
+
+test("arquivo travado pelo OneDrive: o deck é gravado depois de algumas tentativas", () => {
+  for (const code of ["EPERM", "EBUSY", "EACCES"]) {
+    const f = tmp();
+    const spec = YAML.parse(ORIGINAL);
+    spec.title = `Gravado apesar do ${code}`;
+    const trava = travarRename(3, code);
+    try { assert.equal(writeDeckFile(f, spec), true); } finally { trava.restore(); }
+    assert.equal(trava.calls.n, 4);
+    assert.equal(YAML.parse(fs.readFileSync(f, "utf8")).title, `Gravado apesar do ${code}`);
+    assert.deepEqual(fs.readdirSync(path.dirname(f)).filter((n) => n.endsWith(".tmp")), [], "sem temporário sobrando");
+  }
+});
+
+test("rename com outro erro (não é trava) sobe na hora, sem esperar, e não deixa temporário", () => {
+  const f = tmp();
+  const spec = YAML.parse(ORIGINAL);
+  spec.title = "Não grava";
+  const trava = travarRename(99, "ENOSPC");
+  try { assert.throws(() => writeDeckFile(f, spec), /ENOSPC/); } finally { trava.restore(); }
+  assert.equal(trava.calls.n, 1);
+  assert.equal(fs.readFileSync(f, "utf8"), ORIGINAL);
+  assert.deepEqual(fs.readdirSync(path.dirname(f)).filter((n) => n.endsWith(".tmp")), []);
+});
+
+test("trava que não solta: desiste em ~1 s e devolve o erro", () => {
+  const f = tmp();
+  const spec = YAML.parse(ORIGINAL);
+  spec.title = "Travado de vez";
+  const trava = travarRename(99, "EPERM");
+  const t0 = Date.now();
+  try { assert.throws(() => writeDeckFile(f, spec), /EPERM/); } finally { trava.restore(); }
+  assert.ok(trava.calls.n > 1 && trava.calls.n < 10, `tentativas: ${trava.calls.n}`);
+  assert.ok(Date.now() - t0 < 3000);
+  assert.equal(fs.readFileSync(f, "utf8"), ORIGINAL);
+});
+
+// Trava: todo rename do código passa por renameRetry (src/fs-retry.js); fs.renameSync direto volta a perder
+// salvamentos com o OneDrive.
+test("nenhum código usa fs.renameSync direto (use renameRetry)", () => {
+  const achados = [];
+  for (const dir of ["src", "bin"]) for (const f of fs.readdirSync(path.join(ROOT, dir), { recursive: true }).filter((x) => x.endsWith(".js"))) {
+    const rel = `${dir}/${f.split(path.sep).join("/")}`;
+    if (rel === "src/fs-retry.js" || rel.includes("/public/")) continue;
+    if (/\bfs\.renameSync\(/.test(fs.readFileSync(path.join(ROOT, dir, f), "utf8"))) achados.push(rel);
+  }
+  assert.deepEqual(achados, []);
+});

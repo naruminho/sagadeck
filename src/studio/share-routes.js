@@ -12,6 +12,7 @@
 // Um arquivo por vez por link (gerar PDF/PPTX usa o Chrome do servidor).
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { renameRetry } from "../fs-retry.js";
 import path from "node:path";
 import { buildHTML, loadSpec } from "../build.js";
 import { esc } from "../markup.js";
@@ -47,7 +48,7 @@ export function shareStore(libraryRoot) {
     fs.mkdirSync(libraryRoot, { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify({ links }, null, 1));
-    fs.renameSync(tmp, file);
+    renameRetry(tmp, file);
   };
   return { file, read, write };
 }

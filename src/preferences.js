@@ -1,6 +1,7 @@
 // Preferências do sagadeck nesta máquina: ~/.sagadeck/preferencias.json (ou SAGADECK_PREFERENCIAS), ao lado do
 // ambientes.yaml e do identidades.yaml. Valem para o Studio inteiro; o deck (fit:, author…) vence quando define.
 import fs from "node:fs";
+import { renameRetry } from "./fs-retry.js";
 import os from "node:os";
 import path from "node:path";
 
@@ -56,6 +57,6 @@ export function savePreferences(patch, file = preferencesFile()) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp-${process.pid}`;
   fs.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n", "utf8");
-  fs.renameSync(tmp, file);
+  renameRetry(tmp, file);
   return out;
 }

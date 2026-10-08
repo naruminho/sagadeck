@@ -230,3 +230,22 @@ test("na subida, órfãs vão para a lixeira em vez de sumir ou sobrar para semp
   const id = lib.restoreDeck(moved[0]);
   assert.equal(byTitle(lib, "Quase pronta").slides, 5, "nada se perdeu");
 });
+
+// OneDrive segurando a pasta enquanto sincroniza: excluir, restaurar, mover e renomear tentam de novo em vez de falhar
+test("pasta travada pelo OneDrive (EPERM/EBUSY por um instante): lixeira, restaurar, mover e renomear funcionam", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Aulas"); lib.createTopic("Outro");
+  const real = fs.renameSync;
+  let travas = 0;
+  fs.renameSync = (...a) => { if (travas++ % 3 < 2) { const e = new Error("EBUSY: resource busy or locked"); e.code = travas % 2 ? "EBUSY" : "EPERM"; throw e; } return real(...a); };
+  try {
+    let id = lib.createDeck("Aulas", deck("Aula 1"));
+    id = lib.moveDeck(id, "Outro");
+    id = lib.renameDeck(id, "Aula renomeada");
+    const slot = lib.trashDeck(id);
+    assert.equal(lib.list().decks.length, 0);
+    id = lib.restoreDeck(slot);
+    assert.equal(lib.updateTopic("Outro", { name: "Outro nome" }), "Outro nome");
+  } finally { fs.renameSync = real; }
+  assert.deepEqual(lib.list().decks.map((d) => [d.title, d.topic]), [["Aula renomeada", "Outro nome"]]);
+});
