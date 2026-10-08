@@ -82,7 +82,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME/~/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
+        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME ou Documentos/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
         title: { type: "string", description: "Título provisório da apresentação" },
         theme: {
           type: "string",
@@ -105,7 +105,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME/~/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
+        path: { type: "string", description: "Nome da apresentação (ou caminho dentro da biblioteca SAGADECK_HOME ou Documentos/sagadeck). Toda apresentação é gravada na biblioteca: caminho de fora vira só o nome, e nada é sobrescrito" },
         title: { type: "string", description: "Título da apresentação" },
         theme: {
           type: "string",

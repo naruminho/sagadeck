@@ -25,7 +25,7 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 
 ## Onde ficam as apresentações (vale para todo agente: Claude, GPT…)
 
-- **Todo documento de apresentação mora na biblioteca: `C:\Users\narum\sagadeck`** (`SAGADECK_HOME`, senão `~/sagadeck`). Uma pasta por tópico, uma pasta por apresentação (`<tópico>/<nome>/<nome>.yaml`, com `imagens/`, `widgets/`, CSS ao lado).
+- **Todo documento de apresentação mora na biblioteca: `C:\Users\narum\OneDrive\Documents\sagadeck`** (`SAGADECK_HOME`; senão a pasta Documentos do Windows + `sagadeck`, a que o Explorer mostra, inclusive redirecionada para o OneDrive; fora do Windows, `~/sagadeck`). O caminho antigo `C:\Users\narum\sagadeck` é uma junção que leva até ela. Uma pasta por tópico, uma pasta por apresentação (`<tópico>/<nome>/<nome>.yaml`, com `imagens/`, `widgets/`, CSS ao lado).
 - Nunca crie, copie ou "salve uma versão" de deck fora dela: nada de `%TEMP%`, pasta atual, dentro do repositório ou `--library` apontando para outro lugar. Cópias espalhadas são o que fazia `.js` e imagens "sumirem".
 - Para testar algo com um deck da pessoa, abra o da biblioteca (`sagadeck studio`, sem `--library`). Os testes automáticos usam uma biblioteca temporária própria (`test/helpers.js` define `SAGADECK_HOME`); isso é só da suíte.
 - No código: apresentação nova passa por `newDeckPath` (`src/library.js`) ou pela biblioteca (`openLibrary(...).createDeck`). `test/storage.test.js` garante isso no `new`, `scaffold`, `ensaio-api` e nas ferramentas MCP.

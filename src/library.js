@@ -15,6 +15,7 @@
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
 import fs from "node:fs";
 import os from "node:os";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import YAML from "yaml";
 import * as MASTER from "./master.js";
@@ -26,8 +27,55 @@ const TRASH = ".lixeira";
 const TOPIC_META = ".topico.json";
 const COLORS = ["#d33a2c", "#0f6cbd", "#e5a50a", "#8b5cf6", "#0e9f6e", "#e8590c", "#d6336c", "#495057"];
 
-export function defaultLibraryRoot(env = process.env) {
-  return path.resolve(env.SAGADECK_HOME || path.join(os.homedir(), "sagadeck"));
+// Pasta Documentos do Windows como o Explorer a mostra: a pasta conhecida "Personal" do registro, que pode estar
+// redirecionada (OneDrive\Documents, outro disco, "Documentos"). Sem ela, %USERPROFILE%\Documents. Fora do Windows, null.
+let documentsCache;
+export function documentsDir({ platform = process.platform, home = os.homedir() } = {}) {
+  if (platform !== "win32") return null;
+  if (documentsCache !== undefined && home === os.homedir()) return documentsCache;
+  let found = null;
+  try {
+    const out = execFileSync("reg", ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders", "/v", "Personal"], { encoding: "utf8", windowsHide: true, timeout: 5000 });
+    found = out.match(/Personal\s+REG_\w+\s+(.+)/)?.[1]?.trim() || null;
+  } catch { /* sem registro: o padrão abaixo */ }
+  const dir = found && path.isAbsolute(found) ? found : path.join(home, "Documents");
+  if (home === os.homedir()) documentsCache = dir;
+  return dir;
+}
+
+// A biblioteca: SAGADECK_HOME, senão <Documentos>\sagadeck no Windows e ~/sagadeck fora dele. Enquanto a biblioteca
+// antiga (~/sagadeck, o padrão até a 1.4) não foi movida para Documentos, ela continua valendo: nunca abre vazia.
+export function defaultLibraryRoot(env = process.env, { platform = process.platform, home = os.homedir(), documents } = {}) {
+  if (env.SAGADECK_HOME) return path.resolve(env.SAGADECK_HOME);
+  const legacy = path.join(home, "sagadeck");
+  const docs = documents !== undefined ? documents : documentsDir({ platform, home });
+  if (!docs) return path.resolve(legacy);
+  const target = path.join(docs, "sagadeck");
+  if (!fs.existsSync(target) && hasContent(legacy) && !isLink(legacy)) return path.resolve(legacy);
+  return path.resolve(target);
+}
+
+const isLink = (p) => { try { return fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
+const hasContent = (p) => { try { return fs.readdirSync(p).length > 0; } catch { return false; } };
+
+// Leva a biblioteca antiga (~/sagadeck) para <Documentos>\sagadeck, uma vez: move a pasta inteira (mesma unidade:
+// instantâneo) e deixa no lugar antigo uma junção para a nova, para atalhos e configurações antigas continuarem
+// valendo. Não mexe se SAGADECK_HOME manda, se a nova já tem conteúdo (não mistura bibliotecas) ou se a antiga já
+// é a junção. Falhou (arquivo aberto, outra unidade): a antiga continua sendo a biblioteca e tenta de novo depois.
+export function migrateLegacyLibrary(env = process.env, { platform = process.platform, home = os.homedir(), documents } = {}) {
+  if (env.SAGADECK_HOME) return { skipped: "SAGADECK_HOME" };
+  const docs = documents !== undefined ? documents : documentsDir({ platform, home });
+  if (!docs) return { skipped: "fora do Windows" };
+  const legacy = path.join(home, "sagadeck"), target = path.join(docs, "sagadeck");
+  if (path.resolve(legacy) === path.resolve(target) || isLink(legacy) || !hasContent(legacy)) return { skipped: "nada a mover" };
+  if (hasContent(target)) return { skipped: "as duas têm conteúdo", legacy, target };
+  try {
+    fs.mkdirSync(docs, { recursive: true });
+    if (fs.existsSync(target)) fs.rmdirSync(target); // pasta vazia criada antes
+    fs.renameSync(legacy, target);
+  } catch (e) { return { error: e.message, legacy, target }; }
+  try { fs.symlinkSync(target, legacy, "junction"); } catch { /* sem a junção, a nova pasta já é a biblioteca */ }
+  return { moved: true, legacy, target };
 }
 
 // Onde uma apresentação NOVA é gravada: sempre na biblioteca. Um caminho dentro dela é respeitado; qualquer

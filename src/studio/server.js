@@ -80,7 +80,7 @@ const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u0
 export function createStudioServer(deckPath = null, opts = {}) {
   setFitDefaults(loadPreferences().texto); // mínimos do ajuste para caber (Preferências), valem no Studio e na exportação
   // Área de trabalho: o que cada pessoa tem aberto (deck, arquivo, última prévia) + a biblioteca dela.
-  // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou ~/sagadeck.
+  // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou Documentossagadeck (src/library.js).
   // Modo multiusuário (servidor atrás do BabsDeck): uma área por usuário, biblioteca <raiz>/usuarios/<usuário>.
   const libraryRoot = path.resolve(opts.library || defaultLibraryRoot());
   const STARTED = new Date().toISOString();

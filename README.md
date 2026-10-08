@@ -26,7 +26,7 @@ A IA funciona apontando para um modelrelay ou gateway compatível (`SAGADECK_LLM
 
 ## Como usar
 
-Toda apresentação mora na **biblioteca**: `SAGADECK_HOME`, ou `~/sagadeck` (no Windows, `C:Users<você>sagadeck`). Uma pasta por tópico, uma por apresentação.
+Toda apresentação mora na **biblioteca**: `SAGADECK_HOME`, senão a pasta `sagadeck` dentro de **Documentos** no Windows (a pasta Documentos que o Explorer mostra, mesmo redirecionada para o OneDrive ou outro disco) e `~/sagadeck` no Mac e no Linux. Quem usava a biblioteca antiga em `C:\Users\<você>\sagadeck` tem ela movida para Documentos na primeira execução; o caminho antigo continua levando até lá. Uma pasta por tópico, uma por apresentação.
 
 ```bash
 sagadeck new "Minha palestra" --topic=Palestras --theme=editorial
@@ -74,7 +74,7 @@ Se o código de uma ferramenta em Python quiser chamar o sagadeck diretamente (s
 ```python
 import sagadeck
 sagadeck.autofix("palestra.yaml")               # corrige sobreposições e margens automaticamente
-sagadeck.studio()                               # abre a biblioteca (~/sagadeck)
+sagadeck.studio()                               # abre a biblioteca (Documentos/sagadeck no Windows)
 sagadeck.studio("palestra.yaml", port=3517)     # abre direto o editor de um deck
 sagadeck.export("palestra.yaml", out="saida")   # {'html': …, 'pptx': …, 'pdf': …, 'roteiro': …}
 print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
@@ -205,7 +205,7 @@ Arraste um cartão para um tópico para movê-lo. O ícone da biblioteca, no can
 Não tem banco de dados: a biblioteca é uma pasta comum, que dá para abrir no Explorer e fazer backup.
 
 ```text
-~/sagadeck/                  (ou SAGADECK_HOME, ou --library=PASTA)
+Documentos/sagadeck/         (Windows; ~/sagadeck no Mac/Linux; ou SAGADECK_HOME, ou --library=PASTA)
   Palestras/                 tópico = pasta (a cor fica em .topico.json)
     Minha palestra/          apresentação = pasta com o YAML e os arquivos dela
       Minha palestra.yaml
