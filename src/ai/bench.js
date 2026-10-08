@@ -100,7 +100,10 @@ export function benchMarkdown(report, previous = null) {
     lines.push(`| ${c.id} | ${BENCH_CHECKS.map(([k]) => pct(c.checks[k]?.score) + (p?.checks?.[k] ? delta(c.checks[k]?.score == null ? null : Math.round(c.checks[k].score * 100), p.checks[k].score == null ? null : Math.round(p.checks[k].score * 100)) : '')).join(' | ')} | **${c.total ?? '—'}**${delta(c.total, p?.total)} |`);
   }
   const totals = report.cases.map((c) => c.total).filter((v) => v != null);
-  if (totals.length) lines.push('', `Média: **${Math.round(totals.reduce((a, b) => a + b, 0) / totals.length)}**${previous?.media != null ? delta(Math.round(totals.reduce((a, b) => a + b, 0) / totals.length), previous.media) : ''}`);
+  // média de outros casos não é comparável: só compara quando a rodada anterior rodou os mesmos casos
+  const ids = (r) => (r?.cases || []).map((c) => c.id).sort().join(',');
+  const media = totals.length ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
+  if (media != null) lines.push('', `Média: **${media}**${previous?.media != null && ids(previous) === ids(report) ? delta(media, previous.media) : ''}`);
   for (const c of report.cases) {
     lines.push('', `## ${c.id}`, '', `${c.file} · ${c.slides ?? 0} slides · ${c.seconds ?? '?'} s`);
     if (c.error) { lines.push('', `Erro: ${c.error}`); continue; }

@@ -84,7 +84,9 @@ Agora há uma bancada repetível que gera pelos mesmos PDFs e dá nota.
   que faltou, recorte com legenda, número sem base). Os decks ficam na biblioteca temporária da suíte.
 - Primeira rodada (modelo do modelrelay, `text`/`vision`): `icfm10-en` tirou 100 em 14 min (19 slides, 6/6 figuras
   e tabelas, 6/6 recortes limpos, nenhum número sem base, "Maria Clara Fava et al.", inglês com `lang: en`; sem
-  equação numerada no paper). O eucalipto (o das equações) estava rodando quando este PR entrou.
+  equação numerada no paper); `eucalipto` tirou 100 em 14 min (24 slides, 12/12 figuras e tabelas, 11/11 recortes,
+  5/5 equações com LaTeX, autor "João Victor do Nascimento Lima et al."). A média só se compara com a rodada
+  anterior quando os casos são os mesmos.
 - Testes: `test/bench.test.js` (cada quesito num deck e material montados à mão, legenda na coluna vizinha não
   conta, relatório com a comparação) e `test/bench-live.test.js` (só com `SAGADECK_LIVE=1` e `SAGADECK_BENCH_DIR`).
 
