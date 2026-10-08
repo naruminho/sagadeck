@@ -65,7 +65,8 @@
   }
 
   // ---------- contador ----------
-  function fmtNum(v, dec) { return v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+  // no idioma do deck (<html lang>, que vem do lang do deck): em inglês "1,403" e "0.93"
+  function fmtNum(v, dec) { return v.toLocaleString((typeof document !== "undefined" && document.documentElement.lang) || "pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
   function runCounter(c, instant) {
     const to = +c.dataset.to, from = +c.dataset.from, dec = +c.dataset.dec, cv = $(".cv", c);
     const pre = c.dataset.prefix, suf = c.dataset.suffix;

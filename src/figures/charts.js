@@ -12,6 +12,7 @@
 // Cores: por padrão usam o tom do slide (--cb base, --ca destaque, --s1..--s5 séries).
 // Qualquer item aceita color: hi | em | fg | muted | "FF0000".
 import { esc } from "../markup.js";
+import { formatNumber } from "../locale.js";
 import { iconSVG } from "./icons.js";
 import { humanBody } from "./pictos.js";
 
@@ -24,8 +25,10 @@ const cvar = (c, d) => {
 };
 const fmt = (v, o) => {
   if (v == null || isNaN(v)) return "";
-  const d = o.decimals ?? (Math.abs(v) < 10 && v % 1 ? 1 : 0);
-  const s = Number(v).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  // sem decimals pedido: as casas do próprio valor, até 2 (0.93 aparecia "0.9" com a regra antiga de 1 casa
+  // abaixo de 10, e 37.67 aparecia "38": num gráfico de paper, a precisão relatada é dado)
+  const d = o.decimals ?? Math.min(2, (String(Number(v)).split(".")[1] || "").length);
+  const s = formatNumber(v, { minimumFractionDigits: d, maximumFractionDigits: d }); // no idioma do deck (lang)
   return `${o.prefix || ""}${s}${o.suffix || ""}`;
 };
 const norm = (o) => {
@@ -198,8 +201,8 @@ export function niceTicks(min, max, want = 5) {
 }
 function line(o, W, H) {
   const series = o.series || [{ values: o.values }];
-  // rótulo que veio como número (0.5): com vírgula, como o resto do gráfico
-  const labels = (o.labels || series[0].values.map((_, i) => String(i + 1))).map((l) => (typeof l === "number" ? l.toLocaleString("pt-BR", { useGrouping: false }) : l));
+  // rótulo que veio como número (0.5): no formato do resto do gráfico (vírgula em pt-BR, ponto em inglês)
+  const labels = (o.labels || series[0].values.map((_, i) => String(i + 1))).map((l) => (typeof l === "number" ? formatNumber(l, { useGrouping: false }) : l));
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   const min = o.min ?? Math.min(0, ...all), max = o.max ?? Math.max(...all) * 1.1;
   // nomes no fim das linhas, a não ser que se encostem (as linhas terminam juntas) ou o slide peça legenda: aí, legenda em cima

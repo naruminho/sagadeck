@@ -11,6 +11,7 @@ import YAML from "yaml";
 import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
 import { LAYOUTS, SCENES, fullAsFigure } from "./layouts.js";
+import { setDeckLocale } from "./locale.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el, imageSrc } from "./elements.js";
 import { iconSVG } from "./figures/icons.js";
@@ -127,6 +128,7 @@ export function navWarnings(slides = []) {
 
 export function buildHTML(rawSpec, opts = {}) {
   const spec = normalizeSpec(meetingSpec(rawSpec,opts.audience));
+  setDeckLocale(spec.lang); // números no idioma do deck (src/locale.js)
   const theme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const warnings = [];
   if (spec.identity && !theme.identity) warnings.push(`identidade "${spec.identity}" não está em ${identitiesFile()} nesta máquina: a apresentação saiu com as fontes do tema`);
@@ -307,6 +309,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
 }
 
 export function renderSlide(raw, i = 0, spec = {}) {
+  setDeckLocale(spec.lang);
   const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const s = { ...(spec.defaults || {}), ...raw };
   const theme = slideTheme(s, deckTheme, spec);

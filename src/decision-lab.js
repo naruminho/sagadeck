@@ -1,9 +1,10 @@
 import './runtime/decision-lab.js';
 import { esc } from './markup.js';
+import { formatNumber } from './locale.js';
 export const calculateDecisionLab = globalThis.SagaDecisionLab.calculate;
 export function decisionLabHTML(input = {}) {
   const v = globalThis.SagaDecisionLab.normalize(input), r = calculateDecisionLab(v);
-  const fmt = n => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  const fmt = n => formatNumber(n, { maximumFractionDigits: 1 });
   const controls = [
     ['errorRate', 'Erros da automação (%)', 100, .1],
     ['reviewRate', 'Casos revisados (%)', 100, 1],

@@ -284,12 +284,32 @@ export function quoteFlowDecimals(src) {
   }).join("\n");
 }
 
+// Número de tabela escrito com zero no fim ("0.90", "7.80", "1.0") virava número no YAML e perdia o zero: a tabela
+// do paper em inglês saiu com "0.9" onde o artigo diz 0.90 (a precisão relatada é dado). Dentro de tabela (rows,
+// head, headers, cells) o número fica como foi escrito; dado de gráfico continua número.
+const TABLE_KEYS = new Set(["rows", "head", "headers", "cells"]);
+function parseKeepingDecimals(src) {
+  const doc = YAML.parseDocument(src);
+  if (doc.errors.length) throw doc.errors[0];
+  YAML.visit(doc, {
+    Scalar(_key, node, path) {
+      if (typeof node.value !== "number" || typeof node.source !== "string" || node.source === String(node.value)) return;
+      if (!/^-?\d+\.\d+$/.test(node.source)) return;
+      const keys = path.filter((p) => YAML.isPair(p)).map((p) => String(p.key?.value));
+      const inChart = keys.some((k) => ["chart", "data", "parts", "series", "values"].includes(k));
+      // valor exibido como texto (número grande do layout number, stats): o contador lê "0.90" com as duas casas
+      if (keys.some((k) => TABLE_KEYS.has(k)) || (keys.at(-1) === "value" && !inChart)) node.value = node.source;
+    },
+  });
+  return doc.toJS();
+}
+
 export function parseYaml(src) {
   src = quoteFlowDecimals(protectLatex(src));
   try {
-    return rejoinFlowCommas(YAML.parse(src));
+    return rejoinFlowCommas(parseKeepingDecimals(src));
   } catch (first) {
-    try { return rejoinFlowCommas(YAML.parse(repairYaml(src))); } catch { throw new Error(`YAML inválido: ${first.message}`); }
+    try { return rejoinFlowCommas(parseKeepingDecimals(repairYaml(src))); } catch { throw new Error(`YAML inválido: ${first.message}`); }
   }
 }
 
@@ -1155,6 +1175,18 @@ ${briefing}
   return { spec: next, coverage: { total: missing.length, missing: still.map((m) => m.caption) }, actions };
 }
 
+// Idioma do deck pelo texto (quando a IA não gravou `lang`): palavras de ligação de cada língua, que todo texto usa.
+// Deck em inglês sem `lang` saía com os números em português ("1.403", "0,93") e a hifenização errada.
+const LANG_WORDS = { en: /^(the|of|and|to|in|with|for|is|are|from|by|on|this|that|we|our|was|were)$/, pt: /^(de|da|do|das|dos|que|para|com|não|uma|um|os|as|em|no|na|por|são|é)$/, es: /^(el|la|los|las|del|que|para|con|una|por|es|son|en|y)$/ };
+export function guessDeckLang(spec) {
+  const text = JSON.stringify((spec?.slides || []).map(({ notes, consulta, ...s }) => s)).toLowerCase().replace(/"[a-z_]+":/g, " ");
+  const words = text.match(/\p{L}+/gu) || [];
+  const count = Object.fromEntries(Object.entries(LANG_WORDS).map(([k, re]) => [k, words.filter((w) => re.test(w)).length]));
+  const [best, n] = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  const second = Object.entries(count).filter(([k]) => k !== best).reduce((m, [, v]) => Math.max(m, v), 0);
+  return n >= 8 && n >= second * 1.5 ? best : null;
+}
+
 // Slide idêntico a outro (mesmo conteúdo, só o uid diferente) é cópia: o deck novo do ICFM10 saiu com duas capas
 // iguais, até nas notes (a IA trocou o slide em branco pela capa e inseriu a capa de novo). Fica o primeiro.
 export function dropDuplicateSlides(spec) {
@@ -1299,6 +1331,8 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
   if (author && !spec.author && !fromDocument) spec.author = author;
   if (!spec.date) spec.date = new Date().toISOString().slice(0, 10); // a data de criação, nunca uma inventada
+  // idioma do deck: números, hifenização e textos automáticos seguem `lang` (pt-BR é o padrão sem nada gravado)
+  if (!spec.lang) { const g = guessDeckLang(spec); if (g && g !== "pt") spec.lang = g; }
   if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
   { const d = dropDuplicateSlides(spec); if (d.removed.length) { spec = d.spec; say(`slide(s) repetido(s) removido(s): ${d.removed.join(", ")}`); } }
   const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });

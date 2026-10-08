@@ -65,8 +65,11 @@ const isYaml = (name) => /\.ya?ml$/i.test(name) && !hidden(name);
 
 // nome de pasta/arquivo válido no Windows (e no Linux): sem <>:"/\|?*, sem ponto/espaço no fim
 export function safeName(s, fallback = "Sem título") {
-  const clean = String(s || "").normalize("NFC").replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim()
-    .replace(/[. ]+$/, "").slice(0, 80).trim();
+  let clean = String(s || "").normalize("NFC").replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim()
+    .replace(/[. ]+$/, "");
+  // nome longo corta no último espaço antes de 80 (a pasta saía "…and Urban Flood Predic")
+  if (clean.length > 80) { const cut = clean.slice(0, 81).lastIndexOf(" "); clean = clean.slice(0, cut >= 40 ? cut : 80); }
+  clean = clean.replace(/[\s.,;:—–-]+$/, "").trim();
   return /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(clean) || !clean ? fallback : clean;
 }
 

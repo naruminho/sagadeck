@@ -263,3 +263,43 @@ test("figura do documento nunca é cortada nem esticada; recorte (crop) em caixa
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("contador animado na apresentação termina no formato do idioma do deck (inglês: 1,403 e 0.93)", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-locale-"));
+  try {
+    const slides = [{ layout: "number", value: 1403, label: "records" }, { layout: "number", value: "0.93", label: "NSE" }];
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", lang: "en", slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    const shown = [];
+    for (const n of [1, 2]) {
+      await page.goto(`file://${file.replace(/\\/g, "/")}#${n}`); await page.waitForTimeout(2500);
+      shown.push(await page.evaluate((i) => document.querySelectorAll(".slide")[i].querySelector(".cv").textContent, n - 1));
+    }
+    assert.deepEqual(shown, ["1,403", "0.93"]);
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("caixa do diagrama flow: texto longo cabe na caixa (a letra diminui) e o curto continua grande", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-flowbox-"));
+  try {
+    const slides = [{ layout: "split", title: "Why the patterns hold", body: "x", figure: { diagram: "flow", steps: ["HAND + elevation", "Low-lying areas near the drainage network", "High susceptibility", "Priority zones for drainage"] } }];
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", lang: "en", slides }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(500);
+    const boxes = await page.evaluate(() => [...document.querySelectorAll(".slide foreignObject > div")].map((d) => ({ text: d.textContent, over: d.scrollHeight - d.clientHeight, fs: parseFloat(d.style.fontSize) })));
+    assert.equal(boxes.length, 4);
+    for (const b of boxes) assert.ok(b.over <= 1, `"${b.text}" vaza ${b.over}px da caixa`);
+    assert.equal(boxes[0].fs, 36, "texto curto fica no tamanho cheio");
+    assert.ok(boxes[1].fs < 36, "texto longo diminui");
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

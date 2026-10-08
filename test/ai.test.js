@@ -833,3 +833,15 @@ test("slide idêntico sai do deck gerado (duas capas iguais); repetido com mesmo
   const issues = auditText({ slides: [{ layout: "split", title: "Resultados", body: "a" }, { layout: "split", title: "==Resultados==", body: "b" }] }, [0, 1]);
   assert.ok(issues.some((x) => x.slide === 2 && /Slide repetido/.test(x.text)));
 });
+
+test("YAML da IA: número de tabela com zero no fim fica como foi escrito (0.90 não vira 0.9); deck em inglês ganha lang", async () => {
+  const { parseYaml, guessDeckLang } = await import("../src/ai/deck-ai.js");
+  const y = parseYaml("slides:\n  - layout: table\n    head: [Index, Event]\n    rows:\n      - [NSE, 0.90]\n      - [PEV, 7.80]\n  - layout: chart\n    chart: { chart: bar, data: [{ label: a, value: 0.90 }] }\n  - { layout: number, value: 0.90, label: NSE }");
+  assert.deepEqual(y.slides[0].rows, [["NSE", "0.90"], ["PEV", "7.80"]]);
+  assert.equal(y.slides[1].chart.data[0].value, 0.9, "dado de gráfico continua número");
+  assert.equal(y.slides[2].value, "0.90");
+  assert.equal(guessDeckLang({ slides: [{ title: "Flood susceptibility in the basin", body: "The models were calibrated with the data from four events and validated on one of them." }] }), "en");
+  assert.notEqual(guessDeckLang({ slides: [{ title: "Suscetibilidade a inundações", body: "Os modelos foram calibrados com os dados de quatro eventos e validados em um deles." }] }), "en", "português nunca vira inglês (o padrão já é pt-BR)");
+  reply = () => "Done.\n```yaml\nslides:\n  - { layout: cover, title: Flood susceptibility in the basin }\n  - { layout: split, title: Results, body: The models were calibrated with the data from four events and validated on one of them, and the results are in the table of the paper. }\n  - { layout: end, title: Thank you }\n```";
+  assert.equal((await generateDeck("presentation in English", { images: false })).spec.lang, "en");
+});
