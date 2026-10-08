@@ -11,7 +11,8 @@ import { reviewExperience } from "../ai/quality.js";
 import { maybeResearch } from "../research/chat-research.js";
 import { chatErrorResult } from "./errors.js";
 import { cancellable, respond } from "./ai-response.js";
-import { prepareDocumentMaterials, takeMaterials } from "../ai/document-materials.js";
+import { prepareDocumentMaterials, takeMaterials, storedDocumentMaterials } from "../ai/document-materials.js";
+import { critiqueMaterials, critiqueMarkdown, saveCritique, loadCritique, critiqueMaterial } from "../ai/critique.js";
 import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
@@ -42,6 +43,35 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
     job?.abort();
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, stopped: !!job }));
+    return true;
+  }
+  // Leitura crítica do material da apresentação aberta (botão do chat): src/ai/critique.js. Nada muda nos slides; o
+  // resultado fica em .sagadeck/leitura-critica.json (acompanha os próximos pedidos ao chat) e volta como conversa.
+  if (pathname === "/api/ai/critique" && req.method === "POST") {
+    const body = await readJSON(req);
+    if (staleTab(body, W, res)) return true;
+    const deckDir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : null;
+    const spec = body.spec || W.spec;
+    await respond(res, body.stream, async (emit) => {
+      const P = deckDir ? Project.projectOf(W.file) : null;
+      let materials = deckDir ? storedDocumentMaterials(deckDir) : [];
+      if (!materials.length && P) materials = (await Project.contextMaterials(P)).filter((m) => String(m.text || "").length > 1500);
+      if (!materials.length) return { talk: true, reply: "Esta apresentação não tem material anexado para ler criticamente. Anexe o documento (PDF, Word) no chat e peça de novo.", options: [] };
+      if (!(await llmAvailable({ force: true }))) return { talk: true, reply: `A IA está desligada (nenhum LLM respondendo em ${llmConfig().url}).`, options: [] };
+      emit({ phase: "step", text: `Lendo ${materials.map((m) => m.name).join(", ")} com olho crítico…` });
+      const c = await critiqueMaterials(materials, { spec, briefing: spec?.context ? JSON.stringify(spec.context) : "" });
+      saveCritique(deckDir, c);
+      const autor = spec?.context?.autoria !== "livre";
+      const options = c.itens.length
+        ? (autor
+          ? ["Leve para os slides os achados que estão no material", "Ponha as perguntas prováveis e as inconsistências nas notes", "Corrija os slides apontados", "Só queria ler, obrigado"]
+          : ["Transforme os achados em conteúdo, marcando o que é do sagadeck", "Crie um slide de discussão crítica", "Corrija os slides apontados", "Só queria ler, obrigado"])
+        : [];
+      const head = c.itens.length
+        ? `Li ${c.material.join(", ")} como um revisor da área. ${c.itens.length} ponto(s), cada um com o trecho do material que o sustenta (conferido no texto). ${autor ? "Como a apresentação é do próprio autor, nada disso entra nos slides sem você pedir: o que é achado do material pode ir para os slides; crítica e perguntas, para as notes." : "Como a apresentação é livre, posso transformar isso em conteúdo, marcando o que é do sagadeck."}`
+        : "Não achei nada com trecho conferido no material para apontar.";
+      return { talk: true, reply: `${head}\n\n${critiqueMarkdown(c)}`, options, actions: [`Leitura crítica: ${c.itens.length} ponto(s) conferido(s)${c.naoConfirmados.length ? `, ${c.naoConfirmados.length} descartado(s) sem trecho no material` : ""}`] };
+    });
     return true;
   }
   if (pathname === "/api/ai/chat" && req.method === "POST") {
@@ -88,6 +118,9 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
         // arquivos do projeto (contexto/): material para a IA, junto com os anexos da mensagem
         const P = taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? Project.projectOf(taskWorkspace.file) : null;
         if (P) for (const doc of await Project.contextMaterials(P)) if (!materials.some((m) => m.name === doc.name || m.name === doc.name.split("/").pop())) materials.push(doc);
+        // a leitura crítica já feita (geração ou botão) acompanha o pedido, rotulada como do sagadeck
+        const critique = critiqueMaterial(loadCritique(P ? path.dirname(taskWorkspace.file) : null));
+        if (critique) materials.push(critique);
         // links colados na mensagem: o servidor lê sozinho e conta nas ações
         const linkActions = [];
         for (const doc of await readPastedLinks(taskWorkspace, prompt, linkActions)) materials.push(doc);

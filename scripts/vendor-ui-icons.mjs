@@ -26,6 +26,7 @@ const NAMES = [
   "swatch-book", "stamp", "git-compare", "bookmark-plus", "undo-2", "redo-2",
   "align-start-vertical", "align-center-vertical", "align-end-vertical", "align-start-horizontal", "align-center-horizontal", "align-end-horizontal",
   "align-horizontal-distribute-center", "align-vertical-distribute-center", "paintbrush", "clipboard-paste", "lock", "lock-open", "eye-off", "share-2", "globe",
+  "scan-search",
 ];
 
 const icons = {};

@@ -1907,6 +1907,8 @@
         rv.title = slide.review.note || "";
         card.appendChild(rv);
       }
+      const pv = window.SagaProvenance?.(slide, hydrateIcons); // origem do conteúdo (provenance.js)
+      if (pv) card.appendChild(pv);
       if (Array.isArray(slide.auto) && slide.auto.length) {
         const badge = document.createElement("span");
         badge.className = "thumb-auto";
@@ -4300,6 +4302,7 @@ ${ta.value}`;
       if (files.length) { e.preventDefault(); files.forEach(addChatImage); }
     });
     dom.chatAttach.onclick = () => dom.chatAttachInput.click();
+    document.getElementById("chat-critique").onclick = () => chatApi.runCritique();
     dom.chatAttachInput.onchange = () => { [...dom.chatAttachInput.files].forEach(addChatFile); dom.chatAttachInput.value = ""; };
 
     // Chips de Sugestões de Prompt do Chat
