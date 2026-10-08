@@ -26,6 +26,59 @@ async function sse({ before = 0, every = 100, pieces = ["a", "b", "c"], stallAt 
   return { url: `http://127.0.0.1:${server.address().port}/v1`, close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }) };
 }
 
+test("streaming: modelo em laço pensando (o relay manda 'estou vivo' e raciocínio, nunca texto) para no limite da 1ª palavra", async () => {
+  const saved = { ...process.env };
+  process.env.SAGADECK_LLM_TIMEOUT = "5";
+  process.env.SAGADECK_LLM_FIRST_TIMEOUT = "1";
+  const server = http.createServer(async (req, res) => {
+    for await (const _ of req);
+    res.writeHead(200, { "Content-Type": "text/event-stream" });
+    for (let i = 0; i < 40 && !res.destroyed; i++) {
+      res.write(": alive\n\n");
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { reasoning: "pensando…" } }] })}\n\n`);
+      await wait(150);
+    }
+    if (!res.destroyed) res.end("data: [DONE]\n\n");
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    process.env.SAGADECK_LLM_URL = `http://127.0.0.1:${server.address().port}/v1`;
+    const t0 = Date.now();
+    await assert.rejects(chat([{ role: "user", content: "x" }], { onDelta: () => {} }), /1 s pensando sem escrever nada/);
+    assert.ok(Date.now() - t0 < 3000, `parou no limite, não ficou esperando: ${Date.now() - t0} ms`);
+  } finally {
+    server.closeAllConnections?.(); await new Promise((r) => server.close(r));
+    for (const k of ["SAGADECK_LLM_TIMEOUT", "SAGADECK_LLM_FIRST_TIMEOUT", "SAGADECK_LLM_URL"]) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+  }
+});
+
+test("modelo em laço pensando: uma tentativa a mais, sem raciocínio, e a tarefa segue", async () => {
+  const saved = { ...process.env };
+  process.env.SAGADECK_LLM_TIMEOUT = "5";
+  process.env.SAGADECK_LLM_FIRST_TIMEOUT = "1";
+  const bodies = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = ""; for await (const c of req) raw += c;
+    const body = JSON.parse(raw); bodies.push(body);
+    res.writeHead(200, { "Content-Type": "text/event-stream" });
+    if (body.reasoning?.enabled === false) { res.end(`data: ${JSON.stringify({ choices: [{ delta: { content: "pronto" } }] })}\n\ndata: [DONE]\n\n`); return; }
+    for (let i = 0; i < 40 && !res.destroyed; i++) { res.write(": alive\n\n"); await wait(150); }
+    if (!res.destroyed) res.end("data: [DONE]\n\n");
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    process.env.SAGADECK_LLM_URL = `http://127.0.0.1:${server.address().port}/v1`;
+    const r = await chat([{ role: "user", content: "corrija" }], { onDelta: () => {} });
+    assert.equal(r.text, "pronto");
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[0].reasoning, undefined, "a 1ª vai como sempre");
+    assert.deepEqual(bodies[1].reasoning, { enabled: false }, "a 2ª vai sem raciocínio");
+  } finally {
+    server.closeAllConnections?.(); await new Promise((r) => server.close(r));
+    for (const k of ["SAGADECK_LLM_TIMEOUT", "SAGADECK_LLM_FIRST_TIMEOUT", "SAGADECK_LLM_URL"]) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+  }
+});
+
 test("streaming: demorar para começar e levar mais que o limite chegando não corta; parar de chegar corta, avisando", async () => {
   const saved = { ...process.env };
   process.env.SAGADECK_LLM_TIMEOUT = "1"; // 1 s sem chegar nada

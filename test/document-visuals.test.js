@@ -9,7 +9,7 @@ import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
 import { materialsBlock } from '../src/ai/context.js';
-import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop, snapToImages, mergeDuplicateCrops, uncoveredVisuals, creditLineStart, clearCaptionEdges } from '../src/ai/document-visuals.js';
+import { extractDocumentVisuals, ensureVisualCoverage, protectPDFText, proseSuspect, orphanCaptions, isBlankCrop, snapToImages, mergeDuplicateCrops, uncoveredVisuals, creditLineStart, clearCaptionEdges, equationBox, sourcePixels, assignEquations, formulaSimilarity, captionLineStrict } from '../src/ai/document-visuals.js';
 
 test('recorte PDF protege a palavra que cruza a borda; linha larga de prosa passando embaixo não estica o recorte',()=>{
   const box=protectPDFText([300,400,380,215],[{left:650,top:500,right:740,bottom:520},{left:100,top:620,right:900,bottom:632},{left:100,top:800,right:900,bottom:815}]);
@@ -164,6 +164,132 @@ test('clearCaptionEdges: legenda grudada na imagem (pernas das letras dentro da 
   assert.deepEqual(clearCaptionEdges([95,220,805,221],[{text:'c) Volume Real linha 1',left:150,top:224,right:420,bottom:233}]),[95,220,805,221]);
 });
 
+test('equationBox: equação escrita como texto sai pela camada de texto (inteira, sem a vizinha, a prosa e o número)',()=>{
+  // Pearson do paper de eucalipto (Eq. 6): numerador, traço, denominador com raiz; "(6)" na margem; prosa abaixo
+  const f=(text,left,base,h,width)=>({text,left,right:left+width,top:base-h,bottom:base});
+  const page=[
+    f('𝑟 =',254,384.4,13.1,28), f('∑',340,373.9,13.1,12), f('(𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜',376,374.6,13.1,80), f('𝑖',457,377.1,9.5,6),
+    f('− 𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜)(𝑉𝑟𝑒𝑎𝑙',467,374.4,13.1,150), f('− 𝑉𝑟𝑒𝑎𝑙)',632,374.4,13.1,60), f('𝑖=1',353,377.7,9.5,15),
+    f('√(∑',287,402.4,13.1,40), f('(𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜',346,403.5,13.1,80), f('− 𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜)',437,403.4,13.1,95), f('2',538,393.8,9.5,6),
+    f(') (∑',547,403.4,13.1,40), f('(𝑉𝑟𝑒𝑎𝑙',603,403.5,13.1,55), f('− 𝑉𝑟𝑒𝑎𝑙)',667,403.4,13.1,60), f(')',749,403.4,13.1,5),
+    f('(6)',892,384.6,11.8,20),
+    f('em que Vpredito é o volume calculado pela nuvem de pontos e o volume em m²',95,440,13,800),
+    // a equação de cima (Eq. 5), separada por mais de uma linha
+    f('𝑅𝑀𝑆𝐸% =',334,300,13,60), f('∑',440,290,13,12),
+  ];
+  for (const vision of [[319,379,425,31],[300,420,400,30]]) { // só o denominador; e logo abaixo da equação
+    const [x,y,w,h]=equationBox(vision,page);
+    assert.ok(x<=254 && x+w>=754, `largura da equação inteira (do "r =" ao último parêntese): ${[x,y,w,h]}`);
+    assert.ok(y<=361 && y>=340, `topo no numerador, sem a Eq. 5: ${[x,y,w,h]}`);
+    assert.ok(y+h>=403 && y+h<427, `base no denominador, sem a prosa: ${[x,y,w,h]}`);
+    assert.ok(x+w<892, `sem o número (6): ${[x,y,w,h]}`);
+  }
+  // sem texto matemático (equação que é imagem): null, e quem decide é a régua da imagem
+  assert.equal(equationBox([100,100,200,50],[{text:'Texto comum do artigo sobre a bacia',left:100,top:110,right:400,bottom:122}]),null);
+  // prosa com km² não vira equação
+  assert.equal(equationBox([100,100,200,50],[{text:'área de 71 km² com densidade alta',left:100,top:110,right:400,bottom:122}]),null);
+});
+
+test('PDF: a visão relê cada equação no recorte; releitura que encolhe não vale; o número sai; o prompt não leva o recorte', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-eq-'));
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<p>Texto.</p><p style="font-size:28px">E = mc²</p><p style="font-size:28px">F = ma</p>');
+    const bytes = await page.pdf();
+    const seen = [];
+    const r = await extractDocumentVisuals('paper.pdf', bytes, dir, {
+      inspect: async () => ({ complete: true, items: [
+        { kind: 'equation', caption: 'Eq. 1', latex: 'E = m c^{2} \\quad (1)', bounds: { left: 30, top: 40, right: 400, bottom: 90 } },
+        { kind: 'equation', caption: 'Eq. 2', latex: 'F = m \\cdot a \\cdot \\text{(lida na página)}', bounds: { left: 30, top: 90, right: 400, bottom: 140 } },
+      ] }),
+      transcribe: async (image, { hint }) => { seen.push({ image: /^data:image\//.test(image), hint }); return /E = /.test(hint) ? 'E = mc^2' : 'F'; },
+    });
+    assert.equal(seen.length, 2, 'cada equação relida no próprio recorte');
+    assert.ok(seen.every(s => s.image && s.hint));
+    const [e1, e2] = r.items;
+    assert.equal(e1.latex, 'E = mc^2'); assert.equal(e1.latexFrom, 'recorte');
+    assert.match(e2.latex, /lida na página/, 'releitura bem mais curta (recorte parcial) não troca a leitura da página');
+    assert.doesNotMatch(e2.latex, /\\quad \(\d\)/);
+    const block = materialsBlock([{ name: 'paper.pdf', text: 'x', inventory: r }]);
+    assert.doesNotMatch(block, /"image":"[^"]*equation/, 'equação com LaTeX vai sem o arquivo do recorte');
+    assert.match(block, /E = mc\^2/);
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('assignEquations: caixas da visão deslocadas uma equação para baixo; o número impresso casa cada uma (e acha a esquecida)',()=>{
+  // página 8 do paper de eucalipto: Eq. 4 (RMSE), 5 (RMSE%), 6 (Pearson), cada uma com "(n)" na margem; e uma (7) que a visão não listou
+  const f=(text,left,top,right,bottom)=>({text,left,top,right,bottom});
+  const page=[
+    f('𝑅𝑀𝑆𝐸 = √',356,208,440,221), f('∑ (𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜 − 𝑉𝑟𝑒𝑎𝑙)²',444,198,660,212), f('𝑛',540,218,552,230), f('(4)',892,215,912,227),
+    f('𝑅𝑀𝑆𝐸% =',334,280,420,293), f('∑ 𝑉𝑟𝑒𝑎𝑙',430,295,520,309), f('(5)',892,284,912,297),
+    f('𝑟 =',254,371,282,384), f('∑ (𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜 − 𝑉̅𝑝𝑟𝑒𝑑𝑖𝑡𝑜)',340,361,640,375), f('𝑖=1',353,368,368,378), f('2',538,384,544,394), f('√(∑ (𝑉𝑝𝑟𝑒𝑑𝑖𝑡𝑜 − 𝑉̅𝑝𝑟𝑒𝑑𝑖𝑡𝑜)²)',287,389,760,403), f('(6)',892,373,912,385),
+    f('𝐶𝑉 = 𝜎/𝜇',400,480,470,493), f('(7)',892,480,912,493),
+    f('em que Vpredito é o volume calculado pela nuvem de pontos',95,430,900,443),
+  ];
+  const items=[
+    {kind:'equation',caption:'Eq. (4) RMSE',latex:'RMSE = \\sqrt{\\frac{\\sum (Vpredito_i - Vreal_i)^2}{n}}',box:[332,282,271,56]},
+    {kind:'equation',caption:'Eq. (5) RMSE%',latex:'RMSE\\% = \\frac{...}{\\sum Vreal_i}',box:[250,367,512,44]},
+    {kind:'equation',caption:'Correlação de Pearson',latex:'r = \\frac{\\sum (Vpredito_i - \\bar{V}predito)}{\\sqrt{\\sum (Vpredito_i - \\bar{V}predito)^2}}',box:[570,427,53,22]},
+  ];
+  const got=assignEquations(items,page);
+  const top=(it)=>Math.round(got.get(it)?.[1]);
+  assert.ok(top(items[0])<208 && top(items[0])>190, `Eq. 4 na RMSE: ${got.get(items[0])}`);
+  assert.ok(top(items[1])<280 && top(items[1])>265, `Eq. 5 na RMSE%: ${got.get(items[1])}`);
+  assert.ok(top(items[2])<361 && top(items[2])>345, `Pearson pelo conteúdo (sem número na legenda): ${got.get(items[2])}`);
+  assert.deepEqual(got.missed.map(m=>m.caption),['Equação (7)'],'a numerada que a visão não listou entra');
+  assert.ok(formulaSimilarity('RMSE = \\sqrt{x}', '𝑅𝑀𝑆𝐸 = √ 𝑥'.normalize('NFKC'))>0.6);
+});
+
+test('legenda de verdade × frase que cita a figura ("Figure 5 shows…" não cobra arte na página)',()=>{
+  assert.ok(captionLineStrict('Figure 5: Flood susceptibility maps') && captionLineStrict('Figura 1 – Mapa') && captionLineStrict('Figura 1. Mapa') && captionLineStrict('Tabela 2 - RMSE'));
+  assert.ok(!captionLineStrict('Figure 5 shows the flood susceptibility maps') && !captionLineStrict('Figura 2 apresenta o fluxo'));
+  const orphans=orphanCaptions({items:[]},[{text:'Figure 5 shows the flood susceptibility maps generated by the models',left:100,top:300,right:900,bottom:312}]);
+  assert.deepEqual(orphans,[]);
+});
+
+test('PDF: tabela sem rows é relida no recorte; com rows, a reconstrução nativa conta na cobertura', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-tab-'));
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<p>Table 1: Statistic index</p><table border="1"><tr><td>Model</td><td>NSE</td></tr><tr><td>HYMOD</td><td>0.96</td></tr><tr><td>HEC-HMS</td><td>0.90</td></tr></table>');
+    const bytes = await page.pdf();
+    let reads = 0;
+    const r = await extractDocumentVisuals('paper.pdf', bytes, dir, {
+      inspect: async () => ({ complete: true, items: [{ kind: 'table', caption: 'Table 1: Statistic index', bounds: { left: 30, top: 50, right: 500, bottom: 200 } }] }),
+      readTable: async (image) => { reads++; assert.match(image, /^data:image\//); return [['Model', 'NSE'], ['HYMOD', '0.96'], ['HEC-HMS', '0.90']]; },
+    });
+    assert.equal(reads, 1);
+    assert.deepEqual(r.items[0].rows[1], ['HYMOD', '0.96']);
+    assert.equal(r.items[0].rowsFrom, 'recorte');
+    const deck = { slides: [{ layout: 'table', title: 'Desempenho', head: ['Modelo', 'NSE'], rows: [['HYMOD', '0.96'], ['HEC-HMS', '0.90']] }] };
+    assert.deepEqual(uncoveredVisuals(deck, [{ inventory: r }]), [], 'a tabela nativa com os mesmos números cobre a do paper');
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('PDF: item com caixa inválida sai sozinho; os outros recortes da página continuam', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'saga-pdf-invalido-'));
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<h1>Resultados</h1><svg width="300" height="100"><path d="M0 90L300 10" stroke="black"/></svg>');
+    const bytes = await page.pdf();
+    const r = await extractDocumentVisuals('paper.pdf', bytes, dir, { inspect: async () => ({ complete: true, items: [
+      { kind: 'chart', caption: 'Figura 1 – Gráfico', bounds: { left: 50, top: 300, right: 950, bottom: 700 } },
+      { kind: 'table', caption: 'Tabela 3', bounds: { left: 500, top: 100, right: 200, bottom: 600 } },
+    ] }) });
+    assert.deepEqual(r.items.map(i => i.kind), ['chart'], 'o gráfico fica; a página inteira não substitui tudo');
+    assert.match(r.warnings.join(' '), /descartado/);
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('sourcePixels: o tamanho nativo da maior imagem dentro do recorte (o fluxograma de 960 px fica borrado no slide)',()=>{
+  const imgs=[[142,650,858,925,960,540],[860,57,923,107,114,130]];
+  assert.deepEqual(sourcePixels([142,650,716,275],imgs),{w:960,h:540});
+  assert.equal(sourcePixels([100,100,300,300],imgs),null);
+});
+
 test('mergeDuplicateCrops: dois itens no mesmo recorte viram um, com a legenda numerada',()=>{
   const out=mergeDuplicateCrops([
     {kind:'figure',caption:'figure — página 4',box:[95,112,810,413]},
@@ -311,6 +437,7 @@ test('PDF: figura raster sai pela imagem embutida (sem legenda nem "Fonte", prop
     assert.equal(r.items.length, 1, `os dois painéis viram uma figura só: ${JSON.stringify(r.items.map(i => i.caption))}`);
     const item = r.items[0];
     assert.match(item.caption, /^Figura 1/, 'fica a legenda numerada');
+    assert.equal(item.sourcePx, '600×300', 'tamanho nativo da imagem embutida, para a IA julgar a qualidade');
     assert.ok(Math.abs(item.width / item.height - 2) < 0.04, `proporção da imagem original (2:1), sem legenda nem crédito: ${item.width}×${item.height}`);
     // o recorte começa na arte: a primeira linha tem a cor do painel, não papel nem texto
     const shot = await browser.newPage();

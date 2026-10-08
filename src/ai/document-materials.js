@@ -23,13 +23,13 @@ export async function prepareDocumentMaterials(materials, dir, options = {}) {
     if (fs.existsSync(cached)) {
       try {
         const saved = JSON.parse(fs.readFileSync(cached,'utf8'));
-        if (saved.visualVersion === 5 && !saved.inventory?.items?.some(item => item.needsReview)) { out.push(saved); continue; }
+        if (saved.visualVersion === 6 && !saved.inventory?.items?.some(item => item.needsReview)) { out.push(saved); continue; }
       } catch { /* refaz inventário interrompido */ }
     }
     fs.mkdirSync(folder,{recursive:true});
     fs.writeFileSync(path.join(folder,name),bytes);
     const inventory = /\.(pdf|docx?)$/i.test(name) ? await extractDocumentVisuals(name,bytes,dir,options) : null;
-    const metadata = {name,text:material.text,detail:material.detail,visualVersion:5,...(inventory ? {inventory} : {})};
+    const metadata = {name,text:material.text,detail:material.detail,visualVersion:6,...(inventory ? {inventory} : {})};
     fs.writeFileSync(path.join(folder,'material.saga.json'),JSON.stringify(metadata));
     out.push(metadata);
   }

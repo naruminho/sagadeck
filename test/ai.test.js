@@ -692,8 +692,85 @@ test("revisão de texto sem visão: frase longa em slide de impacto e excesso de
   assert.ok(issues.some((x) => x.slide === 2 && /16|palavras/.test(x.text)), JSON.stringify(issues));
   assert.ok(issues.some((x) => x.slide === 6 && /frase única/.test(x.text)), "a 4ª tela de frase solta passa do limite");
   assert.ok(!issues.some((x) => x.slide === 3), "frase curta de impacto é legítima");
+  // título encolhido à mão para "dar espaço à figura" (titleSize 40) desiguala o deck
+  const shrunk = auditText({ slides: [{ layout: "image", title: "Área", titleSize: 40, figure: { image: "a.png" } }, { layout: "split", title: "Método", titleSize: 72, body: "x" }] }, [0, 1]);
+  assert.ok(shrunk.some((x) => x.slide === 1 && /titleSize 40/.test(x.text)));
+  assert.ok(!shrunk.some((x) => x.slide === 2), "titleSize razoável não é achado");
   // entra no relatório da revisão mesmo sem visão (e não aprova o deck)
   const q = await reviewExperience(spec, [1], {});
   assert.ok(q.issues.some((x) => x.slide === 2));
   assert.equal(q.verified, false);
+});
+
+test("redesenho de figura do paper guarda o original no elemento; o chat volta para ele (o caminho está no deck e na referência)", async () => {
+  const { materializeImages, reference, sanitizeCheck } = await import("../src/ai/deck-ai.js");
+  const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const fsx = await import("node:fs"), os = await import("node:os");
+  const dir = fsx.mkdtempSync(path.join(os.tmpdir(), "sgd-orig-"));
+  const before = reply;
+  reply = () => ({ image: `data:image/png;base64,${PNG.toString("base64")}` });
+  try {
+    fsx.mkdirSync(path.join(dir, "contexto", "visuais", "x"), { recursive: true });
+    fsx.writeFileSync(path.join(dir, "contexto", "visuais", "x", "fig2.png"), PNG);
+    const spec = { slides: [{ layout: "split", title: "Fluxo do estudo", figure: { image_prompt: "Clean up and redraw THIS EXACT figure", image_ref: "contexto/visuais/x/fig2.png", fit: "contain" } }] };
+    await materializeImages(spec, { baseDir: dir });
+    const fig = spec.slides[0].figure;
+    assert.match(fig.image, /^imagens\/ia-/);
+    assert.equal(fig.original, "contexto/visuais/x/fig2.png", "o caminho de volta fica no deck");
+    // reconstrução nativa: sourceFigure é campo válido e a referência ensina a voltar
+    sanitizeCheck({ slides: [{ layout: "chart", title: "RMSE por linha", sourceFigure: "contexto/visuais/x/fig8.png", chart: { chart: "bar", data: [{ label: "Linha 1", value: 37.7 }] } }] }, [0]);
+    assert.match(reference(), /Voltar ao original/);
+    // o deck com a figura redesenhada conta como coberto (o original está ligado ao slide)
+    const { uncoveredVisuals } = await import("../src/ai/document-visuals.js");
+    assert.deepEqual(uncoveredVisuals(spec, [{ inventory: { items: [{ id: "f2", kind: "figure", caption: "Figura 2 – Fluxograma", image: "contexto/visuais/x/fig2.png" }] } }]), []);
+  } finally { reply = before; fsx.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("prompt: gráfico pode ser redesenhado, a reconstrução guarda sourceFigure e a IA cria gráfico dos números do texto", async () => {
+  const { systemPrompt } = await import("../src/ai/deck-ai.js");
+  const p = systemPrompt();
+  assert.match(p, /GRÁFICO cujos valores estão no paper/);
+  assert.match(p, /sourceFigure/);
+  assert.match(p, /Iniciativa com os números/);
+  assert.match(p, /Não invente pontos/);
+});
+
+test("vírgula decimal em lista entre colchetes não parte a célula da tabela (NSE 0,93 virava 0 | 93)", async () => {
+  const { quoteFlowDecimals, parseYaml, sanitizeCheck } = await import("../src/ai/deck-ai.js");
+  const y = parseYaml("slides:\n  - layout: table\n    head: [Evento, Modelo, NSE, R²]\n    rows:\n      - [07/04/2017, HEC-HMS, 0,93, 0,97]\n      - [16/02/2019, HYMOD, 0,94, 0,05]\n    chart: { values: [10,20,30] }");
+  assert.deepEqual(y.slides[0].rows[0], ["07/04/2017", "HEC-HMS", "0,93", "0,97"]);
+  assert.deepEqual(y.slides[0].rows[1][3], "0,05", "o zero à esquerda não some");
+  assert.deepEqual(y.slides[0].chart.values, [10, 20, 30], "lista de números sem espaço continua números");
+  assert.equal(quoteFlowDecimals('  text: "0,93, entre aspas"'), '  text: "0,93, entre aspas"');
+  // linha de tabela com mais células que o cabeçalho volta para a IA corrigir
+  assert.throws(() => sanitizeCheck({ slides: [{ layout: "table", title: "x", head: ["A", "B"], rows: [["1", "2", "3"]] }] }, [0]), /número de células diferente do cabeçalho/);
+  assert.throws(() => sanitizeCheck({ slides: [{ layout: "split", title: "x", content: [{ table: { headers: ["A", "B"], rows: [["1"]] } }] }] }, [0]), /número de células diferente/);
+  sanitizeCheck({ slides: [{ layout: "table", title: "x", head: ["A", "B"], rows: [["1", "2"]] }] }, [0]);
+});
+
+test("checagem de números: o que não está no material volta para a IA (arredondamento e contagem pequena valem)", async () => {
+  const { unsupportedNumbers } = await import("../src/ai/document-visuals.js");
+  const material = [{ name: "paper.pdf", text: "O teste de ANOVA deu p inferior a 0,05. RMSE% de 37,6692% na linha 1; 1403 pontos; r = 0,761.", inventory: { items: [{ kind: "table", caption: "Tabela 1", rows: [["Linha", "RMSE"], ["L2", "0,0201"]] }] } }];
+  const spec = { slides: [
+    { layout: "split", title: "Correlação", body: "r = 0,761; ANOVA: p = 0,109 no diâmetro", notes: "nas notas 9,99 não conta" },
+    { layout: "stats", title: "x", stats: [{ value: "37,67%", label: "linha 1" }, { value: "1.403", label: "pontos" }, { value: "3", label: "métricas" }] },
+    { layout: "chart", title: "y", chart: { chart: "bar", data: [{ label: "L2", value: 0.0201 }, { label: "L3", value: 0.0999 }] } },
+  ] };
+  assert.deepEqual(unsupportedNumbers(spec, material).map((b) => `${b.slide}:${b.number}`), ["1:0,109", "3:0.0999"]);
+  // sem material, nada a conferir
+  assert.deepEqual(unsupportedNumbers(spec, []), []);
+});
+
+test("Criar com IA confere os números contra o material e pede a correção do que não tem base", async () => {
+  const doc = { name: "paper.pdf", text: "O teste de ANOVA deu p inferior a 0,05 para as duas linhas.", detail: "pdf", inventory: { items: [] } };
+  const n = llm.requests.length;
+  reply = (req) => /Checagem de números/.test(req.lastUser)
+    ? "Corrigi.\n```yaml\nedit:\n  2:\n    body: ANOVA com p inferior a 0,05 nas duas linhas.\n```"
+    : "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Paper }\n  - { layout: split, title: Correlação, body: \"ANOVA: p = 0,109 no diâmetro\" }\n  - { layout: end, title: Obrigado }\n```";
+  const r = await generateDeck("Apresentação de congresso do paper", { images: false, materials: [doc] });
+  const ask = genReqs(n).find((q) => /Checagem de números/.test(q.lastUser));
+  assert.ok(ask, "pediu a checagem");
+  assert.match(ask.lastUser, /slide 2: 0,109/);
+  assert.match(r.spec.slides[1].body, /inferior a 0,05/);
+  assert.deepEqual(r.facts, { checked: 1, unsupported: [] });
 });

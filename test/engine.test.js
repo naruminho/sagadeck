@@ -857,3 +857,15 @@ test("cartão cujo texto é só uma fórmula mostra a fórmula grande (não no t
   const out = html({ layout: "cards", title: "Da circunferência ao volume", items: [{ title: "Diâmetro", text: "$d_i = \frac{c_i}{\pi}$" }, { title: "Nota", text: "Medido em campo." }] });
   assert.equal((out.match(/class="[^"]*cd-math/g) || []).length, 1);
 });
+
+test("expoente e índice no valor do stats e no sufixo do contador aparecem formatados (saía \"km^2^\" cru)", () => {
+  const st = html({ layout: "stats", title: "Contexto", stats: [{ value: "1521 km^2^", label: "área municipal" }, { value: "CO~2~", label: "gás" }] });
+  assert.doesNotMatch(st, /\^2\^|~2~/);
+  assert.match(st, /<sup>2<\/sup>/);
+  const nb = html({ layout: "number", value: "1521 km^2^", label: "área" });
+  assert.doesNotMatch(nb, /\^2\^/);
+  assert.match(nb, /km²/);
+  // valor com unidade ou vírgula decimal: o contador lê o número (antes mostrava "NaN")
+  for (const value of ["1521 km^2^", "37,67%", "1.403", "R$ 2,5 mi"]) assert.doesNotMatch(html({ layout: "number", value, label: "x" }), /NaN/, value);
+  assert.match(html({ layout: "number", value: "37,67%", label: "x" }), /data-to="37.67"[^>]*data-dec="2"/);
+});

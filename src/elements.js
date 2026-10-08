@@ -381,8 +381,31 @@ export function importedTable(e) {
   return `<div${attrs(e, "tbx-table")}><table style="border-collapse:collapse;table-layout:fixed;width:100%"><colgroup>${cols}</colgroup>${rows}</table></div>`;
 }
 
+// O contador reescreve o texto no navegador (textContent): marcação de expoente/índice no prefixo/sufixo ("km^2^",
+// "CO~2~") vira o algarismo sobrescrito/subscrito do Unicode, que sobrevive ao textContent (saía "km^2^" cru).
+const SUP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", "-": "⁻", "+": "⁺" };
+const SUB = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉", "-": "₋", "+": "₊" };
+export const unicodeScripts = (t) => String(t ?? "").replace(/\^([-+]?\d+)\^/g, (_, d) => [...d].map((c) => SUP[c]).join("")).replace(/~([-+]?\d+)~/g, (_, d) => [...d].map((c) => SUB[c]).join(""));
+// Valor do contador escrito como texto ("37,67%", "1.403", "R$ 2,5 mi", "1521 km^2^"): Number() dava NaN e o slide
+// mostrava "NaN". Separa o que vem antes/depois (prefixo/sufixo) e lê o número no formato brasileiro (milhar com
+// ponto, decimal com vírgula); as casas decimais escritas valem. Sem número nenhum, o texto aparece como está.
+export function parseCounterValue(raw) {
+  if (typeof raw === "number") return { value: raw };
+  const m = /^(\D*?)(-?\d[\d.,]*)(.*)$/s.exec(String(raw ?? "").trim());
+  if (!m) return null;
+  let num = m[2].replace(/[.,]$/, ""), dec = 0;
+  if (num.includes(",")) { dec = num.split(",").pop().length; num = num.replace(/\./g, "").replace(",", "."); }
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(num)) num = num.replace(/\./g, "");
+  else if (num.includes(".")) dec = num.split(".").pop().length;
+  const value = Number(num);
+  return Number.isFinite(value) ? { value, prefix: m[1], suffix: m[3] + (m[2].length > num.length && /[.,]$/.test(m[2]) ? m[2].slice(-1) : ""), dec } : null;
+}
+
 export function counter(e) {
-  const v = Number(e.counter);
+  const parsed = parseCounterValue(e.counter);
+  if (!parsed) return `<div${attrs(e, `t f-display r-number pl`, `font-size:${e.size || SIZES[e.as || "number"]}px;`)}${e.fit ? " data-fit" : ""}>${md(String(e.counter ?? ""))}</div>`;
+  e = { ...e, prefix: unicodeScripts(`${e.prefix ?? ""}${parsed.prefix ?? ""}`), suffix: unicodeScripts(`${parsed.suffix ?? ""}${e.suffix ?? ""}`), decimals: e.decimals ?? (typeof e.counter === "number" ? undefined : parsed.dec) };
+  const v = parsed.value;
   const dec = e.decimals ?? (v % 1 ? 1 : 0);
   const shown = v.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const size = e.size || SIZES[e.as || "number"];
@@ -483,7 +506,7 @@ export function stats(e, ctx) {
         ${iconHtml}
         ${trendHtml}
       </div>
-      <div class="st-val t f-display" style="${valColor}">${esc(String(st.value ?? st.stat ?? ""))}</div>
+      <div class="st-val t f-display" style="${valColor}">${md(String(st.value ?? st.stat ?? ""))}</div>
       ${st.label ? `<div class="st-lab t f-heading">${md(st.label)}</div>` : ""}
       ${st.text ? `<div class="st-sub t f-body">${md(st.text)}</div>` : ""}
     </div>`;
