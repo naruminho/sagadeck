@@ -62,6 +62,15 @@ Regra nova no CLAUDE.md: merge e release só com a CI verde nas duas máquinas. 
   (falhava 3 em 4 sem a correção; 5 em 5 com).
 - **"Parar a transformação"** (os dois): o teste esperava um texto do aviso de progresso para recarregar a página "no
   meio". Agora espera o modelo (falso) ter recebido o pedido de escrever os slides.
+- **Animações paradas no Windows da CI, a causa de verdade** (achada com o diagnóstico que os testes passaram a
+  imprimir, inclusive o estado interno da cena, `window.__sagaMotion`): na CI a cena ficava com "parada" ligado para
+  sempre, embora a preferência dissesse "sem redução": ouviu "movimento reduzido" no carregamento (do sistema, antes de
+  a preferência do teste valer) e o código só sabia ligar esse estado, nunca desligar. Defeito real: religar as
+  animações com a apresentação aberta não descongelava nada. Agora "parada" se recalcula (deck `motion: none`, página
+  pedindo, preferência do sistema) sempre que um deles muda, nos dois sentidos; a página sempre diz sim ou não e repete
+  quando a preferência muda. Teste: movimento reduzido que deixa de valer faz a cena voltar a animar (falhava antes).
+- **Baixar PowerPoint sem as notas** (Windows): o clique esperava a "navegação" do download, e o PPTX numa máquina
+  lenta passa do limite do clique; o teste só precisa do pedido (`noWaitAfter`).
 
 ## Pacote Python: escape inválido numa docstring — 09/10/2026
 
