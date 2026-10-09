@@ -86,3 +86,20 @@ test("versão mínima do modelrelay: a mesma no aviso e no extra ia; modelrelay 
     { env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: path.join(ROOT, "python") }, encoding: "utf8" });
   assert.equal(r.stdout.trim(), "None", r.stderr);
 });
+
+// Todo arquivo do pacote Python compila sem aviso: "\s" numa docstring ("Documentos\sagadeck") é SyntaxWarning no
+// Python 3.12 (a CI no Linux acusava, aqui no 3.11 passava calado) e vira erro nas versões seguintes.
+test("pacote Python compila sem aviso (escape inválido em string vira erro no Python novo)", (t) => {
+  const py = ["python3", "python"].find((p) => { try { execFileSync(p, ["--version"], { stdio: "ignore" }); return true; } catch { return false; } });
+  if (!py) return t.skip("sem Python");
+  const script = String.raw`
+import pathlib, sys
+bad = []
+for p in sorted(pathlib.Path(sys.argv[1]).glob("*.py")):
+    try: compile(p.read_text(encoding="utf-8"), str(p), "exec")
+    except SyntaxError as e: bad.append(p.name + ": " + str(e))
+print("; ".join(bad))`;
+  const r = spawnSync(py, ["-W", "error", "-c", script, path.join(ROOT, "python", "sagadeck")], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout.trim(), "", r.stdout + r.stderr);
+});
