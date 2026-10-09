@@ -111,7 +111,7 @@
     const match = (d) => !q || d.title.toLowerCase().includes(q);
     const main = $("#main");
     if (view === "lixeira") {
-      main.innerHTML = `<div class="head"><div><h1>Lixeira</h1><div class="sub">Fica aqui por um dia; depois é apagado de vez.</div></div>${data.trash.length ? `<button class="lib-btn ghost danger" data-empty-trash>${ic("trash-2")}Esvaziar lixeira</button>` : ""}</div>` +
+      main.innerHTML = `<div class="head"><div><h1>Lixeira</h1><div class="sub">Fica aqui por ${data.trashDays === 1 ? "um dia" : `${data.trashDays || 30} dias`}; depois é apagado de vez (o prazo se muda em Preferências).</div></div>${data.trash.length ? `<button class="lib-btn ghost danger" data-empty-trash>${ic("trash-2")}Esvaziar lixeira</button>` : ""}</div>` +
         (data.trash.length ? data.trash.map((t) => `<div class="trash-row"><div class="t"><b>${esc(t.title)}</b><div class="sub">Era de ${esc(t.topic || NO_TOPIC.name)} · ${t.slides || 0} slides · excluída ${ago(t.deleted)}</div></div>
           <button class="lib-btn ghost" data-restore="${esc(t.id)}">${ic("rotate-ccw")}Restaurar</button><button class="lib-btn ghost danger" data-purge="${esc(t.id)}">Excluir de vez</button></div>`).join("")
           : `<div class="empty"><div class="big">${ic("trash-2")}</div><h2>Lixeira vazia</h2></div>`);
@@ -211,7 +211,7 @@
       if (a === "open" || a === "present") return openEditor(id, a === "present");
       if (a === "rename") return nameDialog("Renomear apresentação", d.title, (title) => act(() => api("api/library/decks/rename", { id, title }), "Renomeada"));
       if (a === "dup") return act(() => api("api/library/decks/duplicate", { id }), "Cópia criada");
-      if (a === "trash") return act(() => api("api/library/decks/trash", { id }), "Na lixeira — dá para restaurar por um dia");
+      if (a === "trash") return act(() => api("api/library/decks/trash", { id }), `Na lixeira — dá para restaurar por ${data.trashDays === 1 ? "um dia" : `${data.trashDays || 30} dias`}`);
     });
     m.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => { closeMenus(); act(() => api("api/library/decks/move", { id, topic: b.dataset.move }), `Movida para ${topicOf(b.dataset.move).name}`); });
     m.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => {

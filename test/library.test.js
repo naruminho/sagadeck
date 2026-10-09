@@ -250,20 +250,29 @@ test("pasta travada pelo OneDrive (EPERM/EBUSY por um instante): lixeira, restau
   assert.deepEqual(lib.list().decks.map((d) => [d.title, d.topic]), [["Aula renomeada", "Outro nome"]]);
 });
 
-// A lixeira fica um dia: as gerações e cópias descartadas não acumulam centenas de MB na pasta (que pode sincronizar
-// com o OneDrive). Excluída há uma hora continua restaurável; há dois dias, já foi apagada de vez.
-test("lixeira guarda por um dia e depois apaga de vez", () => {
-  const lib = openLibrary(tmp());
-  lib.createTopic("Aulas");
-  const recente = lib.trashDeck(lib.createDeck("Aulas", deck("Excluída agora há pouco")));
-  const velha = lib.trashDeck(lib.createDeck("Aulas", deck("Excluída anteontem")));
-  const age = (slot, ms) => {
+// A lixeira guarda pelo prazo escolhido em Preferências › Biblioteca (padrão 30 dias): excluída há uma hora continua
+// restaurável; passou do prazo, é apagada do disco (não só escondida).
+test("lixeira guarda pelo prazo das Preferências (padrão 30 dias) e depois apaga de vez", () => {
+  const age = (lib, slot, ms) => {
     const meta = path.join(lib.root, ".lixeira", slot, ".origem.json");
     fs.writeFileSync(meta, JSON.stringify({ ...JSON.parse(fs.readFileSync(meta, "utf8")), deleted: Date.now() - ms }));
   };
-  age(recente, 3600e3);
-  age(velha, 2 * 864e5);
-  assert.deepEqual(lib.list().trash.map((t) => t.title), ["Excluída agora há pouco"]);
-  assert.equal(fs.existsSync(path.join(lib.root, ".lixeira", velha)), false, "apagada do disco, não só escondida");
-  assert.equal(TRASH_DAYS, 1);
+  // um dia (a escolha de quem gera muito deck de teste)
+  const curta = openLibrary(tmp(), { trashDays: 1 });
+  curta.createTopic("Aulas");
+  const recente = curta.trashDeck(curta.createDeck("Aulas", deck("Excluída agora há pouco")));
+  const velha = curta.trashDeck(curta.createDeck("Aulas", deck("Excluída anteontem")));
+  age(curta, recente, 3600e3);
+  age(curta, velha, 2 * 864e5);
+  assert.deepEqual(curta.list().trash.map((t) => t.title), ["Excluída agora há pouco"]);
+  assert.equal(fs.existsSync(path.join(curta.root, ".lixeira", velha)), false, "apagada do disco, não só escondida");
+  assert.equal(curta.list().trashDays, 1);
+  // sem escolha: 30 dias (anteontem continua lá)
+  assert.equal(TRASH_DAYS, 30);
+  const padrao = openLibrary(tmp());
+  padrao.createTopic("Aulas");
+  const slot = padrao.trashDeck(padrao.createDeck("Aulas", deck("Excluída anteontem")));
+  age(padrao, slot, 2 * 864e5);
+  assert.deepEqual(padrao.list().trash.map((t) => t.title), ["Excluída anteontem"]);
+  assert.equal(padrao.list().trashDays, 30);
 });

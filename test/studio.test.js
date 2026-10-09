@@ -2146,3 +2146,27 @@ test("gráfico de dados: planilha no Formatar, colar do Excel com cabeçalho vir
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
+
+test("Preferências › Biblioteca: escolher 1 dia para a lixeira grava no arquivo e a biblioteca passa a dizer e a valer esse prazo", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  const file = process.env.SAGADECK_PREFERENCIAS;
+  fs.rmSync(file, { force: true });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    assert.equal((await (await fetch(`${studio.url}/api/library`)).json()).trashDays, 30, "padrão: 30 dias");
+    await p.click("#btn-prefs");
+    const sel = '#prefs-list [data-pref="biblioteca.lixeiraDias"]';
+    await p.waitForSelector(sel);
+    assert.equal(await p.inputValue(sel), "30");
+    await p.selectOption(sel, "1");
+    await p.waitForFunction(() => document.getElementById("prefs-status").textContent === "Salvo");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).biblioteca.lixeiraDias, 1, "gravado no arquivo desta máquina");
+    assert.equal((await (await fetch(`${studio.url}/api/library`)).json()).trashDays, 1, "a biblioteca usa o prazo novo");
+    const { page: lib, errors: libErrors } = await newPage(browser, `${studio.url}/biblioteca`);
+    await lib.click('[data-view="lixeira"]');
+    assert.match(await lib.innerText("#main"), /Fica aqui por um dia/);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(libErrors, []);
+  } finally { fs.rmSync(file, { force: true }); await browser.close(); await studio.close(); deckFile.cleanup(); }
+});
