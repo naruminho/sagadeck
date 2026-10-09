@@ -14,15 +14,22 @@ Ele vem com 11 temas (incluindo estilo Keynote Apple em prata clean e respiráve
 ## Instalação
 
 ```bash
-pip install sagadeck
-```
-Requer **Node.js 18+** e **Chrome ou Edge** instalados (o motor é JavaScript e vem empacotado no pacote Python).
-
-Quem já vive no Node pode instalar direto, sem Python e sem bundle (vai a fonte + dependências):
-```bash
 npm install -g sagadeck
 ```
-A IA funciona apontando para um modelrelay ou gateway compatível (`SAGADECK_LLM_URL`, veja abaixo); o `pip install "sagadeck[ia]"` continua sendo o caminho com o modelrelay junto.
+Requer **Node.js 18+** e **Chrome ou Edge** instalados (o PDF, o PNG e as conferências visuais usam o navegador).
+É tudo Node: não precisa de Python. (O pacote do PyPI parou na 1.5.0.)
+
+## Comece aqui
+
+```bash
+sagadeck studio
+```
+e abra **http://127.0.0.1:3517** no navegador. **Essa é a página do sagadeck**: a biblioteca das suas
+apresentações, o editor (estilo PowerPoint) e o chat com a IA. Não há outra interface para abrir nem para criar.
+
+Para usar a IA (gerar apresentações, conversar com o chat), clique em **Configurar IA** no alto da biblioteca (ou
+em **IA desligada**, no editor), escolha o provedor, cole a chave, clique em **Testar** e **Salvar**. Detalhes em
+[IA de verdade](#ia-de-verdade-llm).
 
 ## Como usar
 
@@ -69,64 +76,52 @@ O sagadeck foi projetado para ser usado por humanos e por agentes de IA:
 2. **Pelo Estúdio Visual**: Execute `sagadeck studio palestra.yaml` para abrir a interface web estilo PowerPoint, onde você pode editar visualmente no canvas 16:9 e conversar com a IA no chat lateral. A IA se auto-corrige e nunca deixa elementos sobrepostos ou fora das margens.
 3. **Pelo Protocolo MCP**: Execute `sagadeck mcp` para que IDEs agênticos (Cursor, Windsurf, Cline, Roo Code) descubram e invoquem diretamente as ferramentas de criação, leitura, fiscalização e auto-cura de apresentações.
 
-Se o código de uma ferramenta em Python quiser chamar o sagadeck diretamente (sem montar comandos de terminal), há uma API mínima:
-
-```python
-import sagadeck
-sagadeck.autofix("palestra.yaml")               # corrige sobreposições e margens automaticamente
-sagadeck.studio()                               # abre a biblioteca (Documentos/sagadeck no Windows)
-sagadeck.studio("palestra.yaml", port=3517)     # abre direto o editor de um deck
-sagadeck.export("palestra.yaml", out="saida")   # {'html': …, 'pptx': …, 'pdf': …, 'roteiro': …}
-print(sagadeck.check("palestra.yaml"))           # relatório do fiscal em texto
-contexto = sagadeck.reference()                  # referência do YAML para colocar no prompt
-```
-
 ## IA de verdade (LLM)
 
-O chat lateral do Studio, o Napkin (texto → slide), o **"✨ Deck com IA"** e a geração de imagens usam um LLM quando há um disponível; sem LLM, o chat e o Napkin continuam funcionando com as regras locais.
+O chat lateral do Studio, o Napkin (texto → slide), o **"Deck com IA"** e a geração de imagens usam um LLM quando há um configurado; sem ele, o chat e o Napkin continuam funcionando com as regras locais.
 
-O sagadeck fala com qualquer endpoint compatível com OpenAI (`/v1/chat/completions`). O caminho recomendado é o [modelrelay](https://github.com/naruminho/modelrelay), que decide pela configuração dele para onde as chamadas vão (OpenRouter, OpenAI, gateway corporativo), sem nada disso no sagadeck:
+O sagadeck fala direto com qualquer provedor compatível com a API da OpenAI (`/v1/chat/completions`): OpenRouter,
+OpenAI, o proxy de IA da empresa. Não há serviço à parte para instalar nem para manter rodando.
 
-```bash
-pip install "sagadeck[ia]"      # o sagadeck com o modelrelay na versão que ele exige
-# ou só o modelrelay:  pip install -U modelrelay
+**Pela tela** (o jeito mais fácil): **Configurar IA**, no alto da biblioteca, ou **IA desligada / IA ligada**, no
+editor. Escolha o provedor (OpenRouter, OpenAI ou "outro compatível", com o endereço), cole a chave e diga o modelo
+de cada papel:
+
+| papel | para quê | |
+|---|---|---|
+| texto | chat, Napkin, geração e revisão de decks | obrigatório |
+| visão | ver o slide renderizado e as imagens coladas | opcional; vazio = o de texto |
+| imagem | ilustrações (`image_prompt`) | opcional |
+| busca | pesquisa na web da geração (no OpenRouter, um modelo `:online`) | opcional; sem ele, buscadores diretos |
+
+**Testar** faz uma pergunta curta com o que está na tela antes de salvar. A configuração fica só nesta máquina, em
+`~/.sagadeck/ia.json` (fora do código e fora da biblioteca, que pode sincronizar com a nuvem); a chave nunca volta
+inteira para a página. No modo multiusuário, quem configura é quem administra o servidor.
+
+**À mão**, o mesmo arquivo:
+
+```json
+{
+  "provider": "openrouter",
+  "url": "https://openrouter.ai/api/v1",
+  "keyEnv": "OPENROUTER_API_KEY",
+  "models": { "text": "deepseek/deepseek-v4.1-flash", "image": "google/gemini-3.1-flash-image" }
+}
 ```
+A chave vai em `key` ou numa variável de ambiente indicada em `keyEnv`. `headers` acrescenta cabeçalhos fixos.
 
-Com um modelrelay mais velho do que o exigido, o sagadeck avisa ao abrir e mostra o comando para atualizar.
-Quem desenvolve o modelrelay e o instalou direto do clone (`pip install -e .` na pasta dele, a "instalação
-editável": o Python lê o código da pasta, sem cópia) atualiza só com `git pull` ali, e o aviso diz isso, com a
-pasta. `pip install -e .` de novo só quando o modelrelay ganhar uma dependência nova.
+**Provedor que não segue a API da OpenAI** (outro jeito de autenticar, outro endereço): em vez de mexer no sagadeck,
+aponte `"adaptador"` para um arquivo `.mjs` seu cujo `export default` recebe `(url, init)` e devolve a resposta (como
+o `fetch`). O resto do pedido segue no formato da OpenAI.
 
-O jeito mais fácil de configurar é pela tela: abra `sagadeck studio` e clique em **modelrelay** no alto da
-biblioteca (ou abra http://127.0.0.1:8765/ com um `modelrelay serve` rodando). Lá você escolhe o provedor
-(OpenRouter, OpenAI, Google, DeepSeek, o gateway da empresa…), cola a chave, testa e diz qual modelo faz
-**texto** e qual faz **imagem**. A tela grava o `~/.modelrelay/config.toml`, que também dá para editar à mão
-(`modelrelay init` cria um modelo comentado). O botão só aparece quando o modelrelay roda nesta máquina; no
-modo multiusuário, quem configura é o admin.
-
-À mão, no `~/.modelrelay/config.toml`, os apelidos que o sagadeck usa são:
-
-```toml
-[models]
-"text"  = "google/gemini-2.5-flash"         # chat, Napkin e geração de deck
-"image" = "google/gemini-2.5-flash-image"   # imagens
-```
-
-O sagadeck se identifica para o modelrelay (cabeçalho `X-Modelrelay-App: sagadeck`), então dá para usar
-modelos diferentes só nele, sem afetar outros apps que usam o mesmo modelrelay:
-
-```toml
-[apps.sagadeck.models]                      # só o que muda para o sagadeck; o resto vem de [models]
-"text" = "deepseek/deepseek-v4-flash"
-```
-
-Confira com `modelrelay show --app sagadeck`. Detalhes na seção *Per-app models* do README do modelrelay.
+**Quem usava o modelrelay**: na primeira vez, o sagadeck traz a configuração dele (`~/.modelrelay/config.toml`:
+provedor, chave e os modelos do sagadeck) para o `~/.sagadeck/ia.json`. Depois disso o modelrelay não é mais usado.
 
 **Modelo sem visão** (ex.: DeepSeek V4 Flash): o assistente manda uma foto do slide e as imagens que você cola.
 Se o modelo recusar imagem, o sagadeck refaz o pedido sem as imagens, avisa na resposta ("não enxerga imagens")
 e não insiste nesse modelo até reiniciar. Tudo funciona, só que a IA não vê o slide renderizado.
 
-Pronto: com o modelrelay instalado no mesmo Python, `sagadeck studio`, `new`, `napkin` e `imagens` sobem um `modelrelay serve` sozinhos enquanto rodam. Rodando o motor Node direto (`node bin/sagadeck.js`), deixe um `modelrelay serve` aberto em outro terminal.
+Na linha de comando, `new`, `napkin` e `imagens` usam a mesma configuração:
 
 ```bash
 sagadeck new palestra --prompt "Palestra de 15 min para gerentes sobre IA com segurança. Ilustre onde fizer sentido." --slides=10
@@ -134,14 +129,15 @@ sagadeck napkin "1) cliente abre chamado 2) triagem por IA 3) analista revisa"  
 sagadeck imagens palestra.yaml    # gera as imagens pedidas com image_prompt: no YAML
 ```
 
-| variável | padrão | |
-|---|---|---|
-| `SAGADECK_LLM_URL` | `http://127.0.0.1:8765/v1` | qualquer API compatível com OpenAI (ex.: `https://openrouter.ai/api/v1`) |
-| `SAGADECK_LLM_KEY` | — | bearer token, se apontar direto para um provedor |
-| `SAGADECK_TEXT_MODEL` / `SAGADECK_IMAGE_MODEL` | `text` / `image` | nomes dos modelos |
-| `SAGADECK_LLM_TIMEOUT` | `180` | segundos por chamada |
-| `SAGADECK_NO_RELAY` | — | `1` impede o pacote Python de subir o modelrelay |
-| `SAGADECK_APP` | `sagadeck` | nome com que o sagadeck se identifica ao modelrelay (`[apps.<nome>.models]`) |
+As variáveis abaixo valem por cima da configuração (útil em servidor e em testes):
+
+| variável | |
+|---|---|
+| `SAGADECK_LLM_URL` | qualquer API compatível com OpenAI (ex.: `https://openrouter.ai/api/v1`) |
+| `SAGADECK_LLM_KEY` | a chave (bearer token) |
+| `SAGADECK_TEXT_MODEL` / `SAGADECK_VISION_MODEL` / `SAGADECK_IMAGE_MODEL` / `SAGADECK_SEARCH_MODEL` | os modelos de cada papel |
+| `SAGADECK_LLM_TIMEOUT` | segundos por chamada (padrão `180`) |
+| `SAGADECK_IA` | outro arquivo de configuração (padrão `~/.sagadeck/ia.json`) |
 
 **Imagens geradas: você pede no texto**, no chat, no briefing do "Deck com IA" ou no `--prompt`; não há caixa para marcar.
 "Com fotos em todos os slides" ilustra todos; "você decide onde ilustrar" deixa a IA escolher só os slides em que uma imagem
@@ -156,15 +152,13 @@ Todo YAML vindo do LLM é validado (renderiza cada slide); se falhar, o erro vol
 ```bash
 npm install
 node bin/sagadeck.js build templates/exemplo.yaml
-npm run bundle          # empacota o motor em python/sagadeck/engine
-npm run build:py        # gera dist/*.whl e dist/*.tar.gz
 npm test                # suíte inteira: motor + runtime + Studio (clicando num Chrome headless)
 npm run test:unit       # só o motor (rápido, sem navegador)
-SAGADECK_LIVE=1 npm test  # inclui os testes que chamam o LLM de verdade (modelrelay)
+SAGADECK_LIVE=1 npm test  # inclui os testes que chamam o LLM de verdade (o configurado em Configurar IA)
 ```
 **Toda funcionalidade nova entra com teste** em `test/` — é o que garante que um refactor não apague o que já funciona. Veja [CLAUDE.md](CLAUDE.md).
 
-Publicação: crie uma release `vX.Y.Z` no GitHub (o workflow `.github/workflows/publish.yml` publica no PyPI via *trusted publishing*). A versão fica em `package.json` e `python/sagadeck/__init__.py` (o bundle confere se são iguais).
+Publicação: com a CI verde, crie uma release `vX.Y.Z` no GitHub; o workflow `.github/workflows/publish.yml` publica no npm (*trusted publishing*). A versão fica em `package.json`.
 
 ## Arquivo `.sagadeck` (a apresentação inteira)
 
@@ -301,8 +295,6 @@ src/export/             PowerPoint, PDF, imagens, roteiro e o fiscal
 templates/exemplo.yaml  deck de exemplo com todos os layouts
 docs/REFERENCIA.md      referência completa do YAML
 SKILL.md                instruções para IAs gerarem decks com o sagadeck
-python/sagadeck/        pacote Python (CLI + API) que carrega o motor empacotado
-scripts/bundle.mjs      empacota o motor para o pip
 tools/ppt-render.ps1    renderiza um .pptx pelo PowerPoint (para conferir fidelidade)
 tools/test-live.mjs     teste automático do modo apresentação e dos widgets
 ```

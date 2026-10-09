@@ -14,7 +14,7 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
   - `test/studio.test.js`: o Studio de ponta a ponta. Sobe o servidor com `test/fixtures/deck.yaml` numa pasta temporária e clica de verdade.
   - `test/ai.test.js`: IA com o LLM falso (`test/mock-llm.js`), que dá respostas roteirizadas. Testa o encanamento: o que vai no prompt, imagens, patch, conversa, versões.
   - `test/studio-ai.test.js`: o assistente no Studio com o LLM falso (editar, conversar, "Pode fazer", versões).
-  - `test/ai-live.test.js`: o modelo de verdade decide bem (conversa × ação × versões)? Só com `SAGADECK_LIVE=1` e o modelrelay no ar.
+  - `test/ai-live.test.js`: o modelo de verdade decide bem (conversa × ação × versões)? Só com `SAGADECK_LIVE=1` e a IA configurada nesta máquina (Configurar IA, `~/.sagadeck/ia.json`).
 - Comportamento de IA se decide no prompt, pelo modelo, e não com regex ou fluxos fixos. O teste com mock garante o encanamento; o teste ao vivo garante a decisão.
 - Bug corrigido: primeiro escreva o teste que falha com o bug, depois corrija. Confira que ele falha sem a correção.
 - Layout novo: entra em `src/layouts.js`, `src/studio/layout-samples.js` (nome, descrição e exemplo), no formulário `src/studio/public/slide-form.js` e em `docs/REFERENCIA.md`. `engine.test.js` já falha se faltar o exemplo ou a descrição.
@@ -45,9 +45,11 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - Textos da interface e comentários em português.
 - **Nada de emoji ou símbolo unicode como ícone** (✕ ✓ ✨ 🪄 ▶ ↗ ◎ ● ▸ ←→ …): no Studio, `<i class="ic" data-ic="nome">` (Lucide; novos nomes em `scripts/vendor-ui-icons.mjs` e rode o script); na apresentação, SVG inline (`iconSVG` de `src/figures/icons.js`). Em aviso de texto, sem enfeite. Nome de tecla dentro de `<kbd>` pode. `engine.test.js` falha se aparecer. A regra vale para o que o **sagadeck desenha**; o conteúdo da pessoa (digitado ou colado de outra IA) passa como veio, nunca filtre emoji ou símbolo do texto dela.
 - **A IA do sagadeck só conhece o que está em `docs/REFERENCIA.md`** (vai inteira no prompt). Recurso novo (layout, campo, composição, tema, paleta, campo do deck) entra lá no mesmo commit. `engine.test.js` falha se faltar layout, composição, tema ou paleta.
-- `npm run bundle` depois de mudar o motor ou o Studio: o pacote Python usa a cópia em `python/sagadeck/engine`.
 - **Nada pede coisa à internet** na apresentação nem no Studio (a rede do banco barra): fonte nova de tema entra em
   `scripts/vendor-fonts.mjs` (licença livre, rode o script); nada de `@import` ou `url(https://…)` (`test/fonts.test.js`).
-- **Mudou o modelrelay** (repositório `naruminho/modelrelay`): suba a versão dele (`pyproject.toml` e `__version__`)
-  e, aqui, `MIN_MODELRELAY` em `python/sagadeck/llm.py` e o extra `ia` do `pyproject.toml` para a versão nova
-  (`test/python-relay.test.js` confere que os dois batem). O sagadeck avisa quem estiver com um modelrelay mais velho.
+- **É tudo Node**: distribuição só pelo npm (o pacote do PyPI parou na 1.5.0). A IA é a camada embutida
+  `src/ai/ia-config.js` + `src/ai/llm.js`: provedor, chave e modelos em `~/.sagadeck/ia.json` (tela Configurar IA do
+  Studio), nunca no código nem na biblioteca. Provedor fora do padrão da OpenAI se resolve com um adaptador `.mjs` da
+  pessoa (`adaptador` no ia.json), não com código no sagadeck. O modelrelay (Python, à parte) não é mais usado.
+- **A interface é o Studio** (`sagadeck studio`, http://127.0.0.1:3517). A primeira linha que ele escreve é esse
+  endereço (`src/studio/banner.js`); o SKILL.md diz a agentes para nunca criar interface própria.

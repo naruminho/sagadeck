@@ -1,4 +1,4 @@
-// Com o LLM de VERDADE (modelrelay): o modelo entende sozinho se é conversa, ação ou pedido de versões?
+// Com o LLM de VERDADE (o configurado em Configurar IA): o modelo entende sozinho se é conversa, ação ou pedido de versões?
 // Só roda com SAGADECK_LIVE=1 (lento, depende do modelo). Ex.: SAGADECK_LIVE=1 node --test test/ai-live.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";

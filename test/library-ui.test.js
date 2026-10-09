@@ -172,49 +172,65 @@ test("multiusuário: cada usuário vê só a sua biblioteca; sem o cabeçalho do
   }
 });
 
-// Um modelrelay local com a tela de configuração (só o que o Studio consulta).
-async function fakeRelay({ console = true } = {}) {
-  const http = await import("node:http");
-  const server = http.createServer((req, res) => {
-    if (console && req.url === "/api/console/config") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("{}"); }
-    res.writeHead(404); res.end();
-  });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  return { url: `http://127.0.0.1:${server.address().port}`, close: () => server.close() };
-}
-
-test("botão modelrelay: abre a tela de configuração do modelrelay local; some quando não há tela ou no multiusuário", { timeout: 60000 }, async (t) => {
-  const relay = await fakeRelay(), old = await fakeRelay({ console: false });
+// Configurar IA (biblioteca): provedor, chave e modelo desta máquina, com Testar antes de salvar. Grava em
+// ~/.sagadeck/ia.json (aqui, o arquivo de teste), a chave nunca volta inteira para a página e a IA passa a responder.
+test("Configurar IA: escolher provedor, colar a chave, testar e salvar; a chave não volta inteira; no multiusuário não aparece", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { startMockLLM } = await import("./mock-llm.js");
+  const llm = await startMockLLM(() => "ok");
+  const studio = await startStudio(null);
+  const keepUrl = process.env.SAGADECK_LLM_URL;
+  delete process.env.SAGADECK_LLM_URL; // sem variável: vale a configuração da máquina, que a tela escreve
+  fs.rmSync(process.env.SAGADECK_IA, { force: true });
   try {
-    const setup = async (llmUrl, opts = {}) => {
-      const studio = await startStudio(null, { llmUrl, ...opts });
-      try {
-        const r = await fetch(studio.url + "/api/ai/setup", { headers: opts.multiuser ? { "X-Sagadeck-User": "ana" } : {} });
-        return (await r.json()).url;
-      } finally { await studio.close(); }
-    };
-    assert.equal(await setup(relay.url + "/v1"), relay.url + "/");
-    assert.equal(await setup(old.url + "/v1"), null, "modelrelay antigo, sem tela");
-    assert.equal(await setup("http://127.0.0.1:9/v1"), null, "fora do ar");
-    assert.equal(await setup(relay.url + "/v1", { multiuser: true }), null, "no servidor, a configuração é do admin");
-
-    const browser = await browserOrSkip(t);
-    if (!browser) return;
-    const studio = await startStudio(null, { llmUrl: relay.url + "/v1" });
-    try {
-      const { page: p, errors } = await newPage(browser, studio.url);
-      await p.waitForSelector("#btn-ai:not([hidden])");
-      assert.equal(await p.getAttribute("#btn-ai", "href"), relay.url + "/");
-      assert.equal(await p.getAttribute("#btn-ai", "target"), "_blank");
-      assert.equal((await p.innerText("#btn-ai")).trim(), "modelrelay");
-      assert.deepEqual(errors, []);
-    } finally {
-      await browser.close();
-      await studio.close();
-    }
+    assert.equal((await (await fetch(studio.url + "/api/ai/status")).json()).configured, false, "sem configuração: IA desligada");
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector("#btn-ai:not([hidden])");
+    assert.equal((await p.innerText("#btn-ai")).trim(), "Configurar IA");
+    await p.click("#btn-ai");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    await p.selectOption('[data-f="provider"]', "outro");
+    await p.fill('[data-f="url"]', llm.url);
+    await p.fill('[data-f="key"]', "sk-teste-9876");
+    await p.fill('[data-model="text"]', "provedor/modelo");
+    await p.click("[data-test]");
+    await p.locator("[data-status].ok", { hasText: "Funcionou" }).waitFor();
+    assert.equal(llm.requests.at(-1).headers.authorization, "Bearer sk-teste-9876", "o teste usa a chave da tela");
+    assert.equal(llm.requests.at(-1).body.model, "provedor/modelo");
+    await p.click("[data-save]");
+    await p.locator("[data-status].ok", { hasText: "Salvo" }).waitFor();
+    const saved = JSON.parse(fs.readFileSync(process.env.SAGADECK_IA, "utf8"));
+    assert.equal(saved.url, llm.url);
+    assert.equal(saved.key, "sk-teste-9876");
+    assert.equal(saved.models.text, "provedor/modelo");
+    const info = await (await fetch(studio.url + "/api/ia")).json();
+    assert.ok(!JSON.stringify(info).includes("sk-teste-9876"), "a chave não volta inteira");
+    assert.equal(info.config.keyHint, "••••9876");
+    assert.equal((await (await fetch(studio.url + "/api/ai/status?refresh=1")).json()).available, true, "a IA responde");
+    // reabrir: em branco mantém a chave gravada
+    await p.click("[data-close]");
+    await p.click("#btn-ai");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    assert.match(await p.getAttribute('[data-f="key"]', "placeholder"), /••••9876/);
+    await p.click("[data-save]");
+    await p.locator("[data-status].ok", { hasText: "Salvo" }).waitFor();
+    assert.equal(JSON.parse(fs.readFileSync(process.env.SAGADECK_IA, "utf8")).key, "sk-teste-9876");
+    assert.deepEqual(errors, []);
   } finally {
-    relay.close(); old.close();
+    process.env.SAGADECK_LLM_URL = keepUrl;
+    fs.rmSync(process.env.SAGADECK_IA, { force: true });
+    await browser.close();
+    await studio.close();
+    await llm.close();
   }
+  // multiusuário: quem configura é quem administra (a tela não aparece e não grava)
+  const multi = await startStudio(null, { multiuser: true });
+  try {
+    const r = await fetch(multi.url + "/api/ia", { method: "POST", headers: { "Content-Type": "application/json", "X-Sagadeck-User": "ana" }, body: JSON.stringify({ url: "http://x/v1", models: { text: "m" } }) });
+    assert.equal(r.status, 403);
+    assert.equal((await (await fetch(multi.url + "/api/ia", { headers: { "X-Sagadeck-User": "ana" } })).json()).editable, false);
+  } finally { await multi.close(); }
 });
 
 // No BabsDeck o Studio fica em https://portal/apresentacoes/ (o nginx tira o prefixo). Tudo tem que

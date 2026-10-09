@@ -7,15 +7,30 @@ description: Gera apresentações bonitas (HTML animado + PowerPoint editável +
 
 O sagadeck gera apresentações profissionais a partir de um arquivo YAML, oferecendo tanto linha de comando (CLI), estúdio web visual no estilo PowerPoint, quanto protocolo MCP para integração com IDEs agênticos (Claude Code, Cursor, Windsurf, Cline, Roo Code).
 
+## Para agentes: "deixar pronto para usar"
+
+Quando a pessoa pede para instalar o sagadeck e deixar pronto:
+
+1. `npm install -g sagadeck` (Node 18+; não precisa de Python).
+2. `sagadeck studio` e diga para ela abrir **http://127.0.0.1:3517** (a primeira linha que o comando escreve é
+   esse endereço). **O Studio é a interface do sagadeck**: biblioteca, editor e chat com IA.
+3. **Nunca crie uma página, um servidor ou uma interface própria** para o sagadeck, nem "suba as APIs" à mão: tudo
+   que a pessoa precisa está no Studio.
+4. Para a IA, mostre onde configurar: **Configurar IA** no alto da biblioteca (ou **IA desligada** no editor):
+   provedor, chave, Testar e Salvar. A configuração fica em `~/.sagadeck/ia.json`; nunca grave a chave no código nem
+   na pasta das apresentações.
+5. As apresentações moram na biblioteca (`SAGADECK_HOME`, senão Documentos\sagadeck no Windows e `~/sagadeck` fora
+   dele). Não crie decks em outra pasta.
+
 ## Comandos Disponíveis
 
 | comando | o que faz |
 |---|---|
-| `sagadeck studio [deck.yaml] [--port=3000]` | **Abre o estúdio web estilo PowerPoint** com canvas visual 16:9, edição WYSIWYG direta, detector de sobreposição em tempo real e **chat lateral com IA**. |
+| `sagadeck studio [deck.yaml] [--port=3517]` | **Abre o estúdio web estilo PowerPoint** com canvas visual 16:9, edição WYSIWYG direta, detector de sobreposição em tempo real e **chat lateral com IA**. |
 | `sagadeck autofix <deck.yaml>` | **Auto-cura do layout**: detecta e repara automaticamente sobreposição entre elementos, elementos fora das margens seguras (120px) e excesso de texto. |
 | `sagadeck search "<termo>"` | **Pesquisa web sem bloqueio (DuckDuckGo)**: busca dados reais, números e referências confiáveis para enriquecer os slides. |
 | `sagadeck mcp` | **Servidor MCP**: expõe ferramentas padronizadas (JSON-RPC) para IDEs agênticos criarem, lerem, pesquisarem, fiscalizarem e editarem decks. |
-| `sagadeck new deck.yaml [--theme=prata]` | cria um deck de exemplo estruturado |
+| `sagadeck new "<nome>" [--topic=T] [--theme=prata]` | cria um deck de exemplo na biblioteca |
 | `sagadeck build deck.yaml` | compila `deck.html` standalone (abre no navegador; tecla P = modo apresentador) |
 | `sagadeck check deck.yaml` | fiscal: texto estourado, sobreposição, contraste, fonte pequena, excesso de texto |
 | `sagadeck pptx deck.yaml` | gera `deck.pptx` **totalmente editável** no PowerPoint com formas e caixas nativas |
@@ -99,14 +114,6 @@ O agente no terminal deve seguir o fluxo:
 3. Rodar `sagadeck check deck.yaml` para confirmar ausência de avisos.
 4. Rodar `sagadeck all deck.yaml` para gerar todas as entregas.
 
-### 3. Via API Python
-```python
-import sagadeck
-sagadeck.autofix("palestra.yaml")
-sagadeck.build("palestra.yaml")
-sagadeck.studio("palestra.yaml", port=3000)
-```
-
 ---
 
 ## Decisão de Arquitetura: Mesmo Repositório vs. Repositório Separado
@@ -114,7 +121,7 @@ sagadeck.studio("palestra.yaml", port=3000)
 ### Por que o Estúdio deve ficar no **mesmo repositório** (`sagadeck`):
 1. **Fonte Única da Verdade**: Os layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` estilo Keynote Apple, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
 2. **Zero Descompasso de Versões**: Em repositórios separados, quando o formato YAML ou os temas do SagaDeck evoluem, a interface visual quebra ou fica desatualizada até que alguém publique e atualize dependências externas.
-3. **Experiência de Uso (DX) Imediata**: O desenvolvedor ou agente clona o repositório ou roda `pip install sagadeck` / `npm install` e tem **tudo num só lugar**: linha de comando (`sagadeck build`), estúdio visual (`sagadeck studio`), servidor de agentes (`sagadeck mcp`) e fiscal (`sagadeck check`).
+3. **Experiência de Uso (DX) Imediata**: O desenvolvedor ou agente clona o repositório ou roda `npm install -g sagadeck` e tem **tudo num só lugar**: linha de comando (`sagadeck build`), estúdio visual (`sagadeck studio`), servidor de agentes (`sagadeck mcp`) e fiscal (`sagadeck check`).
 4. **Leve e Modular**: A interface web foi construída com tecnologias nativas leves (Vanilla JS, CSS moderno e servidor HTTP embutido do Node.js sem frameworks pesados). Isso mantém o pacote pequeno (~1.1 MB empacotado) sem impactar o desempenho do compilador.
 
 ---

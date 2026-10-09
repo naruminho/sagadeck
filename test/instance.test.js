@@ -11,12 +11,11 @@ import { startStudio, tempDeck, ROOT } from "./helpers.js";
 
 const run = promisify(execFile);
 
-test("porta padrão única: CLI, npm run dev e pacote Python", () => {
+test("porta padrão única: CLI e npm run dev", () => {
   assert.equal(DEFAULT_PORT, 3517);
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   assert.equal(pkg.scripts.dev, "node bin/sagadeck.js studio", "npm run dev usa o padrão do CLI");
   assert.match(fs.readFileSync(path.join(ROOT, "bin", "sagadeck.js"), "utf8"), /flags\.port \|\| process\.env\.PORT \|\| DEFAULT_PORT/);
-  assert.match(fs.readFileSync(path.join(ROOT, "python", "sagadeck", "api.py"), "utf8"), /def studio\([^)]*port: int = 3517/);
 });
 
 test("instância: /api/instance se identifica; mesma biblioteca e versão reusa; outra biblioteca ou versão avisa", async () => {
@@ -49,4 +48,40 @@ test("instância: /api/instance se identifica; mesma biblioteca e versão reusa;
     assert.equal(r.code, 1);
     assert.match(r.stderr, /outra biblioteca/);
   } finally { await studio.close(); deck.cleanup(); }
+});
+
+// A primeira linha do `sagadeck studio` é o endereço do Studio (a página que a pessoa abre). Antes vinha primeiro o
+// endereço de um serviço de IA à parte e um agente abriu a página errada (e depois criou uma interface do zero).
+test("sagadeck studio: a primeira linha é o endereço do Studio; a IA não configurada diz onde configurar", async () => {
+  const { spawn } = await import("node:child_process");
+  const os = await import("node:os");
+  const lib = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-banner-"));
+  const net = await import("node:net");
+  const port = await new Promise((r) => { const s = net.createServer().listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => r(p)); }); });
+  const env = { ...process.env };
+  delete env.SAGADECK_LLM_URL;
+  const child = spawn(process.execPath, [path.join(ROOT, "bin", "sagadeck.js"), "studio", `--port=${port}`, `--library=${lib}`], { env });
+  try {
+    let out = "";
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`sem saída: ${out}`)), 20000);
+      child.stdout.on("data", (d) => { out += d; if (/processo \d+/.test(out)) { clearTimeout(timer); resolve(); } });
+      child.on("exit", (c) => reject(new Error(`saiu (${c}): ${out}`)));
+    });
+    const lines = out.trim().split(/\r?\n/);
+    assert.match(lines[0], new RegExp(`SagaDeck Studio .* pronto\. Abra no navegador: http://127\.0\.0\.1:${port}/`));
+    assert.match(out, /IA: não configurada\. No Studio, clique em IA desligada \(ou Configurar IA na biblioteca\)/);
+    assert.doesNotMatch(out, /8765|modelrelay/);
+  } finally { child.kill(); fs.rmSync(lib, { recursive: true, force: true }); }
+});
+
+test("SKILL.md (o que os agentes leem): porta certa, instalação pelo npm e a regra de nunca criar interface própria", () => {
+  const skill = fs.readFileSync(path.join(ROOT, "SKILL.md"), "utf8");
+  assert.match(skill, new RegExp(`http://127\.0\.0\.1:${DEFAULT_PORT}`));
+  assert.match(skill, new RegExp(`--port=${DEFAULT_PORT}`));
+  assert.doesNotMatch(skill, /--port=(?!3517)\d+/, "nenhuma outra porta");
+  assert.match(skill, /npm install -g sagadeck/);
+  assert.doesNotMatch(skill, /pip install|import sagadeck|modelrelay|8765/);
+  assert.match(skill, /Nunca crie uma página, um servidor ou uma interface própria/);
+  assert.match(skill, /Configurar IA/);
 });

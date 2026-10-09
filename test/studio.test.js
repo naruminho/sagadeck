@@ -1,6 +1,6 @@
 // Studio de ponta a ponta: sobe o servidor com o deck de teste e clica de verdade num Chrome headless.
 // Cada recurso do Studio tem um teste aqui — se um refactor quebrar, o teste avisa.
-// Testes que chamam o LLM de verdade só rodam com SAGADECK_LIVE=1 (precisam do modelrelay).
+// Testes que chamam o LLM de verdade só rodam com SAGADECK_LIVE=1 (precisam da IA configurada nesta máquina).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

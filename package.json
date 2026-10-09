@@ -37,8 +37,7 @@
   },
   "scripts": {
     "dev": "node bin/sagadeck.js studio",
-    "bundle": "node scripts/bundle.mjs",
-    "build:py": "node scripts/bundle.mjs && python -m build",
+    "build:code-lab": "node scripts/bundle-code-lab.mjs",
     "test:live": "node tools/test-live.mjs",
     "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
     "test:unit": "node --test test/engine.test.js",

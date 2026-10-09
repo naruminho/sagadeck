@@ -394,22 +394,15 @@ async function main() {
         process.exit(1);
       }
       const agentUsers = typeof flags.agentes === "string" ? flags.agentes.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
-      // IA: sobe o `modelrelay serve` junto, se ele estiver instalado e ninguém escutar na porta dele (como o sagadeck do pip)
-      const { startRelay } = await import("../src/ai/relay.js");
-      const relay = multiuser ? null : await startRelay();
-      if (relay) {
-        console.log(`✓ IA: modelrelay em ${relay.url} (configuração: http://127.0.0.1:8765/)`);
-        for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, () => { relay.stop(); if (sig !== "exit") process.exit(0); });
-      }
       const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers });
       server.on("error", (e) => {
         if (e.code !== "EADDRINUSE") throw e;
         console.error(`A porta ${port} está ocupada por outro programa. Use --port=OUTRA.`);
         process.exit(1);
       });
-      server.listen(port, host, () => {
-        console.log(`✓ SagaDeck Studio ${VERSION} em http://${shownHost}:${port}${deckFile ? "" : "  (biblioteca)"}  (processo ${process.pid})`);
-        console.log(multiuser ? `  multiusuário: bibliotecas em ${path.join(library, "usuarios")}` : `  biblioteca: ${library}`);
+      server.listen(port, host, async () => {
+        const { studioBanner } = await import("../src/studio/banner.js");
+        for (const line of studioBanner({ version: VERSION, url: `http://${shownHost}:${port}/`, library, ai: (await import("../src/ai/llm.js")).llmConfig(), multiuser, usersDir: path.join(library, "usuarios"), isLibrary: !deckFile })) console.log(line);
       });
       break;
     }

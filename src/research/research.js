@@ -11,7 +11,7 @@
 // (fontes.json, notas.md e o texto de cada fonte). Sem internet (a rede do banco): avisa e segue sem inventar.
 import fs from "node:fs";
 import path from "node:path";
-import { chat } from "../ai/llm.js";
+import { chat, llmConfig } from "../ai/llm.js";
 import { fetchUrlDoc } from "../ai/context.js";
 import { searchDuckDuckGo } from "./duckduckgo.js";
 import { searchWikipedia } from "./wikipedia.js";
@@ -66,11 +66,12 @@ export async function arxivSearch(q, { limit = 5 } = {}) {
     return { title: tag("title"), url: abs, pdf: abs.replace("/abs/", "/pdf/"), snippet: clip(tag("summary"), 300), date: tag("published").slice(0, 10), arxiv: true };
   });
 }
-// Busca pelo modelo "search" do modelrelay (no OpenRouter, um modelo com ":online": a busca na web dele, por API
-// oficial). O DuckDuckGo direto passou a responder com desafio anti-robô; ele fica como segunda tentativa. Sem o
-// apelido "search" no modelrelay (a rede do banco), não há buscador: a pesquisa avisa e segue sem inventar.
+// Busca pelo modelo de busca configurado (Configurar IA › busca; no OpenRouter, um modelo com ":online": a busca na
+// web dele, por API oficial). O DuckDuckGo direto passou a responder com desafio anti-robô; ele fica como segunda
+// tentativa. Sem modelo de busca (a rede do banco), não há buscador: a pesquisa avisa e segue sem inventar.
 export async function llmSearch(q, { limit = 8 } = {}) {
-  const model = process.env.SAGADECK_SEARCH_MODEL || "search";
+  const model = llmConfig().searchModel;
+  if (!model) throw new Error("sem modelo de busca configurado");
   const r = await chat([{ role: "user", content: `Hoje é ${today()}. Pesquise na web e liste as ${limit} melhores fontes para: ${q}\nPrefira fontes primárias (site oficial, documentação, artigo, imprensa séria); para humor, memes e opiniões sobre cultura, blogs e fóruns também podem ser pertinentes. Para cada uma, o título, a URL completa e exata (a página, não o site), uma frase do que ela traz e a data, se houver.\nResponda só JSON: [{"title": "…", "url": "https://…", "snippet": "…", "date": "…"}]` }], { model, maxTokens: 3000, temperature: 0, reasoningOff: true });
   const t = r.text || "", m = t.match(/```(?:json)?\s*([\s\S]*?)```/), raw = m ? m[1] : t.slice(t.indexOf("["), t.lastIndexOf("]") + 1);
   return (JSON.parse(raw) || []).filter((x) => /^https?:\/\//.test(x?.url || "")).slice(0, limit).map((x) => ({ title: String(x.title || x.url), url: String(x.url), snippet: String(x.snippet || ""), date: String(x.date || "") }));
