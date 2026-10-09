@@ -39,9 +39,9 @@
     "dev": "node bin/sagadeck.js studio",
     "build:code-lab": "node scripts/bundle-code-lab.mjs",
     "test:live": "node tools/test-live.mjs",
-    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
-    "test:unit": "node --test test/engine.test.js",
-    "test:ui": "node --test --test-concurrency=1 test/runtime.test.js test/studio.test.js"
+    "test": "node --import ./test/isolate.js --test --test-concurrency=1 \"test/*.test.js\"",
+    "test:unit": "node --import ./test/isolate.js --test test/engine.test.js",
+    "test:ui": "node --import ./test/isolate.js --test --test-concurrency=1 test/runtime.test.js test/studio.test.js"
   },
   "repository": {
     "type": "git",

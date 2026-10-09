@@ -1,5 +1,6 @@
 // Bancada de qualidade (src/ai/bench.js): a nota de cada quesito sai certa num deck e num material montados à mão.
 // A geração de verdade, a partir dos PDFs, fica em test/bench-live.test.js (só com SAGADECK_LIVE=1).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

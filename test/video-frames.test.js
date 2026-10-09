@@ -1,3 +1,4 @@
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {videoFrame} from '../src/ai/video-frames.js';
 import {VIDEO_COMMAND_RULES,videoFreeRun} from '../src/ai/commands.js';

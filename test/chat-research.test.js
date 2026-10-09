@@ -2,6 +2,7 @@
 // conceito estável não pesquisa; dado recente pesquisa, cita e guarda;
 // sem buscador ou com a web desligada avisa e nunca trava o chat.
 // LLM e web falsos aqui; a decisão de verdade está no teste ao vivo.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

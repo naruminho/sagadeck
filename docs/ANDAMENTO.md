@@ -126,6 +126,11 @@ lista longa, e os campos de modelo do Configurar IA vinham vazios (ninguém sabe
 - **Faixa "Configure a IA"** na biblioteca enquanto não está configurada (só onde se pode configurar; some ao salvar).
 - Testes: `test/instance.test.js` (quando abre o navegador e o comando de cada sistema; `sagadeck` sozinho),
   `test/library-ui.test.js` (faixa, recomendação preenche, salvar some a faixa).
+- **Testes isolados de verdade**: a suíte completa falhou só nesta máquina num teste da lixeira, que leu as
+  Preferências reais (lixeira em 1 dia). 41 arquivos de teste não carregavam o isolamento (só os que importavam o
+  `helpers.js`). Agora `test/isolate.js` (biblioteca, ambientes, Preferências, IA e registro de comandos em pasta
+  temporária) é carregado antes de tudo pelo `npm test` (`--import`) e importado por todo arquivo de teste;
+  `guards.test.js` reprova arquivo de teste que não carregue.
 ## Ambientes por campos e sem o botão no servidor — 09/10/2026
 
 Pergunta de Narumi: quem instala do zero sabe preencher o `ambientes.yaml` (slides de API)? O lugar já era automático

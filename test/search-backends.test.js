@@ -1,5 +1,6 @@
 // Buscadores da fase 3 (wikipedia sem chave, brave com chave, cadeia configurável).
 // Sem rede de verdade: fetch global e env são falsos e restaurados.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { searchWikipedia } from "../src/research/wikipedia.js";

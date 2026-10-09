@@ -3,6 +3,7 @@
 // tecnologia que só existe em artigo); vai atrás do preprint quando o artigo está fechado; escolhe fontes confiáveis
 // e descarta o blog que "delira"; sem internet (a rede do banco), avisa e não inventa.
 // Aqui, o encaminhamento com o LLM falso e uma web falsa; a decisão de verdade está no teste ao vivo (SAGADECK_LIVE=1).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

@@ -1,3 +1,4 @@
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import {test} from 'node:test';import assert from 'node:assert/strict';import {editDeck} from '../src/ai/deck-ai.js';import {startMockLLM} from './mock-llm.js';
 test('review true no slide alterado solicita revisão mesmo sem flag no topo do patch',async()=>{
  let n=0;const llm=await startMockLLM(()=>`\`\`\`yaml\n${++n===2?'review: false\n':''}edit:\n  1: {title: Depois, review: true}\n\`\`\``);const before=process.env.SAGADECK_LLM_URL;process.env.SAGADECK_LLM_URL=llm.url;

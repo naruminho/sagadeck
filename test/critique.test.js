@@ -1,5 +1,6 @@
 // Leitura crítica do material (src/ai/critique.js): o que a IA aponta só vale com trecho literal conferido no texto;
 // a geração faz a leitura antes de escrever e o uso (slide × notes) segue a autoria.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

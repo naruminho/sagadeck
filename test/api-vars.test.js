@@ -1,5 +1,6 @@
 // Variáveis e segredos dos slides de API: onde ficam (~/.sagadeck/ambientes.yaml, fora das apresentações),
 // como a pessoa cria/edita/apaga pelo painel e como as protegidas são guardadas (cifradas pelo Windows, DPAPI).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

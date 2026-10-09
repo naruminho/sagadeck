@@ -1,3 +1,4 @@
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import {test} from 'node:test';import assert from 'node:assert/strict';import http from 'node:http';
 test('chat recupera limite após ferramenta sem repetir execução nem perder streaming',async()=>{
  const calls=[];let runs=0;

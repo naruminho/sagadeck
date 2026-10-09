@@ -1,6 +1,7 @@
 // Foco guiado ancorado pela visão (src/ai/ground.js): a recriação desenha as imagens depois da escrita e de novo
 // depois da correção; o slide que a correção não mexeu era localizado outra vez (uma chamada de visão à toa por foco
 // guiado, e a resposta podia sair diferente da primeira).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

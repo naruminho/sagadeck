@@ -2,6 +2,7 @@
 // - decidePurpose extrai do pedido primeiro e só pergunta o que faltar (uso; idioma em ocasião internacional);
 // - generateDeck transforma idioma extraído/respondido em instrução de geração;
 // - ilustração genérica é erro em qualquer slide (regra de geração + critério de revisão).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startMockLLM } from "./mock-llm.js";
