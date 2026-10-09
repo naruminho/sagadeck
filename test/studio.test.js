@@ -1848,11 +1848,49 @@ test("studio", async (t) => {
     assert.equal(saved().slides[i].realtime.url, "{{ws}}/realtime");
   });
 
+  await t.test("Ambientes por campos (instalação do zero): explica o ENSAIO, cria o ambiente sem YAML, guarda o token sem mostrar e o Testar confirma", async () => {
+    const envFile = process.env.SAGADECK_AMBIENTES;
+    fs.rmSync(envFile, { force: true });
+    const { startMockApi } = await import("./mock-api.js");
+    const api = await startMockApi();
+    try {
+      await tab("inserir");
+      await p.click("#btn-api-envs");
+      await p.waitForSelector("#api-envs-form [data-intro]:not([hidden])");
+      assert.match(await p.innerText("#api-envs-form [data-intro]"), /ainda não tem ambientes[\s\S]*ENSAIO/);
+      await p.click("#api-envs-form [data-new]");
+      const env = "#api-envs-form [data-env]";
+      assert.equal(await p.inputValue(`${env} [data-k="envname"]`), "dev");
+      await p.fill(`${env} [data-k="base"]`, `${api.url}/v1`);
+      await p.click(`${env} [data-add="var"]`);
+      await p.fill(`${env} [data-row="var"] [data-k="name"]`, "modelo");
+      await p.fill(`${env} [data-row="var"] [data-k="value"]`, "resumo");
+      await p.selectOption(`${env} [data-k="auth"]`, "bearer");
+      await p.fill(`${env} [data-k="bearer"]`, "token-da-tela-123");
+      await p.click("#btn-api-envs-save");
+      await p.waitForFunction(() => /Salvo em/.test(document.getElementById("api-envs-status").textContent));
+      const file = YAML.parse(fs.readFileSync(envFile, "utf8"));
+      assert.equal(file.current, "dev");
+      assert.deepEqual(file.environments.dev.vars, { base: `${api.url}/v1`, modelo: "resumo" });
+      assert.equal(file.environments.dev.headers.Authorization, "Bearer {{secret.token}}");
+      if (process.platform === "win32") assert.match(file.environments.dev.secrets.token, /^dpapi:/, "token cifrado no arquivo");
+      assert.doesNotMatch(await p.content(), /token-da-tela-123/, "o token não volta para a página");
+      assert.match(await p.getAttribute(`${env} [data-k="bearer"]`, "placeholder"), /guardado/);
+      // Testar: salva, chama o endereço base com o token e diz o que aconteceu
+      await p.click(`${env} [data-test]`);
+      await p.waitForSelector(`${env} .aef-result.ok`);
+      assert.match(await p.innerText(`${env} .aef-result`), /Funcionou: endereço respondeu/);
+      assert.ok(api.state.requests.some((r) => r.headers.authorization === "Bearer token-da-tela-123"), "o pedido levou o token");
+      await p.click("#btn-api-envs-cancel");
+    } finally { await api.close(); fs.rmSync(envFile, { force: true }); fs.rmSync(`${envFile}.bak`, { force: true }); }
+  });
+
   await t.test("Ambientes: modelo comentado quando não existe; YAML errado é recusado; salvar grava o arquivo e escolher troca o ambiente", async () => {
     const envFile = process.env.SAGADECK_AMBIENTES;
     fs.rmSync(envFile, { force: true });
     await tab("inserir");
     await p.click("#btn-api-envs");
+    await p.click('[data-envs-tab="text"]'); // a janela abre por campos; o YAML fica na aba "Como texto"
     await p.waitForFunction(() => document.getElementById("api-envs-text").value.length > 50);
     const modalSize = await p.locator("#modal-api-envs .api-envs-dialog").evaluate((el) => {
       const { width, height } = el.getBoundingClientRect();
@@ -1860,7 +1898,7 @@ test("studio", async (t) => {
     });
     assert.ok(modalSize.width >= 1000 && modalSize.height >= 600, `modal amplo (${modalSize.width}×${modalSize.height})`);
     assert.match(await p.inputValue("#api-envs-text"), /environments:/);
-    assert.match(await p.innerText("#api-envs-status"), /ainda não existe|YAML válido/);
+    await p.waitForFunction(() => /ainda não existe|YAML válido/.test(document.getElementById("api-envs-status").textContent)); // a validação do texto termina depois
     assert.match(await p.innerText("#api-envs-file"), /ambientes-de-teste\.yaml/);
     assert.match(await p.innerText("#api-envs-list"), /ENSAIO/, "o ambiente embutido aparece");
     assert.match(await p.innerText("#api-envs-list"), /OPENROUTER/, "o ambiente OpenRouter aparece");

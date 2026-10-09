@@ -74,3 +74,25 @@ test("código atualizado com o Studio aberto: editor e biblioteca avisam para re
     deck.cleanup();
   }
 });
+
+// No servidor (multiusuário) os slides de API não executam: o botão Ambientes não aparece. Antes abria a janela com
+// "O serviço recusou o acesso…", que parecia defeito ou falta de permissão.
+test("servidor multiusuário: o botão Ambientes não aparece; no Studio local, aparece", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(FIXTURE);
+  const multi = await startStudio(deck.file, { multiuser: true });
+  const local = await startStudio(deck.file);
+  try {
+    const p = await browser.newPage();
+    const errors = [];
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.setExtraHTTPHeaders({ "x-sagadeck-user": "ana" });
+    await p.goto(`${multi.url}/editor`, { waitUntil: "networkidle" });
+    await p.waitForFunction(() => document.getElementById("btn-api-envs")?.hasAttribute("hidden"));
+    const { page: lp } = await newPage(browser, `${local.url}/editor`);
+    await lp.waitForTimeout(500);
+    assert.equal(await lp.locator("#btn-api-envs").getAttribute("hidden"), null, "no Studio local o botão fica");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await multi.close(); await local.close(); deck.cleanup(); }
+});

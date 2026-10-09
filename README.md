@@ -252,8 +252,11 @@ Para ver funcionando sem configurar nada:
   O painel **Formatar** edita o endereço, o corpo em JSON, o modo (síncrono, polling, streaming, tempo real)
   e o que guardar para os próximos slides.
 - **Inserir → Ambientes:** onde ficam os endereços (`{{base}}`), tokens e segredos do *seu* serviço
-  (dev, hom, prod). É gravado em `~/.sagadeck/ambientes.yaml`, na sua máquina, nunca no deck. O selo no
-  slide (DEV, HOM, ENSAIO…) troca o ambiente na hora.
+  (dev, hom, prod). Preenche-se por campos: endereço base, variáveis, segredos (guardados cifrados) e a
+  autenticação (nenhuma, token fixo ou token que expira), com **Testar**; quem prefere edita o YAML na aba
+  "Como texto". É gravado em `~/.sagadeck/ambientes.yaml`, na sua máquina, nunca no deck. Sem ambiente seu, o
+  **ENSAIO** (API de mentira) já funciona. O selo no slide (DEV, HOM, ENSAIO…) troca o ambiente na hora. No
+  servidor multiusuário o botão não aparece (lá os slides de API não executam).
 
 Executar só funciona no Studio local; no HTML exportado e no modo multiusuário, o slide mostra a última
 resposta gravada. Todos os campos estão na [referência](docs/REFERENCIA.md#slide-api-requisição-ao-vivo).
