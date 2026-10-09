@@ -62,8 +62,11 @@ export async function browserOrSkip(t) {
 }
 
 // Página que coleciona erros de JS/console — todo teste de UI termina exigindo zero erros.
-export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props" } = {}) {
-  const page = await browser.newPage({ viewport });
+export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props", reducedMotion = "no-preference" } = {}) {
+  // a preferência de movimento é do teste, não da máquina: o Windows Server da CI vem com "mostrar animações"
+  // desligado (prefers-reduced-motion: reduce) e as cenas ficavam paradas, de propósito; quem testa o movimento
+  // reduzido pede { reducedMotion: "reduce" }
+  const page = await browser.newPage({ viewport, reducedMotion });
   page.setDefaultTimeout(8000); // falha rápido em vez de travar a suíte
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

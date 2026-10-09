@@ -22,7 +22,7 @@ function drawTrace(ctx,o,t,w,h){
  ctx.restore();
 }
 function scene(o){
- let active=o.type!=='chat',started=false,epoch=performance.now(),serial=0,phase='idle',elapsed=0,previous=0;let reduced=!!o.still||matchMedia('(prefers-reduced-motion:reduce)').matches;const main=document.querySelector('main'),canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+ let active=o.type!=='chat',started=false,epoch=performance.now(),serial=0,phase='idle',elapsed=0,previous=0;const reduceQuery=matchMedia('(prefers-reduced-motion:reduce)');let reduced=!!o.still||reduceQuery.matches;reduceQuery.addEventListener?.('change',e=>{if(e.matches)reduced=true;});const main=document.querySelector('main'),canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
  const message=(kind)=>parent.postMessage({sagaMotion:kind},'*');
  const chat=document.querySelector('.chat'),input=document.querySelector('.input'),thread=document.querySelector('.thread'),status=document.querySelector('.status');
  function reset(){started=false;phase='idle';elapsed=0;chat.hidden=true;input.textContent='';thread.replaceChildren();status.textContent='';}

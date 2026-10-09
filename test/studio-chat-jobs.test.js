@@ -59,3 +59,13 @@ test('cópia preserva vídeo, poster e referências locais em HTML sem colisão'
  const second=await copySlideAssets({image:'poster.svg'},a.file,b.file);assert.notEqual(second.image,result.poster);
  }finally{a.cleanup();b.cleanup();}
 });
+
+// Deck aberto por uma junção/atalho (C:\Users\narum\sagadeck é junção para a pasta no OneDrive; a pasta temporária do
+// Windows vem com nome curto, RUNNER~1): a mídia é comparada pelo caminho real dos dois lados, senão "fora da apresentação".
+test('cópia de mídia funciona com o deck aberto por uma junção (caminho real da pasta ≠ caminho usado)',async()=>{
+ const os=await import('node:os');const base=fs.mkdtempSync(path.join(os.tmpdir(),'sgd-juncao-'));
+ try{const real=path.join(base,'real');fs.mkdirSync(real);fs.writeFileSync(path.join(real,'deck.yaml'),'slides: []\n');fs.writeFileSync(path.join(real,'foto.png'),'png');
+  const link=path.join(base,'atalho');fs.symlinkSync(real,link,'junction');
+  const b=tempDeck();try{const r=await copySlideAssets({image:'foto.png'},path.join(link,'deck.yaml'),b.file);assert.equal(fs.readFileSync(path.resolve(b.dir,r.image),'utf8'),'png');}finally{b.cleanup();}
+ }finally{fs.rmSync(base,{recursive:true,force:true});}
+});

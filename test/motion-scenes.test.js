@@ -37,3 +37,9 @@ test('motion: none chega à cena já no documento dela (não depende da mensagem
  assert.match(doc('none'),/&quot;still&quot;:true/);
  assert.doesNotMatch(doc(null),/&quot;still&quot;/);
 });
+// Sistema com animações desligadas (prefers-reduced-motion: reduce; é o padrão do Windows Server): a cena fica parada.
+test('sistema pedindo movimento reduzido: a cena holográfica fica parada',async t=>{
+ const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
+ try{const file=deck.file+'.html';fs.writeFileSync(file,buildHTML({slides:[{layout:'canvas',elements:[{motion:{type:'hologram',layers:[{shape:'cube',x:.5,y:.5,scale:.2}]},x:0,y:0,w:1920,h:1080}]}]}).html);const {page,errors}=await newPage(browser,null,undefined,{reducedMotion:'reduce'});await page.goto(pathToFileURL(file).href);const canvas=page.frameLocator('iframe[data-motion=hologram]').locator('canvas');await canvas.waitFor();assert.ok(await settles(()=>canvas.evaluate(e=>e.toDataURL())),'parada');assert.equal(await changes(()=>canvas.evaluate(e=>e.toDataURL()),1500),false,'não volta a andar');assert.deepEqual(errors,[]);}
+ finally{await browser.close();deck.cleanup();}
+});
