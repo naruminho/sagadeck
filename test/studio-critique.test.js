@@ -58,3 +58,51 @@ test("Studio: botão de leitura crítica lê o material, mostra os achados com o
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await llm.close(); deck.cleanup(); }
 });
+
+test("Studio: cada ponto da leitura crítica é um cartão ligado ao slide; Aplicar pede só aquele ponto no slide; Ignorar fica gravado e sai dos próximos pedidos", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deck.file, "utf8"));
+  spec.context = { ...(spec.context || {}), autoria: "autor" };
+  fs.writeFileSync(deck.file, YAML.stringify(spec));
+  const store = path.join(deck.dir, "contexto", "documentos", "abc123");
+  fs.mkdirSync(store, { recursive: true });
+  fs.writeFileSync(path.join(store, "material.saga.json"), JSON.stringify({ name: "paper.pdf", text: PAPER, visualVersion: 6, inventory: { items: [], warnings: [], pages: [] } }));
+  const chatAsks = [];
+  const llm = await startMockLLM((req) => {
+    if (/LEITURA CRÍTICA de um material/.test(req.system)) return JSON.stringify({ itens: [
+      { tipo: "destaque", titulo: "Trade-off pico × volume", texto: "HEC-HMS erra menos o pico.", trecho: "PEPF below 2% for HEC-HMS in the four events", onde: "Tabela 1", slide: 2 },
+      { tipo: "limitacao", titulo: "Variáveis só do LiDAR", texto: "Nenhuma variável social entra no modelo.", trecho: "The explanatory variables were derived from LiDAR", onde: "2.3", slide: 99 },
+    ] });
+    if (/Decida se o que você JÁ SABE basta/.test(req.lastUser)) return '{"pesquisar": false, "motivo": "deck", "academico": false, "buscas": []}';
+    chatAsks.push(req);
+    return "Anotei nas notes do slide 2.";
+  });
+  const studio = await startStudio(deck.file, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#tab-btn-chat");
+    await p.click("#chat-critique");
+    await p.locator(".crit-item").nth(1).waitFor({ timeout: 15000 });
+    assert.equal(await p.locator(".crit-item").count(), 2);
+    assert.match(await p.locator(".crit-item").first().innerText(), /Slide 2[\s\S]*Trade-off pico[\s\S]*PEPF below 2%/);
+    assert.equal(await p.locator(".crit-item").nth(1).locator(".crit-slide").count(), 0, "slide que não existe no deck não vira link");
+    // Ignorar: gravado no arquivo da leitura crítica
+    await p.locator(".crit-item").nth(1).locator(".crit-ignore").click();
+    await p.locator(".crit-item").nth(1).locator(".crit-status", { hasText: "Ignorado" }).waitFor();
+    const file = path.join(deck.dir, ".sagadeck", "leitura-critica.json");
+    for (let i = 0; i < 50 && JSON.parse(fs.readFileSync(file, "utf8")).itens[1].status !== "ignorado"; i++) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).itens[1].status, "ignorado");
+    // Aplicar no slide 2: vai ao slide e pede à IA só aquele ponto, mirando aquele slide
+    await p.locator(".crit-item").first().locator(".crit-apply").click();
+    await p.waitForFunction(() => /Anotei nas notes/.test([...document.querySelectorAll("#chat-messages .ai-msg")].pop()?.innerText || ""), null, { timeout: 15000 });
+    const ask = chatAsks.at(-1);
+    assert.match(ask.lastUser, /Aplique este ponto da leitura crítica no slide 2: Trade-off pico/);
+    assert.match(await p.innerText("#current-slide-label"), /Slide 2 de/, "foi ao slide do ponto");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).itens[0].status, "aplicado");
+    // o ponto ignorado não acompanha mais os pedidos; o outro, sim
+    assert.match(ask.lastUser, /Trade-off pico × volume/);
+    assert.doesNotMatch(ask.lastUser.split("LEITURA CRÍTICA DO MATERIAL")[1] || "", /Variáveis só do LiDAR/);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); await llm.close(); deck.cleanup(); }
+});

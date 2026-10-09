@@ -42,13 +42,22 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
-**Geração de apresentações**
+## Crítica acionável: cada ponto vira um cartão com Aplicar e Ignorar — 09/10/2026
 
-5. **Equações que a leitura da página deixou passar.** `assignEquations` (`src/ai/document-visuals.js`) já põe em
-   `out.missed` as equações numeradas do texto que a visão não listou, mas só registra. Dar a elas uma segunda
-   leitura focada (recortar a região pelo `equationBox` e chamar `transcribeEquation`).
-7. **Crítica acionável.** A leitura crítica (`src/ai/critique.js`, botão "Criticar documento") chega só como texto
-   no chat. Virar lista com "aplicar no slide X" / "ignorar", ligada ao slide de cada ponto.
+Item 7 das próximas frentes. A leitura crítica (botão do chat) chegava como um texto único, com opções gerais ("leve
+os achados para os slides").
+
+- Cada ponto vem com `id` e, quando o deck vai junto, o `slide` a que se liga (antes só o tipo "slide a rever" tinha;
+  regra no prompt de `critiqueMaterials`; número que não existe no deck é descartado).
+- No chat, cada ponto é um cartão: tipo, título, texto, o trecho conferido e "Slide N" (leva até ele). **Aplicar**
+  vai ao slide e pede à IA só aquele ponto, mirando aquele slide (a autoria decide: achado no slide, crítica e
+  pergunta nas notes). **Ignorar** fica gravado (`/api/ai/critique/item`, `status` no `.sagadeck/leitura-critica.json`)
+  e o ponto sai do material que acompanha os próximos pedidos (`critiqueMaterial`).
+- Teste (`test/studio-critique.test.js`): dois pontos viram dois cartões; slide inexistente não vira link; Ignorar
+  grava e tira o ponto do próximo pedido; Aplicar vai ao slide 2, pede o ponto e grava "aplicado". Falha sem a mudança.
+- **Item 5 (equações que a visão não listou) já estava feito**: `assignEquations` põe as numeradas esquecidas em
+  `missed`, elas entram no inventário com a caixa exata do texto e passam pela mesma releitura do recorte
+  (`transcribeEquation`) que escreve o LaTeX das outras. Saiu da lista.
 
 ## Studio avisa quando o código mudou por baixo dele — 09/10/2026
 
