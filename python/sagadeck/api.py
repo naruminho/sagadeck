@@ -74,7 +74,7 @@ def autofix(deck: str | os.PathLike, out=None) -> str:
 
 def studio(deck: str | os.PathLike | None = None, port: int = 3517, host: str = "127.0.0.1",
            library: str | os.PathLike | None = None) -> None:
-    """Inicia o SagaDeck Studio. Sem deck, abre a biblioteca (padrão: SAGADECK_HOME, senão Documentos\sagadeck no Windows, ~/sagadeck fora dele).
+    """Inicia o SagaDeck Studio. Sem deck, abre a biblioteca (padrão: SAGADECK_HOME, senão Documentos/sagadeck no Windows, ~/sagadeck fora dele).
     host="127.0.0.1": só esta máquina; "0.0.0.0" abre para a rede."""
     extra = [f"--port={port}", f"--host={host}"] + ([f"--library={library}"] if library else [])
     args = [str(deck)] if deck else []

@@ -42,6 +42,13 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
+## Pacote Python: escape inválido numa docstring — 09/10/2026
+
+Antes da release 1.5.0. `python/sagadeck/api.py` tinha "Documentos\sagadeck" numa docstring: `\s` é escape inválido,
+`SyntaxWarning` no Python 3.12 (a CI no Linux acusava; aqui, no 3.11, passava calado) e erro nas versões seguintes.
+Virou "Documentos/sagadeck". Teste novo em `test/python-relay.test.js`: compila todo o pacote com `-W error` (qualquer
+Python; falhava antes).
+
 ## Crítica acionável: cada ponto vira um cartão com Aplicar e Ignorar — 09/10/2026
 
 Item 7 das próximas frentes. A leitura crítica (botão do chat) chegava como um texto único, com opções gerais ("leve
