@@ -5,6 +5,7 @@ import {chatErrorResult,installErrorResponses} from './errors.js';
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { publicScript } from "./public-files.js";
+import { codeWatch } from "./code-version.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
 import { directionRoutes } from "./direction-routes.js";
@@ -79,6 +80,8 @@ const slugify = (s) => String(s || "deck").normalize("NFD").replace(/[\u0300-\u0
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "deck";
 
 export function createStudioServer(deckPath = null, opts = {}) {
+  // o código mudou no disco desde que este Studio subiu? (a página avisa para reiniciar; codeRoot: só nos testes)
+  const codeState = codeWatch(opts.codeRoot || path.dirname(RUNTIME_DIR));
   setFitDefaults(loadPreferences().texto); // mínimos do ajuste para caber (Preferências), valem no Studio e na exportação
   // Área de trabalho: o que cada pessoa tem aberto (deck, arquivo, última prévia) + a biblioteca dela.
   // Modo local (Windows do banco, só você): uma área só, biblioteca em SAGADECK_HOME ou Documentossagadeck (src/library.js).
@@ -537,6 +540,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
+      if (pathname === "/api/code-version") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(codeState()));
+        return;
+      }
       if (pathname === "/api/preview-status") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(W.lastPreview));

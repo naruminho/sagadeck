@@ -50,6 +50,21 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 7. **Crítica acionável.** A leitura crítica (`src/ai/critique.js`, botão "Criticar documento") chega só como texto
    no chat. Virar lista com "aplicar no slide X" / "ignorar", ligada ao slide de cada ponto.
 
+## Studio avisa quando o código mudou por baixo dele — 09/10/2026
+
+Continuação do incidente "nenhum slide abre" de 08/10: um Studio aberto antes de uma atualização segue com o servidor
+velho, enquanto os arquivos da página vêm novos do disco. Corrigir a lista de scripts resolveu aquele caso, mas
+qualquer mudança de API quebraria do mesmo jeito, em silêncio.
+
+- `src/studio/code-version.js`: impressão do código (caminho, data e tamanho de cada arquivo de `src/`; no pacote do
+  pip, do motor empacotado). O Studio guarda a de quando subiu; `/api/code-version` diz se mudou (recalcula no máximo
+  a cada 3 s).
+- `update-notice.js` (editor e biblioteca): confere ao abrir, ao voltar para a aba e a cada 30 s; mudou, mostra a
+  faixa "O sagadeck foi atualizado. Feche e abra o Studio de novo…", que dá para fechar.
+- Teste (`test/studio-scripts.test.js`): o Studio sobe com uma raiz de código temporária (`codeRoot`, só para testes,
+  para não acender o aviso num Studio de verdade aberto ao lado); sem mudança, sem aviso; mudou a data de um arquivo,
+  editor e biblioteca mostram a faixa e ela fecha; zero erros de JavaScript. Falha sem o recurso.
+
 ## Testes instáveis sob carga — 09/10/2026
 
 Item 9 das próximas frentes. Testes que passavam sozinhos e caíam com a suíte inteira trocaram tempo fixo por espera

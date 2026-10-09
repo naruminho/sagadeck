@@ -30,13 +30,13 @@ export function tempDeck(src = FIXTURE) {
 // Sem SAGADECK_LIVE=1 o LLM fica "desligado" (endereço sem ninguém): o Studio usa as regras locais e os testes
 // ficam rápidos e determinísticos.
 // Com { llmUrl }, usa esse LLM (ex.: o falso de test/mock-llm.js).
-export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUsers, library: givenLibrary } = {}) {
+export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUsers, library: givenLibrary, codeRoot } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
   // biblioteca temporária: os testes nunca tocam a ~/sagadeck de quem roda
   const library = givenLibrary || fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-biblioteca-"));
   const { createStudioServer } = await import("../src/studio/server.js");
-  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser, agentUsers });
+  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser, agentUsers, codeRoot });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const { port } = server.address();
   return {
