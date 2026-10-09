@@ -5,8 +5,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { ROOT, FIXTURE, tempDeck, startStudio } from "./helpers.js";
+import { ROOT, FIXTURE, tempDeck, startStudio, browserOrSkip, newPage } from "./helpers.js";
 
 const PUBLIC = path.join(ROOT, "src", "studio", "public");
 
@@ -31,6 +32,44 @@ test("todo script das páginas do Studio é entregue, inclusive módulo criado d
     for (const bad of ["/..%2Fserver.js", "/%2e%2e/server.js", "/nao-existe.js", "/library.html.js"]) assert.notEqual((await fetch(`${studio.url}${bad}`)).status, 200, bad);
   } finally {
     fs.rmSync(novo, { force: true });
+    await studio.close();
+    deck.cleanup();
+  }
+});
+
+// O código mudou no disco (git pull, npm update) com o Studio aberto: a página avisa para reiniciar, em vez de
+// quebrar em silêncio com o servidor velho e os arquivos novos.
+test("código atualizado com o Studio aberto: editor e biblioteca avisam para reiniciar", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck(FIXTURE);
+  // o "código" deste Studio é uma pasta temporária: mexer nele não acende o aviso num Studio de verdade aberto ao lado
+  const codeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-codigo-"));
+  const touched = path.join(codeRoot, "server.js");
+  fs.writeFileSync(touched, "// servidor");
+  const before = fs.statSync(touched);
+  const studio = await startStudio(deck.file, { codeRoot });
+  try {
+    const { page, errors } = await newPage(browser, `${studio.url}/editor`);
+    const { page: lib, errors: libErrors } = await newPage(browser, studio.url);
+    await page.waitForFunction(() => window.SagaUpdateNotice);
+    assert.equal(await page.locator(".update-notice").count(), 0, "nada mudou: sem aviso");
+    assert.equal((await (await fetch(`${studio.url}/api/code-version`)).json()).changed, false);
+    // "atualiza" um arquivo do código (só a data) e espera o servidor recalcular a impressão
+    fs.utimesSync(touched, before.atime, new Date(before.mtimeMs + 60_000));
+    await new Promise((r) => setTimeout(r, 3200));
+    for (const p of [page, lib]) {
+      await p.evaluate(() => window.SagaUpdateNotice.check());
+      await p.locator(".update-notice").waitFor();
+      assert.match(await p.locator(".update-notice").innerText(), /atualizado.*Feche e abra o Studio/s);
+    }
+    await page.click(".update-notice button");
+    assert.equal(await page.locator(".update-notice").count(), 0, "o aviso fecha");
+    assert.deepEqual(errors, []);
+    assert.deepEqual(libErrors, []);
+  } finally {
+    fs.rmSync(codeRoot, { recursive: true, force: true });
+    await browser.close();
     await studio.close();
     deck.cleanup();
   }
