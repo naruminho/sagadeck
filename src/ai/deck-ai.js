@@ -1217,9 +1217,17 @@ export async function checkNumbers(spec, { materials = [], edit, say = () => {} 
   return { spec: next, facts: { checked: bad.length, unsupported: still }, actions };
 }
 
-export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, reviewCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null } = {}) {
-  // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars }): tudo, inclusive o texto chegando (Studio)
-  const say = (text) => { onProgress?.(text); onEvent?.({ phase: "step", text }); };
+export async function generateDeck(briefing, { theme, slides, duration, style, direction, materials = [], images = true, imageOptions = {}, onProgress, onEvent, drawCheck = null, reviewCheck = null, ask = false, answer = "", author = "", language = "", research = "auto", web = null, researchDir = null, board = null, pendingMaterials = null } = {}) {
+  // onProgress(texto): marcos (CLI) · onEvent({ phase, text, chars, stages }): tudo, inclusive o texto chegando (Studio)
+  // Cada etapa passa pelo quadro de etapas (src/ai/progress.js): o aviso diz em que etapa está. pendingMaterials: o
+  // inventário do documento ainda em curso (o Studio começa a ler as páginas e a gerar ao mesmo tempo); pesquisa e
+  // leitura crítica usam o texto e só a escrita espera o inventário.
+  const { stageBoard } = await import("./progress.js");
+  board ||= stageBoard((ev) => onEvent?.(ev));
+  let stageEmit = null;
+  const say = (text) => { onProgress?.(text); if (stageEmit) stageEmit(text); else onEvent?.({ phase: "step", text }); };
+  const stage = (label, fn) => board.run(label, async (emit) => { const prev = stageEmit; stageEmit = emit; try { return await fn(emit); } finally { stageEmit = prev; } });
+  const extras = []; // fontes da pesquisa e a leitura crítica: vão junto do material para a escrita
   const st = style ? styleFor(style) : null;
   if (st && !theme) theme = st.theme;
   if (st && !direction) direction = st.direction;
@@ -1227,15 +1235,14 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
   // "perguntar quando não souber" (Preferências): uma chamada curta decide para que serve o material (e se precisa perguntar)
   let decided = null;
   if (ask && !answer) {
-    say("entendendo para que serve o material…");
-    decided = await decidePurpose(briefing, materials).catch(() => null);
+    decided = await stage("Entendendo o pedido", () => { say("entendendo para que serve o material…"); return decidePurpose(briefing, materials).catch(() => null); });
     if (decided?.question) return { question: decided.question };
     // ocasião internacional sem idioma informado: confirma antes de gerar no idioma errado
     if (decided?.languageQuestion && (language === "auto" || !language)) return { question: decided.languageQuestion };
   }
   // pesquisa: a IA decide se o que ela sabe basta; se não, busca, escolhe as fontes, lê e anota (src/research)
   let researchReport;
-  if (research !== false) {
+  if (research !== false) await stage("Pesquisa", async () => {
     const R = await import("../research/research.js");
     try {
       say("vendo se precisa pesquisar…");
@@ -1247,30 +1254,33 @@ export async function generateDeck(briefing, { theme, slides, duration, style, d
         const r = off ? { report: { pesquisou: true, motivo: plan.motivo, buscas: plan.buscas, fontes: [], falhas: ["web desligada"], offline: true, data: new Date().toISOString().slice(0, 10) }, materials: [] }
           : await R.runResearch(plan, { briefing, web: web || R.defaultWeb, onProgress: say, saveDir: researchDir });
         researchReport = r.report;
-        materials = [...materials, ...r.materials];
+        extras.push(...r.materials);
         say(r.materials.length ? `pesquisa: ${r.materials.length} fonte(s) lida(s) (${r.report.fontes.map((f) => f.site).join(", ")})`
           : r.report.offline ? "Sem acesso à internet: não deu para pesquisar. Sigo com o que eu sei, sem inventar dado recente; cole links ou anexe arquivos para eu usar."
           : "a pesquisa não achou fonte que desse para ler; sigo com o que eu sei, sem inventar dado recente.");
       }
     } catch (e) { say(`a pesquisa falhou (${e.message}); sigo com o que eu sei`); }
-  }
+  });
   // Leitura crítica do documento antes de escrever (src/ai/critique.js): inconsistências, achados escondidos,
   // perguntas prováveis, limitações; cada item com trecho conferido. Fica na pasta da apresentação e vai no pedido;
   // o uso (slide × notes) segue a autoria. Falhou: segue sem ela.
   let critique = null;
   {
     const C = await import("./critique.js");
-    if (C.worthCritique(materials)) {
+    if (C.worthCritique([...materials, ...extras])) await stage("Leitura crítica", async () => {
       say("lendo o material com olho crítico…");
       try {
-        critique = await C.critiqueMaterials(materials, { briefing });
+        critique = await C.critiqueMaterials([...materials, ...extras], { briefing });
         C.saveCritique(imageOptions.baseDir || researchDir, critique);
         const cm = C.critiqueMaterial(critique);
-        if (cm) materials = [...materials, cm];
+        if (cm) extras.push(cm);
         say(`leitura crítica: ${critique.itens.length} achado(s) com trecho conferido${critique.naoConfirmados.length ? `, ${critique.naoConfirmados.length} descartado(s) sem trecho no material` : ""}`);
       } catch (e) { say(`a leitura crítica falhou (${e.message}); sigo sem ela`); }
-    }
+    });
   }
+  // o inventário do documento (figuras, tabelas, equações) corria junto: a escrita precisa dele
+  if (pendingMaterials) materials = await stage("Lendo o documento", async (emit) => { emit("terminando a leitura das páginas…"); return pendingMaterials; });
+  materials = [...materials, ...extras];
   const fromDocument = (materials || []).some((m) => m?.inventory);
   const wishes = [
     researchReport ? (await import("../research/research.js")).researchInstruction(researchReport) : "",
@@ -1300,15 +1310,17 @@ ${briefing}
 """
 
 Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o que ela quer.`;
-  say("pedindo o deck ao LLM…");
   const creationOptions = { images, maxImages: 8, deferImages: true, drawCheck, materials, onProgress: onEvent };
-  let r;
-  try { r = await editDeck({ ...creationOptions, spec: starter, instruction }); }
-  catch (error) {
-    if (error.code !== 'AI_TOKEN_LIMIT') throw error;
-    const { stagedGeneration } = await import('./staged-generation.js');
-    r = await stagedGeneration(briefing, { starter, wishes, edit: editDeck, options: creationOptions, say });
-  }
+  const inStage = (o) => ({ ...creationOptions, ...o, onProgress: (ev) => (stageEmit || onEvent || (() => {}))(ev) });
+  const r = await stage("Escrevendo a apresentação", async () => {
+    say("pedindo o deck ao LLM…");
+    try { return await editDeck(inStage({ spec: starter, instruction })); }
+    catch (error) {
+      if (error.code !== 'AI_TOKEN_LIMIT') throw error;
+      const { stagedGeneration } = await import('./staged-generation.js');
+      return stagedGeneration(briefing, { starter, wishes, edit: editDeck, options: inStage({}), say });
+    }
+  });
   // a IA preferiu perguntar (como faria no chat): a pergunta volta para a pessoa
   if (r.talk) return { question: { question: r.reply, options: r.options || [] } };
   let spec = r.spec;
@@ -1320,10 +1332,10 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   (r.actions || []).filter((x) => /corrigido|não enxerga/.test(x)).forEach(say);
   // Cobertura do material: figura/tabela numerada do documento que nenhum slide usa volta para a IA decidir onde
   // entra (ou dizer por que fica de fora, quando o pedido limitou a seleção). Era o "muitas figuras são ignoradas".
-  const covered = await coverDocumentVisuals(spec, { materials, briefing, say, edit: (o) => editDeck({ ...creationOptions, ...o }) });
+  const covered = await stage("Conferindo as figuras do material", () => coverDocumentVisuals(spec, { materials, briefing, say, edit: (o) => editDeck(inStage(o)) }));
   spec = covered.spec;
   const coverage = covered.coverage;
-  const checked = await checkNumbers(spec, { materials, say, edit: (o) => editDeck({ ...creationOptions, ...o }) });
+  const checked = await stage("Conferindo os números", () => checkNumbers(spec, { materials, say, edit: (o) => editDeck(inStage(o)) }));
   spec = checked.spec;
   const facts = checked.facts;
 
@@ -1335,13 +1347,13 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   if (!spec.lang) { const g = guessDeckLang(spec); if (g && g !== "pt") spec.lang = g; }
   if (spec.title === "Nova apresentação" && spec.slides[0]?.title && spec.slides[0].title !== "Nova apresentação") spec.title = String(spec.slides[0].title).replace(/[=*_`]/g, "");
   { const d = dropDuplicateSlides(spec); if (d.removed.length) { spec = d.spec; say(`slide(s) repetido(s) removido(s): ${d.removed.join(", ")}`); } }
-  const imgs = await materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 });
+  const imgs = await stage("Imagens", () => materializeImages(spec, images ? { ...imageOptions, onProgress: say } : { max: 0 }));
   // foco guiado sobre uma imagem: a visão põe cada destaque no lugar
   try { const { groundSpotlights } = await import("./ground.js"); await groundSpotlights(spec.slides, { baseDir: imageOptions.baseDir || spec._dir, onProgress: say }); } catch {}
   let quality;
-  if (reviewCheck) {
+  if (reviewCheck) await stage("Revisão dos slides", async (emit) => {
     say('Conferindo a apresentação e os estados interativos…');
-    quality = await reviewCheck(spec, spec.slides.map((_, i) => i));
+    quality = await reviewCheck(spec, spec.slides.map((_, i) => i), { onProgress: emit });
     // problema idêntico ao de rodada anterior = tentativa sem efeito: não queima token de novo
     const attempted = new Set();
     for (let round = 0; quality.issues.length && round < 3; round++) {
@@ -1349,8 +1361,8 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
       if (!fresh.length) { say('Revisão: nada novo para corrigir; encerro as tentativas.'); break; }
       fresh.forEach(x => attempted.add(JSON.stringify(x)));
       try {
-        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(fresh)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: fresh.map(x => x.slide - 1), onProgress: onEvent });
-        const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i));
+        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(fresh)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: fresh.map(x => x.slide - 1), onProgress: emit });
+        const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i), { onProgress: emit });
         spec = repaired.spec; quality = nextQuality;
       } catch (error) {
         quality = { ...quality, verified: false, failures: [...(quality.failures || []), { stage: 'repair', reason: error.message }] };
@@ -1359,7 +1371,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
       }
     }
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
-  }
+  });
   spec = dropDuplicateSlides(spec).spec; // a correção visual também pode duplicar
   return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(critique ? { critique: { itens: critique.itens.length, naoConfirmados: critique.naoConfirmados.length } } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }

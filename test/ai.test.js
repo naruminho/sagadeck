@@ -7,6 +7,7 @@ import { startMockLLM } from "./mock-llm.js";
 import { editDeck, textToSlide, parseOptions, generateDeck, applyPatch, sanitizeCheck, conversationFor, slidesForMinutes, styleFor } from "../src/ai/deck-ai.js";
 import { COLLECTION_STYLE } from "../src/studio/template-collections.js";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { ROOT } from "./helpers.js";
 import YAML from "yaml";
@@ -844,4 +845,73 @@ test("YAML da IA: número de tabela com zero no fim fica como foi escrito (0.90 
   assert.notEqual(guessDeckLang({ slides: [{ title: "Suscetibilidade a inundações", body: "Os modelos foram calibrados com os dados de quatro eventos e validados em um deles." }] }), "en", "português nunca vira inglês (o padrão já é pt-BR)");
   reply = () => "Done.\n```yaml\nslides:\n  - { layout: cover, title: Flood susceptibility in the basin }\n  - { layout: split, title: Results, body: The models were calibrated with the data from four events and validated on one of them, and the results are in the table of the paper. }\n  - { layout: end, title: Thank you }\n```";
   assert.equal((await generateDeck("presentation in English", { images: false })).spec.lang, "en");
+});
+
+// ---------------------------------------------------------------- etapas da geração (src/ai/progress.js)
+test("quadro de etapas: cada aviso diz a etapa; duas etapas juntas aparecem as duas", async () => {
+  const { stageBoard } = await import("../src/ai/progress.js");
+  const evs = [];
+  const board = stageBoard((ev) => evs.push(ev));
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const a = board.run("Lendo o documento", async (emit) => { emit({ phase: "document", text: "página 1 de 3…" }); await gate; return "inventário"; });
+  const b = board.run("Leitura crítica", async (emit) => { emit("lendo com olho crítico…"); release(); return "crítica"; });
+  assert.deepEqual(await Promise.all([a, b]), ["inventário", "crítica"]);
+  assert.ok(evs.some((e) => e.text === "Lendo o documento: página 1 de 3… · Leitura crítica: lendo com olho crítico…" && e.stages.length === 2), evs.map((e) => e.text).join(" | "));
+  assert.equal(evs.find((e) => e.phase === "document").text, "Lendo o documento: página 1 de 3…");
+  assert.deepEqual(evs.at(-1).done, ["Leitura crítica"]);
+});
+
+test("Criar com IA: a leitura crítica começa enquanto o documento ainda é inventariado; a escrita espera o inventário; o aviso diz a etapa", { timeout: 60000 }, async () => {
+  const { generateForStudio } = await import("../src/studio/generate.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-gen-etapas-"));
+  let release, criticaComecou = false;
+  const inventario = new Promise((r) => { release = r; });
+  const PAPER = "Resultados do artigo. ".repeat(50);
+  try {
+    reply = (req) => {
+      if (/LEITURA CRÍTICA de um material/.test(req.system)) { criticaComecou = true; release(); return JSON.stringify({ itens: [] }); }
+      if (/"issues"/.test(req.system)) return '{"issues":[]}';
+      return "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Artigo }\n  - { layout: statement, text: Achado principal }\n  - { layout: end, title: Obrigado }\n```";
+    };
+    const evs = [];
+    const at = llm.requests.length;
+    const prepare = async (mats, d, { onProgress }) => {
+      onProgress({ phase: "document", text: "Conferindo figuras, tabelas e equações: página 1 de 2…" });
+      await inventario; // só termina depois que a crítica começou: se a geração esperasse o inventário antes, travaria aqui
+      return mats.map(({ bytes, ...m }) => ({ ...m, inventory: { items: [] } }));
+    };
+    const gen = await generateForStudio({ briefing: "Apresentação oral deste artigo num congresso" }, {
+      dir, prepare, emit: (ev) => evs.push(ev),
+      materials: [{ name: "artigo.pdf", text: PAPER, detail: "pdf", bytes: Buffer.from("%PDF") }],
+      prefs: { autor: "Pessoa das Preferências", perguntar: false, pesquisa: false, imagens: false },
+    });
+    assert.ok(criticaComecou && gen.spec.slides.length === 3);
+    assert.ok(evs.some((e) => e.stages?.includes("Lendo o documento") && e.stages?.includes("Leitura crítica")), "as duas etapas correram juntas");
+    assert.ok(evs.some((e) => /^Escrevendo a apresentação: /.test(e.text || "")), evs.map((e) => e.text).join(" | "));
+    assert.ok(!evs.some((e) => e.text === "Pensando…"), "nenhum aviso solto sem etapa");
+    // a escrita recebeu o material já inventariado (documento anexado: o autor das Preferências não assina)
+    const writing = llm.requests.slice(at).find((q) => /Crie a apresentação inteira/.test(q.lastUser));
+    assert.match(writing.lastUser, /NÃO é o autor do documento anexado/);
+  } finally {
+    reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true });
+    await (await import("../src/studio/snapshot.js")).closeSnapshots(); // a revisão abriu o navegador
+  }
+});
+
+test("Criar com IA: a IA pergunta antes de escrever e o inventário do documento é cancelado (não fica rodando)", { timeout: 60000 }, async () => {
+  const { generateForStudio } = await import("../src/studio/generate.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-gen-etapas-"));
+  let cancelado = false;
+  try {
+    reply = (req) => /Você decide PARA QUE SERVE/.test(req.system)
+      ? '{"purpose": null, "pergunta": "Vai ser apresentado ou enviado para estudar?", "opcoes": ["Apresentar", "Estudar"]}' : "ok";
+    const prepare = (mats, d, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => { cancelado = true; reject(new Error("cancelado")); }));
+    const gen = await generateForStudio({ briefing: "Um workshop sobre o artigo" }, {
+      dir, prepare, materials: [{ name: "artigo.pdf", text: "Texto do artigo.", detail: "pdf", bytes: Buffer.from("%PDF") }],
+      prefs: { perguntar: true, pesquisa: false, imagens: false },
+    });
+    assert.match(gen.question.question, /apresentado ou enviado/);
+    assert.ok(cancelado, "o inventário foi cancelado");
+  } finally { reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true }); }
 });
