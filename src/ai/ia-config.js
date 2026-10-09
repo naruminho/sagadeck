@@ -13,6 +13,12 @@ export const PROVIDERS = {
   openrouter: { label: "OpenRouter", url: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY" },
   openai: { label: "OpenAI", url: "https://api.openai.com/v1", keyEnv: "OPENAI_API_KEY" },
 };
+// Recomendação para começar, mostrada na tela Configurar IA. Serve também de teste da instalação: se nem com ela a IA
+// responde, o problema é o ambiente (rede, chave), não o modelo escolhido. Depois, cada um põe o modelo que quiser.
+export const RECOMMENDED = {
+  provider: "openrouter",
+  models: { text: "deepseek/deepseek-v4.1-flash", vision: "deepseek/deepseek-v4.1-flash", image: "google/gemini-3.1-flash-image", search: "deepseek/deepseek-v4.1-flash:online" },
+};
 // os papéis que o sagadeck usa; cada um aponta para um modelo do provedor
 export const ROLES = ["text", "vision", "image", "search"];
 

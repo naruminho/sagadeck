@@ -85,3 +85,32 @@ test("SKILL.md (o que os agentes leem): porta certa, instalação pelo npm e a r
   assert.match(skill, /Nunca crie uma página, um servidor ou uma interface própria/);
   assert.match(skill, /Configurar IA/);
 });
+
+// Primeiro uso: `sagadeck studio` abre o navegador sozinho (quem instalou não precisa achar o endereço), mas não num
+// serviço, num teste, na CI, no servidor sem tela ou com --sem-navegador.
+test("abrir o navegador: só para quem está no terminal; nunca em serviço, teste, CI, multiusuário ou servidor sem tela", async () => {
+  const { shouldOpenBrowser, openBrowser } = await import("../src/studio/open-browser.js");
+  const base = { env: {}, isTTY: true, platform: "win32" };
+  assert.equal(shouldOpenBrowser(base), true);
+  assert.equal(shouldOpenBrowser({ ...base, isTTY: false }), false, "serviço/teste: sem terminal");
+  assert.equal(shouldOpenBrowser({ ...base, env: { CI: "true" } }), false);
+  assert.equal(shouldOpenBrowser({ ...base, multiuser: true }), false);
+  assert.equal(shouldOpenBrowser({ ...base, flags: { "sem-navegador": true } }), false);
+  assert.equal(shouldOpenBrowser({ ...base, env: { SAGADECK_NO_BROWSER: "1" } }), false);
+  assert.equal(shouldOpenBrowser({ ...base, platform: "linux" }), false, "Linux sem tela (servidor)");
+  assert.equal(shouldOpenBrowser({ ...base, platform: "linux", env: { DISPLAY: ":0" } }), true);
+  const calls = [];
+  const spawnFn = (cmd, args) => { calls.push([cmd, ...args]); return { on() {}, unref() {} }; };
+  openBrowser("http://127.0.0.1:3517/", { platform: "win32", spawnFn });
+  openBrowser("http://127.0.0.1:3517/", { platform: "darwin", spawnFn });
+  openBrowser("http://127.0.0.1:3517/", { platform: "linux", spawnFn });
+  assert.deepEqual(calls, [["cmd", "/c", "start", "", "http://127.0.0.1:3517/"], ["open", "http://127.0.0.1:3517/"], ["xdg-open", "http://127.0.0.1:3517/"]]);
+});
+
+test("`sagadeck` sozinho começa dizendo por onde começar (sagadeck studio), antes da lista de comandos", async () => {
+  const { stdout } = await run(process.execPath, [path.join(ROOT, "bin", "sagadeck.js")], { timeout: 20000 });
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim());
+  assert.match(lines[1], /Para começar:\s+sagadeck studio/);
+  assert.match(stdout, /http:\/\/127\.0\.0\.1:3517/);
+  assert.ok(stdout.indexOf("Para começar") < stdout.indexOf("Todos os comandos"));
+});

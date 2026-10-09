@@ -515,3 +515,44 @@ test("biblioteca mostra o username do portal em vez do id cru", { timeout: 12000
     await studio.close();
   }
 });
+
+// Primeiro uso: sem IA configurada, a biblioteca mostra a faixa "Configure a IA"; a tela tem a recomendação (que também
+// testa a instalação) e "Usar a recomendação" preenche provedor e modelos; salvo, a faixa some.
+test("primeiro uso: faixa Configure a IA; Usar a recomendação preenche OpenRouter e os modelos; ao salvar, a faixa some", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { startMockLLM } = await import("./mock-llm.js");
+  const llm = await startMockLLM(() => "ok");
+  const studio = await startStudio(null);
+  const keepUrl = process.env.SAGADECK_LLM_URL;
+  delete process.env.SAGADECK_LLM_URL;
+  fs.rmSync(process.env.SAGADECK_IA, { force: true });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector("#ai-banner:not([hidden])");
+    assert.match(await p.innerText("#ai-banner"), /A IA ainda não está configurada/);
+    await p.click("#ai-banner-btn");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    assert.match(await p.innerText("#ai-settings-dialog .rec"), /Recomendado para começar: OpenRouter, com deepseek\/deepseek-v4\.1-flash/);
+    assert.match(await p.getAttribute('[data-model="text"]', "placeholder"), /ex\.: deepseek/);
+    await p.click("[data-rec]");
+    assert.equal(await p.inputValue('[data-f="provider"]'), "openrouter");
+    assert.equal(await p.inputValue('[data-f="url"]'), "https://openrouter.ai/api/v1");
+    assert.equal(await p.inputValue('[data-model="image"]'), "google/gemini-3.1-flash-image");
+    assert.equal(await p.inputValue('[data-model="search"]'), "deepseek/deepseek-v4.1-flash:online");
+    assert.match(await p.innerText("[data-status]"), /Cole a chave do OpenRouter/);
+    // salva (aqui apontando para o LLM falso, para não depender da internet) e a faixa some
+    await p.selectOption('[data-f="provider"]', "outro");
+    await p.fill('[data-f="url"]', llm.url);
+    await p.fill('[data-f="key"]', "sk-primeiro-uso");
+    await p.click("[data-save]");
+    await p.locator("[data-status].ok", { hasText: "Salvo" }).waitFor();
+    await p.click("[data-close]");
+    await p.waitForSelector("#ai-banner", { state: "hidden" });
+    assert.deepEqual(errors, []);
+  } finally {
+    process.env.SAGADECK_LLM_URL = keepUrl;
+    fs.rmSync(process.env.SAGADECK_IA, { force: true });
+    await browser.close(); await studio.close(); await llm.close();
+  }
+});

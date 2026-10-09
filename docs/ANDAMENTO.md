@@ -108,6 +108,25 @@ os achados para os slides").
   `missed`, elas entram no inventário com a caixa exata do texto e passam pela mesma releitura do recorte
   (`transcribeEquation`) que escreve o LaTeX das outras. Saiu da lista.
 
+## Primeiro uso: navegador abre sozinho, "Para começar" e a recomendação de IA — 09/10/2026
+
+Pergunta de Narumi: quem instala pelo npm sabe pôr no ar, sabe a URL, precisa editar arquivo para a IA? Antes: um
+comando (`sagadeck studio`), mas o navegador não abria, o `sagadeck` sozinho mostrava o `studio` como 19º item de uma
+lista longa, e os campos de modelo do Configurar IA vinham vazios (ninguém sabe o nome exato de um modelo).
+
+- `sagadeck studio` **abre o navegador** na página (`src/studio/open-browser.js`), inclusive quando já está aberto;
+  só para quem está no terminal: nunca em serviço/teste (sem TTY), CI, multiusuário, Linux sem tela ou
+  `--sem-navegador` / `SAGADECK_NO_BROWSER=1`. A primeira linha continua sendo o endereço.
+- `sagadeck` sozinho começa com **"Para começar: sagadeck studio"** (o que faz, o endereço, deixar o terminal aberto).
+- **Configurar IA** com a recomendação (`RECOMMENDED` em `src/ai/ia-config.js`: OpenRouter, DeepSeek para texto e
+  visão, Gemini para imagem, `:online` para busca) e **Usar a recomendação**, que preenche provedor e modelos. Ela é
+  também o teste da instalação: se nem com ela a IA responde, o problema é rede ou chave. Os campos trazem exemplos e
+  a tela diz que imagem e busca dependem do provedor. Sem listar os modelos do provedor (decisão: endereço próprio ou
+  de empresa pode não ter a lista, ou ser bloqueado).
+- **Faixa "Configure a IA"** na biblioteca enquanto não está configurada (só onde se pode configurar; some ao salvar).
+- Testes: `test/instance.test.js` (quando abre o navegador e o comando de cada sistema; `sagadeck` sozinho),
+  `test/library-ui.test.js` (faixa, recomendação preenche, salvar some a faixa).
+
 ## IA embutida, só npm e o Studio como a página do sagadeck — 09/10/2026
 
 Pedido de Narumi, depois de um agente (Copilot) instalar o sagadeck, abrir a página do modelrelay e, sem achar a
