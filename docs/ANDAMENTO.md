@@ -12,7 +12,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 **Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:
 - Repositório GitHub `naruminho/sagadeck`, clonado em `C:\Users\narum\src\sagadeck`, branch `main`.
-- Publicado no npm como `sagadeck` (1.5.0, com as mudanças de 08 e 09/10).
+- Publicado no npm como `sagadeck` (1.6.0: IA embutida, só npm; o PyPI parou na 1.5.0).
 - Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
 - Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
 - Tem uma IA (via modelrelay em `http://127.0.0.1:8765/v1`) que cria e edita decks, inclusive a partir de PDFs de
