@@ -35,10 +35,9 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 
 **OneDrive (a biblioteca agora mora em `C:\Users\narum\OneDrive\Documents\sagadeck` e sincroniza)**
 
-2. **Cache e lixeira fora da nuvem.** Dos ~560 MB da biblioteca, 407 MB são `.lixeira` (e há `.cache`, 5 MB, e
-   `.historico`). Tudo vai para o OneDrive. Decidir: lixeira e cache em `%LOCALAPPDATA%\sagadeck` (são da máquina,
-   não documentos) e/ou lixeira que se esvazia sozinha depois de 30 dias. O histórico de versões talvez deva
-   continuar junto do deck (portável). Cuidado com a migração do que já existe.
+2. **Cache fora da nuvem.** A lixeira passou a durar um dia (seção "Lixeira de um dia" abaixo). Sobram `.cache`
+   (5 MB) e `.historico` indo para o OneDrive; só pesa se a pasta Documentos estiver no OneDrive (comum no Windows 11
+   e em empresa, mas não universal). O histórico de versões talvez deva continuar junto do deck (portável).
 3. **Arquivos só na nuvem (Files On-Demand).** Com espaço liberado, o OneDrive deixa só o marcador do arquivo, e
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
@@ -59,6 +58,14 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
+
+## Lixeira de um dia — 08/10/2026
+
+Pedido de Narumi: a lixeira da biblioteca guardava 30 dias e estava com 407 MB (23 apresentações, quase todas
+gerações de teste), tudo sincronizando com o OneDrive. Agora guarda um dia (`TRASH_DAYS = 1` em `src/library.js`;
+`purgeOld` apaga de vez o que passou disso). Textos da biblioteca e README falam em um dia. A lixeira do projeto
+(`.sagadeck/lixeira`, arquivos dentro de uma apresentação) não muda. Teste: `test/library.test.js` (excluída há uma
+hora continua restaurável; há dois dias some do disco).
 
 ## Studio aberto antes da atualização não abria slide — 08/10/2026
 

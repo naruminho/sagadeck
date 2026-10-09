@@ -249,3 +249,21 @@ test("pasta travada pelo OneDrive (EPERM/EBUSY por um instante): lixeira, restau
   } finally { fs.renameSync = real; }
   assert.deepEqual(lib.list().decks.map((d) => [d.title, d.topic]), [["Aula renomeada", "Outro nome"]]);
 });
+
+// A lixeira fica um dia: as gerações e cópias descartadas não acumulam centenas de MB na pasta (que pode sincronizar
+// com o OneDrive). Excluída há uma hora continua restaurável; há dois dias, já foi apagada de vez.
+test("lixeira guarda por um dia e depois apaga de vez", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Aulas");
+  const recente = lib.trashDeck(lib.createDeck("Aulas", deck("Excluída agora há pouco")));
+  const velha = lib.trashDeck(lib.createDeck("Aulas", deck("Excluída anteontem")));
+  const age = (slot, ms) => {
+    const meta = path.join(lib.root, ".lixeira", slot, ".origem.json");
+    fs.writeFileSync(meta, JSON.stringify({ ...JSON.parse(fs.readFileSync(meta, "utf8")), deleted: Date.now() - ms }));
+  };
+  age(recente, 3600e3);
+  age(velha, 2 * 864e5);
+  assert.deepEqual(lib.list().trash.map((t) => t.title), ["Excluída agora há pouco"]);
+  assert.equal(fs.existsSync(path.join(lib.root, ".lixeira", velha)), false, "apagada do disco, não só escondida");
+  assert.equal(TRASH_DAYS, 1);
+});

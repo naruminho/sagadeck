@@ -9,7 +9,7 @@
 //       rascunho.yaml                 um .yaml solto no tópico também é uma apresentação
 //     rascunho.yaml                   .yaml solto na raiz = apresentação sem tópico
 // Na raiz, pasta é SEMPRE tópico. "Nova sem tópico" vai para "Sem tópico"; importar sem tópico, para "Importados".
-//     .lixeira/                       excluídas (30 dias), com .origem.json
+//     .lixeira/                       excluídas (1 dia), com .origem.json
 //     .cache/                         capas geradas
 //
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
@@ -23,7 +23,7 @@ import * as MASTER from "./master.js";
 import { unpackDeck } from "./package.js";
 import { writeDeckFile } from "./deck-file.js";
 
-export const TRASH_DAYS = 30;
+export const TRASH_DAYS = 1;
 const TRASH = ".lixeira";
 const TOPIC_META = ".topico.json";
 const COLORS = ["#d33a2c", "#0f6cbd", "#e5a50a", "#8b5cf6", "#0e9f6e", "#e8590c", "#d6336c", "#495057"];
