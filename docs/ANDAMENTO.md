@@ -47,9 +47,6 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 5. **Equações que a leitura da página deixou passar.** `assignEquations` (`src/ai/document-visuals.js`) já põe em
    `out.missed` as equações numeradas do texto que a visão não listou, mas só registra. Dar a elas uma segunda
    leitura focada (recortar a região pelo `equationBox` e chamar `transcribeEquation`).
-6. **Etapas em paralelo e progresso visível.** `generateDeck` (`src/ai/deck-ai.js`) faz em fila pesquisa, crítica
-   (`critiqueMaterials`), escrita, cobertura, números, duplicados, imagens e revisão. Crítica e inventário visual
-   não dependem um do outro: rodar juntos. E o Studio mostrar a etapa em vez de só "Pensando…".
 7. **Crítica acionável.** A leitura crítica (`src/ai/critique.js`, botão "Criticar documento") chega só como texto
    no chat. Virar lista com "aplicar no slide X" / "ignorar", ligada ao slide de cada ponto.
 
@@ -58,6 +55,24 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
    (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
    da condição de verdade.
+
+## Geração por etapas: o aviso diz a etapa e o documento é lido em paralelo — 08/10/2026
+
+Item 6 das próximas frentes. Gerar com documento leva minutos e a tela ficava em "Pensando…" sem dizer pensando em
+quê; e o inventário do documento (a visão lendo página a página) rodava inteiro antes de qualquer outra coisa.
+
+- **Quadro de etapas** (`src/ai/progress.js`, `stageBoard`): `generateDeck` passa cada etapa por ele (Entendendo o
+  pedido, Pesquisa, Leitura crítica, Lendo o documento, Escrevendo a apresentação, Conferindo as figuras do material,
+  Conferindo os números, Imagens, Revisão dos slides). Todo aviso sai como "Etapa: detalhe"; duas etapas ao mesmo
+  tempo aparecem juntas ("Lendo o documento: página 3 de 12… · Leitura crítica: …"). O evento leva `stages` (as em
+  curso) e `done` (as terminadas). A biblioteca mostra também o tempo decorrido.
+- **Em paralelo** (`generateForStudio`): o inventário começa na hora e corre junto com entender o pedido, a pesquisa
+  e a leitura crítica (que usam só o texto; `worthCritique` aceita documento ainda sem inventário, marcado
+  `document`). A escrita espera o inventário (`pendingMaterials`). Se a geração para antes (a IA perguntou, deu
+  erro), o inventário é cancelado (`AbortController`) e a pasta fica livre.
+- Testes (`test/ai.test.js`): o quadro com duas etapas juntas; a crítica começa enquanto o inventário ainda não
+  terminou (o inventário falso só termina depois que a crítica começa: com a ordem antiga, travava), a escrita recebe
+  o material inventariado e nenhum aviso sai sem etapa; e a pergunta antes de escrever cancela o inventário.
 
 ## Lixeira de um dia — 08/10/2026
 

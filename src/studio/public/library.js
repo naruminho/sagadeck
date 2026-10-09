@@ -435,7 +435,8 @@
               const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
               if (!line.trim()) continue;
               const ev = JSON.parse(line);
-              if (ev.type === "progress" && ev.text) status.textContent = ev.text;
+              // a etapa (ou as etapas que correm juntas) e o tempo: a geração com documento leva minutos
+              if (ev.type === "progress" && ev.text) status.textContent = `${ev.text}${ev.elapsed ? ` · ${Math.round(ev.elapsed / 1000)}s` : ""}`;
               if (ev.type === "result") result = ev.data;
               if (ev.type === "error") throw new Error(ev.error || "falhou");
             }

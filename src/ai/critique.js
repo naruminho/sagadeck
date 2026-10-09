@@ -27,9 +27,10 @@ function materialText(materials) {
   return (materials || []).filter((m) => m && m.kind !== "critica").map((m) => [m.text || "", ...(m.inventory?.items || []).map((it) => [it.caption, ...(it.rows || []).flat()].join(" "))].join(" ")).join("\n");
 }
 
-// Material que justifica a leitura crítica: documento (inventário) ou texto longo. Pedido curto e link de notícia não.
+// Material que justifica a leitura crítica: documento (com inventário, ou `document` enquanto o inventário ainda corre)
+// ou texto longo. Pedido curto e link de notícia não.
 export function worthCritique(materials) {
-  return (materials || []).some((m) => m && m.kind !== "critica" && m.kind !== "pesquisa" && (m.inventory || String(m.text || "").length > 6000));
+  return (materials || []).some((m) => m && m.kind !== "critica" && m.kind !== "pesquisa" && (m.inventory || m.document || String(m.text || "").length > 6000));
 }
 
 export async function critiqueMaterials(materials, { briefing = "", spec = null, complete = chat, signal } = {}) {
