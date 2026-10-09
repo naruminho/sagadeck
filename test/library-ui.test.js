@@ -312,6 +312,8 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     const run = async (id) => {
       const s = `.slide[data-idx="${idx(id)}"]`;
       await pv.evaluate((n) => window.sagadeck.goto(n, 0), idx(id));
+      // sob carga o clique podia chegar antes de o slide montar (sem onclick): nada rodava e a conferência lia vazio
+      await pv.waitForFunction((sel) => !!document.querySelector(`${sel} .L-api`)?._cfg && !document.querySelector(`${sel} [data-api-run]`).disabled, s);
       await pv.click(`${s} [data-api-run]`);
       await pv.waitForFunction((sel) => !document.querySelector(`${sel} .L-api`).classList.contains("running"), s, { timeout: 20000 });
       return s;

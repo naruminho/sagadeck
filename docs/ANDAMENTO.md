@@ -50,11 +50,20 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 7. **Crítica acionável.** A leitura crítica (`src/ai/critique.js`, botão "Criticar documento") chega só como texto
    no chat. Virar lista com "aplicar no slide X" / "ignorar", ligada ao slide de cada ponto.
 
-**Saúde do repositório**
+## Testes instáveis sob carga — 09/10/2026
 
-9. **Testes instáveis sob carga.** "frame executa JavaScript, aluno altera a experiência e reinicia…"
-   (developer-labs) e o de motion-scenes caem com a suíte inteira e passam sozinhos. Trocar tempos fixos por espera
-   da condição de verdade.
+Item 9 das próximas frentes. Testes que passavam sozinhos e caíam com a suíte inteira trocaram tempo fixo por espera
+da condição de verdade:
+
+- `developer-labs` (frame executa JavaScript): o clique chegava antes de o script do iframe ligar o `onclick` e o
+  resultado ficava 0. Espera o `onclick` existir e o texto virar 1 (e 0 depois do reinício).
+- `motion-scenes`: comparava o quadro da animação depois de 100–300 ms. Agora espera o quadro mudar (anima) ou parar
+  de mudar (pausou fora do slide), com prazo.
+- `library-ui` (aula de APIs ao vivo): só clica em Executar com o slide montado.
+- **Defeito de verdade achado no caminho**: com `motion: none`, a cena de terminal começava digitando ("first l_")
+  porque só sabia do movimento reduzido pela mensagem da página, que sob carga chegava tarde. A cena agora nasce
+  sabendo (`still` no documento dela, `motionHTML` em `src/motion.js`). O teste de captura confere que, no instante em
+  que o texto aparece, ele já está completo; e um teste rápido confere o `still` no documento (falhava antes).
 
 ## Geração por etapas: o aviso diz a etapa e o documento é lido em paralelo — 08/10/2026
 

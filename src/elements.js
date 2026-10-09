@@ -268,7 +268,7 @@ export function el(e, ctx, w, h) {
   if (e.badge) return `<div${attrs(e, "badge f-label")}>${md(e.badge)}</div>`;
   if (e.aviso) return aviso(e);
   if (e.video) return video(e, ctx);
-  if (e.motion) return `<div${attrs(e, "motion")}>${motionHTML(e.motion,ctx?.theme?.colors)}</div>`;
+  if (e.motion) return `<div${attrs(e, "motion")}>${motionHTML(e.motion,ctx?.theme?.colors,{still:ctx?.spec?.motion==='none'})}</div>`;
   if (e.widget) return `<div${attrs(e, "widget")} data-widget="${esc(e.widget)}" data-opts="${esc(JSON.stringify(e))}"></div>`;
   if (e.html) return `<div${attrs(e, "raw")}>${e.html}</div>`;
   if (e.spacer != null) return `<div class="spacer" style="flex:${e.spacer === true ? 1 : 0} 0 ${px(e.spacer === true ? 0 : e.spacer)}"></div>`;

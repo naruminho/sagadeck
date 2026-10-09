@@ -124,9 +124,11 @@ test('frame executa JavaScript, aluno altera a experiência e reinicia; pai e re
   const slide={layout:'playground',title:'Minha experiência',html:'<button id="change">Adicionar</button><p id="result">0</p>',css:'p{font-size:40px}',javascript:'let n=0;document.querySelector("#change").onclick=()=>document.querySelector("#result").textContent=++n;try{parent.document.body.dataset.escaped="yes"}catch{};'};
   assert.match(playgroundDocument(slide),/connect-src 'none'/);
   const file=path.join(deck.dir,'frame.html');fs.writeFileSync(file,buildHTML({theme:'manual',slides:[slide]}).html);const {page,errors}=await newPage(browser);await page.goto(pathToFileURL(file).href);
-  const frame=page.frameLocator('.pg-frame');await frame.locator('#change').click();assert.equal(await frame.locator('#result').textContent(),'1');assert.equal(await page.getAttribute('body','data-escaped'),null);
+  // o script do iframe roda depois do HTML: sob carga, o clique chegava antes do onclick e o resultado ficava 0
+  const frame=page.frameLocator('.pg-frame'),inner=await (await page.$('.pg-frame')).contentFrame();await inner.waitForFunction(()=>typeof document.querySelector('#change')?.onclick==='function');
+  await frame.locator('#change').click();await frame.locator('#result').filter({hasText:/^1$/}).waitFor();assert.equal(await page.getAttribute('body','data-escaped'),null);
   assert.ok(await page.locator('[data-pg-reset]').evaluate(e=>parseFloat(getComputedStyle(e).fontSize))>=18,'controle de reinício mantém tamanho legível no slide');
-  await page.click('[data-pg-reset]');await frame.locator('#result').waitFor();assert.equal(await frame.locator('#result').textContent(),'0');assert.deepEqual(errors,[]);
+  await page.click('[data-pg-reset]');await frame.locator('#result').filter({hasText:/^0$/}).waitFor();assert.deepEqual(errors,[]);
  }finally{await browser.close();deck.cleanup();}
 });
 
