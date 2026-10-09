@@ -282,7 +282,9 @@ No Studio, a aba **Variáveis** mostra o ambiente atual em uma tabela **Nome / V
 normais ali; nomes e valores são salvos no arquivo de ambientes, nunca no deck. Arraste um nome da tabela
 para um campo do slide para inserir `{{nome}}`. Segredos são listados pelo nome, mas seu valor nunca aparece.
 Os campos `save` do deck também aparecem com sua origem e disponibilidade.
-O editor de ambientes valida o YAML antes de habilitar **Salvar** e preserva a versão anterior em `ambientes.yaml.bak`.
+O editor de ambientes abre **por campos** (endereço base, variáveis, segredos, autenticação: nenhuma, token fixo
+`Authorization: Bearer {{secret.token}}` ou token que expira; **Testar** chama o endereço base e pede o token). A aba
+**Como texto** valida o YAML antes de habilitar **Salvar**. Os dois preservam a versão anterior em `ambientes.yaml.bak`.
 O botão **Variáveis** (na barra do slide) é o inspect/watch da apresentação, tudo num lugar só:
 - **Ambiente**: as variáveis (criar, editar, apagar) e as **protegidas** (marque "protegida" ao criar): na tela só o nome
   e ••••; o olhinho mostra o valor por 15 segundos. Nos slides e no código gerado aparece o nome (`{{secret.chave}}`),
@@ -334,8 +336,9 @@ texto) para o modo sem Studio.
 
 Endereços, credenciais e segredos ficam **na máquina**, nunca no deck (o deck pode ir para o GitHub).
 Outro lugar: variável `SAGADECK_AMBIENTES`. O selo no slide (DEV, HOM…) troca o ambiente. No Studio,
-**Inserir → Ambientes** mostra o arquivo (ou um modelo comentado, se ele ainda não existe), confere o YAML
-antes de gravar e troca o ambiente em uso.
+**Inserir → Ambientes** preenche o arquivo por campos (ou mostra o YAML na aba Como texto, com um modelo comentado
+se ele ainda não existe), confere antes de gravar e troca o ambiente em uso. Os cabeçalhos do ambiente (`headers`)
+aceitam `{{secret.nome}}`; o client secret do token pode ficar cifrado (`client_secret: "dpapi:…"` no Windows).
 
 ```yaml
 current: hom

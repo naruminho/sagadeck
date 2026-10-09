@@ -235,3 +235,47 @@ test("{{secret.x}}: o Studio troca pelo valor na hora de enviar; nada volta para
     await assert.rejects(api.send({ url: `${mock.url}/v1/sync`, body: { k: "{{secret.nao_tem}}" } }), /não tem nao_tem configurado em secrets/);
   } finally { delete process.env.SAGADECK_TESTE_SEGREDO; await mock.close(); }
 });
+
+// Tela Ambientes por campos (formState/saveForm): o mesmo arquivo, sem a pessoa escrever YAML. Os comentários e o que
+// o formulário não conhece ficam; segredo nunca volta; token fixo e token que expira funcionam de verdade.
+test("ambientes por formulário: salvar, ler de volta sem o valor dos segredos, e o token fixo vai em todo pedido", async () => {
+  const mock = await startMockApi();
+  const file = path.join(tmp(), "ambientes.yaml");
+  fs.writeFileSync(file, `# meus ambientes (comentário que tem que sobreviver)\ncurrent: velho\nenvironments:\n  velho:\n    vars: { base: "http://antigo.invalid" }\n  cert:\n    vars: { base: "${mock.url}/v1" }\n    ca: "C:/certs/empresa.pem"\n`);
+  const api = new ApiEnvironments(file);
+  try {
+    const st = api.saveForm([
+      { name: "dev", base: `${mock.url}/v1`, vars: [{ name: "modelo", value: "resumo" }], secrets: [{ name: "senha", value: "senha-secreta-1" }],
+        auth: { type: "bearer", value: "meu-token-fixo-123" } },
+      { name: "hom", base: `${mock.url}/v1`, vars: [], secrets: [],
+        auth: { type: "token", url: `${mock.url}/token`, client_id: mock.clientId, value: mock.clientSecret } },
+      { name: "cert", base: `${mock.url}/v1`, vars: [], secrets: [], auth: { type: "nenhuma" } },
+    ], { current: "dev" });
+    const text = fs.readFileSync(file, "utf8");
+    assert.match(text, /comentário que tem que sobreviver/);
+    assert.match(text, /ca: "C:\/certs\/empresa\.pem"/, "o que o formulário não conhece fica");
+    assert.doesNotMatch(text, /velho:/, "ambiente que saiu do formulário sai do arquivo");
+    assert.equal(st.current, "dev");
+    const dev = st.envs.find((e) => e.name === "dev"), hom = st.envs.find((e) => e.name === "hom");
+    assert.deepEqual(dev.vars, [{ name: "modelo", value: "resumo" }]);
+    assert.deepEqual(dev.secrets, [{ name: "senha", env: "", set: true }]);
+    assert.deepEqual(dev.auth, { type: "bearer", secretEnv: "", secretSet: true });
+    assert.equal(hom.auth.type, "token");
+    assert.equal(hom.auth.secretSet, true);
+    assert.equal(st.envs.find((e) => e.name === "cert").advanced, true);
+    assert.ok(!JSON.stringify(st).includes("meu-token-fixo-123") && !JSON.stringify(st).includes("senha-secreta-1"), "valor de segredo não volta");
+    // o token fixo vai no cabeçalho de todo pedido do ambiente
+    api.use("dev");
+    await api.send({ method: "GET", url: `${mock.url}/v1/headers` });
+    assert.equal(mock.state.requests.at(-1).headers.authorization, "Bearer meu-token-fixo-123");
+    // em branco mantém o segredo gravado; Testar diz se o endereço responde e se o token sai
+    api.saveForm(st.envs.map((e) => ({ ...e, auth: { ...e.auth }, secrets: e.secrets.map((x) => ({ name: x.name })) })), { current: "dev" });
+    await api.send({ method: "GET", url: `${mock.url}/v1/headers` });
+    assert.equal(mock.state.requests.at(-1).headers.authorization, "Bearer meu-token-fixo-123", "segredo mantido");
+    const check = await api.check("hom");
+    assert.equal(check.base.ok, true);
+    assert.equal(check.token.ok, true);
+    assert.throws(() => api.saveForm([{ name: "x y", base: "" }]), /Nome de ambiente inválido/);
+    assert.throws(() => api.saveForm([{ name: "novo", base: "ftp://x", vars: [], secrets: [] }]), /começa com http/);
+  } finally { await mock.close(); }
+});

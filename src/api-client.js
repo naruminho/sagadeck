@@ -25,6 +25,7 @@ import { connectWs } from "./ws.js";
 import { protect, unprotect, unprotectAll, PROTECTION } from "./protect.js";
 
 const C = globalThis.SagadeckApiCore;
+const BEARER = "Bearer {{secret.token}}"; // o "token fixo" do formulário: cabeçalho em todo pedido do ambiente
 
 // As variáveis e segredos dos slides de API moram FORA das apresentações: ~/.sagadeck/ambientes.yaml (no Windows,
 // C:\Users\<você>\.sagadeck\ambientes.yaml) ou SAGADECK_AMBIENTES. Mandar um deck para alguém nunca leva segredo
@@ -128,7 +129,7 @@ export class ApiEnvironments {
     catch (e) { throw new ApiError(`${this.file}: YAML inválido: ${e.message}`, "config"); }
     const envs = data.environments && typeof data.environments === "object" ? data.environments : {};
     // segredos cifrados (dpapi:…): decifra todos de uma vez (um PowerShell só)
-    try { unprotectAll(Object.values(envs).flatMap((e) => Object.values((e && e.secrets) || {}))); }
+    try { unprotectAll(Object.values(envs).flatMap((e) => [...Object.values((e && e.secrets) || {}), e?.token?.client_secret].filter((v) => typeof v === "string"))); }
     catch (e) { throw new ApiError(`${this.file}: ${e.message}`, "config"); }
     return { current: data.current || null, environments: envs };
   }
@@ -236,6 +237,106 @@ export class ApiEnvironments {
     return this.state();
   }
 
+  // ---- tela Ambientes por campos (src/studio/public/api-envs-form.js) ----------------------------------------------
+  // O mesmo arquivo, visto como formulário: endereço base, variáveis, segredos (só o nome e de onde vêm; o valor nunca
+  // sai) e a autenticação (nenhuma, token fixo ou token que expira). O que o formulário não conhece (ca, insecure,
+  // outros cabeçalhos) fica no arquivo como estava.
+  formState() {
+    const raw = fs.existsSync(this.file) ? (YAML.parse(fs.readFileSync(this.file, "utf8")) || {}) : {};
+    const envs = raw.environments && typeof raw.environments === "object" ? raw.environments : {};
+    return {
+      file: this.file, exists: fs.existsSync(this.file), protection: PROTECTION, current: raw.current || null,
+      builtin: Object.keys(this.builtin),
+      envs: Object.entries(envs).map(([name, e = {}]) => {
+        const bearer = e.headers?.Authorization === BEARER;
+        const auth = e.token?.url ? { type: "token", url: e.token.url, client_id: e.token.client_id || "", field: e.token.field || "", secretEnv: e.token.client_secret_env || "", secretSet: e.token.client_secret != null }
+          : bearer ? { type: "bearer", secretEnv: typeof e.secrets?.token === "object" ? e.secrets.token.env || "" : "", secretSet: typeof e.secrets?.token === "string" }
+          : { type: "nenhuma" };
+        const otherHeaders = Object.keys(e.headers || {}).filter((h) => !(bearer && h === "Authorization"));
+        return {
+          name, base: e.vars?.base != null ? String(e.vars.base) : "",
+          vars: Object.entries(e.vars || {}).filter(([k]) => k !== "base").map(([k, v]) => ({ name: k, value: String(v) })),
+          secrets: Object.entries(e.secrets || {}).filter(([k]) => !(bearer && k === "token")).map(([k, v]) => ({ name: k, env: typeof v === "object" && v ? v.env || "" : "", set: typeof v === "string" })),
+          auth, advanced: !!(e.ca || e.insecure || otherHeaders.length),
+        };
+      }),
+    };
+  }
+
+  saveForm(list, { current } = {}) {
+    if (!Array.isArray(list)) throw new ApiError("Mande a lista de ambientes.", "config");
+    const NAME = /^[A-Za-z0-9_-]{1,40}$/, VAR = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    const seen = new Set();
+    for (const f of list) {
+      if (!NAME.test(String(f?.name || ""))) throw new ApiError(`Nome de ambiente inválido: "${f?.name || ""}". Use letras, números, - e _ (ex.: dev, hom, prod).`, "config");
+      if (seen.has(f.name)) throw new ApiError(`O ambiente "${f.name}" aparece duas vezes.`, "config");
+      seen.add(f.name);
+      if (f.base && !/^https?:\/\//i.test(f.base)) throw new ApiError(`Ambiente "${f.name}": o endereço base começa com http:// ou https://.`, "config");
+      for (const v of [...(f.vars || []), ...(f.secrets || [])]) if (!VAR.test(String(v?.name || ""))) throw new ApiError(`Ambiente "${f.name}": nome inválido "${v?.name || ""}". Use letras, números e _ (ex.: path_id).`, "config");
+      if (f.auth?.type === "token" && !/^https?:\/\//i.test(f.auth.url || "")) throw new ApiError(`Ambiente "${f.name}": falta o endereço do token (https://…).`, "config");
+    }
+    this.editFile((doc) => {
+      const old = doc.toJS()?.environments || {};
+      for (const name of Object.keys(old)) if (!seen.has(name)) doc.deleteIn(["environments", name]);
+      for (const f of list) {
+        const at = (...k) => ["environments", f.name, ...k];
+        const prev = old[f.name] || {};
+        if (!doc.hasIn(at())) doc.setIn(at(), doc.createNode({}));
+        // variáveis: base + as da tabela; a que saiu da tabela sai do arquivo
+        const vars = { ...(f.base ? { base: f.base } : {}), ...Object.fromEntries((f.vars || []).map((v) => [v.name, String(v.value ?? "")])) };
+        for (const k of Object.keys(prev.vars || {})) if (!(k in vars)) doc.deleteIn(at("vars", k));
+        for (const [k, v] of Object.entries(vars)) doc.setIn(at("vars", k), v);
+        // segredos: valor novo (cifrado), variável de ambiente, ou fica o que já estava
+        const keepToken = f.auth?.type === "bearer";
+        const wanted = new Set([...(f.secrets || []).map((x) => x.name), ...(keepToken ? ["token"] : [])]);
+        for (const k of Object.keys(prev.secrets || {})) if (!wanted.has(k)) doc.deleteIn(at("secrets", k));
+        const putSecret = (name, { value, env } = {}) => {
+          if (env) doc.setIn(at("secrets", name), doc.createNode({ env }));
+          else if (value) doc.setIn(at("secrets", name), protect(String(value)));
+          else if (!doc.hasIn(at("secrets", name))) throw new ApiError(`Ambiente "${f.name}": falta o valor do segredo "${name}".`, "config");
+        };
+        for (const x of f.secrets || []) putSecret(x.name, x);
+        // autenticação
+        const ourBearer = doc.getIn(at("headers", "Authorization")) === BEARER;
+        if (f.auth?.type === "bearer") {
+          putSecret("token", { value: f.auth.value, env: f.auth.secretEnv });
+          doc.setIn(at("headers", "Authorization"), BEARER);
+        } else if (ourBearer) doc.deleteIn(at("headers", "Authorization"));
+        if (doc.getIn(at("headers")) && !Object.keys(doc.getIn(at("headers")).toJSON?.() || {}).length) doc.deleteIn(at("headers"));
+        if (f.auth?.type === "token") {
+          const t = { url: f.auth.url, ...(f.auth.client_id ? { client_id: f.auth.client_id } : {}), ...(f.auth.field ? { field: f.auth.field } : {}) };
+          for (const k of ["url", "client_id", "field"]) if (!(k in t)) doc.deleteIn(at("token", k)); else doc.setIn(at("token", k), t[k]);
+          if (f.auth.secretEnv) { doc.setIn(at("token", "client_secret_env"), f.auth.secretEnv); doc.deleteIn(at("token", "client_secret")); }
+          else if (f.auth.value) { doc.setIn(at("token", "client_secret"), protect(String(f.auth.value))); doc.deleteIn(at("token", "client_secret_env")); }
+          else if (!doc.hasIn(at("token", "client_secret")) && !doc.hasIn(at("token", "client_secret_env"))) throw new ApiError(`Ambiente "${f.name}": falta o segredo do token (client secret).`, "config");
+        } else if (doc.hasIn(at("token"))) doc.deleteIn(at("token"));
+      }
+      const names = list.map((f) => f.name);
+      doc.set("current", names.includes(current) ? current : names[0] || null);
+    });
+    this.tokens.clear();
+    return this.formState();
+  }
+
+  // Testar um ambiente salvo: o endereço base responde? o token sai? (só diz o que aconteceu; nada vai para a tela)
+  async check(name) {
+    const env = this.env(name);
+    const out = { name: env.name };
+    const base = env.vars?.base;
+    if (base) {
+      try {
+        const res = await open({ method: "GET", url: String(base), headers: { Accept: "*/*", ...C.render(env.headers || {}, this.secretVars(env)) }, ca: this.ca(env), insecure: !!env.insecure, timeout: 10000 });
+        res.resume();
+        out.base = { ok: true, status: res.statusCode };
+      } catch (e) { out.base = { ok: false, error: this.maskText(env, e.message) }; }
+    }
+    if (env.token?.url) {
+      try { const v = await this.token(env, { renew: true }); out.token = { ok: true, last4: v.slice(-4) }; }
+      catch (e) { out.token = { ok: false, error: this.maskText(env, e.message) }; }
+    }
+    return out;
+  }
+
   env(name) {
     const data = this.load();
     const n = name || this.currentName(data);
@@ -257,7 +358,7 @@ export class ApiEnvironments {
 
   secrets(env) {
     const t = env.token || {};
-    const out = [this.tokens.get(env.name)?.value, t.client_secret, t.client_secret_env && process.env[t.client_secret_env], ...Object.values(env.headers || {}), ...Object.values(this.secretVars(env))];
+    const out = [this.tokens.get(env.name)?.value, t.client_secret != null ? unprotect(t.client_secret) : null, t.client_secret_env && process.env[t.client_secret_env], ...Object.values(env.headers || {}), ...Object.values(this.secretVars(env))];
     return out.filter((s) => typeof s === "string" && s.length >= 6);
   }
 
@@ -273,7 +374,7 @@ export class ApiEnvironments {
     const cached = this.tokens.get(env.name);
     if (!renew && cached && Date.now() < cached.renewAt) return cached.value;
     const id = t.client_id ?? (t.client_id_env && process.env[t.client_id_env]);
-    const secret = t.client_secret ?? (t.client_secret_env && process.env[t.client_secret_env]);
+    const secret = (t.client_secret != null ? unprotect(t.client_secret) : null) ?? (t.client_secret_env && process.env[t.client_secret_env]);
     if (!id || !secret) throw new ApiError(`Ambiente "${env.name}": falta client_id/client_secret do token (ou a variável ${t.client_secret_env || t.client_id_env || "…"})`, "config");
     const fields = { [t.id_field || "client_id"]: id, [t.secret_field || "client_secret"]: secret, ...(t.extra || {}) };
     const form = t.format === "form";
@@ -320,7 +421,7 @@ export class ApiEnvironments {
       throw new ApiError(`Ambiente "${env.name}" não tem ${names.join(", ")} configurado em secrets:`, "config");
     }
     req = { ...req, url: C.render(req.url, sv), headers: C.render(req.headers || {}, sv), body: C.render(req.body, sv) };
-    const headers = { Accept: "application/json, text/event-stream, */*", ...(env.headers || {}), ...(req.headers || {}) };
+    const headers = { Accept: "application/json, text/event-stream, */*", ...C.render(env.headers || {}, sv), ...(req.headers || {}) };
     let body = req.body;
     const file = req.file || null; // { name, type, data: Buffer } — o arquivo do slide (upload ou base64)
     const needsFile = (req.form && Object.values(req.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(body ?? ""));
@@ -488,7 +589,7 @@ export class ApiEnvironments {
     const sv = this.secretVars(env);
     let url = C.render(String(rt.url || ""), { ...(env.vars || {}), ...sv });
     const t = env.token || {};
-    const headers = { ...(env.headers || {}) };
+    const headers = { ...C.render(env.headers || {}, sv) };
     const auth = String(rt.auth || "header");
     if (auth !== "none") {
       const tok = await this.token(env);
