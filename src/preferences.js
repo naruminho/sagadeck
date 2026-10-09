@@ -22,6 +22,9 @@ export const PREF_SCHEMA = {
   exportacao: {
     pdfClaro: { def: false },   // PDF e impressão na versão clara do tema (quando o tema tem par claro/escuro)
   },
+  biblioteca: {
+    lixeiraDias: { def: 30, min: 1, max: 365 }, // excluída fica restaurável por tantos dias, depois é apagada de vez
+  },
 };
 
 export function preferencesFile(env = process.env, home = os.homedir()) {

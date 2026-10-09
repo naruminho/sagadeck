@@ -35,7 +35,7 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 
 **OneDrive (a biblioteca agora mora em `C:\Users\narum\OneDrive\Documents\sagadeck` e sincroniza)**
 
-2. **Cache fora da nuvem.** A lixeira passou a durar um dia (seção "Lixeira de um dia" abaixo). Sobram `.cache`
+2. **Cache fora da nuvem.** O prazo da lixeira virou preferência (seção "Lixeira com prazo nas Preferências"). Sobram `.cache`
    (5 MB) e `.historico` indo para o OneDrive; só pesa se a pasta Documentos estiver no OneDrive (comum no Windows 11
    e em empresa, mas não universal). O histórico de versões talvez deva continuar junto do deck (portável).
 3. **Arquivos só na nuvem (Files On-Demand).** Com espaço liberado, o OneDrive deixa só o marcador do arquivo, e
@@ -48,6 +48,18 @@ Antes da release 1.5.0. `python/sagadeck/api.py` tinha "Documentos\sagadeck" num
 `SyntaxWarning` no Python 3.12 (a CI no Linux acusava; aqui, no 3.11, passava calado) e erro nas versões seguintes.
 Virou "Documentos/sagadeck". Teste novo em `test/python-relay.test.js`: compila todo o pacote com `-W error` (qualquer
 Python; falhava antes).
+
+## Lixeira com prazo nas Preferências (padrão 30 dias) — 09/10/2026
+
+A "Lixeira de um dia" (abaixo) foi pedida pelos 407 MB de decks de teste numa máquina, mas saiu na 1.5.0 para todo
+mundo: quem atualizasse perdia de vez, no primeiro uso, o que estava na lixeira havia mais de um dia. Agora o prazo é
+uma preferência da máquina: **Preferências › Biblioteca › Quanto tempo a lixeira guarda** (1, 7, 30 ou 90 dias;
+`biblioteca.lixeiraDias`, padrão 30). `openLibrary` lê o prazo a cada limpeza (`trashDays` só nos testes) e
+`/api/library` devolve `trashDays`, que a tela da lixeira e o aviso ao excluir mostram.
+
+- Testes: `test/library.test.js` (com 1 dia, anteontem some do disco e a de uma hora fica; sem escolha, 30 dias) e
+  `test/studio.test.js` (escolher "1 dia" nas Preferências grava no arquivo, a biblioteca passa a usar e a dizer "Fica
+  aqui por um dia"; falha sem o recurso).
 
 ## Crítica acionável: cada ponto vira um cartão com Aplicar e Ignorar — 09/10/2026
 

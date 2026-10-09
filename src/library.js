@@ -22,8 +22,9 @@ import YAML from "yaml";
 import * as MASTER from "./master.js";
 import { unpackDeck } from "./package.js";
 import { writeDeckFile } from "./deck-file.js";
+import { loadPreferences } from "./preferences.js";
 
-export const TRASH_DAYS = 1;
+export const TRASH_DAYS = 30; // padrão; cada máquina escolhe em Preferências › Biblioteca (lixeiraDias)
 const TRASH = ".lixeira";
 const TOPIC_META = ".topico.json";
 const COLORS = ["#d33a2c", "#0f6cbd", "#e5a50a", "#8b5cf6", "#0e9f6e", "#e8590c", "#d6336c", "#495057"];
@@ -128,7 +129,9 @@ function uniquePath(dir, name, ext = "") {
   return p;
 }
 
-export function openLibrary(root) {
+// trashDays: quantos dias a lixeira guarda (padrão: o das Preferências desta máquina, lido a cada limpeza)
+export function openLibrary(root, { trashDays } = {}) {
+  const keepDays = () => trashDays ?? loadPreferences().biblioteca?.lixeiraDias ?? TRASH_DAYS;
   root = path.resolve(root);
   fs.mkdirSync(root, { recursive: true });
 
@@ -191,7 +194,7 @@ export function openLibrary(root) {
       topics.push({ id: e.name, name: e.name, color: meta.color || COLORS[topics.length % COLORS.length], count: mine.length, created: meta.created || 0 });
     }
     topics.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    return { root, topics, decks, trash: listTrash() };
+    return { root, topics, decks, trash: listTrash(), trashDays: keepDays() };
   }
 
   // ---- tópicos ----
@@ -414,7 +417,8 @@ export function openLibrary(root) {
     return all.length;
   }
   function purgeOld(now = Date.now()) {
-    for (const t of listTrash()) if (now - t.deleted > TRASH_DAYS * 864e5) purgeDeck(t.id);
+    const days = keepDays();
+    for (const t of listTrash()) if (now - t.deleted > days * 864e5) purgeDeck(t.id);
   }
 
   // ---- importar .sagadeck / .zip ----
