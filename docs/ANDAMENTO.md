@@ -126,6 +126,25 @@ lista longa, e os campos de modelo do Configurar IA vinham vazios (ninguém sabe
 - **Faixa "Configure a IA"** na biblioteca enquanto não está configurada (só onde se pode configurar; some ao salvar).
 - Testes: `test/instance.test.js` (quando abre o navegador e o comando de cada sistema; `sagadeck` sozinho),
   `test/library-ui.test.js` (faixa, recomendação preenche, salvar some a faixa).
+## Ambientes por campos e sem o botão no servidor — 09/10/2026
+
+Pergunta de Narumi: quem instala do zero sabe preencher o `ambientes.yaml` (slides de API)? O lugar já era automático
+(o Studio grava em `~/.sagadeck/ambientes.yaml`), mas preencher era editar YAML numa caixa de texto. E no servidor
+(multiusuário) o botão abria a janela com "O serviço recusou o acesso…", parecendo defeito.
+
+- **Por campos** (`src/studio/public/api-envs-form.js`, aba padrão): um cartão por ambiente com endereço base,
+  variáveis, segredos (digitado vai cifrado; em branco mantém; ou o nome de uma variável de ambiente), autenticação
+  (nenhuma; token fixo, que vira `Authorization: Bearer {{secret.token}}`; token que expira, client credentials) e
+  **Testar** (salva, chama o endereço base e pede o token). Sem ambiente próprio, a tela explica que o ENSAIO já
+  funciona. A aba **Como texto** é o editor de YAML de antes.
+- Motor (`src/api-client.js`): `formState`/`saveForm` (o mesmo arquivo, preservando comentários e o que o
+  formulário não conhece: `ca`, outros cabeçalhos), `check` (o Testar), cabeçalhos do ambiente com `{{secret.…}}` e
+  client secret do token cifrado. Rotas `/api/http/ambientes/form` e `/api/http/ambientes/testar`.
+- **No servidor o botão some** (o slide de API não executa lá; `/api/http/state` diz `live: false`).
+- Testes: `test/api-client.test.js` (salvar e ler de volta sem o valor dos segredos, comentários e `ca` preservados,
+  token fixo no pedido, segredo mantido em branco, Testar), `test/studio.test.js` (instalação do zero pela tela, até o
+  Testar confirmar com o token chegando na API), `test/studio-scripts.test.js` (botão some no multiusuário; falhava
+  sem o módulo).
 
 ## IA embutida, só npm e o Studio como a página do sagadeck — 09/10/2026
 

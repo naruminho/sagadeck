@@ -3430,6 +3430,7 @@ ${ta.value}`;
     renderApiEnvChips(st);
     if (!j.exists) apiEnvsStatus("Este arquivo ainda não existe. Validando o modelo antes de habilitar Salvar…");
     void validateApiEnvs();
+    await window.SagaApiEnvsForm.open(); // por campos é o padrão (api-envs-form.js); o texto fica na outra aba
   }
   function closeApiEnvs() { apiEnvsModal().classList.add("hidden"); }
   async function saveApiEnvs() {
@@ -3915,7 +3916,7 @@ ${ta.value}`;
     document.getElementById("btn-api-envs").addEventListener("click", openApiEnvs);
     document.getElementById("btn-close-api-envs").addEventListener("click", closeApiEnvs);
     document.getElementById("btn-api-envs-cancel").addEventListener("click", closeApiEnvs);
-    document.getElementById("btn-api-envs-save").addEventListener("click", saveApiEnvs);
+    document.getElementById("btn-api-envs-save").addEventListener("click", async () => { if (!window.SagaApiEnvsForm.active()) return saveApiEnvs(); if (await window.SagaApiEnvsForm.save()) await refreshStudioVars(); });
     document.getElementById("btn-api-vars-studio").addEventListener("click", () => openPane("vars"));
     document.getElementById("api-envs-text").addEventListener("input", scheduleApiEnvValidation);
     // grade de variáveis: grava ao sair da célula (change) ou no Enter; Esc desfaz; a linha em branco do fim cria

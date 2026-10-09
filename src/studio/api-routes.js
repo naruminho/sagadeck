@@ -54,10 +54,21 @@ export async function apiRoutes({ req, res, pathname, url, W, apiEnv, rtSessions
     const exists = fs.existsSync(apiEnv.file);
     return reply(200, { file: apiEnv.file, exists, text: exists ? fs.readFileSync(apiEnv.file, "utf8") : AMBIENTES_MODELO, builtin: Object.keys(apiEnv.builtin) });
   }
+  // tela Ambientes por campos: o mesmo arquivo como formulário (o valor de segredo nunca vem)
+  if (pathname === "/api/http/ambientes/form" && req.method === "GET") {
+    try { return reply(200, apiEnv.formState()); } catch (e) { return reply(400, { error: `${apiEnv.file}: ${e.message}` }); }
+  }
   if (req.method !== "POST") return reply(405, { error: "use POST" });
   if (!/^application\/json/i.test(req.headers["content-type"] || "")) return reply(415, { error: "envie JSON" });
   let body;
   try { body = await readJSON(req); } catch (e) { return reply(400, { error: e.message }); }
+  if (pathname === "/api/http/ambientes/form") {
+    if (fs.existsSync(apiEnv.file)) { fs.copyFileSync(apiEnv.file, `${apiEnv.file}.bak`); fs.chmodSync(`${apiEnv.file}.bak`, 0o600); }
+    try { return reply(200, apiEnv.saveForm(body.envs, { current: body.current })); } catch (e) { return reply(400, { error: e.message }); }
+  }
+  if (pathname === "/api/http/ambientes/testar") {
+    try { return reply(200, await apiEnv.check(String(body.name || ""))); } catch (e) { return reply(400, { error: e.message }); }
+  }
   if (pathname === "/api/http/ambientes" || pathname === "/api/http/ambientes/validar") {
     const text = String(body.text ?? "");
     let data;

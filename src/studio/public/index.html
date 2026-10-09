@@ -748,11 +748,15 @@
       <div class="modal-dialog-body api-envs-body">
         <p class="muted api-envs-intro">Endereços, tokens e segredos ficam na sua máquina, nunca no deck (o deck pode ir para o GitHub).
           Nos slides, <code>{{base}}</code> vira o <code>vars.base</code> do ambiente em uso; segredos entram como <code>{{secret.nome}}</code>.</p>
+        <div class="api-envs-tabs" role="tablist"><button type="button" role="tab" data-envs-tab="form" class="active">Por campos</button><button type="button" role="tab" data-envs-tab="text">Como texto (avançado)</button></div>
+        <div id="api-envs-form" class="api-envs-form"></div>
+        <div id="api-envs-textmode" hidden>
         <p class="muted api-envs-safety">O YAML é validado antes de salvar. Uma cópia da versão anterior fica ao lado do arquivo como <code>.bak</code>.</p>
         <div class="napkin-label">Ambiente em uso <span class="muted">— o selo no slide também troca</span></div>
         <div id="api-envs-list" class="api-envs-list"></div>
         <div class="napkin-label">Arquivo <code id="api-envs-file" class="muted"></code></div>
         <textarea id="api-envs-text" class="form-control mono" rows="20" spellcheck="false" aria-label="Conteúdo do ambientes.yaml"></textarea>
+        </div>
         <div id="api-envs-status" class="sf-hint api-envs-status"></div>
       </div>
       <div class="modal-dialog-footer">
@@ -843,6 +847,7 @@
   <script src="ui-icons.js"></script>
   <script src="update-notice.js"></script>
   <script src="ai-settings.js"></script>
+  <script src="api-envs-form.js"></script>
   <script src="calc-fields.js"></script>
   <script src="art-preview.js"></script>
   <script src="api-collections.js"></script>
