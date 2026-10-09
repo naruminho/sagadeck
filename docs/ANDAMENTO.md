@@ -42,6 +42,36 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
+## CI verde de novo (e a regra: merge só com a CI verde) — 09/10/2026
+
+A CI do GitHub estava vermelha havia dias (desde antes da 1.4.0) e 13 PRs foram mergeados e a 1.5.0 publicada assim.
+Regra nova no CLAUDE.md: merge e release só com a CI verde nas duas máquinas. As falhas, uma por uma:
+
+- **Python 3.12** (Ubuntu): escape inválido numa docstring; corrigido antes da 1.5.0 (seção abaixo).
+- **Cópia de mídia entre apresentações** (Windows): defeito real. `copySlideAssets` comparava o caminho real do
+  arquivo com o caminho da pasta sem resolver; deck aberto por junção (o `C:\Users\narum\sagadeck` antigo é uma) ou
+  por nome curto do Windows (`RUNNER~1`, a pasta temporária da CI) recusava toda mídia como "fora da apresentação".
+  Compara os dois resolvidos. Teste com uma junção de verdade (`test/studio-chat-jobs.test.js`).
+- **Animações paradas** (Windows): o Windows Server vem com "mostrar animações" desligado, o Chrome informa
+  `prefers-reduced-motion: reduce` e as cenas ficam paradas, de propósito. Os testes herdavam a preferência da máquina:
+  `newPage` (`test/helpers.js`) fixa "sem preferência", e quem testa o movimento reduzido pede `reducedMotion: "reduce"`.
+- **Defeito real achado no caminho**: com o sistema pedindo movimento reduzido, a cena às vezes animava sem parar. O
+  iframe dizia "ready" antes de o script da página escutar; a página nunca respondia (nem "slide atual", nem "movimento
+  reduzido"). A página agora fala com cada cena assim que se liga a ela (`src/runtime/motion.js`) e a cena acompanha a
+  mudança da preferência (`src/motion.js`). Teste novo: sistema com movimento reduzido deixa o holograma parado
+  (falhava 3 em 4 sem a correção; 5 em 5 com).
+- **"Parar a transformação"** (os dois): o teste esperava um texto do aviso de progresso para recarregar a página "no
+  meio". Agora espera o modelo (falso) ter recebido o pedido de escrever os slides.
+- **Animações paradas no Windows da CI, a causa de verdade** (achada com o diagnóstico que os testes passaram a
+  imprimir, inclusive o estado interno da cena, `window.__sagaMotion`): na CI a cena ficava com "parada" ligado para
+  sempre, embora a preferência dissesse "sem redução": ouviu "movimento reduzido" no carregamento (do sistema, antes de
+  a preferência do teste valer) e o código só sabia ligar esse estado, nunca desligar. Defeito real: religar as
+  animações com a apresentação aberta não descongelava nada. Agora "parada" se recalcula (deck `motion: none`, página
+  pedindo, preferência do sistema) sempre que um deles muda, nos dois sentidos; a página sempre diz sim ou não e repete
+  quando a preferência muda. Teste: movimento reduzido que deixa de valer faz a cena voltar a animar (falhava antes).
+- **Baixar PowerPoint sem as notas** (Windows): o clique esperava a "navegação" do download, e o PPTX numa máquina
+  lenta passa do limite do clique; o teste só precisa do pedido (`noWaitAfter`).
+
 ## Pacote Python: escape inválido numa docstring — 09/10/2026
 
 Antes da release 1.5.0. `python/sagadeck/api.py` tinha "Documentos\sagadeck" numa docstring: `\s` é escape inválido,

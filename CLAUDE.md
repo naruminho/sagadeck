@@ -29,7 +29,9 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - Nunca crie, copie ou "salve uma versão" de deck fora dela: nada de `%TEMP%`, pasta atual, dentro do repositório ou `--library` apontando para outro lugar. Cópias espalhadas são o que fazia `.js` e imagens "sumirem".
 - Para testar algo com um deck da pessoa, abra o da biblioteca (`sagadeck studio`, sem `--library`). Os testes automáticos usam uma biblioteca temporária própria (`test/helpers.js` define `SAGADECK_HOME`); isso é só da suíte.
 - No código: apresentação nova passa por `newDeckPath` (`src/library.js`) ou pela biblioteca (`openLibrary(...).createDeck`). `test/storage.test.js` garante isso no `new`, `scaffold`, `ensaio-api` e nas ferramentas MCP.
-- Terminou uma mudança: teste, commit, PR e merge na hora, sem perguntar.
+- Terminou uma mudança: teste, commit, PR e merge sem perguntar, **mas só com a CI verde** (Ubuntu e Windows,
+  conferida depois que termina: `gh pr checks`). CI vermelha ou rodando: não mergeia nem publica release. CI que já
+  estava vermelha se conserta antes de qualquer outra coisa; "a falha é antiga" não autoriza seguir.
 - Acompanhando um PR (CI, revisão): confira a cada **10 minutos**, nunca de hora em hora.
 
 ## Escrita do deck (IA e código)

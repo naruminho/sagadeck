@@ -100,7 +100,7 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     await t.test("menu do cartão: Baixar PowerPoint sem as notas pede o arquivo sem as notas", { timeout: 120000 }, async () => {
       await p.click('[data-view="Trabalho"]');
       await p.click(".card[data-id] [data-more]");
-      const [req] = await Promise.all([p.waitForRequest(/api\/library\/download/), p.click('[data-dl="pptx"][data-notas="0"]')]);
+      const [req] = await Promise.all([p.waitForRequest(/api\/library\/download/), p.click('[data-dl="pptx"][data-notas="0"]', { noWaitAfter: true })]); // o download é "navegação": numa máquina lenta, o PPTX demora mais que o limite do clique
       const u = new URL(req.url());
       assert.equal(u.searchParams.get("kind"), "pptx");
       assert.equal(u.searchParams.get("notas"), "0");

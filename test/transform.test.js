@@ -323,9 +323,14 @@ test("Studio: Parar a transformação pelo chat; reabrir a página no meio acomp
     assert.match(await lastAI(), /Parado a pedido/);
     assert.equal(saved().slides[1].layout, "canvas", "parar não mexe no deck");
     // de novo; no meio, a página recarrega (fechou o navegador): o servidor segue e a página reaberta acompanha
+    // "no meio" = o modelo já recebeu o pedido de escrever os slides e ainda está respondendo (o falso demora 3 s).
+    // Antes esperava um texto do aviso de progresso, que muda conforme a etapa e numa máquina lenta não batia.
+    const writing = () => llm.requests.filter((r) => /Escreva os slides destes itens/.test(r.lastUser)).length;
+    const before = writing();
     await p.fill("#chat-input", "melhore a aula inteira mantendo o estilo");
     await p.click("#chat-send");
-    await p.waitForFunction(() => /Transformando|melhorando|Reescrevendo|Preparando|Planejando/i.test(document.querySelector('.ai-working')?.innerText || ''), null, { timeout: 20000 });
+    for (const end = Date.now() + 30000; writing() === before && Date.now() < end;) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(writing() > before, "a transformação chegou a escrever os slides");
     await p.reload({ waitUntil: "networkidle" });
     await p.click("#tab-btn-chat").catch(() => {});
     await p.waitForFunction(() => /A transformação terminou/.test(document.querySelector("#chat-messages")?.innerText || ""), null, { timeout: 60000 });

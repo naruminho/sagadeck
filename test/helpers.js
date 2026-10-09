@@ -68,8 +68,11 @@ export async function browserOrSkip(t) {
 }
 
 // Página que coleciona erros de JS/console — todo teste de UI termina exigindo zero erros.
-export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props" } = {}) {
-  const page = await browser.newPage({ viewport });
+export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props", reducedMotion = "no-preference" } = {}) {
+  // a preferência de movimento é do teste, não da máquina: o Windows Server da CI vem com "mostrar animações"
+  // desligado (prefers-reduced-motion: reduce) e as cenas ficavam paradas, de propósito; quem testa o movimento
+  // reduzido pede { reducedMotion: "reduce" }
+  const page = await browser.newPage({ viewport, reducedMotion });
   page.setDefaultTimeout(8000); // falha rápido em vez de travar a suíte
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -106,4 +109,20 @@ export async function novoSlide(p, tipo) {
   await card.waitFor();
   await card.click();
   await p.waitForSelector("#scene-modal.hidden", { state: "attached" });
+}
+
+// Diagnóstico de uma cena de movimento (iframe[data-motion=tipo]) para a mensagem de erro: o que a cena vê quando não
+// anima (preferência de movimento, página oculta, quadros de animação por segundo) e o slide da página.
+export async function motionDiag(page, type) {
+  try {
+    const frame = await (await page.$(`iframe[data-motion=${type}]`))?.contentFrame();
+    const inner = frame ? await frame.evaluate(() => new Promise((done) => {
+      let n = 0; const t0 = performance.now(); const tick = () => { n++; if (performance.now() - t0 < 500) requestAnimationFrame(tick); else done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n }); };
+      requestAnimationFrame(tick); setTimeout(() => done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n, semRaf: true }), 1500);
+    })) : "sem iframe";
+    const estado = frame ? await frame.evaluate(() => window.__sagaMotion?.() ?? null) : null;
+    const canvas = frame ? await frame.evaluate(() => { const c = document.querySelector("canvas"); const m = document.querySelector("main"); return c ? { w: c.width, h: c.height, mainW: m?.clientWidth, mainH: m?.clientHeight, url: c.toDataURL().length } : null; }) : null;
+    const outer = await page.evaluate((t) => { const f = document.querySelector(`iframe[data-motion=${t}]`)?.getBoundingClientRect(); return { hidden: document.hidden, vis: document.visibilityState, reduce: matchMedia("(prefers-reduced-motion: reduce)").matches, motion: document.documentElement.dataset.motion, export: document.documentElement.classList.contains("export"), classes: document.documentElement.className, atual: document.querySelector(".slide.current")?.dataset.idx ?? null, iframe: f ? [Math.round(f.width), Math.round(f.height)] : null }; }, type);
+    return JSON.stringify({ estado, cena: inner, canvas, pagina: outer });
+  } catch (e) { return `diagnóstico falhou: ${e.message}`; }
 }
