@@ -15,6 +15,9 @@ window.SagaPrefs = function ({ dom, store, escHtml, escAttr, fold, setAppTheme, 
       { k: "ia.autor", type: "text", label: "Seu nome", hint: "Vai na capa e no rodapé das apresentações novas (no lugar de \"Seu Nome\")." },
       { k: "ia.idioma", type: "select", options: [["auto", "O do pedido"], ["português do Brasil", "Português (Brasil)"], ["inglês", "Inglês"], ["espanhol", "Espanhol"]], label: "Idioma do conteúdo gerado" },
     ] },
+    { id: "biblioteca", title: "Biblioteca", items: [
+      { k: "biblioteca.lixeiraDias", type: "select", options: [["1", "1 dia"], ["7", "7 dias"], ["30", "30 dias"], ["90", "90 dias"]], label: "Quanto tempo a lixeira guarda", hint: "Apresentação excluída fica restaurável por esse tempo; depois é apagada de vez." },
+    ] },
     { id: "exportacao", title: "Exportação", items: [
       { k: "exportacao.pdfClaro", type: "bool", label: "PDF na versão clara do tema", hint: "Tema escuro com par claro (ex.: Manual noite) sai claro no PDF, melhor para imprimir." },
     ] },
