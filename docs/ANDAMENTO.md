@@ -108,6 +108,34 @@ os achados para os slides").
   `missed`, elas entram no inventário com a caixa exata do texto e passam pela mesma releitura do recorte
   (`transcribeEquation`) que escreve o LaTeX das outras. Saiu da lista.
 
+## IA embutida, só npm e o Studio como a página do sagadeck — 09/10/2026
+
+Pedido de Narumi, depois de um agente (Copilot) instalar o sagadeck, abrir a página do modelrelay e, sem achar a
+interface, criar uma do zero: deixar claro que a página é o Studio; tirar o pip (o pacote Python só chamava o Node);
+e tirar o modelrelay (Python, outro repositório, versão para sincronizar), mantendo uma camada separada onde a pessoa
+põe a chave e o modelo sem mexer no código.
+
+- **IA embutida** (`src/ai/ia-config.js`): provedor, chave e modelos desta máquina em `~/.sagadeck/ia.json`
+  (`SAGADECK_IA`), fora do código e da biblioteca. Chave no arquivo ou numa variável (`keyEnv`); papéis `text`,
+  `vision`, `image`, `search` viram os modelos configurados (`resolveModel`); `headers` fixos; e `adaptador`: um `.mjs`
+  da pessoa cujo default `(url, init) => Response` faz o envio (provedor fora do padrão da OpenAI, sem código no
+  sagadeck). Variáveis `SAGADECK_LLM_*` valem por cima (servidor, testes). Sem nada configurado, a IA fica desligada.
+- **Migração**: na primeira vez, o `~/.modelrelay/config.toml` vira o `ia.json` (provedor padrão, chave ou
+  `api_key_env`, `[models]` com `[apps.sagadeck.models]` por cima); não sobrescreve nada.
+- **Configurar IA** (`src/studio/public/ai-settings.js`, `src/studio/ia-routes.js`): mesma tela na biblioteca (botão
+  Configurar IA) e no editor (IA desligada/ligada): provedor, endereço, chave (nunca volta inteira: `••••1234`),
+  modelos, **Testar** (pergunta curta com o que está na tela) e **Salvar**. No multiusuário não aparece e não grava.
+- **Saiu**: `src/ai/relay.js` (subir o `modelrelay serve`), o cabeçalho `X-Modelrelay-App`, a rota `/api/ai/setup`,
+  a pasta `python/`, o `pyproject.toml`, `scripts/bundle.mjs` e os testes deles; a publicação vai só para o npm.
+- **O Studio é a página** (`src/studio/banner.js`): a primeira linha do `sagadeck studio` é "Abra no navegador:
+  http://127.0.0.1:3517"; a IA aparece depois (provedor e modelo, ou onde configurar). README com "Comece aqui";
+  SKILL.md com "Para agentes: deixar pronto para usar" (Studio, nunca criar interface própria, Configurar IA) e a
+  porta certa (dizia 3000).
+- Testes: `test/ia-config.test.js` (migração com o config.toml real, chave mascarada, llmConfig e papéis),
+  `test/ai.test.js` (chamada direta com a chave e o modelo configurados; adaptador faz o envio),
+  `test/library-ui.test.js` (Configurar IA de ponta a ponta: testa, salva, a chave não volta, multiusuário bloqueia),
+  `test/instance.test.js` (primeira linha do `sagadeck studio`; SKILL.md com porta, npm e a regra).
+
 ## Studio avisa quando o código mudou por baixo dele — 09/10/2026
 
 Continuação do incidente "nenhum slide abre" de 08/10: um Studio aberto antes de uma atualização segue com o servidor

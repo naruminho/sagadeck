@@ -1036,7 +1036,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   commands.forEach((c, i) => actions.push(c.result?.denied ? `Comando ${i + 1} não autorizado: ${c.why || c.language}`
     : `Comando ${i + 1} (${c.language}): ${c.why || ""}${c.result?.timedOut ? " (tempo esgotado)" : c.result?.exitCode === 0 ? " (ok)" : ` (saída ${c.result?.exitCode ?? "erro"})`}`));
   if (visionRouted) actions.push(`O modelo de texto não enxerga imagens: para ver o slide, esta resposta veio do modelo de visão (${visionRouted}).`);
-  if (imagesDropped) actions.push("O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, use um modelo com visão em [apps.sagadeck.models] do modelrelay.");
+  if (imagesDropped) actions.push("O modelo de texto atual não enxerga imagens: respondi sem ver o slide (e sem as imagens coladas). Para ele ver, escolha um modelo de visão em Configurar IA.");
   // conversa: nada muda (a resposta pode trazer opções clicáveis)
   if (talk) return { reply: prose, spec, actions, targetSlide, talk: true, options };
   // transformar a apresentação inteira: quem executa é o servidor (src/ai/transform.js), com o andamento no chat

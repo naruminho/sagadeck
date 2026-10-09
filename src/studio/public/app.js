@@ -3032,27 +3032,8 @@
   // ==========================================================================
   // LLM: STATUS E GERAÇÃO DE DECK
   // ==========================================================================
-  async function openAISettings() {
-    // O console protege-se com frame-ancestors self: abrir numa aba, nunca dentro de iframe.
-    const setupWindow = window.open("about:blank", "sagadeck-ai-setup");
-    let dialog = document.getElementById("ai-settings-dialog");
-    if (!dialog) {
-      dialog = document.createElement("dialog"); dialog.id = "ai-settings-dialog"; dialog.className = "ai-settings-dialog";
-      dialog.innerHTML = '<div class="ai-settings-head"><h2>Configurar IA</h2><button type="button" data-close>Fechar</button></div><p data-ai-info>Verificando a conexão...</p><a data-ai-link target="_blank" rel="noopener" hidden>Abrir configuração do modelrelay</a><button type="button" data-ai-refresh>Verificar conexão</button>';
-      document.body.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-      dialog.addEventListener('close',()=>refreshAIStatus(true));
-      dialog.querySelector('[data-ai-refresh]').onclick=()=>openAISettings();
-    }
-    if (!dialog.open) dialog.showModal();
-    await refreshAIStatus(true);
-    const info=dialog.querySelector('[data-ai-info]'), link=dialog.querySelector('[data-ai-link]');
-    try {
-      const setup=await (await fetch('api/ai/setup')).json();
-      info.textContent=state.ai.available ? `Conectada · modelo de texto: ${state.ai.textModel}. A configuração abre em uma aba própria.` : 'O serviço de IA não está respondendo. Inicie modelrelay serve neste computador e clique em Verificar conexão.';
-      if(setup.url){link.href=setup.url;link.hidden=false;if(setupWindow){setupWindow.opener=null;setupWindow.location.href=setup.url;dialog.close();}}
-      else {setupWindow?.close();link.hidden=true;}
-    } catch { setupWindow?.close();info.textContent='Não foi possível consultar a configuração. Verifique a conexão e tente novamente.'; }
-  }
+  // Configurar IA: provedor, chave e modelos desta máquina (ai-settings.js)
+  function openAISettings() { window.SagaAISettings.open(() => refreshAIStatus(true)); }
 
   async function refreshAIStatus(force = false) {
     try {
@@ -3065,7 +3046,7 @@
     dom.aiStatus.textContent = on ? "IA ligada" : "IA desligada";
     dom.aiStatus.title = on
       ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
-      : `Nenhum LLM em ${state.ai.url || "?"}. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL. Clique para configurar a IA.`;
+      : state.ai.configured ? `Nenhum LLM respondendo em ${state.ai.url}. Clique para conferir o provedor e a chave.` : "A IA não está configurada. Clique para informar provedor e chave.";
     dom.aiStatus.classList.toggle("on", on);
     dom.aiStatus.classList.toggle("off", !on);
   }
@@ -3073,7 +3054,7 @@
   function openAiDeckModal() {
     dom.aiDeckTheme.innerHTML = '<option value="">A IA escolhe</option>' +
       (state.themes || []).map((t) => `<option value="${t}">${t}</option>`).join("");
-    dom.aiDeckStatus.textContent = state.ai.available ? "" : 'Nenhum LLM disponível — rode "modelrelay serve" antes de gerar.';
+    dom.aiDeckStatus.textContent = state.ai.available ? "" : "IA desligada: clique em IA desligada, no alto, para configurar antes de gerar.";
     // cada abertura recomeça do sensato: 15 min viram 10 slides
     dom.aiDeckMinutes.value = "15";
     dom.aiDeckSlides.value = "10";

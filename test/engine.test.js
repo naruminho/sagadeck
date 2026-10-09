@@ -463,14 +463,6 @@ test("direções criativas: cada uma indica um tema que existe", async () => {
   }
 });
 
-test("API Python: studio escuta só nesta máquina por padrão e aceita a pasta da biblioteca", () => {
-  const api = fs.readFileSync(new URL("../python/sagadeck/api.py", import.meta.url), "utf8");
-  const sig = api.match(/def studio\(([\s\S]*?)\) -> None:/)[1];
-  assert.match(sig, /host: str = "127\.0\.0\.1"/);
-  assert.match(sig, /library:/);
-  assert.match(api, /--library=/);
-});
-
 test("a apresentação tem ícone próprio (sem pedir /favicon.ico, que dava 404)", () => {
   const { html } = buildHTML({ title: "t", slides: [{ text: "oi" }] });
   assert.ok(html.includes('<link rel="icon" href="data:image/svg+xml,'));

@@ -119,7 +119,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         // Sem modelo, ninguém decide nada: nem "o que é X?" nem "resuma" viram edição por palavra-chave
         // (as regras antigas trocavam o layout e enfiavam texto genérico no slide). O deck fica como está.
         return {
-          reply: `A IA está desligada (nenhum LLM respondendo em ${llmConfig().url}), então não mexi em nada. Rode "modelrelay serve" ou defina SAGADECK_LLM_URL e mande de novo.`,
+          reply: `A IA está desligada (${llmConfig().url ? `nenhum LLM respondendo em ${llmConfig().url}` : "não configurada"}), então não mexi em nada. Configure em Configurar IA (provedor e chave) e mande de novo.`,
           spec, actions: [], targetSlide: body.targetSlide, talk: true, mode: "off",
         };
       }

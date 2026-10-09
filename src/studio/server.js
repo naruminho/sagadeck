@@ -5,6 +5,7 @@ import {chatErrorResult,installErrorResponses} from './errors.js';
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { publicScript } from "./public-files.js";
+import { iaRoutes } from "./ia-routes.js";
 import { codeWatch } from "./code-version.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
@@ -40,7 +41,7 @@ import { generateForStudio } from "./generate.js";
 import { runCommand, logCommand } from "../ai/commands.js";
 import { needsApproval, approvalLabel, awaitApproval, commandEnv, estimateSubmitCost } from "./command-approval.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
-import { llmAvailable, llmConfig } from "../ai/llm.js";
+import { llmAvailable, llmConfig, llmConfigured } from "../ai/llm.js";
 import { editDeck, textToSlide, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
 import { sendExport, sendHtml, lightVariant } from "./exporting.js";
@@ -892,27 +893,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      // Tela de configuração da IA: é do modelrelay (vale para todos os apps). Só aparece quando ele
-      // roda nesta máquina e tem a tela; no multiusuário quem configura é o admin, pelo portal.
-      if (pathname === "/api/ai/setup" && req.method === "GET") {
-        let setup = null;
-        const base = llmConfig().url.replace(/\/v1$/, "");
-        if (!opts.multiuser && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(base)) {
-          try {
-            const r = await fetch(base + "/api/console/config", { signal: AbortSignal.timeout(1500) });
-            if (r.ok) setup = base + "/";
-          } catch {}
-        }
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ url: setup }));
-        return;
-      }
+      // Configurar IA (provedor, chave, modelos desta máquina): src/studio/ia-routes.js
+      if (pathname.startsWith("/api/ia") && await iaRoutes({ req, res, pathname, opts, readJSON })) return;
 
       if (pathname === "/api/ai/status" && req.method === "GET") {
         const cfg = llmConfig();
         const available = await llmAvailable({ force: url.searchParams.has("refresh") });
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ available, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
+        res.end(JSON.stringify({ available, configured: llmConfigured(cfg), source: cfg.source, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
         return;
       }
 
@@ -954,7 +942,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
         if (!(await llmAvailable({ force: true }))) {
           res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: `Nenhum LLM respondendo em ${llmConfig().url}. Rode "modelrelay serve" ou ajuste SAGADECK_LLM_URL.` }));
+          res.end(JSON.stringify({ error: `${llmConfigured() ? `Nenhum LLM respondendo em ${llmConfig().url}. Confira o provedor e a chave em Configurar IA.` : "A IA não está configurada: clique em Configurar IA e informe provedor e chave."}` }));
           return;
         }
         // O deck novo vai para uma pasta própria na biblioteca (regra do CLAUDE.md), no tópico do deck aberto

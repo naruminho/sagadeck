@@ -1,20 +1,23 @@
 import { mediaPrompt } from './art-direction.js';
 // sagadeck · Cliente de LLM (qualquer endpoint compatível com OpenAI: /v1/chat/completions)
 //
-// Por padrão fala com o `modelrelay serve` local (http://127.0.0.1:8765/v1), que decide pela
-// configuração dele para onde a chamada vai (OpenRouter, OpenAI, gateway corporativo...).
-// Também funciona apontando direto para um provedor.
+// Fala direto com o provedor configurado nesta máquina (~/.sagadeck/ia.json, tela Configurar IA do Studio:
+// src/ai/ia-config.js). As variáveis abaixo valem por cima da configuração:
 //
-//   SAGADECK_LLM_URL      base da API            (padrão: http://127.0.0.1:8765/v1)
-//   SAGADECK_LLM_KEY      bearer token opcional  (ex.: chave do OpenRouter se apontar direto)
-//   SAGADECK_TEXT_MODEL   modelo de texto        (padrão: "text"  — apelido no [models] do modelrelay)
-//   SAGADECK_IMAGE_MODEL  modelo de imagem       (padrão: "image" — idem)
-//   SAGADECK_VISION_MODEL modelo que vê imagens  (padrão: "vision" — quando o de texto não enxerga, a chamada com
-//                         imagem vai para ele em vez de perder a imagem; quem configura o relay decide qual é)
+//   SAGADECK_LLM_URL      base da API            (ex.: https://openrouter.ai/api/v1)
+//   SAGADECK_LLM_KEY      bearer token           (ex.: a chave do OpenRouter)
+//   SAGADECK_TEXT_MODEL   modelo de texto        (padrão: o "text" da configuração)
+//   SAGADECK_IMAGE_MODEL  modelo de imagem       (padrão: o "image" da configuração)
+//   SAGADECK_VISION_MODEL modelo que vê imagens  (padrão: o "vision" da configuração; quando o de texto não enxerga,
+//                         a chamada com imagem vai para ele em vez de perder a imagem)
+//   SAGADECK_SEARCH_MODEL modelo que busca na web (padrão: o "search" da configuração)
 //   SAGADECK_LLM_TIMEOUT  segundos por chamada; em streaming, segundos sem chegar nada (padrão: 180)
 //   SAGADECK_LLM_FIRST_TIMEOUT  em streaming, segundos até a 1ª palavra (o modelo pensa antes) (padrão: 600)
 
 import { currentUsage, recordUsage } from './usage.js';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { iaFile, loadIA, keyOf, migrateModelrelay } from './ia-config.js';
 import {setTimeout as delay} from 'node:timers/promises';
 
 export class LLMError extends Error {
@@ -28,35 +31,67 @@ export class LLMError extends Error {
   }
 }
 
+// De onde vem a IA: variáveis de ambiente (SAGADECK_LLM_URL…, valem por cima; é como os testes apontam para o LLM
+// falso) ou a configuração desta máquina (~/.sagadeck/ia.json, src/ai/ia-config.js). Os papéis text, vision, image e
+// search viram os modelos configurados; sem configuração nenhuma, a IA fica desligada (o Studio usa as regras locais).
+let migrated = false;
 export function llmConfig(env = process.env) {
+  const fromEnv = !!env.SAGADECK_LLM_URL;
+  if (!fromEnv && !migrated) { migrated = true; try { migrateModelrelay({ env, file: iaFile(env) }); } catch { /* segue sem */ } }
+  const ia = fromEnv ? null : loadIA(iaFile(env));
+  const m = ia?.models || {};
   return {
-    url: (env.SAGADECK_LLM_URL || "http://127.0.0.1:8765/v1").replace(/\/+$/, ""),
-    key: env.SAGADECK_LLM_KEY || "",
-    textModel: env.SAGADECK_TEXT_MODEL || "text",
-    imageModel: env.SAGADECK_IMAGE_MODEL || "image",
-    visionModel: env.SAGADECK_VISION_MODEL || "vision",
+    url: (env.SAGADECK_LLM_URL || ia?.url || "").replace(/\/+$/, ""),
+    key: env.SAGADECK_LLM_KEY || (ia ? keyOf(ia, env) : ""),
+    textModel: env.SAGADECK_TEXT_MODEL || m.text || "text",
+    imageModel: env.SAGADECK_IMAGE_MODEL || m.image || "image",
+    visionModel: env.SAGADECK_VISION_MODEL || m.vision || m.text || "vision",
+    // busca na web pelo modelo (no OpenRouter, um modelo ":online"); sem ele, a pesquisa usa os buscadores diretos
+    searchModel: env.SAGADECK_SEARCH_MODEL || m.search || (fromEnv ? "search" : ""),
+    headers: ia?.headers || {},
+    adaptador: ia?.adaptador || "",
+    source: fromEnv ? "variável" : ia ? "arquivo" : "nenhuma",
     timeoutMs: Number(env.SAGADECK_LLM_TIMEOUT || 180) * 1000,
     firstTimeoutMs: Number(env.SAGADECK_LLM_FIRST_TIMEOUT || 600) * 1000,
-    // o modelrelay escolhe os modelos deste app em [apps.sagadeck.models] (o resto vem de [models])
-    app: env.SAGADECK_APP || "sagadeck",
   };
+}
+export const llmConfigured = (cfg = llmConfig()) => !!(cfg.url || cfg.adaptador);
+
+// o papel (text, vision, image, search) vira o modelo configurado; outro nome passa como veio
+export function resolveModel(cfg, name) {
+  const roles = { text: cfg.textModel, vision: cfg.visionModel, image: cfg.imageModel, search: cfg.searchModel };
+  return roles[name] || name;
 }
 
 function headers(cfg) {
-  const h = { "Content-Type": "application/json", "X-Modelrelay-App": cfg.app || "sagadeck" };
+  const h = { "Content-Type": "application/json", ...(cfg.headers || {}) };
   if (cfg.key) h.Authorization = `Bearer ${cfg.key}`;
   return h;
 }
+
+// Adaptador (opcional, da pessoa): um .mjs cujo default é (url, init) => Response. Serve para o que não é compatível
+// com a API da OpenAI (outro jeito de autenticar, outro endereço) sem mexer no sagadeck. Sem ele, o fetch normal.
+const adapters = new Map();
+async function send(cfg, url, init) {
+  if (!cfg.adaptador) return fetch(url, init);
+  if (!adapters.has(cfg.adaptador)) adapters.set(cfg.adaptador, import(pathToFileURL(path.resolve(cfg.adaptador)).href).then((mod) => mod.default));
+  const fn = await adapters.get(cfg.adaptador);
+  if (typeof fn !== "function") throw new LLMError(`O adaptador ${cfg.adaptador} não exporta uma função padrão (url, init) => Response.`);
+  return fn(url, init);
+}
+const notConfigured = () => new LLMError("A IA não está configurada: no Studio, abra Configurar IA (ou crie ~/.sagadeck/ia.json).", { code: "AI_NOT_CONFIGURED" });
+const howToFix = "Confira o provedor e a chave em Configurar IA, no Studio.";
 
 // Disponibilidade com cache curto, para o Studio decidir entre LLM e as regras determinísticas.
 let availability = { at: 0, ok: false, url: "" };
 
 export async function llmAvailable({ force = false } = {}) {
   const cfg = llmConfig();
+  if (!llmConfigured(cfg)) return false;
   if (!force && availability.url === cfg.url && Date.now() - availability.at < 30_000) return availability.ok;
   let ok = false;
   try {
-    const res = await fetch(`${cfg.url}/models`, { headers: headers(cfg), signal: AbortSignal.timeout(2500) });
+    const res = await send(cfg, `${cfg.url}/models`, { headers: headers(cfg), signal: AbortSignal.timeout(2500) });
     ok = res.ok;
   } catch {
     ok = false;
@@ -106,13 +141,13 @@ export async function chat(messages, opts = {}) {
 
 async function chatUnmetered(messages, opts = {}) {
   const cfg = opts.cfg || llmConfig();
-  const key = `${cfg.url}|${cfg.app}|${opts.model || cfg.textModel}`;
+  const key = `${cfg.url}|${opts.model || cfg.textModel}`;
   // o modelo de texto não enxerga: a chamada com imagem vai para o modelo de visão (se o relay tiver um)
   const viaVision = async () => {
     const vision = cfg.visionModel;
-    if (!vision || vision === (opts.model || cfg.textModel) || noVision.has(`${cfg.url}|${cfg.app}|${vision}`)) return null;
+    if (!vision || vision === (opts.model || cfg.textModel) || noVision.has(`${cfg.url}|${vision}`)) return null;
     try { return { ...(await chatOnce(messages, { ...opts, model: vision, cfg })), visionRouted: vision }; }
-    catch (e) { if (refusesImages(e) || e.status === 400 || e.status === 404) { noVision.add(`${cfg.url}|${cfg.app}|${vision}`); return null; } throw e; }
+    catch (e) { if (refusesImages(e) || e.status === 400 || e.status === 404) { noVision.add(`${cfg.url}|${vision}`); return null; } throw e; }
   };
   if (hasImageParts(messages) && noVision.has(key)) {
     return (await viaVision()) || { ...(await chatOnce(withoutImages(messages), { ...opts, cfg })), imagesDropped: true };
@@ -147,7 +182,8 @@ async function chatOnce(messages, opts = {}) {
 }
 
 async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, signal, reasoningOff, cfg = llmConfig() } = {}) {
-  const body = { model: model || cfg.textModel, messages };
+  if (!llmConfigured(cfg)) throw notConfigured();
+  const body = { model: resolveModel(cfg, model || cfg.textModel), messages };
   if (reasoningOff) body.reasoning = { enabled: false };
   if (temperature !== undefined) body.temperature = temperature;
   if (maxTokens) body.max_tokens = maxTokens;
@@ -155,7 +191,7 @@ async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, s
 
   let res;
   try {
-    res = await fetch(`${cfg.url}/chat/completions`, {
+    res = await send(cfg, `${cfg.url}/chat/completions`, {
       method: "POST",
       headers: headers(cfg),
       body: JSON.stringify(body),
@@ -168,7 +204,7 @@ async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, s
     if (e.cause?.code === "UND_ERR_HEADERS_TIMEOUT") return chatStream(body, () => {}, cfg, signal);
     const why = e.name === "TimeoutError" ? `sem resposta em ${cfg.timeoutMs / 1000}s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
-      "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });
+      howToFix, { cause: e });
   }
 
   const raw = await res.text();
@@ -213,7 +249,7 @@ async function chatStream(body, onDelta, cfg, signal) {
 async function readStream(body, onDelta, cfg, signal, sig, alive, wrote = () => {}, noTextFor = () => 0) {
   let res;
   try {
-    res = await fetch(`${cfg.url}/chat/completions`, {
+    res = await send(cfg, `${cfg.url}/chat/completions`, {
       method: "POST",
       headers: headers(cfg),
       body: JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } }),
@@ -223,7 +259,7 @@ async function readStream(body, onDelta, cfg, signal, sig, alive, wrote = () => 
     if (signal?.aborted) throw new LLMError("Parado a pedido.", { cause: e, aborted: true });
     const why = e.name === "TimeoutError" ? `não começou a responder em ${(cfg.firstTimeoutMs ?? cfg.timeoutMs) / 1000} s` : e.message;
     throw new LLMError(`Não consegui falar com o LLM em ${cfg.url} (${why}). ` +
-      "Rode `modelrelay serve` ou ajuste SAGADECK_LLM_URL.", { cause: e });
+      howToFix, { cause: e });
   }
   alive(); // começou: daqui em diante, o limite é ficar sem chegar nada
   if (!res.ok) {

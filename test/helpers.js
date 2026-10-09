@@ -14,6 +14,12 @@ process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home
 process.env.SAGADECK_AMBIENTES = path.join(process.env.SAGADECK_HOME, "ambientes-de-teste.yaml");
 // e para as Preferências (~/.sagadeck/preferencias.json)
 process.env.SAGADECK_PREFERENCIAS = path.join(process.env.SAGADECK_HOME, "preferencias-de-teste.json");
+// e para a configuração da IA (~/.sagadeck/ia.json) e a do modelrelay antigo (migração): os testes nunca leem a chave
+// de quem roda. Nos testes ao vivo (SAGADECK_LIVE=1), a IA de verdade desta máquina vale.
+if (process.env.SAGADECK_LIVE !== "1") {
+  process.env.SAGADECK_IA = path.join(process.env.SAGADECK_HOME, "ia-de-teste.json");
+  process.env.MODELRELAY_CONFIG = path.join(process.env.SAGADECK_HOME, "modelrelay-de-teste.toml");
+}
 // registro dos comandos da IA (src/ai/commands.js): nos testes, numa pasta temporária
 process.env.SAGADECK_COMANDOS_LOG = path.join(process.env.SAGADECK_HOME, "comandos-de-teste.log");
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");

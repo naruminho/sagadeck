@@ -225,11 +225,42 @@ test("generateDeck com materiais: bloco antes do briefing", async () => {
   assert.match(req, /2025,5/);
 });
 
-test("o sagadeck se identifica para o modelrelay (modelos por app)", async () => {
+// IA configurada nesta máquina (Configurar IA → ~/.sagadeck/ia.json): o sagadeck chama o provedor direto, com a chave
+// e o modelo de lá (antes passava por um serviço à parte, o modelrelay, na porta 8765).
+async function withMachineIA(cfg, fn) {
+  const { saveIA } = await import("../src/ai/ia-config.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ia-"));
+  const keep = { url: process.env.SAGADECK_LLM_URL, ia: process.env.SAGADECK_IA };
+  saveIA(cfg, path.join(dir, "ia.json"));
+  delete process.env.SAGADECK_LLM_URL;
+  process.env.SAGADECK_IA = path.join(dir, "ia.json");
+  try { return await fn(dir); }
+  finally { process.env.SAGADECK_LLM_URL = keep.url; process.env.SAGADECK_IA = keep.ia; fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+test("IA da máquina: a chamada vai direto ao provedor, com a chave e o modelo configurados", async () => {
   reply = () => "ok";
-  const n = llm.requests.length;
-  await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
-  assert.equal(llm.requests[n].headers["x-modelrelay-app"], "sagadeck");
+  await withMachineIA({ provider: "outro", url: llm.url, key: "sk-teste-123", models: { text: "provedor/modelo-texto" } }, async () => {
+    const n = llm.requests.length;
+    await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+    assert.equal(llm.requests[n].headers.authorization, "Bearer sk-teste-123");
+    assert.equal(llm.requests[n].body.model, "provedor/modelo-texto", "o papel text vira o modelo configurado");
+    assert.equal(llm.requests[n].headers["x-modelrelay-app"], undefined, "sem o cabeçalho do modelrelay");
+  });
+});
+
+test("IA da máquina: o adaptador da pessoa (.mjs) faz o envio, sem mexer no sagadeck", async () => {
+  reply = () => "ok";
+  await withMachineIA({ provider: "outro", url: "https://provedor-que-nao-existe.invalid/v1", models: { text: "m" } }, async (dir) => {
+    // o adaptador troca o endereço e põe a autenticação da empresa; o resto (formato OpenAI) segue igual
+    const adapter = path.join(dir, "adaptador.mjs");
+    fs.writeFileSync(adapter, `export default (url, init) => fetch(url.replace("https://provedor-que-nao-existe.invalid/v1", ${JSON.stringify(llm.url)}), { ...init, headers: { ...init.headers, "X-Empresa": "token-da-empresa" } });\n`);
+    const { saveIA, loadIA } = await import("../src/ai/ia-config.js");
+    saveIA({ ...loadIA(process.env.SAGADECK_IA), adaptador: adapter }, process.env.SAGADECK_IA);
+    const n = llm.requests.length;
+    await editDeck({ spec: base(), instruction: "oi", targetSlide: 0 });
+    assert.equal(llm.requests[n].headers["x-empresa"], "token-da-empresa");
+  });
 });
 
 test("prompt do sistema: slide denso usa takeaway e aviso", async () => {

@@ -1,5 +1,5 @@
 // LLM falso, compatível com a API OpenAI (/v1/models e /v1/chat/completions), para testar os fluxos de IA
-// sem depender do modelrelay: respostas roteirizadas, rápidas e sempre iguais.
+// sem depender de um provedor de verdade: respostas roteirizadas, rápidas e sempre iguais.
 //
 //   const llm = await startMockLLM((req) => "resposta");   // req = { messages, system, lastUser, body }
 //   llm.url -> "http://127.0.0.1:PORTA/v1"   ·   llm.requests -> tudo que o sagadeck mandou
