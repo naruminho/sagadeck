@@ -28,9 +28,9 @@ const material = {
 const layouts = { "paper.pdf": [{ text: page1, images: [] }, { text: [], images: [] }] };
 
 const deck = (over = {}) => ({
-  title: "Bacia", author: "Maria Clara Fava et al.", context: { autoria: "autor" },
+  title: "Bacia", author: "Autora Exemplo et al.", context: { autoria: "autor" },
   slides: [
-    { layout: "cover", title: "Bacia do Aricanduva" },
+    { layout: "cover", title: "Bacia de exemplo" },
     { layout: "split", title: "Área de estudo", figure: { image: "contexto/a.png" } },
     { layout: "stats", title: "Resultado", items: [{ value: "37,67", label: "pico (m³/s)" }, { value: "12,5", label: "inventado" }] },
     { layout: "statement", text: "Uma frase enorme que não acaba nunca e vira um slide de uma frase gigante na tela do congresso inteiro" },
@@ -40,7 +40,7 @@ const deck = (over = {}) => ({
 });
 
 test("bancada: cada quesito dá a nota pelo que o deck e o material mostram", () => {
-  const r = scoreDeck(deck(), { materials: [material], layouts, briefing: "apresentação no congresso ICFM10", expect: { lang: "pt", author: "Fava", notAuthor: "Pessoa Preferida" } });
+  const r = scoreDeck(deck(), { materials: [material], layouts, briefing: "apresentação num congresso", expect: { lang: "pt", author: "Exemplo", notAuthor: "Pessoa Preferida" } });
   const c = r.checks;
   assert.deepEqual(Object.keys(c).sort(), BENCH_CHECKS.map(([k]) => k).sort());
   assert.equal(c.figuras.detail, "1/3");
@@ -57,7 +57,7 @@ test("bancada: cada quesito dá a nota pelo que o deck e o material mostram", ()
 });
 
 test("bancada: autor das Preferências, idioma errado e deck limpo", () => {
-  const prefs = scoreDeck(deck({ author: "Pessoa Preferida" }), { materials: [material], expect: { author: "Fava", notAuthor: "Pessoa Preferida" } });
+  const prefs = scoreDeck(deck({ author: "Pessoa Preferida" }), { materials: [material], expect: { author: "Exemplo", notAuthor: "Pessoa Preferida" } });
   assert.equal(prefs.checks.autor.score, 0);
   // sem o texto das páginas, recorte e equação ficam sem nota (não contam como bons)
   assert.equal(prefs.checks.recortes.score, null);
@@ -70,7 +70,7 @@ test("bancada: autor das Preferências, idioma errado e deck limpo", () => {
     { layout: "split", title: "Vazões", figure: { image: "contexto/b.png" } },
     { layout: "table", title: "Métricas", head: ["Modelo", "NSE"], rows: [["HYMOD", "0,93"], ["HEC-HMS", "0,97"]] },
   ] });
-  const ok = scoreDeck(clean, { materials: [material], expect: { author: "Fava" } });
+  const ok = scoreDeck(clean, { materials: [material], expect: { author: "Exemplo" } });
   for (const k of ["figuras", "numeros", "autor", "votacao", "frases"]) assert.equal(ok.checks[k].score, 1, `${k}: ${ok.checks[k].detail}`);
 });
 
@@ -81,12 +81,12 @@ test("legenda ao lado (coluna vizinha) não conta como legenda dentro do recorte
 
 test("relatório: grava json e md e compara com a rodada anterior", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-bancada-"));
-  const caso = (total, figuras) => ({ id: "icfm10-en", file: "ICFM10.pdf", slides: 18, seconds: 600, total, checks: { figuras: { score: figuras, detail: "x" } } });
+  const caso = (total, figuras) => ({ id: "artigo-a", file: "artigo-a.pdf", slides: 18, seconds: 600, total, checks: { figuras: { score: figuras, detail: "x" } } });
   const first = saveBenchReport(dir, { date: "2026-10-08T10:00:00.000Z", version: "1.4.0", commit: "aaa", model: "text", cases: [caso(70, 0.5)] });
   assert.equal(first.previous, null);
   const second = saveBenchReport(dir, { date: "2026-10-09T10:00:00.000Z", version: "1.4.1", commit: "bbb", model: "text", cases: [caso(85, 1), { id: "quebrado", file: "x.pdf", error: "LLM fora do ar" }] });
   assert.equal(second.previous.version, "1.4.0");
-  assert.match(second.markdown, /\| icfm10-en \| 100 \(\+50\)/);
+  assert.match(second.markdown, /\| artigo-a \| 100 \(\+50\)/);
   assert.match(second.markdown, /\*\*85\*\* \(\+15\)/);
   assert.match(second.markdown, /Erro: LLM fora do ar/);
   assert.equal(fs.readdirSync(dir).length, 4);
@@ -95,9 +95,9 @@ test("relatório: grava json e md e compara com a rodada anterior", () => {
 test("relatório: média só é comparada quando a rodada anterior teve os mesmos casos", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-bancada-"));
   const caso = (id, total) => ({ id, file: `${id}.pdf`, slides: 10, seconds: 60, total, checks: {} });
-  saveBenchReport(dir, { date: "2026-10-08T10:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("icfm10-en", 70)] });
-  const outro = saveBenchReport(dir, { date: "2026-10-08T11:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("eucalipto", 90)] });
+  saveBenchReport(dir, { date: "2026-10-08T10:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("artigo-a", 70)] });
+  const outro = saveBenchReport(dir, { date: "2026-10-08T11:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("artigo-b", 90)] });
   assert.match(outro.markdown, /Média: \*\*90\*\*\n/, "casos diferentes: sem (+20)");
-  const mesmo = saveBenchReport(dir, { date: "2026-10-08T12:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("eucalipto", 95)] });
+  const mesmo = saveBenchReport(dir, { date: "2026-10-08T12:00:00.000Z", version: "1.4.0", model: "text", cases: [caso("artigo-b", 95)] });
   assert.match(mesmo.markdown, /Média: \*\*95\*\* \(\+5\)/);
 });
