@@ -43,3 +43,12 @@ test("todo arquivo de teste carrega o isolamento (helpers.js ou isolate.js)", ()
   assert.equal(process.env.SAGADECK_TEST_ISOLATED, "1");
   assert.ok(process.env.SAGADECK_PREFERENCIAS.startsWith(os.tmpdir()), process.env.SAGADECK_PREFERENCIAS);
 });
+
+// Quem gera pelo caminho do Studio (generateForStudio) passa pela revisão dos slides, que abre um navegador: o teste
+// tem que fechá-lo (closeSnapshots), senão o processo fica pendurado para sempre (a avaliação ao vivo ficou dias aberta).
+test("testes que geram pelo caminho do Studio fecham o navegador da revisão", () => {
+  const dir = path.join(ROOT, "test");
+  const faltam = fs.readdirSync(dir).filter((f) => f.endsWith(".test.js"))
+    .filter((f) => { const s = fs.readFileSync(path.join(dir, f), "utf8"); return /generateForStudio/.test(s) && !/closeSnapshots/.test(s); });
+  assert.deepEqual(faltam, []);
+});

@@ -7,7 +7,7 @@
 // Opcional: SAGADECK_BENCH_PEDIDO (o pedido de cada geração), SAGADECK_BENCH_IDIOMA (en, pt… para conferir o idioma),
 // SAGADECK_BENCH_OUT (relatórios; senão <SAGADECK_BENCH_DIR>/sagadeck-bancada). Os decks ficam na biblioteca
 // temporária da suíte.
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,6 +31,8 @@ const PREFS_AUTHOR = "Pessoa das Preferências";
 
 const pdfs = !skip && fs.existsSync(DIR) ? fs.readdirSync(DIR).filter((n) => /\.pdf$/i.test(n)).sort() : [];
 const results = [];
+// a revisão dos slides abre um navegador (src/studio/snapshot.js): sem fechar, o processo do teste não termina nunca
+after(async () => (await import("../src/studio/snapshot.js")).closeSnapshots());
 
 for (const name of pdfs) {
   test(`avaliação: ${name}`, { timeout: 3 * 3600_000 }, async () => {
