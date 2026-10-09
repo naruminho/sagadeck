@@ -466,8 +466,10 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       state.chatHistory.push({ role: "assistant", text: data.reply + (data.options?.length ? `\n(opções: ${data.options.join(" | ")})` : ""), talk: true });
       await saveChatHistory();
       work.done();
-      const msg = appendChatMessage("ai", data.reply, data.actions || []);
+      // com os pontos estruturados, a bolha traz o resumo e cada ponto vira um cartão (o texto inteiro fica no histórico)
+      const msg = appendChatMessage("ai", data.critique?.itens?.length ? data.critique.summary : data.reply, data.actions || []);
       msg.classList.add("bs");
+      if (data.critique?.itens?.length) renderCritiqueItems(msg, data.critique);
       const tag = document.createElement("div");
       tag.className = "bs-tag";
       tag.innerHTML = '<i class="ic" data-ic="scan-search"></i> Leitura crítica — nada mudou nos slides'; hydrateIcons(tag);
@@ -478,6 +480,46 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       work.done();
       appendChatMessage("ai", `A leitura crítica não saiu: ${e.message}`);
     } finally { chatJob = null; }
+  }
+  // Cada ponto da leitura crítica como cartão: o slide a que ele se liga (clique leva até lá), Aplicar (pede à IA só
+  // aquele ponto, mirando aquele slide; a autoria decide se vai ao slide ou às notes) e Ignorar (gravado: o ponto deixa
+  // de acompanhar os pedidos).
+  const CRIT_LABEL = { destaque: "Achado", inconsistencia: "Inconsistência", slide: "Slide a rever", pergunta: "Pergunta provável", limitacao: "Limitação", forte: "Ponto forte" };
+  function goToSlide(n) {
+    if (!(n >= 1 && n <= state.deck.slides.length)) return;
+    state.currentSlideIndex = n - 1;
+    renderThumbnails(); renderCurrentSlide();
+  }
+  async function markCritique(id, status) {
+    try { await fetch("api/ai/critique/item", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) }); } catch { /* fica só na tela */ }
+  }
+  function renderCritiqueItems(msg, critique) {
+    const list = document.createElement("div");
+    list.className = "crit-list";
+    for (const it of critique.itens) {
+      const card = document.createElement("div");
+      card.className = `crit-item crit-${it.tipo}`;
+      card.dataset.id = it.id;
+      card.innerHTML = `<div class="crit-head"><span class="crit-kind"></span>${it.slide ? `<button type="button" class="crit-slide" title="Ir ao slide ${it.slide}">Slide ${it.slide}</button>` : ""}</div><b class="crit-title"></b><div class="crit-text"></div>${it.trecho ? '<blockquote class="crit-quote"></blockquote>' : ""}<div class="crit-actions"><button type="button" class="bs-option crit-apply"><i class="ic" data-ic="check"></i> Aplicar${it.slide ? ` no slide ${it.slide}` : ""}</button><button type="button" class="bs-option crit-ignore"><i class="ic" data-ic="x"></i> Ignorar</button></div>`;
+      card.querySelector(".crit-kind").textContent = CRIT_LABEL[it.tipo] || it.tipo;
+      card.querySelector(".crit-title").textContent = it.titulo;
+      card.querySelector(".crit-text").textContent = `${it.texto}${it.onde ? ` (${it.onde})` : ""}`;
+      if (it.trecho) card.querySelector(".crit-quote").textContent = `"${it.trecho}"`;
+      const done = (label) => { card.classList.add("crit-done"); card.querySelector(".crit-actions").innerHTML = `<span class="crit-status">${label}</span>`; };
+      card.querySelector(".crit-slide")?.addEventListener("click", () => goToSlide(it.slide));
+      card.querySelector(".crit-apply").onclick = () => {
+        if (chatJob) { showToast("Espere a IA terminar o pedido atual.", 3000); return; }
+        goToSlide(it.slide);
+        done(it.slide ? `Aplicado no slide ${it.slide}` : "Aplicado");
+        markCritique(it.id, "aplicado");
+        dom.chatInput.value = `Aplique este ponto da leitura crítica${it.slide ? ` no slide ${it.slide}` : ", no slide em que ele se encaixa"}: ${it.titulo}. ${it.texto}${it.trecho ? ` (trecho do material: "${it.trecho}")` : ""}. Siga a autoria da apresentação: achado do material pode ir para o slide; crítica, inconsistência e pergunta vão para as notes ("Prepare-se: …"), salvo se a apresentação for livre.`;
+        handleChatSubmit();
+      };
+      card.querySelector(".crit-ignore").onclick = () => { done("Ignorado"); markCritique(it.id, "ignorado"); };
+      list.append(card);
+    }
+    hydrateIcons(list);
+    msg.querySelector(".ai-content").append(list);
   }
   // Bolha de progresso do chat e de outros fluxos (transformação usa a mesma).
   const createProgressBubble = window.SagaChatProgress({ dom, appendChatMessage, hydrateIcons, getChatJob });

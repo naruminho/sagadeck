@@ -12,7 +12,7 @@ import { maybeResearch } from "../research/chat-research.js";
 import { chatErrorResult } from "./errors.js";
 import { cancellable, respond } from "./ai-response.js";
 import { prepareDocumentMaterials, takeMaterials, storedDocumentMaterials } from "../ai/document-materials.js";
-import { critiqueMaterials, critiqueMarkdown, saveCritique, loadCritique, critiqueMaterial } from "../ai/critique.js";
+import { critiqueMaterials, critiqueMarkdown, saveCritique, loadCritique, critiqueMaterial, markCritiqueItem } from "../ai/critique.js";
 import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
@@ -70,8 +70,25 @@ export async function aiChatRoutes({ req, res, pathname, url, W, readJSON, stale
       const head = c.itens.length
         ? `Li ${c.material.join(", ")} como um revisor da área. ${c.itens.length} ponto(s), cada um com o trecho do material que o sustenta (conferido no texto). ${autor ? "Como a apresentação é do próprio autor, nada disso entra nos slides sem você pedir: o que é achado do material pode ir para os slides; crítica e perguntas, para as notes." : "Como a apresentação é livre, posso transformar isso em conteúdo, marcando o que é do sagadeck."}`
         : "Não achei nada com trecho conferido no material para apontar.";
-      return { talk: true, reply: `${head}\n\n${critiqueMarkdown(c)}`, options, actions: [`Leitura crítica: ${c.itens.length} ponto(s) conferido(s)${c.naoConfirmados.length ? `, ${c.naoConfirmados.length} descartado(s) sem trecho no material` : ""}`] };
+      // os pontos vão também estruturados: o chat mostra cada um como cartão, ligado ao slide, com Aplicar e Ignorar
+      return { talk: true, reply: `${head}\n\n${critiqueMarkdown(c)}`, critique: { itens: c.itens, autor, summary: `${head}${c.naoConfirmados.length ? `
+
+_${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado não foi encontrado no material._` : ""}` }, options, actions: [`Leitura crítica: ${c.itens.length} ponto(s) conferido(s)${c.naoConfirmados.length ? `, ${c.naoConfirmados.length} descartado(s) sem trecho no material` : ""}`] };
     });
+    return true;
+  }
+  // cartão da leitura crítica: a pessoa aplicou ou ignorou o ponto (ignorado deixa de acompanhar os pedidos)
+  if (pathname === "/api/ai/critique/item" && req.method === "POST") {
+    const body = await readJSON(req);
+    const deckDir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : null;
+    try {
+      const item = markCritiqueItem(deckDir, String(body.id || ""), String(body.status || ""));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, item }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return true;
   }
   if (pathname === "/api/ai/chat" && req.method === "POST") {

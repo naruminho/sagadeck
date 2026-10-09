@@ -45,7 +45,7 @@ export async function critiqueMaterials(materials, { briefing = "", spec = null,
 - limitacao: limitação do método ou dos dados, declarada ou não;
 - slide: (só se o deck vier) slide que representa mal o material, com o número do slide (ex.: composição da amostra mostrada como se fosse resultado);
 - forte: ponto forte que vale defender.
-Cada item: {"tipo", "titulo" (até 10 palavras), "texto" (1 a 3 frases, concretas, com os números do material), "trecho": citação LITERAL e curta do material (até 30 palavras, copiada como está) que sustenta o item, "onde": seção/página/tabela, "slide": número (só no tipo slide)}. Sem trecho literal, não inclua o item. No máximo 12 itens, os mais úteis primeiro. Responda só JSON {"itens":[...]}.` },
+Cada item: {"tipo", "titulo" (até 10 palavras), "texto" (1 a 3 frases, concretas, com os números do material), "trecho": citação LITERAL e curta do material (até 30 palavras, copiada como está) que sustenta o item, "onde": seção/página/tabela, "slide": número do slide do deck a que o item se liga (obrigatório no tipo slide; nos outros, quando o deck vier, o slide em que o assunto aparece ou onde o ponto entraria; sem deck, omita)}. Sem trecho literal, não inclua o item. No máximo 12 itens, os mais úteis primeiro. Responda só JSON {"itens":[...]}.` },
     { role: "user", content: `${briefing ? `Para que é a apresentação: ${briefing}\n\n` : ""}MATERIAL:\n${source.slice(0, 60000)}${deck}` },
   ], { temperature: 0.2, signal });
   const m = String(res.text || "").match(/\{[\s\S]*\}/);
@@ -56,9 +56,12 @@ Cada item: {"tipo", "titulo" (até 10 palavras), "texto" (1 a 3 frases, concreta
   const itens = [], naoConfirmados = [];
   for (const it of raw) {
     if (!it || !TYPES.includes(it.tipo) || !it.texto) continue;
-    const item = { tipo: it.tipo, titulo: String(it.titulo || "").slice(0, 120), texto: String(it.texto).slice(0, 800), trecho: String(it.trecho || "").slice(0, 400), onde: String(it.onde || "").slice(0, 80), ...(it.tipo === "slide" && Number.isInteger(Number(it.slide)) ? { slide: Number(it.slide) } : {}) };
+    // o slide ligado ao ponto (para "aplicar no slide N"): só um número que existe no deck
+    const n = Number(it.slide), slides = spec?.slides?.length || 0;
+    const item = { tipo: it.tipo, titulo: String(it.titulo || "").slice(0, 120), texto: String(it.texto).slice(0, 800), trecho: String(it.trecho || "").slice(0, 400), onde: String(it.onde || "").slice(0, 80), ...(Number.isInteger(n) && n >= 1 && n <= slides ? { slide: n } : {}) };
     (quoteFound(item.trecho, src) ? itens : naoConfirmados).push(item);
   }
+  itens.forEach((it, i) => { it.id = `p${i + 1}`; });
   return { itens, naoConfirmados, em: new Date().toISOString(), material: (materials || []).filter((x) => x?.kind !== "critica").map((x) => x.name).filter(Boolean) };
 }
 
@@ -91,8 +94,21 @@ export function loadCritique(dir) {
   try { return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null; } catch { return null; }
 }
 
-// O material "leitura crítica" que vai junto do pedido (chat e geração): rotulado como do sagadeck, não do autor.
+// O material "leitura crítica" que vai junto do pedido (chat e geração): rotulado como do sagadeck, não do autor. O
+// que a pessoa mandou ignorar não vai (a IA não volta a insistir nele).
 export function critiqueMaterial(c) {
-  if (!c?.itens?.length) return null;
-  return { name: "leitura-critica (sagadeck)", kind: "critica", detail: "leitura crítica feita pelo sagadeck", text: critiqueMarkdown({ ...c, naoConfirmados: [] }) };
+  const itens = (c?.itens || []).filter((i) => i.status !== "ignorado");
+  if (!itens.length) return null;
+  return { name: "leitura-critica (sagadeck)", kind: "critica", detail: "leitura crítica feita pelo sagadeck", text: critiqueMarkdown({ ...c, itens, naoConfirmados: [] }) };
+}
+
+// A pessoa decidiu sobre um ponto (cartão da leitura crítica no chat): "aplicado" ou "ignorado", gravado no arquivo.
+export function markCritiqueItem(dir, id, status) {
+  if (!["aplicado", "ignorado"].includes(status)) throw new Error("status: aplicado ou ignorado");
+  const c = loadCritique(dir);
+  const item = c?.itens?.find((i) => i.id === id);
+  if (!item) throw new Error("ponto da leitura crítica não encontrado");
+  item.status = status;
+  saveCritique(dir, c);
+  return item;
 }
