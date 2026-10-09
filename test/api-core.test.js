@@ -1,4 +1,5 @@
 // Núcleo do slide "api": caminhos JSON, variáveis, ambientes e o código gerado (curl / Python).
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import "../src/runtime/api-core.js";

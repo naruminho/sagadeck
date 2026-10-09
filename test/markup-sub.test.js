@@ -1,5 +1,6 @@
 // Índice e expoente no meio do texto, como no Pandoc: t~c~ (t com c embaixo), m^2^ (m ao quadrado).
 // A IA usa esse jeito sozinha ("Tempo de Concentração (t~c~)") e aparecia o til.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { md, plain } from "../src/markup.js";

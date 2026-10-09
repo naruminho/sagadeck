@@ -59,8 +59,11 @@
     render();
   }
   // botão IA: provedor, chave e modelos desta máquina (ai-settings.js); no multiusuário quem configura é quem administra
-  api("api/ia").then(({ editable }) => { $("#btn-ai").hidden = !editable; }).catch(() => {});
-  $("#btn-ai").onclick = () => window.SagaAISettings.open();
+  // e, enquanto a IA não estiver configurada, a faixa "Configure a IA" (some ao salvar)
+  const aiSaved = () => { $("#ai-banner").hidden = true; };
+  api("api/ia").then(({ editable, configured }) => { $("#btn-ai").hidden = !editable; $("#ai-banner").hidden = !editable || configured; hydrate($("#ai-banner")); }).catch(() => {});
+  $("#btn-ai").onclick = () => window.SagaAISettings.open(aiSaved);
+  $("#ai-banner-btn").onclick = () => window.SagaAISettings.open(aiSaved);
   const openEditor = (id, present) => { location.href = `editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
 
   // ---------------------------------------------------------------- barra lateral

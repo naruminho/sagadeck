@@ -1,3 +1,4 @@
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {renderSlide} from '../src/build.js';

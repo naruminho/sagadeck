@@ -1,6 +1,6 @@
 // Tela "Configurar IA" do Studio: ler (a chave nunca sai inteira), salvar e testar a configuração da IA desta máquina
 // (src/ai/ia-config.js). No multiusuário quem configura é quem administra o servidor (arquivo ou variáveis), não a tela.
-import { PROVIDERS, ROLES, iaFile, loadIA, saveIA, maskedIA, keyOf } from "../ai/ia-config.js";
+import { PROVIDERS, ROLES, RECOMMENDED, iaFile, loadIA, saveIA, maskedIA, keyOf } from "../ai/ia-config.js";
 import { chat, llmConfig, llmAvailable } from "../ai/llm.js";
 
 const json = (res, status, data) => { res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify(data)); };
@@ -23,7 +23,7 @@ function draft(body, current) {
 export async function iaRoutes({ req, res, pathname, opts, readJSON }) {
   if (pathname === "/api/ia" && req.method === "GET") {
     const cfg = llmConfig();
-    json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, providers: PROVIDERS, roles: ROLES, editable: !opts.multiuser });
+    json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, configured: !!(cfg.url || cfg.adaptador), providers: PROVIDERS, roles: ROLES, recommended: RECOMMENDED, editable: !opts.multiuser });
     return true;
   }
   if ((pathname === "/api/ia" || pathname === "/api/ia/test") && req.method === "POST") {

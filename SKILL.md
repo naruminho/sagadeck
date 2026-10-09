@@ -12,12 +12,13 @@ O sagadeck gera apresentações profissionais a partir de um arquivo YAML, ofere
 Quando a pessoa pede para instalar o sagadeck e deixar pronto:
 
 1. `npm install -g sagadeck` (Node 18+; não precisa de Python).
-2. `sagadeck studio` e diga para ela abrir **http://127.0.0.1:3517** (a primeira linha que o comando escreve é
-   esse endereço). **O Studio é a interface do sagadeck**: biblioteca, editor e chat com IA.
+2. `sagadeck studio`: o navegador abre sozinho em **http://127.0.0.1:3517** (é também a primeira linha que o
+   comando escreve; `--sem-navegador` não abre). **O Studio é a interface do sagadeck**: biblioteca, editor e chat com
+   IA. O terminal fica aberto enquanto ela usa.
 3. **Nunca crie uma página, um servidor ou uma interface própria** para o sagadeck, nem "suba as APIs" à mão: tudo
    que a pessoa precisa está no Studio.
 4. Para a IA, mostre onde configurar: **Configurar IA** no alto da biblioteca (ou **IA desligada** no editor):
-   provedor, chave, Testar e Salvar. A configuração fica em `~/.sagadeck/ia.json`; nunca grave a chave no código nem
+   **Usar a recomendação** (OpenRouter com modelos que funcionam), a chave, Testar e Salvar. A configuração fica em `~/.sagadeck/ia.json`; nunca grave a chave no código nem
    na pasta das apresentações.
 5. As apresentações moram na biblioteca (`SAGADECK_HOME`, senão Documentos\sagadeck no Windows e `~/sagadeck` fora
    dele). Não crie decks em outra pasta.

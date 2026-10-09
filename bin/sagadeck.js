@@ -40,6 +40,12 @@ for (let i = 0; i < rawRest.length; i++) {
 
 const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint editável + PDF + roteiro)
 
+  Para começar:  sagadeck studio
+                 abre o Studio no navegador (biblioteca, editor e chat com IA; http://127.0.0.1:3517).
+                 Deixe o terminal aberto enquanto usa. A IA se configura lá, em Configurar IA.
+
+  Todos os comandos:
+
   sagadeck new <nome> --prompt "briefing" [--slides=10] [--duration=20] [--theme=x]  deck inteiro escrito pelo LLM
                                    (pesquisa na web quando o pedido precisa de informação recente ou de um artigo; --sem-pesquisa desliga)
                                    (--duration dispensa --slides: ~1 slide a cada 1,5 min)
@@ -56,7 +62,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck roteiro <deck.yaml>                 gera <deck> - roteiro.pdf (miniaturas + notas + tempos)
   sagadeck estudo <deck.yaml> [--html]         gera <deck> - material de estudo.pdf (cada slide + texto de consulta)
   sagadeck all <deck.yaml>                     build + check + pptx + pdf + roteiro
-  sagadeck studio [deck.yaml|x.sagadeck] [--port=3517] [--library=PASTA]  sem arquivo: abre a biblioteca; já aberto: usa o aberto
+  sagadeck studio [deck.yaml|x.sagadeck] [--port=3517] [--library=PASTA] [--sem-navegador]  sem arquivo: abre a biblioteca (no navegador); já aberto: usa o aberto
                                    (PASTA padrão: SAGADECK_HOME, senão Documentossagadeck no Windows, ~/sagadeck fora dele); com arquivo: abre o editor dele
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
@@ -387,6 +393,7 @@ async function main() {
           else { console.error(`O Studio já está aberto em http://${shownHost}:${port} com a biblioteca ${library}, e este deck está fora dela. Use --port=OUTRA para abri-lo à parte.`); process.exit(1); }
         }
         console.log(`✓ O SagaDeck Studio ${found.version} já está aberto (processo ${found.pid}): ${url}`);
+        { const B = await import("../src/studio/open-browser.js"); if (B.shouldOpenBrowser({ flags, multiuser })) B.openBrowser(url); }
         break;
       }
       if (decision.action === "conflict") {
@@ -403,6 +410,9 @@ async function main() {
       server.listen(port, host, async () => {
         const { studioBanner } = await import("../src/studio/banner.js");
         for (const line of studioBanner({ version: VERSION, url: `http://${shownHost}:${port}/`, library, ai: (await import("../src/ai/llm.js")).llmConfig(), multiuser, usersDir: path.join(library, "usuarios"), isLibrary: !deckFile })) console.log(line);
+        // depois do endereço (a primeira linha é sempre ele): abre o navegador na página
+        const B = await import("../src/studio/open-browser.js");
+        if (B.shouldOpenBrowser({ flags, multiuser }) && B.openBrowser(`http://${shownHost}:${port}/`)) console.log("  (abrindo no navegador; --sem-navegador desliga)");
       });
       break;
     }

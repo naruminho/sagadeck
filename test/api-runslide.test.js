@@ -1,4 +1,5 @@
 // runSlide: o Studio executa um slide inteiro e devolve um relatório que a IA usa para corrigir o slide.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

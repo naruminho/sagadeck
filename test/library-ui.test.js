@@ -305,9 +305,11 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
     assert.match(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/);
-    await Promise.all([p.waitForURL(/\/editor\?model=example-api/), p.click('.vit-card[data-new="example-api"]')]);
-    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/); // prévia → a cópia
-    await p.waitForSelector("#rendered-slide-container .slide");
+    // o exemplo de aula de APIs é o deck mais pesado da vitrine (muitos slides api + o arquivo do upload): abrir a prévia e
+    // copiar para a biblioteca passa dos 8 s padrão numa máquina lenta (Windows da CI); o prazo aqui é o do passo, não um atraso
+    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000 }), p.click('.vit-card[data-new="example-api"]')]);
+    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000 }); // prévia → a cópia
+    await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
 
     // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
     const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
@@ -513,5 +515,46 @@ test("biblioteca mostra o username do portal em vez do id cru", { timeout: 12000
   } finally {
     await browser.close();
     await studio.close();
+  }
+});
+
+// Primeiro uso: sem IA configurada, a biblioteca mostra a faixa "Configure a IA"; a tela tem a recomendação (que também
+// testa a instalação) e "Usar a recomendação" preenche provedor e modelos; salvo, a faixa some.
+test("primeiro uso: faixa Configure a IA; Usar a recomendação preenche OpenRouter e os modelos; ao salvar, a faixa some", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { startMockLLM } = await import("./mock-llm.js");
+  const llm = await startMockLLM(() => "ok");
+  const studio = await startStudio(null);
+  const keepUrl = process.env.SAGADECK_LLM_URL;
+  delete process.env.SAGADECK_LLM_URL;
+  fs.rmSync(process.env.SAGADECK_IA, { force: true });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector("#ai-banner:not([hidden])");
+    assert.match(await p.innerText("#ai-banner"), /A IA ainda não está configurada/);
+    await p.click("#ai-banner-btn");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    assert.match(await p.innerText("#ai-settings-dialog .rec"), /Recomendado para começar: OpenRouter, com deepseek\/deepseek-v4\.1-flash/);
+    assert.match(await p.getAttribute('[data-model="text"]', "placeholder"), /ex\.: deepseek/);
+    await p.click("[data-rec]");
+    assert.equal(await p.inputValue('[data-f="provider"]'), "openrouter");
+    assert.equal(await p.inputValue('[data-f="url"]'), "https://openrouter.ai/api/v1");
+    assert.equal(await p.inputValue('[data-model="image"]'), "google/gemini-3.1-flash-image");
+    assert.equal(await p.inputValue('[data-model="search"]'), "deepseek/deepseek-v4.1-flash:online");
+    assert.match(await p.innerText("[data-status]"), /Cole a chave do OpenRouter/);
+    // salva (aqui apontando para o LLM falso, para não depender da internet) e a faixa some
+    await p.selectOption('[data-f="provider"]', "outro");
+    await p.fill('[data-f="url"]', llm.url);
+    await p.fill('[data-f="key"]', "sk-primeiro-uso");
+    await p.click("[data-save]");
+    await p.locator("[data-status].ok", { hasText: "Salvo" }).waitFor();
+    await p.click("[data-close]");
+    await p.waitForSelector("#ai-banner", { state: "hidden" });
+    assert.deepEqual(errors, []);
+  } finally {
+    process.env.SAGADECK_LLM_URL = keepUrl;
+    fs.rmSync(process.env.SAGADECK_IA, { force: true });
+    await browser.close(); await studio.close(); await llm.close();
   }
 });

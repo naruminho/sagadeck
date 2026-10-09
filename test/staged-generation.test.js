@@ -1,3 +1,4 @@
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {stagedGeneration} from '../src/ai/staged-generation.js';

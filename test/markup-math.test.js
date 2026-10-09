@@ -1,4 +1,5 @@
 // Fórmula no meio do texto ($…$ e $$…$$) em qualquer campo de texto; dinheiro continua texto.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { md } from "../src/markup.js";

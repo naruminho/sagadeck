@@ -1,4 +1,5 @@
 // Executor do slide "api" (Node): ambientes, token que expira, máscara, erros compreensíveis, gravações.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

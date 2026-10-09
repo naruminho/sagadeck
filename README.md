@@ -24,11 +24,14 @@ Requer **Node.js 18+** e **Chrome ou Edge** instalados (o PDF, o PNG e as confer
 ```bash
 sagadeck studio
 ```
-e abra **http://127.0.0.1:3517** no navegador. **Essa é a página do sagadeck**: a biblioteca das suas
-apresentações, o editor (estilo PowerPoint) e o chat com a IA. Não há outra interface para abrir nem para criar.
+O navegador abre sozinho em **http://127.0.0.1:3517** (se não abrir, abra esse endereço). **Essa é a página do
+sagadeck**: a biblioteca das suas apresentações, o editor (estilo PowerPoint) e o chat com a IA. Não há outra interface
+para abrir nem para criar. Deixe o terminal aberto enquanto usa; `--sem-navegador` não abre o navegador.
 
-Para usar a IA (gerar apresentações, conversar com o chat), clique em **Configurar IA** no alto da biblioteca (ou
-em **IA desligada**, no editor), escolha o provedor, cole a chave, clique em **Testar** e **Salvar**. Detalhes em
+Para usar a IA (gerar apresentações, conversar com o chat), clique em **Configurar IA** (a biblioteca mostra uma faixa
+enquanto ela não está configurada). **Usar a recomendação** preenche o OpenRouter com modelos que funcionam; cole a
+chave, clique em **Testar** e **Salvar**. Se nem a recomendação responder, o problema é a rede ou a chave. Depois,
+troque pelo provedor e pelos modelos que quiser. Detalhes em
 [IA de verdade](#ia-de-verdade-llm).
 
 ## Como usar

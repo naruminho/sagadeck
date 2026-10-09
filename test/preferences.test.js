@@ -1,4 +1,5 @@
 // Preferências (~/.sagadeck/preferencias.json): padrões, faixa aceita, gravação parcial e efeito no motor.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

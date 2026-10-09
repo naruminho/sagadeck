@@ -7,21 +7,9 @@ import JSZip from "jszip";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Blindagem: qualquer código que caia na biblioteca padrão durante os testes usa uma pasta temporária,
-// nunca a ~/sagadeck de quem está rodando.
-process.env.SAGADECK_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-home-"));
-// idem para os ambientes do slide "api" (~/.sagadeck/ambientes.yaml tem as credenciais de quem roda)
-process.env.SAGADECK_AMBIENTES = path.join(process.env.SAGADECK_HOME, "ambientes-de-teste.yaml");
-// e para as Preferências (~/.sagadeck/preferencias.json)
-process.env.SAGADECK_PREFERENCIAS = path.join(process.env.SAGADECK_HOME, "preferencias-de-teste.json");
-// e para a configuração da IA (~/.sagadeck/ia.json) e a do modelrelay antigo (migração): os testes nunca leem a chave
-// de quem roda. Nos testes ao vivo (SAGADECK_LIVE=1), a IA de verdade desta máquina vale.
-if (process.env.SAGADECK_LIVE !== "1") {
-  process.env.SAGADECK_IA = path.join(process.env.SAGADECK_HOME, "ia-de-teste.json");
-  process.env.MODELRELAY_CONFIG = path.join(process.env.SAGADECK_HOME, "modelrelay-de-teste.toml");
-}
-// registro dos comandos da IA (src/ai/commands.js): nos testes, numa pasta temporária
-process.env.SAGADECK_COMANDOS_LOG = path.join(process.env.SAGADECK_HOME, "comandos-de-teste.log");
+// Blindagem (biblioteca, ambientes, Preferências, IA, registro de comandos): test/isolate.js, que o `npm test` carrega
+// antes de todo arquivo; importado aqui também para quem roda um arquivo de teste sozinho.
+import "./isolate.js";
 export const FIXTURE = path.join(ROOT, "test", "fixtures", "deck.yaml");
 
 // Copia o deck de teste para uma pasta temporária (os testes editam e salvam o arquivo).

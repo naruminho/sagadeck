@@ -1,4 +1,5 @@
 // dedup de slides repetidos + cutucada de ilustração: sem LLM, só as funções puras.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dedupeSlides, hasImagePrompt } from "../src/ai/transform.js";

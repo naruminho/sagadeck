@@ -1,4 +1,5 @@
 // diff por uid + relatório anti-sono: o que entrou/saiu/mudou/andou e quem estoura o limite.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { diffDecks, formatDiff } from "../src/diff.js";

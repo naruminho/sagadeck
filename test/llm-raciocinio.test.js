@@ -1,6 +1,7 @@
 // Tarefa de olhar (conferir um slide, achar um destaque na figura) vai sem raciocínio: com ele, o modelo de visão
 // pensava até estourar o limite (16 mil tokens) e não escrevia nada; sem ele, a mesma conferência sai em 2 s.
 // Provedor que não conhece o campo recusa com 400: a chamada vai de novo sem ele, e o sagadeck lembra.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { startMockLLM } from "./mock-llm.js";

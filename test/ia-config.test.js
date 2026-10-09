@@ -1,5 +1,6 @@
 // Configuração da IA desta máquina (src/ai/ia-config.js): fora do código, com a chave protegida, e a migração do
 // modelrelay antigo (~/.modelrelay/config.toml) para ninguém perder a chave ao atualizar.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

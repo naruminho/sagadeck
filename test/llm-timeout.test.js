@@ -1,6 +1,7 @@
 // Limites de tempo da chamada em streaming (src/ai/llm.js): o modelo pode pensar muito antes da 1ª palavra (o relay só
 // manda os cabeçalhos aí) e uma resposta longa leva minutos chegando. Nenhum dos dois é falha: o que é falha é parar
 // de chegar. Antes, SAGADECK_LLM_TIMEOUT era o tempo TOTAL da chamada e cortava o plano de uma aula grande no meio.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";

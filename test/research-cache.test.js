@@ -1,4 +1,5 @@
 // Cache de busca + pesquisa no pack + checagem de links: a pesquisa não se paga duas vezes.
+import "./isolate.js"; // nunca as configurações de quem roda (test/isolate.js)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
