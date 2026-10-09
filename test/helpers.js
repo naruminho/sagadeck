@@ -104,3 +104,17 @@ export async function novoSlide(p, tipo) {
   await card.click();
   await p.waitForSelector("#scene-modal.hidden", { state: "attached" });
 }
+
+// Diagnóstico de uma cena de movimento (iframe[data-motion=tipo]) para a mensagem de erro: o que a cena vê quando não
+// anima (preferência de movimento, página oculta, quadros de animação por segundo) e o slide da página.
+export async function motionDiag(page, type) {
+  try {
+    const frame = await (await page.$(`iframe[data-motion=${type}]`))?.contentFrame();
+    const inner = frame ? await frame.evaluate(() => new Promise((done) => {
+      let n = 0; const t0 = performance.now(); const tick = () => { n++; if (performance.now() - t0 < 500) requestAnimationFrame(tick); else done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n }); };
+      requestAnimationFrame(tick); setTimeout(() => done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n, semRaf: true }), 1500);
+    })) : "sem iframe";
+    const outer = await page.evaluate(() => ({ hidden: document.hidden, vis: document.visibilityState, reduce: matchMedia("(prefers-reduced-motion: reduce)").matches, motion: document.documentElement.dataset.motion, atual: document.querySelector(".slide.current")?.dataset.idx ?? null }));
+    return JSON.stringify({ cena: inner, pagina: outer });
+  } catch (e) { return `diagnóstico falhou: ${e.message}`; }
+}
