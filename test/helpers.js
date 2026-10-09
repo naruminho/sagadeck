@@ -114,8 +114,9 @@ export async function motionDiag(page, type) {
       let n = 0; const t0 = performance.now(); const tick = () => { n++; if (performance.now() - t0 < 500) requestAnimationFrame(tick); else done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n }); };
       requestAnimationFrame(tick); setTimeout(() => done({ reduce: matchMedia("(prefers-reduced-motion:reduce)").matches, hidden: document.hidden, vis: document.visibilityState, rafEm500ms: n, semRaf: true }), 1500);
     })) : "sem iframe";
+    const estado = frame ? await frame.evaluate(() => window.__sagaMotion?.() ?? null) : null;
     const canvas = frame ? await frame.evaluate(() => { const c = document.querySelector("canvas"); const m = document.querySelector("main"); return c ? { w: c.width, h: c.height, mainW: m?.clientWidth, mainH: m?.clientHeight, url: c.toDataURL().length } : null; }) : null;
     const outer = await page.evaluate((t) => { const f = document.querySelector(`iframe[data-motion=${t}]`)?.getBoundingClientRect(); return { hidden: document.hidden, vis: document.visibilityState, reduce: matchMedia("(prefers-reduced-motion: reduce)").matches, motion: document.documentElement.dataset.motion, export: document.documentElement.classList.contains("export"), classes: document.documentElement.className, atual: document.querySelector(".slide.current")?.dataset.idx ?? null, iframe: f ? [Math.round(f.width), Math.round(f.height)] : null }; }, type);
-    return JSON.stringify({ cena: inner, canvas, pagina: outer });
+    return JSON.stringify({ estado, cena: inner, canvas, pagina: outer });
   } catch (e) { return `diagnóstico falhou: ${e.message}`; }
 }
