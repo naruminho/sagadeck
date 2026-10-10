@@ -429,10 +429,10 @@ export function openLibrary(root, { trashDays } = {}) {
     return idOf(file);
   }
 
-  // .pptx (PowerPoint, Google Slides, Keynote exportado) vira uma apresentação da biblioteca, fiel ao original
+  // .pptx (PowerPoint, Google Slides e outros programas que exportam .pptx) vira uma apresentação da biblioteca, fiel ao original
   // (src/import): cada slide na mesma posição, mídias em imagens/original/, cópia e fotos do original em original/
   async function importOffice(buffer, topic, name = "Importada.pptx", opts = {}) {
-    if (!/\.pptx$/i.test(name)) throw new Error("Por enquanto a importação lê .pptx (o PowerPoint salva em .pptx; o Google Slides e o Keynote exportam).");
+    if (!/\.pptx$/i.test(name)) throw new Error("Por enquanto a importação lê .pptx (o PowerPoint salva em .pptx; o Google Slides e outros programas exportam).");
     const { importToDir } = await import("./import/index.js");
     const base = topicDir(topic || ensureTopic("Importados"));
     const dir = uniquePath(base, safeName(opts.title || name.replace(/\.pptx$/i, "")));

@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { execFileSync } from "node:child_process";
 import { ROOT } from "./helpers.js";
 
 const LIMITS = { // bytes
@@ -51,4 +52,24 @@ test("testes que geram pelo caminho do Studio fecham o navegador da revisão", (
   const faltam = fs.readdirSync(dir).filter((f) => f.endsWith(".test.js"))
     .filter((f) => { const s = fs.readFileSync(path.join(dir, f), "utf8"); return /generateForStudio/.test(s) && !/closeSnapshots/.test(s); });
   assert.deepEqual(faltam, []);
+});
+
+// Decisão de quem mantém o projeto: o código e a documentação não citam o programa de apresentações da maçã nem a
+// empresa (o tema prata se descreve pelo que é). Ficam só os nomes técnicos: a fonte do sistema no CSS e a
+// identificação de navegador da pesquisa. As palavras vêm em pedaços para este arquivo não se acusar.
+test("nenhuma menção ao programa de apresentações da maçã no código e na documentação", () => {
+  const proibido = new RegExp([["key", "note"], ["ap", "ple(?!-system|webkit)"], ["\\bi", "phone"], ["\\bi", "pad\\b"], ["pense ", "diferente"]]
+    .map((p) => p.join("")).join("|"), "i");
+  // só o que está no repositório (sobras locais, como .artifacts/, não contam); bibliotecas de terceiros ficam de fora
+  const arquivos = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean)
+    .filter((f) => !/(^|\/)(vendor|fonts)\//.test(f));
+  const texto = /\.(js|mjs|cjs|css|html|md|mdc|yaml|yml|json|py|txt|toml)$|(^|\/)\.cursorrules$/;
+  const achados = [];
+  for (const f of arquivos) {
+    if (proibido.test(f)) achados.push(f);
+    const p = path.join(ROOT, f);
+    if (!texto.test(f) || !fs.existsSync(p) || fs.statSync(p).size > 5_000_000) continue;
+    fs.readFileSync(p, "utf8").split(/\r?\n/).forEach((linha, i) => { if (proibido.test(linha)) achados.push(`${f}:${i + 1}`); });
+  }
+  assert.deepEqual(achados, []);
 });

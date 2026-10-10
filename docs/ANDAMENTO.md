@@ -42,6 +42,15 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
+## Sem citar o programa de apresentações da maçã (1.7.1) — 10/10/2026
+
+Pedido de Narumi: o código e a documentação não citam o programa de apresentações da Apple, a empresa nem os
+aparelhos dela. O tema `prata` passa a se descrever como "limpo e espaçoso"; o `aluminio`, como "lançamento de
+aparelho premium". O exemplo virou `templates/exemplo-prata.yaml`, e o tipo padrão do `scaffold` (CLI e MCP) virou
+`lancamento` (tipo desconhecido continua caindo nele). Saiu também o slogan da empresa do esqueleto. Ficam só os nomes
+técnicos (a fonte do sistema no CSS, a identificação de navegador da pesquisa). `guards.test.js` falha se voltar
+(olha os arquivos do repositório, menos bibliotecas de terceiros); regra no `CLAUDE.md`.
+
 ## No servidor, a configuração da IA não sai para quem usa (1.7.1) — 10/10/2026
 
 No multiusuário (portal do Oracle), `/api/ia` e `/api/ai/status` mostravam a qualquer usuário o provedor, o endereço,
@@ -815,8 +824,8 @@ raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título r
     resposta parava no meio perdia os itens → os que faltaram vão de novo, um por vez. Respostas que não serviram
     ficam em `.sagadeck/transform/falhas/` (as 40 últimas).
 - Casos de 02/10 (decks em `Pedidos de teste/`):
-  - **Apple prateado**: o `prata` (fiel ao branco da Apple de hoje) achado sem graça. Tema novo **`aluminio`**: a cara
-    dos lançamentos de iPhone e iPad de 2020-2021 (prata metálico com brilho de estúdio, alumínio escovado, título
+  - **Prateado**: o `prata` achado sem graça. Tema novo **`aluminio`**: a cara
+    de lançamento de aparelho premium (prata metálico com brilho de estúdio, alumínio escovado, título
     cromado com a cor sólida em `color` para o fiscal medir, disco de metal polido na capa e na seção, cartões de
     alumínio com chanfro, seção em azul-pacífico, escuro em grafite).
   - **história dos videogames em 5 slides, temática, o último como mapa de Mario Kart visto de cima**: saiu no tema

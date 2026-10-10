@@ -6,7 +6,7 @@ export function generateScaffold({
   title = "Minha Apresentação",
   theme = "prata",
   author = "Seu Nome",
-  type = "keynote",
+  type = "lancamento",
 } = {}) {
   const normType = String(type).toLowerCase();
 
@@ -243,7 +243,7 @@ export function generateScaffold({
     };
   }
 
-  // Padrão: Keynote Clean / Apple style
+  // Padrão: lançamento, limpo e com muito respiro (tema prata)
   return {
     title,
     author,
@@ -252,7 +252,7 @@ export function generateScaffold({
     slides: [
       {
         layout: "cover",
-        kicker: "Keynote de Lançamento",
+        kicker: "Lançamento",
         title: "Design com ==Propósito==.",
         subtitle: "A harmonia entre simplicidade, respiro e precisão",
         author,
@@ -355,14 +355,14 @@ export function generateScaffold({
             text: "O padrão definitivo para criadores exigentes.",
             rating: 5,
             ratingLabel: "5.0 Pro",
-            tags: ["Keynote", "Prata"],
+            tags: ["Lançamento", "Prata"],
           },
         ],
         notes: "> O tom escuro cria um momento teatral no palco.",
       },
       {
         layout: "end",
-        title: "Pense Diferente.",
+        title: "Simples assim.",
         subtitle: "Obrigado.",
         contacts: ["apresentacao@empresa.com", "suporte@empresa.com"],
         notes: "> Conclusão elegante e contato.",

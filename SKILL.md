@@ -120,7 +120,7 @@ O agente no terminal deve seguir o fluxo:
 ## Decisão de Arquitetura: Mesmo Repositório vs. Repositório Separado
 
 ### Por que o Estúdio deve ficar no **mesmo repositório** (`sagadeck`):
-1. **Fonte Única da Verdade**: Os layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` estilo Keynote Apple, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
+1. **Fonte Única da Verdade**: Os layouts (incluindo `stats` para KPIs e `steps` para processos), os 11 temas visuais (incluindo `prata` limpo e respirável, `rabisco` artesanal pintado à mão, `oceano` azul elétrico vivo, `pop` alegre/chiclete e `aurora` neon), as regras de tipografia e as rotinas de verificação geométrica residem no mesmo código (`src/layouts.js`, `src/themes.js`, `src/fiscal/autofix.js`). Qualquer alteração ou novo layout adicionado ao compilador fica disponível **instantaneamente** no estúdio visual.
 2. **Zero Descompasso de Versões**: Em repositórios separados, quando o formato YAML ou os temas do SagaDeck evoluem, a interface visual quebra ou fica desatualizada até que alguém publique e atualize dependências externas.
 3. **Experiência de Uso (DX) Imediata**: O desenvolvedor ou agente clona o repositório ou roda `npm install -g sagadeck` e tem **tudo num só lugar**: linha de comando (`sagadeck build`), estúdio visual (`sagadeck studio`), servidor de agentes (`sagadeck mcp`) e fiscal (`sagadeck check`).
 4. **Leve e Modular**: A interface web foi construída com tecnologias nativas leves (Vanilla JS, CSS moderno e servidor HTTP embutido do Node.js sem frameworks pesados). Isso mantém o pacote pequeno (~1.1 MB empacotado) sem impactar o desempenho do compilador.
@@ -130,7 +130,7 @@ O agente no terminal deve seguir o fluxo:
 ## Novos Temas Visuais & Recursos Anti-Textão
 
 ### 1. Temas Modernos, Vivos, Jovens e Clean
-- **`prata`**: **Estilo Keynote Apple**. Jovem, clean, respirável e sofisticado (levado a sério). Fundo cinza prata acetinado (`#F5F5F7`), texto em ardósia/preto profundo (`#1D1D1F`), cinza titânio intermediário (`#86868B`), divisores finos (`#D2D2D7`) e azul Apple (`#0071E3`). Cartelas com efeito vidro fosco / acabamento acetinado com sombra ultra-suave e tipografia San Francisco / Inter.
+- **`prata`**: **Limpo e espaçoso**. Jovem, clean, respirável e sofisticado (levado a sério). Fundo cinza prata acetinado (`#F5F5F7`), texto em ardósia/preto profundo (`#1D1D1F`), cinza titânio intermediário (`#86868B`), divisores finos (`#D2D2D7`) e azul vivo (`#0071E3`). Cartelas com efeito vidro fosco / acabamento acetinado com sombra ultra-suave e tipografia do sistema / Inter.
 - **`rabisco`**: Estilo artesanal e lousa com fontes desenhadas à mão (`'Caveat'`, `'Patrick Hand'`, `'Ink Free'`), bordas orgânicas de caderno, sombras desenhadas, fitas adesivas/post-its e ícones em estilo doodle. Ideal quando se quer uma apresentação calorosa, amigável e ilustrada.
 - **`oceano`**: Azul elétrico ultra vibrante (`#0062FF`), ciano neon (`#00C6FF`), tipografia moderna punchy e fundo luminoso de alta energia. Perfeito para tech, startups e produtos dinâmicos.
 - **`pop`**: Alegre, colorido e chiclete com paleta super animada (roxo, rosa chiclete, menta, sol) e cantos ultra-arredondados (26px).
@@ -146,7 +146,7 @@ Para apresentações de alto impacto sem "muralhas de texto":
 - **Sem bloqueios de robô**: Modelos de IA não devem tentar raspar o Google via navegadores headless (o Google bloqueia com CAPTCHA/bot detection). O SagaDeck inclui pesquisa nativa via DuckDuckGo com `sagadeck search "<termo>"` e a ferramenta MCP `sagadeck_web_search`.
 - **Controle Flexível de Fontes**:
   - **Quando o usuário pedir fontes citadas**: Inclua `source: "Fonte: Nome do Relatório, Ano"` nos slides com métricas (`stats`, `number`, `chart`, `split`) e a URL completa no roteiro do apresentador (`notes:`).
-  - **Quando o usuário pedir sem fontes (ou estilo clean/Apple)**: Omita o campo `source:`, mantendo o slide limpo e desobstruído.
+  - **Quando o usuário pedir sem fontes (ou estilo clean)**: Omita o campo `source:`, mantendo o slide limpo e desobstruído.
 - **Garantia para Modelos Econômicos**: Qualquer modelo (inclusive os menores como Haiku, Flash ou GPT-4o-mini) deve sempre finalizar com o comando `sagadeck autofix <deck.yaml>`. Isso corrige problemas cobertos pelas regras; depois confira a renderização, porque não garante perfeição geométrica ou visual.
 
 ## Recursos recentes para autoria por IA

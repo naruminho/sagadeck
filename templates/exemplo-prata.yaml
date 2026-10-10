@@ -1,10 +1,10 @@
 title: Inovação & Design
-author: Keynote Clean
+author: Estúdio Prata
 theme: prata
 duration: 12
 slides:
   - layout: cover
-    kicker: Apresentação Especial · Keynote
+    kicker: Apresentação Especial · Lançamento
     title: Simplicidade com ==Impacto==.
     subtitle: A estética do respiro, elegância e precisão visual
     author: Design Team
@@ -79,12 +79,12 @@ slides:
         title: "Padrão de Mercado"
         text: "A referência definitiva para profissionais sérios."
         rating: 5
-        ratingLabel: "5.0 Keynote"
-        tags: ["Keynote", "Prata", "Apple Clean"]
+        ratingLabel: "5.0 Pro"
+        tags: ["Lançamento", "Prata", "Clean"]
 
   - layout: end
-    title: Pense Diferente.
+    title: Simples assim.
     subtitle: Obrigado.
     contacts:
-      - apple.com/keynote
+      - design.org
       - contato@design.org

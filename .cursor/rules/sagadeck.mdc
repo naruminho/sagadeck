@@ -13,7 +13,7 @@ Use o SagaDeck sempre que o usuário pedir slides, apresentações, palestras, p
    - Se o usuário pedir com fontes/citações: adicione `source: "Fonte: Nome, Ano"` nos slides com métricas e a URL em `notes:`.
    - Se o usuário pedir sem fontes ou estilo clean: omita o campo `source:`.
 2. **Escolha do Tema**:
-   - `prata`: Keynote da Apple, ultra-clean, jovem e sério, cinza prata acetinado e respiro máximo.
+   - `prata`: ultra-clean, jovem e sério, cinza prata acetinado e respiro máximo.
    - `rabisco`: Artesanal, lousa, desenhado à mão com fontes manuscritas, post-its e doodles.
    - `oceano`: Tech moderno, azul elétrico vibrante e luminoso.
    - `pop`: Alegre, colorido e chiclete com cantos arredondados.
