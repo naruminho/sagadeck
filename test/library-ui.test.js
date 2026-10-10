@@ -587,3 +587,51 @@ test("ia.json ilegível: a faixa da biblioteca e o Configurar IA dizem que não 
     await browser.close(); await studio.close();
   }
 });
+
+// No servidor (multiusuário) quem configura a IA é quem administra; quem usa o portal não precisa (nem deve) ver
+// provedor, endereço, modelos ou o final da chave. Antes, /api/ia e /api/ai/status mostravam tudo para qualquer um.
+test("multiusuário: a configuração da IA (provedor, modelos, final da chave) não sai para quem usa; a tela só diz se está ligada", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { startMockLLM } = await import("./mock-llm.js");
+  const { saveIA } = await import("../src/ai/ia-config.js");
+  const llm = await startMockLLM(() => "ok");
+  const keepUrl = process.env.SAGADECK_LLM_URL;
+  const studio = await startStudio(null, { multiuser: true });
+  delete process.env.SAGADECK_LLM_URL; // vale o ia.json, como no servidor
+  saveIA({ provider: "outro", url: llm.url, key: "sk-servidor-4321", models: { text: "provedor/modelo-secreto" } }, process.env.SAGADECK_IA);
+  const segredos = ["4321", "modelo-secreto", new URL(llm.url).host, "ia-de-teste"];
+  const vazou = (texto) => segredos.filter((s) => texto.includes(s));
+  const as = (p, body) => fetch(studio.url + p, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", "X-Sagadeck-User": "ana" }, body: body ? JSON.stringify(body) : undefined });
+  try {
+    const ia = await (await as("/api/ia")).json();
+    assert.equal(ia.editable, false);
+    assert.equal(ia.configured, true);
+    assert.deepEqual(vazou(JSON.stringify(ia)), [], "/api/ia não mostra a configuração");
+    const status = await (await as("/api/ai/status?refresh=1")).json();
+    assert.equal(status.available, true, "a IA responde");
+    assert.deepEqual(vazou(JSON.stringify(status)), [], "/api/ai/status não mostra a configuração");
+    // no editor: o indicador e a tela Configurar IA só dizem que a IA está ligada e quem configura
+    const { id } = await (await as("/api/library/decks", { topic: "", title: "Da Ana" })).json();
+    await as("/api/library/open", { id });
+    const p = await browser.newPage({ extraHTTPHeaders: { "X-Sagadeck-User": "ana" } });
+    const errors = [];
+    p.on("pageerror", (e) => errors.push(e.message));
+    p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await p.goto(`${studio.url}/editor?deck=${encodeURIComponent(id)}`, { waitUntil: "networkidle" });
+    await p.waitForSelector("#ai-status.on");
+    assert.deepEqual(vazou(await p.getAttribute("#ai-status", "title")), []);
+    await p.click("#ai-status");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    const dlg = await p.innerText("#ai-settings-dialog");
+    assert.match(dlg, /quem administra/);
+    assert.match(dlg, /A IA está configurada/);
+    assert.equal(await p.locator("#ai-settings-dialog input, #ai-settings-dialog select").count(), 0, "nada para preencher");
+    assert.deepEqual(vazou(await p.content()), [], "nada da configuração na página");
+    assert.deepEqual(errors, []);
+  } finally {
+    process.env.SAGADECK_LLM_URL = keepUrl;
+    fs.rmSync(process.env.SAGADECK_IA, { force: true });
+    await browser.close(); await studio.close(); await llm.close();
+  }
+});

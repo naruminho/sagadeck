@@ -127,7 +127,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       await fetch("api/ai/chat/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: job.id }) }).catch(() => {});
     };
     const work = createProgressBubble(state.ai.available
-      ? `Enviando para o LLM (${state.ai.textModel})…`
+      ? (state.ai.textModel ? `Enviando para o LLM (${state.ai.textModel})…` : "Enviando para a IA…")
       : "Verificando se a IA está no ar…");
     dom.chatSend.disabled = false;
     dom.chatSend.title = 'Parar processamento'; dom.chatSend.setAttribute('aria-label','Parar');

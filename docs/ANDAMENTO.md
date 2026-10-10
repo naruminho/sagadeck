@@ -12,7 +12,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 **Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:
 - Repositório GitHub `naruminho/sagadeck`, clonado em `C:\Users\narum\src\sagadeck`, branch `main`.
-- Publicado no npm como `sagadeck` (1.7.0: primeiro uso guiado, Ambientes por campos; o PyPI parou na 1.5.0).
+- Publicado no npm como `sagadeck` (1.7.1: a IA diz por que o `ia.json` não serve e, no servidor, não mostra a configuração; o PyPI parou na 1.5.0).
 - Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
 - Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
 - Tem uma IA embutida (provedor direto, configurado em `~/.sagadeck/ia.json` pela tela Configurar IA) que cria e edita decks, inclusive a partir de PDFs de
@@ -41,6 +41,19 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 3. **Arquivos só na nuvem (Files On-Demand).** Com espaço liberado, o OneDrive deixa só o marcador do arquivo, e
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
+
+## No servidor, a configuração da IA não sai para quem usa (1.7.1) — 10/10/2026
+
+No multiusuário (portal do Oracle), `/api/ia` e `/api/ai/status` mostravam a qualquer usuário o provedor, o endereço,
+os modelos, o caminho do `ia.json` e os 4 últimos caracteres da chave, embora ele não pudesse editar nada.
+
+- `/api/ia` no multiusuário devolve só `{ editable: false, configured }`; `/api/ai/status`, só `{ available,
+  configured, server: true }`.
+- O Configurar IA, no servidor, vira um aviso: quem configura é quem administra, e se a IA está configurada. O
+  indicador do editor diz "A IA deste servidor está ligada" (ou "não está respondendo / não está configurada. Avise
+  quem administra"), sem endereço nem modelo; o progresso do chat diz "Enviando para a IA".
+- Teste (`test/library-ui.test.js`): com a IA configurada no servidor, nada de chave, modelo, endereço ou arquivo nas
+  respostas nem na página do editor; o diálogo não tem campos. Falha sem a mudança.
 
 ## ia.json ilegível diz o motivo — 10/10/2026
 

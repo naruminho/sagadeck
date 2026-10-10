@@ -21,6 +21,15 @@ window.SagaAISettings = (() => {
     document.body.append(dialog);
   }
 
+  // no servidor (multiusuário) a configuração é de quem administra e não vem para a página: só se está ligada
+  function serverNotice() {
+    dialog.innerHTML = `<h2>Configurar IA</h2>
+      <p>Neste servidor, quem configura a IA é quem administra.</p>
+      <p>${info.configured ? "A IA está configurada." : "A IA não está configurada. Avise quem administra o servidor."}</p>
+      <div class="row"><button type="button" data-close>Fechar</button></div>`;
+    dialog.querySelector("[data-close]").onclick = () => dialog.close();
+  }
+
   function form() {
     const c = info.config || {}, providers = info.providers || {};
     const provider = c.provider && (providers[c.provider] || c.provider === "outro") ? c.provider : (c.url ? "outro" : "openrouter");
@@ -80,7 +89,7 @@ window.SagaAISettings = (() => {
       onSaved = typeof saved === "function" ? saved : () => {};
       if (!dialog) build();
       info = await (await fetch("api/ia")).json();
-      form();
+      if (info.editable) form(); else serverNotice();
       if (!dialog.open) dialog.showModal();
     },
   };
