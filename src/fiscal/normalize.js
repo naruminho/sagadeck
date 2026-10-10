@@ -61,6 +61,15 @@ export function normalizeSpec(rawSpec) {  if (!rawSpec || typeof rawSpec !== "ob
       s = phrases.length > 1 ? { ...rest, layout: "statement", lines: phrases, build: true } : { ...rest, layout: "statement", text: phrases[0] || "" };
     }
 
+    // Texto no cenário saiu (Narumi: "ele é muito limitado e dá para fazer coisas melhores pedindo pra IA desenhar"):
+    // com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase em destaque
+    if (s.layout === "scenography") {
+      const { scene: _sc, foreground: _fg, imageOpacity: _op, titleSize: _ts, subtitle, caption, title, image, kicker, ...rest } = s;
+      s = image
+        ? { ...rest, layout: "full", image, ...(kicker ? { kicker } : {}), ...(title ? { title } : {}), ...(subtitle || caption ? { caption: subtitle || caption } : {}), overlay: "left" }
+        : { ...rest, layout: "statement", ...(kicker ? { kicker } : {}), text: String(title || "").replace(/\n/g, " ").trim(), ...(subtitle ? { by: subtitle } : {}) };
+    }
+
     // Termos em português para campos básicos
     if (s.titulo && !s.title) { s.title = s.titulo; delete s.titulo; }
     if (s.subtitulo && !s.subtitle) { s.subtitle = s.subtitulo; delete s.subtitulo; }

@@ -35,7 +35,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "definition", "poster", "calendar", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "table", "map", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "portal", "science", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
+    "chart", "table", "map", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "portal", "science", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -45,7 +45,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", map: "Mapa", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado",
+    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", codewalk: "Código guiado", spotlight: "Foco guiado",
     duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
     graphlab: "Rede explorável", codelab: "Código explorável", playground: "Experiência personalizada", portal: "Portal e transformação",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
@@ -2053,7 +2053,7 @@
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
     ["codigo", "Código e API", ["code", "codewalk", "api"]],
-    ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "scenography", "portal"]],
+    ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "portal"]],
     ["plateia", "Plateia", ["question", "poll"]],
     ["dinamicas", "Dinâmicas a dois", ["duel", "terminals", "turns"]],
     ["aula", "Aula: exercícios e algoritmos", ["solution", "calc", "algo", "graphlab", "codelab", "playground"]],

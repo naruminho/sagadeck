@@ -9,7 +9,7 @@ export const TOUR_TITLE = "Conheça o SagaDeck";
 // os grupos na ordem em que fazem sentido para quem está conhecendo; layout que não estiver em nenhum entra em "Mais"
 const GROUPS = [
   ["Abrir e fechar", "capa, seções, agenda e encerramento", ["cover", "section", "agenda", "end", "references"]],
-  ["Uma ideia por vez", "frases, números e palavras que ocupam o palco", ["statement", "headline", "quote", "definition", "number", "scenography"]],
+  ["Uma ideia por vez", "frases, números e palavras que ocupam o palco", ["statement", "headline", "quote", "definition", "number"]],
   ["Organizar o conteúdo", "listas, cartões, etapas, comparações e linhas do tempo", ["list", "cards", "mosaic", "ribbon", "bento", "split", "compare", "matrix", "steps", "timeline", "calendar", "hub", "infographic", "pyramid", "funnel"]],
   ["Números e dados", "indicadores, gráficos, tabelas e painéis", ["stats", "chart", "table", "onepage", "status", "poster"]],
   ["Mapas", "pontos, linhas e áreas sobre o mapa ao vivo, com a IA buscando dados e fazendo as contas", ["map"], () => mapDemos()],

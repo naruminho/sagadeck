@@ -544,14 +544,29 @@ test("exemplos, referência e modelos sem nada da empresa de quem desenvolve", (
 
 // A IA do sagadeck só usa o que está na referência (docs/REFERENCIA.md vai inteira no prompt). Recurso novo que
 // não entra lá é invisível para ela: este teste falha se faltar um layout, composição, tema ou paleta.
+// O Texto no cenário saiu (Narumi: "ele é muito limitado e dá para fazer coisas melhores pedindo pra IA desenhar").
+// Deck antigo: com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase em destaque.
+test("Texto no cenário saiu: o layout não existe mais e deck antigo abre como imagem cheia ou frase em destaque", () => {
+  assert.equal(LAYOUTS.scenography, undefined);
+  assert.equal(LAYOUT_SAMPLES.scenography, undefined);
+  const antigo = normalizeSpec({ slides: [
+    { layout: "scenography", scene: "floor", kicker: "UMA NOVA PERSPECTIVA", title: "NOVOS\nCAMINHOS", subtitle: "Ideias que ocupam espaço.", deco: "none" },
+    { layout: "scenography", scene: "stage", title: "ALÉM DO\nÓBVIO", image: "imagens/fundo.jpg", imageOpacity: 0.5, foreground: "imagens/pessoa.png", caption: "ESTUDO 01" },
+  ] });
+  assert.deepEqual(antigo.slides[0], { deco: "none", layout: "statement", kicker: "UMA NOVA PERSPECTIVA", text: "NOVOS CAMINHOS", by: "Ideias que ocupam espaço." });
+  assert.deepEqual(antigo.slides[1], { layout: "full", image: "imagens/fundo.jpg", title: "ALÉM DO\nÓBVIO", caption: "ESTUDO 01", overlay: "left" });
+  const { html } = buildHTML({ slides: [antigo.slides[0]] });
+  assert.match(html, /NOVOS CAMINHOS/);
+  assert.doesNotMatch(html, /scenography|scene-(stage|floor|signs|type|atmosphere)/);
+});
+
 test("a IA conhece tudo: todo layout, composição, tema e paleta aparece na referência que vai no prompt", async () => {
   const { reference } = await import("../src/ai/deck-ai.js");
-  const { LAYOUTS, SCENES } = await import("../src/layouts.js");
+  const { LAYOUTS } = await import("../src/layouts.js");
   const { THEMES, PALETTES } = await import("../src/themes.js");
   const ref = reference();
   const missing = [
     ...Object.keys(LAYOUTS).filter((k) => !new RegExp("`" + k + "`|layout: " + k + "\b").test(ref)).map((k) => "layout " + k),
-    ...Object.keys(SCENES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "composição " + k),
     ...Object.keys(THEMES).filter((k) => !ref.includes("`" + k + "`") && !ref.includes(" " + k + " ")).map((k) => "tema " + k),
     ...Object.keys(PALETTES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "paleta " + k),
   ];

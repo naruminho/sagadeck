@@ -168,6 +168,18 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Texto no cenário sai; fundo claro do mapa com o mar visível — 10/10/2026
+
+Narumi: "pode excluir também o texto no cenário. Ele é muito limitado e teoricamente dá para fazer coisas melhores
+pedindo pra IA desenhar". Saiu do motor (`SCENES`, layout `scenography`), do CSS, do Studio (galeria, formulário),
+da vitrine (a demo `templates/cenario`), do tour, da referência e do SKILL; o exemplo de matemática perdeu os três
+slides de cenário. Deck antigo: com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase
+em destaque (`src/fiscal/normalize.js`; `engine.test.js`).
+
+E "a área ainda não está em cima dos estados": os dados estavam certos (pontos do litoral a até 2,6 km da borda); no
+fundo claro, o filtro cinza deixava terra e mar da mesma cor e a fronteira marítima que o OpenStreetMap desenha 12
+milhas mar adentro parecia o litoral. O filtro agora guarda um azul leve no mar (`base.css`; `map.test.js`).
+
 ## Mapa: escala única, contornos detalhados e pontos mais bonitos — 10/10/2026
 
 Narumi, no slide dos estados: "isso não parece certo". Cada camada tinha a própria escala (a Bahia, 2.900 MW, saía

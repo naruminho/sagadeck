@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
-import { LAYOUTS, SCENES, fullAsFigure } from "./layouts.js";
+import { LAYOUTS, fullAsFigure } from "./layouts.js";
 import { setDeckLocale } from "./locale.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el, imageSrc } from "./elements.js";
@@ -59,7 +59,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "scenography"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -145,7 +145,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const layout = inferLayout(s);
     const fn = LAYOUTS[layout];
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
-    const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
+    const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
     const th = slideTheme(s, theme, spec), sctx = th === theme ? ctx : { ...ctx, theme: th };
     try { inner = fn(s, sctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
@@ -272,7 +272,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" || layout === "scenography" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
   const motionAccent = area === 'safe' && s.motionAccent && typeof s.motionAccent === 'object';
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
@@ -321,7 +321,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
-  const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
+  const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
   const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });

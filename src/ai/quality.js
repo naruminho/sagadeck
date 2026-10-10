@@ -51,7 +51,7 @@ export function auditText(spec, indices, { briefing = '', render = null } = {}) 
   // título; o layout da figura já reserva a área. Vale para os layouts com cabeçalho comum (não capa/seção/manchete).
   for (const index of indices) {
     const s = slides[index];
-    if (!s || !Number.isFinite(Number(s.titleSize)) || ONE_LINER.has(s.layout) || ['cover', 'section', 'end', 'scenography', 'full'].includes(s.layout)) continue;
+    if (!s || !Number.isFinite(Number(s.titleSize)) || ONE_LINER.has(s.layout) || ['cover', 'section', 'end', 'full'].includes(s.layout)) continue;
     if (Number(s.titleSize) < 60) issues.push({ slide: index + 1, text: `Título com titleSize ${s.titleSize}, bem menor que o dos outros slides: a hierarquia do deck fica desigual. Tire o titleSize (o layout já dá a área da figura); se o título não couber, encurte o texto.` });
   }
   // muitas telas de frase solta: a partir da terceira (ou de 15% do deck), cada uma precisa justificar o lugar

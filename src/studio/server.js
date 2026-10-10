@@ -259,13 +259,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
     key = String(key || "");
     if (key.startsWith("model-")) { const kind = key.slice(6); return { spec: demoDeck(kind), dir: MODEL_ASSETS_DIR, copy: (L, id) => copyModelAssets(L, id, kind) }; }
     if (key.startsWith("exp-")) return { spec: createExperienceDeck(key.slice(4)), dir: null, copy: () => {} };
-    if (key === "example-cenario") {
-      const dir0 = TEMPLATE_DIRS.map((d) => path.join(d, "cenario")).find((d) => fs.existsSync(d));
-      if (!dir0) throw new Error("o exemplo não veio no pacote (templates/cenario)");
-      const tpl = fs.readdirSync(dir0).find((f) => f.endsWith(".yaml"));
-      return { spec: YAML.parse(fs.readFileSync(path.join(dir0, tpl), "utf8")), dir: dir0,
-        copy: (L, id) => fs.cpSync(path.join(dir0, "imagens"), path.join(path.dirname(L.resolveId(id)), "imagens"), { recursive: true, force: false }) };
-    }
     if (key === "example-api") {
       const tpl = templateFile("ensaio-api.yaml");
       if (!tpl) throw new Error("o exemplo não veio no pacote (templates/ensaio-api.yaml)");

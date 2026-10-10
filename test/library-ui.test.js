@@ -354,32 +354,6 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
   }
 });
 
-test("Nova → Exemplo: texto no cenário cria o deck com as imagens de exemplo ao lado", { timeout: 60000 }, async (t) => {
-  const browser = await browserOrSkip(t);
-  if (!browser) return;
-  const studio = await startStudio(null);
-  try {
-    const { page: p, errors } = await newPage(browser, studio.url);
-    await p.click("#btn-new");
-    await p.click('#new-menu [data-new="gallery"]');
-    assert.match(await p.innerText(".vit-grid"), /Texto no cenário/);
-    await Promise.all([p.waitForURL(/\/editor\?model=example-cenario/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="example-cenario"]', { noWaitAfter: true })]);
-    await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }); // prévia → a cópia
-    await p.waitForSelector("#rendered-slide-container .L-scenography", { timeout: 30000 });
-    const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
-    const file = path.join(studio.library, yamls.find((f) => /cen[aá]rio/i.test(f)));
-    const saved = YAML.parse(fs.readFileSync(file, "utf8"));
-    assert.ok(saved.slides.filter((s) => s.layout === "scenography").length >= 13);
-    for (const img of ["cidade.svg", "pessoa.svg"]) assert.ok(fs.existsSync(path.join(path.dirname(file), "imagens", img)), img);
-    assert.deepEqual(errors, []);
-  } finally {
-    await browser.close();
-    await studio.close();
-  }
-});
-
-// O "preguiçoso": Nova tem só três caminhos; o que é pronto mora numa vitrine com filtro; o diálogo de IA pede, numa
-// tela só, o assunto, o tempo (os slides saem daí), o estilo e o material de apoio — e tudo isso vai no pedido.
 test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo numa tela só", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
@@ -407,7 +381,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });

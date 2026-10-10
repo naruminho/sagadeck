@@ -315,7 +315,6 @@
     ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos e diagramas", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
     ["recurso", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
-    ["recurso", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
   ];
   const GALLERY_KINDS = [["", "Todos"], ["visual", "Visuais para começar"], ["recurso", "Recursos do SagaDeck"]];
   async function galleryDialog(topic, kind = "") {

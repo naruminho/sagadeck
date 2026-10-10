@@ -282,3 +282,12 @@ test("mapa ao vivo: ponto pequeno com anel branco e sombra; bolha translúcida c
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await tiles.close(); }
 });
+
+// Pedido de Narumi ("a área ainda não está em cima dos estados"): no fundo claro, o filtro cinza deixava terra e mar
+// iguais, e a fronteira marítima do OpenStreetMap (12 milhas mar adentro) parecia o litoral. O mar guarda um azul leve.
+test("fundo claro: o filtro não apaga a diferença entre terra e mar", () => {
+  const css = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, "$1")), "..", "src", "runtime", "base.css"), "utf8");
+  const claro = css.match(/\.map-box\[data-basemap="claro"\] \.leaflet-tile-pane\{filter:([^}]*)\}/)?.[1] || "";
+  assert.doesNotMatch(claro, /grayscale\(1\)/);
+  assert.match(claro, /saturate\(0?\.\d+\)/);
+});
