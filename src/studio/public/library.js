@@ -76,6 +76,7 @@
     $("#side").innerHTML = `
       <button class="nav ${view === "recentes" ? "active" : ""}" data-view="recentes">${ic("clock")}<span class="name">Recentes</span></button>
       <button class="nav ${view === "todas" ? "active" : ""}" data-view="todas">${ic("layout-grid")}<span class="name">Todas</span><span class="count">${data.decks.length || ""}</span></button>
+      <button class="nav nav-tour" data-tour title="Tudo o que dá para fazer, um slide por recurso (abre em prévia)">${ic("compass")}<span class="name">Conheça o SagaDeck</span></button>
       <div class="side-title">TÓPICOS<button title="Novo tópico" id="new-topic" aria-label="Novo tópico">${ic("plus")}</button></div>
       ${data.topics.map((t) => `<button class="nav ${view === t.id ? "active" : ""}" data-view="${esc(t.id)}" data-topic="${esc(t.id)}"><span class="dot" style="background:${esc(t.color)}"></span><span class="name">${esc(t.name)}</span><span class="count">${t.count || ""}</span></button>`).join("")}
       ${loose ? `<button class="nav ${view === "" ? "active" : ""}" data-view="" title="Arquivos .yaml deixados direto na pasta da biblioteca"><span class="dot" style="background:${NO_TOPIC.color}"></span><span class="name">${NO_TOPIC.name}</span><span class="count">${loose}</span></button>` : ""}
@@ -86,6 +87,8 @@
     hydrate($("#side"));
     $("#side").querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { view = b.dataset.view; store.set("libView", view); render(); });
     $("#new-topic").onclick = () => topicDialog();
+    // a apresentação de recursos (src/studio/tour.js) abre como os modelos da vitrine: em prévia, sem criar arquivo
+    $("#side [data-tour]").onclick = () => { location.href = "editor?model=conheca&topic=Modelos"; };
     $("#side").querySelectorAll("[data-topic]").forEach((b) => {
       b.ondragover = (e) => { if (e.dataTransfer.types.includes("application/x-sagadeck-deck")) { e.preventDefault(); b.classList.add("drop"); } };
       b.ondragleave = () => b.classList.remove("drop");
@@ -277,6 +280,7 @@
     ["visual", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
     ["visual", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
     ["visual", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
+    ["recurso", "model-conheca", "Conheça o SagaDeck", "Um slide por recurso, com a frase para pedir cada um à IA", ["#F2F0EA", "#1A1A1A", "#F2B33D"]],
     ["recurso", "model-explorar", "Explore uma ideia", "Prever, comparar cenários, curvas conectadas e acompanhar o mesmo objeto entre cenas", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
     ["recurso", "model-novidades", "Novidades", "Carrossel, gráfico do Excel e da planilha do projeto, fórmulas vivas, duelo de commits, terminais e zoom", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
     ["recurso", "model-hidraulica", "Aula de hidráulica", "Navier–Stokes, curva que se mexe, calculadora de Reynolds ao vivo e exercício resolvido passo a passo", ["#EAF4F8", "#0B5C7A", "#1B998B"]],

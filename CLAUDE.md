@@ -50,8 +50,11 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
   (tema, exemplo, comentário, texto da IA): descreva pelo que é ("limpo e espaçoso", "aparelho premium"). Só ficam os
   nomes técnicos (a fonte do sistema no CSS, a identificação de navegador). `guards.test.js` falha se aparecer.
 - **A IA do sagadeck só conhece o que está em `docs/REFERENCIA.md`** (vai inteira no prompt). Recurso novo (layout, campo, composição, tema, paleta, campo do deck) entra lá no mesmo commit. `engine.test.js` falha se faltar layout, composição, tema ou paleta.
-- **Nada pede coisa à internet** na apresentação nem no Studio (a rede do banco barra): fonte nova de tema entra em
-  `scripts/vendor-fonts.mjs` (licença livre, rode o script); nada de `@import` ou `url(https://…)` (`test/fonts.test.js`).
+- **O essencial não depende de internet**: fontes e bibliotecas vão embutidas no pacote (fonte nova de tema entra em
+  `scripts/vendor-fonts.mjs`, licença livre, rode o script; nada de CDN, `@import` ou `url(https://…)`: `test/fonts.test.js`).
+  **Recurso que precisa de internet é bem-vindo** (mapa ao vivo, busca, rotas, pesquisa): fica disponível onde
+  funciona e some ou avisa onde não. Falta de rede não é motivo para cortar ou empobrecer recurso, nem para ficar
+  repetindo a restrição. Serviço que falha (autorização, bloqueio): uma tentativa e para, sem insistir.
 - **É tudo Node**: distribuição só pelo npm (o pacote do PyPI parou na 1.5.0). A IA é a camada embutida
   `src/ai/ia-config.js` + `src/ai/llm.js`: provedor, chave e modelos em `~/.sagadeck/ia.json` (tela Configurar IA do
   Studio), nunca no código nem na biblioteca. Provedor fora do padrão da OpenAI se resolve com um adaptador `.mjs` da

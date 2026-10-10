@@ -407,7 +407,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
@@ -634,4 +634,25 @@ test("multiusuário: a configuração da IA (provedor, modelos, final da chave) 
     fs.rmSync(process.env.SAGADECK_IA, { force: true });
     await browser.close(); await studio.close(); await llm.close();
   }
+});
+
+// "Conheça o SagaDeck": quem abre a biblioteca acha, na lateral, a apresentação com tudo o que dá para fazer (um
+// slide por recurso, cada um dizendo como pedir à IA). Abre em prévia: navegar não cria arquivo na biblioteca.
+test("Conheça o SagaDeck: a lateral da biblioteca abre a apresentação de recursos em prévia, sem criar arquivo", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click('#side [data-tour]');
+    await p.waitForURL(/editor\?model=conheca/, { timeout: 30000 });
+    await p.waitForSelector('.thumb-card[data-idx="60"]', { timeout: 30000 });
+    assert.ok(await p.isVisible("#preview-banner"), "abre em prévia");
+    assert.match(await p.textContent("#rendered-slide-container"), /Conheça o SagaDeck/);
+    await p.click('.thumb-card[data-idx="2"]');
+    await p.waitForTimeout(800);
+    const lib = await (await fetch(studio.url + "/api/library")).json();
+    assert.equal(lib.decks.length, 0, "abrir e navegar não cria apresentação");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); }
 });
