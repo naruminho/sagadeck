@@ -243,7 +243,7 @@
   // ------------------------------------------------------------------ planilha como no Excel
   const colName = (i) => { let s = ""; i++; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
   const looksNum = (v) => /^\s*[-+]?(R\$\s*)?(\d{1,3}(\.\d{3})+(,\d+)?|\d+([.,]\d+)?)\s*%?\s*$/.test(String(v ?? ""));
-  function sheetGrid(host, { rows, editable = false, hasHeader = false, maxRender = 3000, onChange, types = [] } = {}) {
+  function sheetGrid(host, { rows, editable = false, hasHeader = false, maxRender = 3000, onChange, onSelect, types = [] } = {}) {
     let data = rows.map((r) => [...r]);
     const undo = [], redo = [];
     let sel = { r: 0, c: 0, r2: 0, c2: 0 }, editing = null;
@@ -267,6 +267,7 @@
       const [r1, r2] = [Math.min(sel.r, sel.r2), Math.max(sel.r, sel.r2)], [c1, c2] = [Math.min(sel.c, sel.c2), Math.max(sel.c, sel.c2)];
       for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) cell(r, c)?.classList.add("sel");
       const cur = cell(sel.r, sel.c); cur?.classList.add("cur");
+      onSelect?.(sel.r, sel.c); // quem abriu a planilha acompanha a linha (ex.: o mapa abre o cartão do ponto)
       for (let c = c1; c <= c2; c++) table.querySelector(`thead th[data-col="${c}"]`)?.classList.add("on");
       for (let r = r1; r <= r2; r++) table.querySelector(`tbody th[data-row="${r}"]`)?.classList.add("on");
       cur?.scrollIntoView({ block: "nearest", inline: "nearest" });

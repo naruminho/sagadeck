@@ -17,4 +17,5 @@ window.SagaMapFields = (f, obj) => [
   f.bool("build", "Uma camada por clique"),
   f.json("view", "Enquadramento", { hint: 'Vazio: enquadra os dados. Ou { center: [-23.55, -46.63], zoom: 13 }' }),
   f.text("caption", "Nota"),
+  f.action("Configurar mapa", () => window.SagaMapSettings?.open()),
 ];
