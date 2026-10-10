@@ -702,6 +702,9 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
 - `color:` aceita também uma cor fixa (`s1`, `em`, `hi`, `alert`, `#1F6FB2`). `step` (número) diz em que clique a
   camada aparece; `view` da camada (`fit` ou `{ center: [lat, lon], zoom }`) leva a câmera até ela nesse clique.
 - `view:` do slide fixa o enquadramento (`{ center: [-23.55, -46.63], zoom: 13 }`); sem ele, o mapa enquadra os dados.
+- Planilha só com endereço (sem latitude e longitude): no Studio, a planilha aberta (aba Arquivos) tem **Achar
+  coordenadas**, que pergunta antes de mandar os endereços para o serviço de fora e grava as colunas `latitude` e
+  `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
 - Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma
   categoria ou a camada inteira. O fundo vem da internet; sem rede, aparece um aviso e as camadas continuam. No PDF e
   no PowerPoint o mapa sai como estava na tela.

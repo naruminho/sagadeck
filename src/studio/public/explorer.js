@@ -354,8 +354,9 @@
     const types = [];
     for (const c of cols) types[c.index] = { type: c.type, label: TYPE_LABEL[c.type] || c.type };
     let timer = 0;
-    window.SagaViewers.sheetGrid(view.querySelector("#sh-grid"), {
+    const grid = window.SagaViewers.sheetGrid(view.querySelector("#sh-grid"), {
       rows: sheet.rows, editable, hasHeader: sheet.hasHeader, types,
+      onSelect: (r) => window.SagaMapData?.selectRow(t.path, r + 1),
       onChange: (rows) => {
         const st = $("#dv-status"); st.textContent = "gravando…"; t.dirty = true; renderTabs();
         clearTimeout(timer);
@@ -365,6 +366,8 @@
         }, 500);
       },
     });
+    // planilha com posição ou endereço: "Pôr no mapa" e "Achar coordenadas" (map-data.js)
+    window.SagaMapData?.sheetTools(view, { t, rows: sheet.rows, grid, api, ctx, reload: async (p) => { if (p && p !== t.path) return; t.text = undefined; await activate(t.path); } });
     view.querySelectorAll("[data-sheet]").forEach((b) => b.onclick = () => { t.sheet = b.dataset.sheet; activate(t.path); });
     view.querySelector("[data-as-text]")?.addEventListener("click", () => { t.asText = true; t.text = undefined; activate(t.path); });
     view.querySelector("[data-toggle-suggest]").onclick = () => { t.hideSuggest = !t.hideSuggest; view.querySelector(".sh-body").classList.toggle("no-suggest", t.hideSuggest); };

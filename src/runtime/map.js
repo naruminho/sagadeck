@@ -122,6 +122,8 @@
         style: (f) => (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32 } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
         onEachFeature: (f, lyr) => {
           if (s.popup.length || s.label) lyr.bindPopup(card(f), { className: "map-card", maxWidth: 420 });
+          // no Studio, clicar no ponto seleciona a linha da planilha aberta (map-data.js)
+          lyr.on("click", () => document.dispatchEvent(new CustomEvent("sagamap:ponto", { detail: { path: layer.source, linha: f.properties?._linha } })));
           if (s.label && f.properties?.[s.label] != null && layer.data.features.length <= 60) lyr.bindTooltip(escHTML(f.properties[s.label]), { permanent: true, direction: "top", offset: [0, -10], className: "map-label" });
         },
       });
@@ -177,6 +179,15 @@
     if (st.tilesDone) settle();
     setTimeout(settle, 8000); // a exportação não espera para sempre
   }
+
+  // linha selecionada na planilha (Studio) -> abre o cartão do ponto dessa linha
+  document.addEventListener("sagamap:linha", (e) => {
+    const { path, linha } = e.detail || {};
+    for (const st of live.values()) for (const entry of st.layers) {
+      if (!path || entry.layer.source !== path || !st.map?.hasLayer(entry.g)) continue;
+      entry.g.eachLayer((lyr) => { if (lyr.feature?.properties?._linha === linha) { lyr.openPopup(); if (lyr.getLatLng) st.map.panTo(lyr.getLatLng()); } });
+    }
+  });
 
   function mount(root = document, { force = false } = {}) {
     const boxes = [...root.querySelectorAll(".map-box")];

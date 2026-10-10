@@ -58,6 +58,7 @@ export function pointsFromRows(head, rows, layer = {}, warn = () => {}) {
   const features = [];
   let missing = 0;
   rows.forEach((r, n) => {
+    if (!r.some((c) => String(c ?? "").trim())) return; // linha vazia não é ponto sem posição
     let lat, lon;
     if (iCoord >= 0) [lat, lon] = splitCoords(r[iCoord]);
     else { lat = coordNum(r[iLat]); lon = coordNum(r[iLon]); }
@@ -194,9 +195,9 @@ export function mapModel(s, ctx) {
       if (typeof layer.points === "string") {
         const text = readText(layer.points, ctx, "planilha");
         if (text != null) {
+          // sem tirar as linhas vazias: _linha é o número da linha na planilha (a seleção liga linha e ponto)
           const { rows } = parseCSV(text);
-          const [head = [], ...body] = rows.filter((r) => r.some((c) => String(c).trim()));
-          features = pointsFromRows(head.map((h) => String(h).trim()), body, layer, warn).features;
+          features = pointsFromRows((rows[0] || []).map((h) => String(h).trim()), rows.slice(1), layer, warn).features;
         }
       } else if (Array.isArray(layer.points)) {
         const rows = layer.points.filter((p) => p && typeof p === "object");
@@ -216,7 +217,8 @@ export function mapModel(s, ctx) {
     if (!features.length && layer.areas == null) warn(`mapa: a camada "${layer.name || i + 1}" ficou vazia`);
     const step = layer.step ?? (s.build ? i + 1 : undefined);
     layers.push({
-      name: layer.name || layer.title || `Camada ${i + 1}`, kind, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
+      name: layer.name || layer.title || `Camada ${i + 1}`, kind,
+      source: typeof layer.points === "string" ? layer.points.trim() : layer.geojson || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
       view: viewOf(layer.view), legend: layer.legend || null, prefix: layer.prefix || "", suffix: layer.suffix || "",
       style: styleOf(features, layer, warn), data: { type: "FeatureCollection", features },
     });

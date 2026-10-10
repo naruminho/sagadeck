@@ -91,9 +91,17 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    salva). Achados no caminho: coordenada "-46.702" lida como milhar pelo leitor de números (agora `coordNum`); a
    classe `widget` na caixa fazia o runtime trocar o conteúdo; rota do `map.js` com cache servia código velho.
    Pendente para depois: geocodificar `at: "Recife"` (entrega 2) e contornos de reserva quando o fundo falha.
-2. Tela **Dados**: grade editável (colar do Excel, importar CSV/XLSX/GeoJSON), colunas reconhecidas, linhas sem
-   posição marcadas, endereço→coordenada em lote com progresso, seleção ligada ao mapa nos dois sentidos. Reaproveita
-   a planilha do Formatar.
+2. **Feita (10/10).** A tela de dados é a planilha da aba Arquivos (`sheetGrid`, já editável e colando do Excel),
+   com as ferramentas de mapa (`src/studio/public/map-data.js`): **Pôr no mapa** (adivinha cor pela coluna de
+   categorias que se repetem e rótulo pela de nome; `.xlsx` ganha um CSV ao lado), **Achar coordenadas** (pergunta o
+   plano antes e mostra quantos endereços, para qual serviço e quanto tempo; só envia com o sim; progresso; o que não
+   achou fica listado; cache em `.sagadeck/geocodificacao.json`, consentimento em `.sagadeck/mapa-consentimento.json`)
+   e a **seleção ligada** (clicar no ponto seleciona a linha; selecionar a linha abre o cartão). Servidor:
+   `src/map-services.js` (pedidos identificados `sagadeck/versão`, uma tentativa e para, estado de cada serviço) e
+   `src/studio/geo-routes.js` (`/api/mapa`, `/api/mapa/tentar`, `/api/mapa/geocode` em ndjson). Tela **Configurar
+   mapa** (`map-settings.js`, botão no formulário do mapa). Decisão: a busca de endereço sai do servidor do Studio
+   (a política do Nominatim pede identificação, que o navegador não deixa mudar); os tiles saem do navegador.
+   Testes: `test/map-data.test.js`. Fica para depois: abrir GeoJSON como tabela.
 3. **Editar no mapa**: adicionar ponto (endereço reverso), arrastar, desenhar linha/polígono, "seguir as ruas",
    editar vértices, dividir/juntar, enquadrar ("usar esta vista"), régua; comprimento e área ao vivo.
 4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha

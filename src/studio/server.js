@@ -6,6 +6,7 @@ import {chatErrorResult,installErrorResponses} from './errors.js';
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { publicScript } from "./public-files.js";
 import { iaRoutes } from "./ia-routes.js";
+import { geoRoutes } from "./geo-routes.js";
 import { codeWatch } from "./code-version.js";
 import {meetingRoutes,meetingPreview} from '../meeting.js';
 import { codeRoutes } from "./code-routes.js";
@@ -902,6 +903,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // Configurar IA (provedor, chave, modelos desta máquina): src/studio/ia-routes.js
       if (pathname.startsWith("/api/ia") && await iaRoutes({ req, res, pathname, opts, readJSON })) return;
+      // Configurar mapa, estado dos serviços e coordenadas pelo endereço: src/studio/geo-routes.js
+      if (pathname.startsWith("/api/mapa") && await geoRoutes({ req, res, pathname, opts, readJSON, W, isBundledTemplate })) return;
 
       if (pathname === "/api/ai/status" && req.method === "GET") {
         const cfg = llmConfig();
