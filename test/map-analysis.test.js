@@ -72,7 +72,17 @@ test("análises pela IA (sem rede): mais próximo, contar em área, faixa com po
   assert.match(csv[1], /^P1,0,0,Loja A,111$/);
   assert.match(contar.oque, /Norte: 2/);
   assert.match(faixa.oque, /1 de 2 pontos .* \(Perto\)/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, faixa.arquivo), "utf8")).features[0].geometry.type, "MultiPolygon");
+  const fx = JSON.parse(fs.readFileSync(path.join(dir, faixa.arquivo), "utf8")).features[0];
+  assert.equal(fx.geometry.type, "MultiPolygon");
+  // os pedaços da faixa se sobrepõem: ela vai marcada e o mapa a desenha sem contorno (antes: um círculo por vértice
+  // aparecia, como uma pilha de bolhas)
+  assert.equal(fx.properties._faixa, true);
+  // e no mesmo sentido: a sobreposição preenche uma vez (sentidos trocados abriam buracos onde os pedaços se cruzam)
+  const sentido = (r) => r.slice(0, -1).reduce((acc, p, i) => acc + p[0] * r[i + 1][1] - r[i + 1][0] * p[1], 0) > 0;
+  assert.ok(fx.geometry.coordinates.every(([r]) => sentido(r)), "todos os pedaços anti-horários");
+  const { mapModel, mapPreviewSVG } = await import("../src/map.js");
+  const svg = mapPreviewSVG(mapModel({ layers: [{ geojson: { type: "FeatureCollection", features: [fx] } }, { geojson: { type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [[[[0, 0], [0, 1], [1, 1], [0, 0]]]] } } }] }, {}));
+  assert.deepEqual([...svg.matchAll(/stroke-width="(\d+)"/g)].map((m) => m[1]), ["0", "2"], "a faixa sem contorno; outra área com contorno");
   assert.equal(sug.linhas, 2);
   assert.match(fs.readFileSync(path.join(dir, "contexto", "sugestoes.csv"), "utf8"), /^nome,latitude,longitude,distancia_m/);
 });

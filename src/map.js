@@ -258,7 +258,7 @@ export function mapPreviewSVG(model, w = 1600, h = 760) {
     else if (g.type === "LineString") out.push(`<path d="${lines([g.coordinates])}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "MultiLineString") out.push(`<path d="${lines(g.coordinates)}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "Polygon") out.push(`<path d="${lines(g.coordinates)}Z" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="2"/>`);
-    else if (g.type === "MultiPolygon") out.push(`<path d="${g.coordinates.map((p) => lines(p) + "Z").join("")}" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="2"/>`);
+    else if (g.type === "MultiPolygon") out.push(`<path d="${g.coordinates.map((p) => lines(p) + "Z").join("")}" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="${f.properties?._faixa ? 0 : 2}"/>`);
   }
   return `<svg class="map-preview" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${out.join("")}</svg>`;
 }

@@ -168,6 +168,19 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Demos de mapa com cada tipo de objeto e onde se edita — 10/10/2026
+
+Narumi: "ainda não entendi onde vão os menus e propriedades… mostre não só com pontos, mas com cada tipo de objeto".
+A seção Mapas do Conheça o SagaDeck agora tem: pontos por categoria (o exemplo do layout), bolhas pelo tamanho de
+uma coluna, regiões por valor, linhas e áreas, rota pelas ruas e área alcançável (calculadas uma vez pelo
+OpenRouteService em 10/10/2026 e gravadas no tour, com a fonte na legenda), raio em volta de pontos e faixa em volta
+de uma linha (calculados pelo sagadeck). E dois slides de foco guiado com capturas do Studio: onde fica o Editar mapa
+e a tela do mapa (camadas, ferramentas, propriedades, dica, Concluir). As capturas saem de
+`scripts/capturas-tour.mjs` (refazer quando a tela mudar; precisa de internet). A cópia do tour leva as capturas
+(`demoAssets`). Achado no caminho: a faixa em volta de uma linha (também a que a IA grava) aparecia como uma pilha de
+círculos com contorno e com buracos; agora vai marcada (`_faixa`) e sai como uma mancha só (`map.test.js`,
+`map-analysis.test.js`).
+
 ## Calendário com visões e a saída da tipografia cinética — 10/10/2026
 
 Narumi: "eu odeio muito a tipografia cinética… se ele não consegue ser melhor, remova completamente". Saiu do motor,

@@ -219,3 +219,22 @@ test("mapa: geojson pode vir escrito no próprio slide (FeatureCollection, Featu
   assert.equal(m.layers[1].data.features[0].geometry.type, "LineString");
   assert.equal(m.layers[0].source, null, "escrito no slide não tem arquivo de origem");
 });
+
+// A faixa em volta de uma linha é uma pilha de pedaços sobrepostos (lineBuffer). Ao vivo, o contorno de cada pedaço
+// aparecia e o preenchimento "par ou ímpar" abria buracos onde eles se cruzam: agora sai como uma mancha só.
+test("mapa ao vivo: faixa em volta de uma linha sem contorno e preenchida como união (sem buracos)", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { lineBuffer } = await import("../src/map-analysis.js");
+  const tiles = await tileServer({ value: "ok" });
+  try {
+    const linha = { type: "LineString", coordinates: [[-46.66, -23.56], [-46.655, -23.565], [-46.65, -23.56], [-46.645, -23.57]] };
+    const { page: p, errors } = await openDeck(browser, [{ layout: "map", title: "Faixa", layers: [
+      { name: "Faixa", geojson: { type: "Feature", properties: { nome: "200 m", _faixa: true }, geometry: lineBuffer(linha, 200) } },
+      { name: "Área", geojson: { type: "Feature", properties: { nome: "Quadra" }, geometry: { type: "Polygon", coordinates: [[[-46.64, -23.55], [-46.63, -23.55], [-46.63, -23.56], [-46.64, -23.55]]] } } }] }], tiles.url);
+    await p.waitForSelector('.map-box[data-map-mounted="ready"]');
+    const paths = await p.evaluate(() => [...document.querySelectorAll(".slide.current path.leaflet-interactive")].map((x) => ({ w: x.getAttribute("stroke-width"), regra: x.getAttribute("fill-rule") })));
+    assert.deepEqual(paths, [{ w: "0", regra: "nonzero" }, { w: "2", regra: "evenodd" }], "a faixa sem contorno e unida; a área comum como antes");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await tiles.close(); }
+});

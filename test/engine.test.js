@@ -56,12 +56,13 @@ test("Conheça o SagaDeck: todo layout aparece, com o nome e o pedido à IA, e a
     assert.ok(s.source.includes(LAYOUT_INFO[s.tour][0]), `o slide de ${s.tour} diz o nome do recurso`);
   }
   assert.ok(deck.slides.some((s) => s.layout === "section"), "agrupado em seções");
-  const { html, warnings } = buildHTML(deck);
+  // como o Studio abre (a pasta das imagens dos modelos ao lado; ver galleryEntry em server.js)
+  const { html, warnings } = buildHTML({ ...deck, _dir: path.join(ROOT, "src", "studio", "assets") });
   assert.match(html, /Conheça o SagaDeck/);
   assert.deepEqual(warnings, [], "o tour inteiro sem avisos do fiscal");
 });
 
-test("Conheça o SagaDeck: a seção de mapas demonstra estados por valor, linhas e áreas, cobertura calculada e o que a IA faz", async () => {
+test("Conheça o SagaDeck: a seção de mapas mostra cada tipo de objeto (pontos, bolhas, regiões, linhas, áreas, rota, alcance, raio, faixa) e onde se edita no Studio", async () => {
   const { tourDeck } = await import("../src/studio/tour.js");
   const deck = tourDeck();
   const i = deck.slides.findIndex((s) => s.layout === "section" && s.title === "Mapas");
@@ -71,6 +72,20 @@ test("Conheça o SagaDeck: a seção de mapas demonstra estados por valor, linha
   const maps = demos.filter((s) => s.layout === "map");
   assert.ok(maps.some((s) => s.layers.some((l) => l.areas)), "estados pintados por valor");
   assert.ok(maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "LineString")) && maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "Polygon")), "linhas e áreas");
+  // pedido de Narumi: "mostre não só com pontos, mas com cada tipo de objeto disponível"
+  const layers = maps.flatMap((s) => s.layers);
+  const geo = (t) => layers.some((l) => [].concat(l.geojson?.features || l.geojson || []).some((f) => f.geometry?.type === t));
+  assert.ok(layers.some((l) => l.size), "bolhas: tamanho pela coluna");
+  assert.ok(geo("MultiPolygon") && layers.some((l) => l.geojson?.properties?._faixa), "faixa em volta de uma linha");
+  assert.ok(maps.some((s) => /Rota e alcance/.test(s.kicker) && s.layers.some((l) => l.geojson?.geometry?.type === "Polygon") && s.layers.some((l) => l.geojson?.geometry?.type === "LineString" && l.geojson.geometry.coordinates.length > 20)), "rota pelas ruas (calculada) e área alcançável");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.geojson?.features?.length && l.geojson.features.every((f) => f.geometry.type === "Polygon"))), "raio em volta de pontos");
+  // onde fica cada coisa: as capturas do Studio com o foco guiado
+  const spots = demos.filter((s) => s.layout === "spotlight");
+  assert.deepEqual(spots.map((s) => s.image), ["imagens/tour-mapa-botao.jpg", "imagens/tour-mapa-editor.jpg"]);
+  for (const s of spots) assert.ok(fs.existsSync(path.join(ROOT, "src", "studio", "assets", s.image)), s.image);
+  assert.deepEqual(spots[1].hotspots.map((h) => h.title), ["Camadas", "Ferramentas", "Propriedades", "A dica", "Concluir"]);
+  const { demoAssets } = await import("../src/studio/demo-decks.js");
+  assert.deepEqual(demoAssets("conheca"), ["tour-mapa-botao.jpg", "tour-mapa-editor.jpg"], "a cópia do tour leva as capturas");
   assert.ok(maps.every((s) => s.build), "uma camada por clique");
   assert.ok(maps.every((s) => /Peça à IA/.test(s.notes)), "cada demo diz como pedir");
   const cards = demos.filter((s) => s.layout === "cards").flatMap((s) => s.items.map((it) => it.title));

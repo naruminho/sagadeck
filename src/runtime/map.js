@@ -122,7 +122,7 @@
       const g = L.geoJSON(layer.data, {
         filter: (f) => !s.colorBy || !hidden.has(String(f.properties?.[s.colorBy] ?? "").trim()),
         pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f), color: col.css("bg"), weight: 2.5, fillColor: colorOf(f), fillOpacity: 0.92 }),
-        style: (f) => (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32 } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
+        style: (f) => (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: f.properties?._faixa ? 0 : 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32, ...(f.properties?._faixa ? { fillRule: "nonzero" } : {}) } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
         onEachFeature: (f, lyr) => {
           if (s.popup.length || s.label) lyr.bindPopup(card(f), { className: "map-card", maxWidth: 420 });
           // no Studio, clicar no ponto seleciona a linha da planilha aberta (map-data.js)
