@@ -113,6 +113,10 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    "Usar o OpenRouteService" e Testar, botão na biblioteca, `keyEnv` (variável de ambiente, para o servidor). README
    com a seção "Mapa (opcional)". Achados: o editor visual capturava o clique no mapa (agora ignora `.map-live`); o
    projeto não gravava `.geojson/.gpx/.kml` como texto. Testes: `test/map-editor.test.js` e `map-data.test.js`.
+   Retomada: PR #178 mergeado após CI verde no Ubuntu e no Windows. A corrida do arrastar passou; a falha restante era
+   uma releitura ao clicar na aba de planilha já ativa, que substituía a grade e apagava a seleção feita pelo mapa.
+   O clique agora mantém a aba ativa. Regressão com resposta atrasada reproduziu a falha antes da correção e passou
+   depois; mapa/planilha e editor: 6 testes passando. Suíte completa: 950 passaram, 22 pulados, zero falhas.
 4. **Feita (10/10).** A IA que edita o deck pede dados com um bloco `mapa:` (como o `ver:` do material; nenhuma
    chamada a mais quando o pedido não é de mapa): `lugares` e `linhas` (Overpass, com o filtro de tags que ela
    escolhe e o centro achado no Nominatim), `contorno` (Nominatim com polígono), `web` (a pesquisa existente + uma
@@ -133,6 +137,17 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    pontos). A IA só narra os números. Achado: pontos todos alinhados deixavam o "onde instalar" sem resposta (retângulo
    de altura zero). Testes: `test/map-analysis.test.js` e o ao vivo "qual loja fica mais perto de cada pedido" (pede
    `mais_proximo`).
+
+**Publicação 1.8.0 (retomada em 10/10):** versão preparada em `package.json` e lockfile, incluindo as cinco entregas
+e o Conheça o SagaDeck. O #178 já foi mergeado; falta concluir a CI e mergear o #179, conferir a CI da `main`, criar a
+release e atualizar a instalação local e o Oracle. No Oracle, o ambiente e os dois `mapa.json` já estão preparados
+com `OPENROUTESERVICE_API_KEY` (modo 600, dono de cada serviço); os serviços aguardam o código da release para
+reiniciar. Os quatro testes de mapa com o modelo real passaram novamente. Suíte completa da 1.8.0: 982 testes,
+956 passaram, 26 pulados, zero falhas; mapa/editor/exportação/leitores e regras: 22 testes direcionados passaram.
+Na revisão com cliques reais, a planilha cobria o mapa inteiro e a legenda interceptava um ponto no enquadramento
+automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico recolhidas, com botão para abrir), a
+seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
+antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
 ## Conheça o SagaDeck — 10/10/2026
 

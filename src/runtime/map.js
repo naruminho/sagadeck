@@ -157,7 +157,8 @@
     };
 
     // enquadramento: o do slide, senão os dados, senão o mundo
-    const fit = (b, fly) => { if (!b) return; const opts = { padding: [48, 48], maxZoom: 17 }; fly && !reduced() ? map.flyToBounds(b, { ...opts, duration: 1.6 }) : map.fitBounds(b, opts); };
+    // O enquadramento automático deixa os pontos acima da legenda, para continuarem visíveis e clicáveis.
+    const fit = (b, fly) => { if (!b) return; const opts = { paddingTopLeft: [48, 48], paddingBottomRight: [48, 48 + legend.offsetHeight], maxZoom: 17 }; fly && !reduced() ? map.flyToBounds(b, { ...opts, duration: 1.6 }) : map.fitBounds(b, opts); };
     const go = (v, fly) => { if (!v) return; if (v === "fit") return; fly && !reduced() ? map.flyTo([v.center[0], v.center[1]], v.zoom, { duration: 1.6 }) : map.setView([v.center[0], v.center[1]], v.zoom); };
     // no Studio, o slide redesenha a cada edição: a vista que a pessoa estava olhando continua (na apresentação, não)
     const kept = keyOf(box) && views.get(keyOf(box));

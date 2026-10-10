@@ -15,6 +15,7 @@
   let treeData = null;
   const openTabs = []; // { path, kind, name, dirty, text, sheet }
   let active = "__deck__";
+  let slideLayout = "";
   const expanded = new Set(["contexto"]);
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -225,7 +226,8 @@
   function bindTabs() {
     $("#doc-tabs").addEventListener("click", (ev) => {
       const c = ev.target.closest("[data-close]"); if (c) { ev.stopPropagation(); closeTab(c.dataset.close); return; }
-      const t = ev.target.closest("[data-doc]"); if (t) activate(t.dataset.doc);
+      // A aba ativa já tem a grade e a seleção da pessoa: reler por clique perderia ambas na resposta tardia.
+      const t = ev.target.closest("[data-doc]"); if (t && t.dataset.doc !== active) activate(t.dataset.doc);
     });
     $("#doc-tabs").addEventListener("auxclick", (ev) => { const t = ev.target.closest("[data-doc]"); if (ev.button === 1 && t && t.dataset.doc !== "__deck__") closeTab(t.dataset.doc); });
   }
@@ -241,16 +243,26 @@
     if (!openTabs.some((t) => t.path === p)) openTabs.push({ path: p, kind, name: p.split("/").pop() });
     await activate(p);
   }
+  // Com um mapa, a planilha e os pontos precisam estar à vista e receber cliques ao mesmo tempo.
+  function syncLayout() {
+    const t = openTabs.find((x) => x.path === active);
+    const mapSheet = t?.kind === "sheet" && slideLayout === "map";
+    const side = t?.kind === "deck" || mapSheet;
+    const editor = $("#canvas-stage-wrapper");
+    editor.classList.toggle("doc-side", active !== "__deck__" && side);
+    editor.classList.toggle("doc-full", active !== "__deck__" && !side);
+    if (t?.kind === "sheet") $("#doc-view .sh-body")?.classList.toggle("no-suggest", t.hideSuggest ?? mapSheet);
+  }
+  function slideChanged(slide) { slideLayout = slide?.layout || ""; syncLayout(); ctx?.relayout(); }
   async function activate(p) {
     active = p;
     renderTabs();
     $("#project-tree")?.querySelectorAll(".ex-file").forEach((r) => r.classList.toggle("active", r.dataset.path === p));
-    const editor = $("#canvas-stage-wrapper"), view = $("#doc-view");
-    editor.classList.remove("doc-side", "doc-full");
+    const view = $("#doc-view");
+    syncLayout();
     if (p === "__deck__") { view.innerHTML = ""; view.classList.add("hidden"); ctx.relayout(); return; }
     const t = openTabs.find((x) => x.path === p);
     view.classList.remove("hidden");
-    editor.classList.add(t.kind === "deck" ? "doc-side" : "doc-full");
     try {
       if (t.kind === "deck") await showDeckText(view, t);
       else if (t.kind === "md" || t.kind === "text" || (t.kind === "sheet" && t.asText)) await showText(view, t);
@@ -349,7 +361,7 @@
     const sepInfo = data.delimiter ? ` · separado por ${DELIM[data.delimiter] || data.delimiter}` : "";
     const asText = /\.(csv|tsv)$/i.test(t.name) ? `<button type="button" class="btn btn-small" data-as-text title="Ver o arquivo como texto"><i class="ic" data-ic="file-code"></i> Texto</button>` : "";
     view.innerHTML = `<div class="dv-head"><i class="ic" data-ic="file-spreadsheet"></i><b>${esc(t.name)}</b><span class="dv-status" id="dv-status">${sheet.total} linhas · ${cols.length} colunas${sepInfo}${editable ? "" : " · só leitura"}</span>${asText}<button type="button" class="btn btn-small" data-toggle-suggest title="Gráficos que fazem sentido com estes dados"><i class="ic" data-ic="chart-column"></i> Gráficos</button></div>${tabs}
-      <div class="sh-body${t.hideSuggest ? " no-suggest" : ""}"><div class="sh-grid-wrap" id="sh-grid"></div>
+      <div class="sh-body${(t.hideSuggest ?? (slideLayout === "map")) ? " no-suggest" : ""}"><div class="sh-grid-wrap" id="sh-grid"></div>
       <aside class="sh-suggest"><div class="sh-suggest-head"><b>Gráficos que fazem sentido</b><button type="button" class="btn btn-small" data-ai-suggest title="A IA confere o tipo das colunas e sugere gráficos, títulos e nomes dos eixos"><i class="ic" data-ic="sparkles"></i> Sugerir com IA</button></div><div class="sh-cards" id="sh-cards"><div class="ex-empty">Olhando as colunas…</div></div></aside></div>`;
     const types = [];
     for (const c of cols) types[c.index] = { type: c.type, label: TYPE_LABEL[c.type] || c.type };
@@ -370,7 +382,7 @@
     window.SagaMapData?.sheetTools(view, { t, rows: sheet.rows, grid, api, ctx, reload: async (p) => { if (p && p !== t.path) return; t.text = undefined; await activate(t.path); } });
     view.querySelectorAll("[data-sheet]").forEach((b) => b.onclick = () => { t.sheet = b.dataset.sheet; activate(t.path); });
     view.querySelector("[data-as-text]")?.addEventListener("click", () => { t.asText = true; t.text = undefined; activate(t.path); });
-    view.querySelector("[data-toggle-suggest]").onclick = () => { t.hideSuggest = !t.hideSuggest; view.querySelector(".sh-body").classList.toggle("no-suggest", t.hideSuggest); };
+    view.querySelector("[data-toggle-suggest]").onclick = () => { t.hideSuggest = !view.querySelector(".sh-body").classList.contains("no-suggest"); view.querySelector(".sh-body").classList.toggle("no-suggest", t.hideSuggest); };
     view.querySelector("[data-ai-suggest]").onclick = (ev) => loadSuggestions(t, true, ev.currentTarget);
     ctx.hydrate(view);
     loadSuggestions(t, false);
@@ -442,5 +454,5 @@
   // o deck mudou por outro caminho (formulário, IA, arrastar): a aba do texto da apresentação acompanha
   function deckChanged() { openTabs.find((t) => t.kind === "deck")?.refresh?.(); }
   const wantsPaste = () => !$("#project-explorer").classList.contains("hidden") || active !== "__deck__";
-  window.SagaProject = { setup, refreshTree, openFile, deckChanged, savePastedImage, uploadFile, wantsPaste, activeTab: () => active };
+  window.SagaProject = { setup, refreshTree, openFile, deckChanged, slideChanged, savePastedImage, uploadFile, wantsPaste, activeTab: () => active };
 })();
