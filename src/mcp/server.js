@@ -91,8 +91,8 @@ const TOOLS = [
         },
         type: {
           type: "string",
-          enum: ["keynote", "pitch", "palestra"],
-          description: "Tipo narrativo do esqueleto (padrão: keynote)",
+          enum: ["lancamento", "pitch", "palestra"],
+          description: "Tipo narrativo do esqueleto (padrão: lancamento)",
         },
         author: { type: "string", description: "Nome do autor ou palestrante" },
       },
@@ -110,7 +110,7 @@ const TOOLS = [
         theme: {
           type: "string",
           enum: ["sinal", "prata", "rabisco", "oceano", "pop", "aurora", "editorial", "noite", "bauhaus", "terminal", "jornal"],
-          description: "Tema visual do Sagadeck (ex.: prata para Apple Keynote, rabisco para artesanal, oceano para azul elétrico)",
+          description: "Tema visual do Sagadeck (ex.: prata para limpo e espaçoso, rabisco para artesanal, oceano para azul elétrico)",
         },
         author: { type: "string", description: "Nome do autor ou palestrante" },
       },
@@ -307,7 +307,7 @@ async function handleToolCall(name, args) {
       const spec = generateScaffold({
         title: args.title || "Nova Apresentação",
         theme: args.theme || "prata",
-        type: args.type || "keynote",
+        type: args.type || "lancamento",
         author: args.author || "Seu Nome",
       });
       fs.mkdirSync(path.dirname(targetPath), { recursive: true });

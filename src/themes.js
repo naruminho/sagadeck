@@ -270,7 +270,7 @@ export const THEMES = {
   },
 
   prata: {
-    label: "Prata — Keynote clean & espacial: prata acetinado, muito respiro, tipografia SF / Inter limpa e elegante",
+    label: "Prata — limpo e espacial: prata acetinado, muito respiro, tipografia do sistema / Inter limpa e elegante",
     colors: {
       paper: "F5F5F7", ink: "1D1D1F", accent: "0071E3", alert: "FF3B30",
       muted: "86868B", line: "D2D2D7", surface: "FFFFFF", surfaceDark: "161617",
@@ -293,10 +293,10 @@ export const THEMES = {
     },
     radius: 20, deco: "silver",
   },
-  // Alumínio: a cara dos lançamentos de iPhone e iPad de 2020-2021 (prata metálico, alumínio escovado, títulos
-  // cromados, grafite no escuro). O prata segue fiel ao branco da Apple de hoje.
+  // Alumínio: a cara de lançamento de aparelho premium (prata metálico, alumínio escovado, títulos
+  // cromados, grafite no escuro). O prata segue o branco limpo.
   aluminio: {
-    label: "Alumínio — lançamento de iPhone e iPad (2020): prata metálico, títulos cromados, alumínio escovado e grafite",
+    label: "Alumínio — lançamento de aparelho premium: prata metálico, títulos cromados, alumínio escovado e grafite",
     colors: {
       paper: "E4E5E9", ink: "1C1C1E", accent: "0066CC", alert: "D70015",
       muted: "5E5E63", line: "C3C5CA", surface: "F4F5F7", surfaceDark: "2C2C2E",
@@ -305,7 +305,7 @@ export const THEMES = {
     tones: {
       light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "D1D3D8", em: "accent", onHi: "ink" },
       dark: { bg: "1C1C1E", fg: "F5F5F7", muted: "A1A1A6", line: "3A3A3C", surface: "surfaceDark", hi: "48484A", em: "2997FF", onHi: "FFFFFF" },
-      // azul-pacífico do iPhone 12 Pro, metálico (a pele põe o brilho)
+      // azul-pacífico metálico (a pele põe o brilho)
       accent: { bg: "1D3A50", fg: "FFFFFF", muted: "C5D6E3", line: "3F6580", surface: "2A4C64", hi: "FFFFFF", em: "8FC1E3", onHi: "1D3A50" },
       alert: { bg: "alert", fg: "FFFFFF", muted: "FFD1D4", line: "F0525F", surface: "B30012", hi: "FFFFFF", em: "FFFFFF", onHi: "alert" },
     },

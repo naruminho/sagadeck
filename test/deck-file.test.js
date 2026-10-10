@@ -88,7 +88,7 @@ test("gravação atômica: não sobra temporário; arquivo novo ou com YAML queb
 });
 
 test("muitas mudanças seguidas nos decks de exemplo: o arquivo relido é sempre igual ao deck", () => {
-  for (const name of ["exemplo.yaml", "exemplo-keynote.yaml", "ensaio-api.yaml", "cenario/Texto no cenário.yaml"]) {
+  for (const name of ["exemplo.yaml", "exemplo-prata.yaml", "ensaio-api.yaml", "cenario/Texto no cenário.yaml"]) {
     const d = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-file-ex-")), f = path.join(d, "deck.yaml");
     fs.copyFileSync(path.join(ROOT, "templates", name), f);
     let spec = YAML.parse(fs.readFileSync(f, "utf8"));

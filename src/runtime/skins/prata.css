@@ -1,4 +1,4 @@
-/* Prata (Keynote): nada de enfeite; muito respiro, tudo centralizado, título contido, número da seção discreto */
+/* Prata: nada de enfeite; muito respiro, tudo centralizado, título contido, número da seção discreto */
 .th-prata .L-cover:not(:has(.cv-fig)) .cv-main,.th-prata .L-end:not(:has(.en-fig)) .en-main{align-items:center;text-align:center;gap:28px}
 .th-prata :is(.L-cover,.L-end) .ttl{max-width:1300px}
 .th-prata .kicker{color:var(--muted);letter-spacing:.02em}

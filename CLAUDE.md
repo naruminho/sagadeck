@@ -46,6 +46,9 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 
 - Textos da interface e comentários em português.
 - **Nada de emoji ou símbolo unicode como ícone** (✕ ✓ ✨ 🪄 ▶ ↗ ◎ ● ▸ ←→ …): no Studio, `<i class="ic" data-ic="nome">` (Lucide; novos nomes em `scripts/vendor-ui-icons.mjs` e rode o script); na apresentação, SVG inline (`iconSVG` de `src/figures/icons.js`). Em aviso de texto, sem enfeite. Nome de tecla dentro de `<kbd>` pode. `engine.test.js` falha se aparecer. A regra vale para o que o **sagadeck desenha**; o conteúdo da pessoa (digitado ou colado de outra IA) passa como veio, nunca filtre emoji ou símbolo do texto dela.
+- **Nada de citar o programa de apresentações da maçã, a empresa ou os aparelhos dela** no código e na documentação
+  (tema, exemplo, comentário, texto da IA): descreva pelo que é ("limpo e espaçoso", "aparelho premium"). Só ficam os
+  nomes técnicos (a fonte do sistema no CSS, a identificação de navegador). `guards.test.js` falha se aparecer.
 - **A IA do sagadeck só conhece o que está em `docs/REFERENCIA.md`** (vai inteira no prompt). Recurso novo (layout, campo, composição, tema, paleta, campo do deck) entra lá no mesmo commit. `engine.test.js` falha se faltar layout, composição, tema ou paleta.
 - **Nada pede coisa à internet** na apresentação nem no Studio (a rede do banco barra): fonte nova de tema entra em
   `scripts/vendor-fonts.mjs` (licença livre, rode o script); nada de `@import` ou `url(https://…)` (`test/fonts.test.js`).

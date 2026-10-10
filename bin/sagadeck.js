@@ -52,7 +52,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    (imagens: peça no briefing; --images = "você decide onde ilustrar", --no-images = nenhuma)
   sagadeck napkin <texto|arquivo> [-o deck.yaml] [--rules]  texto bruto -> slide visual (LLM se houver; --rules força as regras)
   sagadeck imagens <deck.yaml>                 gera as imagens pedidas com image_prompt: no YAML (modelo de imagem)
-  sagadeck scaffold <nome> [--theme=prata] [--type=pitch|keynote|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
+  sagadeck scaffold <nome> [--theme=prata] [--type=lancamento|pitch|palestra]  gera esqueleto narrativo pronto (economiza 80% de tokens)
   sagadeck new <nome> [--topic=T] [--theme=x]  cria um deck de exemplo NA BIBLIOTECA (<biblioteca>/<tópico>/<nome>/)
   sagadeck build <deck.yaml>                   gera <deck>.html (abre no navegador; P = modo apresentador)
   sagadeck check <deck.yaml>                   procura texto estourado, sobreposição, contraste, excesso de texto
@@ -202,7 +202,7 @@ async function main() {
       const { generateScaffold } = await import("../src/templates/scaffold.js");
       const YAML = (await import("yaml")).default;
       const theme = flags.theme || "prata";
-      const type = flags.type || "keynote";
+      const type = flags.type || "lancamento";
       const title = flags.title || (args[0] ? path.basename(args[0], path.extname(args[0])) : "Nova Apresentação");
       const author = flags.author || "Seu Nome";
       const spec = generateScaffold({ title, theme, type, author });

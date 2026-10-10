@@ -38,7 +38,7 @@ export function varietyReport(spec) {
 // Direções criativas: cada deck gerado sorteia um jeito de contar (e de se parecer), para dois decks sobre
 // assuntos parecidos não saírem iguais.
 export const CREATIVE_DIRECTIONS = [
-  "Keynote minimalista: uma frase de abertura sem ilustração, grandes espaços vazios, composição central, um número por ideia. Considere prata; destaque em cor apenas na virada.",
+  "Palco minimalista: uma frase de abertura sem ilustração, grandes espaços vazios, composição central, um número por ideia. Considere prata; destaque em cor apenas na virada.",
   "Investigação editorial: abra com uma cena concreta, revele pistas por enquadramentos e comparações, entregue a conclusão no final. Considere editorial; serifas, linhas finas, papel claro e um único contraste escuro.",
   "Workshop geométrico: abra com uma escolha da plateia, alterne desafios curtos, diagramas e timer. Considere bauhaus ou pop; formas primárias, assimetria e revelação por clique.",
   "Estudo de caso documental: contexto → problema → tentativa → resultado → lição. Considere jornal; manchetes, evidências visuais, cronologia e legendas curtas. Só use dados do briefing ou dados verificados.",

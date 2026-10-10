@@ -6,7 +6,7 @@ Na biblioteca, escolha uma experiência para abrir um roteiro pronto e editável
 |---|---|---|
 | Sala de decisão | Estratégia e diretoria | Grafite e ouro, gráficos limpos, recomendação → evidências → riscos → decisão |
 | Matéria de capa | História e investigação | Serifas, papel claro, enquadramentos amplos, pistas e virada narrativa |
-| Modo espetáculo | Palco e keynote | Contraste luminoso, escala monumental, pausas, escolhas da plateia e revelação por clique |
+| Modo espetáculo | Palco e palestras | Contraste luminoso, escala monumental, pausas, escolhas da plateia e revelação por clique |
 | Clube criativo | Workshop | Formas primárias, composição geométrica, desafios e timer |
 | Laboratório vivo | Programação | Código por etapas, saída ilustrativa, screenshot com focos e previsão antes da resposta |
 | Essencial | Produto e comunicação objetiva | Espaço vazio, uma ideia por vez, tipografia discreta e comparação |
