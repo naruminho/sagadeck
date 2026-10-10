@@ -67,7 +67,7 @@ export async function runAnalysis(a, { P, cfg, onProgress = () => {} }) {
     const lines = readShapes(P, a.linha).filter((f) => /LineString/.test(f.geometry?.type || ""));
     if (!lines.length) throw new Error(`${a.linha} não tem linhas`);
     const arquivo = okFile(a.arquivo, ".geojson") ? a.arquivo : `${a.linha.replace(/\.[^.]+$/, "")}-faixa-${Math.round(metros)}m.geojson`;
-    Project.writeText(P, arquivo, fc(lines.map((f, k) => ({ type: "Feature", properties: { nome: `${nameOf(f.properties, k)} (faixa de ${fmtMetros(metros)})` }, geometry: lineBuffer(f.geometry, metros) }))));
+    Project.writeText(P, arquivo, fc(lines.map((f, k) => ({ type: "Feature", properties: { nome: `${nameOf(f.properties, k)} (faixa de ${fmtMetros(metros)})`, _faixa: true }, geometry: lineBuffer(f.geometry, metros) }))));
     let extra = "";
     if (a.pontos) {
       const pts = await readPoints(P, a.pontos);

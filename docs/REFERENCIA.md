@@ -81,7 +81,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `cover` | `kicker, title, subtitle, author, role, figure` | capa |
 | `section` | `number, kicker, title, subtitle, figure` | abertura de ato/capítulo (tom `accent` por padrão) |
 | `statement` | `text` **ou** `lines: [ {text, as, color, step} ]`, `by`, `center` | uma frase de impacto; `lines` + `build` revelam linha a linha |
-| `calendar` | `kicker, title, events: [{date, title, text, tag, color}], undated: [{title, text}], undatedTitle, cols, build` | datas num **calendário** (agenda, lançamentos, cronograma, "infográfico em forma de calendário"): um cartão por mês que tem evento, com o mini calendário do mês (os dias marcados na cor do tipo) e a lista; `date`: `2026-12-18`, `18/12/2026` ou só o mês `2026-12`; cada `tag` (Filme, Série…) ganha uma cor e entra na legenda; o que não tem data vai no cartão "sem data" (`undated`). Para "calendário", este; `timeline` é para uma sequência de marcos sem a grade dos dias |
+| `calendar` | `kicker, title, events: [{date, time, title, text, tag, color}], undated: [{title, text}], undatedTitle, view, month, week, cols, build` | datas num **calendário** (agenda, lançamentos, cronograma, programação, "infográfico em forma de calendário"). `view`: `meses` (um cartão por mês com o mini calendário e a lista; poucos eventos por mês), `mes` (um mês grande, como calendário de parede, com os eventos escritos nos dias; muitos eventos num mês só), `semana` (uma coluna por dia com o horário; programação de um evento; fim de semana vazio some), `lista` (agenda compacta em colunas, agrupada por mês; muitos meses cheios). Sem `view`, o sagadeck escolhe pelo que cabe; muitos eventos em vários meses ficam melhores em **um slide por mês** (`view: mes` + `month: 2026-11` em cada slide, só com os eventos daquele mês). `week: 2026-11-16` escolhe a semana. `date`: `2026-12-18`, `18/12/2026`, `2026-12-18 14:00` ou só o mês `2026-12`; `time` ("14:00") também dá a hora; cada `tag` (Filme, Série…) ganha uma cor e entra na legenda; o que não tem data vai em "sem data" (`undated`). Para "calendário", este; `timeline` é para uma sequência de marcos sem a grade dos dias |
 | `poster` | `kicker, title, subtitle, hero` (ilustração principal: `{ image_prompt }`, imagem, gráfico…), `panels: [{label, title, text, icon` ou `figure` ou `image_prompt, facts: [{value, label}]}], flow, cols, key, build` | infográfico de UMA página no estilo de figura de revista científica (Nature, Scientific American): a ilustração principal e painéis com letra (a, b, c…), cada um com um desenho, título, texto curto e números com unidade; `flow: true` põe setas na ordem (receita, processo, protocolo); `key` é a nota de rodapé (fonte, condições). Para "infográfico de uma página", "pôster" ou "como fazer X numa página", este e não o `onepage` (que é jornada, problema e solução de um projeto). Ilustre os painéis com `image_prompt` no mesmo estilo (ex.: "clean scientific illustration, flat, white background") |
 | `definition` | `kicker, term, origin, parts: [{word, meaning}], text, icon` (ou `figure`), `build`, `termSize` (px do termo) | definição de um termo, como verbete: o termo em destaque, a origem da palavra em partes (`origin: do grego`, `parts: [{word: hydor, meaning: água}, {word: logos, meaning: ciência}]`) e a definição; para "o que é X", use este e não um `statement` com o parágrafo inteiro |
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
@@ -113,7 +113,6 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `references` | `title, items` | fontes (2 colunas) |
 | `headline` | `kicker, text, as, size, caption` | manchete: uma frase CURTA (até ~12 palavras) enorme ocupando o slide; frase longa sai menor (como no `statement`) e conta como slide de frase única (no máximo 2 por deck) |
 | `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda. Figura do documento (`contexto/visuais/…`) ou `fit: contain` com texto não leva véu: sai com o título no alto, a figura inteira e a legenda embaixo (como `image`) |
-| `kinetic` | `figure, beats: [{text, style, position, color, size, tag}], autoplay, interval` | frases curtas em sequência sobre uma cena; avanço manual ou automático |
 | `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
@@ -193,37 +192,6 @@ paginação automática de apostila ainda não fazem parte deste editor.
 
 No YAML, um ponto usa `kind: point`, `x` e `y` em porcentagens. Áreas usam `kind: area` (ou omitem `kind`)
 e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hotspots` do layout `spotlight`.
-
-## Slide `kinetic`: tipografia em cena
-
-O layout `kinetic` combina uma figura de fundo com frases curtas que entram em sequência, podendo variar
-estilo, posição, cor e escala em cada batida. No Studio, adicione a cena e edite cada frase; a sequência
-interativa roda em **Apresentar** e avança pelos botões ou automaticamente. A prévia no editor mostra
-apenas o primeiro quadro. Ao trocar outro layout para `kinetic`, o SagaDeck reaproveita o título ou os
-itens existentes como frases e mantém a figura do slide. Sem título, frase ou itens, começa com
-“Uma ideia em movimento”.
-
-`autoplay` é `true` por padrão para duas ou mais frases e `interval` define o tempo em milissegundos
-(450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou ao chegar à
-última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite iniciar
-manualmente. Para uma frase estática, use `autoplay: false`.
-
-Os estilos disponíveis são `clean`, `poster`, `editorial`, `outline` e `marker`; o estilo limpo é o padrão,
-sem brilho ou sombra exagerada. Posições: `left`, `center`,
-`right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.
-Campos omitidos variam com a batida para criar ritmo visual. Em impressão/exportação estática, os controles
-e a animação são substituídos por uma lista das frases.
-
-```yaml
-- layout: kinetic
-  figure: { image: palco.jpg }
-  autoplay: true
-  interval: 1100
-  beats:
-    - { text: "A IDEIA", style: poster, position: left, color: white, size: large, tag: "COMEÇA PEQUENA" }
-    - { text: "ACENDE", style: clean, position: right, color: white, size: large }
-    - { text: "E MUDA", style: editorial, position: bottom, color: gold, size: medium }
-```
 
 ## Slide `api`: requisição ao vivo
 
@@ -386,7 +354,7 @@ Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pel
 
 ## Navegação por caminhos (`hub`, `goto`, `back`, `next`)
 
-Para processo com vários caminhos ("é experimento ou projeto? DEV, HOM ou PROD?", "o que muda conforme o
+Para conteúdo com vários caminhos ("é a primeira vez ou já usa?", "o que muda conforme o
 front-end?"), em vez de uma sequência única: um **mapa** (`layout: hub`) com as opções, cada uma levando à sua
 seção; cada seção termina voltando ao mapa. Funciona ao apresentar (clique), no PDF (links entre páginas) e no
 PowerPoint (clique pula para o slide).
@@ -404,24 +372,24 @@ PowerPoint (clique pula para o slide).
 - layout: hub
   id: mapa
   title: Qual é o seu caso?
-  question: Cada caminho tem prazos e responsáveis diferentes
+  question: Cada caminho tem passos diferentes
   options:
-    - { icon: flask-conical, title: Experimento, text: Dados fictícios, meta: 30 dias, goto: experimento }
-    - { icon: rocket, title: Projeto, text: DEV, HOM e PROD, goto: projeto }
+    - { icon: user, title: Primeira vez, text: Do zero ao primeiro resultado, meta: 4 passos, goto: inicio }
+    - { icon: rocket, title: Já uso, text: Atalhos e automação, goto: atalhos }
 - layout: steps
-  id: experimento
+  id: inicio
   back: mapa
-  title: Experimento
-  steps: [{ title: Pedido }, { title: 30 dias }, { title: Renovar ou virar projeto, goto: projeto }]
+  title: Primeira vez
+  steps: [{ title: Instalar }, { title: Primeiro projeto }, { title: Pronto? Veja os atalhos, goto: atalhos }]
 - layout: statement
-  text: Passou de 30 dias? Renove ou [vire projeto](#projeto).
+  text: Já fez o primeiro? Conheça os [atalhos](#atalhos).
   next: mapa            # fim do caminho: volta ao mapa
 - layout: cards
-  id: projeto
+  id: atalhos
   back: mapa
   next: mapa
-  title: Projeto
-  items: [{ title: DEV, text: 30 dias }, { title: HOM, text: 30 dias }, { title: PROD, text: sem prazo }]
+  title: Já uso
+  items: [{ title: Teclado, text: sem o mouse }, { title: Modelos, text: reaproveite }, { title: Automação, text: sem cliques }]
 ```
 
 ## One-page (`onepage`)
@@ -437,23 +405,23 @@ aparece como frase curta em destaque. É denso de propósito: o limite de palavr
 ```yaml
 - layout: onepage
   kicker: Proposta
-  title: Cadastro digital de clientes
-  subtitle: Menos papel, menos fila, menos retrabalho
+  title: Agendamento online de consultas
+  subtitle: Menos telefone, menos espera, menos falta
   journey:
-    - { icon: user, title: Cliente chega, text: Fila de 40 min }
-    - { icon: file-text, title: Preenche papel, text: 3 formulários }
-    - { icon: check, title: Conta aberta, text: Até 5 dias }
+    - { icon: user, title: Paciente liga, text: Espera de 15 min }
+    - { icon: file-text, title: Preenche a ficha, text: 3 formulários }
+    - { icon: check, title: Consulta marcada, text: Até 5 dias }
   problem:
-    text: O cadastro em papel atrasa a abertura de contas.
-    numbers: [{ value: 5 dias, label: para abrir uma conta }, { value: 20%, label: dos cadastros refeitos }]
+    text: Marcar por telefone atrasa as consultas.
+    numbers: [{ value: 5 dias, label: para marcar uma consulta }, { value: 20%, label: de faltas }]
   solution:
-    text: Cadastro no tablet, com validação na hora e assinatura digital.
-    items: [Conta aberta no mesmo dia, Zero papel na agência]
+    text: Agendamento pelo celular, com confirmação automática e lembrete.
+    items: [Consulta marcada no mesmo dia, Zero ligação para remarcar]
   dashboard:
-    numbers: [{ value: 1,2 mi, label: cadastros por ano, trend: +8% }]
+    numbers: [{ value: 1,2 mi, label: consultas por ano, trend: +8% }]
     figures:
-      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Fila, value: 40 }, { label: Papel, value: 25 }] }
-      - { title: Cadastros por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
+      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Telefone, value: 15 }, { label: Ficha, value: 10 }] }
+      - { title: Consultas por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
 ```
 
 ## Status semanal (`status`)
@@ -471,12 +439,12 @@ status por projeto, um slide `status` para cada.
   title: Portal do cliente
   health: risco
   progress: 65
-  highlight: Login novo em homologação
+  highlight: Login novo em teste com usuários
   done: [Tela de login, { text: Integração com o cadastro, owner: Ana }]
   doing: [Recuperação de senha]
-  blocked: [{ text: Liberação de firewall, owner: Infra, due: 30/09 }]
-  risks: [Prazo de HOM apertado]
-  upcoming: [Homologar com o negócio]
+  blocked: [{ text: Aprovação do texto de privacidade, owner: Jurídico, due: 30/09 }]
+  risks: [Prazo do teste apertado]
+  upcoming: [Teste com 20 usuários]
   shots: [{ image: imagens/login.png, caption: Nova tela de login }]
 ```
 
@@ -626,21 +594,6 @@ Sagadeck.widget("contador", {
 ```
 No YAML: `widgets: [widgets/contador.js]` e `{ widget: contador, rotulo: "Votos" }`. No PowerPoint o widget vira uma imagem do estado final.
 
-## Texto no cenário (`scenography`)
-
-Composição estática: o texto permanece editável, integrado a planos, luz e profundidade. `scene`: `stage` (letras monumentais atrás de uma escultura), `floor` (texto no chão), `signs` (placa em perspectiva), `terminal` (terminal hacker), `cafe` (lousa de café com letreiro neon), `travel` (cartão de embarque), `ticker` (pregão com cotações e candles), `marquee` (letreiro de cinema com lâmpadas), `blueprint` (planta técnica), `magazine` (capa de revista), `orbit` (planeta e estrelas), `synthwave` (neon anos 80) ou `gallery` (parede de galeria). Cada uma tem um tamanho de título padrão; `titleSize` vence. Campos: `title` (frase curta, quebra de linha permitida), `kicker`, `subtitle`, `caption`, `titleSize`, `image` (fundo opcional), `imageOpacity` (transparência do fundo, de 0 a 1; padrão 0.85), `foreground` (recorte PNG transparente colocado à frente das letras). Um fundo arbitrário não é segmentado automaticamente: para oclusão de uma pessoa, forneça o recorte em `foreground`.
-
-Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
-
-```yaml
-- layout: scenography
-  scene: floor
-  title: "NOVOS\nCAMINHOS"
-  kicker: APRENDER PARA TRANSFORMAR
-  caption: WORKSHOP / BRIDGE
-  deco: none
-```
-
 ## Projeto: a pasta da apresentação
 
 No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.yaml`, `imagens/`, `contexto/` (anexos, prints colados, planilhas, anotações `.md`) e `.sagadeck/` (a conversa do chat, o cache e a lixeira do projeto, do próprio Studio). O texto do que está em `contexto/` chega a você junto do pedido, como material anexado (com o caminho, ex.: `contexto/vendas.csv`): use os números e fatos de lá. Uma planilha de `contexto/` pode alimentar um gráfico com `csv: contexto/vendas.csv` (CSV) ou pela sugestão de gráficos da planilha no Studio (que grava `from:`).
@@ -696,28 +649,36 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
       legend: mil m³
 ```
 
+- `geojson:` também aceita o GeoJSON escrito no próprio slide (FeatureCollection, Feature ou só a geometria), para um
+  desenho pequeno; dados de verdade ficam num arquivo do projeto. Nunca invente o traçado de algo real.
 - `points:` também aceita a lista no próprio slide: `[{ nome: Centro, lat: -23.55, lon: -46.63, status: ativo }]`.
   Uma coluna só com "lat, lon" vale (`coordenadas`, `posicao`). Use ponto ou vírgula decimal; nunca invente
   coordenadas: elas vêm da planilha, do arquivo ou de uma busca. Linha sem posição válida fica de fora (o fiscal avisa).
 - `color:` aceita também uma cor fixa (`s1`, `em`, `hi`, `alert`, `#1F6FB2`). `step` (número) diz em que clique a
   camada aparece; `view` da camada (`fit` ou `{ center: [lat, lon], zoom }`) leva a câmera até ela nesse clique.
 - `view:` do slide fixa o enquadramento (`{ center: [-23.55, -46.63], zoom: 13 }`); sem ele, o mapa enquadra os dados.
+- `basemap: claro` e `escuro` usam fundos vetoriais do OpenFreeMap, sem chave: o mar tem cor própria e a fronteira
+  marítima não aparece, preservando o litoral e as divisas terrestres. `ruas` continua no OpenStreetMap. Em
+  **Configurar mapa**, os fundos claro e escuro podem usar outro estilo vetorial (JSON) ou tiles com `{z}/{x}/{y}`.
 - Planilha só com endereço (sem latitude e longitude): no Studio, a planilha aberta (aba Arquivos) tem **Achar
   coordenadas**, que pergunta antes de mandar os endereços para o serviço de fora e grava as colunas `latitude` e
   `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
   Com um slide de mapa selecionado, a planilha fica ao lado dele: clicar num ponto seleciona a linha e selecionar
   uma linha abre o cartão do ponto. O enquadramento automático deixa os pontos livres da legenda.
-- **Editar no mapa** (botão na prévia do slide, no Studio): a pessoa clica para criar pontos (vão para a planilha da
-  camada, com o endereço preenchido), desenha linhas e áreas (vão para o GeoJSON da camada; "Seguir as ruas" liga os
-  cliques pelo serviço de rotas), arrasta pontos e vértices, divide e junta linhas, mede com a régua e grava o
-  enquadramento ("Usar esta vista"). Quando a pessoa quiser marcar algo à mão no mapa, indique esse botão.
+- **Editar mapa** (botão na prévia do slide, ou dois cliques no mapa, no Studio): abre uma tela só do mapa. À esquerda
+  as camadas; no meio o mapa grande com Selecionar, Ponto, Linha, Área e Régua; à direita as propriedades do que está
+  selecionado (os campos de um ponto, linha, área ou região, com o que cada um faz no mapa) ou, sem seleção, da camada
+  (cor, tamanho, rótulo, cartão, quando aparece) e do mapa (fundo, enquadramento). Pontos novos vão para a planilha da
+  camada, com o endereço preenchido, ou para a lista do slide; linhas e áreas para o GeoJSON da camada ou para o slide
+  ("Seguir as ruas" liga os cliques pelo serviço de rotas). Arrasta pontos e vértices, divide e junta linhas e grava o
+  enquadramento ("Usar a vista de agora"). Quando a pessoa quiser marcar ou corrigir algo à mão no mapa, indique esse botão.
 - **Dados de fora** (lugares de um tipo, linhas como ciclovias, o contorno de um lugar com nome, uma lista da web,
   coordenadas da planilha da pessoa): peça com o bloco `mapa:` (as regras vêm no prompt); o Studio busca, grava os
   arquivos em `contexto/` com a fonte de cada linha e te devolve o que gravou. Nunca invente coordenada nem contorno.
 - **Análises** (o mais próximo e a distância, quantos num raio ou numa área, faixa em volta de uma linha, onde
   instalar o próximo, rota com tempo, área alcançável em X minutos, rastro de GPS encaixado nas ruas): também pelo
   bloco `mapa:`; o Studio calcula e devolve os números. Nunca calcule distância, contagem ou tempo de cabeça.
-- Serviços (Configurar mapa, opcional): sem chave, tudo funciona com os serviços públicos do OpenStreetMap; a chave
+- Serviços (Configurar mapa, opcional): sem chave, os fundos usam OpenStreetMap/OpenFreeMap e os dados vêm dos serviços públicos do OpenStreetMap; a chave
   gratuita do OpenRouteService só acrescenta rotas a pé/de carro/de bicicleta confiáveis e área alcançável.
 - Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma
   categoria ou a camada inteira. O fundo vem da internet; sem rede, aparece um aviso e as camadas continuam. No PDF e
@@ -875,9 +836,9 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 - `ribbon`: os mesmos campos em cápsulas arredondadas, centralizadas. Para serviços, etapas ou pilares.
 - `dossier`: página de consulta, compacta: letra menor e blocos de código (`code`) com quebra de linha. Para material de referência (documentação, payloads, instruções); não imponha a ela o limite de palavras de uma palestra quando a pessoa pede material denso.
 
-No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, tipografia cinética, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
+No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
 
-Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
+Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança e diagrama.
 
 Modelos, estilos, demos e exemplos de **Modelo pronto** (na vitrine, "Visuais para começar" e "Recursos do SagaDeck", com a capa de cada um) abrem em **prévia**: dá para navegar, apresentar e experimentar sem criar arquivo. A primeira mudança (ou o botão **Usar como base**) cria uma cópia na biblioteca, no tópico de onde veio (padrão `Modelos`), com as imagens; o modelo de fábrica nunca muda.
 
@@ -901,13 +862,13 @@ As formas clássicas de slide de consultoria, desenhadas na hora para a quantida
 ```yaml
 - layout: infographic
   shape: metro
-  title: Os caminhos de um projeto na Bridge
-  center: { title: Bridge, text: Um pedido, vários caminhos }
+  title: Os canais de uma loja
+  center: { title: Loja, text: Um pedido, vários caminhos }
   items:
-    - { title: Lote, text: Databricks chama a Bridge de madrugada, icon: moon }
-    - { title: Teams, text: Copilot Studio + Power Automate, icon: message-square }
-    - { title: App próprio, text: Wave, arquitetura, infra e rede, icon: app-window }
-    - { title: SaaS externo, text: Túnel mTLS e serviço extra, icon: globe }
+    - { title: Balcão, text: Atendimento na hora, icon: store }
+    - { title: App, text: Pede e retira na loja, icon: smartphone }
+    - { title: Site, text: Entrega em casa, icon: truck }
+    - { title: Parceiros, text: Vitrine em outros sites, icon: globe }
 ```
 
 Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`) e para **ciclos** (`ciclo`: num fluxograma, a volta ao começo vira setas longas cruzando o desenho); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
@@ -918,7 +879,7 @@ Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida
 
 Direção automática: em fluxogramas o sagadeck desenha deitado (`LR`) e em pé (`TB`) e usa o que deixa a letra maior na área do slide. Escreva a direção que fizer sentido; `autoDirection: false` no slide mantém a do código (use só se a pessoa pedir uma direção).
 
-Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`, `gitGraph` (branches e commits do Git: `commit`, `branch nome`, `checkout nome`, `merge nome`, `cherry-pick id: "…"`; é o diagrama certo para "linhas de commits", rebase × merge e fluxo de branches).
+Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: rascunho → revisão → publicado), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`, `gitGraph` (branches e commits do Git: `commit`, `branch nome`, `checkout nome`, `merge nome`, `cherry-pick id: "…"`; é o diagrama certo para "linhas de commits", rebase × merge e fluxo de branches).
 
 ```yaml
 - layout: diagram
@@ -943,26 +904,26 @@ Setas no `flowchart`: `-->` normal, `-.->` pontilhada (opcional, eventual), `==>
 
 ```yaml
 - layout: diagram
-  kicker: Governança
-  title: Do pedido de acesso à ==produção==
-  caption: Experimento é prorrogável; em HOM e PROD as chaves ficam no Key Vault
+  kicker: Processo
+  title: Do pedido à ==entrega==
+  caption: Sob medida leva mais tempo; o fornecedor entrega o material da montagem
   mermaid: |
     flowchart LR
-      A([:key-round: Pedido de acesso]):::hi --> B{Experimento ou projeto?}
-      subgraph EXP[Experimento]
-        C[:flask-conical: 30 dias, dados fictícios]
+      A([:shopping-cart: Pedido]):::hi --> B{Tem em estoque?}
+      subgraph EST[Estoque]
+        C[:package: Separar e embalar]
       end
-      subgraph PRJ[Projeto]
-        D[DEV 30 dias] ==> E[HOM 30 dias] ==> F[:rocket: PROD]:::em
+      subgraph PRD[Sob medida]
+        D[Cortar] ==> E[Montar] ==> F[:truck: Enviar]:::em
       end
-      B -->|experimento| C
-      B -->|projeto| D
-      C -.->|deu certo| D
-      K[(Key Vault via RITM)]:::suave -.- E
+      B -->|sim| C
+      B -->|não| D
+      C -.->|pronto| F
+      K[(Fornecedor)]:::suave -.- E
 ```
 
 Regras de bom desenho (siga sempre):
-- Agrupe com `subgraph` o que é da mesma área, time, camada ou fase (Front-end, Bridge, Segurança; DEV, HOM, PROD): é o que dá cor e organização ao desenho. 2 a 5 grupos por slide.
+- Agrupe com `subgraph` o que é da mesma área, time, camada ou fase (Front-end, Back-end, Segurança; rascunho, revisão, publicado): é o que dá cor e organização ao desenho. 2 a 5 grupos por slide.
 - Coisas de fora (usuário, sistema externo, banco de terceiros) com `:::suave`, fora dos grupos.
 - Rótulos curtos: 1 a 4 palavras por nó (detalhe vai em `caption`, nas `notes` ou em outro slide). Rótulo de seta com 1 a 3 palavras.
 - No máximo ~12 nós por slide. Processo maior: divida em slides (visão geral primeiro, depois um slide por fase) em vez de encolher tudo.

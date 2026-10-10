@@ -5,6 +5,8 @@ window.SagaMapSettings = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const FIELDS = [
     ["tiles", "Mapa de fundo (tiles)", "Endereço com {z}/{x}/{y}; padrão: OpenStreetMap. Use o servidor de mapas da empresa se houver.", ["url", "attribution"]],
+    ["claro", "Fundo claro", "Padrão: OpenFreeMap, sem chave e sem fronteira marítima. Aceita endereço de estilo vetorial (JSON) ou tiles com {z}/{x}/{y}.", ["url", "attribution"]],
+    ["escuro", "Fundo escuro", "Padrão: OpenFreeMap, sem chave e sem fronteira marítima. Aceita endereço de estilo vetorial (JSON) ou tiles com {z}/{x}/{y}.", ["url", "attribution"]],
     ["satelite", "Satélite (opcional)", "Provedor de imagens de satélite com {z}/{x}/{y} (costuma pedir chave na própria URL).", ["url", "attribution"]],
     ["geocoder", "Endereço e coordenada", "Padrão: Nominatim (1 endereço por segundo). Para planilhas grandes, um provedor com chave.", ["url", "key", "porSegundo"]],
     ["busca", "Busca de lugares", "Padrão: Overpass (OpenStreetMap).", ["url"]],
@@ -62,7 +64,7 @@ window.SagaMapSettings = (() => {
       const body = {};
       dialog.querySelectorAll("[data-k]").forEach((i) => { const k = i.dataset.k; (body[k] ||= {})[i.dataset.f] = i.dataset.f === "porSegundo" ? Number(i.value) || undefined : i.value.trim(); });
       // serviço todo em branco: volta ao padrão (satélite em branco: sem satélite)
-      for (const [k, v] of Object.entries(body)) if (!v.url) body[k] = k === "satelite" ? null : {};
+      for (const [k, v] of Object.entries(body)) if (!v.url) body[k] = k === "satelite" ? null : { url: "" };
       const st = dialog.querySelector("[data-status]");
       try {
         const r = await fetch("api/mapa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

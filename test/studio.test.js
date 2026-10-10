@@ -183,7 +183,7 @@ test("galeria Novo slide: todos os tipos por categoria, busca acha o Status sema
     await tab("inicio");
     await p.click("#btn-scenes");
     await p.waitForSelector('.scene-card[data-scene="dossier"]');
-    for (const tipo of ["mosaic", "kinetic", "status", "onepage", "code", "question"]) assert.ok(await p.locator(`.scene-card[data-scene="${tipo}"]`).isVisible(), `${tipo} na galeria`);
+    for (const tipo of ["mosaic", "status", "onepage", "code", "question"]) assert.ok(await p.locator(`.scene-card[data-scene="${tipo}"]`).isVisible(), `${tipo} na galeria`);
     const grupos = await p.locator("#scene-grid .scene-group").allTextContents();
     assert.ok(grupos.includes("Gestão e status") && grupos.includes("Código e API"), `categorias: ${grupos}`);
     const sceneSizes = await p.evaluate(() => {
@@ -930,7 +930,7 @@ test("studio", async (t) => {
     assert.deepEqual(r.empty, [], "layouts sem prévia");
     assert.deepEqual(r.noDesc, [], "layouts sem descrição");
     assert.equal(r.active, "cards");
-    assert.equal(r.kinetic, true, "galeria inclui tipografia cinética");
+    assert.equal(r.kinetic, false, "a tipografia cinética saiu da galeria");
     assert.equal(r.columns, 3, "galeria mostra três cartões por linha");
     assert.ok(r.cardWidth > 260, `cartão ampliado: ${r.cardWidth}px`);
     assert.ok(Math.abs(r.previewScale * 1920 - r.previewWidth) < 2, "prévia ocupa o retângulo sem corte");
@@ -1014,54 +1014,29 @@ test("studio", async (t) => {
     await p.click('.layout-card[data-layout="onepage"]'); await settle();
     assert.equal(saved().slides[i].layout, "onepage");
     const problema = p.locator(`${form} fieldset:has(> legend:text-is("O problema")) .sf-field:has(.sf-label:text-is("Texto")) textarea`).first();
-    await problema.fill("Abrir conta leva 5 dias"); await problema.blur(); await settle();
-    assert.equal(saved().slides[i].problem.text, "Abrir conta leva 5 dias", "o problema no deck salvo");
+    await problema.fill("Marcar consulta leva 5 dias"); await problema.blur(); await settle();
+    assert.equal(saved().slides[i].problem.text, "Marcar consulta leva 5 dias", "o problema no deck salvo");
     await p.locator(`${form} fieldset:has(> legend:text-is("Painel")) button:has-text("Adicionar número")`).first().click();
     await settle();
     const n = saved().slides[i].dashboard?.numbers || [];
     assert.equal(n.length, 1, "um número grande no painel");
     assert.equal(n[0].value, "100");
-    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Abrir conta leva 5 dias/);
+    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Marcar consulta leva 5 dias/);
     assert.ok(await p.locator("#rendered-slide-container .op-kpi").count(), "e o número no slide");
     await p.click("#btn-del-slide"); await settle(500);
   });
 
   await t.test("editor visual tem formulário para os layouts novos", async () => {
     const i = await go("statement");
-    const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/, kinetic: /Cena de fundo/ };
+    const expect = { headline: /Frase/, full: /Imagem gerada pela IA/, bento: /Blocos/, funnel: /Etapas do funil/, pyramid: /Níveis/, agenda: /Seções/ };
     for (const [layout, label] of Object.entries(expect)) {
       await p.click("#btn-layout-gallery");
       await p.click(`.layout-card[data-layout="${layout}"]`); await settle(600);
       assert.match(await p.textContent(form), label, layout);
     }
-    assert.match(await p.textContent(form), /Frases da sequência/);
     await p.click("#btn-layout-gallery");
     await p.click('.layout-card[data-layout="statement"]'); await settle();
     assert.equal((await deck()).slides[i].layout, "statement");
-  });
-
-  await t.test("trocar uma capa para tipografia cinética leva o título e a figura", async () => {
-    const i = await go("cover");
-    const before = (await deck()).slides[i];
-    let changed = false;
-    try {
-      await p.click("#btn-layout-gallery");
-      await p.click('.layout-card[data-layout="kinetic"]'); changed = true; await settle();
-      const kinetic = saved().slides[i];
-      assert.equal(kinetic.layout, "kinetic");
-      assert.deepEqual(kinetic.beats, [
-        { text: "Título da ==capa==", tag: "Suíte de testes" },
-        { text: "Subtítulo" },
-      ]);
-      assert.deepEqual(kinetic.figure, before.figure);
-      assert.match(await p.locator("#rendered-slide-container").innerText(), /Título da capa/i);
-      assert.match(await p.textContent(form), /Frases da sequência/);
-    } finally {
-      if (changed) {
-        await p.click("#btn-layout-gallery");
-        await p.click('.layout-card[data-layout="cover"]'); await settle();
-      }
-    }
   });
 
   await t.test("codewalk infere linguagem do arquivo e permite uma escolha manual", async () => {
@@ -1261,7 +1236,7 @@ test("studio", async (t) => {
     await p.selectOption("#ai-deck-style", "revista");
     assert.equal(await p.inputValue("#ai-deck-theme"), "editorial", "estilo sugere o tema");
     await p.selectOption("#ai-deck-theme", ""); // a IA escolhe: o estilo decide no servidor
-    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    await p.fill("#ai-deck-briefing", "palestra teste sobre reciclagem");
     // o servidor está sem LLM nos testes: responde com o próprio deck de teste (renderização conhecida)
     await p.route("**/api/ai/generate", async (route) => {
       const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
@@ -1287,7 +1262,7 @@ test("studio", async (t) => {
     await p.setInputFiles("#ai-deck-files", { name: "dados.txt", mimeType: "text/plain", buffer: Buffer.from("Fraudes: 40% em 2025.") });
     await p.waitForFunction(() => [...document.querySelectorAll("#ai-deck-materials .chat-doc b")]
       .some((b) => b.textContent === "dados.txt" && !/lendo/.test(b.closest(".chat-att").textContent)));
-    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    await p.fill("#ai-deck-briefing", "palestra teste sobre reciclagem");
     await p.route("**/api/ai/generate", async (route) => {
       const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
       await route.fulfill({ json: { ok: true, spec, file: deckFile.file, images: { done: [], failed: [] } } });

@@ -335,7 +335,7 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   ] };
   reply = (req) => (/^Generate an image/.test(req.lastUser) ? "sem imagem (mock)" : "```yaml\n" + YAML.stringify(deck) + "```");
   const n = llm.requests.length;
-  await generateDeck("fraudes no pix. Ilustre onde fizer sentido.", { direction: "x" });
+  await generateDeck("reciclagem no bairro. Ilustre onde fizer sentido.", { direction: "x" });
   const reqs = genReqs(n);
   assert.match(reqs[0].system, /Você PODE pedir ilustrações/, "imagens liberadas sem precisar de caixa marcada");
   assert.match(reqs[0].system, /pediu para VOCÊ decidir/);
@@ -419,7 +419,7 @@ test("trava contra lixo: cerca de código, pedaço do patch ou campo inventado d
   assert.throws(() => ok({ layout: "cover", titel: "Capa" }), /titel.*não existe/);
   assert.throws(() => ok({ layout: "cover", title: "Capa", slides: {} }), /slides.*não existe|patch/);
   // os decks que vêm com o sagadeck passam na trava (sem falso positivo)
-  for (const f of ["exemplo.yaml", "exemplo-prata.yaml", "exemplo-alegre.yaml", "ensaio-api.yaml", "cenario/Texto no cenário.yaml", "cenario-e-ciencia.yaml"]) {
+  for (const f of ["exemplo.yaml", "exemplo-prata.yaml", "exemplo-alegre.yaml", "ensaio-api.yaml", "cenario-e-ciencia.yaml"]) {
     const spec = YAML.parse(fs.readFileSync(path.join(ROOT, "templates", f), "utf8"));
     sanitizeCheck(spec, spec.slides.map((_, i) => i));
   }

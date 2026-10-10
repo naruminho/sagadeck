@@ -71,9 +71,9 @@ test("upload com o arquivo padrão da pasta do deck; variável que falta; embedd
     assert.match(miss.report.erro, /faltam variáveis: \{\{path_id\}\}/);
     const outside = await api.runSlide({ file: "../fora.txt", request: { url: "{{base}}/upload", form: { file: "@file" } } }, { deckDir: dir });
     assert.match(outside.report.erro, /não achei o arquivo/);
-    const emb = await api.runSlide({ request: { url: "{{base}}/embeddings", body: { input: "{{text}}" } }, similarity: { reference: "abrir conta", texts: ["abrir uma conta", "chuva"] } });
+    const emb = await api.runSlide({ request: { url: "{{base}}/embeddings", body: { input: "{{text}}" } }, similarity: { reference: "reservar mesa", texts: ["reservar uma mesa", "chuva"] } });
     assert.equal(emb.report.ok, true);
     assert.equal(emb.report.dims, 64);
-    assert.match(emb.report.similaridades[0], /abrir uma conta/);
+    assert.match(emb.report.similaridades[0], /reservar uma mesa/);
   } finally { await mock.close(); }
 });

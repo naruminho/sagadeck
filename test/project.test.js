@@ -210,6 +210,25 @@ test("demo de novidades: desenha sem avisos e, ao virar cópia, traz a planilha 
   } finally { await studio.close(); deckFile.cleanup(); }
 });
 
+// Pedido de Narumi: ponto novo no mapa de uma demo oficial (aberta em prévia) não gravava nada (409, sem aviso).
+// Gravar um arquivo do projeto é uma mudança: a cópia nasce ali e o arquivo vai para ela.
+test("modelo em prévia: gravar um arquivo do projeto cria a cópia e grava nela (antes: 409)", async () => {
+  const deckFile = tempDeck();
+  const studio = await startStudio(deckFile.file);
+  try {
+    const post = async (u, b) => { const r = await fetch(`${studio.url}${u}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }); return { status: r.status, body: await r.json() }; };
+    await post("/api/library/decks/model-preview", { key: "model-conheca", topic: "Modelos" });
+    const r = await post("/api/project/sheet-write", { path: "contexto/pontos.csv", rows: [["nome", "latitude", "longitude"], ["Centro", "-23.55", "-46.63"]] });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.materialized?.topic, "Modelos", "a resposta avisa que a cópia nasceu");
+    const dir = path.dirname(path.join(studio.library, ...r.body.materialized.id.split("/")));
+    assert.match(fs.readFileSync(path.join(dir, "contexto", "pontos.csv"), "utf8"), /Centro/);
+    const again = await post("/api/project/sheet-write", { path: "contexto/pontos.csv", rows: [["nome"], ["x"]] });
+    assert.equal(again.status, 200);
+    assert.equal(again.body.materialized, undefined, "a cópia nasce uma vez só");
+  } finally { await studio.close(); deckFile.cleanup(); }
+});
+
 test("Sugerir com IA: a IA recebe o resumo das colunas (não a planilha inteira) e as escolhas dela viram gráficos com título e eixos", async () => {
   const { startMockLLM } = await import("./mock-llm.js");
   const llm = await startMockLLM(() => JSON.stringify({ colunas: [{ nome: "Ano", tipo: "tempo" }, { nome: "Receita", tipo: "numero" }],

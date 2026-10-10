@@ -226,6 +226,7 @@ export function writeSheet(P, rel, rows) {
   if (!Array.isArray(rows) || rows.some((r) => !Array.isArray(r))) throw new Error("Planilha inválida.");
   const old = fs.existsSync(abs) ? parseCSV(fs.readFileSync(abs, "utf8"), ext === "tsv" ? "\t" : undefined) : { delimiter: ext === "tsv" ? "\t" : ",", eol: "\n" };
   const tmp = abs + ".tmp";
+  fs.mkdirSync(path.dirname(abs), { recursive: true }); // planilha nova numa pasta que ainda não existe (contexto/)
   const clean = rows.map((r) => r.map((c) => String(c ?? "")));
   while (clean.length > 1 && clean.at(-1).every((c) => c === "")) clean.pop(); // linha vazia no fim (o cursor passou dela) não vai para o arquivo
   fs.writeFileSync(tmp, toCSV(clean, old));

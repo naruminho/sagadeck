@@ -11,31 +11,31 @@ import { UF_GRID } from "../src/figures/ufmap.js";
 import { browserOrSkip } from "./helpers.js";
 
 const CHEIO = {
-  layout: "onepage", kicker: "Proposta", title: "Cadastro digital de clientes", subtitle: "Menos papel, menos fila, menos retrabalho",
-  journey: [{ icon: "user", title: "Cliente chega", text: "Fila de 40 min" }, { icon: "file-text", title: "Preenche papel", text: "3 formulários" },
-    { icon: "scan", title: "Digitalização", text: "Retrabalho em 1 de 5" }, { icon: "check", title: "Conta aberta", text: "Até 5 dias" }],
-  problem: { text: "O cadastro em papel atrasa a abertura de contas e gera erros de digitação.", numbers: [{ value: "5 dias", label: "para abrir uma conta" }, { value: "20%", label: "dos cadastros refeitos" }] },
-  solution: { text: "Cadastro no tablet, com validação na hora e assinatura digital.", items: ["Conta aberta no mesmo dia", "Zero papel na agência"] },
+  layout: "onepage", kicker: "Proposta", title: "Agendamento online de consultas", subtitle: "Menos telefone, menos espera, menos falta",
+  journey: [{ icon: "user", title: "Paciente liga", text: "Espera de 15 min" }, { icon: "file-text", title: "Preenche a ficha", text: "3 formulários" },
+    { icon: "scan", title: "Digitalização", text: "Retrabalho em 1 de 5" }, { icon: "check", title: "Consulta marcada", text: "Até 5 dias" }],
+  problem: { text: "Marcar por telefone atrasa as consultas e gera erros de digitação.", numbers: [{ value: "5 dias", label: "para marcar uma consulta" }, { value: "20%", label: "de faltas" }] },
+  solution: { text: "Agendamento pelo celular, com confirmação automática e lembrete.", items: ["Consulta marcada no mesmo dia", "Zero ligação para remarcar"] },
   dashboard: {
-    numbers: [{ value: "1,2 mi", label: "cadastros por ano", trend: "+8%" }],
+    numbers: [{ value: "1,2 mi", label: "consultas por ano", trend: "+8%" }],
     figures: [
-      { title: "Tempo por etapa (min)", chart: "bar", data: [{ label: "Fila", value: 40 }, { label: "Papel", value: 25 }, { label: "Digitação", value: 15 }] },
-      { title: "Contas por mês", chart: "line", labels: ["jan", "fev", "mar", "abr", "mai", "jun"], series: [{ name: "contas", values: [80, 95, 90, 110, 130, 150] }] },
-      { title: "Cadastros por UF (mil)", ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90, PR: 80, RS: 85, PE: 60, CE: 55, DF: 40, AM: 20, PA: 30 }, highlight: ["SP"] },
+      { title: "Tempo por etapa (min)", chart: "bar", data: [{ label: "Telefone", value: 15 }, { label: "Ficha", value: 10 }, { label: "Digitação", value: 15 }] },
+      { title: "Consultas por mês", chart: "line", labels: ["jan", "fev", "mar", "abr", "mai", "jun"], series: [{ name: "consultas", values: [80, 95, 90, 110, 130, 150] }] },
+      { title: "Consultas por UF (mil)", ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90, PR: 80, RS: 85, PE: 60, CE: 55, DF: 40, AM: 20, PA: 30 }, highlight: ["SP"] },
     ],
   },
 };
 const PAINEL = { layout: "onepage", title: "Painel de vendas", dashboard: {
   numbers: [{ value: "R$ 4,2 mi", label: "no trimestre", trend: "+12%" }, { value: "38 mil", label: "clientes novos", trend: "-3%" }],
-  figures: [{ title: "Vendas por UF", ufmap: { SP: 1200, RJ: 600, MG: 700, RS: 400, BA: 300 } }, { title: "Por canal", chart: "bar", data: [{ label: "App", value: 60 }, { label: "Agência", value: 30 }, { label: "Web", value: 10 }], suffix: "%" }] } };
+  figures: [{ title: "Vendas por UF", ufmap: { SP: 1200, RJ: 600, MG: 700, RS: 400, BA: 300 } }, { title: "Por canal", chart: "bar", data: [{ label: "App", value: 60 }, { label: "Loja", value: 30 }, { label: "Web", value: 10 }], suffix: "%" }] } };
 const SIMPLES = { layout: "onepage", title: "Onboarding em 1 página", journey: ["Pedido", "Aprovação", "Acesso liberado"], problem: "Leva 2 semanas", solution: "Fluxo automático em 2 dias" };
 
 test("one-page: jornada, problema com números, solução e painel; só o que foi preenchido aparece", () => {
   const { html, warnings } = buildHTML({ slides: [CHEIO, PAINEL, SIMPLES, { layout: "onepage", title: "Vazio", problem: {}, dashboard: {} }] });
   const [a, b, c, d] = html.split(/data-idx="\d+"/).slice(1);
   assert.equal((a.match(/class="op-step[" ]/g) || []).length, 4, "4 etapas da jornada");
-  assert.match(a, /op-problem[\s\S]*?5 dias[\s\S]*?para abrir uma conta/);
-  assert.match(a, /op-solution[\s\S]*?Conta aberta no mesmo dia/);
+  assert.match(a, /op-problem[\s\S]*?5 dias[\s\S]*?para marcar uma consulta/);
+  assert.match(a, /op-solution[\s\S]*?Consulta marcada no mesmo dia/);
   assert.match(a, /class="L-onepage op-beside"/, "problema/solução e painel lado a lado");
   assert.match(a, /op-kpi[\s\S]*?1,2 mi[\s\S]*?trend-up/);
   assert.equal((a.match(/class="op-tile op-fig"/g) || []).length, 2, "barras e linha");

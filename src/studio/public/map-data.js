@@ -121,7 +121,7 @@ window.SagaMapData = (() => {
   // linha selecionada na planilha -> cartão do ponto no mapa da prévia
   const selectRow = (path, linha) => document.dispatchEvent(new CustomEvent("sagamap:linha", { detail: { path, linha } }));
 
-  // botão "Editar no mapa" na prévia grande; o editor (map-editor.js) só carrega no primeiro clique
+  // botão "Editar mapa" na prévia grande; a tela do editor (map-editor.js) só carrega no primeiro clique
   let editorLoad;
   const loadEditor = () => (window.SagaMapEditor ? Promise.resolve() : (editorLoad ||= new Promise((res, rej) => {
     const s = document.createElement("script"); s.src = "map-editor.js"; s.onload = res;
@@ -137,12 +137,16 @@ window.SagaMapData = (() => {
     const host = document.getElementById("canvas-viewport") || box;
     host.querySelectorAll(":scope > .me-open").forEach((b) => b.remove());
     const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "me-open"; btn.innerHTML = '<i class="ic" data-ic="pencil"></i> Editar no mapa';
+    btn.type = "button"; btn.className = "me-open"; btn.innerHTML = '<i class="ic" data-ic="pencil"></i> Editar mapa';
+    btn.title = "Abre a tela do mapa: camadas, pontos, linhas, áreas e as propriedades de cada um (ou dê dois cliques no mapa)";
     for (const ev of ["pointerdown", "mousedown", "click", "dblclick"]) btn.addEventListener(ev, (e) => e.stopPropagation());
-    btn.onclick = async () => {
+    const openEditor = async () => {
       try { await loadEditor(); btn.hidden = true; window.SagaMapEditor.start(box, slide, commit, ctx); }
       catch (e) { ctx.toast(e.message, 5000); }
     };
+    btn.onclick = openEditor;
+    // dois cliques no mapa da prévia também abrem a tela (o mapa pequeno, escalado, não serve para editar)
+    box.addEventListener("dblclick", (e) => { e.stopPropagation(); e.preventDefault(); openEditor(); });
     host.append(btn);
     ctx.hydrate?.(btn);
     // o slide redesenhou com o editor aberto (gravou algo): volta no mesmo modo

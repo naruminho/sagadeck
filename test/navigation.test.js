@@ -1,5 +1,5 @@
-// Navegação por caminhos (pedido do Naruminho: processo com várias rotas, tipo "experimento ou projeto? DEV, HOM,
-// PROD?"): um mapa (layout hub) com opções que levam à seção de cada caminho (goto), "Voltar" (back) e o fim do
+// Navegação por caminhos (conteúdo com várias rotas, tipo "é a primeira vez ou já
+// usa?"): um mapa (layout hub) com opções que levam à seção de cada caminho (goto), "Voltar" (back) e o fim do
 // caminho voltando ao mapa (next). Funciona na apresentação, no PDF (links entre páginas) e no PowerPoint.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,14 +13,14 @@ import { browserOrSkip } from "./helpers.js";
 const DECK = {
   title: "Caminhos",
   slides: [
-    { layout: "cover", title: "Como pedir acesso" },
+    { layout: "cover", title: "Como começar" },
     { layout: "hub", id: "mapa", title: "Qual é o seu caso?", question: "Escolha o caminho",
       options: [
-        { title: "Experimento", text: "30 dias, dados fictícios", icon: "flask-conical", meta: "30 dias", goto: "exp" },
-        { title: "Projeto", text: "DEV, HOM e PROD", icon: "rocket", goto: "proj" },
+        { title: "Primeira vez", text: "Do zero ao primeiro resultado", icon: "user", meta: "4 passos", goto: "exp" },
+        { title: "Já uso", text: "Atalhos e automação", icon: "rocket", goto: "proj" },
       ] },
-    { layout: "statement", id: "exp", text: "Experimento: renove a cada 30 dias. [Ver o projeto](#proj)", back: "mapa", next: "mapa" },
-    { layout: "list", id: "proj", title: "Projeto", items: [{ text: "DEV: 30 dias" }, { text: "Volte ao começo", goto: 1 }], back: "mapa", next: "mapa" },
+    { layout: "statement", id: "exp", text: "Primeira vez: comece pelo básico. [Ver os atalhos](#proj)", back: "mapa", next: "mapa" },
+    { layout: "list", id: "proj", title: "Já uso", items: [{ text: "Atalhos de teclado" }, { text: "Volte ao começo", goto: 1 }], back: "mapa", next: "mapa" },
     { layout: "end", title: "Fim" },
   ],
 };
@@ -31,7 +31,7 @@ test("motor: mapa com opções clicáveis, id/next no slide, Voltar com o nome d
   assert.match(html, /<section[^>]*id="s-exp" data-id="exp" data-next="mapa"/);
   assert.equal((html.match(/class="[^"]*hub-card[^"]*goto[^"]*"[^>]*data-goto="(exp|proj)"/g) || []).length, 2, "as duas opções levam a algum lugar");
   assert.match(html, /<a class="nav-back[^"]*" href="#s-mapa" data-goto="mapa">[\s\S]*?Voltar: Qual é o seu caso\?/);
-  assert.match(html, /<a class="goto-link" href="#s-proj" data-goto="proj">Ver o projeto<\/a>/);
+  assert.match(html, /<a class="goto-link" href="#s-proj" data-goto="proj">Ver os atalhos<\/a>/);
   assert.match(html, /data-goto="1"/, "goto também aceita o número do slide");
   // destino que não existe e id repetido avisam
   const w = navWarnings([{ id: "a", goto: "b" }, { id: "a", text: "[x](#c)" }, { next: "99" }]);
@@ -56,14 +56,14 @@ test("apresentação: clicar na opção vai ao caminho; o fim do caminho volta a
     const atual = () => p.evaluate(() => [...document.querySelectorAll("#stage > .slide")].findIndex((s) => s.classList.contains("current")));
     await p.evaluate(() => window.sagadeck.goto(1, 0));
     await p.click('.slide.current .hub-card[data-goto="proj"]');
-    assert.equal(await atual(), 3, "a opção Projeto leva ao slide do projeto");
+    assert.equal(await atual(), 3, "a opção Já uso leva ao slide dos atalhos");
     await p.keyboard.press("ArrowRight");
     await p.waitForTimeout(100);
     assert.equal(await atual(), 1, "o fim do caminho (next: mapa) volta ao mapa, não segue para o próximo da lista");
     await p.click('.slide.current .hub-card[data-goto="exp"]');
     assert.equal(await atual(), 2);
     await p.click(".slide.current .goto-link");
-    assert.equal(await atual(), 3, "[Ver o projeto](#proj) no meio do texto");
+    assert.equal(await atual(), 3, "[Ver os atalhos](#proj) no meio do texto");
     await p.click(".slide.current .nav-back");
     assert.equal(await atual(), 1, "Voltar leva ao mapa");
     await p.evaluate(() => window.sagadeck.goto(3, 0));
@@ -93,5 +93,5 @@ test("PDF e PowerPoint: os itens com goto viram links para a página/slide de de
   const mapa = await zip.file("ppt/slides/slide2.xml").async("string");
   assert.match(mapa, /ppaction:\/\/hlinksldjump/, "no PowerPoint, clicar na opção pula para o slide");
   const rels = await zip.file("ppt/slides/_rels/slide2.xml.rels").async("string");
-  assert.match(rels, /slide4\.xml/, "a opção Projeto aponta para o slide 4");
+  assert.match(rels, /slide4\.xml/, "a opção Já uso aponta para o slide 4");
 });

@@ -16,11 +16,10 @@ test('equações, cena e ajustes persistem no HTML offline',()=>{
   assert.match(html,/Plotly/);assert.match(html,/data:font\/woff2;base64/);
   assert.match(html,/"surface":"sin\(sqrt\(x\^2\+y\^2\)\)"/,'o exemplo antigo vira fórmula de superfície');
   assert.match(html,/class="science-preview"[\s\S]*<rect/,'prévia desenhada da superfície');
-  for(const scene of ['stage','floor','signs'])assert.match(renderSlide({layout:'scenography',scene,title:'CENA'}).html,new RegExp('scene-'+scene));
   assert.match(applyVisualEdits('<div class="t">Oi</div>',{'t-0':{dx:42,hidden:true}}),/display:none!important;translate:42px 0px/);
 });
 
-test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=>{
+test('Studio: matemática, gráficos e objetos com arquivo salvo',async t=>{
   const browser=await browserOrSkip(t);if(!browser)return;
   const temp=tempDeck();const studio=await startStudio(temp.file);
   try{
@@ -30,11 +29,6 @@ test('Studio: cena, matemática, gráficos e objetos com arquivo salvo',async t=
       await p.click('#ai-status');await p.waitForSelector('#ai-settings-dialog[open]');
       assert.match(await p.locator('#ai-settings-dialog').innerText(),/Configurar IA/);
       await p.click('#ai-settings-dialog [data-close]');
-    });
-    await t.test('insere cena estática',async()=>{
-      await novoSlide(p,'scenography');
-      await p.waitForSelector('#rendered-slide-container .L-scenography');
-      assert.ok(saved().slides.some(s=>s.layout==='scenography'));
     });
     await t.test('equação e gráfico 2D ficam editáveis e interativos',async()=>{
       await novoSlide(p,'science');

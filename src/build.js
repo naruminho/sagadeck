@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
-import { LAYOUTS, SCENES, fullAsFigure } from "./layouts.js";
+import { LAYOUTS, fullAsFigure } from "./layouts.js";
 import { setDeckLocale } from "./locale.js";
 import { applyVisualEdits } from "./visual-edits.js";
 import { el, imageSrc } from "./elements.js";
@@ -24,6 +24,12 @@ import { loadMapConfig, mapaFile, tilesForDeck } from "./map-config.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
+let mapBackgroundAssets;
+const embeddedMapBackground = (spec, tiles) => {
+  if (!spec.slides.some((s) => s.layout === "map" && tiles?.[s.basemap || spec.defaults?.basemap]?.tipo === "vetorial")) return "";
+  mapBackgroundAssets ||= JSON.stringify(Object.fromEntries(Object.entries({ js: "maplibre-gl.js", css: "maplibre-gl.css", worker: "maplibre-worker.js", adapter: "maplibre-leaflet.js" }).map(([key, file]) => [key, fs.readFileSync(path.join(HERE, "runtime/vendor", file)).toString("base64")])));
+  return `<script type="application/json" id="map-background-assets">${mapBackgroundAssets}</script>`;
+};
 
 export function loadSpec(file) {
   const src = fs.readFileSync(file, "utf8");
@@ -59,7 +65,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "kinetic", "scenography"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -145,7 +151,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const layout = inferLayout(s);
     const fn = LAYOUTS[layout];
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
-    const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
+    const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
     let inner;
     const th = slideTheme(s, theme, spec), sctx = th === theme ? ctx : { ...ctx, theme: th };
     try { inner = fn(s, sctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
@@ -234,7 +240,7 @@ ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/ven
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="portal") ? `<script>${read("runtime/portal-scene.js")}</script>` : ""}
-${spec.slides.some((s) => s.layout === "map") ? `<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map.js")}</script>` : ""}
+${spec.slides.some((s) => s.layout === "map") ? `${embeddedMapBackground(spec, mapTiles)}<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map-background.js")}</script><script>${read("runtime/map.js")}</script>` : ""}
 ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runtime/points.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}
@@ -272,7 +278,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" || layout === "kinetic" || layout === "scenography" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" ? "free" : "safe";
   const motionAccent = area === 'safe' && s.motionAccent && typeof s.motionAccent === 'object';
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;
@@ -321,7 +327,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
-  const tone = s.tone || (layout === "scenography" && SCENES[s.scene || "stage"]?.tone) || DEFAULT_TONE[layout] || spec.tone || "light";
+  const tone = s.tone || DEFAULT_TONE[layout] || spec.tone || "light";
   const inner = fn(s, ctx);
   const deco = s.deco ?? theme.deco;
   const html = slideShell({ s, i, spec, theme, ctx, layout, tone, inner, current: true });

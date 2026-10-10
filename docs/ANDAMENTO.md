@@ -168,6 +168,135 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Fundo do mapa sem a falsa costa — retomada em 10/10/2026
+
+Pedido: esconder a linha marítima do OpenStreetMap que parecia um litoral afastado das áreas. Os modos claro e
+escuro usam agora os estilos Positron e Dark do OpenFreeMap, sem chave; o estilo exclui fronteiras marítimas e
+preserva divisas terrestres, rios e o litoral verdadeiro. O mar fica azul suave no claro e azul profundo no escuro.
+O modo ruas e fundos raster personalizados continuam disponíveis. Configurar mapa ganhou os dois fundos; apagar
+o endereço restaura o padrão (antes, a gravação parcial conservava o endereço antigo).
+
+MapLibre e a ligação Leaflet vão no pacote, com as licenças; no HTML exportado, entram embutidos apenas se houver
+mapa vetorial e só carregam no primeiro slide que os usa. O worker é clássico para abrir também por file://. Só o
+slide atual conserva o contexto gráfico; sair e voltar preserva a câmera e a legenda. A exportação mantém o limite
+de espera de 8 s também ao voltar a um mapa cujo fundo não responde. Recusa no estilo, nos
+metadados ou no primeiro tile desliga o fundo na sessão sem insistir, mantendo as camadas e o Tentar de novo.
+
+Conferido nos dois fundos reais no litoral do Rio: áreas sobre a costa, nenhuma linha paralela no mar, nenhum erro
+de JavaScript. Regressões reproduziram a falha do worker e o contexto que continuava ativo fora do slide antes das
+correções. Testes cobrem pixels de terra/mar, divisa terrestre versus marítima, exportação por arquivo, câmera,
+retomada, carregamento local no Studio e recusa com uma tentativa. Esta retomada preserva os commits anteriores de
+tour, demos oficiais, editor de mapa, calendário e retirada de tipografia cinética e texto no cenário.
+Na revisão da compatibilidade, um slide antigo com subtítulo e legenda perdia a legenda na conversão. A regressão
+reproduziu a perda; agora os dois textos continuam juntos, com e sem imagem.
+Achado na suíte: o teste da categoria Aula consultava a galeria antes da resposta de prévias. A resposta atrasada
+reproduziu a falha; o teste agora aguarda os cartões e confere que a categoria escolhida durante o carregamento
+continua valendo. Nenhuma exceção de JavaScript foi ignorada.
+Outro achado na suíte: o encerramento das capturas iniciava `browser.close()` sem aguardá-lo. O evento de
+desconexão do navegador antigo podia apagar a referência de um novo, deixando um Chrome aberto e impedindo a suíte
+de terminar. Teste com fechamento atrasado reproduziu o problema; agora o encerramento espera e cada desconexão
+só limpa sua própria referência.
+
+Validação completa desta retomada: `npm test`, 988 testes, 962 passaram, 26 pulados, zero falhas; o processo
+encerrou normalmente. A revisão do pacote confirmou os renderizadores e suas licenças no npm. Entrega por PR
+com CI verde no Ubuntu e Windows; atualização da porta local 3517 e somente do Oracle dev (3518). O serviço
+estável do Oracle permanece na 1.7.1, conforme pedido de Narumi.
+
+## Texto no cenário sai; fundo claro do mapa com o mar visível — 10/10/2026
+
+Narumi: "pode excluir também o texto no cenário. Ele é muito limitado e teoricamente dá para fazer coisas melhores
+pedindo pra IA desenhar". Saiu do motor (`SCENES`, layout `scenography`), do CSS, do Studio (galeria, formulário),
+da vitrine (a demo `templates/cenario`), do tour, da referência e do SKILL; o exemplo de matemática perdeu os três
+slides de cenário. Deck antigo: com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase
+em destaque (`src/fiscal/normalize.js`; `engine.test.js`).
+
+E "a área ainda não está em cima dos estados": os dados estavam certos (pontos do litoral a até 2,6 km da borda); no
+fundo claro, o filtro cinza deixava terra e mar da mesma cor e a fronteira marítima que o OpenStreetMap desenha 12
+milhas mar adentro parecia o litoral. O filtro agora guarda um azul leve no mar (`base.css`; `map.test.js`).
+
+## Mapa: escala única, contornos detalhados e pontos mais bonitos — 10/10/2026
+
+Narumi, no slide dos estados: "isso não parece certo". Cada camada tinha a própria escala (a Bahia, 2.900 MW, saía
+tão forte quanto Minas, 5.100): camadas da mesma medida (a mesma coluna e unidade) agora dividem a escala. Os
+contornos embutidos vinham da malha mínima do IBGE simplificada a 4 km (o DF era um octógono; Rio e Vitória na
+borda): agora malha intermediária a ~650 m e países do Natural Earth 1:50m (`scripts/vendor-map.mjs`; o arquivo foi
+de 181 KB para 690 KB, e no HTML só entram os estados usados). E "os pontos estão com círculos grandes e feios": o
+estilo das linhas e áreas era aplicado também aos pontos (borda grossa colorida); agora ponto é pequeno, na cor, com
+anel branco e sombra, bolha é translúcida com contorno da mesma cor, e o rótulo é uma pílula menor. Testes:
+`map.test.js` (escala dividida, contornos detalhados com a área do IBGE, desenho dos pontos).
+
+## Demos de mapa com cada tipo de objeto e onde se edita — 10/10/2026
+
+Narumi: "ainda não entendi onde vão os menus e propriedades… mostre não só com pontos, mas com cada tipo de objeto".
+A seção Mapas do Conheça o SagaDeck agora tem: pontos por categoria (o exemplo do layout), bolhas pelo tamanho de
+uma coluna, regiões por valor, linhas e áreas, rota pelas ruas e área alcançável (calculadas uma vez pelo
+OpenRouteService em 10/10/2026 e gravadas no tour, com a fonte na legenda), raio em volta de pontos e faixa em volta
+de uma linha (calculados pelo sagadeck). E dois slides de foco guiado com capturas do Studio: onde fica o Editar mapa
+e a tela do mapa (camadas, ferramentas, propriedades, dica, Concluir). As capturas saem de
+`scripts/capturas-tour.mjs` (refazer quando a tela mudar; precisa de internet). A cópia do tour leva as capturas
+(`demoAssets`). Achado no caminho: a faixa em volta de uma linha (também a que a IA grava) aparecia como uma pilha de
+círculos com contorno e com buracos; agora vai marcada (`_faixa`) e sai como uma mancha só (`map.test.js`,
+`map-analysis.test.js`).
+
+## Calendário com visões e a saída da tipografia cinética — 10/10/2026
+
+Narumi: "eu odeio muito a tipografia cinética… se ele não consegue ser melhor, remova completamente". Saiu do motor,
+do runtime, do Studio (galeria, formulário, troca de layout), do tour e da referência. Deck antigo que a usava abre
+como frase em destaque com as mesmas frases, uma por clique (`src/fiscal/normalize.js`; `engine.test.js`).
+
+Sobre o calendário ("ficou excelente… mas se tiverem muitos eventos no mesmo mês vai encher de linhas e extrapolar a
+altura"): o cartão cortava os eventos sem avisar. Agora `view` tem `meses` (o de antes), `mes` (um mês grande de
+parede, os eventos escritos nos dias, "+ N mais" quando o dia lota), `semana` (uma coluna por dia com horário; fim
+de semana vazio some) e `lista` (agenda em colunas, a letra diminui com a quantidade). Sem `view`, escolhe pelo que
+cabe, com a altura medida no navegador (mês de 6 semanas conta). `month`/`week` escolhem o mês e a semana; `time` ou
+"2026-11-16 09:00" dão a hora. No Studio, o formulário tem Visão e o botão **Um slide por mês** (cada slide no mês
+grande, com os eventos dele; o "sem data" fica no primeiro). Testes: `calendar.test.js` (as visões, a escolha e, no
+navegador, de 1 a 8 meses com até 16 eventos: ou cabe ou avisa) e `calendar-studio.test.js` (visão e botão, no deck
+salvo). O calendário ganhou limite de 240 palavras (é denso por natureza).
+
+## Editar mapa: uma tela própria — 10/10/2026
+
+Narumi, testando o mapa da demo oficial: "não consigo clicar pra editar, não sei como edita, não sei se tem uma tela
+diferente", e o ponto novo não gravava. O editor antigo era uma barra por cima do slide escalado (cobria o título), só
+editava planilha e GeoJSON de arquivo (a demo tem tudo escrito no slide) e não tinha propriedades. Agora **Editar mapa**
+(ou dois cliques no mapa) abre uma tela só do mapa (`map-editor.js`, classes `mpe-`; `.mx` já era de um layout):
+camadas à esquerda (tipo, nome, quantos itens, olho), o mapa grande com as ferramentas e a dica do que fazer, e à
+direita as propriedades do selecionado (campos com o que cada um faz no mapa, posição, comprimento ou área, excluir) ou
+da camada e do mapa. Edita pontos e formas escritos no slide e em arquivo; GPX e KML só se leem. Corrigidos no caminho:
+gravar arquivo do projeto em prévia de modelo respondia 409 (agora cria a cópia, `server.js`), planilha nova numa pasta
+que não existia falhava (`writeSheet`), pontos ficavam debaixo de áreas e raios que entravam depois (na apresentação
+também: o clique abria o cartão do raio), e desmontar o mapa no meio de uma animação de zoom dava erro. Testes:
+`map-editor.test.js` (os dois caminhos, inclusive a demo em prévia), `project.test.js` (409), `map.test.js` (pontos por
+cima). Achado na suíte: a faixa "Configure a IA" caía na coluna da lateral e espremia a biblioteca (corrigido, com
+teste em `library-ui.test.js`).
+
+## Conheça o SagaDeck com a demonstração dos mapas e a pasta Demos oficiais — 10/10/2026
+
+Narumi esperava achar a apresentação junto das dela, numa pasta própria e só leitura. Agora a lateral da biblioteca
+tem **Demos oficiais** (cadeado; `data-view="oficiais"` em `library.js`) com o Conheça o SagaDeck em primeiro e as
+demos de recursos da vitrine (as mesmas chaves da `GALLERY`, tipo `recurso`), com a capa de verdade e só Apresentar e
+Abrir: sem menu de mover, renomear ou excluir, sem arrastar, sem "Nova" dentro. O Conheça aparece também como o
+primeiro cartão de Recentes e Todas, e debaixo da mensagem de biblioteca vazia. Abrem em prévia (`editor?model=…`).
+Defeito achado pelo teste novo: **Apresentar uma prévia criava uma cópia** na biblioteca (o Apresentar mandava o deck
+ao servidor, e na prévia isso conta como primeira mudança); agora, em prévia, ele não envia (o servidor já tem o mesmo
+deck). Teste: `library-ui.test.js` (pasta, cartões, só leitura, abrir e apresentar sem criar arquivo).
+
+**Exemplos sem nada da empresa de quem desenvolve.** Narumi viu o tour falar da Bridge e do processo de experimento e
+projeto (DEV, HOM, PROD, Key Vault): vinha dos exemplos dos layouts (`layout-samples.js`) e da referência que ensina a
+IA. Trocados por assuntos variados (viagem, loja, clínica, inscrições, reciclagem) nos exemplos, na referência, nos
+modelos, nos textos de exemplo da interface e nos testes. Trava: `engine.test.js` ("sem nada da empresa de quem
+desenvolve") falha se nomes de sistemas, processos internos ou produtos do banco voltarem a `src`, `templates`,
+REFERENCIA, README ou SKILL. Os ambientes dev/hom/prod da API são recurso genérico e ficam.
+
+Pedido de Narumi: uma apresentação bem completa do próprio sagadeck, incluindo a demo de mapas. O tour ganhou a seção
+**Mapas** (`mapDemos` em `src/studio/tour.js`, slides marcados `demo: mapa`): o exemplo do layout, estados pintados por
+valor com uma região por clique e a câmera indo até ela, linhas e áreas (GeoJSON escrito no slide, que o motor passou a
+aceitar), cobertura com raios de 1 km calculados pelo código (`circle` de `src/map-analysis.js`) e dois quadros com o
+que a IA e o Studio fazem no mapa. Os extras ganharam pesquisa na web, versões e material de consulta. Valores
+ilustrativos e traçados aproximados dizem isso na tela. Testes: `engine.test.js` (seção de mapas e o tour inteiro sem
+avisos) e `map.test.js` (GeoJSON no slide). Achado de passagem, tarefa à parte: o Studio acusa "texto pequeno" em
+todo cartão (mede a letra da caixa, não a do texto).
+
 ## Conheça o SagaDeck — 10/10/2026
 
 Pergunta de Narumi: a pessoa nem sabe o que dá para gerar. Agora a biblioteca tem, na lateral, **Conheça o

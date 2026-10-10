@@ -71,13 +71,30 @@
   $("#ai-banner-btn").onclick = () => window.SagaAISettings.open(aiSaved);
   const openEditor = (id, present) => { location.href = `editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
 
+  // Demos oficiais (só leitura): o Conheça o SagaDeck (src/studio/tour.js) e as demos de recursos da vitrine. Moram numa
+  // pasta própria da lateral e o Conheça aparece também entre as apresentações. Abrem em prévia (editor?model=…): navegar
+  // e apresentar não gravam nada; editar cria a cópia da pessoa em Modelos, como nos modelos. Sem mover, renomear nem
+  // excluir: a demo de fábrica nunca muda.
+  const officialDemos = () => GALLERY.filter(([kind]) => kind === "recurso");
+  const officialId = (key) => (key.startsWith("model-") ? key.slice(6) : key);
+  const openOfficial = (key, present) => { location.href = `editor?model=${encodeURIComponent(officialId(key))}&topic=Modelos${present ? "&present=1" : ""}`; };
+  function officialCard([, key, title, desc, sw]) {
+    return `<div class="card card-oficial" data-oficial="${esc(officialId(key))}" data-key="${esc(key)}" tabindex="0" title="Demo oficial do SagaDeck: só leitura (editar cria uma cópia sua em Modelos)">
+      <div class="thumb" style="background:linear-gradient(90deg,${sw.map(esc).join(",")})"><img loading="lazy" alt="" src="api/library/gallery-cover?key=${encodeURIComponent(key)}" onerror="this.remove()">
+        <div class="over"><button class="pill" data-present>${ic("play")}Apresentar</button><button class="pill" data-open>${ic("eye")}Abrir</button></div></div>
+      <div class="meta"><div class="t"><div class="name">${esc(title)}</div>
+        <div class="info"><span class="chip chip-oficial">${ic("lock")}demo oficial</span>·<span class="desc">${esc(desc)}</span></div></div></div>
+    </div>`;
+  }
+  const tourCard = () => officialCard(officialDemos().find(([, key]) => key === "model-conheca"));
+
   // ---------------------------------------------------------------- barra lateral
   function renderSide() {
     const loose = data.decks.filter((d) => !d.topic).length;
     $("#side").innerHTML = `
       <button class="nav ${view === "recentes" ? "active" : ""}" data-view="recentes">${ic("clock")}<span class="name">Recentes</span></button>
       <button class="nav ${view === "todas" ? "active" : ""}" data-view="todas">${ic("layout-grid")}<span class="name">Todas</span><span class="count">${data.decks.length || ""}</span></button>
-      <button class="nav nav-tour" data-tour title="Tudo o que dá para fazer, um slide por recurso (abre em prévia)">${ic("compass")}<span class="name">Conheça o SagaDeck</span></button>
+      <button class="nav nav-oficiais ${view === "oficiais" ? "active" : ""}" data-view="oficiais" title="Apresentações do próprio SagaDeck, só leitura: o Conheça o SagaDeck e as demos (abrem em prévia)">${ic("lock")}<span class="name">Demos oficiais</span></button>
       <div class="side-title">TÓPICOS<button title="Novo tópico" id="new-topic" aria-label="Novo tópico">${ic("plus")}</button></div>
       ${data.topics.map((t) => `<button class="nav ${view === t.id ? "active" : ""}" data-view="${esc(t.id)}" data-topic="${esc(t.id)}"><span class="dot" style="background:${esc(t.color)}"></span><span class="name">${esc(t.name)}</span><span class="count">${t.count || ""}</span></button>`).join("")}
       ${loose ? `<button class="nav ${view === "" ? "active" : ""}" data-view="" title="Arquivos .yaml deixados direto na pasta da biblioteca"><span class="dot" style="background:${NO_TOPIC.color}"></span><span class="name">${NO_TOPIC.name}</span><span class="count">${loose}</span></button>` : ""}
@@ -88,8 +105,6 @@
     hydrate($("#side"));
     $("#side").querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { view = b.dataset.view; store.set("libView", view); render(); });
     $("#new-topic").onclick = () => topicDialog();
-    // a apresentação de recursos (src/studio/tour.js) abre como os modelos da vitrine: em prévia, sem criar arquivo
-    $("#side [data-tour]").onclick = () => { location.href = "editor?model=conheca&topic=Modelos"; };
     $("#side").querySelectorAll("[data-topic]").forEach((b) => {
       b.ondragover = (e) => { if (e.dataTransfer.types.includes("application/x-sagadeck-deck")) { e.preventDefault(); b.classList.add("drop"); } };
       b.ondragleave = () => b.classList.remove("drop");
@@ -127,6 +142,10 @@
         (data.trash.length ? data.trash.map((t) => `<div class="trash-row"><div class="t"><b>${esc(t.title)}</b><div class="sub">Era de ${esc(t.topic || NO_TOPIC.name)} · ${t.slides || 0} slides · excluída ${ago(t.deleted)}</div></div>
           <button class="lib-btn ghost" data-restore="${esc(t.id)}">${ic("rotate-ccw")}Restaurar</button><button class="lib-btn ghost danger" data-purge="${esc(t.id)}">Excluir de vez</button></div>`).join("")
           : `<div class="empty"><div class="big">${ic("trash-2")}</div><h2>Lixeira vazia</h2></div>`);
+    } else if (view === "oficiais") {
+      const demos = officialDemos().filter(([, , title, desc]) => !q || `${title} ${desc}`.toLowerCase().includes(q));
+      main.innerHTML = `<div class="head"><div><h1>${ic("lock")} SagaDeck · demos oficiais</h1><div class="sub">Só leitura: abrem em prévia, sem criar arquivo. Gostou? Edite e nasce uma cópia sua em Modelos.</div></div></div>
+        ${demos.length ? `<div class="grid">${demos.map(officialCard).join("")}</div>` : `<div class="empty"><div class="big">${ic("search")}</div><h2>Nada encontrado</h2></div>`}`;
     } else {
       const t = view === "" ? NO_TOPIC : topicOf(view);
       const all = t ? data.decks.filter((d) => d.topic === t.id) : data.decks;
@@ -144,11 +163,13 @@
       } else if (!data.decks.length && !q) {
         main.innerHTML += `<div class="empty"><div class="big">${ic("library")}</div><h2>Sua biblioteca está vazia</h2>
           <p>Crie um tópico (ex.: Palestras, Trabalho) e comece uma apresentação — em branco, com IA ou importando um .sagadeck ou um PowerPoint (.pptx).</p>
-          <div class="actions"><button class="lib-btn ghost" data-empty-topic>${ic("folder-plus")}Novo tópico</button><button class="lib-btn primary" data-empty-new>${ic("plus")}Nova apresentação</button></div></div>`;
+          <div class="actions"><button class="lib-btn ghost" data-empty-topic>${ic("folder-plus")}Novo tópico</button><button class="lib-btn primary" data-empty-new>${ic("plus")}Nova apresentação</button></div></div>
+          <div class="grid grid-oficial">${tourCard()}</div>`;
       } else if (!list.length) {
         main.innerHTML += `<div class="empty"><div class="big">${ic("search")}</div><h2>Nada encontrado</h2><p>Nenhuma apresentação com "${esc(q)}".</p></div>`;
       } else {
-        main.innerHTML += `<div class="grid">${t && !q ? `<div class="card new-card" id="card-new" tabindex="0"><div class="thumb"><div class="plus">${ic("plus")}Nova em ${esc(t.name)}</div></div></div>` : ""}${items.map((d) => card(d, !t)).join("")}</div>`;
+        // em Recentes e Todas, o Conheça o SagaDeck (demo oficial) vem primeiro, para quem ainda não abriu a pasta
+        main.innerHTML += `<div class="grid">${t && !q ? `<div class="card new-card" id="card-new" tabindex="0"><div class="thumb"><div class="plus">${ic("plus")}Nova em ${esc(t.name)}</div></div></div>` : ""}${!t && !q ? tourCard() : ""}${items.map((d) => card(d, !t)).join("")}</div>`;
       }
       const sortSel = $("#sort");
       if (sortSel) { sortSel.value = sortBy; sortSel.onchange = () => { sortBy = sortSel.value; store.set("libSort", sortBy); render(); }; }
@@ -159,6 +180,10 @@
   }
 
   function wire(main) {
+    main.querySelectorAll(".card-oficial").forEach((c) => {
+      c.onclick = (e) => openOfficial(c.dataset.key, !!e.target.closest("[data-present]"));
+      c.onkeydown = (e) => { if (e.key === "Enter") openOfficial(c.dataset.key); };
+    });
     main.querySelectorAll(".card[data-id]").forEach((c) => {
       const id = c.dataset.id;
       c.ondragstart = (e) => { e.dataTransfer.setData("application/x-sagadeck-deck", id); c.classList.add("dragging"); };
@@ -287,10 +312,9 @@
     ["recurso", "model-hidraulica", "Aula de hidráulica", "Navier–Stokes, curva que se mexe, calculadora de Reynolds ao vivo e exercício resolvido passo a passo", ["#EAF4F8", "#0B5C7A", "#1B998B"]],
     ["recurso", "model-algoritmos", "Aula de algoritmos", "Ordenação e busca rodando de verdade: barras, código, contadores e o botão Tocar", ["#0F1426", "#7C8CFF", "#F2B33D"]],
     ["recurso", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
-    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
+    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos e diagramas", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
     ["recurso", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
-    ["recurso", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],
   ];
   const GALLERY_KINDS = [["", "Todos"], ["visual", "Visuais para começar"], ["recurso", "Recursos do SagaDeck"]];
   async function galleryDialog(topic, kind = "") {
@@ -370,7 +394,7 @@
     let reading = 0;
     dialog(`<h3 id="dialog-heading">Nova apresentação com IA</h3>
       <label for="dlg-brief">Sobre o que é, para quem e com que objetivo? <span class="muted">Ou só anexe o material abaixo.</span></label>
-      <textarea id="dlg-brief" placeholder="Ex.: palestra para gestores sobre golpes no Pix, tom leve, começando com um caso real. Ou: resumo deste relatório para a diretoria, focando nos números do ano."></textarea>
+      <textarea id="dlg-brief" placeholder="Ex.: palestra para gestores sobre trabalho híbrido, tom leve, começando com um caso real. Ou: resumo deste relatório para a diretoria, focando nos números do ano."></textarea>
       <div class="dlg-two">
         <div><label for="dlg-min">Quanto tempo você tem?</label><div class="dlg-min"><input type="number" id="dlg-min" min="1" max="120" value="10"><span>min</span><span class="hint" id="dlg-slides"></span></div></div>
         <div><label for="dlg-style">Estilo</label><select id="dlg-style"><option value="">Automático (a IA escolhe pelo assunto)</option>${STYLES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>

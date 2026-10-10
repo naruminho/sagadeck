@@ -56,8 +56,40 @@ test("Conheça o SagaDeck: todo layout aparece, com o nome e o pedido à IA, e a
     assert.ok(s.source.includes(LAYOUT_INFO[s.tour][0]), `o slide de ${s.tour} diz o nome do recurso`);
   }
   assert.ok(deck.slides.some((s) => s.layout === "section"), "agrupado em seções");
-  const { html } = buildHTML(deck);
+  // como o Studio abre (a pasta das imagens dos modelos ao lado; ver galleryEntry em server.js)
+  const { html, warnings } = buildHTML({ ...deck, _dir: path.join(ROOT, "src", "studio", "assets") });
   assert.match(html, /Conheça o SagaDeck/);
+  assert.deepEqual(warnings, [], "o tour inteiro sem avisos do fiscal");
+});
+
+test("Conheça o SagaDeck: a seção de mapas mostra cada tipo de objeto (pontos, bolhas, regiões, linhas, áreas, rota, alcance, raio, faixa) e onde se edita no Studio", async () => {
+  const { tourDeck } = await import("../src/studio/tour.js");
+  const deck = tourDeck();
+  const i = deck.slides.findIndex((s) => s.layout === "section" && s.title === "Mapas");
+  assert.ok(i > 0, "seção Mapas");
+  const demos = deck.slides.filter((s) => s.demo === "mapa");
+  assert.ok(demos.length >= 5, `demos de mapa: ${demos.length}`);
+  const maps = demos.filter((s) => s.layout === "map");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.areas)), "estados pintados por valor");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "LineString")) && maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "Polygon")), "linhas e áreas");
+  // pedido de Narumi: "mostre não só com pontos, mas com cada tipo de objeto disponível"
+  const layers = maps.flatMap((s) => s.layers);
+  const geo = (t) => layers.some((l) => [].concat(l.geojson?.features || l.geojson || []).some((f) => f.geometry?.type === t));
+  assert.ok(layers.some((l) => l.size), "bolhas: tamanho pela coluna");
+  assert.ok(geo("MultiPolygon") && layers.some((l) => l.geojson?.properties?._faixa), "faixa em volta de uma linha");
+  assert.ok(maps.some((s) => /Rota e alcance/.test(s.kicker) && s.layers.some((l) => l.geojson?.geometry?.type === "Polygon") && s.layers.some((l) => l.geojson?.geometry?.type === "LineString" && l.geojson.geometry.coordinates.length > 20)), "rota pelas ruas (calculada) e área alcançável");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.geojson?.features?.length && l.geojson.features.every((f) => f.geometry.type === "Polygon"))), "raio em volta de pontos");
+  // onde fica cada coisa: as capturas do Studio com o foco guiado
+  const spots = demos.filter((s) => s.layout === "spotlight");
+  assert.deepEqual(spots.map((s) => s.image), ["imagens/tour-mapa-botao.jpg", "imagens/tour-mapa-editor.jpg"]);
+  for (const s of spots) assert.ok(fs.existsSync(path.join(ROOT, "src", "studio", "assets", s.image)), s.image);
+  assert.deepEqual(spots[1].hotspots.map((h) => h.title), ["Camadas", "Ferramentas", "Propriedades", "A dica", "Concluir"]);
+  const { demoAssets } = await import("../src/studio/demo-decks.js");
+  assert.deepEqual(demoAssets("conheca"), ["tour-mapa-botao.jpg", "tour-mapa-editor.jpg"], "a cópia do tour leva as capturas");
+  assert.ok(maps.every((s) => s.build), "uma camada por clique");
+  assert.ok(maps.every((s) => /Peça à IA/.test(s.notes)), "cada demo diz como pedir");
+  const cards = demos.filter((s) => s.layout === "cards").flatMap((s) => s.items.map((it) => it.title));
+  for (const t of ["Buscar lugares", "Coordenadas da planilha", "Contas de verdade", "Rotas e alcance", "Editar mapa", "Configurar mapa"]) assert.ok(cards.includes(t), t);
 });
 
 test("o exemplo de cada layout renderiza sem erro em todos os temas", () => {
@@ -143,43 +175,28 @@ test("foco guiado limita regiões à imagem e aceita figura sem dependência ext
   assert.match(html({ layout: "codewalk", steps: [] }), /data-lesson-count="1"/);
 });
 
-test("tipografia cinética normaliza batidas, limita opções e inclui resumo estático", () => {
-  const out = html({ layout: "kinetic", autoplay: false, interval: 9000, beats: [
-    "Uma frase",
-    { text: "Próxima", style: "neon", position: "right", color: "cyan", size: "medium", tag: "Agora" },
-    { text: "<script>alert(1)</script>", style: "desconhecido", position: "fora", color: "red", size: "gigante" },
-  ] });
-  assert.match(out, /data-lesson-count="3"/);
-  assert.match(out, /data-kinetic-interval="5000"/);
-  assert.match(out, /data-kinetic-autoplay="false"/);
-  assert.match(out, /data-style="clean" data-color="cyan" data-size="medium"/);
-  assert.doesNotMatch(out, /data-style="neon"/);
-  assert.match(out, /data-position="right"/);
-  assert.match(out, /Agora/);
-  assert.match(out, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.doesNotMatch(out, /<script>alert/);
-  assert.match(out, /kinetic-summary/);
-  const single = html({ layout: "kinetic", beats: ["Uma frase"] });
-  assert.match(single, /data-kinetic-autoplay="false"/);
-  assert.match(single, /data-kinetic-toggle[^>]*disabled/);
+// A tipografia cinética saiu (Narumi: "se ele não consegue ser melhor, remova completamente"). Deck antigo que a usava
+// abre como frase em destaque, com as mesmas frases (uma por clique), sem aviso.
+test("texto no cenário antigo preserva subtítulo e legenda juntos, com e sem imagem", () => {
+  for (const image of [undefined, "foto.png"]) {
+    const migrated = normalizeSpec({ slides: [{ layout: "scenography", title: "Uma ideia", subtitle: "Explicação da ideia", caption: "Crédito da fotografia", ...(image ? { image } : {}) }] }).slides[0];
+    assert.match(migrated.caption || migrated.by || "", /Explicação da ideia[\s\S]*Crédito da fotografia/);
+  }
 });
 
-test("tipografia cinética usa título e ocupa a área inteira sem duplicar a frase", () => {
-  const out = renderSlide({ layout: "kinetic", kicker: "Uma seção", title: "Uma ideia clara", figure: { icon: "rocket" } }, 0, spec);
-  assert.match(out.html, /class="free"/);
-  assert.match(out.html, /Uma ideia clara/);
-  assert.match(out.html, /Uma seção/);
-  assert.match(out.html, /kinetic-scene/);
-  assert.doesNotMatch(out.html, /kinetic-echo|Sua frase entra em cena/);
-  const story = html({ layout: "kinetic", title: "Impulsionando a Eficiência do ==Desenvolvimento==", subtitle: "Proposta de Piloto para Assistente de Código" });
-  assert.match(story, /data-lesson-count="4"/);
-  assert.match(story, /Impulsionando a Eficiência/);
-  assert.match(story, /do <mark>Desenvolvimento<\/mark>/);
-  assert.match(story, /data-kinetic-autoplay="true"/);
-  assert.match(story, /data-style="clean"/);
-  assert.match(story, /data-position="left"/);
-  assert.match(story, /data-size="medium"/);
-  assert.doesNotMatch(story, /data-style="outline"/);
+test("tipografia cinética saiu: o layout não existe mais e deck antigo vira frase em destaque com as mesmas frases", () => {
+  assert.equal(LAYOUTS.kinetic, undefined);
+  assert.equal(LAYOUT_SAMPLES.kinetic, undefined);
+  const antigo = normalizeSpec({ slides: [
+    { layout: "kinetic", kicker: "Abertura", beats: ["Uma frase", { text: "Outra frase", style: "poster" }], figure: { icon: "rocket" }, autoplay: true, interval: 900 },
+    { layout: "kinetic", title: "Só o título" },
+  ] });
+  assert.deepEqual(antigo.slides[0], { kicker: "Abertura", layout: "statement", lines: ["Uma frase", "Outra frase"], build: true });
+  assert.deepEqual(antigo.slides[1], { layout: "statement", text: "Só o título" });
+  const { html, warnings } = buildHTML(antigo);
+  assert.deepEqual(warnings, []);
+  assert.match(html, /Uma frase[\s\S]*Outra frase[\s\S]*Só o título/);
+  assert.doesNotMatch(html, /kinetic/);
 });
 
 test("página inteira: image_prompt sem imagem vira placeholder (não some)", () => {
@@ -509,16 +526,54 @@ test("interface sem emoji nem símbolo unicode fazendo papel de ícone (use íco
   assert.deepEqual(found, [], "troque por <i class=\"ic\" data-ic=\"…\"> (Studio) ou SVG inline (apresentação)");
 });
 
+// O sagadeck é de qualquer pessoa: exemplos de layout, a referência (que ensina a IA), o tour, os modelos e os textos
+// de exemplo da interface não falam da empresa de ninguém (nomes de sistemas, processos internos, produtos do banco).
+test("exemplos, referência e modelos sem nada da empresa de quem desenvolve", () => {
+  // ambientes dev/hom/prod da API são recurso genérico e ficam; a "bridge" minúscula do playground é variável
+  const PROIBIDO = /bradesco|key ?vault|\bRITM\b|databricks|copilot studio|\bpix\b|conta no banco|abrir (uma )?conta|abertura de contas?|(na|de) agência|experimento ou projeto/gi;
+  const SISTEMA = /\bBridge\b/g;
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return /^(vendor|icons|fonts|assets)$/.test(e.name) ? [] : walk(p);
+    return /\.(js|mjs|html|css|yaml)$/.test(e.name) && e.name !== "code-lab.js" ? [p] : [];
+  });
+  const files = [...walk(path.join(ROOT, "src")), ...walk(path.join(ROOT, "templates")),
+    ...["docs/REFERENCIA.md", "README.md", "SKILL.md"].map((f) => path.join(ROOT, f))];
+  const found = [];
+  for (const file of files) {
+    fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+      const m = [...(line.match(PROIBIDO) || []), ...(line.match(SISTEMA) || [])];
+      if (m.length) found.push(`${path.relative(ROOT, file)}:${i + 1} ${[...new Set(m)].join(", ")}`);
+    });
+  }
+  assert.deepEqual(found, [], "troque por um exemplo genérico, de outro assunto");
+});
+
 // A IA do sagadeck só usa o que está na referência (docs/REFERENCIA.md vai inteira no prompt). Recurso novo que
 // não entra lá é invisível para ela: este teste falha se faltar um layout, composição, tema ou paleta.
+// O Texto no cenário saiu (Narumi: "ele é muito limitado e dá para fazer coisas melhores pedindo pra IA desenhar").
+// Deck antigo: com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase em destaque.
+test("Texto no cenário saiu: o layout não existe mais e deck antigo abre como imagem cheia ou frase em destaque", () => {
+  assert.equal(LAYOUTS.scenography, undefined);
+  assert.equal(LAYOUT_SAMPLES.scenography, undefined);
+  const antigo = normalizeSpec({ slides: [
+    { layout: "scenography", scene: "floor", kicker: "UMA NOVA PERSPECTIVA", title: "NOVOS\nCAMINHOS", subtitle: "Ideias que ocupam espaço.", deco: "none" },
+    { layout: "scenography", scene: "stage", title: "ALÉM DO\nÓBVIO", image: "imagens/fundo.jpg", imageOpacity: 0.5, foreground: "imagens/pessoa.png", caption: "ESTUDO 01" },
+  ] });
+  assert.deepEqual(antigo.slides[0], { deco: "none", layout: "statement", kicker: "UMA NOVA PERSPECTIVA", text: "NOVOS CAMINHOS", by: "Ideias que ocupam espaço." });
+  assert.deepEqual(antigo.slides[1], { layout: "full", image: "imagens/fundo.jpg", title: "ALÉM DO\nÓBVIO", caption: "ESTUDO 01", overlay: "left" });
+  const { html } = buildHTML({ slides: [antigo.slides[0]] });
+  assert.match(html, /NOVOS CAMINHOS/);
+  assert.doesNotMatch(html, /scenography|scene-(stage|floor|signs|type|atmosphere)/);
+});
+
 test("a IA conhece tudo: todo layout, composição, tema e paleta aparece na referência que vai no prompt", async () => {
   const { reference } = await import("../src/ai/deck-ai.js");
-  const { LAYOUTS, SCENES } = await import("../src/layouts.js");
+  const { LAYOUTS } = await import("../src/layouts.js");
   const { THEMES, PALETTES } = await import("../src/themes.js");
   const ref = reference();
   const missing = [
     ...Object.keys(LAYOUTS).filter((k) => !new RegExp("`" + k + "`|layout: " + k + "\b").test(ref)).map((k) => "layout " + k),
-    ...Object.keys(SCENES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "composição " + k),
     ...Object.keys(THEMES).filter((k) => !ref.includes("`" + k + "`") && !ref.includes(" " + k + " ")).map((k) => "tema " + k),
     ...Object.keys(PALETTES).filter((k) => !ref.includes("`" + k + "`")).map((k) => "paleta " + k),
   ];

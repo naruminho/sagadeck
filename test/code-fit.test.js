@@ -10,7 +10,7 @@ import { buildHTML } from "../src/build.js";
 import { browserOrSkip, newPage } from "./helpers.js";
 
 // 13 linhas normais e uma comprida (tem que quebrar, não cortar): cabe encolhendo, sem passar de 10 pt
-const script = () => [...Array.from({ length: 12 }, (_, i) => `git switch -c feat/tarefa-${i + 1}   # passo ${i + 1}`), 'git commit -m "feat(checkout): adiciona pagamento via Pix com QR code dinâmico e confirmação automática no webhook"'].join("\n");
+const script = () => [...Array.from({ length: 12 }, (_, i) => `git switch -c feat/tarefa-${i + 1}   # passo ${i + 1}`), 'git commit -m "feat(agenda): adiciona lembrete por e-mail com link dinâmico e confirmação automática no webhook"'].join("\n");
 const linhas = (n) => Array.from({ length: n }, (_, i) => `git commit -m "passo ${i + 1}: uma mensagem de commit bem comprida para passar da largura do bloco"   # comentário ${i + 1}`).join("\n");
 
 async function medir(browser, spec) {

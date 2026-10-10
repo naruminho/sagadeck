@@ -314,69 +314,6 @@ test("cenas de aula: controles, teclado, exportação e movimento reduzido", asy
   } finally { await browser.close(); deck.cleanup(); }
 });
 
-test("tipografia cinética: avanço manual e automático, pausa, saída e exportação", async (t) => {
-  const browser = await browserOrSkip(t);
-  if (!browser) return;
-  const deck = tempDeck(), file = path.join(deck.dir, "kinetic.html");
-  fs.writeFileSync(file, buildHTML({ title: "Tipografia", theme: "bauhaus", motion: "expressive", slides: [
-    { layout: "kinetic", autoplay: true, interval: 450, figure: { icon: "rocket", size: 200 }, beats: ["Primeira frase", "Segunda frase", "Terceira frase"] },
-    { layout: "section", title: "Próximo slide" },
-  ] }).html);
-  const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
-  try {
-    await page.goto(pathToFileURL(file).href);
-    await page.waitForFunction(() => window.sagadeck?.cur === 0);
-    const frame = (i) => page.locator(`.L-kinetic [data-lesson-panel="${i}"]`);
-    const waitForStep = async (index) => page.waitForFunction((index) => document.querySelector(".L-kinetic")?.dataset.lessonIndex === String(index), index);
-
-    await t.test("ocupa o palco todo, percorre frases e pausa automaticamente no fim", async () => {
-      const bounds = await page.locator(".L-kinetic").boundingBox();
-      assert.deepEqual({ x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) }, { x: 0, y: 0, width: 1280, height: 720 });
-      assert.equal(await page.locator(".slide.current").getAttribute("data-shrink"), null, "composição full-bleed não deve ser reduzida");
-      const iconWidth = await page.locator(".L-kinetic .fig-icon svg").evaluate((icon) => icon.getBoundingClientRect().width);
-      assert.ok(iconWidth < bounds.width * 0.6, "ícone de fundo mantém proporção e não ocupa o slide inteiro");
-      assert.match(await frame(0).innerText(), /Primeira frase/i);
-      await waitForStep(1);
-      assert.match(await frame(1).innerText(), /Segunda frase/i);
-      await waitForStep(2);
-      assert.equal(await page.locator(".L-kinetic [data-kinetic-toggle]").textContent(), "Reproduzir");
-    });
-
-    await t.test("reproduzir recomeça no início; botão pausa e avanço manual funcionam", async () => {
-      const toggle = page.locator(".L-kinetic [data-kinetic-toggle]");
-      await toggle.click();
-      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), "0");
-      await toggle.click();
-      assert.equal(await toggle.textContent(), "Reproduzir");
-      await page.locator(".L-kinetic [data-lesson-next]").click();
-      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), "1");
-      assert.ok(await page.locator(".L-kinetic .kinetic-morph").count() > 0, "a frase anterior se move em direção à nova posição");
-      await page.waitForTimeout(800);
-      assert.equal(await page.locator(".L-kinetic .kinetic-morph").count(), 0, "o quadro de morph é removido ao fim da transição");
-    });
-
-    await t.test("sair do slide limpa o avanço automático", async () => {
-      const index = await page.locator(".L-kinetic").getAttribute("data-lesson-index");
-      await page.locator(".L-kinetic [data-kinetic-toggle]").click();
-      await page.evaluate(() => window.sagadeck.goto(1, 0));
-      await page.waitForTimeout(650);
-      assert.equal(await page.evaluate(() => window.sagadeck.cur), 1);
-      assert.equal(await page.locator(".L-kinetic").getAttribute("data-lesson-index"), index);
-    });
-
-    await t.test("exportação substitui a sequência interativa pelo resumo", async () => {
-      await page.goto(pathToFileURL(file).href + "?export=1");
-      await page.waitForFunction(() => window.sagadeck?.cur >= 0);
-      assert.equal(await page.locator(".L-kinetic .kinetic-controls").isVisible(), false);
-      assert.equal(await page.locator(".L-kinetic .kinetic-sequence").isVisible(), false);
-      assert.equal(await page.locator(".L-kinetic .kinetic-summary").isVisible(), true);
-      assert.match(await page.locator(".L-kinetic .kinetic-summary").innerText(), /Primeira frase[\s\S]*Segunda frase[\s\S]*Terceira frase/i);
-    });
-
-    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
-  } finally { await browser.close(); deck.cleanup(); }
-});
-
 test("eco ambiente: poeira de luz e grade em movimento, sem erros", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;

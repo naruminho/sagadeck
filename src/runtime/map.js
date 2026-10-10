@@ -61,9 +61,12 @@
     let m;
     try { m = JSON.parse(box.querySelector(".map-data").textContent); } catch { box.dataset.mapMounted = "error"; return; }
     let settle; const settled = new Promise((r) => (settle = r));
-    const st = { m, settled, map: null, layers: [], tilesDone: false };
+    const wantSat = m.basemap === "satelite";
+    const tiles = m.basemap === "nenhum" ? null : wantSat ? m.tiles?.satelite || m.tiles?.tiles : Object.hasOwn(m.tiles || {}, m.basemap) ? m.tiles[m.basemap] : m.tiles?.tiles;
+    const st = { m, settled, map: null, layers: [], tilesDone: false, vector: tiles?.tipo === "vetorial" };
     live.set(box, st);
     try { await load(); } catch (e) { notice(box, e.message); box.dataset.mapMounted = "error"; settle(); return; }
+    if (live.get(box) !== st) return;
     const L = window.L;
     const el = box.querySelector(".map-live");
     const map = L.map(el, { zoomControl: true, attributionControl: true, keyboard: false, worldCopyJump: true, zoomSnap: 0.25, fadeAnimation: !reduced(), zoomAnimation: !reduced() });
@@ -74,8 +77,7 @@
 
     // fundo: antes de ligar a camada, testa UM tile (o do centro). Se ele falha, nenhum outro é pedido e nenhum
     // outro mapa desta sessão tenta; se passa, a camada liga (e ainda desiste se os primeiros falharem todos)
-    const wantSat = m.basemap === "satelite";
-    const tiles = m.basemap === "nenhum" ? null : (wantSat && m.tiles?.satelite) || m.tiles?.tiles || null;
+    box.dataset.mapBackground = st.vector ? "vetorial" : "raster";
     if (wantSat && !m.tiles?.satelite) notice(box, "Satélite não configurado nesta máquina (Configurar mapa); mostrando as ruas.");
     const giveUp = () => {
       broken = true; store.set("falhou"); box.dataset.mapTiles = "falhou";
@@ -85,6 +87,13 @@
     const startTiles = () => {
       if (!tiles) { st.tilesDone = true; return; }
       if (broken) { box.dataset.mapTiles = "falhou"; notice(box, "Mapa de fundo indisponível nesta rede. As camadas continuam.", true); st.tilesDone = true; return; }
+      if (st.vector) {
+        if (box.closest("#stage") && !box.closest(".slide")?.classList.contains("current")) return;
+        if (st.backgroundStarted) { st.settled = new Promise((resolve) => { settle = resolve; }); setTimeout(settle, 8000); }
+        st.backgroundStarted = true; st.tilesDone = false;
+        st.background = window.SagaMapBackground.mount(map, tiles, { active: () => live.get(box) === st, done: () => { st.tilesDone = true; settle(); }, failed: giveUp });
+        return;
+      }
       const z = Math.round(map.getZoom()), c = map.project(map.getCenter(), z).divideBy(256).floor();
       const probe = new Image();
       probe.onerror = () => { if (live.get(box) === st) giveUp(); };
@@ -99,6 +108,7 @@
       };
       probe.src = L.Util.template(tiles.url, { z, x: c.x, y: c.y, s: "a", r: "" });
     };
+    st.startTiles = startTiles;
 
     // camadas
     const col = resolver(box);
@@ -112,7 +122,7 @@
         const cat = s.categories?.find((c) => c.value === String(v ?? "").trim());
         return col.css(cat?.color || s.color || "c1");
       };
-      const radius = (f) => { if (!s.sizeBy) return 14; const n = num(f.properties?.[s.sizeBy]); const r = s.sizeScale; return n == null || r.max === r.min ? 16 : 9 + 24 * Math.sqrt((n - r.min) / (r.max - r.min)); }; // em px do slide (1920)
+      const radius = (f) => { if (!s.sizeBy) return 8; const n = num(f.properties?.[s.sizeBy]); const r = s.sizeScale; return n == null || r.max === r.min ? 16 : 9 + 24 * Math.sqrt((n - r.min) / (r.max - r.min)); }; // em px do slide (1920)
       const card = (f) => {
         const p = f.properties || {};
         const title = s.label ? p[s.label] : p.nome || p.name || "";
@@ -121,13 +131,24 @@
       };
       const g = L.geoJSON(layer.data, {
         filter: (f) => !s.colorBy || !hidden.has(String(f.properties?.[s.colorBy] ?? "").trim()),
-        pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f), color: col.css("bg"), weight: 2.5, fillColor: colorOf(f), fillOpacity: 0.92 }),
-        style: (f) => (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32 } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
+        // ponto: a cor com um anel branco e sombra leve (o jeito dos mapas de hoje); bolha (tamanho pela coluna):
+        // translúcida com o contorno da mesma cor, para as sobrepostas continuarem legíveis. Cresce ao passar o mouse.
+        pointToLayer: (f, ll) => {
+          const c = colorOf(f), r = radius(f);
+          const m = s.sizeBy
+            ? L.circleMarker(ll, { radius: r, color: c, weight: 2, opacity: 0.95, fillColor: c, fillOpacity: 0.5, className: "map-bubble" })
+            : L.circleMarker(ll, { radius: r, color: "#fff", weight: 3, fillColor: c, fillOpacity: 1, className: "map-pt" });
+          m.on("mouseover", () => (s.sizeBy ? m.setStyle({ fillOpacity: 0.72 }) : m.setRadius(r + 3)));
+          m.on("mouseout", () => (s.sizeBy ? m.setStyle({ fillOpacity: 0.5 }) : m.setRadius(r)));
+          return m;
+        },
+        // o Leaflet aplica o style também aos pontos (por cima do pointToLayer): ponto fica com o desenho dele
+        style: (f) => f.geometry.type === "Point" ? {} : (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: f.properties?._faixa ? 0 : 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32, ...(f.properties?._faixa ? { fillRule: "nonzero" } : {}) } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
         onEachFeature: (f, lyr) => {
           if (s.popup.length || s.label) lyr.bindPopup(card(f), { className: "map-card", maxWidth: 420 });
           // no Studio, clicar no ponto seleciona a linha da planilha aberta (map-data.js)
           lyr.on("click", () => document.dispatchEvent(new CustomEvent("sagamap:ponto", { detail: { path: layer.source, linha: f.properties?._linha } })));
-          if (s.label && f.properties?.[s.label] != null && layer.data.features.length <= 60) lyr.bindTooltip(escHTML(f.properties[s.label]), { permanent: true, direction: "top", offset: [0, -10], className: "map-label" });
+          if (s.label && f.properties?.[s.label] != null && layer.data.features.length <= 60) lyr.bindTooltip(escHTML(f.properties[s.label]), { permanent: true, direction: "top", offset: [0, -(lyr.getRadius?.() || 8) - 4], className: "map-label" });
         },
       });
       const entry = { layer, g, on: layer.step == null, hidden };
@@ -150,11 +171,16 @@
     });
     col.done();
     if (m.layers.length) box.append(legend);
+    // pontos sempre por cima de linhas e áreas (uma área ou um raio que entra depois não esconde o ponto do clique)
+    const pointsOnTop = () => st.layers.forEach((en) => { if (en.layer.kind === "points" && map.hasLayer(en.g)) en.g.eachLayer((l) => l.bringToFront?.()); });
+    st.pointsOnTop = pointsOnTop;
     const sync = (entry) => {
       const show = entry.on && !entry.manualOff;
       if (show && !map.hasLayer(entry.g)) entry.g.addTo(map); else if (!show && map.hasLayer(entry.g)) map.removeLayer(entry.g);
       if (entry.legend) entry.legend.hidden = !entry.on;
+      pointsOnTop();
     };
+    pointsOnTop();
 
     // enquadramento: o do slide, senão os dados, senão o mundo
     // O enquadramento automático deixa os pontos acima da legenda, para continuarem visíveis e clicáveis.
@@ -182,7 +208,7 @@
     steps.forEach((s) => st.observer.observe(s, { attributes: true, attributeFilter: ["class"] }));
 
     box.dataset.mapMounted = "ready";
-    requestAnimationFrame(() => map.invalidateSize());
+    requestAnimationFrame(() => { if (live.get(box) === st) map.invalidateSize(); }); // desmontado antes (o Studio redesenhou): nada a ajustar
     if (st.tilesDone) settle();
     setTimeout(settle, 8000); // a exportação não espera para sempre
   }
@@ -199,6 +225,9 @@
   function mount(root = document, { force = false } = {}) {
     const boxes = [...root.querySelectorAll(".map-box")];
     if (root.classList?.contains("map-box")) boxes.push(root);
+    // só o mapa visível mantém um contexto gráfico. Voltar ao slide preserva a vista e as escolhas da legenda.
+    if (root.closest?.("#stage")) for (const [box, st] of live) if (!boxes.includes(box) && st.vector && st.background) { st.background.dispose(); st.background = null; }
+    for (const box of boxes) { const st = live.get(box); if (st?.vector && !st.background) st.startTiles?.(); }
     const jobs = boxes.filter((b) => force || !live.has(b)).map(mountBox);
     readyPromise = Promise.all(jobs).then(() => Promise.all(boxes.map((b) => live.get(b)?.settled)));
     return readyPromise;
@@ -208,6 +237,9 @@
     for (const b of boxes) {
       const st = live.get(b); if (!st) continue;
       if (keepView && keyOf(b) && st.map) views.set(keyOf(b), { center: st.map.getCenter(), zoom: st.map.getZoom() });
+      // animação de zoom em curso termina agora: o fim dela, depois de desmontado, lia painéis que já não existem
+      if (st.map) { st.map.stop(); if (st.map._animatingZoom) st.map._onZoomTransitionEnd(); }
+      st.background?.dispose();
       st.observer?.disconnect(); st.map?.remove(); live.delete(b);
       delete b.dataset.mapMounted; b.querySelector(".map-legend")?.remove();
       b.querySelector(".map-notice")?.remove();
@@ -218,7 +250,7 @@
   function watchDeck() {
     const slides = [...document.querySelectorAll("#stage > .slide")].filter((s) => s.querySelector(".map-box"));
     if (!slides.length) return;
-    const check = () => { for (const s of slides) if (s.classList.contains("current")) mount(s); };
+    const check = () => { const current = document.querySelector("#stage > .slide.current"); if (current) mount(current); };
     const obs = new MutationObserver(check);
     slides.forEach((s) => obs.observe(s, { attributes: true, attributeFilter: ["class"] }));
     check();

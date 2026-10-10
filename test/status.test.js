@@ -12,12 +12,12 @@ import { browserOrSkip } from "./helpers.js";
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const CHEIA = {
   layout: "status", kicker: "Semana 39 · 22 a 26/09", title: "Portal do cliente", health: "risco", progress: 65,
-  highlight: "Login novo em homologação",
+  highlight: "Login novo em teste com usuários",
   done: ["Tela de login", { text: "Integração com o cadastro", owner: "Ana" }, "Testes de carga"],
   doing: ["Recuperação de senha", "Ajustes de acessibilidade"],
-  blocked: [{ text: "Liberação de firewall para o serviço de e-mail", owner: "Infra", due: "30/09" }],
-  risks: ["Prazo de HOM apertado"],
-  upcoming: ["Homologar com o negócio", "Plano de implantação"],
+  blocked: [{ text: "Aprovação do texto de privacidade", owner: "Jurídico", due: "30/09" }],
+  risks: ["Prazo do teste apertado"],
+  upcoming: ["Teste com 20 usuários", "Plano de implantação"],
   shots: [{ image: PNG, caption: "Nova tela de login" }, { image: PNG, caption: "Recuperação de senha" }],
 };
 const VAZIA = { layout: "status", kicker: "Semana 40", title: "Portal do cliente", health: "ok", progress: 70,
@@ -30,10 +30,10 @@ test("status: só as seções preenchidas aparecem, com saúde, avanço, respons
   assert.match(a, /class="stt-health stt-risco"[\s\S]*?Atenção/);
   assert.match(a, /stt-bar[^>]*style="width:65%"/);
   assert.match(a, /65%/);
-  assert.match(a, /Liberação de firewall[\s\S]*?stt-meta[^>]*>Infra · até 30\/09/);
+  assert.match(a, /Aprovação do texto de privacidade[\s\S]*?stt-meta[^>]*>Jurídico · até 30\/09/);
   assert.equal((a.match(/class="stt-shot"/g) || []).length, 2);
   assert.match(a, /Nova tela de login/);
-  assert.match(a, /stt-highlight[\s\S]*?Login novo em homologação/);
+  assert.match(a, /stt-highlight[\s\S]*?Login novo em teste com usuários/);
   // semana sem nada mostrável: sem colunas vazias, sem área de screenshots
   assert.doesNotMatch(b, /stt-doing|stt-blocked|stt-risks|stt-shots/);
   assert.match(b, /stt-done[\s\S]*stt-upcoming/);

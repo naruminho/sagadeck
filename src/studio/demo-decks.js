@@ -4,7 +4,7 @@ import { COLLECTION_NAMES, COLLECTION_ASSETS, collectionDeck } from './template-
 import { LAYOUT_SAMPLES } from './layout-samples.js';
 import { explorationDemo } from './exploration-demo.js';
 import { tourDeck, TOUR_TITLE } from './tour.js';
-export function demoAssets(kind) { return kind === 'lavanda' || kind === 'novidades' ? ['lavanda-cover.jpg'] : COLLECTION_ASSETS[kind] || []; }
+export function demoAssets(kind) { return kind === 'lavanda' || kind === 'novidades' ? ['lavanda-cover.jpg'] : kind === 'conheca' ? ['tour-mapa-botao.jpg', 'tour-mapa-editor.jpg'] : COLLECTION_ASSETS[kind] || []; }
 // arquivos do projeto que o modelo traz (fora de imagens/): a planilha e as anotações da demo de novidades
 export function demoProjectFiles(kind) { return kind === 'novidades' ? ['contexto/vendas.csv', 'contexto/leia-me.md'] : []; }
 const item=(title,text,extra={})=>({title,text,...extra});

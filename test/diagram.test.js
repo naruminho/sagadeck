@@ -10,17 +10,17 @@ import { buildHTML, renderSlide } from "../src/build.js";
 import { browserOrSkip } from "./helpers.js";
 
 const FLUXO = `flowchart LR
-  A([Pedido de acesso]):::hi --> B{Experimento ou projeto?}
-  B -->|experimento| C[:flask-conical: 30 dias, dados fictícios]
-  B -->|projeto| D[DEV 30 dias] ==> E[HOM 30 dias] ==> F[PROD]:::em
+  A([Pedido]):::hi --> B{Tem em estoque?}
+  B -->|sim| C[:package: Separar e embalar]
+  B -->|não| D[Cortar] ==> E[Montar] ==> F[Enviar]:::em
   C -.-> D`;
 
 test("layout diagram: o código vai no slide (escapado), ícones viram marcador, a biblioteca só entra se o deck tiver diagrama", () => {
-  const { html } = renderSlide({ layout: "diagram", title: "Governança", mermaid: FLUXO });
+  const { html } = renderSlide({ layout: "diagram", title: "Pedidos", mermaid: FLUXO });
   assert.match(html, /class="L-diagram"/);
   assert.match(html, /dg-src/);
   assert.match(html, /&lt;|&gt;|--&gt;/, "o código vai escapado");
-  assert.match(html, /dgi-flask-conical/, "ícone vira marcador sem aspas");
+  assert.match(html, /dgi-package/, "ícone vira marcador sem aspas");
   assert.match(html, /data-dg-icons=/, "o desenho do ícone vai junto");
   const com = buildHTML({ slides: [{ layout: "diagram", mermaid: FLUXO }] }).html;
   const sem = buildHTML({ slides: [{ layout: "statement", text: "x" }] }).html;
@@ -99,7 +99,7 @@ test("grupos: cada subgraph ganha uma família (fundo claro, título e nós no m
   const browser = await browserOrSkip(t);
   if (!browser) return;
   try {
-    const mermaid = "flowchart LR\n  U([Usuário]):::suave\n  subgraph FE[Front-end]\n    T[Teams]\n    W[App]\n  end\n  subgraph BR[Bridge]\n    API[Gateway] --> M[Modelos]:::em\n  end\n  U --> T & W\n  T --> API\n  W --> API";
+    const mermaid = "flowchart LR\n  U([Usuário]):::suave\n  subgraph FE[Front-end]\n    T[Site]\n    W[App]\n  end\n  subgraph BR[Back-end]\n    API[Gateway] --> M[Modelos]:::em\n  end\n  U --> T & W\n  T --> API\n  W --> API";
     for (const theme of ["sinal", "noite"]) {
       const { p, errors } = await montar(browser, theme, [{ layout: "diagram", mermaid }]);
       const r = await p.evaluate((HSL) => {
@@ -150,9 +150,9 @@ test("sequência, estados e classes UML desenham; código errado mostra um erro 
   if (!browser) return;
   try {
     const slides = [
-      { layout: "diagram", mermaid: "sequenceDiagram\n  participant App\n  participant Identity\n  participant Bridge\n  App->>Identity: client_id + secret\n  Identity-->>App: token (30 min)\n  App->>Bridge: chamada + Bearer token\n  Bridge-->>App: resposta" },
-      { layout: "diagram", mermaid: "stateDiagram-v2\n  [*] --> DEV\n  DEV --> HOM: 30 dias\n  HOM --> PROD\n  PROD --> [*]" },
-      { layout: "diagram", mermaid: "classDiagram\n  class Projeto { +wave: string +horas: int }\n  class Area { +artefato() }\n  Projeto --> Area : pede" },
+      { layout: "diagram", mermaid: "sequenceDiagram\n  participant App\n  participant Login\n  participant Servidor\n  App->>Login: client_id + secret\n  Login-->>App: token (30 min)\n  App->>Servidor: chamada + Bearer token\n  Servidor-->>App: resposta" },
+      { layout: "diagram", mermaid: "stateDiagram-v2\n  [*] --> Rascunho\n  Rascunho --> Revisao: 2 dias\n  Revisao --> Publicado\n  Publicado --> [*]" },
+      { layout: "diagram", mermaid: "classDiagram\n  class Projeto { +nome: string +horas: int }\n  class Area { +artefato() }\n  Projeto --> Area : pede" },
       { layout: "diagram", mermaid: "flowchart LR\n  A[ok --> " },
     ];
     const { p, errors } = await montar(browser, "noite", slides);
@@ -174,13 +174,13 @@ test("todos os tipos da referência desenham, inclusive o exemplo que a IA copia
     const exemplo = ref.match(/- layout: diagram[\s\S]*?mermaid: \|\n([\s\S]*?)```/)[1].replace(/^ {4}/gm, "");
     const codes = {
       exemplo,
-      journey: "journey\n  title Pedido de acesso\n  section Bridge\n    Abrir chamado: 3: Dev\n    Esperar: 1: Dev",
+      journey: "journey\n  title Pedido de compra\n  section Loja\n    Escolher: 3: Cliente\n    Esperar: 1: Cliente",
       mindmap: "mindmap\n  root((Artefatos))\n    Segurança\n      Throughput\n    Sustentação\n      Runbook",
-      timeline: "timeline\n  DEV : 30 dias\n  HOM : 30 dias\n  PROD : sem prazo",
-      er: "erDiagram\n  PROJETO ||--o{ AREA : pede\n  PROJETO { string wave }",
-      block: "block-beta\n  columns 3\n  App Bridge Identity",
-      gantt: "gantt\n  dateFormat YYYY-MM-DD\n  section Projeto\n  DEV :a1, 2026-01-01, 30d\n  HOM :after a1, 30d",
-      quadrant: "quadrantChart\n  x-axis Baixo esforço --> Alto esforço\n  y-axis Baixo valor --> Alto valor\n  Experimento: [0.2, 0.7]",
+      timeline: "timeline\n  Rascunho : 2 dias\n  Revisão : 1 dia\n  Publicado : sem prazo",
+      er: "erDiagram\n  PROJETO ||--o{ AREA : pede\n  PROJETO { string nome }",
+      block: "block-beta\n  columns 3\n  App Servidor Login",
+      gantt: "gantt\n  dateFormat YYYY-MM-DD\n  section Projeto\n  Rascunho :a1, 2026-01-01, 30d\n  Revisão :after a1, 30d",
+      quadrant: "quadrantChart\n  x-axis Baixo esforço --> Alto esforço\n  y-axis Baixo valor --> Alto valor\n  Protótipo: [0.2, 0.7]",
     };
     const { p, errors } = await montar(browser, "sinal", Object.values(codes).map((mermaid) => ({ layout: "diagram", title: "x", mermaid })));
     const r = await p.evaluate(() => [...document.querySelectorAll(".slide")].map((s) => s.querySelector(".dg-box").dataset.dg));
@@ -217,9 +217,9 @@ test("contraste: rótulos legíveis em temas claros e escuros (mapa mental, flux
   if (!browser) return;
   try {
     const slides = [
-      { layout: "diagram", mermaid: "mindmap\n  root((:folder-open: Artefatos))\n    Segurança\n      Throughput\n    Cyber\n      Mecanismos\n    Sustentação\n      Runbook\n    Governança\n      Curadoria\n    Infra\n      Namespace\n    Rede\n      Firewall" },
+      { layout: "diagram", mermaid: "mindmap\n  root((:folder-open: Artefatos))\n    Segurança\n      Throughput\n    Cyber\n      Mecanismos\n    Sustentação\n      Runbook\n    Governança\n      Curadoria\n    Infra\n      Servidores\n    Rede\n      Roteadores" },
       { layout: "diagram", mermaid: FLUXO },
-      { layout: "diagram", mermaid: "sequenceDiagram\n  autonumber\n  App->>Bridge: chamada\n  Bridge-->>App: resposta" },
+      { layout: "diagram", mermaid: "sequenceDiagram\n  autonumber\n  App->>Servidor: chamada\n  Servidor-->>App: resposta" },
     ];
     const todos = [];
     for (const theme of ["sinal", "noite", "bauhaus"]) {

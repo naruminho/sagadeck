@@ -129,7 +129,7 @@ test("studio + IA (LLM falso)", async (t) => {
     await t.test("anexo docx vira material de contexto (o binário não vai ao modelo)", async () => {
       const { default: JSZip } = await import("jszip");
       const buf = await new JSZip().file("word/document.xml",
-        "<w:document><w:body><w:p><w:r><w:t>Fraudes no Pix: 40% em 2025.</w:t></w:r></w:p></w:body></w:document>")
+        "<w:document><w:body><w:p><w:r><w:t>Reciclagem: 40% em 2025.</w:t></w:r></w:p></w:body></w:document>")
         .generateAsync({ type: "nodebuffer" });
       await p.setInputFiles("#chat-attach-input", { name: "relatorio.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: buf });
       await p.waitForFunction(() => [...document.querySelectorAll("#chat-attachments .chat-doc b")]
@@ -146,7 +146,7 @@ test("studio + IA (LLM falso)", async (t) => {
       const http = await import("node:http");
       const srv = http.createServer((req, res) => {
         res.writeHead(200, { "Content-Type": "text/html" });
-        res.end("<html><body><h1>Banco Central</h1><p>Golpe do pix cresceu 40%.</p><script>var x=1;</script></body></html>");
+        res.end("<html><body><h1>Prefeitura</h1><p>Reciclagem cresceu 40%.</p><script>var x=1;</script></body></html>");
       });
       await new Promise((r) => srv.listen(0, "127.0.0.1", r));
       const old = process.env.SAGADECK_CONTEXT_ALLOW_LOCAL;
@@ -155,7 +155,7 @@ test("studio + IA (LLM falso)", async (t) => {
         await send(`resuma http://127.0.0.1:${srv.address().port}/noticia sobre o golpe`);
         const req = lastReq(/resuma http/);
         assert.match(req.lastUser, /MATERIAL ANEXADO/);
-        assert.match(req.lastUser, /Golpe do pix cresceu 40%/);
+        assert.match(req.lastUser, /Reciclagem cresceu 40%/);
         assert.doesNotMatch(req.lastUser, /var x=1/);
         assert.match(await lastAI(), /Li o link/);
       } finally {

@@ -103,15 +103,6 @@ export async function libraryRoutes({ req, res, pathname, url, W, opts, readJSON
         if (!made) throw new Error("Não há um modelo em prévia aberto.");
         return ok(made);
       }
-      case "/api/library/decks/example-cenario": {
-        // demonstração do Texto no cenário: o YAML e as imagens de exemplo (fundo e recorte transparente)
-        const dir0 = TEMPLATE_DIRS.map((d) => path.join(d, "cenario")).find((d) => fs.existsSync(d));
-        if (!dir0) throw new Error("o exemplo não veio no pacote (templates/cenario)");
-        const tpl = fs.readdirSync(dir0).find((f) => f.endsWith(".yaml"));
-        const id = L.createDeck(b.topic || "", YAML.parse(fs.readFileSync(path.join(dir0, tpl), "utf8")));
-        fs.cpSync(path.join(dir0, "imagens"), path.join(path.dirname(L.resolveId(id)), "imagens"), { recursive: true, force: false });
-        return ok({ id });
-      }
       case "/api/library/decks/example": {
         // exemplo de slides api (aula de APIs de IA): roda no ambiente embutido "ensaio", sem configurar nada
         const tpl = templateFile("ensaio-api.yaml");

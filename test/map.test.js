@@ -64,6 +64,30 @@ test("mapa: GeoJSON, GPX (trilha e pontos) e KML (ponto, linha, polígono, dados
   assert.equal(m.layers[0].data.features[0].geometry.type, "LineString");
 });
 
+// Pedido de Narumi ("isso não parece certo"): com uma camada por região, cada uma tinha a própria escala e a Bahia
+// (2.900) saía tão forte quanto Minas (5.100). Camadas da mesma medida dividem a escala.
+test("mapa: camadas da mesma medida dividem a escala; medida diferente fica com a sua", () => {
+  const m = mapModel({ layers: [{ name: "Sudeste", areas: { SP: 4200, MG: 5100, ES: 600 }, legend: "MW" }, { name: "Nordeste", areas: { BA: 2900, PE: 1200 }, legend: "MW" },
+    { name: "Gente", areas: { SP: 46, MG: 21 }, legend: "milhões" }] }, {});
+  assert.deepEqual(m.layers.map((l) => l.style.scale), [{ min: 600, max: 5100 }, { min: 600, max: 5100 }, { min: 21, max: 46 }]);
+});
+
+// Os contornos embutidos têm de bater com o fundo do mapa. Simplificados a 4 km (malha mínima), o litoral e as divisas
+// viravam poucos segmentos retos (o Distrito Federal era um octógono) e Rio e Vitória caíam na borda.
+test("mapa: contornos dos estados detalhados (segmento médio de até 8 km) e com a área certa", async () => {
+  const { geoContornos } = await import("../src/map.js");
+  const g = geoContornos();
+  const R = 6371.0088, rad = Math.PI / 180;
+  const km = ([lo1, la1], [lo2, la2]) => 2 * R * Math.asin(Math.sqrt(Math.sin(((la2 - la1) * rad) / 2) ** 2 + Math.cos(la1 * rad) * Math.cos(la2 * rad) * Math.sin(((lo2 - lo1) * rad) / 2) ** 2));
+  const media = (uf) => { let soma = 0, n = 0; for (const poly of g.uf[uf]) for (const r of poly) for (let i = 1; i < r.length; i++) { soma += km(r[i - 1], r[i]); n++; } return soma / n; };
+  // o litoral (no interior há divisas que são retas de verdade: Acre, Mato Grosso, o DF)
+  const grosseiros = ["RJ", "ES", "SP", "PR", "SC", "RS", "BA", "SE", "AL", "PE", "PB", "RN", "CE"].map((uf) => [uf, Math.round(media(uf))]).filter(([, m]) => m > 8);
+  assert.deepEqual(grosseiros, [], "estados com contorno grosseiro (km por segmento)");
+  const anel = (r) => { let s = 0; for (let i = 0; i < r.length - 1; i++) { const [lo1, la1] = r[i], [lo2, la2] = r[i + 1]; s += (lo2 - lo1) * rad * (2 + Math.sin(la1 * rad) + Math.sin(la2 * rad)); } return Math.abs((s * R * R) / 2); };
+  const area = (uf) => g.uf[uf].reduce((a, p) => a + anel(p[0]) - p.slice(1).reduce((h, r) => h + anel(r), 0), 0);
+  for (const [uf, oficial] of Object.entries({ RJ: 43750, ES: 46074, SP: 248219, DF: 5760 })) assert.ok(Math.abs(area(uf) - oficial) / oficial < 0.02, `${uf}: ${Math.round(area(uf))} km² (IBGE: ${oficial})`);
+});
+
 test("mapa: valores por estado e por país usam os contornos embutidos e pintam pela escala", () => {
   const { m, warnings } = model({ layers: [{ areas: { SP: 320, rj: 140, BR: 1, XX: 3 } }] }, tmp());
   const names = m.layers[0].data.features.map((f) => f.properties.nome);
@@ -146,6 +170,12 @@ test("mapa ao vivo: só monta no slide atual; pontos, cartão ao clicar, legenda
     // passo 2: a área entra
     await p.evaluate(() => window.sagadeck.goto(1, 2));
     await p.waitForFunction(() => document.querySelectorAll(".slide.current path.leaflet-interactive").length === 3);
+    // a área entrou depois, mas os pontos continuam por cima: clicar no ponto pega o ponto, não a área
+    const onTop = await p.evaluate(() => {
+      const inst = window.SagaMap.instance(document.querySelector(".slide.current .map-box"));
+      return inst.layers[0].g.getLayers().filter((l) => inst.map.hasLayer(l)).map((l) => { const r = l._path.getBoundingClientRect(); const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el === l._path ? "ok" : inst.layers[0].g.getLayers().some((o) => o._path === el) ? "ok" : "outra camada"; });
+    });
+    assert.deepEqual([...new Set(onTop)], ["ok"], "pontos ficam por cima das áreas (um ponto pode encostar no outro)");
     // arrastar move o mapa (o slide está escalado; o Leaflet compensa)
     const box = await p.locator(".slide.current .map-live").boundingBox();
     const before = await p.evaluate(() => document.querySelector(".slide.current .leaflet-map-pane").style.transform);
@@ -200,4 +230,64 @@ test("exportação: deck com mapa abre por endereço local e a foto do slide esp
     assert.ok(await page.evaluate(() => document.querySelectorAll(".slide.current .leaflet-tile-loaded").length) > 0, "a foto sai com o fundo");
     assert.equal(await page.locator(".slide.current .leaflet-control-zoom").isVisible(), false, "sem botões de zoom na imagem");
   } finally { await b.close(); await tiles.close(); }
+});
+
+test("mapa: geojson pode vir escrito no próprio slide (FeatureCollection, Feature ou só a geometria)", () => {
+  const linha = { type: "LineString", coordinates: [[-46.66, -23.556], [-46.64, -23.57]] };
+  const { m, warnings } = model({ layers: [
+    { name: "Coleção", geojson: { type: "FeatureCollection", features: [{ type: "Feature", properties: { nome: "Avenida" }, geometry: linha }] } },
+    { name: "Só a geometria", geojson: linha },
+  ] }, tmp());
+  assert.deepEqual(warnings, []);
+  assert.equal(m.layers[0].data.features[0].properties.nome, "Avenida");
+  assert.equal(m.layers[1].data.features[0].geometry.type, "LineString");
+  assert.equal(m.layers[0].source, null, "escrito no slide não tem arquivo de origem");
+});
+
+// A faixa em volta de uma linha é uma pilha de pedaços sobrepostos (lineBuffer). Ao vivo, o contorno de cada pedaço
+// aparecia e o preenchimento "par ou ímpar" abria buracos onde eles se cruzam: agora sai como uma mancha só.
+test("mapa ao vivo: faixa em volta de uma linha sem contorno e preenchida como união (sem buracos)", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const { lineBuffer } = await import("../src/map-analysis.js");
+  const tiles = await tileServer({ value: "ok" });
+  try {
+    const linha = { type: "LineString", coordinates: [[-46.66, -23.56], [-46.655, -23.565], [-46.65, -23.56], [-46.645, -23.57]] };
+    const { page: p, errors } = await openDeck(browser, [{ layout: "map", title: "Faixa", layers: [
+      { name: "Faixa", geojson: { type: "Feature", properties: { nome: "200 m", _faixa: true }, geometry: lineBuffer(linha, 200) } },
+      { name: "Área", geojson: { type: "Feature", properties: { nome: "Quadra" }, geometry: { type: "Polygon", coordinates: [[[-46.64, -23.55], [-46.63, -23.55], [-46.63, -23.56], [-46.64, -23.55]]] } } }] }], tiles.url);
+    await p.waitForSelector('.map-box[data-map-mounted="ready"]');
+    const paths = await p.evaluate(() => [...document.querySelectorAll(".slide.current path.leaflet-interactive")].map((x) => ({ w: x.getAttribute("stroke-width"), regra: x.getAttribute("fill-rule") })));
+    assert.deepEqual(paths, [{ w: "0", regra: "nonzero" }, { w: "2", regra: "evenodd" }], "a faixa sem contorno e unida; a área comum como antes");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await tiles.close(); }
+});
+
+// Pedido de Narumi: "os pontos estão com círculos meio grandes e feios de tão simples". Ponto: pequeno, na cor, com
+// anel branco e sombra; bolha (tamanho pela coluna): translúcida com o contorno da mesma cor.
+test("mapa ao vivo: ponto pequeno com anel branco e sombra; bolha translúcida com contorno da mesma cor", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const tiles = await tileServer({ value: "ok" });
+  try {
+    const { page: p, errors } = await openDeck(browser, [{ layout: "map", title: "Pontos", layers: [
+      { name: "Pontos", points: [{ nome: "A", lat: -23.55, lon: -46.63 }], color: "em" },
+      { name: "Bolhas", points: [{ nome: "B", lat: -23.56, lon: -46.64, n: 10 }, { nome: "C", lat: -23.57, lon: -46.62, n: 40 }], size: "n", color: "hi" }] }], tiles.url);
+    await p.waitForSelector('.map-box[data-map-mounted="ready"]');
+    const r = await p.evaluate(() => [...document.querySelectorAll(".slide.current path.leaflet-interactive")].map((x) => ({ cls: x.getAttribute("class").match(/map-(pt|bubble)/)?.[0], stroke: x.getAttribute("stroke"), fill: x.getAttribute("fill"), op: x.getAttribute("fill-opacity"), filtro: getComputedStyle(x).filter })));
+    const pt = r.find((x) => x.cls === "map-pt"), bolhas = r.filter((x) => x.cls === "map-bubble");
+    assert.equal(pt.stroke, "#fff"); assert.equal(pt.op, "1"); assert.match(pt.filtro, /drop-shadow/);
+    assert.equal(bolhas.length, 2);
+    for (const b of bolhas) { assert.equal(b.stroke, b.fill, "contorno da mesma cor"); assert.equal(b.op, "0.5"); }
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await tiles.close(); }
+});
+
+// Pedido de Narumi ("a área ainda não está em cima dos estados"): no fundo claro, o filtro cinza deixava terra e mar
+// iguais, e a fronteira marítima do OpenStreetMap (12 milhas mar adentro) parecia o litoral. O mar guarda um azul leve.
+test("fundo claro: o filtro não apaga a diferença entre terra e mar", () => {
+  const css = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, "$1")), "..", "src", "runtime", "base.css"), "utf8");
+  const claro = css.match(/\.map-box\[data-basemap="claro"\] \.leaflet-tile-pane\{filter:([^}]*)\}/)?.[1] || "";
+  assert.doesNotMatch(claro, /grayscale\(1\)/);
+  assert.match(claro, /saturate\(0?\.\d+\)/);
 });

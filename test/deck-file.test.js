@@ -88,7 +88,7 @@ test("gravação atômica: não sobra temporário; arquivo novo ou com YAML queb
 });
 
 test("muitas mudanças seguidas nos decks de exemplo: o arquivo relido é sempre igual ao deck", () => {
-  for (const name of ["exemplo.yaml", "exemplo-prata.yaml", "ensaio-api.yaml", "cenario/Texto no cenário.yaml"]) {
+  for (const name of ["exemplo.yaml", "exemplo-prata.yaml", "ensaio-api.yaml", "cenario-e-ciencia.yaml"]) {
     const d = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-file-ex-")), f = path.join(d, "deck.yaml");
     fs.copyFileSync(path.join(ROOT, "templates", name), f);
     let spec = YAML.parse(fs.readFileSync(f, "utf8"));
@@ -148,15 +148,6 @@ test("caminho absoluto para dentro da pasta do deck vira relativo ao gravar", ()
   assert.equal(out.slides[2].figure.image, fora, "fora da pasta: fica como está (o .sagadeck empacotado traz para dentro)");
 });
 
-test("o deck demo copiado para outra pasta monta sem faltar nada", async () => {
-  const { buildHTML, loadSpec } = await import("../src/build.js");
-  const dest = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-copiado-"));
-  fs.cpSync(path.join(ROOT, "templates", "cenario"), dest, { recursive: true });
-  const { warnings } = buildHTML(loadSpec(path.join(dest, "Texto no cenário.yaml")));
-  assert.deepEqual(warnings.filter((w) => /não encontrad/.test(w)), []);
-});
-
-// Junção a três (base = o deck quando a IA começou; meu = o que a pessoa tem agora; ia = o que a IA devolveu)
 test("junção: o que a pessoa mexeu durante a resposta fica; o que só a IA mexeu entra; conflito, vale o da pessoa", async () => {
   await import("../src/studio/public/merge-decks.js");
   const { mergeDecks } = globalThis.SagadeckMerge;

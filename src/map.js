@@ -110,9 +110,10 @@ export function fromKML(xml) {
 
 function fromGeoJSON(obj) {
   if (!obj || typeof obj !== "object") return [];
-  if (obj.type === "FeatureCollection") return (obj.features || []).filter((f) => f && f.geometry);
-  if (obj.type === "Feature") return obj.geometry ? [obj] : [];
-  if (obj.type && obj.coordinates) return [{ type: "Feature", properties: {}, geometry: obj }];
+  // _i: a posição da forma no arquivo (o editor do Studio acha a forma clicada por ela)
+  if (obj.type === "FeatureCollection") return (obj.features || []).map((f, i) => (f && f.geometry ? { ...f, properties: { ...f.properties, _i: i } } : null)).filter(Boolean);
+  if (obj.type === "Feature") return obj.geometry ? [{ ...obj, properties: { ...obj.properties, _i: 0 } }] : [];
+  if (obj.type && obj.coordinates) return [{ type: "Feature", properties: { _i: 0 }, geometry: obj }];
   return [];
 }
 
@@ -125,7 +126,7 @@ function fromAreas(values, warn) {
     const uf = g.uf[code], pais = g.paises[code];
     if (!uf && !pais) { warn(`mapa: "${k}" não é uma UF (SP, RJ…) nem um país (BR, PT…)`); continue; }
     const poly = uf || pais.poly;
-    features.push({ type: "Feature", properties: { nome: uf ? code : pais.nome, valor: v }, geometry: { type: "MultiPolygon", coordinates: poly } });
+    features.push({ type: "Feature", properties: { nome: uf ? code : pais.nome, valor: v, _cod: String(k) }, geometry: { type: "MultiPolygon", coordinates: poly } });
   }
   return features;
 }
@@ -204,6 +205,10 @@ export function mapModel(s, ctx) {
         const head = [...new Set(rows.flatMap((p) => Object.keys(p)))];
         features = pointsFromRows(head, rows.map((p) => head.map((h) => p[h] ?? "")), layer, warn).features;
       }
+    } else if (layer.geojson && typeof layer.geojson === "object") {
+      // escrito no próprio slide (desenho pequeno, demonstração); dados de verdade ficam num arquivo do projeto
+      features = fromGeoJSON(layer.geojson);
+      if (!features.length) warn(`mapa: o GeoJSON da camada "${layer.name || i + 1}" não tem formas`);
     } else if (layer.geojson) {
       const text = readText(layer.geojson, ctx, "GeoJSON");
       try { features = text == null ? [] : fromGeoJSON(JSON.parse(text)); } catch { warn(`mapa: "${layer.geojson}" não é um GeoJSON válido`); }
@@ -217,14 +222,22 @@ export function mapModel(s, ctx) {
     if (!features.length && layer.areas == null) warn(`mapa: a camada "${layer.name || i + 1}" ficou vazia`);
     const step = layer.step ?? (s.build ? i + 1 : undefined);
     layers.push({
-      name: layer.name || layer.title || `Camada ${i + 1}`, kind,
-      source: typeof layer.points === "string" ? layer.points.trim() : layer.geojson || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
+      name: layer.name || layer.title || `Camada ${i + 1}`, kind, index: i, // index: a camada no slide (o editor do Studio)
+      source: typeof layer.points === "string" ? layer.points.trim() : (typeof layer.geojson === "string" ? layer.geojson : null) || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
       view: viewOf(layer.view), legend: layer.legend || null, prefix: layer.prefix || "", suffix: layer.suffix || "",
       style: styleOf(features, layer, warn), data: { type: "FeatureCollection", features },
     });
   });
   const basemap = BASEMAPS.includes(s.basemap) ? s.basemap : "ruas";
   if (s.basemap && !BASEMAPS.includes(s.basemap)) warn(`mapa: fundo "${s.basemap}" não existe (use ${BASEMAPS.join(", ")})`);
+  // camadas da mesma medida (a mesma coluna ou a mesma unidade na legenda) dividem uma escala: cada uma com a sua,
+  // a Bahia (2.900) saía tão forte quanto Minas (5.100) só por ser a maior da camada dela
+  const groups = new Map();
+  for (const l of layers) if (l.style.scale) { const k = `${l.style.colorBy}|${l.legend || ""}`; (groups.get(k) || groups.set(k, []).get(k)).push(l); }
+  for (const g of groups.values()) if (g.length > 1) {
+    const scale = { min: Math.min(...g.map((l) => l.style.scale.min)), max: Math.max(...g.map((l) => l.style.scale.max)) };
+    for (const l of g) l.style.scale = scale;
+  }
   return { basemap, view: viewOf(s.view), bounds: bboxOf(layers), layers, tiles: ctx?.mapTiles || null };
 }
 
@@ -249,11 +262,11 @@ export function mapPreviewSVG(model, w = 1600, h = 760) {
   for (const layer of model.layers) for (const f of layer.data.features) {
     const g = f.geometry, col = color(layer, f);
     const lines = (cs) => cs.map((l) => `M${l.map(P).join("L")}`).join("");
-    if (g.type === "Point") { const [x, y] = P(g.coordinates).split(","); out.push(`<circle cx="${x}" cy="${y}" r="9" fill="${col}" stroke="var(--bg)" stroke-width="3"/>`); }
+    if (g.type === "Point") { const [x, y] = P(g.coordinates).split(","); out.push(`<circle cx="${x}" cy="${y}" r="8" fill="${col}" stroke="#fff" stroke-width="3"/>`); }
     else if (g.type === "LineString") out.push(`<path d="${lines([g.coordinates])}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "MultiLineString") out.push(`<path d="${lines(g.coordinates)}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "Polygon") out.push(`<path d="${lines(g.coordinates)}Z" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="2"/>`);
-    else if (g.type === "MultiPolygon") out.push(`<path d="${g.coordinates.map((p) => lines(p) + "Z").join("")}" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="2"/>`);
+    else if (g.type === "MultiPolygon") out.push(`<path d="${g.coordinates.map((p) => lines(p) + "Z").join("")}" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="${f.properties?._faixa ? 0 : 2}"/>`);
   }
   return `<svg class="map-preview" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${out.join("")}</svg>`;
 }

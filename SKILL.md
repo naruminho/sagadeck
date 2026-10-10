@@ -151,6 +151,6 @@ Para apresentações de alto impacto sem "muralhas de texto":
 
 ## Recursos recentes para autoria por IA
 
-Consulte `docs/REFERENCIA.md` para os contratos atuais de `science` (KaTeX, até cinco equações, Plotly 2D/3D), `scenography` (texto integrado ao cenário, estático), `spotlight`, `codewalk` e `api`. Para criar apresentações autonomamente, a IA precisa desta referência, do briefing, do material autorizado e das imagens; acesso ao banco por si só não transmite o formato do SagaDeck. Use apenas endpoints/status reais fornecidos pela documentação interna, sem inventar detalhes. Configure credenciais no ambiente local; nunca dentro dos slides.
+Consulte `docs/REFERENCIA.md` para os contratos atuais de `science` (KaTeX, até cinco equações, Plotly 2D/3D), `spotlight`, `codewalk` e `api`. Para criar apresentações autonomamente, a IA precisa desta referência, do briefing, do material autorizado e das imagens; acesso ao banco por si só não transmite o formato do SagaDeck. Use apenas endpoints/status reais fornecidos pela documentação interna, sem inventar detalhes. Configure credenciais no ambiente local; nunca dentro dos slides.
 
 O Studio permite inserir e arrastar elementos e revisar uma imagem do slide com IA. Ajustes manuais `visualEdits` são específicos da estrutura renderizada: remova-os ao reconstruir um slide. Sempre confira o resultado renderizado; regras geométricas não garantem qualidade visual.

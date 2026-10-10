@@ -58,6 +58,7 @@ export function circle([lat, lon], metros, n = 32) {
 }
 
 // faixa de `metros` em volta de uma linha, para DESENHAR: retângulos dos trechos e círculos nos vértices (MultiPolygon).
+// Os pedaços se sobrepõem: a feature leva `_faixa: true` e o mapa a desenha sem contorno (uma mancha só).
 // Para CONTAR o que está dentro, use pointLine (exato).
 export function lineBuffer(geometry, metros) {
   const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
@@ -73,7 +74,9 @@ export function lineBuffer(geometry, metros) {
       polys.push([[[lon1 + ox, lat1 + oy], [lon2 + ox, lat2 + oy], [lon2 - ox, lat2 - oy], [lon1 - ox, lat1 - oy], [lon1 + ox, lat1 + oy]]]);
     }
   }
-  return { type: "MultiPolygon", coordinates: polys };
+  // todos no mesmo sentido (anti-horário): onde os pedaços se sobrepõem, a área preenche uma vez só, sem buraco
+  const ccw = (ring) => { let a = 0; for (let i = 0; i < ring.length - 1; i++) a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]; return a >= 0 ? ring : [...ring].reverse(); };
+  return { type: "MultiPolygon", coordinates: polys.map(([ring]) => [ccw(ring)]) };
 }
 
 // "onde instalar o próximo": os `quantos` lugares mais longe de todos os existentes (e uns dos outros), dentro da área

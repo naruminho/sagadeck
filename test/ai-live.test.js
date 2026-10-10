@@ -29,11 +29,11 @@ for (const [msg, layout] of TALK) {
   });
 }
 
-test('ação: "muda o título da capa para Fraudes no Pix"', opts, async () => {
+test('ação: "muda o título da capa para Reciclagem no bairro"', opts, async () => {
   const s = spec();
-  const r = await editDeck({ spec: s, instruction: "muda o título da capa para Fraudes no Pix", targetSlide: 0 });
+  const r = await editDeck({ spec: s, instruction: "muda o título da capa para Reciclagem no bairro", targetSlide: 0 });
   assert.ok(!r.talk && !r.variants, r.reply);
-  assert.match(plain(r.spec.slides[0].title), /Fraudes no Pix/); // destaque (==Pix==) é escolha dela
+  assert.match(plain(r.spec.slides[0].title), /Reciclagem no bairro/); // destaque (==bairro==) é escolha dela
 });
 
 test('versões: "me mostra 3 versões diferentes desse slide de indicadores"', opts, async () => {
@@ -49,7 +49,7 @@ test("refinamento: conversa e depois 'pode fazer' aplica o combinado", opts, asy
   const i = idx(s, "statement");
   const history = [
     { role: "user", text: "o que você acha desse slide da frase?" },
-    { role: "assistant", text: "A frase é boa, mas genérica. Sugiro trocar por algo concreto: \"Fraude no Pix cresceu 40% em 2025\", com ==40%== destacado." },
+    { role: "assistant", text: "A frase é boa, mas genérica. Sugiro trocar por algo concreto: \"A reciclagem cresceu 40% em 2025\", com ==40%== destacado." },
   ];
   const r = await editDeck({ spec: s, instruction: "gostei, pode fazer", targetSlide: i, history });
   assert.ok(!r.talk, `ficou só conversando: ${r.reply}`);
@@ -59,7 +59,7 @@ test("refinamento: conversa e depois 'pode fazer' aplica o combinado", opts, asy
 test("gerar deck: sai variado (sem 3 layouts iguais seguidos, com slides de impacto)", { ...opts, timeout: 600000 }, async () => {
   const { generateDeck } = await import("../src/ai/deck-ai.js");
   const { varietyReport } = await import("../src/ai/variety.js");
-  const r = await generateDeck("Palestra de 15 minutos para gestores de um banco sobre como detectar fraudes no Pix com dados.", { slides: 10 });
+  const r = await generateDeck("Palestra de 15 minutos para gestores de uma rede de clínicas sobre como reduzir filas com dados.", { slides: 10 });
   const v = varietyReport(r.spec);
   console.log(`direção: ${r.direction}\nlayouts: ${r.spec.slides.map((s) => s.layout).join(", ")}`);
   assert.deepEqual(v.problems, [], v.problems.join("; "));
@@ -105,7 +105,7 @@ for (const [label, extra, check] of [
     const path = await import("node:path");
     const { generateDeck } = await import("../src/ai/deck-ai.js");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-live-"));
-    const r = await generateDeck("Palestra de 10 minutos para gestores de um banco sobre golpes no Pix e como a análise de dados ajuda." + extra,
+    const r = await generateDeck("Palestra de 10 minutos para gestores de uma rede de clínicas sobre faltas em consultas e como a análise de dados ajuda." + extra,
       { slides: 8, imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") } });
     const n = r.images.done.length + r.images.failed.length;
     console.log(`  ${n} imagem(ns) em ${r.spec.slides.length} slides: ${r.images.done.map((d) => d.prompt.slice(0, 50)).join(" | ")}`);

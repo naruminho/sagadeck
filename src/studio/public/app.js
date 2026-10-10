@@ -35,7 +35,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "definition", "poster", "calendar", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "table", "map", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "portal", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
+    "chart", "table", "map", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "portal", "science", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -45,7 +45,7 @@
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
     timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", map: "Mapa", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
-    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
+    diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", codewalk: "Código guiado", spotlight: "Foco guiado",
     duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
     graphlab: "Rede explorável", codelab: "Código explorável", playground: "Experiência personalizada", portal: "Portal e transformação",
     blocks: "Livre (blocos)", canvas: "Livre (posições)", end: "Encerramento", references: "Referências",
@@ -429,7 +429,7 @@
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
       window.SagaMap?.mount(dom.renderedSlideContainer); // só aqui (prévia grande); miniaturas e galeria ficam na prévia em SVG
-      window.SagaMapData?.attach(dom.renderedSlideContainer, slide, () => { syncDeckToServer(); renderCurrentSlide(); }, { toast: showToast, hydrate: hydrateIcons });
+      window.SagaMapData?.attach(dom.renderedSlideContainer, slide, () => { syncDeckToServer(); renderCurrentSlide(); }, { toast: showToast, hydrate: hydrateIcons, materialized: previewMaterialized });
       window.SagaCalc?.mount(dom.renderedSlideContainer); // calculadora ao vivo: os controles funcionam no editor também
       window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
@@ -2053,7 +2053,7 @@
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
     ["codigo", "Código e API", ["code", "codewalk", "api"]],
-    ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "scenography", "portal", "kinetic"]],
+    ["visual", "Imagem e movimento", ["image", "full", "carousel", "spotlight", "video", "portal"]],
     ["plateia", "Plateia", ["question", "poll"]],
     ["dinamicas", "Dinâmicas a dois", ["duel", "terminals", "turns"]],
     ["aula", "Aula: exercícios e algoritmos", ["solution", "calc", "algo", "graphlab", "codelab", "playground"]],
@@ -2329,38 +2329,13 @@
 
   // Ao trocar de layout, o conteúdo em lista (cartões, etapas, eventos, níveis…) vai junto
   const LIST_KEY = { cards: "items", bento: "tiles", stats: "stats", steps: "steps", funnel: "stages", pyramid: "levels", list: "items",
-    agenda: "items", timeline: "events", matrix: "cells", question: "options", poll: "options", split: "bullets", statement: "lines", references: "items", end: "contacts", kinetic: "beats" };
+    agenda: "items", timeline: "events", matrix: "cells", question: "options", poll: "options", split: "bullets", statement: "lines", references: "items", end: "contacts" };
   const SOURCE_KEYS = ["items", "tiles", "stats", "kpis", "steps", "process", "flow", "stages", "levels", "events", "cells", "options", "bullets", "lines", "contacts"];
-  function kineticPhrases(value) {
-    const words = String(value || "").match(/==[^=]+==|\*\*.*?\*\*|\*[^*]+\*|~~.*?~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\S+/g) || [];
-    const connectors = new Set(["a", "as", "de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas", "para", "por", "com", "o", "os"]);
-    const phrases = [];
-    while (words.length) {
-      let take = Math.ceil(words.length / Math.ceil(words.length / 4));
-      const last = words[take - 1]?.replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, "").toLowerCase();
-      if (take > 1 && connectors.has(last)) take--;
-      phrases.push(words.splice(0, take).join(" "));
-    }
-    return phrases;
-  }
   function carryContent(slide, to) {
     const target = LIST_KEY[to];
     if (!target) return;
     const activeKey = LIST_KEY[slide.layout];
     if (activeKey === target && Array.isArray(slide[target]) && slide[target].length) return;
-    if (to === "kinetic") {
-      const source = SOURCE_KEYS.find((key) => Array.isArray(slide[key]) && slide[key].length);
-      if (source) {
-        slide.beats = slide[source].map((item) => {
-          if (typeof item !== "object" || item == null) return { text: String(item ?? "") };
-          return { text: item.title ?? item.label ?? item.text ?? item.name ?? "", ...(item.text && item.title ? { tag: item.text } : {}) };
-        });
-      } else {
-        const phrases = [...kineticPhrases(slide.title || slide.text), ...kineticPhrases(slide.subtitle)];
-        if (phrases.length) slide.beats = phrases.map((text, i) => ({ text, ...(i === 0 && slide.kicker ? { tag: slide.kicker } : {}) }));
-      }
-      return;
-    }
     const srcKey = [activeKey, ...SOURCE_KEYS].find((k) => k && Array.isArray(slide[k]) && slide[k].length);
     if (!srcKey) return;
     const entries = slide[srcKey].map((x) => {
@@ -2391,7 +2366,7 @@
     }
     if (layoutName === "quote") slide.quote = primary;
     if (["question", "poll"].includes(layoutName)) slide.question = primary;
-    if (LIST_KEY[layoutName] && !slide[LIST_KEY[layoutName]]?.length && !["kinetic", "statement"].includes(layoutName)) {
+    if (LIST_KEY[layoutName] && !slide[LIST_KEY[layoutName]]?.length && layoutName !== "statement") {
       const content = [slide.subtitle, slide.body, primary].find(v => typeof v === "string" && v.trim());
       if (content) slide[LIST_KEY[layoutName]] = content.split(/\n+/).filter(Boolean).map(text => ["list", "split", "question", "poll", "references", "end"].includes(layoutName) ? text : {title:text});
     }
@@ -2452,6 +2427,23 @@
         } catch (e) { showToast(`Não deu para atualizar: ${e.message}`); }
       },
       hydrate: hydrateIcons,
+      splitCalendar: async () => {
+        const at = state.currentSlideIndex, slide = state.deck.slides[at];
+        const { calendarMonth, calendarMonths } = window.SagaCalendarMonths;
+        const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+        const months = calendarMonths(slide);
+        if (months.length < 2) return;
+        const { uid, events, undated, month, week, ...base } = slide;
+        const slides = months.map((m, k) => ({ ...base, ...(k === 0 && uid ? { uid } : {}), view: "mes", month: m,
+          kicker: base.kicker || `${MESES[+m.slice(5) - 1]} ${m.slice(0, 4)}`,
+          events: events.filter((e) => calendarMonth(e?.date) === m),
+          ...(k === 0 && (undated?.length || events.some((e) => !calendarMonth(e?.date))) ? { undated: [...(undated || []), ...events.filter((e) => !calendarMonth(e?.date)).map(({ title, text }) => ({ title, ...(text ? { text } : {}) }))] } : {}) }));
+        state.deck.slides.splice(at, 1, ...slides);
+        await syncDeckToServer();
+        renderThumbnails();
+        await renderCurrentSlide();
+        showToast(`Um slide por mês: ${slides.length} slides, na visão de mês.`, 4000);
+      },
       pickIcon: (cb) => openIconPicker(null, cb),
       layoutLabel,
       generateImage: (element, btn) => {
@@ -2609,7 +2601,9 @@
   }
 
   async function startPresentation({ pen = false } = {}) {
-    await syncDeckToServer(); // a prévia é montada a partir do deck do servidor
+    // a apresentação é montada a partir do deck do servidor. Modelo em prévia: o servidor já tem o mesmo deck (qualquer
+    // mudança teria criado a cópia e saído da prévia), e enviar de novo contaria como mudança: apresentar não grava nada
+    if (!state.preview) await syncDeckToServer();
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
     dom.presFrame.src = scopedURL(`preview?t=${Date.now()}#${start}`);

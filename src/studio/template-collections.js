@@ -24,7 +24,7 @@ const label = (text, x = 120, y = 90, color = 'ink') => txt(text, x, y, 1400, 24
 const heading = (text, x, y, w, size = 100, extra = {}) => txt(text, x, y, w, size, { as: 'title', ...extra });
 const item = (title, text, value) => ({ title, text, ...(value ? { value } : {}) });
 const priorities = [item('Uma pergunta melhor', 'Entenda o que precisa mudar antes de escolher a solução.', '01'), item('Um teste pequeno', 'Aprenda com uma experiência simples e um resultado observável.', '02'), item('Uma decisão clara', 'Combine o próximo passo, o responsável e o momento de revisar.', '03')];
-const agenda = ['O contexto', 'A oportunidade', 'O experimento', 'O próximo passo'];
+const agenda = ['O contexto', 'A oportunidade', 'A proposta', 'O próximo passo'];
 const palette = (paper, ink, accent, alert, family) => Object.fromEntries(Object.entries({ paper, ink, accent, alert, family }).map(([key, value]) => [key, Array.isArray(value) ? value.map(c => c.replace('#', '')) : value.replace('#', '')]));
 
 // Estética de cada coleção para a geração com IA (modal "Deck com IA": estilo → tema + direção criativa).

@@ -12,9 +12,12 @@ export function mapaFile(env = process.env, home = os.homedir()) {
 }
 
 const OSM = "© colaboradores do OpenStreetMap";
+const OFM = '<a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores do OpenStreetMap</a>';
 export const MAP_DEFAULTS = {
-  // fundo de ruas; "claro" e "escuro" são o mesmo fundo com filtro de cor (sem outro provedor)
+  // ruas conserva o OpenStreetMap; fundos de dados são vetoriais, sem a fronteira marítima desenhada no mar
   tiles: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: OSM, maxZoom: 19 },
+  claro: { url: "https://tiles.openfreemap.org/styles/positron", tipo: "vetorial", attribution: OFM, maxZoom: 20 },
+  escuro: { url: "https://tiles.openfreemap.org/styles/dark", tipo: "vetorial", attribution: OFM, maxZoom: 20 },
   // satélite só com provedor configurado (costuma pedir chave); sem ele, o slide usa as ruas e avisa
   satelite: null,
   geocoder: { provedor: "nominatim", url: "https://nominatim.openstreetmap.org", porSegundo: 1 },
@@ -37,7 +40,10 @@ export function loadMapConfig(file = mapaFile(), env = process.env) {
   let raw = {};
   try { raw = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch { raw = {}; }
   return Object.fromEntries(Object.entries(MAP_DEFAULTS).map(([k, base]) => {
-    const s = service(raw[k], base);
+    let s = service(raw[k], base);
+    // arquivo antigo com tiles próprios (ou desligados): respeita esse fundo nos três modos
+    if (["claro", "escuro"].includes(k) && !Object.hasOwn(raw, k) && Object.hasOwn(raw, "tiles") && (raw.tiles === null || raw.tiles?.url && raw.tiles.url !== MAP_DEFAULTS.tiles.url)) s = service(raw.tiles, MAP_DEFAULTS.tiles);
+    if (s && ["tiles", "claro", "escuro", "satelite"].includes(k)) s = { ...s, tipo: s.url.includes("{z}") ? "raster" : s.tipo || "raster" };
     if (s && !s.key && s.keyEnv && env[s.keyEnv]) return [k, { ...s, key: env[s.keyEnv], keyFrom: "variável" }];
     return [k, s];
   }));
@@ -78,6 +84,6 @@ export function maskedMapConfig(cfg) {
 // o que pode ir para dentro do HTML da apresentação: só o fundo (o navegador busca os tiles). Chave de rotas e de
 // geocodificação nunca vai para o deck.
 export function tilesForDeck(cfg = loadMapConfig()) {
-  const pick = (t) => (t ? { url: t.url, attribution: t.attribution || OSM, maxZoom: t.maxZoom || 19 } : null);
-  return { tiles: pick(cfg.tiles), satelite: pick(cfg.satelite) };
+  const pick = (t) => (t ? { url: t.url, tipo: t.tipo || "raster", attribution: t.attribution || OSM, maxZoom: t.maxZoom || 19 } : null);
+  return { tiles: pick(cfg.tiles), claro: pick(cfg.claro === undefined ? cfg.tiles : cfg.claro), escuro: pick(cfg.escuro === undefined ? cfg.tiles : cfg.escuro), satelite: pick(cfg.satelite) };
 }

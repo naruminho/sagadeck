@@ -25,7 +25,7 @@ const DECK = (mock) => ({
     { layout: "api", id: "ocr", title: "OCR pelo path_id", request: { url: "{{base}}/ocr", body: { path_id: "{{path_id}}" } }, answer: "$.text" },
     { layout: "api", id: "fora", title: "Serviço fora do ar", request: { url: "http://127.0.0.1:1/x", auth: false } },
     { layout: "api", id: "emb", title: "Embeddings", request: { url: "{{base}}/embeddings", body: { model: "emb", input: "{{text}}" } },
-      similarity: { reference: "Quero abrir uma conta no banco", texts: ["Vai chover amanhã em São Paulo?", "Como faço para abrir uma conta?"] } },
+      similarity: { reference: "Quero reservar uma mesa no restaurante", texts: ["Vai chover amanhã em São Paulo?", "Como faço para reservar uma mesa?"] } },
     { layout: "api", id: "idx", title: "Indexar Excel linha a linha", request: { url: "{{base}}/sync", body: { mode: "rows", sheet: { name: "Plan1", header_row: 1 } } },
       fields: { "$.mode": "rows = cada linha vira um documento", "$.sheet.header_row": "linha do cabeçalho (começa em 1)", "$.sheet.nao_tem": "não enviado" } },
   ],
@@ -196,14 +196,14 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       await p.click(`${s} [data-tab="python"]`);
       assert.match(await txt(`${s} [data-pane="python"]`), /def cosseno\(a, b\):/);
       await p.click(`${s} [data-tab="texts"]`);
-      await p.fill(`${s} [data-api-texts]`, "Vai chover amanhã em São Paulo?\nComo faço para abrir uma conta?\nAbrir conta no banco hoje");
+      await p.fill(`${s} [data-api-texts]`, "Vai chover amanhã em São Paulo?\nComo faço para reservar uma mesa?\nMesa para dois esta noite");
       await run(s);
       assert.equal(await p.$$eval(`${s} .api-vec i`, (els) => els.length), 48);
       assert.match(await txt(`${s} .api-sim-ref`), /vetor com 64 números/i);
       const rows = await p.$$eval(`${s} .api-sim-row`, (els) => els.map((e) => [e.querySelector(".api-sim-t").textContent, +e.dataset.score, e.classList.contains("win")]));
       assert.equal(rows.length, 3);
       assert.ok(rows[0][1] >= rows[1][1] && rows[1][1] >= rows[2][1], "ordenado da mais parecida para a menos");
-      assert.match(rows[0][0], /conta/);
+      assert.match(rows[0][0], /reservar uma mesa/);
       assert.equal(rows[0][2], true, "a vencedora fica em destaque");
       assert.match(rows[2][0], /chover/);
       assert.match(await txt(`${s} .api-status`), /4 embeddings/);

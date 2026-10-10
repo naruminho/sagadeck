@@ -110,12 +110,20 @@ test("Studio: categoria de aula na galeria; algoritmo e números pelo formulári
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
     const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    // A pessoa pode escolher a categoria enquanto as prévias ainda estão carregando.
+    let previews = 0;
+    await p.route("**/api/layout-previews", async (route) => {
+      if (++previews === 1) await new Promise((r) => setTimeout(r, 500));
+      if (!p.isClosed()) await route.continue();
+    });
     await p.waitForSelector(".thumb-card");
     assert.ok(await p.locator("#rail-tab-slides.active").count() && await p.locator("#thumbnails-list:not(.hidden)").count(), "abre nos slides");
     await p.click('.ribbon-tab[data-tab="inicio"]'); await p.click("#btn-scenes");
     await p.click('#scene-modal [data-scene-filter="aula"]');
+    await p.locator('#scene-grid .scene-card[data-scene="calc"]:not([hidden])').waitFor();
     const cards = await p.locator("#scene-grid .scene-card:not([hidden])").evaluateAll((els) => els.map((e) => e.dataset.scene));
     for (const k of ["solution", "calc", "algo"]) assert.ok(cards.includes(k), `${k} na categoria de aula`);
+    assert.ok(await p.locator("#scene-grid .scene-card:not([hidden])").evaluateAll((els) => els.every((e) => e.dataset.category === "aula")), "a categoria escolhida durante o carregamento continua valendo");
     await p.keyboard.press("Escape");
     await novoSlide(p, "algo");
     const idx = saved().slides.findIndex((s) => s.layout === "algo");

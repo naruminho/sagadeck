@@ -125,8 +125,8 @@ slides:
     title: Qual frase fica ==mais perto==?
     request: { url: "{{base}}/embeddings", body: { model: emb, input: "{{text}}" } }
     similarity:
-      reference: Quero abrir uma conta no banco
-      texts: [ "Vai chover amanhã em São Paulo?", "Como faço para abrir uma conta?", "Abrir conta no banco hoje" ]
+      reference: Quero reservar uma mesa no restaurante
+      texts: [ "Vai chover amanhã em São Paulo?", "Como faço para reservar uma mesa?", "Mesa para dois esta noite" ]
     notes: "Peça frases para a plateia e escreva na aba Frases."
 
   - layout: api

@@ -259,13 +259,6 @@ export function createStudioServer(deckPath = null, opts = {}) {
     key = String(key || "");
     if (key.startsWith("model-")) { const kind = key.slice(6); return { spec: demoDeck(kind), dir: MODEL_ASSETS_DIR, copy: (L, id) => copyModelAssets(L, id, kind) }; }
     if (key.startsWith("exp-")) return { spec: createExperienceDeck(key.slice(4)), dir: null, copy: () => {} };
-    if (key === "example-cenario") {
-      const dir0 = TEMPLATE_DIRS.map((d) => path.join(d, "cenario")).find((d) => fs.existsSync(d));
-      if (!dir0) throw new Error("o exemplo não veio no pacote (templates/cenario)");
-      const tpl = fs.readdirSync(dir0).find((f) => f.endsWith(".yaml"));
-      return { spec: YAML.parse(fs.readFileSync(path.join(dir0, tpl), "utf8")), dir: dir0,
-        copy: (L, id) => fs.cpSync(path.join(dir0, "imagens"), path.join(path.dirname(L.resolveId(id)), "imagens"), { recursive: true, force: false }) };
-    }
     if (key === "example-api") {
       const tpl = templateFile("ensaio-api.yaml");
       if (!tpl) throw new Error("o exemplo não veio no pacote (templates/ensaio-api.yaml)");
@@ -494,11 +487,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/diagram.js" ? "diagram.js" : "vendor/mermaid.min.js")));
         return;
       }
-      // mapa ao vivo (src/runtime/map.js): o Leaflet e os contornos só são pedidos quando um slide de mapa monta
-      if (["/map.js", "/leaflet.js", "/leaflet.css", "/geo-contornos.json"].includes(pathname)) {
+      // mapa ao vivo: bibliotecas locais, carregadas no primeiro mapa que as usa
+      if (["/map.js", "/map-background.js", "/leaflet.js", "/leaflet.css", "/geo-contornos.json", "/maplibre-gl.js", "/maplibre-gl.css", "/maplibre-worker.js", "/maplibre-leaflet.js"].includes(pathname)) {
         const type = pathname.endsWith(".css") ? "text/css" : pathname.endsWith(".json") ? "application/json" : "application/javascript";
         res.writeHead(200, { "Content-Type": `${type}; charset=utf-8` }); // sem cache: depois de atualizar, o mapa novo vale na hora
-        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/map.js" ? "map.js" : `vendor${pathname}`)));
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, ["/map.js", "/map-background.js"].includes(pathname) ? pathname.slice(1) : `vendor${pathname}`)));
         return;
       }
       if (["/science.js", "/formula.js", "/calc.js", "/plotly.min.js"].includes(pathname)) {
@@ -970,7 +963,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // Projeto (a pasta da apresentação, como no VS Code): árvore, arquivos, planilhas e sugestões de gráfico
       if (pathname.startsWith("/api/project/")) {
-        const done = (obj = {}, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(code === 200 ? { ok: true, ...obj } : obj)); };
+        // modelo em prévia: gravar um arquivo do projeto é uma mudança, então a cópia nasce aqui (a tela é avisada)
+        const made = !W.file && W.preview && req.method === "POST" ? materializePreview(W) : null;
+        const done = (obj = {}, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(code === 200 ? { ok: true, ...obj, ...(made ? { materialized: made } : {}) } : obj)); };
         try {
           const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
           if (!P) return done({ error: W.preview ? "Modelo em prévia: a pasta do projeto nasce na primeira mudança." : "Esta apresentação não tem uma pasta só dela (abra pela biblioteca)." }, 409);

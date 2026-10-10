@@ -354,32 +354,6 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
   }
 });
 
-test("Nova → Exemplo: texto no cenário cria o deck com as imagens de exemplo ao lado", { timeout: 60000 }, async (t) => {
-  const browser = await browserOrSkip(t);
-  if (!browser) return;
-  const studio = await startStudio(null);
-  try {
-    const { page: p, errors } = await newPage(browser, studio.url);
-    await p.click("#btn-new");
-    await p.click('#new-menu [data-new="gallery"]');
-    assert.match(await p.innerText(".vit-grid"), /Texto no cenário/);
-    await Promise.all([p.waitForURL(/\/editor\?model=example-cenario/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="example-cenario"]', { noWaitAfter: true })]);
-    await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }); // prévia → a cópia
-    await p.waitForSelector("#rendered-slide-container .L-scenography", { timeout: 30000 });
-    const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
-    const file = path.join(studio.library, yamls.find((f) => /cen[aá]rio/i.test(f)));
-    const saved = YAML.parse(fs.readFileSync(file, "utf8"));
-    assert.ok(saved.slides.filter((s) => s.layout === "scenography").length >= 13);
-    for (const img of ["cidade.svg", "pessoa.svg"]) assert.ok(fs.existsSync(path.join(path.dirname(file), "imagens", img)), img);
-    assert.deepEqual(errors, []);
-  } finally {
-    await browser.close();
-    await studio.close();
-  }
-});
-
-// O "preguiçoso": Nova tem só três caminhos; o que é pronto mora numa vitrine com filtro; o diálogo de IA pede, numa
-// tela só, o assunto, o tempo (os slides saem daí), o estilo e o material de apoio — e tudo isso vai no pedido.
 test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo numa tela só", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
@@ -407,7 +381,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
+      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
@@ -534,6 +508,15 @@ test("primeiro uso: faixa Configure a IA; Usar a recomendação preenche OpenRou
     const { page: p, errors } = await newPage(browser, studio.url);
     await p.waitForSelector("#ai-banner:not([hidden])");
     assert.match(await p.innerText("#ai-banner"), /A IA ainda não está configurada/);
+    // a faixa ocupa a linha dela, na largura toda: a lateral e as apresentações continuam no lugar (antes ela caía
+    // na coluna da lateral e espremia a página inteira)
+    const lay = async () => p.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); return { banner: r("#ai-banner"), main: r("#main"), side: r(".lib-side") }; });
+    let L = await lay();
+    assert.ok(L.banner.width > 900 && L.main.x >= 200 && L.main.width > 900 && L.main.y >= L.banner.bottom, JSON.stringify(L));
+    await p.setViewportSize({ width: 600, height: 900 });
+    L = await lay();
+    assert.ok(L.banner.width > 500 && L.main.width > 500 && L.main.y >= L.side.bottom - 1, `no celular: ${JSON.stringify(L)}`);
+    await p.setViewportSize({ width: 1440, height: 1000 });
     await p.click("#ai-banner-btn");
     await p.waitForSelector("#ai-settings-dialog[open]");
     assert.match(await p.innerText("#ai-settings-dialog .rec"), /Recomendado para começar: OpenRouter, com deepseek\/deepseek-v4\.1-flash/);
@@ -636,15 +619,28 @@ test("multiusuário: a configuração da IA (provedor, modelos, final da chave) 
   }
 });
 
-// "Conheça o SagaDeck": quem abre a biblioteca acha, na lateral, a apresentação com tudo o que dá para fazer (um
-// slide por recurso, cada um dizendo como pedir à IA). Abre em prévia: navegar não cria arquivo na biblioteca.
-test("Conheça o SagaDeck: a lateral da biblioteca abre a apresentação de recursos em prévia, sem criar arquivo", { timeout: 90000 }, async (t) => {
+// Demos oficiais: uma pasta própria na lateral ("SagaDeck · demos oficiais"), só leitura, com o Conheça o SagaDeck em
+// primeiro e as outras demos; o Conheça aparece também entre as apresentações da pessoa (inclusive com a biblioteca
+// vazia). Abrir é prévia: navegar não cria arquivo; editar cria a cópia da pessoa, como nos modelos.
+test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck também entre as apresentações; abre em prévia, sem criar arquivo", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
   const studio = await startStudio(null);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
-    await p.click('#side [data-tour]');
+    // biblioteca vazia: o Conheça o SagaDeck já está à vista
+    await p.waitForSelector('#main .card-oficial[data-oficial="conheca"]');
+    // a pasta das demos oficiais
+    await p.click('#side [data-view="oficiais"]');
+    await p.waitForSelector("#main .card-oficial");
+    assert.match(await p.textContent("#main h1"), /demos oficiais/i);
+    const ids = await p.$$eval("#main .card-oficial", (els) => els.map((e) => e.dataset.oficial));
+    assert.equal(ids[0], "conheca", "o Conheça o SagaDeck em primeiro");
+    assert.ok(ids.includes("novidades") && ids.includes("hidraulica") && ids.length >= 8, ids.join(","));
+    assert.equal(await p.locator("#main .card-oficial [data-more]").count(), 0, "só leitura: sem menu de mover, renomear ou excluir");
+    assert.equal(await p.locator("#main .card-oficial[draggable=true]").count(), 0, "não arrasta para outro tópico");
+    assert.equal(await p.locator("#main #card-new").count(), 0, "nem cria apresentação dentro dela");
+    await p.click('#main .card-oficial[data-oficial="conheca"] [data-open]');
     await p.waitForURL(/editor\?model=conheca/, { timeout: 30000 });
     await p.waitForSelector('.thumb-card[data-idx="60"]', { timeout: 30000 });
     assert.ok(await p.isVisible("#preview-banner"), "abre em prévia");
@@ -653,6 +649,13 @@ test("Conheça o SagaDeck: a lateral da biblioteca abre a apresentação de recu
     await p.waitForTimeout(800);
     const lib = await (await fetch(studio.url + "/api/library")).json();
     assert.equal(lib.decks.length, 0, "abrir e navegar não cria apresentação");
+    // Apresentar, direto da pasta: abre a demo já apresentando
+    await p.goto(studio.url + "/", { waitUntil: "networkidle" });
+    await p.click('#side [data-view="oficiais"]');
+    await p.click('#main .card-oficial[data-oficial="novidades"] [data-present]');
+    await p.waitForURL(/editor\?model=novidades/, { timeout: 30000 });
+    await p.waitForSelector("#presentation-modal:not(.hidden)", { timeout: 30000 });
+    assert.equal((await (await fetch(studio.url + "/api/library")).json()).decks.length, 0);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); }
 });
