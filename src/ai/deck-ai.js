@@ -782,7 +782,7 @@ export function applyPatch(base, patch) {
 const STUDIO_KEYS = ["layout", "notes", "time", "id", "uid", "review", "original", "master", "visualEdits", "auto", "fiscalOk", "from", "image_prompt", "image_ref", "density", "deco", "theme", "palette", "tone",
   "bg", "fg", "background", "backgroundStyle", "footer", "header", "transition", "steps", "markStyle", "maxWords", "fit", "titleAs", "context"];
 const FREE_TEXT_KEYS = new Set(["code", "mermaid", "svg", "html", "request", "realtime", "body", "headers", "response", "notes", "consulta", "output", "json"]);
-const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test", "ver"]);
+const PATCH_WORDS = new Set(["slides", "insert", "delete", "edit", "deck", "variants", "test", "ver", "mapa"]);
 let knownKeysCache = null;
 function knownSlideKeys() {
   if (knownKeysCache) return knownKeysCache;
@@ -925,6 +925,13 @@ function parseEditText(text, base) {
   const raw = parseYaml(yaml);
   if (!raw || typeof raw !== "object") throw new Error("O bloco yaml precisa ser um objeto com deck/slides/insert/delete (ou variants).");
   if (raw.variants) return parseVariants(raw.variants, base, prose);
+  // mapa: [ações] → a IA precisa de dados geográficos (lugares, linhas, contornos, web, coordenadas); quem busca é o
+  // Studio (src/ai/map-data.js), que chama de novo com o que gravou
+  if (raw.mapa) {
+    const acoes = [].concat(raw.mapa?.acoes || raw.mapa).filter((a) => a && typeof a === "object" && a.tipo);
+    if (!acoes.length) throw new Error("mapa: mande a lista de ações (tipo: lugares | linhas | contorno | web | coordenadas).");
+    return { spec: base, prose, changed: [], geo: acoes.slice(0, 4) };
+  }
   // ver: [arquivos] → a IA quer OLHAR o material (recorte, página inteira) antes de responder; quem mostra é o Studio
   if (raw.ver || raw.look) {
     const files = [].concat(raw.ver || raw.look).map((f) => String(f || "").trim()).filter(Boolean);
@@ -974,7 +981,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, signal, reviewCheck = null, reviewDepth = 0, repairSlides = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, signal, reviewCheck = null, reviewDepth = 0, repairSlides = null, mapData = null }) {
   const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -1012,7 +1019,7 @@ Antes de responder, verifique (e siga as Regras de edição):
     : text;
   const convo = conversationFor(history);
   const messages = [
-    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? runCommand.description || `${COMMAND_RULES}\n${VIDEO_COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}` },
+    { role: "system", content: `${systemPrompt({ images, ...(maxImages ? { maxImages } : {}) })}\n\n${AUTOMATION_NOTES}\n\n${EDIT_RULES}\n\n${CONVERSATION_RULES}\n\n${PATCH_FORMAT}\n\n${VARIANTS_FORMAT}\n\n${API_RULES}\n\n${runCommand ? runCommand.description || `${COMMAND_RULES}\n${VIDEO_COMMAND_RULES}${commandEnvNames(apiContext)}` : "Comandos: indisponíveis aqui (só no Studio local, com a apresentação salva na biblioteca). Não peça run:."}${mapData ? `\n\n${mapData}` : ""}` },
     // a conversa deste deck: o que a pessoa disse lá atrás (compactado) + as últimas trocas inteiras
     ...(convo.memory ? [{ role: "user", content: convo.memory }, { role: "assistant", content: "Certo, levo isso em conta." }] : []),
     ...convo.recent,
@@ -1020,7 +1027,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review, look } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review, look, geo } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
       if (repairSlides && (parsed.spec.slides.length !== spec.slides.length || parsed.changed?.some(i => !repairSlides.includes(i)))) throw new Error('A revisão só pode corrigir os slides indicados, sem inserir, excluir ou alterar outros slides.');
@@ -1043,6 +1050,8 @@ Antes de responder, verifique (e siga as Regras de edição):
   if (transform) return { reply: prose || "Vou transformar a apresentação.", spec, actions, targetSlide, transform };
   // quer ver o material antes de responder: o Studio mostra as imagens e chama de novo (src/studio/ai-chat-route.js)
   if (look) return { reply: prose || "Vou olhar o material.", spec, actions, targetSlide, look };
+  // precisa de dados para o mapa: o Studio busca e chama de novo (src/studio/ai-chat-route.js)
+  if (geo) return { reply: prose || "Vou buscar os dados para o mapa.", spec, actions, targetSlide, geo };
   // estilo (Brand Kit): quem aplica/salva é o servidor, com a biblioteca
   if (style) return { reply: prose || "Certo.", spec, actions, targetSlide, style };
   // versões para escolher: nada muda até a pessoa escolher uma

@@ -113,10 +113,26 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    "Usar o OpenRouteService" e Testar, botão na biblioteca, `keyEnv` (variável de ambiente, para o servidor). README
    com a seção "Mapa (opcional)". Achados: o editor visual capturava o clique no mapa (agora ignora `.map-live`); o
    projeto não gravava `.geojson/.gpx/.kml` como texto. Testes: `test/map-editor.test.js` e `map-data.test.js`.
-4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha
-   com a fonte de cada linha, para revisão antes de virar slide.
-5. **Análises**: mais próximo, distância, tempo de rota, contagem em raio/área, faixa em volta de linha, cruzamento de
-   formas, área alcançável, encaixe de GPS, "onde instalar o próximo".
+4. **Feita (10/10).** A IA que edita o deck pede dados com um bloco `mapa:` (como o `ver:` do material; nenhuma
+   chamada a mais quando o pedido não é de mapa): `lugares` e `linhas` (Overpass, com o filtro de tags que ela
+   escolhe e o centro achado no Nominatim), `contorno` (Nominatim com polígono), `web` (a pesquisa existente + uma
+   extração que só usa o que leu, com a URL de cada linha; as coordenadas vêm depois) e `coordenadas` (planilha da
+   pessoa; sem `confirmado: true`, o código pergunta "Posso enviar?" com opções e não envia nada). O Studio executa
+   (`src/ai/map-data.js`), grava em `contexto/` com a coluna `fonte` e chama a IA de novo (até 2 rodadas). O prompt
+   (`mapDataPrompt`) leva o estado de cada serviço; bloqueado não recebe pedido e a IA fica sabendo. Testes:
+   `test/map-ai.test.js` (encanamento, LLM falso) e 3 ao vivo em `test/ai-live.test.js` (pede `amenity=cinema` perto
+   de Campinas; não se dá o sim sozinha; com a busca bloqueada, não pede e oferece alternativa), todos passando com o
+   modelo de verdade. Conferido com o OpenStreetMap real: 5 cinemas num raio de 8 km do centro de Campinas (o
+   Overpass público às vezes responde 504 por sobrecarga; o sagadeck registra e não insiste).
+5. **Feita (10/10), no mesmo PR da 4.** Contas puras em `src/map-analysis.js` (haversine, mais próximo, raio, ponto em
+   polígono com buraco, distância a linha, círculo, faixa em volta de linha para desenhar, "onde instalar" por grade e
+   escolha gulosa) e as ações do bloco `mapa:` em `src/ai/map-analysis-run.js`: `mais_proximo` (CSV com
+   `mais_proximo` e `distancia_m`), `contar` (por área ou raio, grava o círculo), `faixa` (GeoJSON da faixa e quantos
+   pontos dentro, pela distância exata à linha), `sugerir` (CSV de sugestões, avisando que é geométrico), `rota`
+   (distância e tempo), `alcance` (isócronas, só com OpenRouteService) e `encaixar` (OSRM `/match`, amostrando até 100
+   pontos). A IA só narra os números. Achado: pontos todos alinhados deixavam o "onde instalar" sem resposta (retângulo
+   de altura zero). Testes: `test/map-analysis.test.js` e o ao vivo "qual loja fica mais perto de cada pedido" (pede
+   `mais_proximo`).
 
 ## Conheça o SagaDeck — 10/10/2026
 
