@@ -42,6 +42,70 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
+## Frente: mapa (planejada em 10/10/2026, em andamento)
+
+Pedido de Narumi, depois de muita conversa. **Leia antes de mexer.** Recurso de nicho, mas completo: mostrar e
+explicar algo geográfico (pontos de interesse de qualquer tipo, linhas, áreas), com a IA montando a partir de dados.
+Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas simples feitas pelo código.
+
+**Decisões (não reabrir):**
+- **Internet não é limitação.** Recurso online é bem-vindo e fica disponível onde funciona; onde não funciona, some ou
+  avisa. Nada de "assar/chapar" o mapa de fundo no deck (ela odiou): mapa **ao vivo** (Leaflet, embutido no pacote).
+- **Nada bancário nem de setor nenhum**: pontos de interesse genéricos (sensor, hidrômetro, placa solar, cinema,
+  órgão público…). Exemplos, REFERENCIA e testes com casos variados.
+- **A planilha é a fonte, o mapa é a vista**: pontos em CSV do projeto (`contexto/*.csv`, importa XLSX); linhas e
+  polígonos em GeoJSON do projeto (importa GPX/KML). O slide diz qual arquivo e quais colunas (posição, cor, tamanho,
+  rótulo). A mesma planilha serve tabela e gráfico.
+- **Carregamento preguiçoso** em quatro níveis: o Leaflet só entra no HTML de deck com mapa; o mapa só liga (e só pede
+  tiles) quando o slide aparece; o editor de mapa no Studio vem por import dinâmico; os módulos de serviço no servidor
+  só no primeiro pedido. Teste para os três primeiros.
+- **Uma tentativa e para**: erro de autorização ou bloqueio (401, 403, 407, recusa, certificado, até 429) marca o
+  serviço indisponível na sessão; só volta com "Tentar de novo" ou reabrindo o Studio. Tiles: se os primeiros falham
+  sem nenhum sucesso, a camada de fundo desliga e aparece aviso (camadas continuam). **Sem teste proativo** de
+  serviço: o primeiro uso real é o teste. Teste: serviço com 403 recebe exatamente um pedido.
+- **Pedidos saem do navegador no Studio local** (mesmo caminho/proxy do Google Maps, que abre na rede do trabalho; o
+  Node não usa o proxy do sistema). No multiusuário, do servidor (a chave não vai para a página dos outros).
+- **Serviços padrão gratuitos**, todos configuráveis em **Configurar mapa** (`~/.sagadeck/mapa.json`, como o ia.json):
+  tiles do OpenStreetMap, Nominatim (endereço↔coordenada), Overpass (busca de lugares/linhas/áreas), OSRM
+  (rotas, encaixe de GPS) e OpenRouteService (rotas e isócronas; chave da Narumi já está no mapa.json desta máquina,
+  nunca no repositório). Respeitar as políticas: atribuição visível "© colaboradores do OpenStreetMap", identificação
+  do sagadeck, Nominatim 1/s e cache obrigatório (lote grande: avisar e sugerir provedor com chave), nada de baixar
+  tiles fora da tela. Públicos de OSRM/Overpass são não comerciais: para uso no trabalho, servidor da empresa ou chave.
+- **A IA**: recebe no prompt o estado de cada serviço (funcionando, não usado, bloqueado) e decide; o código recusa
+  sem pedido de rede o que está bloqueado. Pergunta antes de mandar **dados da pessoa** a serviço de fora (primeira vez
+  por planilha) e antes de lote grande (tempo estimado). Geometria nunca inventada: vem de dados, do OSM ou do cálculo.
+  Testes: mock (encanamento) e ao vivo (decisão).
+- PDF/PPTX capturam o mapa como está na tela na exportação; camada por clique vira animação no PPTX.
+
+**Entregas (uma branch/PR cada, com testes e CI verde):**
+1. Slide `map`: fundo ao vivo (ruas/satélite/claro/escuro no tema), pontos/linhas/polígonos de CSV, GeoJSON, GPX e
+   KML, cores por valor, legenda que liga/desliga, cartão ao clicar, camada por clique e câmera, aviso quando o fundo
+   não carrega. REFERENCIA + exemplo de layout (entra sozinho no Conheça o SagaDeck) + formulário.
+2. Tela **Dados**: grade editável (colar do Excel, importar CSV/XLSX/GeoJSON), colunas reconhecidas, linhas sem
+   posição marcadas, endereço→coordenada em lote com progresso, seleção ligada ao mapa nos dois sentidos. Reaproveita
+   a planilha do Formatar.
+3. **Editar no mapa**: adicionar ponto (endereço reverso), arrastar, desenhar linha/polígono, "seguir as ruas",
+   editar vértices, dividir/juntar, enquadrar ("usar esta vista"), régua; comprimento e área ao vivo.
+4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha
+   com a fonte de cada linha, para revisão antes de virar slide.
+5. **Análises**: mais próximo, distância, tempo de rota, contagem em raio/área, faixa em volta de linha, cruzamento de
+   formas, área alcançável, encaixe de GPS, "onde instalar o próximo".
+
+## Conheça o SagaDeck — 10/10/2026
+
+Pergunta de Narumi: a pessoa nem sabe o que dá para gerar. Agora a biblioteca tem, na lateral, **Conheça o
+SagaDeck** (também na vitrine, em Recursos do SagaDeck): uma apresentação com um slide por recurso, agrupada em
+seções, que abre em prévia (nada é gravado; "Usar como base" cria a cópia em Modelos).
+
+- `src/studio/tour.js` monta-se sozinha dos exemplos de layout (`LAYOUT_SAMPLES`): layout novo entra sem ninguém
+  lembrar; layout fora dos grupos cai em "Mais recursos". Fecha com o que não é layout (criar e conversar com a IA,
+  leitura crítica, importar PowerPoint, gráfico da planilha, temas, apresentador, PDF/PowerPoint, link).
+- Cada slide traz nas **notas** (visíveis abaixo do slide no Studio e na visão do apresentador) o nome, a descrição e
+  a frase para pedir à IA (`LAYOUT_ASK` em `layout-samples.js`, exemplos de áreas variadas); no rodapé (`source`)
+  também, nos layouts que o desenham. Os links de navegação dos exemplos saem (apontariam para slides inexistentes).
+- Testes: `engine.test.js` (todo layout tem pedido e aparece no tour, com nome e pedido; renderiza) e
+  `library-ui.test.js` (a lateral abre em prévia e nada é criado na biblioteca).
+
 ## Sem citar o programa de apresentações da maçã (1.7.1) — 10/10/2026
 
 Pedido de Narumi: o código e a documentação não citam o programa de apresentações da maçã, a empresa nem os

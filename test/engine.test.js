@@ -41,6 +41,25 @@ test("todo layout tem nome, descrição e exemplo na galeria", () => {
   }
 });
 
+// "Conheça o SagaDeck" (src/studio/tour.js): a apresentação que todo mundo vê na biblioteca. Monta-se sozinha dos
+// exemplos de layout, então layout novo entra nela sem ninguém lembrar; cada slide diz como pedir à IA.
+test("Conheça o SagaDeck: todo layout aparece, com o nome e o pedido à IA, e a apresentação renderiza", async () => {
+  const { LAYOUT_ASK } = await import("../src/studio/layout-samples.js");
+  const { tourDeck } = await import("../src/studio/tour.js");
+  for (const name of Object.keys(LAYOUTS)) assert.ok(String(LAYOUT_ASK[name] || "").length > 10, `LAYOUT_ASK sem "${name}": o slide dele no Conheça o SagaDeck não diria como pedir`);
+  const deck = tourDeck();
+  const shown = new Set(deck.slides.filter((s) => s.tour).map((s) => s.tour));
+  assert.deepEqual(Object.keys(LAYOUTS).filter((n) => !shown.has(n)), [], "todo layout tem o seu slide");
+  for (const s of deck.slides.filter((x) => x.tour)) {
+    assert.equal(s.layout, s.tour);
+    assert.ok(s.notes.includes(LAYOUT_ASK[s.tour]), `o slide de ${s.tour} traz o pedido nas notas`);
+    assert.ok(s.source.includes(LAYOUT_INFO[s.tour][0]), `o slide de ${s.tour} diz o nome do recurso`);
+  }
+  assert.ok(deck.slides.some((s) => s.layout === "section"), "agrupado em seções");
+  const { html } = buildHTML(deck);
+  assert.match(html, /Conheça o SagaDeck/);
+});
+
 test("o exemplo de cada layout renderiza sem erro em todos os temas", () => {
   for (const theme of Object.keys(THEMES)) {
     for (const [name, sample] of Object.entries(LAYOUT_SAMPLES)) {
