@@ -44,7 +44,7 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 
 ## Sem citar o programa de apresentações da maçã (1.7.1) — 10/10/2026
 
-Pedido de Narumi: o código e a documentação não citam o programa de apresentações da Apple, a empresa nem os
+Pedido de Narumi: o código e a documentação não citam o programa de apresentações da maçã, a empresa nem os
 aparelhos dela. O tema `prata` passa a se descrever como "limpo e espaçoso"; o `aluminio`, como "lançamento de
 aparelho premium". O exemplo virou `templates/exemplo-prata.yaml`, e o tipo padrão do `scaffold` (CLI e MCP) virou
 `lancamento` (tipo desconhecido continua caindo nele). Saiu também o slogan da empresa do esqueleto. Ficam só os nomes
