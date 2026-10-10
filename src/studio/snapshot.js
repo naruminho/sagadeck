@@ -13,12 +13,13 @@ let browserPromise = null;
 
 async function browser() {
   if (!browserPromise) {
-    browserPromise = (async () => {
+    const pending = (async () => {
       const { chromium } = await import("playwright-core");
       const b = await chromium.launch({ executablePath: findBrowser() });
-      b.on("disconnected", () => { browserPromise = null; });
+      b.on("disconnected", () => { if (browserPromise === pending) browserPromise = null; });
       return b;
-    })().catch((e) => { browserPromise = null; throw e; });
+    })().catch((e) => { if (browserPromise === pending) browserPromise = null; throw e; });
+    browserPromise = pending;
   }
   return browserPromise;
 }
@@ -158,6 +159,9 @@ export async function layoutCheck(spec) {
 }
 
 export async function closeSnapshots() {
-  if (browserPromise) (await browserPromise).close().catch(() => {});
+  // Desliga a referência antes de esperar: outra captura pode começar enquanto o Chrome fecha.
+  // O disconnected antigo não pode apagar a referência desse navegador novo.
+  const pending = browserPromise;
   browserPromise = null;
+  if (pending) await (await pending).close().catch(() => {});
 }

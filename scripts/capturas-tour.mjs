@@ -23,6 +23,9 @@ const browser = await chromium.launch({ executablePath: findBrowser() });
 const pct = (r) => ({ x: +(100 * r.x / W).toFixed(1), y: +(100 * r.y / H).toFixed(1), width: +(100 * r.width / W).toFixed(1), height: +(100 * r.height / H).toFixed(1) });
 try {
   const p = await browser.newPage({ viewport: { width: W, height: H } });
+  const errors = [];
+  p.on("pageerror", (e) => errors.push(e.message.split("\n")[0]));
+  p.on("console", (m) => { if (m.type() === "error") errors.push(m.text().split("\n")[0]); });
   await p.emulateMedia({ colorScheme: "light" });
   await p.goto(`${url}/editor?model=conheca&topic=Modelos`);
   const idx = await p.evaluate(async () => { for (let k = 0; k < 80; k++) { const d = await (await fetch("api/deck")).json(); const i = d.spec?.slides?.findIndex((s) => s.layout === "map" && /1 km/.test(s.title)); if (i >= 0) return i; await new Promise((r) => setTimeout(r, 100)); } return -1; });
@@ -41,6 +44,7 @@ try {
   await p.mouse.click(...pt);
   await p.waitForSelector('.mpe [data-props] input[data-fp="nome"]');
   await p.waitForTimeout(3000);
+  if (errors.length) throw new Error(`Erros na captura: ${errors.join("; ").slice(0, 500)}`);
   await p.screenshot({ path: path.join(OUT, "tour-mapa-editor.jpg"), type: "jpeg", quality: 82 });
   const box = async (s) => pct(await p.locator(s).first().boundingBox());
   console.log(JSON.stringify({ botao, painel, editor: { camadas: await box(".mpe-left"), ferramentas: await box(".mpe-tools"), mapa: await box(".mpe-mapwrap"), propriedades: await box(".mpe-right"), dica: await box(".mpe-tip"), concluir: await box(".mpe [data-fim]") } }, null, 1));

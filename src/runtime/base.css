@@ -1493,6 +1493,7 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
    milhas mar adentro, parecia o litoral: as áreas dos estados pareciam fora do lugar) */
 .map-box[data-basemap="claro"] .leaflet-tile-pane{filter:saturate(.3) contrast(.95) brightness(1.05)}
 .map-box[data-basemap="escuro"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.55) brightness(.92) contrast(.9)}
+.map-box[data-map-background="vetorial"] .leaflet-tile-pane{filter:none}
 .map-legend{position:absolute;left:18px;bottom:18px;z-index:500;display:flex;flex-direction:column;gap:10px;max-width:46%;max-height:70%;overflow:auto;padding:14px 18px;border-radius:calc(var(--radius) * .6);background:color-mix(in srgb,var(--bg) 90%,transparent);color:var(--fg);font-size:20px;box-shadow:0 6px 24px rgb(0 0 0/.14)}
 .map-legend button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:2px 14px 2px 0}.map-legend button.off,.map-leg-layer.off .map-leg-name{opacity:.38;text-decoration:line-through}
 .map-leg-name{font-weight:700}.map-leg-name small{font-weight:400;color:var(--muted)}.map-legend i{display:inline-block;width:16px;height:16px;border-radius:50%;flex:none}

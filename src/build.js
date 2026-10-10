@@ -24,6 +24,12 @@ import { loadMapConfig, mapaFile, tilesForDeck } from "./map-config.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
+let mapBackgroundAssets;
+const embeddedMapBackground = (spec, tiles) => {
+  if (!spec.slides.some((s) => s.layout === "map" && tiles?.[s.basemap || spec.defaults?.basemap]?.tipo === "vetorial")) return "";
+  mapBackgroundAssets ||= JSON.stringify(Object.fromEntries(Object.entries({ js: "maplibre-gl.js", css: "maplibre-gl.css", worker: "maplibre-worker.js", adapter: "maplibre-leaflet.js" }).map(([key, file]) => [key, fs.readFileSync(path.join(HERE, "runtime/vendor", file)).toString("base64")])));
+  return `<script type="application/json" id="map-background-assets">${mapBackgroundAssets}</script>`;
+};
 
 export function loadSpec(file) {
   const src = fs.readFileSync(file, "utf8");
@@ -234,7 +240,7 @@ ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/ven
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="portal") ? `<script>${read("runtime/portal-scene.js")}</script>` : ""}
-${spec.slides.some((s) => s.layout === "map") ? `<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map.js")}</script>` : ""}
+${spec.slides.some((s) => s.layout === "map") ? `${embeddedMapBackground(spec, mapTiles)}<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map-background.js")}</script><script>${read("runtime/map.js")}</script>` : ""}
 ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runtime/points.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}

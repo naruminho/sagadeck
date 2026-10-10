@@ -168,6 +168,40 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Fundo do mapa sem a falsa costa — retomada em 10/10/2026
+
+Pedido: esconder a linha marítima do OpenStreetMap que parecia um litoral afastado das áreas. Os modos claro e
+escuro usam agora os estilos Positron e Dark do OpenFreeMap, sem chave; o estilo exclui fronteiras marítimas e
+preserva divisas terrestres, rios e o litoral verdadeiro. O mar fica azul suave no claro e azul profundo no escuro.
+O modo ruas e fundos raster personalizados continuam disponíveis. Configurar mapa ganhou os dois fundos; apagar
+o endereço restaura o padrão (antes, a gravação parcial conservava o endereço antigo).
+
+MapLibre e a ligação Leaflet vão no pacote, com as licenças; no HTML exportado, entram embutidos apenas se houver
+mapa vetorial e só carregam no primeiro slide que os usa. O worker é clássico para abrir também por file://. Só o
+slide atual conserva o contexto gráfico; sair e voltar preserva a câmera e a legenda. A exportação mantém o limite
+de espera de 8 s também ao voltar a um mapa cujo fundo não responde. Recusa no estilo, nos
+metadados ou no primeiro tile desliga o fundo na sessão sem insistir, mantendo as camadas e o Tentar de novo.
+
+Conferido nos dois fundos reais no litoral do Rio: áreas sobre a costa, nenhuma linha paralela no mar, nenhum erro
+de JavaScript. Regressões reproduziram a falha do worker e o contexto que continuava ativo fora do slide antes das
+correções. Testes cobrem pixels de terra/mar, divisa terrestre versus marítima, exportação por arquivo, câmera,
+retomada, carregamento local no Studio e recusa com uma tentativa. Esta retomada preserva os commits anteriores de
+tour, demos oficiais, editor de mapa, calendário e retirada de tipografia cinética e texto no cenário.
+Na revisão da compatibilidade, um slide antigo com subtítulo e legenda perdia a legenda na conversão. A regressão
+reproduziu a perda; agora os dois textos continuam juntos, com e sem imagem.
+Achado na suíte: o teste da categoria Aula consultava a galeria antes da resposta de prévias. A resposta atrasada
+reproduziu a falha; o teste agora aguarda os cartões e confere que a categoria escolhida durante o carregamento
+continua valendo. Nenhuma exceção de JavaScript foi ignorada.
+Outro achado na suíte: o encerramento das capturas iniciava `browser.close()` sem aguardá-lo. O evento de
+desconexão do navegador antigo podia apagar a referência de um novo, deixando um Chrome aberto e impedindo a suíte
+de terminar. Teste com fechamento atrasado reproduziu o problema; agora o encerramento espera e cada desconexão
+só limpa sua própria referência.
+
+Validação completa desta retomada: `npm test`, 988 testes, 962 passaram, 26 pulados, zero falhas; o processo
+encerrou normalmente. A revisão do pacote confirmou os renderizadores e suas licenças no npm. Entrega por PR
+com CI verde no Ubuntu e Windows; atualização da porta local 3517 e somente do Oracle dev (3518). O serviço
+estável do Oracle permanece na 1.7.1, conforme pedido de Narumi.
+
 ## Texto no cenário sai; fundo claro do mapa com o mar visível — 10/10/2026
 
 Narumi: "pode excluir também o texto no cenário. Ele é muito limitado e teoricamente dá para fazer coisas melhores

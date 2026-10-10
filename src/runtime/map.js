@@ -61,9 +61,12 @@
     let m;
     try { m = JSON.parse(box.querySelector(".map-data").textContent); } catch { box.dataset.mapMounted = "error"; return; }
     let settle; const settled = new Promise((r) => (settle = r));
-    const st = { m, settled, map: null, layers: [], tilesDone: false };
+    const wantSat = m.basemap === "satelite";
+    const tiles = m.basemap === "nenhum" ? null : wantSat ? m.tiles?.satelite || m.tiles?.tiles : Object.hasOwn(m.tiles || {}, m.basemap) ? m.tiles[m.basemap] : m.tiles?.tiles;
+    const st = { m, settled, map: null, layers: [], tilesDone: false, vector: tiles?.tipo === "vetorial" };
     live.set(box, st);
     try { await load(); } catch (e) { notice(box, e.message); box.dataset.mapMounted = "error"; settle(); return; }
+    if (live.get(box) !== st) return;
     const L = window.L;
     const el = box.querySelector(".map-live");
     const map = L.map(el, { zoomControl: true, attributionControl: true, keyboard: false, worldCopyJump: true, zoomSnap: 0.25, fadeAnimation: !reduced(), zoomAnimation: !reduced() });
@@ -74,8 +77,7 @@
 
     // fundo: antes de ligar a camada, testa UM tile (o do centro). Se ele falha, nenhum outro é pedido e nenhum
     // outro mapa desta sessão tenta; se passa, a camada liga (e ainda desiste se os primeiros falharem todos)
-    const wantSat = m.basemap === "satelite";
-    const tiles = m.basemap === "nenhum" ? null : (wantSat && m.tiles?.satelite) || m.tiles?.tiles || null;
+    box.dataset.mapBackground = st.vector ? "vetorial" : "raster";
     if (wantSat && !m.tiles?.satelite) notice(box, "Satélite não configurado nesta máquina (Configurar mapa); mostrando as ruas.");
     const giveUp = () => {
       broken = true; store.set("falhou"); box.dataset.mapTiles = "falhou";
@@ -85,6 +87,13 @@
     const startTiles = () => {
       if (!tiles) { st.tilesDone = true; return; }
       if (broken) { box.dataset.mapTiles = "falhou"; notice(box, "Mapa de fundo indisponível nesta rede. As camadas continuam.", true); st.tilesDone = true; return; }
+      if (st.vector) {
+        if (box.closest("#stage") && !box.closest(".slide")?.classList.contains("current")) return;
+        if (st.backgroundStarted) { st.settled = new Promise((resolve) => { settle = resolve; }); setTimeout(settle, 8000); }
+        st.backgroundStarted = true; st.tilesDone = false;
+        st.background = window.SagaMapBackground.mount(map, tiles, { active: () => live.get(box) === st, done: () => { st.tilesDone = true; settle(); }, failed: giveUp });
+        return;
+      }
       const z = Math.round(map.getZoom()), c = map.project(map.getCenter(), z).divideBy(256).floor();
       const probe = new Image();
       probe.onerror = () => { if (live.get(box) === st) giveUp(); };
@@ -99,6 +108,7 @@
       };
       probe.src = L.Util.template(tiles.url, { z, x: c.x, y: c.y, s: "a", r: "" });
     };
+    st.startTiles = startTiles;
 
     // camadas
     const col = resolver(box);
@@ -215,6 +225,9 @@
   function mount(root = document, { force = false } = {}) {
     const boxes = [...root.querySelectorAll(".map-box")];
     if (root.classList?.contains("map-box")) boxes.push(root);
+    // só o mapa visível mantém um contexto gráfico. Voltar ao slide preserva a vista e as escolhas da legenda.
+    if (root.closest?.("#stage")) for (const [box, st] of live) if (!boxes.includes(box) && st.vector && st.background) { st.background.dispose(); st.background = null; }
+    for (const box of boxes) { const st = live.get(box); if (st?.vector && !st.background) st.startTiles?.(); }
     const jobs = boxes.filter((b) => force || !live.has(b)).map(mountBox);
     readyPromise = Promise.all(jobs).then(() => Promise.all(boxes.map((b) => live.get(b)?.settled)));
     return readyPromise;
@@ -226,6 +239,7 @@
       if (keepView && keyOf(b) && st.map) views.set(keyOf(b), { center: st.map.getCenter(), zoom: st.map.getZoom() });
       // animação de zoom em curso termina agora: o fim dela, depois de desmontado, lia painéis que já não existem
       if (st.map) { st.map.stop(); if (st.map._animatingZoom) st.map._onZoomTransitionEnd(); }
+      st.background?.dispose();
       st.observer?.disconnect(); st.map?.remove(); live.delete(b);
       delete b.dataset.mapMounted; b.querySelector(".map-legend")?.remove();
       b.querySelector(".map-notice")?.remove();
@@ -236,7 +250,7 @@
   function watchDeck() {
     const slides = [...document.querySelectorAll("#stage > .slide")].filter((s) => s.querySelector(".map-box"));
     if (!slides.length) return;
-    const check = () => { for (const s of slides) if (s.classList.contains("current")) mount(s); };
+    const check = () => { const current = document.querySelector("#stage > .slide.current"); if (current) mount(current); };
     const obs = new MutationObserver(check);
     slides.forEach((s) => obs.observe(s, { attributes: true, attributeFilter: ["class"] }));
     check();

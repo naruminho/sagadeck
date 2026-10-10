@@ -657,6 +657,9 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
 - `color:` aceita também uma cor fixa (`s1`, `em`, `hi`, `alert`, `#1F6FB2`). `step` (número) diz em que clique a
   camada aparece; `view` da camada (`fit` ou `{ center: [lat, lon], zoom }`) leva a câmera até ela nesse clique.
 - `view:` do slide fixa o enquadramento (`{ center: [-23.55, -46.63], zoom: 13 }`); sem ele, o mapa enquadra os dados.
+- `basemap: claro` e `escuro` usam fundos vetoriais do OpenFreeMap, sem chave: o mar tem cor própria e a fronteira
+  marítima não aparece, preservando o litoral e as divisas terrestres. `ruas` continua no OpenStreetMap. Em
+  **Configurar mapa**, os fundos claro e escuro podem usar outro estilo vetorial (JSON) ou tiles com `{z}/{x}/{y}`.
 - Planilha só com endereço (sem latitude e longitude): no Studio, a planilha aberta (aba Arquivos) tem **Achar
   coordenadas**, que pergunta antes de mandar os endereços para o serviço de fora e grava as colunas `latitude` e
   `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
@@ -675,7 +678,7 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
 - **Análises** (o mais próximo e a distância, quantos num raio ou numa área, faixa em volta de uma linha, onde
   instalar o próximo, rota com tempo, área alcançável em X minutos, rastro de GPS encaixado nas ruas): também pelo
   bloco `mapa:`; o Studio calcula e devolve os números. Nunca calcule distância, contagem ou tempo de cabeça.
-- Serviços (Configurar mapa, opcional): sem chave, tudo funciona com os serviços públicos do OpenStreetMap; a chave
+- Serviços (Configurar mapa, opcional): sem chave, os fundos usam OpenStreetMap/OpenFreeMap e os dados vêm dos serviços públicos do OpenStreetMap; a chave
   gratuita do OpenRouteService só acrescenta rotas a pé/de carro/de bicicleta confiáveis e área alcançável.
 - Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma
   categoria ou a camada inteira. O fundo vem da internet; sem rede, aparece um aviso e as camadas continuam. No PDF e

@@ -162,6 +162,7 @@ não precisa configurar coisa nenhuma, e o sagadeck não pede nada à internet p
 | serviço | para quê | padrão (sem configurar) |
 |---|---|---|
 | mapa de fundo | as ruas por baixo das camadas | OpenStreetMap |
+| fundos claro e escuro | dados sobre terra e mar, sem a linha de fronteira no mar | OpenFreeMap (vetorial) |
 | endereço e coordenada | **Achar coordenadas** de uma planilha só com endereço | Nominatim (1 endereço por segundo) |
 | busca de lugares | achar cinemas, escolas, unidades de saúde… pelo nome do tipo | Overpass |
 | rotas | "seguir as ruas" ao desenhar, distância e tempo | OSRM (servidor de demonstração) |
@@ -181,10 +182,11 @@ em `keyEnv` (no servidor, por exemplo):
 { "rotas": { "provedor": "openrouteservice", "url": "https://api.openrouteservice.org", "keyEnv": "OPENROUTESERVICE_API_KEY" } }
 ```
 
-Os serviços públicos têm regras de uso que o sagadeck respeita sozinho: identifica cada pedido, mostra a atribuição
-"© colaboradores do OpenStreetMap", busca um endereço por segundo, guarda o que já achou e nunca baixa mapa fora da
-tela. Eles são para uso leve e não comercial; no trabalho, prefira o servidor de mapas da empresa ou um provedor com
-chave (os endereços se trocam em **Configurar mapa**). Antes de mandar os endereços de uma planilha sua para um
+Os serviços públicos têm regras de uso que o sagadeck respeita sozinho: identifica os pedidos de dados, mostra as
+atribuições do mapa, busca um endereço por segundo, guarda o que já achou e nunca baixa mapa fora da tela. O
+[OpenFreeMap](https://openfreemap.org/) permite uso comercial e não exige cadastro ou chave. Os demais serviços
+de demonstração servem para uso leve; para uma demanda maior, configure um provedor apropriado em **Configurar mapa**.
+Os fundos claro e escuro também aceitam um estilo vetorial (JSON) ou tiles de um servidor próprio. Antes de mandar os endereços de uma planilha sua para um
 serviço de fora, o sagadeck pergunta.
 
 Se a rede barrar um serviço (autorização negada, proxy, bloqueio), o sagadeck faz **uma tentativa e para**: avisa

@@ -487,11 +487,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/diagram.js" ? "diagram.js" : "vendor/mermaid.min.js")));
         return;
       }
-      // mapa ao vivo (src/runtime/map.js): o Leaflet e os contornos só são pedidos quando um slide de mapa monta
-      if (["/map.js", "/leaflet.js", "/leaflet.css", "/geo-contornos.json"].includes(pathname)) {
+      // mapa ao vivo: bibliotecas locais, carregadas no primeiro mapa que as usa
+      if (["/map.js", "/map-background.js", "/leaflet.js", "/leaflet.css", "/geo-contornos.json", "/maplibre-gl.js", "/maplibre-gl.css", "/maplibre-worker.js", "/maplibre-leaflet.js"].includes(pathname)) {
         const type = pathname.endsWith(".css") ? "text/css" : pathname.endsWith(".json") ? "application/json" : "application/javascript";
         res.writeHead(200, { "Content-Type": `${type}; charset=utf-8` }); // sem cache: depois de atualizar, o mapa novo vale na hora
-        res.end(fs.readFileSync(path.join(RUNTIME_DIR, pathname === "/map.js" ? "map.js" : `vendor${pathname}`)));
+        res.end(fs.readFileSync(path.join(RUNTIME_DIR, ["/map.js", "/map-background.js"].includes(pathname) ? pathname.slice(1) : `vendor${pathname}`)));
         return;
       }
       if (["/science.js", "/formula.js", "/calc.js", "/plotly.min.js"].includes(pathname)) {

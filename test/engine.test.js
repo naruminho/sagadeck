@@ -177,6 +177,13 @@ test("foco guiado limita regiões à imagem e aceita figura sem dependência ext
 
 // A tipografia cinética saiu (Narumi: "se ele não consegue ser melhor, remova completamente"). Deck antigo que a usava
 // abre como frase em destaque, com as mesmas frases (uma por clique), sem aviso.
+test("texto no cenário antigo preserva subtítulo e legenda juntos, com e sem imagem", () => {
+  for (const image of [undefined, "foto.png"]) {
+    const migrated = normalizeSpec({ slides: [{ layout: "scenography", title: "Uma ideia", subtitle: "Explicação da ideia", caption: "Crédito da fotografia", ...(image ? { image } : {}) }] }).slides[0];
+    assert.match(migrated.caption || migrated.by || "", /Explicação da ideia[\s\S]*Crédito da fotografia/);
+  }
+});
+
 test("tipografia cinética saiu: o layout não existe mais e deck antigo vira frase em destaque com as mesmas frases", () => {
   assert.equal(LAYOUTS.kinetic, undefined);
   assert.equal(LAYOUT_SAMPLES.kinetic, undefined);

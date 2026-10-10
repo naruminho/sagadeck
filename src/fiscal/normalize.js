@@ -65,9 +65,10 @@ export function normalizeSpec(rawSpec) {  if (!rawSpec || typeof rawSpec !== "ob
     // com imagem, vira imagem de página inteira com o título por cima; sem imagem, frase em destaque
     if (s.layout === "scenography") {
       const { scene: _sc, foreground: _fg, imageOpacity: _op, titleSize: _ts, subtitle, caption, title, image, kicker, ...rest } = s;
+      const detail = [subtitle, caption].filter((v) => v != null && String(v).trim()).map(String).join("\n\n");
       s = image
-        ? { ...rest, layout: "full", image, ...(kicker ? { kicker } : {}), ...(title ? { title } : {}), ...(subtitle || caption ? { caption: subtitle || caption } : {}), overlay: "left" }
-        : { ...rest, layout: "statement", ...(kicker ? { kicker } : {}), text: String(title || "").replace(/\n/g, " ").trim(), ...(subtitle ? { by: subtitle } : {}) };
+        ? { ...rest, layout: "full", image, ...(kicker ? { kicker } : {}), ...(title ? { title } : {}), ...(detail ? { caption: detail } : {}), overlay: "left" }
+        : { ...rest, layout: "statement", ...(kicker ? { kicker } : {}), text: String(title || "").replace(/\n/g, " ").trim(), ...(detail ? { by: detail } : {}) };
     }
 
     // Termos em português para campos básicos
