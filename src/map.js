@@ -204,6 +204,10 @@ export function mapModel(s, ctx) {
         const head = [...new Set(rows.flatMap((p) => Object.keys(p)))];
         features = pointsFromRows(head, rows.map((p) => head.map((h) => p[h] ?? "")), layer, warn).features;
       }
+    } else if (layer.geojson && typeof layer.geojson === "object") {
+      // escrito no próprio slide (desenho pequeno, demonstração); dados de verdade ficam num arquivo do projeto
+      features = fromGeoJSON(layer.geojson);
+      if (!features.length) warn(`mapa: o GeoJSON da camada "${layer.name || i + 1}" não tem formas`);
     } else if (layer.geojson) {
       const text = readText(layer.geojson, ctx, "GeoJSON");
       try { features = text == null ? [] : fromGeoJSON(JSON.parse(text)); } catch { warn(`mapa: "${layer.geojson}" não é um GeoJSON válido`); }
@@ -218,7 +222,7 @@ export function mapModel(s, ctx) {
     const step = layer.step ?? (s.build ? i + 1 : undefined);
     layers.push({
       name: layer.name || layer.title || `Camada ${i + 1}`, kind,
-      source: typeof layer.points === "string" ? layer.points.trim() : layer.geojson || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
+      source: typeof layer.points === "string" ? layer.points.trim() : (typeof layer.geojson === "string" ? layer.geojson : null) || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
       view: viewOf(layer.view), legend: layer.legend || null, prefix: layer.prefix || "", suffix: layer.suffix || "",
       style: styleOf(features, layer, warn), data: { type: "FeatureCollection", features },
     });

@@ -201,3 +201,15 @@ test("exportação: deck com mapa abre por endereço local e a foto do slide esp
     assert.equal(await page.locator(".slide.current .leaflet-control-zoom").isVisible(), false, "sem botões de zoom na imagem");
   } finally { await b.close(); await tiles.close(); }
 });
+
+test("mapa: geojson pode vir escrito no próprio slide (FeatureCollection, Feature ou só a geometria)", () => {
+  const linha = { type: "LineString", coordinates: [[-46.66, -23.556], [-46.64, -23.57]] };
+  const { m, warnings } = model({ layers: [
+    { name: "Coleção", geojson: { type: "FeatureCollection", features: [{ type: "Feature", properties: { nome: "Avenida" }, geometry: linha }] } },
+    { name: "Só a geometria", geojson: linha },
+  ] }, tmp());
+  assert.deepEqual(warnings, []);
+  assert.equal(m.layers[0].data.features[0].properties.nome, "Avenida");
+  assert.equal(m.layers[1].data.features[0].geometry.type, "LineString");
+  assert.equal(m.layers[0].source, null, "escrito no slide não tem arquivo de origem");
+});

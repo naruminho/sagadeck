@@ -168,6 +168,17 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Conheça o SagaDeck com a demonstração dos mapas — 10/10/2026
+
+Pedido de Narumi: uma apresentação bem completa do próprio sagadeck, incluindo a demo de mapas. O tour ganhou a seção
+**Mapas** (`mapDemos` em `src/studio/tour.js`, slides marcados `demo: mapa`): o exemplo do layout, estados pintados por
+valor com uma região por clique e a câmera indo até ela, linhas e áreas (GeoJSON escrito no slide, que o motor passou a
+aceitar), cobertura com raios de 1 km calculados pelo código (`circle` de `src/map-analysis.js`) e dois quadros com o
+que a IA e o Studio fazem no mapa. Os extras ganharam pesquisa na web, versões e material de consulta. Valores
+ilustrativos e traçados aproximados dizem isso na tela. Testes: `engine.test.js` (seção de mapas e o tour inteiro sem
+avisos) e `map.test.js` (GeoJSON no slide). Achado de passagem, tarefa à parte: o Studio acusa "texto pequeno" em
+todo cartão (mede a letra da caixa, não a do texto).
+
 ## Conheça o SagaDeck — 10/10/2026
 
 Pergunta de Narumi: a pessoa nem sabe o que dá para gerar. Agora a biblioteca tem, na lateral, **Conheça o

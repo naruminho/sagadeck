@@ -56,8 +56,25 @@ test("Conheça o SagaDeck: todo layout aparece, com o nome e o pedido à IA, e a
     assert.ok(s.source.includes(LAYOUT_INFO[s.tour][0]), `o slide de ${s.tour} diz o nome do recurso`);
   }
   assert.ok(deck.slides.some((s) => s.layout === "section"), "agrupado em seções");
-  const { html } = buildHTML(deck);
+  const { html, warnings } = buildHTML(deck);
   assert.match(html, /Conheça o SagaDeck/);
+  assert.deepEqual(warnings, [], "o tour inteiro sem avisos do fiscal");
+});
+
+test("Conheça o SagaDeck: a seção de mapas demonstra estados por valor, linhas e áreas, cobertura calculada e o que a IA faz", async () => {
+  const { tourDeck } = await import("../src/studio/tour.js");
+  const deck = tourDeck();
+  const i = deck.slides.findIndex((s) => s.layout === "section" && s.title === "Mapas");
+  assert.ok(i > 0, "seção Mapas");
+  const demos = deck.slides.filter((s) => s.demo === "mapa");
+  assert.ok(demos.length >= 5, `demos de mapa: ${demos.length}`);
+  const maps = demos.filter((s) => s.layout === "map");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.areas)), "estados pintados por valor");
+  assert.ok(maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "LineString")) && maps.some((s) => s.layers.some((l) => l.geojson?.geometry?.type === "Polygon")), "linhas e áreas");
+  assert.ok(maps.every((s) => s.build), "uma camada por clique");
+  assert.ok(maps.every((s) => /Peça à IA/.test(s.notes)), "cada demo diz como pedir");
+  const cards = demos.filter((s) => s.layout === "cards").flatMap((s) => s.items.map((it) => it.title));
+  for (const t of ["Buscar lugares", "Coordenadas da planilha", "Contas de verdade", "Rotas e alcance", "Editar no mapa", "Configurar mapa"]) assert.ok(cards.includes(t), t);
 });
 
 test("o exemplo de cada layout renderiza sem erro em todos os temas", () => {

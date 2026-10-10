@@ -696,6 +696,8 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
       legend: mil m³
 ```
 
+- `geojson:` também aceita o GeoJSON escrito no próprio slide (FeatureCollection, Feature ou só a geometria), para um
+  desenho pequeno; dados de verdade ficam num arquivo do projeto. Nunca invente o traçado de algo real.
 - `points:` também aceita a lista no próprio slide: `[{ nome: Centro, lat: -23.55, lon: -46.63, status: ativo }]`.
   Uma coluna só com "lat, lon" vale (`coordenadas`, `posicao`). Use ponto ou vírgula decimal; nunca invente
   coordenadas: elas vêm da planilha, do arquivo ou de uma busca. Linha sem posição válida fica de fora (o fiscal avisa).
