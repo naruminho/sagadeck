@@ -150,11 +150,16 @@
     });
     col.done();
     if (m.layers.length) box.append(legend);
+    // pontos sempre por cima de linhas e áreas (uma área ou um raio que entra depois não esconde o ponto do clique)
+    const pointsOnTop = () => st.layers.forEach((en) => { if (en.layer.kind === "points" && map.hasLayer(en.g)) en.g.eachLayer((l) => l.bringToFront?.()); });
+    st.pointsOnTop = pointsOnTop;
     const sync = (entry) => {
       const show = entry.on && !entry.manualOff;
       if (show && !map.hasLayer(entry.g)) entry.g.addTo(map); else if (!show && map.hasLayer(entry.g)) map.removeLayer(entry.g);
       if (entry.legend) entry.legend.hidden = !entry.on;
+      pointsOnTop();
     };
+    pointsOnTop();
 
     // enquadramento: o do slide, senão os dados, senão o mundo
     // O enquadramento automático deixa os pontos acima da legenda, para continuarem visíveis e clicáveis.
@@ -182,7 +187,7 @@
     steps.forEach((s) => st.observer.observe(s, { attributes: true, attributeFilter: ["class"] }));
 
     box.dataset.mapMounted = "ready";
-    requestAnimationFrame(() => map.invalidateSize());
+    requestAnimationFrame(() => { if (live.get(box) === st) map.invalidateSize(); }); // desmontado antes (o Studio redesenhou): nada a ajustar
     if (st.tilesDone) settle();
     setTimeout(settle, 8000); // a exportação não espera para sempre
   }
@@ -208,6 +213,8 @@
     for (const b of boxes) {
       const st = live.get(b); if (!st) continue;
       if (keepView && keyOf(b) && st.map) views.set(keyOf(b), { center: st.map.getCenter(), zoom: st.map.getZoom() });
+      // animação de zoom em curso termina agora: o fim dela, depois de desmontado, lia painéis que já não existem
+      if (st.map) { st.map.stop(); if (st.map._animatingZoom) st.map._onZoomTransitionEnd(); }
       st.observer?.disconnect(); st.map?.remove(); live.delete(b);
       delete b.dataset.mapMounted; b.querySelector(".map-legend")?.remove();
       b.querySelector(".map-notice")?.remove();

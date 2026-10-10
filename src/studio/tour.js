@@ -101,7 +101,7 @@ function mapDemos() {
     demo({ kicker: "Linhas e áreas", title: "O trajeto e a ==área== do evento", basemap: "ruas", build: true, caption: "Traçados aproximados, desenhados para a demonstração.", layers: [
       { name: "Trajeto da corrida", color: "em", geojson: { type: "Feature", properties: { nome: "Avenida Paulista" }, geometry: { type: "LineString", coordinates: [[-46.6611, -23.5578], [-46.6559, -23.5613], [-46.6496, -23.5655], [-46.6422, -23.5707]] } } },
       { name: "Área do evento", color: "c3", geojson: { type: "Feature", properties: { nome: "Parque Ibirapuera" }, geometry: { type: "Polygon", coordinates: [[[-46.6618, -23.5833], [-46.6531, -23.5826], [-46.6497, -23.5913], [-46.6586, -23.5952], [-46.6618, -23.5833]]] } } },
-    ] }, "Linhas e áreas", "Trajetos, redes e áreas de GeoJSON, GPX ou KML; no Studio, Editar no mapa desenha seguindo as ruas", "Desenhe o trajeto da corrida pelas ruas e a área do evento"),
+    ] }, "Linhas e áreas", "Trajetos, redes e áreas de GeoJSON, GPX ou KML; no Studio, Editar mapa desenha seguindo as ruas", "Desenhe o trajeto da corrida pelas ruas e a área do evento"),
     demo({ kicker: "Cobertura", title: "Quem fica a até ==1 km== de uma estação?", basemap: "claro", build: true, caption: "Os raios são calculados pelo sagadeck, não desenhados à mão.", layers: [
       { name: "Estações", points: ESTACOES, label: "nome", color: "em" },
       { name: "Raio de 1 km", color: "c4", geojson: { type: "FeatureCollection", features: ESTACOES.map((e) => ({ type: "Feature", properties: { nome: `${e.nome}: 1 km` }, geometry: circle([e.lat, e.lon], 1000) })) } },
@@ -115,7 +115,7 @@ function mapDemos() {
       { icon: "route", title: "Rotas e alcance", text: "Tempo a pé, de carro ou de bicicleta, e a área alcançável em X minutos." },
     ] },
     { layout: "cards", demo: "mapa", title: "Mapas no Studio", cols: 3, notes: "O mapa funciona sem configurar nada. A chave gratuita do OpenRouteService (Configurar mapa) só acrescenta rotas e área alcançável.", items: [
-      { icon: "pencil", title: "Editar no mapa", text: "Clique para criar pontos, desenhe linhas que seguem as ruas, meça e enquadre." },
+      { icon: "pencil", title: "Editar mapa", text: "Uma tela só do mapa: camadas à esquerda, o mapa grande no meio e, à direita, o que cada ponto, linha ou área tem." },
       { icon: "table", title: "Planilha ligada", text: "Pôr no mapa a partir da planilha; clicar no ponto mostra a linha, e vice-versa." },
       { icon: "settings", title: "Configurar mapa", text: "Opcional: o servidor de mapas da empresa ou a chave de rotas, como a da IA." },
     ] },

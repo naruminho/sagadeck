@@ -168,6 +168,22 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Editar mapa: uma tela própria — 10/10/2026
+
+Narumi, testando o mapa da demo oficial: "não consigo clicar pra editar, não sei como edita, não sei se tem uma tela
+diferente", e o ponto novo não gravava. O editor antigo era uma barra por cima do slide escalado (cobria o título), só
+editava planilha e GeoJSON de arquivo (a demo tem tudo escrito no slide) e não tinha propriedades. Agora **Editar mapa**
+(ou dois cliques no mapa) abre uma tela só do mapa (`map-editor.js`, classes `mpe-`; `.mx` já era de um layout):
+camadas à esquerda (tipo, nome, quantos itens, olho), o mapa grande com as ferramentas e a dica do que fazer, e à
+direita as propriedades do selecionado (campos com o que cada um faz no mapa, posição, comprimento ou área, excluir) ou
+da camada e do mapa. Edita pontos e formas escritos no slide e em arquivo; GPX e KML só se leem. Corrigidos no caminho:
+gravar arquivo do projeto em prévia de modelo respondia 409 (agora cria a cópia, `server.js`), planilha nova numa pasta
+que não existia falhava (`writeSheet`), pontos ficavam debaixo de áreas e raios que entravam depois (na apresentação
+também: o clique abria o cartão do raio), e desmontar o mapa no meio de uma animação de zoom dava erro. Testes:
+`map-editor.test.js` (os dois caminhos, inclusive a demo em prévia), `project.test.js` (409), `map.test.js` (pontos por
+cima). Achado na suíte: a faixa "Configure a IA" caía na coluna da lateral e espremia a biblioteca (corrigido, com
+teste em `library-ui.test.js`).
+
 ## Conheça o SagaDeck com a demonstração dos mapas e a pasta Demos oficiais — 10/10/2026
 
 Narumi esperava achar a apresentação junto das dela, numa pasta própria e só leitura. Agora a lateral da biblioteca

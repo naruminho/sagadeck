@@ -709,10 +709,13 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
   `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
   Com um slide de mapa selecionado, a planilha fica ao lado dele: clicar num ponto seleciona a linha e selecionar
   uma linha abre o cartão do ponto. O enquadramento automático deixa os pontos livres da legenda.
-- **Editar no mapa** (botão na prévia do slide, no Studio): a pessoa clica para criar pontos (vão para a planilha da
-  camada, com o endereço preenchido), desenha linhas e áreas (vão para o GeoJSON da camada; "Seguir as ruas" liga os
-  cliques pelo serviço de rotas), arrasta pontos e vértices, divide e junta linhas, mede com a régua e grava o
-  enquadramento ("Usar esta vista"). Quando a pessoa quiser marcar algo à mão no mapa, indique esse botão.
+- **Editar mapa** (botão na prévia do slide, ou dois cliques no mapa, no Studio): abre uma tela só do mapa. À esquerda
+  as camadas; no meio o mapa grande com Selecionar, Ponto, Linha, Área e Régua; à direita as propriedades do que está
+  selecionado (os campos de um ponto, linha, área ou região, com o que cada um faz no mapa) ou, sem seleção, da camada
+  (cor, tamanho, rótulo, cartão, quando aparece) e do mapa (fundo, enquadramento). Pontos novos vão para a planilha da
+  camada, com o endereço preenchido, ou para a lista do slide; linhas e áreas para o GeoJSON da camada ou para o slide
+  ("Seguir as ruas" liga os cliques pelo serviço de rotas). Arrasta pontos e vértices, divide e junta linhas e grava o
+  enquadramento ("Usar a vista de agora"). Quando a pessoa quiser marcar ou corrigir algo à mão no mapa, indique esse botão.
 - **Dados de fora** (lugares de um tipo, linhas como ciclovias, o contorno de um lugar com nome, uma lista da web,
   coordenadas da planilha da pessoa): peça com o bloco `mapa:` (as regras vêm no prompt); o Studio busca, grava os
   arquivos em `contexto/` com a fonte de cada linha e te devolve o que gravou. Nunca invente coordenada nem contorno.

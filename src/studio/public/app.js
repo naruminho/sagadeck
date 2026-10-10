@@ -429,7 +429,7 @@
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
       window.SagaMap?.mount(dom.renderedSlideContainer); // só aqui (prévia grande); miniaturas e galeria ficam na prévia em SVG
-      window.SagaMapData?.attach(dom.renderedSlideContainer, slide, () => { syncDeckToServer(); renderCurrentSlide(); }, { toast: showToast, hydrate: hydrateIcons });
+      window.SagaMapData?.attach(dom.renderedSlideContainer, slide, () => { syncDeckToServer(); renderCurrentSlide(); }, { toast: showToast, hydrate: hydrateIcons, materialized: previewMaterialized });
       window.SagaCalc?.mount(dom.renderedSlideContainer); // calculadora ao vivo: os controles funcionam no editor também
       window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);

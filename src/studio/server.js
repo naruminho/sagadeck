@@ -970,7 +970,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
 
       // Projeto (a pasta da apresentação, como no VS Code): árvore, arquivos, planilhas e sugestões de gráfico
       if (pathname.startsWith("/api/project/")) {
-        const done = (obj = {}, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(code === 200 ? { ok: true, ...obj } : obj)); };
+        // modelo em prévia: gravar um arquivo do projeto é uma mudança, então a cópia nasce aqui (a tela é avisada)
+        const made = !W.file && W.preview && req.method === "POST" ? materializePreview(W) : null;
+        const done = (obj = {}, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(code === 200 ? { ok: true, ...obj, ...(made ? { materialized: made } : {}) } : obj)); };
         try {
           const P = W.file && !isBundledTemplate(W.file) ? Project.projectOf(W.file) : null;
           if (!P) return done({ error: W.preview ? "Modelo em prévia: a pasta do projeto nasce na primeira mudança." : "Esta apresentação não tem uma pasta só dela (abra pela biblioteca)." }, 409);

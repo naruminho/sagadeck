@@ -110,9 +110,10 @@ export function fromKML(xml) {
 
 function fromGeoJSON(obj) {
   if (!obj || typeof obj !== "object") return [];
-  if (obj.type === "FeatureCollection") return (obj.features || []).filter((f) => f && f.geometry);
-  if (obj.type === "Feature") return obj.geometry ? [obj] : [];
-  if (obj.type && obj.coordinates) return [{ type: "Feature", properties: {}, geometry: obj }];
+  // _i: a posição da forma no arquivo (o editor do Studio acha a forma clicada por ela)
+  if (obj.type === "FeatureCollection") return (obj.features || []).map((f, i) => (f && f.geometry ? { ...f, properties: { ...f.properties, _i: i } } : null)).filter(Boolean);
+  if (obj.type === "Feature") return obj.geometry ? [{ ...obj, properties: { ...obj.properties, _i: 0 } }] : [];
+  if (obj.type && obj.coordinates) return [{ type: "Feature", properties: { _i: 0 }, geometry: obj }];
   return [];
 }
 
@@ -125,7 +126,7 @@ function fromAreas(values, warn) {
     const uf = g.uf[code], pais = g.paises[code];
     if (!uf && !pais) { warn(`mapa: "${k}" não é uma UF (SP, RJ…) nem um país (BR, PT…)`); continue; }
     const poly = uf || pais.poly;
-    features.push({ type: "Feature", properties: { nome: uf ? code : pais.nome, valor: v }, geometry: { type: "MultiPolygon", coordinates: poly } });
+    features.push({ type: "Feature", properties: { nome: uf ? code : pais.nome, valor: v, _cod: String(k) }, geometry: { type: "MultiPolygon", coordinates: poly } });
   }
   return features;
 }
@@ -221,7 +222,7 @@ export function mapModel(s, ctx) {
     if (!features.length && layer.areas == null) warn(`mapa: a camada "${layer.name || i + 1}" ficou vazia`);
     const step = layer.step ?? (s.build ? i + 1 : undefined);
     layers.push({
-      name: layer.name || layer.title || `Camada ${i + 1}`, kind,
+      name: layer.name || layer.title || `Camada ${i + 1}`, kind, index: i, // index: a camada no slide (o editor do Studio)
       source: typeof layer.points === "string" ? layer.points.trim() : (typeof layer.geojson === "string" ? layer.geojson : null) || layer.gpx || layer.kml || null, step: Number.isFinite(Number(step)) ? Number(step) : undefined,
       view: viewOf(layer.view), legend: layer.legend || null, prefix: layer.prefix || "", suffix: layer.suffix || "",
       style: styleOf(features, layer, warn), data: { type: "FeatureCollection", features },

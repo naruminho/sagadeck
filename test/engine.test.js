@@ -74,7 +74,7 @@ test("Conheça o SagaDeck: a seção de mapas demonstra estados por valor, linha
   assert.ok(maps.every((s) => s.build), "uma camada por clique");
   assert.ok(maps.every((s) => /Peça à IA/.test(s.notes)), "cada demo diz como pedir");
   const cards = demos.filter((s) => s.layout === "cards").flatMap((s) => s.items.map((it) => it.title));
-  for (const t of ["Buscar lugares", "Coordenadas da planilha", "Contas de verdade", "Rotas e alcance", "Editar no mapa", "Configurar mapa"]) assert.ok(cards.includes(t), t);
+  for (const t of ["Buscar lugares", "Coordenadas da planilha", "Contas de verdade", "Rotas e alcance", "Editar mapa", "Configurar mapa"]) assert.ok(cards.includes(t), t);
 });
 
 test("o exemplo de cada layout renderiza sem erro em todos os temas", () => {

@@ -146,6 +146,12 @@ test("mapa ao vivo: só monta no slide atual; pontos, cartão ao clicar, legenda
     // passo 2: a área entra
     await p.evaluate(() => window.sagadeck.goto(1, 2));
     await p.waitForFunction(() => document.querySelectorAll(".slide.current path.leaflet-interactive").length === 3);
+    // a área entrou depois, mas os pontos continuam por cima: clicar no ponto pega o ponto, não a área
+    const onTop = await p.evaluate(() => {
+      const inst = window.SagaMap.instance(document.querySelector(".slide.current .map-box"));
+      return inst.layers[0].g.getLayers().filter((l) => inst.map.hasLayer(l)).map((l) => { const r = l._path.getBoundingClientRect(); const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el === l._path ? "ok" : inst.layers[0].g.getLayers().some((o) => o._path === el) ? "ok" : "outra camada"; });
+    });
+    assert.deepEqual([...new Set(onTop)], ["ok"], "pontos ficam por cima das áreas (um ponto pode encostar no outro)");
     // arrastar move o mapa (o slide está escalado; o Leaflet compensa)
     const box = await p.locator(".slide.current .map-live").boundingBox();
     const before = await p.evaluate(() => document.querySelector(".slide.current .leaflet-map-pane").style.transform);

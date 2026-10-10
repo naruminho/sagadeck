@@ -27,6 +27,7 @@ const NAMES = [
   "align-start-vertical", "align-center-vertical", "align-end-vertical", "align-start-horizontal", "align-center-horizontal", "align-end-horizontal",
   "align-horizontal-distribute-center", "align-vertical-distribute-center", "paintbrush", "clipboard-paste", "lock", "lock-open", "eye-off", "share-2", "globe",
   "scan-search", "compass", "map-pin", "map",
+  "mouse-pointer-2", "spline", "pentagon", "ruler", "route", "hexagon",
 ];
 
 const icons = {};
