@@ -102,8 +102,17 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    mapa** (`map-settings.js`, botão no formulário do mapa). Decisão: a busca de endereço sai do servidor do Studio
    (a política do Nominatim pede identificação, que o navegador não deixa mudar); os tiles saem do navegador.
    Testes: `test/map-data.test.js`. Fica para depois: abrir GeoJSON como tabela.
-3. **Editar no mapa**: adicionar ponto (endereço reverso), arrastar, desenhar linha/polígono, "seguir as ruas",
-   editar vértices, dividir/juntar, enquadrar ("usar esta vista"), régua; comprimento e área ao vivo.
+3. **Feita (10/10).** Editor `src/studio/public/map-editor.js`, carregado só no clique em **Editar no mapa** (botão e
+   barra no `#canvas-viewport`, fora do slide escalado): Mover (arrastar ponto atualiza a linha da planilha; clicar
+   numa linha/área abre os vértices: arrastar, apagar, dividir; juntar linhas pelas pontas mais próximas), Ponto
+   (linha nova na planilha da camada, endereço pelo `/reverse`), Linha e Área (GeoJSON da camada ou
+   `contexto/desenhos.geojson`; "Seguir as ruas" a pé/carro/bicicleta pelo `/api/mapa/rota`), Régua, Usar esta vista
+   (grava `view` no slide); comprimento e área ao vivo. O Studio guarda a vista entre redesenhos (`keepView`). Rotas,
+   endereço de um ponto e área alcançável em `src/map-routing.js` (OpenRouteService com chave, testado ao vivo com a
+   chave da Narumi: 817 m a pé, isócrona de 5 min; ou OSRM). Chave do mapa como a da IA: tela Configurar mapa com
+   "Usar o OpenRouteService" e Testar, botão na biblioteca, `keyEnv` (variável de ambiente, para o servidor). README
+   com a seção "Mapa (opcional)". Achados: o editor visual capturava o clique no mapa (agora ignora `.map-live`); o
+   projeto não gravava `.geojson/.gpx/.kml` como texto. Testes: `test/map-editor.test.js` e `map-data.test.js`.
 4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha
    com a fonte de cada linha, para revisão antes de virar slide.
 5. **Análises**: mais próximo, distância, tempo de rota, contagem em raio/área, faixa em volta de linha, cruzamento de

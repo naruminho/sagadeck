@@ -163,3 +163,42 @@ test("Studio: planilha com endereço → Achar coordenadas (confirma) → Pôr n
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await geo.close(); }
 });
+
+test("chave do mapa como a da IA: por variável de ambiente (keyEnv), Testar faz uma rota, e a biblioteca tem Configurar mapa com Usar o OpenRouteService", { timeout: 90000 }, async (t) => {
+  const auth = [];
+  const ors = http.createServer((req, res) => {
+    auth.push(req.headers.authorization);
+    res.writeHead(200, { "Content-Type": "application/geo+json" });
+    res.end(JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { summary: { distance: 817, duration: 588 } }, geometry: { type: "LineString", coordinates: [[-46.6388, -23.5489], [-46.6333, -23.5505]] } }] }));
+  });
+  await new Promise((r) => ors.listen(0, "127.0.0.1", r));
+  const url = `http://127.0.0.1:${ors.address().port}`;
+  process.env.ORS_DE_TESTE = "chave-ors-9999";
+  fs.writeFileSync(process.env.SAGADECK_MAPA, JSON.stringify({ tiles: null, rotas: { provedor: "openrouteservice", url, keyEnv: "ORS_DE_TESTE" } }));
+  const studio = await startStudio(null);
+  try {
+    const info = await (await fetch(studio.url + "/api/mapa")).json();
+    assert.equal(info.config.rotas.keyHint, "••••9999");
+    assert.equal(info.config.rotas.keyFrom, "variável");
+    assert.ok(!JSON.stringify(info).includes("chave-ors-9999"));
+    const r = await (await fetch(studio.url + "/api/mapa/testar", { method: "POST" })).json();
+    assert.equal(r.ok, true); assert.equal(r.distancia, 817); assert.equal(r.minutos, 10);
+    assert.deepEqual(auth, ["chave-ors-9999"], "a chave da variável foi usada, uma vez");
+    const browser = await browserOrSkip(t);
+    if (!browser) return;
+    try {
+      const { page: p, errors } = await newPage(browser, studio.url);
+      await p.waitForSelector("#btn-map:not([hidden])");
+      await p.click("#btn-map");
+      await p.waitForSelector("#map-settings-dialog[open]");
+      assert.match(await p.textContent("#map-settings-dialog"), /OpenRouteService/);
+      assert.match(await p.getAttribute('[data-k="rotas"][data-f="key"]', "placeholder"), /••••9999, da variável ORS_DE_TESTE/);
+      await p.fill('[data-k="rotas"][data-f="url"]', "");
+      await p.click("#map-settings-dialog [data-ors]");
+      assert.equal(await p.inputValue('[data-k="rotas"][data-f="url"]'), "https://api.openrouteservice.org");
+      assert.equal(await p.inputValue('[data-k="rotas"][data-f="provedor"]'), "openrouteservice");
+      await p.click("#map-settings-dialog [data-close]");
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+  } finally { delete process.env.ORS_DE_TESTE; await studio.close(); await new Promise((r) => ors.close(r)); }
+});

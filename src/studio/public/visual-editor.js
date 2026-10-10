@@ -257,7 +257,7 @@
     if(!root.dataset.visualEvents){
       root.dataset.visualEvents='true';
       root.addEventListener('pointerdown',e=>{
-        if(e.button!==0 || e.target.closest('.science-plot,input,textarea'))return;
+        if(e.button!==0 || e.target.closest('.science-plot,.map-live,input,textarea'))return; // gráfico e mapa ao vivo recebem o próprio clique
         if(e.target.closest('[contenteditable="true"]')?.dataset.writing)return; // escrevendo: o clique é do cursor
         const el=objectAt(e.clientX,e.clientY)||(locked(e.target.closest('[data-vkey]'))?null:e.target.closest('[data-vkey]'));
         if(!el){

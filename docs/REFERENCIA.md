@@ -705,6 +705,12 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
 - Planilha só com endereço (sem latitude e longitude): no Studio, a planilha aberta (aba Arquivos) tem **Achar
   coordenadas**, que pergunta antes de mandar os endereços para o serviço de fora e grava as colunas `latitude` e
   `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
+- **Editar no mapa** (botão na prévia do slide, no Studio): a pessoa clica para criar pontos (vão para a planilha da
+  camada, com o endereço preenchido), desenha linhas e áreas (vão para o GeoJSON da camada; "Seguir as ruas" liga os
+  cliques pelo serviço de rotas), arrasta pontos e vértices, divide e junta linhas, mede com a régua e grava o
+  enquadramento ("Usar esta vista"). Quando a pessoa quiser marcar algo à mão no mapa, indique esse botão.
+- Serviços (Configurar mapa, opcional): sem chave, tudo funciona com os serviços públicos do OpenStreetMap; a chave
+  gratuita do OpenRouteService só acrescenta rotas a pé/de carro/de bicicleta confiáveis e área alcançável.
 - Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma
   categoria ou a camada inteira. O fundo vem da internet; sem rede, aparece um aviso e as camadas continuam. No PDF e
   no PowerPoint o mapa sai como estava na tela.

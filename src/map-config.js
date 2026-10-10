@@ -31,11 +31,16 @@ const service = (raw, base) => {
   return out.url ? out : base;
 };
 
-// a configuração que vale: o arquivo por cima do padrão, campo a campo (arquivo editado à mão não quebra nada)
-export function loadMapConfig(file = mapaFile()) {
+// a configuração que vale: o arquivo por cima do padrão, campo a campo (arquivo editado à mão não quebra nada). A
+// chave pode vir de uma variável de ambiente indicada em keyEnv (no servidor), como no ia.json.
+export function loadMapConfig(file = mapaFile(), env = process.env) {
   let raw = {};
   try { raw = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch { raw = {}; }
-  return Object.fromEntries(Object.entries(MAP_DEFAULTS).map(([k, base]) => [k, service(raw[k], base)]));
+  return Object.fromEntries(Object.entries(MAP_DEFAULTS).map(([k, base]) => {
+    const s = service(raw[k], base);
+    if (s && !s.key && s.keyEnv && env[s.keyEnv]) return [k, { ...s, key: env[s.keyEnv], keyFrom: "variável" }];
+    return [k, s];
+  }));
 }
 
 // grava o que veio da tela Configurar mapa por cima do arquivo (campo a campo; chave em branco mantém a gravada),
@@ -66,7 +71,7 @@ export function maskedMapConfig(cfg) {
   return Object.fromEntries(Object.entries(cfg).map(([k, v]) => {
     if (!v) return [k, v];
     const { key, ...rest } = v;
-    return [k, { ...rest, keySet: !!key, keyHint: key ? `••••${String(key).slice(-4)}` : "" }];
+    return [k, { ...rest, keySet: !!key, keyHint: key ? `••••${String(key).slice(-4)}` : "", keyFrom: key ? rest.keyFrom || "arquivo" : "" }];
   }));
 }
 
