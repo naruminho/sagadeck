@@ -17,7 +17,7 @@ import { mediaPrompt } from './art-direction.js';
 import { currentUsage, recordUsage } from './usage.js';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { iaFile, loadIA, keyOf, migrateModelrelay } from './ia-config.js';
+import { iaFile, readIA, keyOf, migrateModelrelay } from './ia-config.js';
 import {setTimeout as delay} from 'node:timers/promises';
 
 export class LLMError extends Error {
@@ -38,7 +38,7 @@ let migrated = false;
 export function llmConfig(env = process.env) {
   const fromEnv = !!env.SAGADECK_LLM_URL;
   if (!fromEnv && !migrated) { migrated = true; try { migrateModelrelay({ env, file: iaFile(env) }); } catch { /* segue sem */ } }
-  const ia = fromEnv ? null : loadIA(iaFile(env));
+  const { config: ia, problem } = fromEnv ? { config: null, problem: "" } : readIA(iaFile(env));
   const m = ia?.models || {};
   return {
     url: (env.SAGADECK_LLM_URL || ia?.url || "").replace(/\/+$/, ""),
@@ -51,6 +51,8 @@ export function llmConfig(env = process.env) {
     headers: ia?.headers || {},
     adaptador: ia?.adaptador || "",
     source: fromEnv ? "variável" : ia ? "arquivo" : "nenhuma",
+    // o ia.json existe mas não serve (sem permissão, JSON quebrado): o motivo, para não dizer só "não configurada"
+    problem,
     timeoutMs: Number(env.SAGADECK_LLM_TIMEOUT || 180) * 1000,
     firstTimeoutMs: Number(env.SAGADECK_LLM_FIRST_TIMEOUT || 600) * 1000,
   };
@@ -79,7 +81,7 @@ async function send(cfg, url, init) {
   if (typeof fn !== "function") throw new LLMError(`O adaptador ${cfg.adaptador} não exporta uma função padrão (url, init) => Response.`);
   return fn(url, init);
 }
-const notConfigured = () => new LLMError("A IA não está configurada: no Studio, abra Configurar IA (ou crie ~/.sagadeck/ia.json).", { code: "AI_NOT_CONFIGURED" });
+const notConfigured = (cfg) => new LLMError(cfg?.problem ? `A IA não está configurada. ${cfg.problem}` : "A IA não está configurada: no Studio, abra Configurar IA (ou crie ~/.sagadeck/ia.json).", { code: "AI_NOT_CONFIGURED" });
 const howToFix = "Confira o provedor e a chave em Configurar IA, no Studio.";
 
 // Disponibilidade com cache curto, para o Studio decidir entre LLM e as regras determinísticas.
@@ -182,7 +184,7 @@ async function chatOnce(messages, opts = {}) {
 }
 
 async function chatOnceRaw(messages, { model, temperature, maxTokens, onDelta, signal, reasoningOff, cfg = llmConfig() } = {}) {
-  if (!llmConfigured(cfg)) throw notConfigured();
+  if (!llmConfigured(cfg)) throw notConfigured(cfg);
   const body = { model: resolveModel(cfg, model || cfg.textModel), messages };
   if (reasoningOff) body.reasoning = { enabled: false };
   if (temperature !== undefined) body.temperature = temperature;

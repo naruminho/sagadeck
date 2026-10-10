@@ -40,9 +40,24 @@ export function cleanIA(raw) {
   return out.url || out.adaptador ? out : null;
 }
 
-export function loadIA(file = iaFile()) {
-  try { return cleanIA(JSON.parse(fs.readFileSync(file, "utf8"))); } catch { return null; }
+// lê o arquivo e, quando ele existe mas não serve, diz por quê (sem isso, um ia.json de outro dono, que o serviço não
+// consegue ler, aparecia só como "IA não configurada"). Sem arquivo não é problema: é só não configurada.
+export function readIA(file = iaFile()) {
+  let text;
+  try { text = fs.readFileSync(file, "utf8"); }
+  catch (e) {
+    if (e.code === "ENOENT") return { config: null, problem: "" };
+    if (e.code === "EACCES" || e.code === "EPERM") return { config: null, problem: `O arquivo ${file} existe, mas este processo não tem permissão para lê-lo. Confira o dono e as permissões dele.` };
+    return { config: null, problem: `Não deu para ler ${file} (${e.code || e.message}).` };
+  }
+  let raw;
+  try { raw = JSON.parse(text); } catch (e) { return { config: null, problem: `O arquivo ${file} não é um JSON válido (${e.message}).` }; }
+  const config = cleanIA(raw);
+  return config ? { config, problem: "" } : { config: null, problem: `O arquivo ${file} não tem o endereço do provedor ("url").` };
 }
+
+export const loadIA = (file = iaFile()) => readIA(file).config;
+export const iaProblem = (file = iaFile()) => readIA(file).problem;
 
 // grava de forma atômica, só para quem é dono da conta (a chave mora aqui)
 export function saveIA(cfg, file = iaFile()) {

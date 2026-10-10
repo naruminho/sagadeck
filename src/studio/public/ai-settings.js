@@ -28,6 +28,7 @@ window.SagaAISettings = (() => {
       <p>O sagadeck fala direto com o provedor que você escolher. A chave fica só nesta máquina, em <code>${esc(info.file)}</code>.</p>
       ${info.source === "variável" ? '<p class="warn">As variáveis SAGADECK_LLM_URL / SAGADECK_LLM_KEY estão definidas e valem por cima desta tela.</p>' : ""}
       ${info.editable ? "" : '<p class="warn">Neste servidor, quem configura a IA é quem administra.</p>'}
+      ${info.problem ? `<p class="warn" data-problem>${esc(info.problem)}</p>` : ""}
       ${info.recommended ? `<div class="rec"><b>Recomendado para começar:</b> ${esc(providers[info.recommended.provider]?.label || info.recommended.provider)}, com ${esc(info.recommended.models.text)} (texto e visão), ${esc(info.recommended.models.image)} (imagem) e ${esc(info.recommended.models.search)} (busca). Se a IA não responder nem com isso, o problema é a rede ou a chave, não o modelo. Depois, troque pelo modelo que quiser. <button type="button" data-rec>Usar a recomendação</button></div>` : ""}
       <label for="ai-cfg-provider">Provedor</label>
       <select id="ai-cfg-provider" data-f="provider">${Object.entries(providers).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join("")}<option value="outro">Outro compatível com a API da OpenAI</option></select>

@@ -77,3 +77,40 @@ test("llmConfig: a configuração da máquina vira endereço, chave e modelos; v
   assert.equal(resolveModel(env, "text"), "text", "por variável, os nomes passam como vieram");
   assert.equal(llmConfigured(llmConfig({ SAGADECK_IA: path.join(dir, "nao-existe.json"), MODELRELAY_CONFIG: path.join(dir, "nada.toml") })), false, "sem nada: IA desligada");
 });
+
+// No servidor, o ia.json foi criado como root e o serviço (outro usuário) não conseguia lê-lo: o sagadeck dizia só
+// "IA não configurada", como se o arquivo nem existisse. Arquivo que existe e não serve diz por quê.
+test("ia.json que existe mas não serve: diz o motivo (permissão, JSON quebrado, sem endereço) em vez de só 'não configurada'", async () => {
+  const { iaProblem } = await import("../src/ai/ia-config.js");
+  const { studioBanner } = await import("../src/studio/banner.js");
+  const dir = tmp(), file = path.join(dir, "ia.json"), base = { MODELRELAY_CONFIG: path.join(dir, "nada.toml") };
+  assert.equal(iaProblem(file), "", "sem arquivo: nada a explicar (é só não configurada)");
+  // ilegível: uma pasta no lugar do arquivo falha a leitura em qualquer sistema
+  fs.mkdirSync(file);
+  assert.match(iaProblem(file), /não deu para ler/i);
+  let cfg = llmConfig({ ...base, SAGADECK_IA: file });
+  assert.equal(llmConfigured(cfg), false);
+  assert.match(cfg.problem, /ia\.json/);
+  const banner = studioBanner({ version: "x", url: "http://127.0.0.1:3517/", library: dir, ai: cfg }).join("\n");
+  assert.match(banner, /IA: não configurada/);
+  assert.ok(banner.includes(cfg.problem), "o motivo aparece ao subir (é o que quem administra vê no log)");
+  fs.rmSync(file, { recursive: true });
+  // sem permissão (Linux/macOS; no Windows o chmod não tira a leitura, e root lê tudo)
+  if (process.platform !== "win32" && process.getuid?.() !== 0) {
+    saveIA({ url: "https://x/v1", key: "k", models: { text: "m" } }, file);
+    fs.chmodSync(file, 0o000);
+    assert.match(iaProblem(file), /permissão/i);
+    fs.chmodSync(file, 0o600);
+    fs.rmSync(file);
+  }
+  fs.writeFileSync(file, "{ isto não é json");
+  assert.match(iaProblem(file), /JSON/);
+  fs.writeFileSync(file, JSON.stringify({ provider: "openrouter", models: { text: "m" } }));
+  assert.match(iaProblem(file), /endereço/);
+  // a chamada à IA também diz o motivo
+  const { chat } = await import("../src/ai/llm.js");
+  await assert.rejects(chat([{ role: "user", content: "oi" }], { cfg: llmConfig({ ...base, SAGADECK_IA: file }) }), /endereço/);
+  fs.writeFileSync(file, JSON.stringify({ url: "https://x/v1", models: { text: "m" } }));
+  assert.equal(iaProblem(file), "", "arquivo bom: sem problema");
+  assert.equal(llmConfig({ ...base, SAGADECK_IA: file }).problem, "");
+});
