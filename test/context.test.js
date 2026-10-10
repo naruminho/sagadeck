@@ -100,7 +100,7 @@ test("fetchUrlText: página local com permissão de teste", async (t) => {
   t.after(() => srv.close());
   const port = srv.address().port;
   const r = await fetchUrlText(`http://127.0.0.1:${port}/noticia`);
-  assert.match(r.text, /Banco Central/);
+  assert.match(r.text, /Prefeitura/);
   assert.match(r.text, /Reciclagem cresceu/);
   await assert.rejects(fetchUrlText(`http://127.0.0.1:${port}/grande`), /grande demais/);
 });

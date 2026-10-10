@@ -203,7 +203,7 @@ test("slide API ao vivo na apresentação", { timeout: 180000 }, async (t) => {
       const rows = await p.$$eval(`${s} .api-sim-row`, (els) => els.map((e) => [e.querySelector(".api-sim-t").textContent, +e.dataset.score, e.classList.contains("win")]));
       assert.equal(rows.length, 3);
       assert.ok(rows[0][1] >= rows[1][1] && rows[1][1] >= rows[2][1], "ordenado da mais parecida para a menos");
-      assert.match(rows[0][0], /conta/);
+      assert.match(rows[0][0], /reservar uma mesa/);
       assert.equal(rows[0][2], true, "a vencedora fica em destaque");
       assert.match(rows[2][0], /chover/);
       assert.match(await txt(`${s} .api-status`), /4 embeddings/);

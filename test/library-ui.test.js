@@ -534,6 +534,15 @@ test("primeiro uso: faixa Configure a IA; Usar a recomendação preenche OpenRou
     const { page: p, errors } = await newPage(browser, studio.url);
     await p.waitForSelector("#ai-banner:not([hidden])");
     assert.match(await p.innerText("#ai-banner"), /A IA ainda não está configurada/);
+    // a faixa ocupa a linha dela, na largura toda: a lateral e as apresentações continuam no lugar (antes ela caía
+    // na coluna da lateral e espremia a página inteira)
+    const lay = async () => p.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); return { banner: r("#ai-banner"), main: r("#main"), side: r(".lib-side") }; });
+    let L = await lay();
+    assert.ok(L.banner.width > 900 && L.main.x >= 200 && L.main.width > 900 && L.main.y >= L.banner.bottom, JSON.stringify(L));
+    await p.setViewportSize({ width: 600, height: 900 });
+    L = await lay();
+    assert.ok(L.banner.width > 500 && L.main.width > 500 && L.main.y >= L.side.bottom - 1, `no celular: ${JSON.stringify(L)}`);
+    await p.setViewportSize({ width: 1440, height: 1000 });
     await p.click("#ai-banner-btn");
     await p.waitForSelector("#ai-settings-dialog[open]");
     assert.match(await p.innerText("#ai-settings-dialog .rec"), /Recomendado para começar: OpenRouter, com deepseek\/deepseek-v4\.1-flash/);
