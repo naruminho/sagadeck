@@ -80,6 +80,19 @@ test("Editar no mapa: ponto novo com endereço vai para a planilha; linha seguin
     assert.equal(f.properties.nome, "Trecho 1");
     assert.equal(f.geometry.type, "LineString");
     assert.equal(f.geometry.coordinates.length, 3, "o trecho veio do serviço de rotas (com o ponto do meio)");
+    // arrastar o primeiro ponto: a planilha acompanha
+    await p.waitForSelector("#canvas-viewport > .me-bar");
+    await p.click('.me-bar [data-mode="mover"]');
+    const before = fs.readFileSync(csv, "utf8").split(/\r?\n/)[1];
+    const pt = await p.locator("#rendered-slide-container path.leaflet-interactive").first().boundingBox();
+    const mapBox = await p.locator("#rendered-slide-container .map-live").boundingBox();
+    const inside = (x, y, b) => x > b.x && x < b.x + b.width && y > b.y && y < b.y + b.height;
+    assert.ok(inside(pt.x + pt.width / 2, pt.y + pt.height / 2, mapBox), `o ponto precisa estar à vista para arrastar: ponto ${JSON.stringify(pt)}, mapa ${JSON.stringify(mapBox)}`);
+    await p.mouse.move(pt.x + pt.width / 2, pt.y + pt.height / 2); await p.mouse.down();
+    await p.mouse.move(pt.x + pt.width / 2 + 60, pt.y + pt.height / 2 + 30, { steps: 6 }); await p.mouse.up();
+    for (let k = 0; k < 40 && fs.readFileSync(csv, "utf8").split(/\r?\n/)[1] === before; k++) await p.waitForTimeout(100);
+    assert.notEqual(fs.readFileSync(csv, "utf8").split(/\r?\n/)[1], before, "a posição mudou na planilha");
+    assert.match(fs.readFileSync(csv, "utf8").split(/\r?\n/)[1], /^M1;Rua A;/);
     // usar esta vista: o enquadramento vai para o slide
     await p.waitForSelector("#canvas-viewport > .me-bar");
     const v0 = JSON.stringify(saved().slides[0].view);
@@ -87,16 +100,6 @@ test("Editar no mapa: ponto novo com endereço vai para a planilha; linha seguin
     await p.click(".me-bar [data-vista]");
     for (let k = 0; k < 40 && JSON.stringify(saved().slides[0].view) === v0; k++) await p.waitForTimeout(100);
     assert.notEqual(JSON.stringify(saved().slides[0].view), v0, "a vista nova foi gravada");
-    // arrastar o primeiro ponto: a planilha acompanha
-    await p.waitForSelector("#canvas-viewport > .me-bar");
-    await p.click('.me-bar [data-mode="mover"]');
-    const before = fs.readFileSync(csv, "utf8").split(/\r?\n/)[1];
-    const pt = await p.locator("#rendered-slide-container path.leaflet-interactive").first().boundingBox();
-    await p.mouse.move(pt.x + pt.width / 2, pt.y + pt.height / 2); await p.mouse.down();
-    await p.mouse.move(pt.x + pt.width / 2 + 60, pt.y + pt.height / 2 + 30, { steps: 6 }); await p.mouse.up();
-    for (let k = 0; k < 40 && fs.readFileSync(csv, "utf8").split(/\r?\n/)[1] === before; k++) await p.waitForTimeout(100);
-    assert.notEqual(fs.readFileSync(csv, "utf8").split(/\r?\n/)[1], before, "a posição mudou na planilha");
-    assert.match(fs.readFileSync(csv, "utf8").split(/\r?\n/)[1], /^M1;Rua A;/);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await svc.close(); }
 });
