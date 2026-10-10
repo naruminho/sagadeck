@@ -12,7 +12,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 **Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:
 - Repositório GitHub `naruminho/sagadeck`, clonado em `C:\Users\narum\src\sagadeck`, branch `main`.
-- Publicado no npm como `sagadeck` (1.6.0: IA embutida, só npm; o PyPI parou na 1.5.0).
+- Publicado no npm como `sagadeck` (1.7.0: primeiro uso guiado, Ambientes por campos; o PyPI parou na 1.5.0).
 - Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
 - Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
 - Tem uma IA (via modelrelay em `http://127.0.0.1:8765/v1`) que cria e edita decks, inclusive a partir de PDFs de
@@ -131,6 +131,8 @@ lista longa, e os campos de modelo do Configurar IA vinham vazios (ninguém sabe
   `helpers.js`). Agora `test/isolate.js` (biblioteca, ambientes, Preferências, IA e registro de comandos em pasta
   temporária) é carregado antes de tudo pelo `npm test` (`--import`) e importado por todo arquivo de teste;
   `guards.test.js` reprova arquivo de teste que não carregue.
+- A avaliação ao vivo (`test/bench-live.test.js`) não fechava o navegador da revisão dos slides: o processo ficava
+  pendurado (dias). Fecha no fim; `guards.test.js` exige isso de todo teste que gera pelo caminho do Studio.
 ## Ambientes por campos e sem o botão no servidor — 09/10/2026
 
 Pergunta de Narumi: quem instala do zero sabe preencher o `ambientes.yaml` (slides de API)? O lugar já era automático

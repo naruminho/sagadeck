@@ -36,8 +36,8 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     await t.test("nova em branco abre no editor e salva na pasta da biblioteca", async () => {
       await p.click("[data-empty-new]");
       await p.click('[data-new="blank"]');
-      await Promise.all([p.waitForURL(/\/editor\?deck=/), dlgOk("Minha palestra")]);
-      await p.waitForSelector("#rendered-slide-container .slide");
+      await Promise.all([p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }), dlgOk("Minha palestra")]);
+      await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
       assert.equal(await p.inputValue("#deck-title-input"), "Minha palestra");
       const file = path.join(studio.library, "Palestras", "Minha palestra", "Minha palestra.yaml");
       assert.ok(fs.existsSync(file));
@@ -133,7 +133,7 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     await t.test("Apresentar pelo cartão abre o editor já no modo apresentação", async () => {
       await p.click('[data-view="Palestras"]');
       await p.hover(".card[data-id]:not(.new-card)");
-      await Promise.all([p.waitForURL(/\/editor\?deck=/), p.click(".card[data-id]:not(.new-card) [data-present]")]);
+      await Promise.all([p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }), p.click(".card[data-id]:not(.new-card) [data-present]", { noWaitAfter: true })]);
       await p.waitForSelector("#presentation-modal:not(.hidden)", { timeout: 15000 });
       await p.keyboard.press("Escape");
     });
@@ -307,8 +307,8 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     assert.match(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/);
     // o exemplo de aula de APIs é o deck mais pesado da vitrine (muitos slides api + o arquivo do upload): abrir a prévia e
     // copiar para a biblioteca passa dos 8 s padrão numa máquina lenta (Windows da CI); o prazo aqui é o do passo, não um atraso
-    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000 }), p.click('.vit-card[data-new="example-api"]')]);
-    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000 }); // prévia → a cópia
+    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="example-api"]', { noWaitAfter: true })]);
+    await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }); // prévia → a cópia
     await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
 
     // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
@@ -363,9 +363,9 @@ test("Nova → Exemplo: texto no cenário cria o deck com as imagens de exemplo 
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
     assert.match(await p.innerText(".vit-grid"), /Texto no cenário/);
-    await Promise.all([p.waitForURL(/\/editor\?model=example-cenario/), p.click('.vit-card[data-new="example-cenario"]')]);
-    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/); // prévia → a cópia
-    await p.waitForSelector("#rendered-slide-container .L-scenography");
+    await Promise.all([p.waitForURL(/\/editor\?model=example-cenario/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="example-cenario"]', { noWaitAfter: true })]);
+    await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }); // prévia → a cópia
+    await p.waitForSelector("#rendered-slide-container .L-scenography", { timeout: 30000 });
     const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
     const file = path.join(studio.library, yamls.find((f) => /cen[aá]rio/i.test(f)));
     const saved = YAML.parse(fs.readFileSync(file, "utf8"));
@@ -409,11 +409,12 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
       assert.deepEqual(visiveis, ["model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api", "example-cenario"]);
       await p.click('.vit-filter[data-kind="visual"]');
-      await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/), p.click('.vit-card[data-new="exp-executivo"]')]);
-      await p.waitForSelector("#rendered-slide-container .slide");
+      await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
+      await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
       const yamls = () => fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
       assert.equal(yamls().length, 0, "prévia: nada criado");
-      await p.click("#btn-model-use"); await p.waitForURL(/editor\?deck=/);
+      await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/editor\?deck=/, { timeout: 30000, waitUntil: "commit" });
+      await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
       assert.equal(yamls().length, 1, yamls().join(", "));
       assert.equal(YAML.parse(fs.readFileSync(path.join(studio.library, yamls()[0]), "utf8")).theme, "noite");
     });
