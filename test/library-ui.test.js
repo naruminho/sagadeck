@@ -307,8 +307,8 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     assert.match(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/);
     // o exemplo de aula de APIs é o deck mais pesado da vitrine (muitos slides api + o arquivo do upload): abrir a prévia e
     // copiar para a biblioteca passa dos 8 s padrão numa máquina lenta (Windows da CI); o prazo aqui é o do passo, não um atraso
-    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000 }), p.click('.vit-card[data-new="example-api"]')]);
-    await p.click("#btn-model-use"); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000 }); // prévia → a cópia
+    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000 }), p.click('.vit-card[data-new="example-api"]', { noWaitAfter: true })]);
+    await p.click("#btn-model-use", { noWaitAfter: true }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000 }); // prévia → a cópia
     await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
 
     // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
