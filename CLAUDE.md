@@ -33,6 +33,13 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
   conferida depois que termina: `gh pr checks`). CI vermelha ou rodando: não mergeia nem publica release. CI que já
   estava vermelha se conserta antes de qualquer outra coisa; "a falha é antiga" não autoriza seguir.
 - Acompanhando um PR (CI, revisão): confira a cada **10 minutos**, nunca de hora em hora.
+- **Pastas de trabalho (vários agentes ao mesmo tempo)**: a pasta oficial (`C:\Users\narum\src\sagadeck`) fica na
+  `main`. Tarefa em andamento vai numa worktree temporária ao lado, com nome descritivo (`sagadeck-mapa-editor`, nunca
+  `wt2`): `git worktree add ../sagadeck-<tarefa> -b <branch>`. Nunca troque a branch nem faça stash numa pasta em que
+  uma suíte de testes ou outro agente está rodando. Terminou (push, merge com CI verde, nada pendente em
+  `git status`): `git worktree remove ../sagadeck-<tarefa>`. Se o `node_modules` da worktree for um atalho (junção)
+  para o da pasta oficial, desfaça o atalho antes (`cmd /c rmdir ..\sagadeck-<tarefa>\node_modules`), senão a remoção
+  apaga o `node_modules` oficial.
 
 ## Escrita do deck (IA e código)
 
