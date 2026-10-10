@@ -20,6 +20,7 @@ import { normalizeSpec } from "./fiscal/normalize.js";
 import { readRecordings } from "./api-client.js";
 import { explorationStates } from './exploration.js';
 import { calcModel } from './lessons.js';
+import { loadMapConfig, mapaFile, tilesForDeck } from "./map-config.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
@@ -132,7 +133,9 @@ export function buildHTML(rawSpec, opts = {}) {
   const theme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const warnings = [];
   if (spec.identity && !theme.identity) warnings.push(`identidade "${spec.identity}" não está em ${identitiesFile()} nesta máquina: a apresentação saiu com as fontes do tema`);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings };
+  // serviços do mapa desta máquina (só o fundo vai para o HTML; nunca chave de rotas/endereços): src/map-config.js
+  const mapTiles = (spec.slides || []).some((x) => x?.layout === "map") ? tilesForDeck(loadMapConfig(mapaFile())) : null;
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings, mapTiles };
   const id = spec.id || slug(spec.title);
   const slidesMeta = [];
   let html = "";
@@ -231,6 +234,7 @@ ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/ven
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="portal") ? `<script>${read("runtime/portal-scene.js")}</script>` : ""}
+${spec.slides.some((s) => s.layout === "map") ? `<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map.js")}</script>` : ""}
 ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runtime/points.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}
@@ -313,7 +317,7 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const s = { ...(spec.defaults || {}), ...raw };
   const theme = slideTheme(s, deckTheme, spec);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [] };
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [], mapTiles: inferLayout(s) === "map" ? tilesForDeck(loadMapConfig(mapaFile())) : null };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);

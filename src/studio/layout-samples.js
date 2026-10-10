@@ -48,6 +48,7 @@ export const LAYOUT_INFO = {
   timeline: ["Linha do tempo", "Eventos em sequência"],
   chart: ["Gráfico de dados", "Barras, colunas, linhas, rosca: cole a tabela do Excel ou digite os valores"],
   table: ["Tabela", "Tabela de verdade nas cores do tema: cole do Excel, destaque linha e total"],
+  map: ["Mapa", "Pontos, linhas e áreas sobre o mapa ao vivo: da planilha do projeto, de GeoJSON/GPX/KML ou valores por estado; cor por categoria, cartão ao clicar, uma camada por clique"],
   compare: ["Comparação", "A × B lado a lado"],
   matrix: ["Matriz 2×2", "Quatro quadrantes"],
   question: ["Pergunta", "Pergunta para a plateia com timer"],
@@ -112,6 +113,7 @@ export const LAYOUT_ASK = {
   timeline: "Faça a linha do tempo da história do cinema brasileiro",
   chart: "Faça um gráfico de linhas com a temperatura média de cada mês",
   table: "Monte a tabela comparando três planos, com o total destacado",
+  map: "Mostre no mapa as estações de medição da planilha, coloridas pelo status, com um cartão ao clicar",
   compare: "Compare transporte público e carro próprio lado a lado",
   matrix: "Monte uma matriz 2x2 de esforço e impacto com as ideias do time",
   question: "Faça uma pergunta para a plateia com cronômetro de 30 segundos",
@@ -130,6 +132,11 @@ export const LAYOUT_ASK = {
 };
 
 export const LAYOUT_SAMPLES = {
+  map: { layout: "map", kicker: "Monitoramento", title: "Estações de ==qualidade do ar==", basemap: "claro", layers: [
+    { name: "Estações", color: "status", label: "nome", points: [
+      { nome: "Centro", lat: -23.5489, lon: -46.6388, status: "Boa", pm25: 12 }, { nome: "Pinheiros", lat: -23.5614, lon: -46.7020, status: "Moderada", pm25: 24 },
+      { nome: "Ibirapuera", lat: -23.5874, lon: -46.6576, status: "Boa", pm25: 9 }, { nome: "Mooca", lat: -23.5596, lon: -46.5996, status: "Ruim", pm25: 41 },
+      { nome: "Santana", lat: -23.5027, lon: -46.6252, status: "Moderada", pm25: 27 }], colors: { Ruim: "alert" } }] },
   portal: portalExample,
   playground: playgroundExample,
   codelab: codeLabExample,

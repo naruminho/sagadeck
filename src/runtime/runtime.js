@@ -819,7 +819,7 @@
       const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty, dt = Date.now() - tt;
       tx = ty = null;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { cmd(dx < 0 ? "next" : "prev"); return; }
-      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 500 && !e.target.closest("a,button,input,textarea,select,[contenteditable],video,audio,iframe,.widget,[data-goto]")) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 500 && !e.target.closest("a,button,input,textarea,select,[contenteditable],video,audio,iframe,.widget,.map-box,[data-goto]")) {
         const sel = typeof getSelection === "function" && getSelection();
         if (sel && !sel.isCollapsed) return; // selecionando texto: não avança
         cmd("next");

@@ -35,7 +35,7 @@
   const LAYOUT_NAMES = [
     "cover", "section", "statement", "definition", "poster", "calendar", "headline", "quote", "number", "split", "full",
     "cards", "bento", "mosaic", "ribbon", "stats", "steps", "funnel", "pyramid", "list", "agenda", "timeline", "hub", "status", "onepage",
-    "chart", "table", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "portal", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
+    "chart", "table", "map", "compare", "matrix", "decisionlab", "diagram", "infographic", "question", "poll", "image", "code", "codewalk", "spotlight", "scenography", "portal", "science", "kinetic", "video", "carousel", "duel", "terminals", "turns", "solution", "calc", "algo", "graphlab", "codelab", "playground",
     "blocks", "dossier", "canvas", "references", "end",
   ];
 
@@ -43,7 +43,7 @@
   const LAYOUT_LABELS = {
     cover: "Capa", section: "Seção", statement: "Frase de impacto", definition: "Definição", poster: "Pôster (infográfico)", calendar: "Calendário", quote: "Citação", number: "Número grande",
     split: "Texto e figura", cards: "Cartões", stats: "Indicadores", steps: "Etapas", list: "Lista",
-    timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", compare: "Comparação", matrix: "Matriz 2×2",
+    timeline: "Linha do tempo", chart: "Gráfico de dados", table: "Tabela", map: "Mapa", compare: "Comparação", matrix: "Matriz 2×2",
     question: "Pergunta", poll: "Enquete", image: "Imagem", code: "Código", video: "Vídeo",
     diagram: "Diagrama", infographic: "Infográfico", mosaic: "Grade adaptável", ribbon: "Cápsulas", dossier: "Página de consulta", decisionlab: "Laboratório de decisões", science: "Fórmulas e funções", scenography: "Texto no cenário", codewalk: "Código guiado", spotlight: "Foco guiado", kinetic: "Tipografia cinética",
     duel: "Duelo de commits", terminals: "Dois terminais", turns: "Turnos a dois", carousel: "Carrossel", solution: "Exercício resolvido", calc: "Calculadora ao vivo", algo: "Algoritmo animado",
@@ -424,8 +424,10 @@
 
       // Renderizar HTML no palco
       window.SagaScience?.dispose(dom.renderedSlideContainer);
+      window.SagaMap?.dispose(dom.renderedSlideContainer);
       dom.renderedSlideContainer.innerHTML = data.html;
       window.SagaScience?.mount(dom.renderedSlideContainer);
+      window.SagaMap?.mount(dom.renderedSlideContainer); // só aqui (prévia grande); miniaturas e galeria ficam na prévia em SVG
       window.SagaCalc?.mount(dom.renderedSlideContainer); // calculadora ao vivo: os controles funcionam no editor também
       window.SagaDiagrams?.mount(dom.renderedSlideContainer).then(() => reportDiagram(dom.renderedSlideContainer));
       window.SagaDecisionLab?.mount(dom.renderedSlideContainer);
@@ -2045,7 +2047,7 @@
   const SLIDE_GROUPS = [
     ["estrutura", "Abertura e estrutura", ["cover", "section", "agenda", "end", "references"]],
     ["texto", "Texto e ideias", ["statement", "definition", "poster", "calendar", "headline", "quote", "list", "cards", "split", "mosaic", "ribbon", "bento", "dossier"]],
-    ["dados", "Números e gráficos", ["number", "stats", "chart", "table", "science", "compare", "matrix"]],
+    ["dados", "Números e gráficos", ["number", "stats", "chart", "table", "map", "science", "compare", "matrix"]],
     ["processo", "Processos e diagramas", ["steps", "timeline", "funnel", "pyramid", "diagram", "infographic", "hub"]],
     ["gestao", "Gestão e status", ["status", "onepage", "decisionlab"]],
     ["codigo", "Código e API", ["code", "codewalk", "api"]],

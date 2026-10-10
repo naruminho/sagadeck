@@ -1,7 +1,7 @@
 // PNG de cada slide, folha de contato, PDF e verificação automática de qualidade.
 import fs from "node:fs";
 import path from "node:path";
-import { openDeck, waitForResources } from "./browser.js";
+import { openDeck, waitForResources, settleSlide } from "./browser.js";
 
 // Estado final de cada slide (todos os cliques revelados)
 export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, jpeg = false } = {}) {
@@ -17,6 +17,7 @@ export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, 
     const list = steps ? Array.from({ length: S + 1 }, (_, k) => k) : [S];
     for (const k of list) {
       await page.evaluate(([j, kk]) => window.sagadeck.goto(j, kk), [i, k]);
+      await settleSlide(page);
       await page.waitForTimeout(60);
       const f = path.join(outDir, `slide-${String(i + 1).padStart(2, "0")}${steps ? `-${k}` : ""}.${jpeg ? "jpg" : "png"}`);
       await page.screenshot(jpeg ? { path: f, type: "jpeg", quality: 82 } : { path: f });
@@ -56,6 +57,7 @@ export async function pdf(htmlFile, outFile) {
   for (let i = 0; i < n; i++) {
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     await page.evaluate(([j, k]) => window.sagadeck.goto(j, k), [i, S]);
+    await settleSlide(page);
     await page.waitForTimeout(50);
     imgs.push((await page.screenshot({ type: "jpeg", quality: 92 })).toString("base64"));
     links.push(await page.evaluate(gotoRects, i));

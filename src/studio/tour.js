@@ -10,7 +10,7 @@ const GROUPS = [
   ["Abrir e fechar", "capa, seções, agenda e encerramento", ["cover", "section", "agenda", "end", "references"]],
   ["Uma ideia por vez", "frases, números e palavras que ocupam o palco", ["statement", "headline", "quote", "definition", "number", "kinetic", "scenography"]],
   ["Organizar o conteúdo", "listas, cartões, etapas, comparações e linhas do tempo", ["list", "cards", "mosaic", "ribbon", "bento", "split", "compare", "matrix", "steps", "timeline", "calendar", "hub", "infographic", "pyramid", "funnel"]],
-  ["Números e dados", "indicadores, gráficos, tabelas e painéis", ["stats", "chart", "table", "onepage", "status", "poster"]],
+  ["Números e dados", "indicadores, gráficos, tabelas e painéis", ["stats", "chart", "table", "map", "onepage", "status", "poster"]],
   ["Imagem e vídeo", "fotos, vídeos e foco guiado", ["image", "full", "spotlight", "carousel", "video"]],
   ["Com a plateia", "perguntas, enquetes e experiências interativas", ["question", "poll", "decisionlab", "playground", "portal"]],
   ["Código e tecnologia", "código, APIs ao vivo, Git e diagramas", ["code", "codewalk", "codelab", "api", "duel", "terminals", "turns", "diagram", "graphlab", "algo", "dossier"]],

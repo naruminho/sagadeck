@@ -22,6 +22,7 @@ import { slideSize } from "./aspect.js";
 import { recreatedFrame } from "./master.js";
 import { solutionHTML, calcHTML, algoHTML } from "./lessons.js";
 import "./runtime/api-core.js"; // globalThis.SagadeckApiCore (o mesmo núcleo que roda na apresentação)
+import { mapModel, mapPreviewSVG, mapSummary } from "./map.js";
 
 const plainTitle = (s) => String(s.title || s.kicker || s.layout || "").replace(/[*=^~`]/g, "").slice(0, 40);
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
@@ -733,6 +734,15 @@ export const LAYOUTS = {
   calc(s, ctx) { return `${calcHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
   algo(s, ctx) { return `${algoHTML(s, ctx, head)}${src(s)}${add(s, ctx)}`; },
 
+  // Mapa: camadas de planilha, GeoJSON, GPX, KML ou valores por estado/país (src/map.js), desenhadas ao vivo pelo
+  // Leaflet só quando o slide aparece (src/runtime/map.js). A prévia em SVG fica por baixo (miniaturas, reserva).
+  // Cada camada com passo ganha um marcador invisível data-step: o clique que a revela é o mesmo dos outros slides.
+  map(s, ctx) {
+    const m = mapModel(s, ctx);
+    const steps = m.layers.map((l, i) => (l.step ? `<i class="map-step" data-step="${l.step}" data-layer="${i}" hidden></i>` : "")).join("");
+    const data = JSON.stringify(m).replace(/</g, "\\u003c");
+    return `<div class="L-map">${head(s)}<div class="map-box e" style="--d:2" data-basemap="${m.basemap}" aria-label="Mapa: ${esc(mapSummary(m))}">${mapPreviewSVG(m)}<div class="map-live"></div><script type="application/json" class="map-data">${data}</script>${steps}</div>${s.caption ? text(s.caption, "small", { class: "map-caption muted" }) : ""}</div>${src(s)}${add(s, ctx)}`;
+  },
   science(s, ctx) {
     return `<div class="L-science">${head(s)}<div class="science-body${s.plot === false ? ' equations-only' : !(s.equations || []).length ? ' plot-only' : ''}"><div class="science-equations">${mathHTML(s.equations || [])}</div>${s.plot === false ? '' : plotHTML(s.plot || {}, ctx)}</div>${s.caption ? text(s.caption,'small') : ''}</div>${add(s,ctx)}`;
   },

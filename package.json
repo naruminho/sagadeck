@@ -33,6 +33,7 @@
     "@material-symbols/svg-400": "^0.47.5",
     "esbuild": "^0.28.2",
     "jsqr": "^1.4.0",
+    "leaflet": "1.9.4",
     "mermaid": "^11.17.2"
   },
   "scripts": {

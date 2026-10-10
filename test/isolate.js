@@ -18,4 +18,11 @@ if (!process.env.SAGADECK_TEST_ISOLATED) {
     process.env.MODELRELAY_CONFIG = path.join(process.env.SAGADECK_HOME, "modelrelay-de-teste.toml");
   }
   process.env.SAGADECK_COMANDOS_LOG = path.join(process.env.SAGADECK_HOME, "comandos-de-teste.log");
+  // serviços do mapa (tiles, endereços, rotas): os testes apontam para servidores falsos, nunca os desta máquina
+  if (process.env.SAGADECK_LIVE !== "1") {
+    process.env.SAGADECK_MAPA = path.join(process.env.SAGADECK_HOME, "mapa-de-teste.json");
+    // sem fundo (nenhum tile é pedido) e serviços numa porta fechada: quem testa o mapa sobe servidores falsos
+    const fechado = "http://127.0.0.1:9";
+    fs.writeFileSync(process.env.SAGADECK_MAPA, JSON.stringify({ tiles: null, geocoder: { url: fechado }, busca: { url: fechado }, rotas: { url: fechado } }));
+  }
 }
