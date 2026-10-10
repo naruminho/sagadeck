@@ -526,6 +526,29 @@ test("interface sem emoji nem símbolo unicode fazendo papel de ícone (use íco
   assert.deepEqual(found, [], "troque por <i class=\"ic\" data-ic=\"…\"> (Studio) ou SVG inline (apresentação)");
 });
 
+// O sagadeck é de qualquer pessoa: exemplos de layout, a referência (que ensina a IA), o tour, os modelos e os textos
+// de exemplo da interface não falam da empresa de ninguém (nomes de sistemas, processos internos, produtos do banco).
+test("exemplos, referência e modelos sem nada da empresa de quem desenvolve", () => {
+  // ambientes dev/hom/prod da API são recurso genérico e ficam; a "bridge" minúscula do playground é variável
+  const PROIBIDO = /bradesco|key ?vault|\bRITM\b|databricks|copilot studio|\bpix\b|conta no banco|abrir (uma )?conta|abertura de contas?|(na|de) agência|experimento ou projeto/gi;
+  const SISTEMA = /\bBridge\b/g;
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return /^(vendor|icons|fonts|assets)$/.test(e.name) ? [] : walk(p);
+    return /\.(js|mjs|html|css|yaml)$/.test(e.name) && e.name !== "code-lab.js" ? [p] : [];
+  });
+  const files = [...walk(path.join(ROOT, "src")), ...walk(path.join(ROOT, "templates")),
+    ...["docs/REFERENCIA.md", "README.md", "SKILL.md"].map((f) => path.join(ROOT, f))];
+  const found = [];
+  for (const file of files) {
+    fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+      const m = [...(line.match(PROIBIDO) || []), ...(line.match(SISTEMA) || [])];
+      if (m.length) found.push(`${path.relative(ROOT, file)}:${i + 1} ${[...new Set(m)].join(", ")}`);
+    });
+  }
+  assert.deepEqual(found, [], "troque por um exemplo genérico, de outro assunto");
+});
+
 // A IA do sagadeck só usa o que está na referência (docs/REFERENCIA.md vai inteira no prompt). Recurso novo que
 // não entra lá é invisível para ela: este teste falha se faltar um layout, composição, tema ou paleta.
 test("a IA conhece tudo: todo layout, composição, tema e paleta aparece na referência que vai no prompt", async () => {

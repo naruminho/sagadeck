@@ -53,7 +53,7 @@ test("slides das dinâmicas: aposta vira enquete antes do pull, terminais tiram 
   const turns = renderSlide(LAYOUT_SAMPLES.turns, 0, ctx).html;
   assert.equal((turns.match(/data-lesson-panel=/g) || []).length, 4);
   assert.match(turns, /tn-turn who-b tn-new/);
-  assert.match(turns, /<b>POST<\/b> \/pix/);
+  assert.match(turns, /<b>POST<\/b> \/inscricoes/);
   // erro no roteiro: o slide sai com o aviso (e o fiscal recebe)
   const warnings = [];
   const bad = renderSlide({ layout: "duel", base: BASE, turns: [{ who: 1, resolve: "ours" }] }, 0, { ...ctx, warnings });

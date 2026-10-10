@@ -2609,7 +2609,9 @@
   }
 
   async function startPresentation({ pen = false } = {}) {
-    await syncDeckToServer(); // a prévia é montada a partir do deck do servidor
+    // a apresentação é montada a partir do deck do servidor. Modelo em prévia: o servidor já tem o mesmo deck (qualquer
+    // mudança teria criado a cópia e saído da prévia), e enviar de novo contaria como mudança: apresentar não grava nada
+    if (!state.preview) await syncDeckToServer();
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
     dom.presFrame.src = scopedURL(`preview?t=${Date.now()}#${start}`);

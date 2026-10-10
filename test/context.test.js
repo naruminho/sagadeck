@@ -94,14 +94,14 @@ test("fetchUrlText: página local com permissão de teste", async (t) => {
   const srv = http.createServer((req, res) => {
     if (req.url === "/grande") { res.writeHead(200, { "Content-Type": "text/html", "Content-Length": 3 * 1024 * 1024 }); res.end("x"); return; }
     res.writeHead(200, { "Content-Type": "text/html" });
-    res.end("<html><body><h1>Banco Central</h1><p>Golpe do pix cresceu.</p></body></html>");
+    res.end("<html><body><h1>Prefeitura</h1><p>Reciclagem cresceu.</p></body></html>");
   });
   await new Promise((r) => srv.listen(0, "127.0.0.1", r));
   t.after(() => srv.close());
   const port = srv.address().port;
   const r = await fetchUrlText(`http://127.0.0.1:${port}/noticia`);
   assert.match(r.text, /Banco Central/);
-  assert.match(r.text, /Golpe do pix cresceu/);
+  assert.match(r.text, /Reciclagem cresceu/);
   await assert.rejects(fetchUrlText(`http://127.0.0.1:${port}/grande`), /grande demais/);
 });
 

@@ -386,7 +386,7 @@ Executar só funciona no Studio **local**: escutando em `127.0.0.1`, chamado pel
 
 ## Navegação por caminhos (`hub`, `goto`, `back`, `next`)
 
-Para processo com vários caminhos ("é experimento ou projeto? DEV, HOM ou PROD?", "o que muda conforme o
+Para conteúdo com vários caminhos ("é a primeira vez ou já usa?", "o que muda conforme o
 front-end?"), em vez de uma sequência única: um **mapa** (`layout: hub`) com as opções, cada uma levando à sua
 seção; cada seção termina voltando ao mapa. Funciona ao apresentar (clique), no PDF (links entre páginas) e no
 PowerPoint (clique pula para o slide).
@@ -404,24 +404,24 @@ PowerPoint (clique pula para o slide).
 - layout: hub
   id: mapa
   title: Qual é o seu caso?
-  question: Cada caminho tem prazos e responsáveis diferentes
+  question: Cada caminho tem passos diferentes
   options:
-    - { icon: flask-conical, title: Experimento, text: Dados fictícios, meta: 30 dias, goto: experimento }
-    - { icon: rocket, title: Projeto, text: DEV, HOM e PROD, goto: projeto }
+    - { icon: user, title: Primeira vez, text: Do zero ao primeiro resultado, meta: 4 passos, goto: inicio }
+    - { icon: rocket, title: Já uso, text: Atalhos e automação, goto: atalhos }
 - layout: steps
-  id: experimento
+  id: inicio
   back: mapa
-  title: Experimento
-  steps: [{ title: Pedido }, { title: 30 dias }, { title: Renovar ou virar projeto, goto: projeto }]
+  title: Primeira vez
+  steps: [{ title: Instalar }, { title: Primeiro projeto }, { title: Pronto? Veja os atalhos, goto: atalhos }]
 - layout: statement
-  text: Passou de 30 dias? Renove ou [vire projeto](#projeto).
+  text: Já fez o primeiro? Conheça os [atalhos](#atalhos).
   next: mapa            # fim do caminho: volta ao mapa
 - layout: cards
-  id: projeto
+  id: atalhos
   back: mapa
   next: mapa
-  title: Projeto
-  items: [{ title: DEV, text: 30 dias }, { title: HOM, text: 30 dias }, { title: PROD, text: sem prazo }]
+  title: Já uso
+  items: [{ title: Teclado, text: sem o mouse }, { title: Modelos, text: reaproveite }, { title: Automação, text: sem cliques }]
 ```
 
 ## One-page (`onepage`)
@@ -437,23 +437,23 @@ aparece como frase curta em destaque. É denso de propósito: o limite de palavr
 ```yaml
 - layout: onepage
   kicker: Proposta
-  title: Cadastro digital de clientes
-  subtitle: Menos papel, menos fila, menos retrabalho
+  title: Agendamento online de consultas
+  subtitle: Menos telefone, menos espera, menos falta
   journey:
-    - { icon: user, title: Cliente chega, text: Fila de 40 min }
-    - { icon: file-text, title: Preenche papel, text: 3 formulários }
-    - { icon: check, title: Conta aberta, text: Até 5 dias }
+    - { icon: user, title: Paciente liga, text: Espera de 15 min }
+    - { icon: file-text, title: Preenche a ficha, text: 3 formulários }
+    - { icon: check, title: Consulta marcada, text: Até 5 dias }
   problem:
-    text: O cadastro em papel atrasa a abertura de contas.
-    numbers: [{ value: 5 dias, label: para abrir uma conta }, { value: 20%, label: dos cadastros refeitos }]
+    text: Marcar por telefone atrasa as consultas.
+    numbers: [{ value: 5 dias, label: para marcar uma consulta }, { value: 20%, label: de faltas }]
   solution:
-    text: Cadastro no tablet, com validação na hora e assinatura digital.
-    items: [Conta aberta no mesmo dia, Zero papel na agência]
+    text: Agendamento pelo celular, com confirmação automática e lembrete.
+    items: [Consulta marcada no mesmo dia, Zero ligação para remarcar]
   dashboard:
-    numbers: [{ value: 1,2 mi, label: cadastros por ano, trend: +8% }]
+    numbers: [{ value: 1,2 mi, label: consultas por ano, trend: +8% }]
     figures:
-      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Fila, value: 40 }, { label: Papel, value: 25 }] }
-      - { title: Cadastros por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
+      - { title: Tempo por etapa (min), chart: bar, data: [{ label: Telefone, value: 15 }, { label: Ficha, value: 10 }] }
+      - { title: Consultas por UF (mil), ufmap: { SP: 320, RJ: 140, MG: 150, BA: 90 }, highlight: [SP] }
 ```
 
 ## Status semanal (`status`)
@@ -471,12 +471,12 @@ status por projeto, um slide `status` para cada.
   title: Portal do cliente
   health: risco
   progress: 65
-  highlight: Login novo em homologação
+  highlight: Login novo em teste com usuários
   done: [Tela de login, { text: Integração com o cadastro, owner: Ana }]
   doing: [Recuperação de senha]
-  blocked: [{ text: Liberação de firewall, owner: Infra, due: 30/09 }]
-  risks: [Prazo de HOM apertado]
-  upcoming: [Homologar com o negócio]
+  blocked: [{ text: Aprovação do texto de privacidade, owner: Jurídico, due: 30/09 }]
+  risks: [Prazo do teste apertado]
+  upcoming: [Teste com 20 usuários]
   shots: [{ image: imagens/login.png, caption: Nova tela de login }]
 ```
 
@@ -637,7 +637,7 @@ Demonstração com todas: biblioteca, Nova, "Exemplo: texto no cenário".
   scene: floor
   title: "NOVOS\nCAMINHOS"
   kicker: APRENDER PARA TRANSFORMAR
-  caption: WORKSHOP / BRIDGE
+  caption: WORKSHOP / 2026
   deco: none
 ```
 
@@ -903,13 +903,13 @@ As formas clássicas de slide de consultoria, desenhadas na hora para a quantida
 ```yaml
 - layout: infographic
   shape: metro
-  title: Os caminhos de um projeto na Bridge
-  center: { title: Bridge, text: Um pedido, vários caminhos }
+  title: Os canais de uma loja
+  center: { title: Loja, text: Um pedido, vários caminhos }
   items:
-    - { title: Lote, text: Databricks chama a Bridge de madrugada, icon: moon }
-    - { title: Teams, text: Copilot Studio + Power Automate, icon: message-square }
-    - { title: App próprio, text: Wave, arquitetura, infra e rede, icon: app-window }
-    - { title: SaaS externo, text: Túnel mTLS e serviço extra, icon: globe }
+    - { title: Balcão, text: Atendimento na hora, icon: store }
+    - { title: App, text: Pede e retira na loja, icon: smartphone }
+    - { title: Site, text: Entrega em casa, icon: truck }
+    - { title: Parceiros, text: Vitrine em outros sites, icon: globe }
 ```
 
 Infográfico × diagrama: infográfico é para itens paralelos em volta de uma ideia (sem fluxo entre eles, ou com o fluxo simples de `trilhas`) e para **ciclos** (`ciclo`: num fluxograma, a volta ao começo vira setas longas cruzando o desenho); `diagram` (Mermaid) é para processo com decisões, sequência entre sistemas, arquitetura e UML.
@@ -920,7 +920,7 @@ Para processo, fluxo, arquitetura, UML, sequência entre sistemas, ciclo de vida
 
 Direção automática: em fluxogramas o sagadeck desenha deitado (`LR`) e em pé (`TB`) e usa o que deixa a letra maior na área do slide. Escreva a direção que fizer sentido; `autoDirection: false` no slide mantém a do código (use só se a pessoa pedir uma direção).
 
-Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: DEV → HOM → PROD), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`, `gitGraph` (branches e commits do Git: `commit`, `branch nome`, `checkout nome`, `merge nome`, `cherry-pick id: "…"`; é o diagrama certo para "linhas de commits", rebase × merge e fluxo de branches).
+Tipos (primeira linha do código): `flowchart LR` / `flowchart TB` (fluxo, processo, arquitetura), `sequenceDiagram` (quem chama quem, pedido e resposta), `stateDiagram-v2` (ciclo de vida: rascunho → revisão → publicado), `classDiagram` e `erDiagram` (UML e modelo de dados), `journey` (jornada com notas), `mindmap` (mapa de ideias, sopa de letrinhas organizada), `timeline`, `block-beta` (blocos de arquitetura), `gantt`, `quadrantChart`, `gitGraph` (branches e commits do Git: `commit`, `branch nome`, `checkout nome`, `merge nome`, `cherry-pick id: "…"`; é o diagrama certo para "linhas de commits", rebase × merge e fluxo de branches).
 
 ```yaml
 - layout: diagram
@@ -945,26 +945,26 @@ Setas no `flowchart`: `-->` normal, `-.->` pontilhada (opcional, eventual), `==>
 
 ```yaml
 - layout: diagram
-  kicker: Governança
-  title: Do pedido de acesso à ==produção==
-  caption: Experimento é prorrogável; em HOM e PROD as chaves ficam no Key Vault
+  kicker: Processo
+  title: Do pedido à ==entrega==
+  caption: Sob medida leva mais tempo; o fornecedor entrega o material da montagem
   mermaid: |
     flowchart LR
-      A([:key-round: Pedido de acesso]):::hi --> B{Experimento ou projeto?}
-      subgraph EXP[Experimento]
-        C[:flask-conical: 30 dias, dados fictícios]
+      A([:shopping-cart: Pedido]):::hi --> B{Tem em estoque?}
+      subgraph EST[Estoque]
+        C[:package: Separar e embalar]
       end
-      subgraph PRJ[Projeto]
-        D[DEV 30 dias] ==> E[HOM 30 dias] ==> F[:rocket: PROD]:::em
+      subgraph PRD[Sob medida]
+        D[Cortar] ==> E[Montar] ==> F[:truck: Enviar]:::em
       end
-      B -->|experimento| C
-      B -->|projeto| D
-      C -.->|deu certo| D
-      K[(Key Vault via RITM)]:::suave -.- E
+      B -->|sim| C
+      B -->|não| D
+      C -.->|pronto| F
+      K[(Fornecedor)]:::suave -.- E
 ```
 
 Regras de bom desenho (siga sempre):
-- Agrupe com `subgraph` o que é da mesma área, time, camada ou fase (Front-end, Bridge, Segurança; DEV, HOM, PROD): é o que dá cor e organização ao desenho. 2 a 5 grupos por slide.
+- Agrupe com `subgraph` o que é da mesma área, time, camada ou fase (Front-end, Back-end, Segurança; rascunho, revisão, publicado): é o que dá cor e organização ao desenho. 2 a 5 grupos por slide.
 - Coisas de fora (usuário, sistema externo, banco de terceiros) com `:::suave`, fora dos grupos.
 - Rótulos curtos: 1 a 4 palavras por nó (detalhe vai em `caption`, nas `notes` ou em outro slide). Rótulo de seta com 1 a 3 palavras.
 - No máximo ~12 nós por slide. Processo maior: divida em slides (visão geral primeiro, depois um slide por fase) em vez de encolher tudo.

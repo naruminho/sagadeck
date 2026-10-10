@@ -168,7 +168,23 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
-## Conheça o SagaDeck com a demonstração dos mapas — 10/10/2026
+## Conheça o SagaDeck com a demonstração dos mapas e a pasta Demos oficiais — 10/10/2026
+
+Narumi esperava achar a apresentação junto das dela, numa pasta própria e só leitura. Agora a lateral da biblioteca
+tem **Demos oficiais** (cadeado; `data-view="oficiais"` em `library.js`) com o Conheça o SagaDeck em primeiro e as
+demos de recursos da vitrine (as mesmas chaves da `GALLERY`, tipo `recurso`), com a capa de verdade e só Apresentar e
+Abrir: sem menu de mover, renomear ou excluir, sem arrastar, sem "Nova" dentro. O Conheça aparece também como o
+primeiro cartão de Recentes e Todas, e debaixo da mensagem de biblioteca vazia. Abrem em prévia (`editor?model=…`).
+Defeito achado pelo teste novo: **Apresentar uma prévia criava uma cópia** na biblioteca (o Apresentar mandava o deck
+ao servidor, e na prévia isso conta como primeira mudança); agora, em prévia, ele não envia (o servidor já tem o mesmo
+deck). Teste: `library-ui.test.js` (pasta, cartões, só leitura, abrir e apresentar sem criar arquivo).
+
+**Exemplos sem nada da empresa de quem desenvolve.** Narumi viu o tour falar da Bridge e do processo de experimento e
+projeto (DEV, HOM, PROD, Key Vault): vinha dos exemplos dos layouts (`layout-samples.js`) e da referência que ensina a
+IA. Trocados por assuntos variados (viagem, loja, clínica, inscrições, reciclagem) nos exemplos, na referência, nos
+modelos, nos textos de exemplo da interface e nos testes. Trava: `engine.test.js` ("sem nada da empresa de quem
+desenvolve") falha se nomes de sistemas, processos internos ou produtos do banco voltarem a `src`, `templates`,
+REFERENCIA, README ou SKILL. Os ambientes dev/hom/prod da API são recurso genérico e ficam.
 
 Pedido de Narumi: uma apresentação bem completa do próprio sagadeck, incluindo a demo de mapas. O tour ganhou a seção
 **Mapas** (`mapDemos` em `src/studio/tour.js`, slides marcados `demo: mapa`): o exemplo do layout, estados pintados por

@@ -232,6 +232,11 @@ formato avisa para atualizar o sagadeck. Se um filtro de e-mail barrar a extens�
 `sagadeck studio` sem arquivo abre a biblioteca: suas apresentações organizadas em tópicos, com capa, busca,
 lixeira (30 dias; o prazo se muda em Preferências) e o menu **⋯** de cada cartão (apresentar, renomear, duplicar, mover, baixar tudo/.sagadeck/PPTX/PDF).
 
+Na lateral, **Demos oficiais** (com cadeado) guarda as apresentações do próprio SagaDeck, só leitura: o **Conheça o
+SagaDeck** (um slide por recurso, inclusive a demonstração dos mapas, cada um com a frase para pedir à IA) e as demos
+de recursos. Elas abrem em prévia, sem criar arquivo; editar cria uma cópia sua em Modelos. O Conheça o SagaDeck
+aparece também como o primeiro cartão de Recentes e Todas.
+
 **Nova apresentação** tem três caminhos: *Descrever com IA* (o assunto, quanto tempo você tem, que vira o número de
 slides, o estilo e, se quiser, material de apoio: PDF, Word, PowerPoint, Excel ou um link), *A partir de um arquivo
 ou link* (o mesmo, começando pelo anexo) e *Modelo pronto* (coleções, estilos, demonstrações e exemplos, com filtro).

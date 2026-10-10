@@ -24,7 +24,7 @@ test('planejamento de pesquisa separa contexto interno de recursos públicos', a
  process.env.SAGADECK_LLM_URL = llm.url;
  try {
   const {decideResearch} = await import('../src/research/research.js');
-  await decideResearch('Divulgue nosso evento interno com a plataforma Bridge e logo oficial.');
+  await decideResearch('Divulgue nosso evento interno com a plataforma Aurora e logo oficial.');
   assert.match(llm.requests[0].lastUser,/não fatos públicos a confirmar/);
   assert.match(llm.requests[0].lastUser,/produtos homônimos/);
  } finally { await llm.close(); }

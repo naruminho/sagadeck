@@ -58,7 +58,7 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
   const post = async (p, body) => { const r = await fetch(studio.url + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); return [r.status, await r.json()]; };
   try {
     // editor: o deck aberto está fora da biblioteca, então o gerado vai para "Sem tópico", numa pasta com o nome dele
-    let [status, r] = await post("/api/ai/generate", { briefing: "palestra sobre pix", duration: 12, style: "revista" });
+    let [status, r] = await post("/api/ai/generate", { briefing: "palestra sobre reciclagem", duration: 12, style: "revista" });
     assert.equal(status, 200, JSON.stringify(r));
     assert.ok(inside(studio.library, r.file), r.file);
     assert.equal(typeof r.quality?.verified, 'boolean', 'o editor recebe o resultado da conferência');

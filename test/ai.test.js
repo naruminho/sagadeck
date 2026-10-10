@@ -335,7 +335,7 @@ test("gerar deck: imagens liberadas por padrão; o briefing decide (todos, você
   ] };
   reply = (req) => (/^Generate an image/.test(req.lastUser) ? "sem imagem (mock)" : "```yaml\n" + YAML.stringify(deck) + "```");
   const n = llm.requests.length;
-  await generateDeck("fraudes no pix. Ilustre onde fizer sentido.", { direction: "x" });
+  await generateDeck("reciclagem no bairro. Ilustre onde fizer sentido.", { direction: "x" });
   const reqs = genReqs(n);
   assert.match(reqs[0].system, /Você PODE pedir ilustrações/, "imagens liberadas sem precisar de caixa marcada");
   assert.match(reqs[0].system, /pediu para VOCÊ decidir/);

@@ -1014,14 +1014,14 @@ test("studio", async (t) => {
     await p.click('.layout-card[data-layout="onepage"]'); await settle();
     assert.equal(saved().slides[i].layout, "onepage");
     const problema = p.locator(`${form} fieldset:has(> legend:text-is("O problema")) .sf-field:has(.sf-label:text-is("Texto")) textarea`).first();
-    await problema.fill("Abrir conta leva 5 dias"); await problema.blur(); await settle();
-    assert.equal(saved().slides[i].problem.text, "Abrir conta leva 5 dias", "o problema no deck salvo");
+    await problema.fill("Marcar consulta leva 5 dias"); await problema.blur(); await settle();
+    assert.equal(saved().slides[i].problem.text, "Marcar consulta leva 5 dias", "o problema no deck salvo");
     await p.locator(`${form} fieldset:has(> legend:text-is("Painel")) button:has-text("Adicionar número")`).first().click();
     await settle();
     const n = saved().slides[i].dashboard?.numbers || [];
     assert.equal(n.length, 1, "um número grande no painel");
     assert.equal(n[0].value, "100");
-    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Abrir conta leva 5 dias/);
+    assert.match(await p.textContent("#rendered-slide-container .op-problem"), /Marcar consulta leva 5 dias/);
     assert.ok(await p.locator("#rendered-slide-container .op-kpi").count(), "e o número no slide");
     await p.click("#btn-del-slide"); await settle(500);
   });
@@ -1261,7 +1261,7 @@ test("studio", async (t) => {
     await p.selectOption("#ai-deck-style", "revista");
     assert.equal(await p.inputValue("#ai-deck-theme"), "editorial", "estilo sugere o tema");
     await p.selectOption("#ai-deck-theme", ""); // a IA escolhe: o estilo decide no servidor
-    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    await p.fill("#ai-deck-briefing", "palestra teste sobre reciclagem");
     // o servidor está sem LLM nos testes: responde com o próprio deck de teste (renderização conhecida)
     await p.route("**/api/ai/generate", async (route) => {
       const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
@@ -1287,7 +1287,7 @@ test("studio", async (t) => {
     await p.setInputFiles("#ai-deck-files", { name: "dados.txt", mimeType: "text/plain", buffer: Buffer.from("Fraudes: 40% em 2025.") });
     await p.waitForFunction(() => [...document.querySelectorAll("#ai-deck-materials .chat-doc b")]
       .some((b) => b.textContent === "dados.txt" && !/lendo/.test(b.closest(".chat-att").textContent)));
-    await p.fill("#ai-deck-briefing", "palestra teste sobre pix");
+    await p.fill("#ai-deck-briefing", "palestra teste sobre reciclagem");
     await p.route("**/api/ai/generate", async (route) => {
       const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
       await route.fulfill({ json: { ok: true, spec, file: deckFile.file, images: { done: [], failed: [] } } });

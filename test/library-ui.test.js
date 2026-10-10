@@ -636,15 +636,28 @@ test("multiusuário: a configuração da IA (provedor, modelos, final da chave) 
   }
 });
 
-// "Conheça o SagaDeck": quem abre a biblioteca acha, na lateral, a apresentação com tudo o que dá para fazer (um
-// slide por recurso, cada um dizendo como pedir à IA). Abre em prévia: navegar não cria arquivo na biblioteca.
-test("Conheça o SagaDeck: a lateral da biblioteca abre a apresentação de recursos em prévia, sem criar arquivo", { timeout: 90000 }, async (t) => {
+// Demos oficiais: uma pasta própria na lateral ("SagaDeck · demos oficiais"), só leitura, com o Conheça o SagaDeck em
+// primeiro e as outras demos; o Conheça aparece também entre as apresentações da pessoa (inclusive com a biblioteca
+// vazia). Abrir é prévia: navegar não cria arquivo; editar cria a cópia da pessoa, como nos modelos.
+test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck também entre as apresentações; abre em prévia, sem criar arquivo", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
   const studio = await startStudio(null);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
-    await p.click('#side [data-tour]');
+    // biblioteca vazia: o Conheça o SagaDeck já está à vista
+    await p.waitForSelector('#main .card-oficial[data-oficial="conheca"]');
+    // a pasta das demos oficiais
+    await p.click('#side [data-view="oficiais"]');
+    await p.waitForSelector("#main .card-oficial");
+    assert.match(await p.textContent("#main h1"), /demos oficiais/i);
+    const ids = await p.$$eval("#main .card-oficial", (els) => els.map((e) => e.dataset.oficial));
+    assert.equal(ids[0], "conheca", "o Conheça o SagaDeck em primeiro");
+    assert.ok(ids.includes("novidades") && ids.includes("hidraulica") && ids.length >= 8, ids.join(","));
+    assert.equal(await p.locator("#main .card-oficial [data-more]").count(), 0, "só leitura: sem menu de mover, renomear ou excluir");
+    assert.equal(await p.locator("#main .card-oficial[draggable=true]").count(), 0, "não arrasta para outro tópico");
+    assert.equal(await p.locator("#main #card-new").count(), 0, "nem cria apresentação dentro dela");
+    await p.click('#main .card-oficial[data-oficial="conheca"] [data-open]');
     await p.waitForURL(/editor\?model=conheca/, { timeout: 30000 });
     await p.waitForSelector('.thumb-card[data-idx="60"]', { timeout: 30000 });
     assert.ok(await p.isVisible("#preview-banner"), "abre em prévia");
@@ -653,6 +666,13 @@ test("Conheça o SagaDeck: a lateral da biblioteca abre a apresentação de recu
     await p.waitForTimeout(800);
     const lib = await (await fetch(studio.url + "/api/library")).json();
     assert.equal(lib.decks.length, 0, "abrir e navegar não cria apresentação");
+    // Apresentar, direto da pasta: abre a demo já apresentando
+    await p.goto(studio.url + "/", { waitUntil: "networkidle" });
+    await p.click('#side [data-view="oficiais"]');
+    await p.click('#main .card-oficial[data-oficial="novidades"] [data-present]');
+    await p.waitForURL(/editor\?model=novidades/, { timeout: 30000 });
+    await p.waitForSelector("#presentation-modal:not(.hidden)", { timeout: 30000 });
+    assert.equal((await (await fetch(studio.url + "/api/library")).json()).decks.length, 0);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); }
 });
