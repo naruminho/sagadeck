@@ -96,6 +96,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `timeline` | `title, events: [{when, title, text, tag}], highlight, after, build` | linha do tempo |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
 | `table` | `title, head, rows, style, color, highlight, total, side, caption, source` | tabela de verdade nas cores do tema |
+| `map` | `kicker, title, basemap, layers: [{name, points \| geojson \| gpx \| kml \| areas, color, size, label, colors, popup, step, view}], build, view, caption` | **mapa ao vivo** com pontos, linhas e áreas (sensores, medidores, unidades de atendimento, cinemas, trajetos, regiões…): os dados vêm da planilha do projeto ou de arquivos GeoJSON/GPX/KML; ver [Mapa](#mapa-map) |
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |
 | `matrix` | `title, x: [esq, dir], y: [cima, baixo], cells: [4 × {title, text, example, hl}], build` | matriz 2×2 |
 | `question` | `question, options: [texto ou {key, text, sub}], keys, cols, timer, hint, optionSize` | pergunta para a plateia (com timer) |
@@ -664,6 +665,46 @@ Como o slide mestre do PowerPoint: `master:` no deck desenha em todo slide o que
 ## Revisão das mudanças (`review`)
 
 Quando melhorar ou reescrever uma apresentação que já existia (principalmente uma importada), marque cada slide que mudou para a pessoa validar: `review: { status: alterado, note: "o que mudou, em uma frase", original: 7 }` (`original` = o número do slide no original) ou `review: { status: novo, note: "por que entrou" }` para slide que não existia. O Studio mostra um selo na miniatura, uma faixa no slide com **Ver original**, **Aceitar** e **Desfazer** (volta ao slide de `original/original.yaml`; slide novo sai) e a lista em Revisar › **Mudanças**. A transformação da apresentação inteira ainda usa dois estados: `pendente` (a proposta ficou ao lado do original porque faltava algo dele; aceitar tira o original, desfazer tira a proposta) e `revisar` (a conferência pela foto achou um problema de desenho). A apresentação e a exportação não mostram as marcas. Nunca apague dados do original: números, nomes, fórmulas, fontes e figuras específicas (um mapa, um experimento de uma cidade) continuam, só mais claros.
+
+## Mapa (`map`)
+
+Mapa ao vivo (ruas por baixo, arrastável e com zoom ao apresentar) com **camadas** por cima. A planilha é a fonte e o
+mapa é a vista: os pontos vêm de um CSV do projeto (normalmente em `contexto/`), e as linhas e áreas de GeoJSON, GPX
+(rastro de GPS) ou KML. Serve para qualquer ponto de interesse (sensor, medidor, placa solar, unidade de atendimento,
+escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de obra).
+
+```yaml
+- layout: map
+  kicker: Monitoramento
+  title: Onde estão os ==sensores==
+  basemap: claro                 # ruas (padrão) | claro | escuro | satelite (se configurado) | nenhum
+  build: true                    # uma camada por clique
+  layers:
+    - name: Sensores             # nome na legenda
+      points: contexto/sensores.csv   # colunas de latitude e longitude achadas pelo nome (lat/latitude, lon/longitude)
+      color: status              # coluna: categoria vira cor (legenda clicável); número vira escala
+      colors: { ativo: s3, sem sinal: alert }   # cor de cada categoria (opcional)
+      size: vazao                # coluna numérica vira o tamanho do ponto (opcional)
+      label: nome                # rótulo fixo ao lado de cada ponto (até 60 pontos)
+      popup: [nome, status, vazao]   # campos do cartão ao clicar (padrão: as primeiras colunas)
+    - name: Rede de água
+      geojson: contexto/rede.geojson  # linhas e polígonos; ou gpx: / kml:
+      color: material
+      view: fit                  # quando a camada aparece, a câmera enquadra ela
+    - name: Consumo por estado
+      areas: { SP: 320, RJ: 140, MG: 150 }   # siglas de UF ou códigos de país (BR, PT…): pinta pela escala
+      legend: mil m³
+```
+
+- `points:` também aceita a lista no próprio slide: `[{ nome: Centro, lat: -23.55, lon: -46.63, status: ativo }]`.
+  Uma coluna só com "lat, lon" vale (`coordenadas`, `posicao`). Use ponto ou vírgula decimal; nunca invente
+  coordenadas: elas vêm da planilha, do arquivo ou de uma busca. Linha sem posição válida fica de fora (o fiscal avisa).
+- `color:` aceita também uma cor fixa (`s1`, `em`, `hi`, `alert`, `#1F6FB2`). `step` (número) diz em que clique a
+  camada aparece; `view` da camada (`fit` ou `{ center: [lat, lon], zoom }`) leva a câmera até ela nesse clique.
+- `view:` do slide fixa o enquadramento (`{ center: [-23.55, -46.63], zoom: 13 }`); sem ele, o mapa enquadra os dados.
+- Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma
+  categoria ou a camada inteira. O fundo vem da internet; sem rede, aparece um aviso e as camadas continuam. No PDF e
+  no PowerPoint o mapa sai como estava na tela.
 
 ## Tabelas (`table`)
 

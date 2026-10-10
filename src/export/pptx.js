@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import PptxGenJS from "pptxgenjs";
 import JSZip from "jszip";
-import { openDeck } from "./browser.js";
+import { openDeck, settleSlide } from "./browser.js";
 import { pptxFontMap, macFallbackFace } from "../themes.js";
 import { notesPlain } from "../markup.js";
 
@@ -353,6 +353,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
   for (let i = 0; i < n; i++) {
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     await page.evaluate(([j, k]) => window.sagadeck.goto(j, k, true), [i, S]);
+    await settleSlide(page);
     await page.waitForTimeout(40);
     const data = await page.evaluate(collectInPage, [i, nativeCharts]);
     const slide = pres.addSlide();

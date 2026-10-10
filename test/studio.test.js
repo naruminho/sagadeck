@@ -1413,6 +1413,22 @@ test("studio", async (t) => {
     await p.click("#btn-del-slide"); await settle(500);
   });
 
+  await t.test("Inserir → Mapa: o exemplo monta ao vivo na prévia (pontos e legenda); trocar o fundo pelo formulário salva no deck", async () => {
+    await novoSlide(p, "map"); await settle(1200);
+    const i = (await deck()).slides.findIndex((s) => s.layout === "map");
+    assert.ok(i >= 0, "slide inserido");
+    assert.ok(saved().slides[i].layers[0].points.length >= 3, "salvo com os pontos de exemplo");
+    await p.waitForSelector('#rendered-slide-container .map-box[data-map-mounted="ready"]', { timeout: 15000 });
+    assert.equal(await p.locator("#rendered-slide-container path.leaflet-interactive").count(), saved().slides[i].layers[0].points.length, "um ponto por linha");
+    assert.ok(await p.locator("#rendered-slide-container .map-leg-cat").count() >= 2, "legenda com as categorias");
+    await p.selectOption(`${form} select.form-control >> nth=0`, "escuro"); await settle(1200);
+    assert.equal(saved().slides[i].basemap, "escuro");
+    await p.waitForSelector('#rendered-slide-container .map-box[data-basemap="escuro"]');
+    await tab("inicio");
+    await go((s) => s.layout === "map");
+    await p.click("#btn-del-slide"); await settle(500);
+  });
+
   await t.test("lista: adicionar, reordenar e remover cartões", async () => {
     const i = await go("cards");
     const [a, b] = (await deck()).slides[i].items.map((c) => c.title);

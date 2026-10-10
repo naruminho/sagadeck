@@ -223,7 +223,7 @@
       f.list("steps", "Passos (um por clique)", obj([f.text("text", "O que se faz"), f.area("latex", "A conta (LaTeX)", { mono: true, rows: 2 }), f.text("note", "Observação")]), { addLabel: "Adicionar passo", newItem: () => ({ text: "Próximo passo", latex: "" }) }),
       f.obj("answer", "Resposta", [f.text("latex", "Resultado (LaTeX)", { mono: true }), f.text("text", "Em palavras"), f.text("label", "Rótulo", { placeholder: "Resposta" })]),
       f.more([f.text("prompt", "Pergunta antes do primeiro passo", { placeholder: "Por onde você começaria?" })])],
-    calc: window.SagaCalcFields(f, obj),
+    calc: window.SagaCalcFields(f, obj), map: window.SagaMapFields(f, obj),
     codelab: window.SagaLabFields.codelab(f, obj),
     graphlab: window.SagaLabFields.graphlab(f, obj),
     algo: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.select("algorithm", "Algoritmo", [["bubble", "Bubble sort"], ["insertion", "Insertion sort"], ["selection", "Selection sort"], ["merge", "Merge sort"], ["quick", "Quicksort"], ["linear", "Busca linear"], ["binary", "Busca binária"],

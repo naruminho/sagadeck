@@ -1775,3 +1775,23 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
 
 /* Figuras informativas dominam a composição; texto auxilia a leitura. */
 .L-split.sp-stacked{flex-direction:column;gap:20px}.sp-stacked>.hd{flex:0 0 auto}.sp-stacked>.hd .ttl{font-size:64px}.sp-stacked>.sp-fig{flex:1;min-height:0}.sp-stacked>.sp-summary{flex:0 0 auto;display:flex;gap:32px}.sp-summary>.t,.sp-summary>.list{flex:1;margin:0}.sp-stacked .sp-fig>.fig{min-height:0}
+/* mapa (layout: map; src/map.js e src/runtime/map.js): prévia SVG por baixo, o Leaflet por cima quando monta */
+.L-map{flex:1 0 auto;display:flex;flex-direction:column;gap:24px}.L-map>.hd,.L-map>.map-caption{flex:none}
+.map-box{position:relative;flex:1;min-height:420px;border-radius:var(--radius);overflow:hidden;background:color-mix(in srgb,var(--fg) 5%,var(--surface));border:1px solid var(--line)}
+.map-preview,.map-live{position:absolute;inset:0;width:100%;height:100%}
+.map-box[data-map-mounted="ready"] .map-preview{display:none}
+.map-live{background:transparent;font:inherit}.map-live .leaflet-container{font:inherit}
+.map-box[data-basemap="claro"] .leaflet-tile-pane{filter:grayscale(1) contrast(.92) brightness(1.06)}
+.map-box[data-basemap="escuro"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.55) brightness(.92) contrast(.9)}
+.map-legend{position:absolute;left:18px;bottom:18px;z-index:500;display:flex;flex-direction:column;gap:10px;max-width:46%;max-height:70%;overflow:auto;padding:14px 18px;border-radius:calc(var(--radius) * .6);background:color-mix(in srgb,var(--bg) 90%,transparent);color:var(--fg);font-size:20px;box-shadow:0 6px 24px rgb(0 0 0/.14)}
+.map-legend button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:2px 14px 2px 0}.map-legend button.off,.map-leg-layer.off .map-leg-name{opacity:.38;text-decoration:line-through}
+.map-leg-name{font-weight:700}.map-leg-name small{font-weight:400;color:var(--muted)}.map-legend i{display:inline-block;width:16px;height:16px;border-radius:50%;flex:none}
+.map-leg-scale{display:flex;align-items:center;gap:8px;font-size:17px;color:var(--muted)}.map-leg-scale i{width:120px;height:10px;border-radius:5px}
+.map-notice{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:600;display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:999px;background:var(--fg);color:var(--bg);font-size:17px;white-space:nowrap}
+.map-notice button{all:unset;cursor:pointer;text-decoration:underline}
+.map-label{font:600 22px/1.2 var(--font-body,inherit);background:color-mix(in srgb,var(--bg) 92%,transparent);color:var(--fg);border:0;box-shadow:0 2px 8px rgb(0 0 0/.18);padding:3px 8px}
+.map-label::before{display:none}
+.map-card .leaflet-popup-content-wrapper{border-radius:calc(var(--radius) * .6);background:var(--bg);color:var(--fg)}.map-card .leaflet-popup-tip{background:var(--bg)}
+.map-card-in{font-size:18px;line-height:1.35}.map-card-in b{display:block;font-size:21px;margin-bottom:6px}.map-card-in table{border-collapse:collapse}.map-card-in th{text-align:left;font-weight:600;color:var(--muted);padding:2px 12px 2px 0}.map-card-in td{padding:2px 0}
+.map-box .leaflet-control-attribution{font-size:13px;background:color-mix(in srgb,var(--bg) 82%,transparent);color:var(--muted)}.map-box .leaflet-control-attribution a{color:inherit}
+.export .map-box .leaflet-control-zoom,.export .map-notice button{display:none}

@@ -78,9 +78,19 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
 - PDF/PPTX capturam o mapa como está na tela na exportação; camada por clique vira animação no PPTX.
 
 **Entregas (uma branch/PR cada, com testes e CI verde):**
-1. Slide `map`: fundo ao vivo (ruas/satélite/claro/escuro no tema), pontos/linhas/polígonos de CSV, GeoJSON, GPX e
-   KML, cores por valor, legenda que liga/desliga, cartão ao clicar, camada por clique e câmera, aviso quando o fundo
-   não carrega. REFERENCIA + exemplo de layout (entra sozinho no Conheça o SagaDeck) + formulário.
+1. **Feita (10/10).** Slide `map`: motor `src/map.js` (CSV com colunas de posição achadas pelo nome, GeoJSON, GPX,
+   KML, `areas` por UF/país com os contornos embutidos `src/runtime/vendor/geo-contornos.json`; cor por categoria
+   na paleta do tema `c1…c5` ou escala por número, tamanho, rótulo, cartão; prévia SVG para miniaturas), mapa ao vivo
+   `src/runtime/map.js` (Leaflet 1.9.4 embutido por `scripts/vendor-map.mjs`, só em deck com mapa; monta só no slide
+   atual; testa **um** tile antes de ligar o fundo e, se falhar, nenhum outro mapa da sessão tenta; legenda que liga e
+   desliga; camada por clique com marcadores `data-step` e câmera por camada), configuração da máquina
+   `src/map-config.js` (`~/.sagadeck/mapa.json`; só o fundo vai para o deck), exportação abrindo o deck com mapa por
+   endereço local (Referer) e esperando o mapa de cada slide (`settleSlide`), formulário `map-fields.js`, REFERENCIA,
+   exemplo de layout (entra no Conheça o SagaDeck). Testes: `test/map.test.js` (motor, apresentação com servidor de
+   tiles falso, 403 recebe exatamente um pedido, exportação) e `studio.test.js` (inserir mapa, monta, trocar fundo
+   salva). Achados no caminho: coordenada "-46.702" lida como milhar pelo leitor de números (agora `coordNum`); a
+   classe `widget` na caixa fazia o runtime trocar o conteúdo; rota do `map.js` com cache servia código velho.
+   Pendente para depois: geocodificar `at: "Recife"` (entrega 2) e contornos de reserva quando o fundo falha.
 2. Tela **Dados**: grade editável (colar do Excel, importar CSV/XLSX/GeoJSON), colunas reconhecidas, linhas sem
    posição marcadas, endereço→coordenada em lote com progresso, seleção ligada ao mapa nos dois sentidos. Reaproveita
    a planilha do Formatar.
