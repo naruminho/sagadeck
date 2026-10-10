@@ -312,7 +312,7 @@
     ["recurso", "model-hidraulica", "Aula de hidráulica", "Navier–Stokes, curva que se mexe, calculadora de Reynolds ao vivo e exercício resolvido passo a passo", ["#EAF4F8", "#0B5C7A", "#1B998B"]],
     ["recurso", "model-algoritmos", "Aula de algoritmos", "Ordenação e busca rodando de verdade: barras, código, contadores e o botão Tocar", ["#0F1426", "#7C8CFF", "#F2B33D"]],
     ["recurso", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
-    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos, diagramas e tipografia cinética", ["#F7F6F2", "#20242B", "#E8590C"]],
+    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos e diagramas", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
     ["recurso", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
     ["recurso", "example-cenario", "Texto no cenário", "As 13 composições: fundo, transparência, recorte na frente das letras", ["#0A0D17", "#00F2FE", "#FF007A"]],

@@ -52,6 +52,15 @@ export function normalizeSpec(rawSpec) {  if (!rawSpec || typeof rawSpec !== "ob
   spec.slides = spec.slides.map((s) => {
     if (!s || typeof s !== "object") return { layout: "statement", text: String(s) };
 
+    // Tipografia cinética saiu (Narumi: "se ele não consegue ser melhor, remova completamente"): o deck que a usava
+    // vira uma frase em destaque com as mesmas frases, uma por clique; a cena de fundo não tinha onde ficar
+    if (s.layout === "kinetic") {
+      const beats = (Array.isArray(s.beats) ? s.beats : []).map((b) => (typeof b === "string" ? b : b?.text)).filter((t) => typeof t === "string" && t.trim());
+      const phrases = beats.length ? beats : [s.title || s.text, s.subtitle].filter((t) => typeof t === "string" && t.trim());
+      const { beats: _b, autoplay: _a, interval: _i, figure: _f, layout: _l, title: _t, subtitle: _s, text: _x, ...rest } = s;
+      s = phrases.length > 1 ? { ...rest, layout: "statement", lines: phrases, build: true } : { ...rest, layout: "statement", text: phrases[0] || "" };
+    }
+
     // Termos em português para campos básicos
     if (s.titulo && !s.title) { s.title = s.titulo; delete s.titulo; }
     if (s.subtitulo && !s.subtitle) { s.subtitle = s.subtitulo; delete s.subtitulo; }

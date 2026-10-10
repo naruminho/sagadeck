@@ -112,9 +112,11 @@
       f.list("parts", "Partes da palavra", obj([f.text("word", "Parte"), f.text("meaning", "Significado")]), { addLabel: "Adicionar parte", newItem: () => ({ word: "", meaning: "" }) }),
       f.area("text", "Definição"), f.icon("icon", "Ícone"), f.el("figure", "Figura (no lugar do ícone)"), f.more([f.bool("build", "Revelar por cliques"), f.num("termSize", "Tamanho do termo (px)")])],
     calendar: [f.text("kicker", "Chapéu"), f.area("title", "Título"),
-      f.list("events", "Eventos", obj([f.text("date", "Data", { hint: "2026-12-18, 18/12/2026 ou só o mês: 2026-12" }), f.text("title", "Título"), f.text("tag", "Tipo", { hint: "Filme, Série… (cada tipo, uma cor)" }), f.area("text", "Detalhe")]), { addLabel: "Adicionar evento", newItem: () => ({ date: "", title: "" }) }),
+      f.select("view", "Visão", [["meses", "Um cartão por mês"], ["mes", "Um mês grande (calendário de parede)"], ["semana", "Semana (uma coluna por dia, com horário)"], ["lista", "Lista (agenda em colunas)"]], { empty: "Automática (escolhe pelo que cabe)" }),
+      f.action("Um slide por mês", () => CTX.splitCalendar?.(), { when: (s) => calendarMonths(s).length > 1 }),
+      f.list("events", "Eventos", obj([f.text("date", "Data", { hint: "2026-12-18, 18/12/2026 ou só o mês: 2026-12" }), f.text("time", "Horário", { placeholder: "14:00" }), f.text("title", "Título"), f.text("tag", "Tipo", { hint: "Filme, Série… (cada tipo, uma cor)" }), f.area("text", "Detalhe")]), { addLabel: "Adicionar evento", newItem: () => ({ date: "", title: "" }) }),
       f.list("undated", "Sem data", obj([f.text("title", "Título"), f.area("text", "Detalhe")]), { addLabel: "Adicionar", newItem: () => ({ title: "" }) }),
-      f.more([f.num("cols", "Colunas"), f.text("undatedTitle", "Título do cartão sem data"), f.bool("build", "Revelar por cliques")])],
+      f.more([f.text("month", "Mês da visão de mês", { placeholder: "2026-11" }), f.text("week", "Semana (um dia dela)", { placeholder: "2026-11-16" }), f.num("cols", "Colunas"), f.text("undatedTitle", "Título do cartão sem data"), f.bool("build", "Revelar por cliques")])],
     poster: [f.text("kicker", "Chapéu"), f.area("title", "Título"), f.text("subtitle", "Subtítulo"), f.el("hero", "Ilustração principal"),
       f.list("panels", "Painéis", obj([f.text("label", "Letra"), f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.el("figure", "Figura (no lugar do ícone)"),
         f.list("facts", "Números", obj([f.text("value", "Valor"), f.text("label", "Legenda")]), { addLabel: "Adicionar número", newItem: () => ({ value: "", label: "" }) })]),
@@ -273,15 +275,6 @@
     diagram: [f.text("kicker", "Texto menor"), f.text("title", "Título"), f.area("mermaid", "Diagrama (Mermaid: flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, mindmap…)", { mono: true, rows: 12 }), f.select("curve", "Ligações", [["curva", "Curvas"], ["angulo", "Em ângulo"], ["reta", "Retas"]], { empty: "Curvas" }), f.text("caption", "Legenda")],
     science: [f.action("Atualizar da planilha", () => CTX.refreshFrom?.(), { when: (s) => s.from?.file }), f.text("title", "Título"), f.list("equations", "Equações (até 5)", obj([f.text("label", "Legenda"), f.area("latex", "Equação em LaTeX", {mono:true, rows:2})]), {addLabel:"Adicionar equação", newItem:()=>({latex:"E = mc^2"}), max:5}), f.action("Adicionar gráfico", s=>{s.plot={functions:["a*sin(b*x)"]};CTX.commit(true);}, {when:s=>s.plot===false}), f.action("Remover gráfico", s=>{s.plot=false;CTX.commit(true);}, {when:s=>s.plot!==false}), f.plot("plot", "Gráfico", {when:s=>s.plot!==false}), f.text("caption", "Nota")],
     scenography: [f.select("scene", "Composição", [["stage","Palco e profundidade"],["floor","Chão em perspectiva"],["signs","Placas na cidade"],["terminal","Terminal hacker"],["cafe","Lousa de café"],["travel","Cartão de embarque"],["ticker","Pregão financeiro"],["marquee","Letreiro de cinema"],["blueprint","Planta técnica"],["magazine","Capa de revista"],["orbit","Órbita"],["synthwave","Neon anos 80"],["gallery","Parede de galeria"]]), f.area("title", "Texto no cenário", {rows:2}), f.text("kicker", "Texto menor"), f.text("subtitle", "Subtítulo"), f.text("caption", "Assinatura"), f.text("image", "Imagem de fundo (arquivo ou link)"), f.num("imageOpacity", "Transparência do fundo (0 a 1; padrão 0.85)", { placeholder: "0.85" }), f.text("foreground", "Recorte em primeiro plano (PNG transparente)"), f.num("titleSize", "Tamanho do texto (px)")],
-    kinetic: [f.el("figure", "Cena de fundo"), f.list("beats", "Frases da sequência", obj([
-      f.area("text", "Frase", { rows: 2 }),
-      f.select("style", "Estilo tipográfico", [["clean", "Limpo"], ["poster", "Pôster"], ["editorial", "Editorial"], ["outline", "Contorno"], ["marker", "Marca-texto"]], { empty: "Limpo" }),
-      f.select("position", "Posição", [["left", "Esquerda"], ["center", "Centro"], ["right", "Direita"], ["top", "Alto"], ["bottom", "Baixo"]], { empty: "Variar automaticamente" }),
-      f.select("color", "Cor", [["white", "Branco"], ["gold", "Dourado"], ["pink", "Rosa"], ["cyan", "Ciano"]], { empty: "Branco" }),
-      f.select("size", "Escala", [["small", "Pequena"], ["medium", "Média"], ["large", "Grande"]], { empty: "Grande" }),
-      f.text("tag", "Microlegenda (opcional)"),
-    ]), { addLabel: "Adicionar frase", newItem: () => ({ text: "Nova frase" }) }),
-      f.more([f.num("interval", "Tempo por frase (ms)", { min: 450, max: 5000, placeholder: "1000" }), f.bool("autoplay", "Reproduzir automaticamente", { default: true })])],
     blocks: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.els("content", "Blocos"), f.more([f.select("titleAs", "Estilo do título", TEXT_ROLES, { empty: "Título" })])],
     end: [f.text("kicker", "Chapéu"), f.area("title", "Título", { placeholder: "Obrigado." }), f.text("subtitle", "Subtítulo"), f.list("contacts", "Contatos", T, { addLabel: "Adicionar contato" }),
       f.text("qr", "QR code (link)", { hint: "Ex.: seu LinkedIn. Aparece ao lado, pronto para a câmera do celular." }), f.text("qrLabel", "Legenda do QR code"),
@@ -462,6 +455,17 @@
   // ---------------------------------------------------------------------------------------------
   // Renderização
   // ---------------------------------------------------------------------------------------------
+  // meses (aaaa-mm) com evento num slide de calendário: o botão "Um slide por mês" separa por eles
+  function calendarMonth(d) {
+    const t = String(d ?? "").trim().replace(/[ T]\d{1,2}[:h]\d{2}$/, "");
+    let m = t.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/); if (m) return `${m[1]}-${m[2].padStart(2, "0")}`;
+    m = t.match(/^\d{1,2}\/(\d{1,2})\/(\d{4})$/); if (m) return `${m[2]}-${m[1].padStart(2, "0")}`;
+    m = t.match(/^(\d{1,2})\/(\d{4})$/); if (m) return `${m[2]}-${m[1].padStart(2, "0")}`;
+    return null;
+  }
+  function calendarMonths(s) { return [...new Set((s?.events || []).map((e) => calendarMonth(e?.date)).filter(Boolean))].sort(); }
+  window.SagaCalendarMonths = { calendarMonth, calendarMonths };
+
   let CTX = null;
   let typingTimer = null;
   const commitSoon = () => { clearTimeout(typingTimer); typingTimer = setTimeout(() => CTX.commit(false), 350); };

@@ -261,65 +261,8 @@
   }
 
   // ---------- cenas de aula: o clique da apresentação também é a etapa da explicação ----------
-  function kineticMorph(root, source, target) {
-    if (reducedMotion() || !source) return;
-    const word = $(".kinetic-word", target);
-    const sequence = $(".kinetic-sequence", root);
-    if (!word || !sequence || typeof word.animate !== "function") return;
-    const rootRect = root.getBoundingClientRect(), fromRect = source.rect, toRect = word.getBoundingClientRect();
-    if (!rootRect.width || !rootRect.height || !fromRect.width || !toRect.width) return;
-    const scaleX = root.offsetWidth / rootRect.width, scaleY = root.offsetHeight / rootRect.height;
-    const ghost = source.element.cloneNode(true);
-    ghost.classList.add("kinetic-morph");
-    ghost.removeAttribute("data-fit");
-    ghost.setAttribute("aria-hidden", "true");
-    const style = source.style;
-    Object.assign(ghost.style, {
-      position: "absolute",
-      left: `${(fromRect.left - rootRect.left) * scaleX}px`,
-      top: `${(fromRect.top - rootRect.top) * scaleY}px`,
-      width: `${fromRect.width * scaleX}px`,
-      height: "auto",
-      maxHeight: "none",
-      margin: "0",
-      overflow: "visible",
-      transform: "none",
-      transformOrigin: "top left",
-      zIndex: "4",
-      pointerEvents: "none",
-      fontFamily: style.fontFamily,
-      fontSize: style.fontSize,
-      fontWeight: style.fontWeight,
-      fontStyle: style.fontStyle,
-      lineHeight: style.lineHeight,
-      letterSpacing: style.letterSpacing,
-      textTransform: style.textTransform,
-      textAlign: style.textAlign,
-      color: style.color,
-      textShadow: style.textShadow,
-      background: style.background,
-      padding: style.padding,
-      borderRadius: style.borderRadius,
-      boxSizing: "border-box",
-    });
-    sequence.append(ghost);
-    const dx = (toRect.left - fromRect.left) * scaleX, dy = (toRect.top - fromRect.top) * scaleY;
-    const morphScale = Math.max(.72, Math.min(1.38, toRect.width / fromRect.width));
-    const animation = ghost.animate([
-      { opacity: .92, transform: "translate(0, 0) scale(1)", filter: "blur(0)" },
-      { opacity: .82, offset: .62, transform: `translate(${dx * .82}px, ${dy * .82}px) scale(${1 + (morphScale - 1) * .82})`, filter: "blur(0)" },
-      { opacity: 0, transform: `translate(${dx}px, ${dy}px) scale(${morphScale})`, filter: "blur(4px)" },
-    ], { duration: 720, easing: "cubic-bezier(.22,.78,.22,1)", fill: "both" });
-    animation.finished.then(() => ghost.remove(), () => ghost.remove());
-  }
-
   function renderLesson(root, requested) {
     const n = +root.dataset.lessonCount || 1, index = Math.max(0, Math.min(n - 1, +requested || 0));
-    const previous = Number(root.dataset.lessonIndex);
-    const oldPanel = root.dataset.lesson === "kinetic" && Number.isInteger(previous)
-      ? $(`[data-lesson-panel="${previous}"].active`, root) : null;
-    const oldWord = oldPanel && $(".kinetic-word", oldPanel);
-    const source = oldWord ? { element: oldWord, rect: oldWord.getBoundingClientRect(), style: getComputedStyle(oldWord) } : null;
     root.dataset.lessonIndex = String(index);
     // peças que acompanham o quadro sem serem painéis (carrossel): o CSS gira/desliza com --lesson-i e active/past
     root.style.setProperty("--lesson-i", String(index));
@@ -359,10 +302,6 @@
       }
     }
     if (root.dataset.lesson === "solution") window.SagadeckFit.fitSteps(root); // o quadro novo só mede agora, à vista
-    if (root.dataset.lesson === "kinetic") {
-      window.SagadeckFit.fitText(root);
-      if (previous !== index) kineticMorph(root, source, $(`[data-lesson-panel="${index}"]`, root));
-    }
   }
   function fitSpotlight(root) {
     const canvas = $(".spotlight-canvas", root), img = $(".spotlight-image img", root), regions = $(".spotlight-regions", root);
@@ -408,44 +347,6 @@
         hooks[si].leave.push(stop);
       });
       hooks[si].step.push((k) => { renderLesson(root, k); fitSpotlight(root); zoomSpotlight(root); });
-      if (root.dataset.lesson === "kinetic") {
-        let timer = null;
-        let enabled = root.dataset.kineticAutoplay === "true" && !reducedMotion() && +root.dataset.lessonCount > 1;
-        const toggle = $("[data-kinetic-toggle]", root);
-        const stop = () => { clearInterval(timer); timer = null; };
-        const updateToggle = () => {
-          if (!toggle) return;
-          toggle.textContent = enabled ? "Pausar" : "Reproduzir";
-          toggle.setAttribute("aria-label", enabled ? "Pausar sequência" : "Reproduzir sequência");
-          toggle.setAttribute("aria-pressed", String(enabled));
-        };
-        const start = () => {
-          if (!enabled || EXPORT || timer || +root.dataset.lessonIndex >= +root.dataset.lessonCount - 1) return;
-          const interval = Math.max(450, Math.min(5000, +root.dataset.kineticInterval || 1000));
-          timer = setInterval(() => {
-            const index = +root.dataset.lessonIndex || 0;
-            if (index >= +root.dataset.lessonCount - 1) { stop(); return; }
-            goto(si, index + 1);
-          }, interval);
-        };
-        toggle?.addEventListener("click", (event) => {
-          event.stopPropagation();
-          enabled = !enabled;
-          if (enabled && +root.dataset.lessonIndex >= +root.dataset.lessonCount - 1) goto(si, 0);
-          updateToggle();
-          if (enabled) start(); else stop();
-        });
-        hooks[si].enter.push(start);
-        hooks[si].leave.push(stop);
-        hooks[si].step.push((index) => {
-          if (index >= +root.dataset.lessonCount - 1 && enabled) {
-            stop();
-            enabled = false;
-            updateToggle();
-          }
-        });
-        updateToggle();
-      }
       root.addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (!button || !root.contains(button) || button.disabled) return;

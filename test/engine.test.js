@@ -160,43 +160,21 @@ test("foco guiado limita regiões à imagem e aceita figura sem dependência ext
   assert.match(html({ layout: "codewalk", steps: [] }), /data-lesson-count="1"/);
 });
 
-test("tipografia cinética normaliza batidas, limita opções e inclui resumo estático", () => {
-  const out = html({ layout: "kinetic", autoplay: false, interval: 9000, beats: [
-    "Uma frase",
-    { text: "Próxima", style: "neon", position: "right", color: "cyan", size: "medium", tag: "Agora" },
-    { text: "<script>alert(1)</script>", style: "desconhecido", position: "fora", color: "red", size: "gigante" },
+// A tipografia cinética saiu (Narumi: "se ele não consegue ser melhor, remova completamente"). Deck antigo que a usava
+// abre como frase em destaque, com as mesmas frases (uma por clique), sem aviso.
+test("tipografia cinética saiu: o layout não existe mais e deck antigo vira frase em destaque com as mesmas frases", () => {
+  assert.equal(LAYOUTS.kinetic, undefined);
+  assert.equal(LAYOUT_SAMPLES.kinetic, undefined);
+  const antigo = normalizeSpec({ slides: [
+    { layout: "kinetic", kicker: "Abertura", beats: ["Uma frase", { text: "Outra frase", style: "poster" }], figure: { icon: "rocket" }, autoplay: true, interval: 900 },
+    { layout: "kinetic", title: "Só o título" },
   ] });
-  assert.match(out, /data-lesson-count="3"/);
-  assert.match(out, /data-kinetic-interval="5000"/);
-  assert.match(out, /data-kinetic-autoplay="false"/);
-  assert.match(out, /data-style="clean" data-color="cyan" data-size="medium"/);
-  assert.doesNotMatch(out, /data-style="neon"/);
-  assert.match(out, /data-position="right"/);
-  assert.match(out, /Agora/);
-  assert.match(out, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.doesNotMatch(out, /<script>alert/);
-  assert.match(out, /kinetic-summary/);
-  const single = html({ layout: "kinetic", beats: ["Uma frase"] });
-  assert.match(single, /data-kinetic-autoplay="false"/);
-  assert.match(single, /data-kinetic-toggle[^>]*disabled/);
-});
-
-test("tipografia cinética usa título e ocupa a área inteira sem duplicar a frase", () => {
-  const out = renderSlide({ layout: "kinetic", kicker: "Uma seção", title: "Uma ideia clara", figure: { icon: "rocket" } }, 0, spec);
-  assert.match(out.html, /class="free"/);
-  assert.match(out.html, /Uma ideia clara/);
-  assert.match(out.html, /Uma seção/);
-  assert.match(out.html, /kinetic-scene/);
-  assert.doesNotMatch(out.html, /kinetic-echo|Sua frase entra em cena/);
-  const story = html({ layout: "kinetic", title: "Impulsionando a Eficiência do ==Desenvolvimento==", subtitle: "Proposta de Piloto para Assistente de Código" });
-  assert.match(story, /data-lesson-count="4"/);
-  assert.match(story, /Impulsionando a Eficiência/);
-  assert.match(story, /do <mark>Desenvolvimento<\/mark>/);
-  assert.match(story, /data-kinetic-autoplay="true"/);
-  assert.match(story, /data-style="clean"/);
-  assert.match(story, /data-position="left"/);
-  assert.match(story, /data-size="medium"/);
-  assert.doesNotMatch(story, /data-style="outline"/);
+  assert.deepEqual(antigo.slides[0], { kicker: "Abertura", layout: "statement", lines: ["Uma frase", "Outra frase"], build: true });
+  assert.deepEqual(antigo.slides[1], { layout: "statement", text: "Só o título" });
+  const { html, warnings } = buildHTML(antigo);
+  assert.deepEqual(warnings, []);
+  assert.match(html, /Uma frase[\s\S]*Outra frase[\s\S]*Só o título/);
+  assert.doesNotMatch(html, /kinetic/);
 });
 
 test("página inteira: image_prompt sem imagem vira placeholder (não some)", () => {

@@ -81,7 +81,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `cover` | `kicker, title, subtitle, author, role, figure` | capa |
 | `section` | `number, kicker, title, subtitle, figure` | abertura de ato/capítulo (tom `accent` por padrão) |
 | `statement` | `text` **ou** `lines: [ {text, as, color, step} ]`, `by`, `center` | uma frase de impacto; `lines` + `build` revelam linha a linha |
-| `calendar` | `kicker, title, events: [{date, title, text, tag, color}], undated: [{title, text}], undatedTitle, cols, build` | datas num **calendário** (agenda, lançamentos, cronograma, "infográfico em forma de calendário"): um cartão por mês que tem evento, com o mini calendário do mês (os dias marcados na cor do tipo) e a lista; `date`: `2026-12-18`, `18/12/2026` ou só o mês `2026-12`; cada `tag` (Filme, Série…) ganha uma cor e entra na legenda; o que não tem data vai no cartão "sem data" (`undated`). Para "calendário", este; `timeline` é para uma sequência de marcos sem a grade dos dias |
+| `calendar` | `kicker, title, events: [{date, time, title, text, tag, color}], undated: [{title, text}], undatedTitle, view, month, week, cols, build` | datas num **calendário** (agenda, lançamentos, cronograma, programação, "infográfico em forma de calendário"). `view`: `meses` (um cartão por mês com o mini calendário e a lista; poucos eventos por mês), `mes` (um mês grande, como calendário de parede, com os eventos escritos nos dias; muitos eventos num mês só), `semana` (uma coluna por dia com o horário; programação de um evento; fim de semana vazio some), `lista` (agenda compacta em colunas, agrupada por mês; muitos meses cheios). Sem `view`, o sagadeck escolhe pelo que cabe; muitos eventos em vários meses ficam melhores em **um slide por mês** (`view: mes` + `month: 2026-11` em cada slide, só com os eventos daquele mês). `week: 2026-11-16` escolhe a semana. `date`: `2026-12-18`, `18/12/2026`, `2026-12-18 14:00` ou só o mês `2026-12`; `time` ("14:00") também dá a hora; cada `tag` (Filme, Série…) ganha uma cor e entra na legenda; o que não tem data vai em "sem data" (`undated`). Para "calendário", este; `timeline` é para uma sequência de marcos sem a grade dos dias |
 | `poster` | `kicker, title, subtitle, hero` (ilustração principal: `{ image_prompt }`, imagem, gráfico…), `panels: [{label, title, text, icon` ou `figure` ou `image_prompt, facts: [{value, label}]}], flow, cols, key, build` | infográfico de UMA página no estilo de figura de revista científica (Nature, Scientific American): a ilustração principal e painéis com letra (a, b, c…), cada um com um desenho, título, texto curto e números com unidade; `flow: true` põe setas na ordem (receita, processo, protocolo); `key` é a nota de rodapé (fonte, condições). Para "infográfico de uma página", "pôster" ou "como fazer X numa página", este e não o `onepage` (que é jornada, problema e solução de um projeto). Ilustre os painéis com `image_prompt` no mesmo estilo (ex.: "clean scientific illustration, flat, white background") |
 | `definition` | `kicker, term, origin, parts: [{word, meaning}], text, icon` (ou `figure`), `build`, `termSize` (px do termo) | definição de um termo, como verbete: o termo em destaque, a origem da palavra em partes (`origin: do grego`, `parts: [{word: hydor, meaning: água}, {word: logos, meaning: ciência}]`) e a definição; para "o que é X", use este e não um `statement` com o parágrafo inteiro |
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
@@ -113,7 +113,6 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `references` | `title, items` | fontes (2 colunas) |
 | `headline` | `kicker, text, as, size, caption` | manchete: uma frase CURTA (até ~12 palavras) enorme ocupando o slide; frase longa sai menor (como no `statement`) e conta como slide de frase única (no máximo 2 por deck) |
 | `full` | `figure` (ou `image`/`image_prompt`), `kicker, title, caption, overlay: bottom\|left\|center\|none, fit, titleSize` | figura/imagem de página inteira com texto por cima; com `image_prompt` a IA gera a página toda. Figura do documento (`contexto/visuais/…`) ou `fit: contain` com texto não leva véu: sai com o título no alto, a figura inteira e a legenda embaixo (como `image`) |
-| `kinetic` | `figure, beats: [{text, style, position, color, size, tag}], autoplay, interval` | frases curtas em sequência sobre uma cena; avanço manual ou automático |
 | `bento` | `title, tiles: [{title, text, value, icon, figure, size: big\|wide\|tall, hl}], cols, build` | mosaico de blocos de tamanhos diferentes |
 | `funnel` | `title, stages: [{title, value, text, hl}], build` | funil que afunila etapa a etapa |
 | `pyramid` | `title, levels: [{title, text, hl}], build` | pirâmide (topo → base) |
@@ -193,37 +192,6 @@ paginação automática de apostila ainda não fazem parte deste editor.
 
 No YAML, um ponto usa `kind: point`, `x` e `y` em porcentagens. Áreas usam `kind: area` (ou omitem `kind`)
 e acrescentam `width` e `height`. Ambos aceitam `title` e `text` dentro de `hotspots` do layout `spotlight`.
-
-## Slide `kinetic`: tipografia em cena
-
-O layout `kinetic` combina uma figura de fundo com frases curtas que entram em sequência, podendo variar
-estilo, posição, cor e escala em cada batida. No Studio, adicione a cena e edite cada frase; a sequência
-interativa roda em **Apresentar** e avança pelos botões ou automaticamente. A prévia no editor mostra
-apenas o primeiro quadro. Ao trocar outro layout para `kinetic`, o SagaDeck reaproveita o título ou os
-itens existentes como frases e mantém a figura do slide. Sem título, frase ou itens, começa com
-“Uma ideia em movimento”.
-
-`autoplay` é `true` por padrão para duas ou mais frases e `interval` define o tempo em milissegundos
-(450–5000, padrão 1000). Movimento automático começa ao entrar no slide, para ao sair ou ao chegar à
-última frase, e respeita a preferência do sistema por movimento reduzido; o botão ainda permite iniciar
-manualmente. Para uma frase estática, use `autoplay: false`.
-
-Os estilos disponíveis são `clean`, `poster`, `editorial`, `outline` e `marker`; o estilo limpo é o padrão,
-sem brilho ou sombra exagerada. Posições: `left`, `center`,
-`right`, `top` e `bottom`; cores: `white`, `gold`, `pink` e `cyan`; escalas: `small`, `medium` e `large`.
-Campos omitidos variam com a batida para criar ritmo visual. Em impressão/exportação estática, os controles
-e a animação são substituídos por uma lista das frases.
-
-```yaml
-- layout: kinetic
-  figure: { image: palco.jpg }
-  autoplay: true
-  interval: 1100
-  beats:
-    - { text: "A IDEIA", style: poster, position: left, color: white, size: large, tag: "COMEÇA PEQUENA" }
-    - { text: "ACENDE", style: clean, position: right, color: white, size: large }
-    - { text: "E MUDA", style: editorial, position: bottom, color: gold, size: medium }
-```
 
 ## Slide `api`: requisição ao vivo
 
@@ -880,9 +848,9 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 - `ribbon`: os mesmos campos em cápsulas arredondadas, centralizadas. Para serviços, etapas ou pilares.
 - `dossier`: página de consulta, compacta: letra menor e blocos de código (`code`) com quebra de linha. Para material de referência (documentação, payloads, instruções); não imponha a ela o limite de palavras de uma palestra quando a pessoa pede material denso.
 
-No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, tipografia cinética, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
+No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
 
-Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança, diagrama e tipografia cinética.
+Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança e diagrama.
 
 Modelos, estilos, demos e exemplos de **Modelo pronto** (na vitrine, "Visuais para começar" e "Recursos do SagaDeck", com a capa de cada um) abrem em **prévia**: dá para navegar, apresentar e experimentar sem criar arquivo. A primeira mudança (ou o botão **Usar como base**) cria uma cópia na biblioteca, no tópico de onde veio (padrão `Modelos`), com as imagens; o modelo de fábrica nunca muda.
 

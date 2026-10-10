@@ -168,6 +168,22 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Calendário com visões e a saída da tipografia cinética — 10/10/2026
+
+Narumi: "eu odeio muito a tipografia cinética… se ele não consegue ser melhor, remova completamente". Saiu do motor,
+do runtime, do Studio (galeria, formulário, troca de layout), do tour e da referência. Deck antigo que a usava abre
+como frase em destaque com as mesmas frases, uma por clique (`src/fiscal/normalize.js`; `engine.test.js`).
+
+Sobre o calendário ("ficou excelente… mas se tiverem muitos eventos no mesmo mês vai encher de linhas e extrapolar a
+altura"): o cartão cortava os eventos sem avisar. Agora `view` tem `meses` (o de antes), `mes` (um mês grande de
+parede, os eventos escritos nos dias, "+ N mais" quando o dia lota), `semana` (uma coluna por dia com horário; fim
+de semana vazio some) e `lista` (agenda em colunas, a letra diminui com a quantidade). Sem `view`, escolhe pelo que
+cabe, com a altura medida no navegador (mês de 6 semanas conta). `month`/`week` escolhem o mês e a semana; `time` ou
+"2026-11-16 09:00" dão a hora. No Studio, o formulário tem Visão e o botão **Um slide por mês** (cada slide no mês
+grande, com os eventos dele; o "sem data" fica no primeiro). Testes: `calendar.test.js` (as visões, a escolha e, no
+navegador, de 1 a 8 meses com até 16 eventos: ou cabe ou avisa) e `calendar-studio.test.js` (visão e botão, no deck
+salvo). O calendário ganhou limite de 240 palavras (é denso por natureza).
+
 ## Editar mapa: uma tela própria — 10/10/2026
 
 Narumi, testando o mapa da demo oficial: "não consigo clicar pra editar, não sei como edita, não sei se tem uma tela

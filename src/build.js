@@ -59,7 +59,7 @@ export function inferLayout(s) {
 }
 
 const DEFAULT_TONE = { section: "accent", cover: "light", end: "dark" };
-const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "kinetic", "scenography"]);
+const NO_FOOTER = new Set(["cover", "section", "end", "image", "canvas", "full", "headline", "scenography"]);
 
 export function wordCount(s) {
   const txt = [];
@@ -272,7 +272,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
-  const area = layout === "canvas" || layout === "full" || layout === "kinetic" || layout === "scenography" ? "free" : "safe";
+  const area = layout === "canvas" || layout === "full" || layout === "scenography" ? "free" : "safe";
   const motionAccent = area === 'safe' && s.motionAccent && typeof s.motionAccent === 'object';
   // estilo do ==destaque== (marca-texto | sublinhado | cor | negrito | nenhum), no deck ou por slide
   const markStyle = s.markStyle || spec.markStyle;

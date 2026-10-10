@@ -40,18 +40,6 @@ const codeEditor = (s, { source, highlight = s.highlight, footer = "CÓDIGO · L
 };
 // As cenas de aula deixam todo o conteúdo no HTML: funcionam offline e têm resumo estático.
 const lessonSteps = (items, fallback) => Array.isArray(items) && items.length ? items.map((p) => typeof p === "string" ? { title: p } : (p || {})) : [fallback];
-const kineticPhrases = (value) => {
-  const words = String(value || "").match(/==[^=]+==|\*\*.*?\*\*|\*[^*]+\*|~~.*?~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\S+/g) || [];
-  const connectors = new Set(["a", "as", "de", "do", "da", "dos", "das", "e", "em", "no", "na", "nos", "nas", "para", "por", "com", "o", "os"]);
-  const phrases = [];
-  while (words.length) {
-    let take = Math.ceil(words.length / Math.ceil(words.length / 4));
-    const last = words[take - 1]?.replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, "").toLowerCase();
-    if (take > 1 && connectors.has(last)) take--;
-    phrases.push(words.splice(0, take).join(" "));
-  }
-  return phrases;
-};
 const lessonControls = (items) => `<nav class="lesson-controls" aria-label="Etapas da explicação"><button type="button" data-lesson-prev aria-label="Etapa anterior" disabled>${iconSVG("arrow-left", { size: 26, stroke: 2 })}</button><div class="lesson-dots">${items.map((p, i) => `<button type="button" data-lesson-go="${i}" aria-label="Etapa ${i + 1}: ${esc(p.title || "Explicação")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</div><button type="button" data-lesson-next aria-label="Próxima etapa" ${items.length === 1 ? "disabled" : ""}>${iconSVG("arrow-right", { size: 26, stroke: 2 })}</button></nav>`;
 const lessonPanels = (items, output = false) => `<div class="lesson-panels" aria-live="polite" aria-atomic="true">${items.map((p, i) => `<article class="lesson-panel${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-highlight="${esc(JSON.stringify([].concat(p.highlight || []).filter(Number.isFinite)))}"><div class="lesson-counter f-label">${String(i + 1).padStart(2, "0")} / ${String(items.length).padStart(2, "0")}</div>${text(p.title || `Etapa ${i + 1}`, "h3", { class: "lesson-title", size: 48 })}${p.text ? text(p.text, "body", { class: "lesson-text", size: 32 }) : ""}${output && p.output != null ? `<div class="lesson-output"><div class="lesson-output-label f-label">Saída esperada · simulação</div><pre class="f-mono">${esc(p.output)}</pre></div>` : ""}</article>`).join("")}</div>`;
 const lessonSummary = (items) => `<div class="lesson-summary">${items.map((p, i) => `<article><div class="f-label lesson-summary-number">${String(i + 1).padStart(2, "0")}</div><div><strong class="f-heading">${md(p.title || `Etapa ${i + 1}`)}</strong>${p.text ? `<p class="f-body">${md(p.text)}</p>` : ""}${p.output != null ? `<pre class="f-mono">${esc(p.output)}</pre>` : ""}</div></article>`).join("")}</div>`;
@@ -169,39 +157,119 @@ export const LAYOUTS = {
       ${s.text ? `<div class="df-rule e" style="--d:2;"></div>${text(s.text, "lead", { class: "df-text e", style: "--d:3;", step: s.build ? 2 : undefined })}` : ""}</div>${fig}</div>${src(s)}${add(s, ctx)}`;
   },
 
-  // Calendário (pedido: "um infográfico em forma de calendário dos próximos filmes"): um cartão por mês com evento, com
-  // o mini calendário do mês (os dias marcados na cor do evento) e a lista embaixo; o que não tem data vai no cartão
-  // "sem data". Datas: 2026-12-18, 18/12/2026, 2026-12 (só o mês) ou nada.
+  // Calendário (pedido: "um infográfico em forma de calendário dos próximos filmes"). Visões (`view`):
+  //  - meses: um cartão por mês com o mini calendário (os dias marcados na cor do evento) e a lista embaixo;
+  //  - mes: um mês grande, como calendário de parede, com os eventos escritos nos dias (muitos eventos num mês);
+  //  - semana: uma coluna por dia, com o horário (programação de um evento, semana de lançamento);
+  //  - lista: agenda compacta agrupada por mês, em colunas (muitos meses cheios).
+  // Sem `view`, escolhe sozinho: cabe nos cartões, meses; um mês só que não cabe, mes; vários meses cheios, lista
+  // (pedido de Narumi: muitos eventos no mesmo mês enchiam o cartão e passavam da altura do slide). `month` (2026-11)
+  // escolhe o mês da visão mes; `week` (uma data) a semana da visão semana. Datas: 2026-12-18, 18/12/2026, 2026-12
+  // (só o mês) ou nada; hora em `time` ("14:00") ou junto da data ("2026-12-18 14:00").
   calendar(s, ctx) {
     const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+    const warn = (m) => ctx?.warnings?.push(`calendário: ${m}`);
     const parse = (d) => {
-      const t = String(d ?? "").trim();
-      let m = t.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/); if (m) return { y: +m[1], mo: +m[2] - 1, d: m[3] ? +m[3] : null };
-      m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[3], mo: +m[2] - 1, d: +m[1] };
-      m = t.match(/^(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[2], mo: +m[1] - 1, d: null };
+      const raw = String(d ?? "").trim();
+      const hm = raw.match(/[ T](\d{1,2})[:h](\d{2})$/);
+      const t = hm ? raw.slice(0, hm.index).trim() : raw;
+      const time = hm ? `${hm[1].padStart(2, "0")}:${hm[2]}` : null;
+      let m = t.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/); if (m) return { y: +m[1], mo: +m[2] - 1, d: m[3] ? +m[3] : null, time };
+      m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[3], mo: +m[2] - 1, d: +m[1], time };
+      m = t.match(/^(\d{1,2})\/(\d{4})$/); if (m) return { y: +m[2], mo: +m[1] - 1, d: null, time };
       return null;
     };
+    const timeOf = (e) => (e.time != null && String(e.time).trim() ? String(e.time).trim().replace("h", ":") : e.at?.time || "");
     const events = (Array.isArray(s.events) ? s.events : []).filter((e) => e && typeof e === "object").map((e, i) => ({ ...e, i, at: parse(e.date) }));
     const undated = [...events.filter((e) => !e.at || e.at.mo < 0 || e.at.mo > 11), ...(Array.isArray(s.undated) ? s.undated.map((e) => (typeof e === "string" ? { title: e } : e)) : [])];
+    const dated = events.filter((x) => x.at && x.at.mo >= 0 && x.at.mo <= 11).sort((a, b) => a.at.y - b.at.y || a.at.mo - b.at.mo || (a.at.d || 99) - (b.at.d || 99) || timeOf(a).localeCompare(timeOf(b)));
     const months = new Map();
-    for (const e of events.filter((x) => x.at && x.at.mo >= 0 && x.at.mo <= 11).sort((a, b) => a.at.y - b.at.y || a.at.mo - b.at.mo || (a.at.d || 99) - (b.at.d || 99))) {
-      const key = `${e.at.y}-${e.at.mo}`; if (!months.has(key)) months.set(key, { y: e.at.y, mo: e.at.mo, list: [] }); months.get(key).list.push(e);
-    }
+    for (const e of dated) { const key = `${e.at.y}-${e.at.mo}`; if (!months.has(key)) months.set(key, { y: e.at.y, mo: e.at.mo, list: [] }); months.get(key).list.push(e); }
     const colors = itemColors(ctx?.theme || { colors: {} }, 6).map((h) => `#${h}`); // as do infográfico: do tema, diferentes entre si e com contraste
     const tagColor = new Map(); const colorOf = (e) => e.color ? (/^#?[0-9a-f]{6}$/i.test(e.color) ? `#${String(e.color).replace("#", "")}` : /^[a-z][\w-]*$/i.test(e.color) ? `var(--${e.color})` : "var(--hi)") : (e.tag ? (tagColor.has(e.tag) || tagColor.set(e.tag, colors[tagColor.size % colors.length]), tagColor.get(e.tag)) : colors[0]);
-    const card = (m, k) => {
-      const first = new Date(Date.UTC(m.y, m.mo, 1)).getUTCDay(), days = new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate();
-      const byDay = new Map(m.list.filter((e) => e.at.d).map((e) => [e.at.d, e]));
-      const cells = [...Array(first).fill(`<i></i>`), ...Array.from({ length: days }, (_, j) => { const e = byDay.get(j + 1); return e ? `<b style="--c:${colorOf(e)}">${j + 1}</b>` : `<i>${j + 1}</i>`; })].join("");
-      const items = m.list.map((e) => `<li class="ca-ev" style="--c:${colorOf(e)}"><span class="t f-label ca-day">${e.at.d ? String(e.at.d).padStart(2, "0") : "—"}</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 26 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 18 }) : ""}${e.tag ? `<span class="t f-label ca-tag">${md(String(e.tag))}</span>` : ""}</div></li>`).join("");
-      return `<section class="ca-month e" style="--d:${2 + k};"${s.build ? ` data-step="${k + 1}"` : ""}><header class="ca-head"><span class="t f-display ca-mo">${MESES[m.mo]}</span><span class="t f-label ca-y">${m.y}</span></header><div class="ca-grid" aria-hidden="true">${"DSTQQSS".split("").map((d) => `<u>${d}</u>`).join("")}${cells}</div><ul class="ca-list">${items}</ul></section>`;
-    };
-    const list = [...months.values()];
-    const und = undated.length ? `<section class="ca-month ca-undated e" style="--d:${2 + list.length};"><header class="ca-head"><span class="t f-display ca-mo">${md(String(s.undatedTitle || "sem data"))}</span></header><ul class="ca-list">${undated.map((e) => `<li class="ca-ev" style="--c:var(--muted)"><span class="t f-label ca-day">?</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 24 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 17 }) : ""}</div></li>`).join("")}</ul></section>` : "";
-    const n = list.length + (und ? 1 : 0), cols = s.cols || Math.min(n, n <= 4 ? n : n <= 6 ? 3 : 4);
-    const cardsHTML = list.map(card).join(""); // antes da legenda: os cartões é que dão a cor de cada tipo
+    const step = (k) => (s.build ? ` data-step="${k + 1}"` : "");
+    let list = [...months.values()];
+    const und = (k) => undated.length ? `<section class="ca-month ca-undated e" style="--d:${2 + k};"><header class="ca-head"><span class="t f-display ca-mo">${md(String(s.undatedTitle || "sem data"))}</span></header><ul class="ca-list">${undated.map((e) => `<li class="ca-ev" style="--c:var(--muted)"><span class="t f-label ca-day">?</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 24 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 17 }) : ""}</div></li>`).join("")}</ul></section>` : "";
+
+    // cabe nos cartões? Medido no navegador: com título, a área dos cartões tem ~698 px (uma fileira); a lista começa
+    // ~245 px abaixo do topo do cartão num mês de 5 semanas (27 px a mais por semana); evento ocupa 27 px (54 com detalhe)
+    const nCards = list.length + (undated.length ? 1 : 0);
+    const cols = s.cols || Math.min(nCards, nCards <= 4 ? nCards : nCards <= 6 ? 3 : 4) || 1;
+    const rows = Math.ceil(nCards / cols) || 1;
+    const cardH = ((s.title || s.kicker ? 698 : 860) - (rows - 1) * 22) / rows;
+    const weeksOf = (m) => Math.ceil((new Date(Date.UTC(m.y, m.mo, 1)).getUTCDay() + new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate()) / 7);
+    const need = (m) => m.list.reduce((h, e) => h + (e.text ? 54 : 27), 0) + (m.list.length - 1) * 10;
+    const full = list.filter((m) => need(m) > cardH - 18 - 245 - (weeksOf(m) - 5) * 27 + 4);
+    let view = ["meses", "mes", "semana", "lista"].includes(s.view) ? s.view : null;
+    if (s.view && !view) warn(`visão "${s.view}" não existe (use meses, mes, semana ou lista)`);
+    if (!view) view = s.month ? "mes" : !full.length ? "meses" : list.length === 1 ? "mes" : "lista";
+    if (view === "meses" && full.length) warn(`${full.map((m) => `${MESES_LONGOS[m.mo]} tem ${m.list.length} eventos`).join(", ")} e não cabe no cartão; use view: mes (no Studio: Um slide por mês) ou view: lista`);
+
+    const chipOf = (e) => `<span class="cm-ev t f-body" style="--c:${colorOf(e)}">${timeOf(e) ? `<b>${esc(timeOf(e))}</b> ` : ""}${md(String(e.title || ""))}</span>`;
+    let body;
+    if (view === "mes") {
+      // o mês grande: `month` escolhe; senão os meses com evento (até dois lado a lado)
+      if (s.month) {
+        const want = parse(s.month);
+        if (!want) warn(`mês "${s.month}" não é uma data (use 2026-11)`);
+        else list = [months.get(`${want.y}-${want.mo}`) || { y: want.y, mo: want.mo, list: [] }];
+      }
+      if (list.length > 2) { warn(`${list.length} meses na visão de mês: mostrando os dois primeiros; use Um slide por mês (no Studio) ou view: lista`); list = list.slice(0, 2); }
+      const big = (m, k) => {
+        const first = new Date(Date.UTC(m.y, m.mo, 1)).getUTCDay(), days = new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate();
+        const weeks = Math.ceil((first + days) / 7), max = weeks > 5 ? 2 : 3;
+        const byDay = new Map(); for (const e of m.list.filter((x) => x.at.d)) (byDay.get(e.at.d) || byDay.set(e.at.d, []).get(e.at.d)).push(e);
+        const cells = Array.from({ length: weeks * 7 }, (_, j) => {
+          const d = j - first + 1;
+          if (d < 1 || d > days) return `<div class="cm-cell out"></div>`;
+          const evs = byDay.get(d) || [];
+          if (evs.length > max) warn(`dia ${d} de ${MESES_LONGOS[m.mo]} tem ${evs.length} eventos; ${evs.length - max} ficaram no "+ mais" (use view: semana para ver todos)`);
+          return `<div class="cm-cell${evs.length ? " has" : ""}"><span class="cm-d t f-label">${d}</span>${evs.slice(0, max).map(chipOf).join("")}${evs.length > max ? `<span class="cm-more t f-label">+ ${evs.length - max} mais</span>` : ""}</div>`;
+        }).join("");
+        const noDay = m.list.filter((x) => !x.at.d);
+        return `<section class="cm-month e" style="--d:${2 + k};--weeks:${weeks}"${step(k)}><header class="ca-head"><span class="t f-display ca-mo">${MESES_LONGOS[m.mo]}</span><span class="t f-label ca-y">${m.y}</span></header>
+          <div class="cm-grid">${DIAS.map((d) => `<u class="t f-label">${d}</u>`).join("")}${cells}</div>${noDay.length ? `<div class="cm-noday"><span class="t f-label">no mês</span>${noDay.map(chipOf).join("")}</div>` : ""}</section>`;
+      };
+      body = `<div class="cm-months" style="--cols:${list.length || 1}">${list.map(big).join("")}${undated.length ? `<div class="cm-side">${und(list.length)}</div>` : ""}</div>`;
+    } else if (view === "semana") {
+      // semanas (de domingo a sábado) com evento de dia marcado; `week` escolhe uma
+      const startOf = (y, mo, d) => { const t = Date.UTC(y, mo, d); return t - new Date(t).getUTCDay() * 864e5; };
+      const withDay = dated.filter((e) => e.at.d);
+      let starts = [...new Set(withDay.map((e) => startOf(e.at.y, e.at.mo, e.at.d)))].sort((a, b) => a - b);
+      if (s.week) { const w = parse(s.week); if (w?.d) starts = [startOf(w.y, w.mo, w.d)]; else warn(`semana "${s.week}" precisa de um dia (2026-11-12)`); }
+      if (starts.length > 2) { warn(`${starts.length} semanas com evento: mostrando as duas primeiras; use week: (uma data) num slide por semana, ou view: lista`); starts = starts.slice(0, 2); }
+      if (!starts.length) warn("nenhum evento com dia marcado para a visão de semana");
+      const busy = (t0, j) => { const day = new Date(t0 + j * 864e5); return withDay.some((e) => e.at.y === day.getUTCFullYear() && e.at.mo === day.getUTCMonth() && e.at.d === day.getUTCDate()); };
+      const days = starts.some((t0) => busy(t0, 0) || busy(t0, 6)) ? [0, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5]; // fim de semana vazio sai
+      const week = (t0, k) => `<section class="cw-week e" style="--d:${2 + k};--days:${days.length}"${step(k)}>${days.map((j) => {
+        const day = new Date(t0 + j * 864e5), y = day.getUTCFullYear(), mo = day.getUTCMonth(), d = day.getUTCDate();
+        const evs = withDay.filter((e) => e.at.y === y && e.at.mo === mo && e.at.d === d);
+        return `<div class="cw-day${evs.length ? " has" : ""}"><header class="cw-h"><span class="t f-label">${DIAS[j]}</span><b class="t f-display">${d}</b><span class="t f-label cw-mo">${MESES[mo]}</span></header>
+          ${evs.map((e) => `<div class="cw-ev" style="--c:${colorOf(e)}">${timeOf(e) ? `<span class="t f-label cw-t">${esc(timeOf(e))}</span>` : ""}${text(e.title || "", "h3", { class: "cw-title", size: 22 })}${e.text ? text(e.text, "small", { class: "cw-text muted", size: 16 }) : ""}${e.tag ? `<span class="t f-label ca-tag">${md(String(e.tag))}</span>` : ""}</div>`).join("")}</div>`;
+      }).join("")}</section>`;
+      body = `<div class="cw-weeks" style="--rows:${starts.length || 1}">${starts.map(week).join("")}</div>${undated.length ? `<div class="cm-noday"><span class="t f-label">${md(String(s.undatedTitle || "sem data"))}</span>${undated.map((e) => chipOf({ ...e, color: "muted" })).join("")}</div>` : ""}`;
+    } else if (view === "lista") {
+      // agenda: os meses em sequência, em colunas; a letra diminui com a quantidade
+      const total = dated.length + undated.length;
+      const ncol = s.cols || (total > 24 ? 3 : total > 10 ? 2 : 1);
+      if (total > 48) warn(`${total} eventos numa lista só ficam pequenos demais; divida em dois slides (no Studio: Um slide por mês)`);
+      const fs = total > 36 ? 15 : total > 20 ? 17 : total > 10 ? 20 : 24;
+      const row = (e) => `<li class="cl-ev" style="--c:${colorOf(e)}"><span class="cl-d"><b class="t f-display">${e.at?.d ? String(e.at.d).padStart(2, "0") : "—"}</b>${e.at?.d ? `<small class="t f-label">${DIAS[new Date(Date.UTC(e.at.y, e.at.mo, e.at.d)).getUTCDay()]}</small>` : ""}</span><div class="cl-what"><span class="cl-title t f-body">${timeOf(e) ? `<b class="cl-t">${esc(timeOf(e))}</b> ` : ""}${md(String(e.title || ""))}</span>${e.text ? `<small class="cl-text t f-body muted">${md(String(e.text))}</small>` : ""}</div>${e.tag ? `<span class="t f-label ca-tag">${md(String(e.tag))}</span>` : ""}</li>`;
+      body = `<div class="cl-list" style="--ncol:${ncol};--cal-fs:${fs}px">${list.map((m, k) => `<section class="cl-month e" style="--d:${2 + k};"${step(k)}><header class="cl-h"><span class="t f-display">${MESES_LONGOS[m.mo]}</span><span class="t f-label ca-y">${m.y}</span></header><ul>${m.list.map(row).join("")}</ul></section>`).join("")}${undated.length ? `<section class="cl-month e" style="--d:${2 + list.length};"><header class="cl-h"><span class="t f-display">${md(String(s.undatedTitle || "sem data"))}</span></header><ul>${undated.map((e) => row({ ...e, color: "muted" })).join("")}</ul></section>` : ""}</div>`;
+    } else {
+      const card = (m, k) => {
+        const first = new Date(Date.UTC(m.y, m.mo, 1)).getUTCDay(), days = new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate();
+        const byDay = new Map(m.list.filter((e) => e.at.d).map((e) => [e.at.d, e]));
+        const cells = [...Array(first).fill(`<i></i>`), ...Array.from({ length: days }, (_, j) => { const e = byDay.get(j + 1); return e ? `<b style="--c:${colorOf(e)}">${j + 1}</b>` : `<i>${j + 1}</i>`; })].join("");
+        const items = m.list.map((e) => `<li class="ca-ev" style="--c:${colorOf(e)}"><span class="t f-label ca-day">${e.at.d ? String(e.at.d).padStart(2, "0") : "—"}</span><div class="ca-what">${text(e.title || "", "h3", { class: "ca-title", size: 26 })}${e.text ? text(e.text, "small", { class: "ca-text muted", size: 18 }) : ""}${e.tag ? `<span class="t f-label ca-tag">${md(String(e.tag))}</span>` : ""}</div></li>`).join("");
+        return `<section class="ca-month e" style="--d:${2 + k};"${step(k)}><header class="ca-head"><span class="t f-display ca-mo">${MESES[m.mo]}</span><span class="t f-label ca-y">${m.y}</span></header><div class="ca-grid" aria-hidden="true">${"DSTQQSS".split("").map((d) => `<u>${d}</u>`).join("")}${cells}</div><ul class="ca-list">${items}</ul></section>`;
+      };
+      body = `<div class="ca-months" style="--cols:${cols};">${list.map(card).join("")}${und(list.length)}</div>`;
+    }
     const legend = tagColor.size > 1 ? `<div class="ca-legend">${[...tagColor].map(([t, c]) => `<span class="t f-label" style="--c:${c}"><i></i>${md(String(t))}</span>`).join("")}</div>` : "";
-    return `<div class="L-calendar">${head(s)}${legend}<div class="ca-months" style="--cols:${cols};">${cardsHTML}${und}</div></div>${src(s)}${add(s, ctx)}`;
+    return `<div class="L-calendar" data-view="${view}">${head(s)}${legend}${body}</div>${src(s)}${add(s, ctx)}`;
   },
 
   // Pôster (infográfico de uma página, como uma figura de revista científica): ilustração principal, painéis com letra
@@ -487,42 +555,6 @@ export const LAYOUTS = {
     }).join("");
     const visual = s.figure || (s.image ? { image: s.image, alt: s.caption || s.title || "Imagem em análise", fit: "contain" } : { diagram: "flow", steps: ["Entrada", "Processamento", "Resultado"] });
     return `<div class="L-spotlight" data-lesson="spotlight" data-lesson-count="${spots.length}">${head(s)}<div class="lesson-row"><div class="spotlight-visual"><div class="spotlight-canvas"><div class="spotlight-zoom"><div class="spotlight-image">${el(visual, ctx, 1100, 660)}</div><div class="spotlight-regions">${regions}</div></div></div>${s.caption ? text(s.caption, "small", { class: "spotlight-caption", size: 24 }) : ""}</div><aside class="lesson-aside">${lessonPanels(spots)}${lessonSummary(spots)}${lessonControls(spots)}</aside></div></div>${src(s)}${add(s, ctx)}`;
-  },
-
-  kinetic(s, ctx) {
-    const beats = Array.isArray(s.beats) && s.beats.length
-      ? s.beats.map((beat) => typeof beat === "string" ? { text: beat } : beat || {})
-      : [
-          ...kineticPhrases(s.title || s.text),
-          ...kineticPhrases(s.subtitle),
-        ].map((text, i) => ({
-          text, style: "clean", position: "left", size: "medium",
-          ...(i === 0 && s.kicker ? { tag: s.kicker } : {}),
-        }));
-    if (!beats.length) beats.push({ text: "Uma ideia em movimento", style: "clean", position: "left", color: "white", size: "large" });
-    const frames = beats.map((beat, i) => {
-      const style = ["clean", "poster", "editorial", "outline", "marker"].includes(beat.style) ? beat.style : "clean";
-      const position = ["left", "center", "right", "top", "bottom"].includes(beat.position) ? beat.position : "left";
-      const color = ["white", "gold", "pink", "cyan"].includes(beat.color) ? beat.color : "white";
-      const size = ["small", "medium", "large"].includes(beat.size) ? beat.size : "medium";
-      return `<article class="kinetic-frame${i === 0 ? " active" : ""}" data-lesson-panel="${i}" data-position="${position}" data-style="${style}" data-color="${color}" data-size="${size}" aria-hidden="${i !== 0}">
-        <div class="kinetic-word" data-fit>${md(beat.text || "")}</div>
-        ${beat.tag ? `<div class="kinetic-tag">${md(beat.tag)}</div>` : ""}
-      </article>`;
-    }).join("");
-    const scene = s.figure ? el(s.figure, ctx, 1920, slideSize(ctx.spec).h) : "";
-    const interval = Math.max(450, Math.min(5000, Number(s.interval) || 1000));
-    const autoplay = s.autoplay !== false && beats.length > 1;
-    const summary = `<div class="kinetic-summary" aria-label="Frases da sequência">${beats.map((beat) => `<span>${md(beat.text || "")}</span>`).join("")}</div>`;
-    return `<div class="L-kinetic" data-lesson="kinetic" data-lesson-count="${beats.length}" data-kinetic-interval="${interval}" data-kinetic-autoplay="${autoplay}">
-      <div class="kinetic-scene" aria-hidden="true">${scene}</div><div class="kinetic-shade" aria-hidden="true"></div>
-      <div class="kinetic-grain" aria-hidden="true"></div>
-      <div class="kinetic-sequence" aria-live="polite" aria-atomic="true">${frames}</div>
-      <div class="kinetic-controls"><button type="button" class="kinetic-toggle" data-kinetic-toggle aria-pressed="${autoplay}" aria-label="${autoplay ? "Pausar" : "Reproduzir"} sequência"${beats.length < 2 ? " disabled" : ""}>${autoplay ? "Pausar" : "Reproduzir"}</button>
-        <nav class="kinetic-dots" aria-label="Frases da sequência">${beats.map((beat, i) => `<button type="button" data-lesson-go="${i}" aria-label="Frase ${i + 1}: ${esc(beat.text || "")}" aria-current="${i === 0 ? "step" : "false"}">${String(i + 1).padStart(2, "0")}</button>`).join("")}</nav>
-        <button type="button" class="kinetic-next" data-lesson-next aria-label="Próxima frase">${iconSVG("arrow-right", { size: 26, stroke: 2 })}</button>
-      </div>${summary}
-    </div>${add(s, ctx)}`;
   },
 
   blocks(s, ctx) {
