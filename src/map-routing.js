@@ -53,6 +53,19 @@ export async function isochrone([lat, lon], minutos, { modo = "pe", cfg = loadMa
   return f.geometry;
 }
 
+// rastro de GPS tremido -> o caminho pelas ruas por onde passou (OSRM /match; com o OpenRouteService configurado
+// para rotas, o encaixe usa o OSRM público). pontos: [[lat, lon], …] (até 100). Devolve [[lon, lat], …]
+export async function matchTrace(pontos, { modo = "pe", cfg = loadMapConfig(mapaFile()) } = {}) {
+  const pts = pontos.slice(0, 100).map(([lat, lon]) => [Number(lat), Number(lon)]).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+  if (pts.length < 2) throw new Error("Encaixar nas ruas: o rastro precisa de pelo menos dois pontos.");
+  const base = (!isORS(cfg.rotas) && cfg.rotas?.url ? cfg.rotas.url : "https://router.project-osrm.org").replace(/\/+$/, "");
+  const res = await callService("rotas", `${base}/match/v1/${OSRM_PROFILE[MODOS[modo] ? modo : "pe"]}/${pts.map(([lat, lon]) => `${lon},${lat}`).join(";")}?overview=full&geometries=geojson`, { cfg });
+  const j = await res.json();
+  const coords = (j.matchings || []).flatMap((m) => m.geometry?.coordinates || []);
+  if (coords.length < 2) throw new Error("Encaixar nas ruas: o serviço não achou as ruas desse rastro.");
+  return coords;
+}
+
 // endereço de um ponto (para preencher a coluna de endereço de um ponto novo)
 export async function reverseGeocode(lat, lon, { cfg = loadMapConfig(mapaFile()) } = {}) {
   const g = cfg.geocoder;

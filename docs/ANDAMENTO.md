@@ -113,14 +113,41 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    "Usar o OpenRouteService" e Testar, botão na biblioteca, `keyEnv` (variável de ambiente, para o servidor). README
    com a seção "Mapa (opcional)". Achados: o editor visual capturava o clique no mapa (agora ignora `.map-live`); o
    projeto não gravava `.geojson/.gpx/.kml` como texto. Testes: `test/map-editor.test.js` e `map-data.test.js`.
-   Retomada: PR #178 ainda aguardando CI verde. A corrida do arrastar passou no último Ubuntu; a falha restante era
+   Retomada: PR #178 mergeado após CI verde no Ubuntu e no Windows. A corrida do arrastar passou; a falha restante era
    uma releitura ao clicar na aba de planilha já ativa, que substituía a grade e apagava a seleção feita pelo mapa.
    O clique agora mantém a aba ativa. Regressão com resposta atrasada reproduziu a falha antes da correção e passou
    depois; mapa/planilha e editor: 6 testes passando. Suíte completa: 950 passaram, 22 pulados, zero falhas.
-4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha
-   com a fonte de cada linha, para revisão antes de virar slide.
-5. **Análises**: mais próximo, distância, tempo de rota, contagem em raio/área, faixa em volta de linha, cruzamento de
-   formas, área alcançável, encaixe de GPS, "onde instalar o próximo".
+4. **Feita (10/10).** A IA que edita o deck pede dados com um bloco `mapa:` (como o `ver:` do material; nenhuma
+   chamada a mais quando o pedido não é de mapa): `lugares` e `linhas` (Overpass, com o filtro de tags que ela
+   escolhe e o centro achado no Nominatim), `contorno` (Nominatim com polígono), `web` (a pesquisa existente + uma
+   extração que só usa o que leu, com a URL de cada linha; as coordenadas vêm depois) e `coordenadas` (planilha da
+   pessoa; sem `confirmado: true`, o código pergunta "Posso enviar?" com opções e não envia nada). O Studio executa
+   (`src/ai/map-data.js`), grava em `contexto/` com a coluna `fonte` e chama a IA de novo (até 2 rodadas). O prompt
+   (`mapDataPrompt`) leva o estado de cada serviço; bloqueado não recebe pedido e a IA fica sabendo. Testes:
+   `test/map-ai.test.js` (encanamento, LLM falso) e 3 ao vivo em `test/ai-live.test.js` (pede `amenity=cinema` perto
+   de Campinas; não se dá o sim sozinha; com a busca bloqueada, não pede e oferece alternativa), todos passando com o
+   modelo de verdade. Conferido com o OpenStreetMap real: 5 cinemas num raio de 8 km do centro de Campinas (o
+   Overpass público às vezes responde 504 por sobrecarga; o sagadeck registra e não insiste).
+5. **Feita (10/10), no mesmo PR da 4.** Contas puras em `src/map-analysis.js` (haversine, mais próximo, raio, ponto em
+   polígono com buraco, distância a linha, círculo, faixa em volta de linha para desenhar, "onde instalar" por grade e
+   escolha gulosa) e as ações do bloco `mapa:` em `src/ai/map-analysis-run.js`: `mais_proximo` (CSV com
+   `mais_proximo` e `distancia_m`), `contar` (por área ou raio, grava o círculo), `faixa` (GeoJSON da faixa e quantos
+   pontos dentro, pela distância exata à linha), `sugerir` (CSV de sugestões, avisando que é geométrico), `rota`
+   (distância e tempo), `alcance` (isócronas, só com OpenRouteService) e `encaixar` (OSRM `/match`, amostrando até 100
+   pontos). A IA só narra os números. Achado: pontos todos alinhados deixavam o "onde instalar" sem resposta (retângulo
+   de altura zero). Testes: `test/map-analysis.test.js` e o ao vivo "qual loja fica mais perto de cada pedido" (pede
+   `mais_proximo`).
+
+**Publicação 1.8.0 (retomada em 10/10):** versão preparada em `package.json` e lockfile, incluindo as cinco entregas
+e o Conheça o SagaDeck. O #178 já foi mergeado; falta concluir a CI e mergear o #179, conferir a CI da `main`, criar a
+release e atualizar a instalação local e o Oracle. No Oracle, o ambiente e os dois `mapa.json` já estão preparados
+com `OPENROUTESERVICE_API_KEY` (modo 600, dono de cada serviço); os serviços aguardam o código da release para
+reiniciar. Os quatro testes de mapa com o modelo real passaram novamente. Suíte completa da 1.8.0: 982 testes,
+956 passaram, 26 pulados, zero falhas; mapa/editor/exportação/leitores e regras: 22 testes direcionados passaram.
+Na revisão com cliques reais, a planilha cobria o mapa inteiro e a legenda interceptava um ponto no enquadramento
+automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico recolhidas, com botão para abrir), a
+seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
+antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
 ## Conheça o SagaDeck — 10/10/2026
 

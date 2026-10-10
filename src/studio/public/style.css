@@ -1109,6 +1109,8 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .doc-view.hidden { display: none; }
 .editor.doc-side .doc-view { right: 50%; border-right: 1px solid var(--ui-line); }
 .editor.doc-side .canvas-viewport { margin-left: 50%; }
+.editor.doc-side .dv-head { flex-wrap: wrap; }
+.editor.doc-side .dv-status { flex-basis: 100%; margin-left: 0; }
 .editor.doc-side .notes-bar, .editor.doc-side .fix-panel { display: none; }
 .dv-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--ui-line); font-size: 12px; }
 .dv-head .ic { width: 15px; height: 15px; }

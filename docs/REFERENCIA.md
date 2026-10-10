@@ -705,10 +705,18 @@ escola, cinema…) e qualquer traçado ou área (rede, trajeto, bairro, área de
 - Planilha só com endereço (sem latitude e longitude): no Studio, a planilha aberta (aba Arquivos) tem **Achar
   coordenadas**, que pergunta antes de mandar os endereços para o serviço de fora e grava as colunas `latitude` e
   `longitude`; **Pôr no mapa** cria o slide a partir dela. Sugira esses botões em vez de inventar coordenadas.
+  Com um slide de mapa selecionado, a planilha fica ao lado dele: clicar num ponto seleciona a linha e selecionar
+  uma linha abre o cartão do ponto. O enquadramento automático deixa os pontos livres da legenda.
 - **Editar no mapa** (botão na prévia do slide, no Studio): a pessoa clica para criar pontos (vão para a planilha da
   camada, com o endereço preenchido), desenha linhas e áreas (vão para o GeoJSON da camada; "Seguir as ruas" liga os
   cliques pelo serviço de rotas), arrasta pontos e vértices, divide e junta linhas, mede com a régua e grava o
   enquadramento ("Usar esta vista"). Quando a pessoa quiser marcar algo à mão no mapa, indique esse botão.
+- **Dados de fora** (lugares de um tipo, linhas como ciclovias, o contorno de um lugar com nome, uma lista da web,
+  coordenadas da planilha da pessoa): peça com o bloco `mapa:` (as regras vêm no prompt); o Studio busca, grava os
+  arquivos em `contexto/` com a fonte de cada linha e te devolve o que gravou. Nunca invente coordenada nem contorno.
+- **Análises** (o mais próximo e a distância, quantos num raio ou numa área, faixa em volta de uma linha, onde
+  instalar o próximo, rota com tempo, área alcançável em X minutos, rastro de GPS encaixado nas ruas): também pelo
+  bloco `mapa:`; o Studio calcula e devolve os números. Nunca calcule distância, contagem ou tempo de cabeça.
 - Serviços (Configurar mapa, opcional): sem chave, tudo funciona com os serviços públicos do OpenStreetMap; a chave
   gratuita do OpenRouteService só acrescenta rotas a pé/de carro/de bicicleta confiáveis e área alcançável.
 - Ao apresentar: clicar num ponto, linha ou área abre o cartão com os dados; clicar na legenda liga e desliga uma

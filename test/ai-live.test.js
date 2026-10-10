@@ -153,3 +153,49 @@ test('opinião sem foco ("o que você acha desse slide?"): fala do conteúdo pri
   assert.match(r.reply, /conte[uú]do|afirma|hist[oó]ria|dado|argumento/i, `não falou do conteúdo: ${r.reply}`);
   assert.ok((r.options || []).some((o) => /conte[uú]do/i.test(o)) && (r.options || []).some((o) => /visual|design|apar[eê]ncia/i.test(o)), `opções: ${r.options}`);
 });
+
+// ---- mapa (entrega 4): a IA decide quando buscar dados geográficos, respeita o sim da pessoa e o serviço bloqueado
+test('mapa: "mostra no mapa os cinemas perto do centro de Campinas" pede a busca de lugares com o filtro certo', opts, async () => {
+  const { mapDataPrompt } = await import("../src/ai/map-data.js");
+  const r = await editDeck({ spec: spec(), instruction: "mostra no mapa os cinemas perto do centro de Campinas", mapData: mapDataPrompt() });
+  assert.ok(r.geo?.length, `não pediu dados: ${r.reply}`);
+  const a = r.geo.find((x) => x.tipo === "lugares");
+  assert.ok(a, JSON.stringify(r.geo));
+  assert.match(String(a.filtro_osm), /amenity.*cinema/);
+  assert.match(String(a.perto_de), /Campinas/);
+});
+
+test("mapa: planilha da pessoa só com endereço; a IA não se dá o sim sozinha para mandar os endereços", opts, async () => {
+  const { mapDataPrompt } = await import("../src/ai/map-data.js");
+  const materials = [{ name: "contexto/unidades.csv", detail: "arquivo do projeto (sheet)", text: "nome;endereco;cidade\nUBS Centro;Rua A, 10;Recife\nEscola X;Rua B, 20;Recife\n" }];
+  const r = await editDeck({ spec: spec(), instruction: "põe as unidades da planilha no mapa", materials, mapData: mapDataPrompt() });
+  const coord = (r.geo || []).find((x) => x.tipo === "coordenadas");
+  assert.ok(r.talk || coord, `nem perguntou nem pediu coordenadas: ${r.reply}`);
+  if (coord) assert.notEqual(coord.confirmado, true, "confirmou sozinha, sem o sim da pessoa");
+});
+
+test("mapa: com a busca de lugares bloqueada nesta rede, a IA não pede e oferece alternativa", opts, async () => {
+  const http = await import("node:http");
+  const { callService, resetService } = await import("../src/map-services.js");
+  const { mapDataPrompt } = await import("../src/ai/map-data.js");
+  const server = http.createServer((req, res) => { res.writeHead(403); res.end(); });
+  await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
+  try {
+    await callService("busca", `http://127.0.0.1:${server.address().port}/interpreter`).catch(() => {});
+    const r = await editDeck({ spec: spec(), instruction: "mostra no mapa as escolas perto do centro do Recife", mapData: mapDataPrompt() });
+    assert.ok(!(r.geo || []).some((x) => x.tipo === "lugares" || x.tipo === "linhas"), `pediu o serviço bloqueado: ${JSON.stringify(r.geo)}`);
+    assert.match(r.reply, /planilha|bloquead|indispon|não (está|consigo)/i, r.reply);
+  } finally { server.close(); resetService("busca"); }
+});
+
+test('mapa: "qual loja fica mais perto de cada pedido?" pede a conta ao Studio em vez de calcular de cabeça', opts, async () => {
+  const { mapDataPrompt } = await import("../src/ai/map-data.js");
+  const materials = [
+    { name: "contexto/pedidos.csv", detail: "arquivo do projeto (sheet)", text: "nome;latitude;longitude\nPedido 1;-23.55;-46.63\nPedido 2;-23.56;-46.65\n" },
+    { name: "contexto/lojas.csv", detail: "arquivo do projeto (sheet)", text: "nome;latitude;longitude\nLoja Centro;-23.548;-46.634\nLoja Oeste;-23.565;-46.69\n" },
+  ];
+  const r = await editDeck({ spec: spec(), instruction: "qual loja fica mais perto de cada pedido? põe isso num mapa", materials, mapData: mapDataPrompt() });
+  const a = (r.geo || []).find((x) => x.tipo === "mais_proximo");
+  assert.ok(a, `não pediu a conta: ${r.reply} ${JSON.stringify(r.geo)}`);
+  assert.match(String(a.de), /pedidos/); assert.match(String(a.ate), /lojas/);
+});

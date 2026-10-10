@@ -154,6 +154,11 @@ test("Studio: planilha com endereço → Achar coordenadas (confirma) → Pôr n
     assert.ok(m, "o mapa entrou no deck");
     assert.deepEqual(m.layers[0], { name: "unidades", points: "contexto/unidades.csv", color: "tipo", label: "nome" });
     await p.waitForSelector('#rendered-slide-container .map-box[data-map-mounted="ready"]', { timeout: 15000 });
+    assert.equal(await p.locator("#canvas-stage-wrapper.doc-side").count(), 1, "planilha e mapa ficam lado a lado");
+    assert.equal(await p.locator("#doc-view .sh-body.no-suggest").count(), 1, "a grade tem espaço ao lado do mapa");
+    await p.click("[data-toggle-suggest]");
+    assert.equal(await p.locator("#doc-view .sh-body.no-suggest").count(), 0, "Gráficos abre as sugestões quando solicitado");
+    await p.click("[data-toggle-suggest]");
     assert.equal(await p.locator("#rendered-slide-container path.leaflet-interactive").count(), 2, "os dois que têm posição");
     // clicar no ponto da Escola X seleciona a linha 3 da planilha
     // A planilha já está aberta: clicar na mesma aba mantém a grade e a seleção, mesmo com rede lenta.
@@ -165,10 +170,17 @@ test("Studio: planilha com endereço → Achar coordenadas (confirma) → Pôr n
     });
     await p.click('.doc-tab:has-text("unidades.csv")');
     await p.waitForSelector("#sh-grid td");
-    await p.evaluate(() => { const paths = document.querySelectorAll("#rendered-slide-container path.leaflet-interactive"); paths[1].dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await p.locator("#rendered-slide-container path.leaflet-interactive").nth(1).click();
     await p.waitForTimeout(500); // uma releitura tardia não pode apagar a seleção feita pelo mapa
     assert.equal(releituras, 0, "clicar na aba já ativa não relê e substitui a planilha");
     await p.waitForFunction(() => document.querySelector("#sh-grid td.cur")?.dataset.r === "2");
+    // No sentido contrário, selecionar a linha abre o cartão no mapa que está ao lado.
+    await p.click('#sh-grid td[data-r="1"][data-c="0"]');
+    await p.waitForFunction(() => document.querySelector("#rendered-slide-container .map-card")?.textContent.includes("UBS Centro"));
+    await p.click("#rail-tab-slides");
+    await p.click('.thumb-card[data-idx="0"]');
+    await p.waitForSelector("#canvas-stage-wrapper.doc-full");
+    assert.equal(await p.locator("#sh-grid td.cur").getAttribute("data-r"), "1", "trocar de slide preserva a seleção da planilha");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await geo.close(); }
 });

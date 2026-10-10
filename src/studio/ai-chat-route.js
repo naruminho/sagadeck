@@ -9,6 +9,7 @@ import { writeRecording } from "../api-client.js";
 import { editDeck, coverDocumentVisuals, checkNumbers } from "../ai/deck-ai.js";
 import { reviewExperience } from "../ai/quality.js";
 import { maybeResearch } from "../research/chat-research.js";
+import { mapDataPrompt, runMapData, mapDataInstruction } from "../ai/map-data.js";
 import { chatErrorResult } from "./errors.js";
 import { cancellable, respond } from "./ai-response.js";
 import { prepareDocumentMaterials, takeMaterials, storedDocumentMaterials } from "../ai/document-materials.js";
@@ -164,6 +165,8 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
           reviewCheck: (deck, indices) => reviewExperience(deck, indices, { snapshot: slideSnapshots, onProgress: emit, signal, briefing:prompt }),
           styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
+          // dados para o mapa (bloco mapa:): só com a pasta da apresentação, que é onde os arquivos ficam
+          mapData: P ? mapDataPrompt() : null,
           ...extra,
         });
         result = await editDeck(editOpts());
@@ -192,6 +195,23 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           result.actions = [...before.actions, ...(result.actions || [])];
         }
         if (result.look?.length) result = { ...result, look: undefined, talk: true, reply: `${result.reply}\n(Já mostrei as imagens duas vezes; me diga o que procurar nelas.)` };
+        // A IA pediu dados para o mapa (mapa: [ações]): o Studio busca (OpenStreetMap, web, coordenadas), grava no
+        // projeto com a fonte de cada linha e chama de novo com o que gravou; até 2 rodadas. Endereços da pessoa só saem
+        // com o sim dela: sem ele, a resposta pergunta e nada é enviado (src/ai/map-data.js).
+        for (let round = 1; result.geo?.length && P && round <= 2; round++) {
+          const before = result;
+          emit({ phase: "step", text: "Buscando os dados para o mapa…" });
+          const r = await runMapData(before.geo, { P, onProgress: (t) => emit({ phase: "step", text: t }) });
+          signal.throwIfAborted();
+          if (r.perguntas.length && !r.feitos.length && !r.falhas.length) { result = { ...before, geo: undefined, talk: true, reply: r.perguntas.join("\n\n"), options: ["Pode enviar", "Não, deixa"] }; break; }
+          result = await editDeck(editOpts({
+            history: [...history, { role: "user", text: prompt }, { role: "assistant", text: before.reply }],
+            instruction: `${mapDataInstruction(r)}${r.perguntas.length ? `\nAinda falta o sim da pessoa para: ${r.perguntas.join(" ")} Pergunte na resposta.` : ""}\nContinue o pedido original: ${prompt}`,
+          }));
+          signal.throwIfAborted();
+          result.actions = [...(before.actions || []), ...r.feitos.map((f) => `Mapa: gravei ${f.arquivo} (${f.linhas} ${f.tipo === "contorno" ? "contorno" : "itens"}${f.fonte ? `; fonte: ${f.fonte}` : ""})`), ...r.falhas.map((x) => `Mapa: não deu (${x})`), ...(result.actions || [])];
+        }
+        if (result.geo?.length) result = { ...result, geo: undefined, talk: true, reply: P ? `${result.reply}\n(Já busquei os dados duas vezes; me diga o que ainda falta.)` : "Os dados do mapa ficam na pasta da apresentação: abra-a pela biblioteca e peça de novo." };
         // documento anexado NESTA mensagem e a resposta montou/reescreveu a maior parte do deck (criar a apresentação
         // do paper pelo chat): a mesma conferência de cobertura da geração. Pedido pontual ("use a figura 3 no slide
         // 5") não dispara: mexe em poucos slides.

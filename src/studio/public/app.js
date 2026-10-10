@@ -394,6 +394,7 @@
     const idx = state.currentSlideIndex;
     const slide = state.deck.slides[idx];
     if (!slide) return;
+    window.SagaProject?.slideChanged?.(slide);
     if (dom.tabPanelVars.classList.contains("active")) renderStudioSavedVars();
 
     renderReviewBar(slide, idx);
