@@ -15,7 +15,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 - Publicado no npm como `sagadeck` (1.7.0: primeiro uso guiado, Ambientes por campos; o PyPI parou na 1.5.0).
 - Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
 - Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
-- Tem uma IA (via modelrelay em `http://127.0.0.1:8765/v1`) que cria e edita decks, inclusive a partir de PDFs de
+- Tem uma IA embutida (provedor direto, configurado em `~/.sagadeck/ia.json` pela tela Configurar IA) que cria e edita decks, inclusive a partir de PDFs de
   artigos científicos para apresentar em congresso.
 
 Os itens abaixo vieram de duas rodadas de 08/10/2026, ambas descritas nas seções logo abaixo deste diário:
@@ -41,6 +41,20 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
 3. **Arquivos só na nuvem (Files On-Demand).** Com espaço liberado, o OneDrive deixa só o marcador do arquivo, e
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
+
+## ia.json ilegível diz o motivo — 10/10/2026
+
+Na migração do Oracle (o modelrelay saiu; os serviços `sagadeck` e `sagadeck-dev` falam direto com o OpenRouter, cada
+um com seu `ia.json`), o arquivo foi criado como root e o serviço, que roda com usuário próprio, não conseguia lê-lo:
+o sagadeck dizia só "IA não configurada", como se o arquivo nem existisse.
+
+- `readIA` (`src/ai/ia-config.js`) separa "não existe" (só não configurada) de "existe e não serve": sem permissão,
+  ilegível, JSON quebrado, sem `url`. O motivo vai em `llmConfig().problem`.
+- Aparece ao subir (`studioBanner`, a linha "IA: não configurada. …", que é o que quem administra vê no log), no erro
+  da chamada à IA, em `/api/ia` e `/api/ai/status`, na faixa da biblioteca, no Configurar IA e no indicador do editor.
+- A faixa da biblioteca quebra o texto longo (o caminho do arquivo empurrava o botão para baixo de outro elemento).
+- Testes: `test/ia-config.test.js` (pasta no lugar do arquivo, sem permissão fora do Windows, JSON quebrado, sem
+  endereço) e `test/library-ui.test.js` (faixa e Configurar IA dizem "Não deu para ler"). Falham sem a correção.
 
 ## CI verde de novo (e a regra: merge só com a CI verde) — 09/10/2026
 

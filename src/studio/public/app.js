@@ -3046,7 +3046,8 @@
     dom.aiStatus.textContent = on ? "IA ligada" : "IA desligada";
     dom.aiStatus.title = on
       ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
-      : state.ai.configured ? `Nenhum LLM respondendo em ${state.ai.url}. Clique para conferir o provedor e a chave.` : "A IA não está configurada. Clique para informar provedor e chave.";
+      : state.ai.configured ? `Nenhum LLM respondendo em ${state.ai.url}. Clique para conferir o provedor e a chave.`
+      : state.ai.problem ? `A IA não está configurada. ${state.ai.problem}` : "A IA não está configurada. Clique para informar provedor e chave.";
     dom.aiStatus.classList.toggle("on", on);
     dom.aiStatus.classList.toggle("off", !on);
   }

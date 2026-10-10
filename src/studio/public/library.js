@@ -61,7 +61,11 @@
   // botão IA: provedor, chave e modelos desta máquina (ai-settings.js); no multiusuário quem configura é quem administra
   // e, enquanto a IA não estiver configurada, a faixa "Configure a IA" (some ao salvar)
   const aiSaved = () => { $("#ai-banner").hidden = true; };
-  api("api/ia").then(({ editable, configured }) => { $("#btn-ai").hidden = !editable; $("#ai-banner").hidden = !editable || configured; hydrate($("#ai-banner")); }).catch(() => {});
+  api("api/ia").then(({ editable, configured, problem }) => {
+    $("#btn-ai").hidden = !editable; $("#ai-banner").hidden = !editable || configured;
+    if (problem) $("#ai-banner span").textContent = `A IA não está configurada. ${problem}`; // o arquivo existe mas não serve
+    hydrate($("#ai-banner"));
+  }).catch(() => {});
   $("#btn-ai").onclick = () => window.SagaAISettings.open(aiSaved);
   $("#ai-banner-btn").onclick = () => window.SagaAISettings.open(aiSaved);
   const openEditor = (id, present) => { location.href = `editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };

@@ -23,7 +23,7 @@ function draft(body, current) {
 export async function iaRoutes({ req, res, pathname, opts, readJSON }) {
   if (pathname === "/api/ia" && req.method === "GET") {
     const cfg = llmConfig();
-    json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, configured: !!(cfg.url || cfg.adaptador), providers: PROVIDERS, roles: ROLES, recommended: RECOMMENDED, editable: !opts.multiuser });
+    json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, configured: !!(cfg.url || cfg.adaptador), problem: cfg.problem || "", providers: PROVIDERS, roles: ROLES, recommended: RECOMMENDED, editable: !opts.multiuser });
     return true;
   }
   if ((pathname === "/api/ia" || pathname === "/api/ia/test") && req.method === "POST") {

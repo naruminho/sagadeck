@@ -559,3 +559,31 @@ test("primeiro uso: faixa Configure a IA; Usar a recomendação preenche OpenRou
     await browser.close(); await studio.close(); await llm.close();
   }
 });
+
+// ia.json que existe mas não pode ser lido (no servidor, criado como root para um serviço de outro usuário): a faixa e
+// a tela Configurar IA dizem o motivo, em vez de só "não configurada".
+test("ia.json ilegível: a faixa da biblioteca e o Configurar IA dizem que não deu para ler o arquivo", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null);
+  const keepUrl = process.env.SAGADECK_LLM_URL;
+  delete process.env.SAGADECK_LLM_URL;
+  fs.rmSync(process.env.SAGADECK_IA, { recursive: true, force: true });
+  fs.mkdirSync(process.env.SAGADECK_IA, { recursive: true }); // uma pasta no lugar do arquivo: a leitura falha em qualquer sistema
+  try {
+    const status = await (await fetch(studio.url + "/api/ai/status")).json();
+    assert.equal(status.configured, false);
+    assert.match(status.problem, /Não deu para ler/);
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector("#ai-banner:not([hidden])");
+    assert.match(await p.innerText("#ai-banner"), /Não deu para ler .*.json/);
+    await p.click("#ai-banner-btn");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    assert.match(await p.innerText("#ai-settings-dialog [data-problem]"), /Não deu para ler .*.json/);
+    assert.deepEqual(errors, []);
+  } finally {
+    process.env.SAGADECK_LLM_URL = keepUrl;
+    fs.rmSync(process.env.SAGADECK_IA, { recursive: true, force: true });
+    await browser.close(); await studio.close();
+  }
+});

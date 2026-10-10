@@ -900,7 +900,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const cfg = llmConfig();
         const available = await llmAvailable({ force: url.searchParams.has("refresh") });
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ available, configured: llmConfigured(cfg), source: cfg.source, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
+        res.end(JSON.stringify({ available, configured: llmConfigured(cfg), problem: cfg.problem || "", source: cfg.source, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
         return;
       }
 

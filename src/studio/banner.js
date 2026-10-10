@@ -7,7 +7,7 @@ const providerName = (ai) => Object.values(PROVIDERS).find((p) => p.url === ai.u
 
 export function studioBanner({ version, url, library, ai = null, multiuser = false, usersDir = "", pid = process.pid, isLibrary = true }) {
   const iaLine = !ai || !(ai.url || ai.adaptador)
-    ? "  IA: não configurada. No Studio, clique em IA desligada (ou Configurar IA na biblioteca) e informe provedor e chave."
+    ? (ai?.problem ? `  IA: não configurada. ${ai.problem}` : "  IA: não configurada. No Studio, clique em IA desligada (ou Configurar IA na biblioteca) e informe provedor e chave.")
     : `  IA: ${providerName(ai)} · texto ${ai.textModel}${ai.source === "variável" ? " (pelas variáveis SAGADECK_LLM_*)" : ""}`;
   return [
     `✓ SagaDeck Studio ${version} pronto. Abra no navegador: ${url}${isLibrary ? "  (biblioteca)" : ""}`,
