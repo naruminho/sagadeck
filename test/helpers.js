@@ -62,6 +62,8 @@ export async function newPage(browser, url, viewport = { width: 1440, height: 10
   // reduzido pede { reducedMotion: "reduce" }
   const page = await browser.newPage({ viewport, reducedMotion });
   page.setDefaultTimeout(8000); // falha rápido em vez de travar a suíte
+  // abrir e recarregar a página: prazo de máquina lenta (o Windows da CI passou dos 8 s no primeiro carregamento)
+  page.setDefaultNavigationTimeout(30000);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => m.type() === "error" && !/status of 400/.test(m.text()) && errors.push(m.text()));
