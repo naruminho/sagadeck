@@ -156,9 +156,18 @@ test("Studio: planilha com endereço → Achar coordenadas (confirma) → Pôr n
     await p.waitForSelector('#rendered-slide-container .map-box[data-map-mounted="ready"]', { timeout: 15000 });
     assert.equal(await p.locator("#rendered-slide-container path.leaflet-interactive").count(), 2, "os dois que têm posição");
     // clicar no ponto da Escola X seleciona a linha 3 da planilha
+    // A planilha já está aberta: clicar na mesma aba mantém a grade e a seleção, mesmo com rede lenta.
+    let releituras = 0;
+    await p.route("**/api/project/sheet?*", async (route) => {
+      releituras++;
+      await new Promise((r) => setTimeout(r, 250));
+      await route.continue();
+    });
     await p.click('.doc-tab:has-text("unidades.csv")');
     await p.waitForSelector("#sh-grid td");
     await p.evaluate(() => { const paths = document.querySelectorAll("#rendered-slide-container path.leaflet-interactive"); paths[1].dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await p.waitForTimeout(500); // uma releitura tardia não pode apagar a seleção feita pelo mapa
+    assert.equal(releituras, 0, "clicar na aba já ativa não relê e substitui a planilha");
     await p.waitForFunction(() => document.querySelector("#sh-grid td.cur")?.dataset.r === "2");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); await geo.close(); }

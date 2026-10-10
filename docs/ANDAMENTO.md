@@ -113,6 +113,10 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    "Usar o OpenRouteService" e Testar, botão na biblioteca, `keyEnv` (variável de ambiente, para o servidor). README
    com a seção "Mapa (opcional)". Achados: o editor visual capturava o clique no mapa (agora ignora `.map-live`); o
    projeto não gravava `.geojson/.gpx/.kml` como texto. Testes: `test/map-editor.test.js` e `map-data.test.js`.
+   Retomada: PR #178 ainda aguardando CI verde. A corrida do arrastar passou no último Ubuntu; a falha restante era
+   uma releitura ao clicar na aba de planilha já ativa, que substituía a grade e apagava a seleção feita pelo mapa.
+   O clique agora mantém a aba ativa. Regressão com resposta atrasada reproduziu a falha antes da correção e passou
+   depois; mapa/planilha e editor: 6 testes passando. Suíte completa: 950 passaram, 22 pulados, zero falhas.
 4. **IA busca**: no OSM (lugares, linhas de ônibus, rios, bairros) e na web (pesquisa já existente), gravando planilha
    com a fonte de cada linha, para revisão antes de virar slide.
 5. **Análises**: mais próximo, distância, tempo de rota, contagem em raio/área, faixa em volta de linha, cruzamento de
