@@ -239,8 +239,6 @@ window.SagaMapEditor = (() => {
     if (!inst?.map) return false;
     S.map = inst.map;
     S.box.classList.add("me-on");
-    S.host.querySelectorAll(":scope > .me-bar").forEach((b) => b.remove());
-    S.host.append(bar());
     S.map.on("click", onClick);
     S.map.on("dblclick", onDbl);
     // pontos arrastáveis (Mover) e formas que abrem os vértices
@@ -256,6 +254,9 @@ window.SagaMapEditor = (() => {
         S.map.on("mousemove", move); S.map.on("mouseup", up);
       });
     }));
+    // a barra só aparece com tudo ligado: com ela à vista, clicar e arrastar já funcionam
+    S.host.querySelectorAll(":scope > .me-bar").forEach((b) => b.remove());
+    S.host.append(bar());
     setMode(S.mode);
     return true;
   }
@@ -268,6 +269,8 @@ window.SagaMapEditor = (() => {
 
   function start(box, slide, commit, ctx) {
     S = { box, host: document.getElementById("canvas-viewport") || box, slide, commit, ctx, mode: S?.mode || "mover", ruas: S?.ruas ?? true, modo: S?.modo || "pe", key: slide.uid || slide.title };
+    // o slide redesenhou: a barra antiga sai na hora (ela ligava o mapa velho); a nova vem quando o mapa novo estiver ligado
+    S.host.querySelectorAll(":scope > .me-bar").forEach((b) => b.remove());
     if (!wire()) { window.SagaMap.mount(box.closest(".slide") || box).then(() => S && wire()); }
   }
   function stop() {
