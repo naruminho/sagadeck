@@ -900,6 +900,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         const cfg = llmConfig();
         const available = await llmAvailable({ force: url.searchParams.has("refresh") });
         res.writeHead(200, { "Content-Type": "application/json" });
+        // no servidor, só se está ligada: provedor e modelos são de quem administra (src/studio/ia-routes.js)
+        if (opts.multiuser) { res.end(JSON.stringify({ available, configured: llmConfigured(cfg), server: true })); return; }
         res.end(JSON.stringify({ available, configured: llmConfigured(cfg), problem: cfg.problem || "", source: cfg.source, url: cfg.url, textModel: cfg.textModel, imageModel: cfg.imageModel }));
         return;
       }

@@ -3044,8 +3044,9 @@
     }
     const on = !!state.ai.available;
     dom.aiStatus.textContent = on ? "IA ligada" : "IA desligada";
-    dom.aiStatus.title = on
-      ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
+    dom.aiStatus.title = state.ai.server // no servidor, sem os detalhes (são de quem administra)
+      ? (on ? "A IA deste servidor está ligada." : state.ai.configured ? "A IA deste servidor não está respondendo. Avise quem administra." : "A IA deste servidor não está configurada. Avise quem administra.")
+      : on ? `LLM em ${state.ai.url} · texto: ${state.ai.textModel} · imagem: ${state.ai.imageModel}`
       : state.ai.configured ? `Nenhum LLM respondendo em ${state.ai.url}. Clique para conferir o provedor e a chave.`
       : state.ai.problem ? `A IA não está configurada. ${state.ai.problem}` : "A IA não está configurada. Clique para informar provedor e chave.";
     dom.aiStatus.classList.toggle("on", on);
@@ -3155,7 +3156,7 @@
     }
     dom.btnRunAiDeck.disabled = true;
     const started = Date.now();
-    let phase = `Enviando para ${state.ai.textModel || "o LLM"}…`;
+    let phase = `Enviando para ${state.ai.textModel || "a IA"}…`;
     const show = () => {
       dom.aiDeckStatus.textContent = `${phase} · ${Math.round((Date.now() - started) / 1000)}s`;
     };

@@ -23,6 +23,9 @@ function draft(body, current) {
 export async function iaRoutes({ req, res, pathname, opts, readJSON }) {
   if (pathname === "/api/ia" && req.method === "GET") {
     const cfg = llmConfig();
+    // no servidor, quem usa o portal não configura: só fica sabendo se a IA está configurada (provedor, endereço,
+    // modelos e o final da chave são de quem administra)
+    if (opts.multiuser) { json(res, 200, { editable: false, configured: !!(cfg.url || cfg.adaptador) }); return true; }
     json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, configured: !!(cfg.url || cfg.adaptador), problem: cfg.problem || "", providers: PROVIDERS, roles: ROLES, recommended: RECOMMENDED, editable: !opts.multiuser });
     return true;
   }
