@@ -1,6 +1,6 @@
 // Embute o que o slide de mapa usa (só entra no HTML de deck que tem mapa: src/build.js):
 //  - Leaflet (BSD-2), o mapa ao vivo: src/runtime/vendor/leaflet.js, leaflet.css e LEAFLET-LICENSE.txt
-//  - contornos leves dos estados do Brasil (IBGE, malha mínima, dado público) e dos países (Natural Earth 1:110m,
+//  - contornos dos estados do Brasil (IBGE, malha intermediária, dado público) e dos países (Natural Earth 1:50m,
 //    domínio público), simplificados e com 3 casas decimais (~100 m): src/runtime/vendor/geo-contornos.json.
 //    Servem para pintar estado/país por valor (camada `areas`) e de fundo quando os tiles não carregam.
 // Uso: node scripts/vendor-map.mjs   (os contornos se baixam da internet; o Leaflet vem do node_modules)
@@ -49,19 +49,19 @@ const slim = (geom, tol) => polys(geom)
   .map((poly) => poly.map((ring) => simplify(ring, tol).map(round)).filter((r) => r.length >= 4))
   .filter((poly) => poly.length);
 
-const br = await get("https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=UF");
+const br = await get("https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=intermediaria&intrarregiao=UF");
 const ufs = {};
 for (const f of br.features) {
   const sigla = UF[Number(f.properties.codarea)];
-  if (sigla) ufs[sigla] = slim(f.geometry, 0.04);
+  if (sigla) ufs[sigla] = slim(f.geometry, 0.006); // ~650 m: o litoral e as divisas batem com o fundo do mapa
 }
-const ne = await get("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson");
+const ne = await get("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson");
 const paises = {};
 for (const f of ne.features) {
   const p = f.properties;
   const code = [p.ISO_A2, p.ISO_A2_EH, p.WB_A2].find((c) => c && /^[A-Z]{2}$/.test(c));
-  if (code) paises[code] = { nome: p.NAME_PT || p.NAME, poly: slim(f.geometry, 0.12) };
+  if (code) paises[code] = { nome: p.NAME_PT || p.NAME, poly: slim(f.geometry, 0.05) };
 }
-const out = { fonte: { uf: "IBGE, malha municipal (mínima), dado público", paises: "Natural Earth 1:110m, domínio público" }, uf: ufs, paises };
+const out = { fonte: { uf: "IBGE, malha (intermediária), dado público", paises: "Natural Earth 1:50m, domínio público" }, uf: ufs, paises };
 fs.writeFileSync(path.join(OUT, "geo-contornos.json"), JSON.stringify(out));
 console.log(`✓ Leaflet ${require("leaflet/package.json").version}; ${Object.keys(ufs).length} UFs e ${Object.keys(paises).length} países em geo-contornos.json (${Math.round(fs.statSync(path.join(OUT, "geo-contornos.json")).size / 1024)} KB)`);

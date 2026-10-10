@@ -112,7 +112,7 @@
         const cat = s.categories?.find((c) => c.value === String(v ?? "").trim());
         return col.css(cat?.color || s.color || "c1");
       };
-      const radius = (f) => { if (!s.sizeBy) return 14; const n = num(f.properties?.[s.sizeBy]); const r = s.sizeScale; return n == null || r.max === r.min ? 16 : 9 + 24 * Math.sqrt((n - r.min) / (r.max - r.min)); }; // em px do slide (1920)
+      const radius = (f) => { if (!s.sizeBy) return 8; const n = num(f.properties?.[s.sizeBy]); const r = s.sizeScale; return n == null || r.max === r.min ? 16 : 9 + 24 * Math.sqrt((n - r.min) / (r.max - r.min)); }; // em px do slide (1920)
       const card = (f) => {
         const p = f.properties || {};
         const title = s.label ? p[s.label] : p.nome || p.name || "";
@@ -121,13 +121,24 @@
       };
       const g = L.geoJSON(layer.data, {
         filter: (f) => !s.colorBy || !hidden.has(String(f.properties?.[s.colorBy] ?? "").trim()),
-        pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f), color: col.css("bg"), weight: 2.5, fillColor: colorOf(f), fillOpacity: 0.92 }),
-        style: (f) => (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: f.properties?._faixa ? 0 : 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32, ...(f.properties?._faixa ? { fillRule: "nonzero" } : {}) } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
+        // ponto: a cor com um anel branco e sombra leve (o jeito dos mapas de hoje); bolha (tamanho pela coluna):
+        // translúcida com o contorno da mesma cor, para as sobrepostas continuarem legíveis. Cresce ao passar o mouse.
+        pointToLayer: (f, ll) => {
+          const c = colorOf(f), r = radius(f);
+          const m = s.sizeBy
+            ? L.circleMarker(ll, { radius: r, color: c, weight: 2, opacity: 0.95, fillColor: c, fillOpacity: 0.5, className: "map-bubble" })
+            : L.circleMarker(ll, { radius: r, color: "#fff", weight: 3, fillColor: c, fillOpacity: 1, className: "map-pt" });
+          m.on("mouseover", () => (s.sizeBy ? m.setStyle({ fillOpacity: 0.72 }) : m.setRadius(r + 3)));
+          m.on("mouseout", () => (s.sizeBy ? m.setStyle({ fillOpacity: 0.5 }) : m.setRadius(r)));
+          return m;
+        },
+        // o Leaflet aplica o style também aos pontos (por cima do pointToLayer): ponto fica com o desenho dele
+        style: (f) => f.geometry.type === "Point" ? {} : (f.geometry.type.includes("Polygon") ? { color: colorOf(f), weight: f.properties?._faixa ? 0 : 2, fillColor: colorOf(f), fillOpacity: layer.kind === "areas" ? 0.75 : 0.32, ...(f.properties?._faixa ? { fillRule: "nonzero" } : {}) } : { color: colorOf(f), weight: 5, opacity: 0.95 }),
         onEachFeature: (f, lyr) => {
           if (s.popup.length || s.label) lyr.bindPopup(card(f), { className: "map-card", maxWidth: 420 });
           // no Studio, clicar no ponto seleciona a linha da planilha aberta (map-data.js)
           lyr.on("click", () => document.dispatchEvent(new CustomEvent("sagamap:ponto", { detail: { path: layer.source, linha: f.properties?._linha } })));
-          if (s.label && f.properties?.[s.label] != null && layer.data.features.length <= 60) lyr.bindTooltip(escHTML(f.properties[s.label]), { permanent: true, direction: "top", offset: [0, -10], className: "map-label" });
+          if (s.label && f.properties?.[s.label] != null && layer.data.features.length <= 60) lyr.bindTooltip(escHTML(f.properties[s.label]), { permanent: true, direction: "top", offset: [0, -(lyr.getRadius?.() || 8) - 4], className: "map-label" });
         },
       });
       const entry = { layer, g, on: layer.step == null, hidden };

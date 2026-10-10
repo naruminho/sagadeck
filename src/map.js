@@ -230,6 +230,14 @@ export function mapModel(s, ctx) {
   });
   const basemap = BASEMAPS.includes(s.basemap) ? s.basemap : "ruas";
   if (s.basemap && !BASEMAPS.includes(s.basemap)) warn(`mapa: fundo "${s.basemap}" não existe (use ${BASEMAPS.join(", ")})`);
+  // camadas da mesma medida (a mesma coluna ou a mesma unidade na legenda) dividem uma escala: cada uma com a sua,
+  // a Bahia (2.900) saía tão forte quanto Minas (5.100) só por ser a maior da camada dela
+  const groups = new Map();
+  for (const l of layers) if (l.style.scale) { const k = `${l.style.colorBy}|${l.legend || ""}`; (groups.get(k) || groups.set(k, []).get(k)).push(l); }
+  for (const g of groups.values()) if (g.length > 1) {
+    const scale = { min: Math.min(...g.map((l) => l.style.scale.min)), max: Math.max(...g.map((l) => l.style.scale.max)) };
+    for (const l of g) l.style.scale = scale;
+  }
   return { basemap, view: viewOf(s.view), bounds: bboxOf(layers), layers, tiles: ctx?.mapTiles || null };
 }
 
@@ -254,7 +262,7 @@ export function mapPreviewSVG(model, w = 1600, h = 760) {
   for (const layer of model.layers) for (const f of layer.data.features) {
     const g = f.geometry, col = color(layer, f);
     const lines = (cs) => cs.map((l) => `M${l.map(P).join("L")}`).join("");
-    if (g.type === "Point") { const [x, y] = P(g.coordinates).split(","); out.push(`<circle cx="${x}" cy="${y}" r="9" fill="${col}" stroke="var(--bg)" stroke-width="3"/>`); }
+    if (g.type === "Point") { const [x, y] = P(g.coordinates).split(","); out.push(`<circle cx="${x}" cy="${y}" r="8" fill="${col}" stroke="#fff" stroke-width="3"/>`); }
     else if (g.type === "LineString") out.push(`<path d="${lines([g.coordinates])}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "MultiLineString") out.push(`<path d="${lines(g.coordinates)}" fill="none" stroke="${col}" stroke-width="5"/>`);
     else if (g.type === "Polygon") out.push(`<path d="${lines(g.coordinates)}Z" fill="${col}" fill-opacity=".35" stroke="${col}" stroke-width="2"/>`);

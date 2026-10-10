@@ -168,6 +168,17 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Mapa: escala única, contornos detalhados e pontos mais bonitos — 10/10/2026
+
+Narumi, no slide dos estados: "isso não parece certo". Cada camada tinha a própria escala (a Bahia, 2.900 MW, saía
+tão forte quanto Minas, 5.100): camadas da mesma medida (a mesma coluna e unidade) agora dividem a escala. Os
+contornos embutidos vinham da malha mínima do IBGE simplificada a 4 km (o DF era um octógono; Rio e Vitória na
+borda): agora malha intermediária a ~650 m e países do Natural Earth 1:50m (`scripts/vendor-map.mjs`; o arquivo foi
+de 181 KB para 690 KB, e no HTML só entram os estados usados). E "os pontos estão com círculos grandes e feios": o
+estilo das linhas e áreas era aplicado também aos pontos (borda grossa colorida); agora ponto é pequeno, na cor, com
+anel branco e sombra, bolha é translúcida com contorno da mesma cor, e o rótulo é uma pílula menor. Testes:
+`map.test.js` (escala dividida, contornos detalhados com a área do IBGE, desenho dos pontos).
+
 ## Demos de mapa com cada tipo de objeto e onde se edita — 10/10/2026
 
 Narumi: "ainda não entendi onde vão os menus e propriedades… mostre não só com pontos, mas com cada tipo de objeto".

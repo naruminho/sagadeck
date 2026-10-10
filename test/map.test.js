@@ -64,6 +64,30 @@ test("mapa: GeoJSON, GPX (trilha e pontos) e KML (ponto, linha, polígono, dados
   assert.equal(m.layers[0].data.features[0].geometry.type, "LineString");
 });
 
+// Pedido de Narumi ("isso não parece certo"): com uma camada por região, cada uma tinha a própria escala e a Bahia
+// (2.900) saía tão forte quanto Minas (5.100). Camadas da mesma medida dividem a escala.
+test("mapa: camadas da mesma medida dividem a escala; medida diferente fica com a sua", () => {
+  const m = mapModel({ layers: [{ name: "Sudeste", areas: { SP: 4200, MG: 5100, ES: 600 }, legend: "MW" }, { name: "Nordeste", areas: { BA: 2900, PE: 1200 }, legend: "MW" },
+    { name: "Gente", areas: { SP: 46, MG: 21 }, legend: "milhões" }] }, {});
+  assert.deepEqual(m.layers.map((l) => l.style.scale), [{ min: 600, max: 5100 }, { min: 600, max: 5100 }, { min: 21, max: 46 }]);
+});
+
+// Os contornos embutidos têm de bater com o fundo do mapa. Simplificados a 4 km (malha mínima), o litoral e as divisas
+// viravam poucos segmentos retos (o Distrito Federal era um octógono) e Rio e Vitória caíam na borda.
+test("mapa: contornos dos estados detalhados (segmento médio de até 8 km) e com a área certa", async () => {
+  const { geoContornos } = await import("../src/map.js");
+  const g = geoContornos();
+  const R = 6371.0088, rad = Math.PI / 180;
+  const km = ([lo1, la1], [lo2, la2]) => 2 * R * Math.asin(Math.sqrt(Math.sin(((la2 - la1) * rad) / 2) ** 2 + Math.cos(la1 * rad) * Math.cos(la2 * rad) * Math.sin(((lo2 - lo1) * rad) / 2) ** 2));
+  const media = (uf) => { let soma = 0, n = 0; for (const poly of g.uf[uf]) for (const r of poly) for (let i = 1; i < r.length; i++) { soma += km(r[i - 1], r[i]); n++; } return soma / n; };
+  // o litoral (no interior há divisas que são retas de verdade: Acre, Mato Grosso, o DF)
+  const grosseiros = ["RJ", "ES", "SP", "PR", "SC", "RS", "BA", "SE", "AL", "PE", "PB", "RN", "CE"].map((uf) => [uf, Math.round(media(uf))]).filter(([, m]) => m > 8);
+  assert.deepEqual(grosseiros, [], "estados com contorno grosseiro (km por segmento)");
+  const anel = (r) => { let s = 0; for (let i = 0; i < r.length - 1; i++) { const [lo1, la1] = r[i], [lo2, la2] = r[i + 1]; s += (lo2 - lo1) * rad * (2 + Math.sin(la1 * rad) + Math.sin(la2 * rad)); } return Math.abs((s * R * R) / 2); };
+  const area = (uf) => g.uf[uf].reduce((a, p) => a + anel(p[0]) - p.slice(1).reduce((h, r) => h + anel(r), 0), 0);
+  for (const [uf, oficial] of Object.entries({ RJ: 43750, ES: 46074, SP: 248219, DF: 5760 })) assert.ok(Math.abs(area(uf) - oficial) / oficial < 0.02, `${uf}: ${Math.round(area(uf))} km² (IBGE: ${oficial})`);
+});
+
 test("mapa: valores por estado e por país usam os contornos embutidos e pintam pela escala", () => {
   const { m, warnings } = model({ layers: [{ areas: { SP: 320, rj: 140, BR: 1, XX: 3 } }] }, tmp());
   const names = m.layers[0].data.features.map((f) => f.properties.nome);
@@ -235,6 +259,26 @@ test("mapa ao vivo: faixa em volta de uma linha sem contorno e preenchida como u
     await p.waitForSelector('.map-box[data-map-mounted="ready"]');
     const paths = await p.evaluate(() => [...document.querySelectorAll(".slide.current path.leaflet-interactive")].map((x) => ({ w: x.getAttribute("stroke-width"), regra: x.getAttribute("fill-rule") })));
     assert.deepEqual(paths, [{ w: "0", regra: "nonzero" }, { w: "2", regra: "evenodd" }], "a faixa sem contorno e unida; a área comum como antes");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await tiles.close(); }
+});
+
+// Pedido de Narumi: "os pontos estão com círculos meio grandes e feios de tão simples". Ponto: pequeno, na cor, com
+// anel branco e sombra; bolha (tamanho pela coluna): translúcida com o contorno da mesma cor.
+test("mapa ao vivo: ponto pequeno com anel branco e sombra; bolha translúcida com contorno da mesma cor", { timeout: 90000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const tiles = await tileServer({ value: "ok" });
+  try {
+    const { page: p, errors } = await openDeck(browser, [{ layout: "map", title: "Pontos", layers: [
+      { name: "Pontos", points: [{ nome: "A", lat: -23.55, lon: -46.63 }], color: "em" },
+      { name: "Bolhas", points: [{ nome: "B", lat: -23.56, lon: -46.64, n: 10 }, { nome: "C", lat: -23.57, lon: -46.62, n: 40 }], size: "n", color: "hi" }] }], tiles.url);
+    await p.waitForSelector('.map-box[data-map-mounted="ready"]');
+    const r = await p.evaluate(() => [...document.querySelectorAll(".slide.current path.leaflet-interactive")].map((x) => ({ cls: x.getAttribute("class").match(/map-(pt|bubble)/)?.[0], stroke: x.getAttribute("stroke"), fill: x.getAttribute("fill"), op: x.getAttribute("fill-opacity"), filtro: getComputedStyle(x).filter })));
+    const pt = r.find((x) => x.cls === "map-pt"), bolhas = r.filter((x) => x.cls === "map-bubble");
+    assert.equal(pt.stroke, "#fff"); assert.equal(pt.op, "1"); assert.match(pt.filtro, /drop-shadow/);
+    assert.equal(bolhas.length, 2);
+    for (const b of bolhas) { assert.equal(b.stroke, b.fill, "contorno da mesma cor"); assert.equal(b.op, "0.5"); }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await tiles.close(); }
 });
