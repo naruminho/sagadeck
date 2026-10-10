@@ -12,7 +12,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 **Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:
 - Repositório GitHub `naruminho/sagadeck`, clonado em `C:\Users\narum\src\sagadeck`, branch `main`.
-- Publicado no npm como `sagadeck` (1.7.1: a IA diz por que o `ia.json` não serve e, no servidor, não mostra a configuração; o PyPI parou na 1.5.0).
+- Publicado no npm como `sagadeck` (1.8.0: mapas ao vivo, editor, dados e análises pela IA; o PyPI parou na 1.5.0).
 - Ferramenta Node (ESM) que transforma apresentações escritas em YAML em HTML/PPTX.
 - Tem um editor web, o Studio (`sagadeck studio`, porta 3517).
 - Tem uma IA embutida (provedor direto, configurado em `~/.sagadeck/ia.json` pela tela Configurar IA) que cria e edita decks, inclusive a partir de PDFs de
@@ -42,7 +42,7 @@ datadas abaixo). O resto fica para depois e só entra se for pedido. Antes de co
    ler o conteúdo força o download. Conferir se listar a biblioteca (`openLibrary`, `/api/library`) lê o YAML de
    cada deck; se lê, listar só pelo nome/metadado e abrir o conteúdo sob demanda.
 
-## Frente: mapa (planejada em 10/10/2026, em andamento)
+## Frente: mapa (planejada e publicada em 10/10/2026, versão 1.8.0)
 
 Pedido de Narumi, depois de muita conversa. **Leia antes de mexer.** Recurso de nicho, mas completo: mostrar e
 explicar algo geográfico (pontos de interesse de qualquer tipo, linhas, áreas), com a IA montando a partir de dados.
@@ -138,11 +138,30 @@ Não é um QGIS: análise pesada fica lá; aqui é apresentar bem, com contas si
    de altura zero). Testes: `test/map-analysis.test.js` e o ao vivo "qual loja fica mais perto de cada pedido" (pede
    `mais_proximo`).
 
-**Publicação 1.8.0 (retomada em 10/10):** versão preparada em `package.json` e lockfile, incluindo as cinco entregas
-e o Conheça o SagaDeck. O #178 já foi mergeado; falta concluir a CI e mergear o #179, conferir a CI da `main`, criar a
-release e atualizar a instalação local e o Oracle. No Oracle, o ambiente e os dois `mapa.json` já estão preparados
-com `OPENROUTESERVICE_API_KEY` (modo 600, dono de cada serviço); os serviços aguardam o código da release para
-reiniciar. Os quatro testes de mapa com o modelo real passaram novamente. Suíte completa da 1.8.0: 982 testes,
+**Publicação 1.8.0 (concluída em 10/10):** as cinco entregas e o Conheça o SagaDeck entraram na `main` pelos
+PRs #178 e #179, nessa ordem, ambos com CI verde no Ubuntu e no Windows. A CI da `main` (run 38055530334)
+também passou nas duas máquinas no commit `1b05819`. A release `v1.8.0` aponta para esse commit; o workflow
+`publish` (run 38057571606) publicou `sagadeck@1.8.0` no npm com provenance.
+
+O registro passou a informar `latest: 1.8.0`; esta máquina foi atualizada com `npm install -g sagadeck@1.8.0`.
+O Studio anterior da porta 3517 foi verificado e substituído pelo da versão nova, na mesma porta.
+Conferido em `http://127.0.0.1:3517/api/instance`: versão 1.8.0, biblioteca local; IA configurada,
+configuração do mapa editável e nenhum aviso de código antigo.
+
+No Oracle, por decisão de Narumi, **produção permanece na 1.7.1**, em `/opt/sagadeck`, porta 3517, sem reinício.
+O dev tem código próprio em `/opt/sagadeck-dev`, branch local `dev`, agora na tag `v1.8.0`; somente
+`sagadeck-dev.service` foi reiniciado, na porta 3518. Versão e configuração reservada conferidas pela API;
+IA configurada e arquivos do mapa servidos. A rota real pelo OpenRouteService já havia sido conferida nessa
+mesma versão pelo Claude. O ambiente e os dois `mapa.json` usam `OPENROUTESERVICE_API_KEY`, com modo 600 e
+dono de cada serviço. A separação do código do dev e o guia do mapa no servidor entraram pelos PRs #100 e #99
+do oráculo, respectivamente; não precisam ser refeitos.
+
+A CI intermediária da `main`, após o #178, teve um erro de recursos do navegador no Windows
+(`ERR_NO_BUFFER_SPACE`, no teste da faixa de ferramentas). O teste isolado local passou; a repetição dessa CI
+foi cancelada pela entrada do #179. As CIs posteriores do #179 e da `main` passaram completas nas duas máquinas,
+sem filtros de erro nem alterações para esconder a falha.
+
+Os quatro testes de mapa com o modelo real passaram novamente. Suíte completa da 1.8.0: 982 testes,
 956 passaram, 26 pulados, zero falhas; mapa/editor/exportação/leitores e regras: 22 testes direcionados passaram.
 Na revisão com cliques reais, a planilha cobria o mapa inteiro e a legenda interceptava um ponto no enquadramento
 automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico recolhidas, com botão para abrir), a
