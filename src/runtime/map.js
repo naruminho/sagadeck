@@ -43,6 +43,9 @@
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "none" || document.documentElement.classList.contains("export");
 
   const live = new Map(); // .map-box -> estado
+  // vista guardada entre redesenhos do Studio (chave: o slide e a sua forma de enquadrar)
+  const views = new Map();
+  const keyOf = (box) => { const s = box.closest("[data-idx]"); return s && !s.closest("#stage") ? `${s.dataset.uid || s.dataset.idx}|${box.querySelector(".map-data")?.textContent.match(/"view":(null|\{[^}]*\}|"fit")/)?.[1] || ""}` : null; };
   let readyResolve, readyPromise = Promise.resolve();
 
   function notice(box, text, retry) {
@@ -156,7 +159,10 @@
     // enquadramento: o do slide, senão os dados, senão o mundo
     const fit = (b, fly) => { if (!b) return; const opts = { padding: [48, 48], maxZoom: 17 }; fly && !reduced() ? map.flyToBounds(b, { ...opts, duration: 1.6 }) : map.fitBounds(b, opts); };
     const go = (v, fly) => { if (!v) return; if (v === "fit") return; fly && !reduced() ? map.flyTo([v.center[0], v.center[1]], v.zoom, { duration: 1.6 }) : map.setView([v.center[0], v.center[1]], v.zoom); };
-    if (m.view && m.view !== "fit") go(m.view); else if (m.bounds) fit(m.bounds); else map.setView([0, 0], 2);
+    // no Studio, o slide redesenha a cada edição: a vista que a pessoa estava olhando continua (na apresentação, não)
+    const kept = keyOf(box) && views.get(keyOf(box));
+    if (kept) map.setView(kept.center, kept.zoom, { animate: false });
+    else if (m.view && m.view !== "fit") go(m.view); else if (m.bounds) fit(m.bounds); else map.setView([0, 0], 2);
     startTiles();
 
     // camada por clique: os marcadores invisíveis data-step do slide ganham "in" (src/runtime/runtime.js)
@@ -196,10 +202,11 @@
     readyPromise = Promise.all(jobs).then(() => Promise.all(boxes.map((b) => live.get(b)?.settled)));
     return readyPromise;
   }
-  function dispose(root = document) {
+  function dispose(root = document, { keepView = false } = {}) {
     const boxes = root.classList?.contains("map-box") ? [root] : [...root.querySelectorAll(".map-box")];
     for (const b of boxes) {
       const st = live.get(b); if (!st) continue;
+      if (keepView && keyOf(b) && st.map) views.set(keyOf(b), { center: st.map.getCenter(), zoom: st.map.getZoom() });
       st.observer?.disconnect(); st.map?.remove(); live.delete(b);
       delete b.dataset.mapMounted; b.querySelector(".map-legend")?.remove();
       b.querySelector(".map-notice")?.remove();
@@ -217,6 +224,8 @@
   }
   window.SagaMap = {
     mount, dispose,
+    // o editor do Studio (map-editor.js) pega o mapa e as camadas montadas desta caixa
+    instance: (box) => live.get(box),
     // a exportação chama depois de ir a um slide: espera o mapa dele (tiles ou desistência), no máximo 8 s
     settled: () => { const cur = document.querySelector("#stage > .slide.current"); return cur ? mount(cur) : Promise.resolve(); },
   };

@@ -90,7 +90,7 @@ window.SagaMapData = (() => {
     const canMap = (g.lat >= 0 && g.lon >= 0) || g.coord >= 0;
     bar.innerHTML = `${canMap ? `<button type="button" class="btn btn-small" data-to-map title="Cria um slide de mapa com os pontos desta planilha"><i class="ic" data-ic="map-pin"></i> Pôr no mapa</button>` : ""}${g.addr >= 0 && g.withPos < g.total ? `<button type="button" class="btn btn-small" data-geocode title="Preenche latitude e longitude pelo endereço"><i class="ic" data-ic="search"></i> Achar coordenadas</button>` : ""}<span class="md-status f-label"></span>`;
     head.append(bar);
-    window.hydrateIcons?.(bar);
+    ctx.hydrate?.(bar);
     const status = bar.querySelector(".md-status");
     bar.querySelector("[data-to-map]")?.addEventListener("click", async () => {
       const name = t.name.replace(/\.[a-z0-9]+$/i, "");
@@ -121,5 +121,34 @@ window.SagaMapData = (() => {
   // linha selecionada na planilha -> cartão do ponto no mapa da prévia
   const selectRow = (path, linha) => document.dispatchEvent(new CustomEvent("sagamap:linha", { detail: { path, linha } }));
 
-  return { guess, sheetTools, selectRow };
+  // botão "Editar no mapa" na prévia grande; o editor (map-editor.js) só carrega no primeiro clique
+  let editorLoad;
+  const loadEditor = () => (window.SagaMapEditor ? Promise.resolve() : (editorLoad ||= new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = "map-editor.js"; s.onload = res;
+    s.onerror = () => { editorLoad = null; s.remove(); rej(new Error("Não foi possível carregar o editor do mapa.")); };
+    document.head.append(s);
+  })));
+  function attach(container, slide, commit, ctx) {
+    const E = window.SagaMapEditor;
+    if (slide?.layout !== "map") { if (E?.active()) E.stop(); document.querySelectorAll("#canvas-viewport > .me-open").forEach((b) => b.remove()); return; }
+    const box = container.querySelector(".map-box");
+    if (!box) return;
+    // o botão e a barra ficam fora do slide escalado (a prévia do Studio fica a ~40%): no #canvas-viewport
+    const host = document.getElementById("canvas-viewport") || box;
+    host.querySelectorAll(":scope > .me-open").forEach((b) => b.remove());
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "me-open"; btn.innerHTML = '<i class="ic" data-ic="pencil"></i> Editar no mapa';
+    for (const ev of ["pointerdown", "mousedown", "click", "dblclick"]) btn.addEventListener(ev, (e) => e.stopPropagation());
+    btn.onclick = async () => {
+      try { await loadEditor(); btn.hidden = true; window.SagaMapEditor.start(box, slide, commit, ctx); }
+      catch (e) { ctx.toast(e.message, 5000); }
+    };
+    host.append(btn);
+    ctx.hydrate?.(btn);
+    // o slide redesenhou com o editor aberto (gravou algo): volta no mesmo modo
+    if (E?.active()) { if (E.key() === (slide.uid || slide.title)) { btn.hidden = true; E.resume(box, slide, commit, ctx); } else E.stop(); }
+  }
+  const editorStopped = () => { const b = document.querySelector("#canvas-viewport > .me-open"); if (b) b.hidden = false; };
+
+  return { guess, sheetTools, selectRow, attach, editorStopped };
 })();

@@ -150,6 +150,46 @@ ilustrar" e `--no-images` proíbe. Imagens só são geradas para os slides que a
 
 Todo YAML vindo do LLM é validado (renderiza cada slide); se falhar, o erro volta para o LLM corrigir (até 3 tentativas). Decks gerados passam por uma rodada de enxugamento quando o fiscal anti-sono reclamaria.
 
+## Mapa (opcional)
+
+O slide de mapa (`layout: map`) mostra pontos, linhas e áreas sobre um mapa ao vivo: sensores, medidores, unidades de
+atendimento, cinemas, trajetos, bairros, o que for. Os dados vêm de uma planilha do projeto (CSV com latitude e
+longitude, ou só com o endereço) ou de arquivos GeoJSON, GPX e KML. **Nada aqui é obrigatório**: quem não usa mapa
+não precisa configurar coisa nenhuma, e o sagadeck não pede nada à internet por causa dele.
+
+**Sem chave nenhuma, já funciona** com os serviços públicos gratuitos do OpenStreetMap:
+
+| serviço | para quê | padrão (sem configurar) |
+|---|---|---|
+| mapa de fundo | as ruas por baixo das camadas | OpenStreetMap |
+| endereço e coordenada | **Achar coordenadas** de uma planilha só com endereço | Nominatim (1 endereço por segundo) |
+| busca de lugares | achar cinemas, escolas, unidades de saúde… pelo nome do tipo | Overpass |
+| rotas | "seguir as ruas" ao desenhar, distância e tempo | OSRM (servidor de demonstração) |
+
+**Chave opcional: OpenRouteService**, para rotas a pé, de carro e de bicicleta e para a **área alcançável em X
+minutos**. É gratuita:
+1. Crie a conta em [openrouteservice.org](https://openrouteservice.org) e confirme o e-mail.
+2. No painel, gere um token do plano gratuito (Standard).
+3. No Studio, **Configurar mapa** (no alto da biblioteca, ou no formulário do slide de mapa) › Rotas › **Usar o
+   OpenRouteService**, cole a chave e clique em **Testar**.
+
+A configuração fica só nesta máquina, em `~/.sagadeck/mapa.json` (como a da IA); a chave nunca volta inteira para a
+página e nunca vai para dentro da apresentação. Também vale pôr a chave numa variável de ambiente e indicar o nome dela
+em `keyEnv` (no servidor, por exemplo):
+
+```json
+{ "rotas": { "provedor": "openrouteservice", "url": "https://api.openrouteservice.org", "keyEnv": "OPENROUTESERVICE_API_KEY" } }
+```
+
+Os serviços públicos têm regras de uso que o sagadeck respeita sozinho: identifica cada pedido, mostra a atribuição
+"© colaboradores do OpenStreetMap", busca um endereço por segundo, guarda o que já achou e nunca baixa mapa fora da
+tela. Eles são para uso leve e não comercial; no trabalho, prefira o servidor de mapas da empresa ou um provedor com
+chave (os endereços se trocam em **Configurar mapa**). Antes de mandar os endereços de uma planilha sua para um
+serviço de fora, o sagadeck pergunta.
+
+Se a rede barrar um serviço (autorização negada, proxy, bloqueio), o sagadeck faz **uma tentativa e para**: avisa
+na tela, as camadas continuam desenhadas e nada é tentado de novo até você clicar em **Tentar de novo**.
+
 ## Desenvolvimento
 
 ```bash

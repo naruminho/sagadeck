@@ -13,8 +13,10 @@ window.SagaAISettings = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   let dialog, info, onSaved = () => {};
 
+  // o estilo da caixa serve também ao Configurar mapa (map-settings.js)
+  const ensureStyle = () => { if (!document.getElementById("ai-cfg-style")) { const st = document.createElement("style"); st.id = "ai-cfg-style"; st.textContent = css; document.head.append(st); } };
   function build() {
-    if (!document.getElementById("ai-cfg-style")) { const st = document.createElement("style"); st.id = "ai-cfg-style"; st.textContent = css; document.head.append(st); }
+    ensureStyle();
     dialog = document.createElement("dialog");
     dialog.className = "ai-cfg";
     dialog.id = "ai-settings-dialog";
@@ -85,6 +87,7 @@ window.SagaAISettings = (() => {
   }
 
   return {
+    ensureStyle,
     async open(saved) {
       onSaved = typeof saved === "function" ? saved : () => {};
       if (!dialog) build();

@@ -20,7 +20,7 @@ const toNum = (v) => rawNum(String(v ?? "").trim().replace(/^R\$\s*/i, "").repla
 export const META = ".sagadeck";
 export const CONTEXT = "contexto";
 const TEXT_EXT = new Set(["md", "markdown", "txt", "csv", "tsv", "json", "yaml", "yml", "css", "js", "mjs", "cjs", "jsx", "ts", "tsx", "html", "htm", "svg", "xml",
-  "py", "r", "m", "sql", "sh", "bash", "bat", "ps1", "ini", "toml", "cfg", "java", "c", "h", "cpp", "cs", "go", "rs", "tex", "bib", "log"]);
+  "py", "r", "m", "sql", "sh", "bash", "bat", "ps1", "ini", "toml", "cfg", "java", "c", "h", "cpp", "cs", "go", "rs", "tex", "bib", "log", "geojson", "gpx", "kml"]); // geo: as camadas do mapa (map.js) se editam aqui
 const SHEET_EXT = new Set(["csv", "tsv", "xlsx"]);
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 const extOf = (f) => (String(f).match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();

@@ -8,6 +8,7 @@ import * as Project from "./project.js";
 import { renameRetry } from "../fs-retry.js";
 import { loadMapConfig, mapaFile, saveMapConfig, maskedMapConfig } from "../map-config.js";
 import { serviceState, resetService, geocodeOne, geocodeInterval, ServiceBlocked, SERVICES } from "../map-services.js";
+import { route, reverseGeocode, isochrone } from "../map-routing.js";
 
 const json = (res, status, data) => { res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify(data)); };
 const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -53,6 +54,27 @@ export async function geoRoutes({ req, res, pathname, opts, readJSON, W, isBundl
     const b = await readJSON(req);
     resetService(b.service || null);
     json(res, 200, { ok: true, services: serviceState() });
+    return true;
+  }
+  // rota pelas ruas (editor: "Seguir as ruas"), endereço de um ponto (ponto novo) e área alcançável
+  if (["/api/mapa/rota", "/api/mapa/endereco", "/api/mapa/alcance"].includes(pathname) && req.method === "POST") {
+    const b = await readJSON(req);
+    try {
+      if (pathname === "/api/mapa/rota") json(res, 200, await route(b.pontos, { modo: b.modo }));
+      else if (pathname === "/api/mapa/endereco") json(res, 200, { endereco: await reverseGeocode(b.lat, b.lon) });
+      else json(res, 200, { geometry: await isochrone([b.lat, b.lon], b.minutos, { modo: b.modo }) });
+    } catch (e) { json(res, e instanceof ServiceBlocked ? 503 : 400, { error: e.message, bloqueado: e instanceof ServiceBlocked }); }
+    return true;
+  }
+  // Testar (Configurar mapa): uma rota curta com o que está salvo, para ver se a chave e o serviço respondem
+  if (pathname === "/api/mapa/testar" && req.method === "POST") {
+    if (opts.multiuser) { json(res, 403, { error: "No servidor, quem testa é quem administra." }); return true; }
+    resetService("rotas");
+    const t0 = Date.now();
+    try {
+      const r = await route([[-23.5489, -46.6388], [-23.5505, -46.6333]], { modo: "pe" });
+      json(res, 200, { ok: true, distancia: Math.round(r.distancia), minutos: Math.round(r.duracao / 60), ms: Date.now() - t0 });
+    } catch (e) { json(res, 200, { ok: false, error: e.message, ms: Date.now() - t0 }); }
     return true;
   }
   if (pathname === "/api/mapa/geocode" && req.method === "POST") {

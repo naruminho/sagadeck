@@ -225,7 +225,8 @@
   function bindTabs() {
     $("#doc-tabs").addEventListener("click", (ev) => {
       const c = ev.target.closest("[data-close]"); if (c) { ev.stopPropagation(); closeTab(c.dataset.close); return; }
-      const t = ev.target.closest("[data-doc]"); if (t) activate(t.dataset.doc);
+      // A aba ativa já tem a grade e a seleção da pessoa: reler por clique perderia ambas na resposta tardia.
+      const t = ev.target.closest("[data-doc]"); if (t && t.dataset.doc !== active) activate(t.dataset.doc);
     });
     $("#doc-tabs").addEventListener("auxclick", (ev) => { const t = ev.target.closest("[data-doc]"); if (ev.button === 1 && t && t.dataset.doc !== "__deck__") closeTab(t.dataset.doc); });
   }
