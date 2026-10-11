@@ -48,6 +48,8 @@ function collectInPage([idx, nativeCharts]) {
   const isLeaf = (e) => {
     const d = getComputedStyle(e).display;
     if ((d.includes("flex") || d.includes("grid")) && e.children.length) return false;
+    // Na régua da calculadora, cada faixa e cada rótulo têm caixas próprias: agrupar perderia posições e fundos.
+    if (e.classList.contains("calc-track") || e.classList.contains("calc-band")) return false;
     let has = false;
     for (const c of e.childNodes) {
       if (c.nodeType === 3) { if (c.textContent.trim()) has = true; }

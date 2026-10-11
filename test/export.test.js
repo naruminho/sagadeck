@@ -60,6 +60,41 @@ test("PowerPoint: controles deslizantes mantêm trilho e marcador em vez de caix
   } finally { deck.cleanup(); }
 });
 
+test('PowerPoint: a régua mantém as faixas coloridas e os rótulos editáveis nas posições da tela', { timeout: 60000 }, async t => {
+  const probe = await browserOrSkip(t); if (!probe) return; await probe.close();
+  const deck = tempDeck();
+  try {
+    const r = buildHTML({ theme: 'sinal', slides: [LAYOUT_SAMPLES.calc] });
+    const html = path.join(deck.dir, 'regua.html'), out = path.join(deck.dir, 'regua.pptx');
+    fs.writeFileSync(html, r.html);
+    const { openDeck } = await import('../src/export/browser.js');
+    const opened = await openDeck(html);
+    let bands, labels;
+    try {
+      const measure = els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, text: el.textContent.trim().toUpperCase() }; });
+      bands = await opened.page.locator('.calc-band').evaluateAll(measure);
+      labels = (await opened.page.locator('.calc-band em').evaluateAll(measure)).filter(el => el.text);
+      assert.deepEqual(opened.errors, []);
+    } finally { await opened.browser.close(); }
+    const { exportPptx } = await import('../src/export/pptx.js');
+    const result = await exportPptx(html, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta } });
+    assert.deepEqual(result.errors, []);
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    const shapes = [...xml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].map(([sp]) => {
+      const off = sp.match(/<a:off x="(\d+)" y="(\d+)"/), ext = sp.match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+      return off && ext ? { x: +off[1] / 6350, y: +off[2] / 6350, w: +ext[1] / 6350, h: +ext[2] / 6350, text: [...sp.matchAll(/<a:t>([^<]*)/g)].map(m => m[1]).join('').trim(), fill: sp.match(/<a:solidFill><a:srgbClr val="([^"]+)"/)?.[1] } : null;
+    }).filter(Boolean);
+    const sameBox = (a, b) => ['x', 'y', 'w', 'h'].every(k => Math.abs(a[k] - b[k]) < 2);
+    assert.equal(labels.length, 2);
+    for (const label of labels) assert.ok(shapes.some(s => s.text === label.text && Math.abs(s.x - label.x) < 2 && Math.abs(s.y - label.y) < 2 && s.w >= label.w - 2 && s.h >= label.h - 2), `rótulo editável na própria posição: ${JSON.stringify(label)}`);
+    assert.equal(bands.length, 3);
+    const exported = bands.map(b => shapes.find(s => !s.text && s.fill && sameBox(s, b)));
+    assert.ok(exported.every(Boolean), 'cada faixa conserva sua própria área e preenchimento');
+    assert.equal(new Set(exported.map(s => s.fill)).size, 3, 'as três cores da régua são preservadas');
+  } finally { deck.cleanup(); }
+});
+
 const pdfPages = (buf) => (buf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) || []).length;
 
 test("PDF: uma página por slide", { timeout: 180000 }, async (t) => {

@@ -184,6 +184,10 @@ capital em reais aparecia como código LaTeX no exercício resolvido.
   para o modo compacto. A suíte apontou um excesso de 3 px no exemplo com oito resultados; o modo compacto usa
   uma linha do tamanho da fonte, sem a folga extra do modo comum, e o teste existente de controles/explicação
   visíveis passou novamente.
+- A conferência da demo completa no PPTX revelou outra causa da régua desformatada: o exportador agrupava filhos
+  posicionados como texto de uma única caixa. Agora cada faixa e cada rótulo conserva sua própria posição e fundo;
+  as três cores e os dois nomes editáveis são conferidos no arquivo real, comparando com as posições do navegador.
+  O teste falhou com o agrupamento antigo e passou após a correção, junto com os demais testes de PowerPoint.
 - Unidades que já contêm `\$` ou `\%` não são escapadas duas vezes pelo motor. O exemplo de juros mantém seus
   dados, etapas e resposta; a moeda compila em vez de aparecer como erro vermelho. Apresentações pessoais não foram
   editadas.
@@ -191,8 +195,14 @@ capital em reais aparecia como código LaTeX no exercício resolvido.
 Regressões reproduzidas antes das correções: fundo opaco do rótulo, sobreposição/corte na calculadora, unidade já
 escapada inválida e ausência dos controles no PPTX. Testes direcionados passaram. Conferência visual dos modelos
 e PPTX real de três slides: zero erros de JavaScript, dois controles completos no arquivo. Suíte completa concluída:
-999 testes, 973 passaram, 26 pulados, zero falhas, encerramento normal em 21 min 13 s. O PR segue a CI
-Ubuntu/Windows antes do merge e atualização local/dev. Produção do Oracle fica na 1.7.1.
+999 testes, 973 passaram, 26 pulados, zero falhas, encerramento normal em 21 min 13 s. A suíte final, incluindo
+a régua, concluiu com 1000 testes: 974 passaram, 26 pulados, zero falhas, encerramento normal em 22 min 11 s.
+A demo completa atualizada foi gerada pelo Studio em 61 s e baixada com 85 slides; conferidas as três faixas
+coloridas e os dois nomes em caixas editáveis separadas no PPTX. O PR #184 segue a CI Ubuntu/Windows antes do
+merge e atualização local/dev. A CI da main 38135963264 teve erro `ERR_NO_BUFFER_SPACE` do Chrome no Windows no teste
+da aula de APIs; o fluxo foi concluído, mas a exigência de zero erros apontou o erro de rede. O teste passou
+novamente nesta máquina e o job do Windows foi reexecutado, sem relaxar a verificação: concluiu verde em 29 min 51 s,
+junto com o Ubuntu verde em 23 min 55 s. Produção do Oracle fica na 1.7.1.
 
 ## Exportação com progresso e download posterior — 10/10/2026
 
