@@ -168,6 +168,32 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Correções visuais da demo — 11/10/2026
+
+Pedidos de Narumi por capturas de tela: rótulos brancos cobriam o mapa; fórmula de Reynolds em cima do resultado;
+capital em reais aparecia como código LaTeX no exercício resolvido.
+
+- Rótulos do mapa têm fundo transparente, sem caixa ou sombra retangular, com contorno leve só no texto. O estilo
+  tem prioridade sobre o CSS do Leaflet, que carrega depois; o rótulo não intercepta cliques. Conferido em temas
+  claro e escuro, com os nomes preservados e clique real no ponto.
+- A calculadora reserva altura e respiro para a fração, sem sobrepor o resultado. Os nomes das faixas ficam visíveis
+  abaixo da régua, mantendo suas posições e as pontas arredondadas. No PPTX, controles deslizantes são capturados
+  com trilho e marcador: antes viravam retângulos brancos, sem representar o valor atual. A linha do resultado
+  também usa o tamanho do número: o PPTX antes reservava 9,6 pt para uma fonte de 38 pt, causando sobreposição.
+  O teste confere a altura exportada e preserva o resultado como texto editável; o ajuste de altura vale também
+  para o modo compacto. A suíte apontou um excesso de 3 px no exemplo com oito resultados; o modo compacto usa
+  uma linha do tamanho da fonte, sem a folga extra do modo comum, e o teste existente de controles/explicação
+  visíveis passou novamente.
+- Unidades que já contêm `\$` ou `\%` não são escapadas duas vezes pelo motor. O exemplo de juros mantém seus
+  dados, etapas e resposta; a moeda compila em vez de aparecer como erro vermelho. Apresentações pessoais não foram
+  editadas.
+
+Regressões reproduzidas antes das correções: fundo opaco do rótulo, sobreposição/corte na calculadora, unidade já
+escapada inválida e ausência dos controles no PPTX. Testes direcionados passaram. Conferência visual dos modelos
+e PPTX real de três slides: zero erros de JavaScript, dois controles completos no arquivo. Suíte completa concluída:
+999 testes, 973 passaram, 26 pulados, zero falhas, encerramento normal em 21 min 13 s. O PR segue a CI
+Ubuntu/Windows antes do merge e atualização local/dev. Produção do Oracle fica na 1.7.1.
+
 ## Exportação com progresso e download posterior — 10/10/2026
 
 Pedido: ao baixar a demo como PowerPoint, não ficava claro se estava gerando, tinha falhado ou já havia terminado.
@@ -190,8 +216,10 @@ download pelo clique na UI), com os 85 slides no PPTX, zero erros de JavaScript 
 Regressão inicial: o pedido assíncrono retornava 404, sem fila nem arquivo recuperável. Testes verificam progresso,
 PPTX real com textos e notas, fechamento da aba e recuperação pela biblioteca, falha persistente, bloqueio após
 erro ao salvar, deduplicação, expiração e isolamento entre pessoas. Suíte completa concluída em 11/10:
-995 testes, 969 passaram, 26 pulados, zero falhas, encerramento normal. PR e merge seguem a CI completa
-no Ubuntu e no Windows; produção do Oracle permanece na 1.7.1, sem atualização nem reinício.
+995 testes, 969 passaram, 26 pulados, zero falhas, encerramento normal. O PR #183 entrou na `main` em 11/10
+(`8ff7005`), depois da CI 38133476972 concluir verde no Ubuntu (23 min 59 s) e no Windows (32 min 34 s).
+O Oracle dev foi atualizado para esse commit; geração assíncrona e download real de 17 slides conferidos em 7,5 s.
+Produção do Oracle permanece na 1.7.1, sem atualização nem reinício.
 Uma resposta atrasada de uma consulta anterior podia apagar o acompanhamento de um pedido novo e impedir o download
 automático: reproduzido com a resposta retida, agora só expiram gerações que a consulta já conhecia. O painel fica
 abaixo das janelas de configuração; recolhido no editor, sai da área de digitação do chat. Testes verificam os

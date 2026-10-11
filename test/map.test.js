@@ -265,6 +265,39 @@ test("mapa ao vivo: faixa em volta de uma linha sem contorno e preenchida como u
 
 // Pedido de Narumi: "os pontos estão com círculos meio grandes e feios de tão simples". Ponto: pequeno, na cor, com
 // anel branco e sombra; bolha (tamanho pela coluna): translúcida com o contorno da mesma cor.
+test("mapa ao vivo: rótulos sem caixa opaca preservam o desenho e a leitura em temas claros e escuros", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const dir = tmp();
+  try {
+    for (const theme of ["editorial", "noite"]) {
+      const file = path.join(dir, `${theme}.html`);
+      fs.writeFileSync(file, buildHTML({ title: "Rótulos", theme, slides: [{ layout: "map", basemap: "nenhum", layers: [
+        { name: "Lugares", points: PONTOS, label: "nome" },
+        { name: "Caminho", geojson: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[-46.6388, -23.5489], [-46.702, -23.5614]] } } },
+      ] }] }).html);
+      const { page: p, errors } = await newPage(browser, pathToFileURL(file).href);
+      await p.waitForSelector('.map-box[data-map-mounted="ready"]');
+      const labels = await p.locator('.map-label').evaluateAll(elements => elements.map(el => {
+        const css = getComputedStyle(el);
+        return { name: el.textContent, background: css.backgroundColor, boxShadow: css.boxShadow, textShadow: css.textShadow, border: css.borderTopWidth, pointerEvents: css.pointerEvents };
+      }));
+      assert.deepEqual(labels.map(x => x.name), PONTOS.map(x => x.nome));
+      for (const label of labels) {
+        assert.equal(label.background, "rgba(0, 0, 0, 0)", `${theme}: o fundo do rótulo não cobre o mapa`);
+        assert.equal(label.boxShadow, "none", "sem sombra de uma caixa retangular");
+        assert.equal(label.border, "0px");
+        assert.notEqual(label.textShadow, "none", "contorno no texto mantém a leitura sobre o desenho");
+        assert.equal(label.pointerEvents, "none", "rótulo não bloqueia os cliques no mapa");
+      }
+      await p.locator('.map-pt').nth(2).click();
+      await p.locator('.map-card', { hasText: "Mooca" }).waitFor();
+      assert.deepEqual(errors, []);
+      await p.close();
+    }
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("mapa ao vivo: ponto pequeno com anel branco e sombra; bolha translúcida com contorno da mesma cor", { timeout: 90000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;

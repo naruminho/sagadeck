@@ -168,7 +168,7 @@ function collectInPage([idx, nativeCharts]) {
       return;
     }
     // coisas que viram imagem
-    if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" ||
+    if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" || (tag === "INPUT" && e.type === "range") ||
         e.classList.contains("katex") || (isLeaf(e) && e.querySelector(".katex")) || e.classList.contains("widget") || e.classList.contains("timer") || e.classList.contains("code") || e.classList.contains("raster") || transformed(cs)) {
       const vr = visualRect(e);
       e.setAttribute("data-pid", String(++pid));
