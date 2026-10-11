@@ -63,6 +63,33 @@ test("slides de aula: exercício um passo por clique até a resposta; calculador
   assert.match(bad, /lista de números/, "vetor inválido: o slide diz o que falta, sem quebrar");
 });
 
+test("exercício resolvido: unidades com moeda e percentagem já escapadas não vazam LaTeX", () => {
+  for (const unit of ["R$", String.raw`R\$`, "%", String.raw`\%`, "°C"]) {
+    const { html } = renderSlide({ layout: "solution", givens: [{ symbol: "C", value: 1000, unit }] }, 0, ctx);
+    assert.doesNotMatch(html, /class="katex-error"/, `unidade ${unit} compila como fórmula`);
+    assert.match(html, /class="katex"/);
+  }
+  assert.doesNotMatch(renderSlide(LAYOUT_SAMPLES.solution, 0, ctx).html, /class="katex-error"/, "o modelo da demo mostra o capital em reais");
+});
+
+test("calculadora: fórmula de Reynolds não se sobrepõe ao resultado e as faixas ficam legíveis", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  try {
+    const file = path.join(deck.dir, "calc.html");
+    fs.writeFileSync(file, buildHTML({ title: "Calculadora", theme: "sinal", slides: [demoDeck('conheca').slides.find(s => s.layout === 'calc')] }).html);
+    const { page: p, errors } = await newPage(browser, pathToFileURL(file).href, { width: 1920, height: 1080 });
+    const geometry = await p.evaluate(() => {
+      const bounds = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, height: r.height }; };
+      const parts = [...document.querySelectorAll('.calc-formula .katex-html span')].map(el => el.getBoundingClientRect());
+      return { formula: { top: Math.min(...parts.map(r => r.top)), bottom: Math.max(...parts.map(r => r.bottom)) }, value: bounds('[data-calc-out="Re"]'), bands: [...document.querySelectorAll('.calc-band em')].map(el => { const r = el.getBoundingClientRect(); return { text: el.textContent, x: r.left, y: r.top, visible: document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.calc-band') === el.parentElement }; }) };
+    });
+    assert.ok(geometry.formula.bottom <= geometry.value.top, `fórmula e resultado separados: ${JSON.stringify(geometry)}`);
+    for (const band of geometry.bands) assert.ok(band.visible, `faixa ${band.text} aparece sem corte`);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); deck.cleanup(); }
+});
+
 test("demos de aula e capas: hidráulica e algoritmos sem avisos; cada demo da vitrine com capa própria", () => {
   for (const k of ["hidraulica", "algoritmos"]) assert.deepEqual(buildHTML(demoDeck(k)).warnings, [], k);
   const layouts = demoDeck("hidraulica").slides.map((s) => s.layout);

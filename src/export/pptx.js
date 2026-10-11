@@ -48,6 +48,8 @@ function collectInPage([idx, nativeCharts]) {
   const isLeaf = (e) => {
     const d = getComputedStyle(e).display;
     if ((d.includes("flex") || d.includes("grid")) && e.children.length) return false;
+    // Na régua da calculadora, cada faixa e cada rótulo têm caixas próprias: agrupar perderia posições e fundos.
+    if (e.classList.contains("calc-track") || e.classList.contains("calc-band")) return false;
     let has = false;
     for (const c of e.childNodes) {
       if (c.nodeType === 3) { if (c.textContent.trim()) has = true; }
@@ -168,7 +170,7 @@ function collectInPage([idx, nativeCharts]) {
       return;
     }
     // coisas que viram imagem
-    if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" ||
+    if (tag.toLowerCase() === "svg" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" || (tag === "INPUT" && e.type === "range") ||
         e.classList.contains("katex") || (isLeaf(e) && e.querySelector(".katex")) || e.classList.contains("widget") || e.classList.contains("timer") || e.classList.contains("code") || e.classList.contains("raster") || transformed(cs)) {
       const vr = visualRect(e);
       e.setAttribute("data-pid", String(++pid));
