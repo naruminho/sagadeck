@@ -7,9 +7,13 @@ pula de versão em versão.
 ## [Não lançado]
 
 ### Correções
-- **Duplicar apresentação não desiste com o arquivo preso por um instante** (antivírus/sincronização no
-  Windows): a cópia agora tem a mesma tolerância do rename (`copyRetry`), que já cobria mover, renomear,
-  lixeira e restaurar. Era o flake do CI em "mover (pasta inteira...), renomear e duplicar".
+- **Duplicar, apagar e limpar pasta no Windows com acento no nome (a norma aqui) paravam de quebrar**: o
+  `fs.cpSync`/`fs.rmSync` recursivos do Node têm código nativo que, no Windows, mata o processo sem aviso
+  (0xC0000409) ou copia/apaga **nada** quando o caminho tem acento ou caractere fora do ASCII
+  (nodejs/node#54476, #61878 — "Relatório (cópia)" é o caso real). Agora `copyRetry`/`removeRetry`
+  (`src/fs-retry.js`) caminham na mão por readdir/copyFile/unlink/rmdir, que lidam com acento, e cada
+  arquivo ainda tolera o travamento de um instante (antivírus/sincronização), como o rename já fazia.
+  Era também o flake do CI em "mover (pasta inteira...), renomear e duplicar" (só aparecia no Node 22).
 
 ### Melhorias
 - **Testes que precisam de navegador pulam sem Chrome/Edge**, em vez de falhar: os testes do foco guiado,

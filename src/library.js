@@ -14,7 +14,7 @@
 //
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
 import fs from "node:fs";
-import { renameRetry, copyRetry } from "./fs-retry.js";
+import { renameRetry, copyRetry, removeRetry } from "./fs-retry.js";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -228,7 +228,7 @@ export function openLibrary(root, { trashDays } = {}) {
     const dir = topicDir(id);
     const left = fs.readdirSync(dir).filter((n) => !hidden(n));
     if (left.length) throw new Error("o tópico não está vazio: mova ou exclua as apresentações antes");
-    fs.rmSync(dir, { recursive: true, force: true });
+    removeRetry(dir);
   }
 
   // ---- apresentações ----
@@ -404,11 +404,11 @@ export function openLibrary(root, { trashDays } = {}) {
     const ext = isFile ? path.extname(o.unit) : "";
     const to = uniquePath(dest, path.basename(o.unit, ext), ext);
     renameRetry(path.join(slot, o.unit), to);
-    fs.rmSync(slot, { recursive: true, force: true });
+    removeRetry(slot);
     return idOf(isFile ? to : path.join(to, o.yaml));
   }
   function purgeDeck(slotId) {
-    fs.rmSync(path.join(root, TRASH, path.basename(slotId)), { recursive: true, force: true });
+    removeRetry(path.join(root, TRASH, path.basename(slotId)));
   }
   // esvaziar a lixeira: tudo de uma vez (a pessoa confirma antes, no Studio)
   function emptyTrash() {

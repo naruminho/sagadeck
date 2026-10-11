@@ -8,6 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { removeRetry } from "../fs-retry.js";
 
 const isWin = process.platform === "win32";
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-import-"));
@@ -20,7 +21,7 @@ function powershell(script, args, timeout = 600000) {
     fs.writeFileSync(json, JSON.stringify(args), "utf8");
     const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", ps1, json], { encoding: "utf8", timeout, windowsHide: true });
     return { ok: r.status === 0, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() };
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeRetry(dir); }
 }
 
 let officeCache = null;
@@ -75,7 +76,7 @@ foreach ($p in $a.pairs) {
       spawnSync(lo, ["--headless", "--convert-to", "png", "--outdir", out, p.src], { timeout: 120000 });
       const f = fs.readdirSync(out).find((x) => x.endsWith(".png"));
       if (f) fs.copyFileSync(path.join(out, f), p.dst);
-      fs.rmSync(out, { recursive: true, force: true });
+      removeRetry(out);
     }
     return pairs.filter((p) => fs.existsSync(p.dst)).map((p) => p.dst);
   }
@@ -108,7 +109,7 @@ try {
   try {
     const r = powershell(script, { file: copy, out: outDir, width });
     if (!r.ok) return [];
-  } finally { fs.rmSync(work, { recursive: true, force: true }); }
+  } finally { removeRetry(work); }
   return fs.readdirSync(outDir).filter((f) => /^slide-\d+\.png$/.test(f)).sort().map((f) => path.join(outDir, f));
 }
 
@@ -119,5 +120,5 @@ export function libreOfficeToPdf(file) {
   const out = tmpDir();
   spawnSync(lo, ["--headless", "--convert-to", "pdf", "--outdir", out, file], { timeout: 300000 });
   const f = fs.readdirSync(out).find((x) => x.endsWith(".pdf"));
-  return f ? { pdf: path.join(out, f), cleanup: () => fs.rmSync(out, { recursive: true, force: true }) } : null;
+  return f ? { pdf: path.join(out, f), cleanup: () => removeRetry(out) } : null;
 }

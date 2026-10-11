@@ -1,4 +1,5 @@
 import { expandApiCollections } from '../api-collections.js';
+import { removeRetry } from '../fs-retry.js';
 import {meetingSpec} from '../meeting.js';
 // Exportar a apresentação aberta ou da biblioteca: .sagadeck, PowerPoint, PDF, roteiro, material de estudo e "Baixar
 // tudo". PPTX/PDF/roteiro/estudo usam o Chrome invisível (os mesmos exportadores do CLI), numa pasta temporária.
@@ -87,7 +88,7 @@ export async function generateExport(kind, spec, name, { notes = true, audience,
     // só o que afeta o arquivo; o fiscal de conteúdo fica no Revisar
     return { body, file: k.file, mime: k.mime, warnings: [...(r.warnings || []).filter(w => /não encontrado/.test(w)), ...errors].slice(0, 20) };
   } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
+    removeRetry(tmp);
   }
 }
 

@@ -24,11 +24,15 @@ comportamento do gerador:
   `overrides` para 2.0.4: audit em zero, suíte passando, nenhum código do gerador tocado.
 - `CHANGELOG.md` começado (o histórico fino continua sendo este diário), `.editorconfig`, e
   `keywords`/`homepage`/`bugs` no `package.json`.
-- **Flake do CI no Windows consertado** ("mover (pasta inteira...), renomear e duplicar"): `duplicateDeck`
-  copiava com `fs.cpSync` cru e o antivírus/sincronização segura o arquivo recém-criado por um instante
-  (EPERM). Agora `copyRetry` (`src/fs-retry.js`), irmão do `renameRetry`, com teste de trava simulada e
-  trava estrutural contra `fs.cpSync` cru (irmã da do `fs.renameSync`). A falha apareceu sozinha na CI
-  desta branch (o que motivou o passo de falha do workflow apontar o teste que quebra).
+- **Flake do CI no Windows consertado, e era mais sério do que parecia** ("mover (pasta inteira...), renomear
+  e duplicar"): a CI desta branch começou a falhar às vezes no Windows e o passo de falha do workflow (novo)
+  apontou o teste; o bloco de erro trouxe `exitCode 3221226505` (0xC0000409, morte nativa). Causa-raiz:
+  `fs.cpSync`/`fs.rmSync` recursivos têm código nativo que no Windows mata o processo ou copia/apaga NADA
+  com caminho acentuado (nodejs/node#54476, #61878 — "cópia", "Relatório" são a norma aqui). Só apareceu
+  porque a matrix nova testa Node 22 no Windows (main só testava 24, que passa por sorte de versão).
+  Conserto: `copyRetry`/`removeRetry` caminham na mão (readdir/copyFile/unlink/rmdir) e toleram o
+  travamento de um instante; testes de trava simulada (falham sem o conserto) e trava estrutural contra
+  `fs.cpSync`/`fs.rmSync` recursivo cru. Também protege a Studio de morte súbita ao duplicar/apagar deck.
 
 O que ficou para depois (mesmo plano, fases 2+): lint/format com adoção gradual, `@ts-check` nos módulos
 puros, extração dos prompts para arquivos, divisão do `app.js` do Studio, CI paralela por família de

@@ -83,9 +83,9 @@ test("duplicar não desiste com o arquivo travado por um instante (antivírus/si
   const id = lib.createDeck("Trabalho", deck("Relatório"));
   fs.mkdirSync(path.join(lib.root, "Trabalho", "Relatório", "imagens"));
   fs.writeFileSync(path.join(lib.root, "Trabalho", "Relatório", "imagens", "a.png"), "x");
-  const real = fs.cpSync;
+  const real = fs.copyFileSync;
   let travou = 0;
-  fs.cpSync = (...args) => {
+  fs.copyFileSync = (...args) => {
     if (++travou <= 2) { const e = new Error("locked"); e.code = "EPERM"; throw e; }
     return real(...args);
   };
@@ -94,7 +94,29 @@ test("duplicar não desiste com o arquivo travado por um instante (antivírus/si
     assert.equal(copy, "Trabalho/Relatório (cópia)/Relatório (cópia).yaml");
     assert.ok(fs.existsSync(path.join(lib.root, "Trabalho", "Relatório (cópia)", "imagens", "a.png")), "as imagens foram junto");
     assert.ok(travou >= 3, "tentou de novo em vez de desistir no primeiro EPERM");
-  } finally { fs.cpSync = real; }
+  } finally { fs.copyFileSync = real; }
+});
+
+// rmSync/cpSync recursivos têm código nativo que no Windows mata o processo (0xC0000409) ou copia/apaga nada com
+// caminho acentuado (nodejs/node#54476, #61878) — "Relatório (cópia)" é o caso da vida real. copyRetry/removeRetry
+// caminham na mão (libuv) e toleram o travamento; este teste trava a remoção e usa acento nos dois caminhos.
+test("apagar de vez pasta com acento no nome tolera o arquivo travado por um instante", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Ações");
+  const id = lib.createDeck("Ações", deck("Relatório anual"));
+  const slot = lib.trashDeck(id);
+  const real = fs.unlinkSync;
+  let travou = 0;
+  fs.unlinkSync = (...args) => {
+    if (++travou <= 1) { const e = new Error("locked"); e.code = "EBUSY"; throw e; }
+    return real(...args);
+  };
+  try {
+    lib.purgeDeck(slot);
+    assert.ok(travou >= 2, "tentou de novo em vez de desistir no primeiro EBUSY");
+  } finally { fs.unlinkSync = real; }
+  assert.equal(lib.list().trash.length, 0);
+  assert.ok(!fs.existsSync(path.join(lib.root, ".lixeira", slot)), "a pasta foi embora do disco");
 });
 
 test("lixeira: excluir, restaurar no tópico de origem, apagar de vez e limpeza depois de 30 dias", () => {
