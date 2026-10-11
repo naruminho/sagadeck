@@ -31,6 +31,17 @@ jobs:
       # se resolve no mesmo commit que a introduziu (hoje: override de image-size, dependência morta do pptxgenjs)
       - run: npm audit --omit=dev --audit-level=high
         continue-on-error: true
-      - run: npm test
+      # a suíte vai para arquivo para o passo de falha apontar o que quebrou (anotação + resumo) sem caçar
+      # o nome do teste dentro de 30 MB de log do navegador
+      - run: npm test 2>&1 | tee test-output.txt
+        shell: bash
         env:
           SAGADECK_BROWSER: ${{ matrix.os == 'ubuntu-latest' && '/usr/bin/google-chrome' || 'C:\Program Files\Google\Chrome\Application\chrome.exe' }}
+      - if: failure()
+        shell: bash
+        run: |
+          falhas=$(grep -cE '^not ok' test-output.txt || true)
+          echo "## $falhas testes falharam (test ${{ matrix.os }}, ${{ matrix.node }})" >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^not ok' test-output.txt | head -20 >> "$GITHUB_STEP_SUMMARY"
+          grep -B1 -A12 '^not ok' test-output.txt | head -120 >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^not ok' test-output.txt | head -10 | while IFS= read -r linha; do echo "::error title=teste falhou::$linha"; done
