@@ -75,6 +75,28 @@ test("mover (pasta inteira, com imagens), renomear e duplicar", () => {
   assert.equal(lib.list().decks.length, 2);
 });
 
+// Trava que o renameRetry já cobre no rename: no Windows o antivírus/sincronização segura o arquivo recém-criado
+// por um instante e a cópia do duplicar estourava EPERM (flake do CI: "mover (pasta inteira...), renomear e duplicar").
+test("duplicar não desiste com o arquivo travado por um instante (antivírus/sincronização), como o rename", () => {
+  const lib = openLibrary(tmp());
+  lib.createTopic("Trabalho");
+  const id = lib.createDeck("Trabalho", deck("Relatório"));
+  fs.mkdirSync(path.join(lib.root, "Trabalho", "Relatório", "imagens"));
+  fs.writeFileSync(path.join(lib.root, "Trabalho", "Relatório", "imagens", "a.png"), "x");
+  const real = fs.cpSync;
+  let travou = 0;
+  fs.cpSync = (...args) => {
+    if (++travou <= 2) { const e = new Error("locked"); e.code = "EPERM"; throw e; }
+    return real(...args);
+  };
+  try {
+    const copy = lib.duplicateDeck(id);
+    assert.equal(copy, "Trabalho/Relatório (cópia)/Relatório (cópia).yaml");
+    assert.ok(fs.existsSync(path.join(lib.root, "Trabalho", "Relatório (cópia)", "imagens", "a.png")), "as imagens foram junto");
+    assert.ok(travou >= 3, "tentou de novo em vez de desistir no primeiro EPERM");
+  } finally { fs.cpSync = real; }
+});
+
 test("lixeira: excluir, restaurar no tópico de origem, apagar de vez e limpeza depois de 30 dias", () => {
   const lib = openLibrary(tmp());
   lib.createTopic("Aulas");

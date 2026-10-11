@@ -17,3 +17,15 @@ export function renameRetry(from, to, { delays = RENAME_DELAYS } = {}) {
     }
   }
 }
+
+// Copiar tolerante ao mesmo travamento (duplicar uma apresentação copia as imagens: no Windows o antivírus ou a
+// sincronização segura o arquivo recém-criado por um instante e o cpSync falha com EPERM/EBUSY/EACCES — era o
+// flake do CI em "mover (pasta inteira...), renomear e duplicar"). Erro que não é trava sobe na hora.
+export function copyRetry(from, to, { delays = RENAME_DELAYS, ...opts } = {}) {
+  for (let i = 0; ; i++) {
+    try { return fs.cpSync(from, to, { recursive: true, ...opts }); } catch (e) {
+      if (!LOCKED.has(e?.code) || i >= delays.length) throw e;
+      pause(delays[i]);
+    }
+  }
+}

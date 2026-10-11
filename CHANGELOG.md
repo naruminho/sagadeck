@@ -6,6 +6,11 @@ pula de versão em versão.
 
 ## [Não lançado]
 
+### Correções
+- **Duplicar apresentação não desiste com o arquivo preso por um instante** (antivírus/sincronização no
+  Windows): a cópia agora tem a mesma tolerância do rename (`copyRetry`), que já cobria mover, renomear,
+  lixeira e restaurar. Era o flake do CI em "mover (pasta inteira...), renomear e duplicar".
+
 ### Melhorias
 - **Testes que precisam de navegador pulam sem Chrome/Edge**, em vez de falhar: os testes do foco guiado,
   do redesenho de figura (`image_ref`), do "ver o material" e dos rótulos do redesenho passam pela foto

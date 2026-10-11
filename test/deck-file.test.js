@@ -254,3 +254,15 @@ test("nenhum código usa fs.renameSync direto (use renameRetry)", () => {
   }
   assert.deepEqual(achados, []);
 });
+
+// Trava: cópia de pasta/arquivo do mesmo jeito (copyRetry); fs.cpSync direto volta a falhar com o arquivo
+// preso por um instante (antivírus/sincronização) — era o flake do CI no "mover (pasta inteira...)".
+test("nenhum código usa fs.cpSync direto (use copyRetry)", () => {
+  const achados = [];
+  for (const dir of ["src", "bin"]) for (const f of fs.readdirSync(path.join(ROOT, dir), { recursive: true }).filter((x) => x.endsWith(".js"))) {
+    const rel = `${dir}/${f.split(path.sep).join("/")}`;
+    if (rel === "src/fs-retry.js" || rel.includes("/public/")) continue;
+    if (/\bfs\.cpSync\(/.test(fs.readFileSync(path.join(ROOT, dir, f), "utf8"))) achados.push(rel);
+  }
+  assert.deepEqual(achados, []);
+});
