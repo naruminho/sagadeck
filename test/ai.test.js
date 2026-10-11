@@ -9,7 +9,7 @@ import { COLLECTION_STYLE } from "../src/studio/template-collections.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ROOT } from "./helpers.js";
+import { ROOT, skipWithoutBrowser } from "./helpers.js";
 import YAML from "yaml";
 
 const base = () => ({
@@ -734,7 +734,8 @@ test("revisão de texto sem visão: frase longa em slide de impacto e excesso de
   assert.equal(q.verified, false);
 });
 
-test("redesenho de figura do paper guarda o original no elemento; o chat volta para ele (o caminho está no deck e na referência)", async () => {
+test("redesenho de figura do paper guarda o original no elemento; o chat volta para ele (o caminho está no deck e na referência)", async (t) => {
+  if (await skipWithoutBrowser(t)) return; // o redesenho reduz a figura de base no navegador para mandar à visão
   const { materializeImages, reference, sanitizeCheck } = await import("../src/ai/deck-ai.js");
   const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
   const fsx = await import("node:fs"), os = await import("node:os");

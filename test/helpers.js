@@ -56,6 +56,15 @@ export async function browserOrSkip(t) {
   return chromium.launch({ executablePath: exe });
 }
 
+// Teste que só exercita o navegador por dentro (ex.: imagesAsDataUrls reduz a foto para a visão em
+// src/import/crop.js): sem Chrome/Edge o caminho de verdade não roda e o teste pula em vez de falhar.
+// Devolve true quando pulou (`if (await skipWithoutBrowser(t)) return;`).
+export async function skipWithoutBrowser(t) {
+  const { findBrowser } = await import("../src/export/browser.js");
+  try { findBrowser(); } catch { t.skip("sem Chrome/Edge — defina SAGADECK_BROWSER"); return true; }
+  return false;
+}
+
 // Página que coleciona erros de JS/console — todo teste de UI termina exigindo zero erros.
 export async function newPage(browser, url, viewport = { width: 1440, height: 1000 }, { pane = "props", reducedMotion = "no-preference" } = {}) {
   // a preferência de movimento é do teste, não da máquina: o Windows Server da CI vem com "mostrar animações"
