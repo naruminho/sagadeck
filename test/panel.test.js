@@ -1,4 +1,4 @@
-// Painel lateral e ações rápidas: o chat é a aba padrão (com atalho flutuante quando não está à vista), menus de
+// Painel lateral e ações rápidas: o chat é a opção padrão (com atalho flutuante quando o painel está fechado), menus de
 // botão direito, o conteúdo do slide sempre à mão (carrossel, screenshot…), "Deixar assim" que dura, uso do material.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +15,7 @@ function deckWith(slides) {
   return d;
 }
 
-test("chat é a aba padrão do painel; fora dela, um atalho flutuante no meio da direita volta para ele", async (t) => {
+test("chat é a opção padrão do painel; o acesso fixo volta para ele e o atalho flutuante reabre o painel fechado", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
@@ -24,15 +24,16 @@ test("chat é a aba padrão do painel; fora dela, um atalho flutuante no meio da
     assert.ok(await p.locator("#tab-btn-chat.active").count(), "abre no chat");
     assert.ok(await p.locator("#chat-fab.hidden").count(), "com o chat à vista, sem atalho");
     await p.click("#tab-btn-props");
-    await p.waitForSelector("#chat-fab:not(.hidden)");
-    const box = await p.locator("#chat-fab").boundingBox(), vw = p.viewportSize();
-    assert.ok(box.x + box.width >= vw.width - 1 && Math.abs(box.y + box.height / 2 - vw.height / 2) < 4, "encostado à direita, no meio da tela");
-    await p.click("#chat-fab");
+    assert.ok(await p.locator("#chat-fab.hidden").count(), "o botão fixo dispensa o flutuante");
+    assert.ok(await p.locator('#tab-btn-chat .seg-label').isVisible(), 'Assistente continua identificado');
+    await p.click("#tab-btn-chat");
     assert.ok(await p.locator("#tab-btn-chat.active").count());
     await p.waitForSelector("#chat-fab.hidden", { state: "attached" });
     // painel fechado: o atalho reabre no chat
     await p.click("#btn-close-pane");
     await p.waitForSelector("#chat-fab:not(.hidden)");
+    const box = await p.locator("#chat-fab").boundingBox(), vw = p.viewportSize();
+    assert.ok(box.x + box.width >= vw.width - 1 && Math.abs(box.y + box.height / 2 - vw.height / 2) < 4, "encostado à direita, no meio da tela");
     await p.click("#chat-fab");
     assert.ok(await p.locator("#tab-btn-chat.active").isVisible());
     assert.deepEqual(errors, []);

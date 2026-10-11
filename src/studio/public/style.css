@@ -910,6 +910,12 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .task-pane .pane-header .seg { padding: 0 8px; font-size: 11px; gap: 5px; white-space: nowrap; }
 .task-pane .pane-header .seg:not(.active) .seg-label { display: none; }
 .task-pane .pane-header .seg .ic { flex: none; }
+.pane-tabs { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: 1; min-width: 0; }
+#property-tabs { flex: none; }
+#property-tabs .seg-label { display: none; }
+#tab-btn-chat { flex: none; height: 32px; border: 1px solid var(--ui-line-strong); border-radius: 6px; color: var(--brand); font-weight: 600; }
+#tab-btn-chat.active { background: var(--brand-soft); border-color: var(--brand); box-shadow: none; }
+#tab-btn-chat .seg-label { display: inline; }
 .toast { display: flex; align-items: center; gap: 14px; }
 .toast.hidden { display: none; }
 .toast-action { flex: none; padding: 4px 10px; border: 1px solid currentColor; border-radius: 5px; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
