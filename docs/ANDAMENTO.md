@@ -8,6 +8,29 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 11/10/2026 — Fases 0+1 do plano de melhorias (branch `arena/349f2d88-sagadeck`)
+
+Veio de uma avaliação do repositório pedida pela Narumi: o plano está em `docs/PLANO-MELHORIAS.md`
+(criado antes desta etapa; continua valendo para as fases 2+). Entrou o que é seguro e não muda
+comportamento do gerador:
+
+- **Suíte verde em qualquer máquina**: seis testes que exercitam o navegador por dentro (foco guiado,
+  `materializeImages` com `image_ref`, "ver o material", rótulos do redesenho) falhavam fora do CI, que
+  tem Chrome; agora pulam com o aviso dos testes de UI (`skipWithoutBrowser` em `test/helpers.js`).
+- **`engines` corrigido**: era `>=18` e não se cumpria (`pdfjs-dist` 6 pede 22.13+/24, `playwright-core`
+  pede 20+). Agora `>=22.13.0`, README e SKILL a par; CI testa Node 22 e 24 no Linux e no Windows.
+- **Audit de dependências na CI** (informativo) + **Dependabot semanal** agrupado; vulnerabilidade de
+  `image-size` (dependência morta declarada pelo pptxgenjs — o bundle nunca a importa) resolvida com
+  `overrides` para 2.0.4: audit em zero, suíte passando, nenhum código do gerador tocado.
+- `CHANGELOG.md` começado (o histórico fino continua sendo este diário), `.editorconfig`, e
+  `keywords`/`homepage`/`bugs` no `package.json`.
+
+O que ficou para depois (mesmo plano, fases 2+): lint/format com adoção gradual, `@ts-check` nos módulos
+puros, extração dos prompts para arquivos, divisão do `app.js` do Studio, CI paralela por família de
+teste, redimensionador de imagem sem navegador.
+
+---
+
 ## Próximas frentes (levantadas em 08/10/2026, ainda não começadas)
 
 **Para quem pega isto numa sessão nova, sem a conversa de origem.** O projeto é o **sagadeck**:

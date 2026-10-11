@@ -16,7 +16,7 @@ Ele vem com 11 temas (incluindo prata limpo e respirável, artesanal desenhado �
 ```bash
 npm install -g sagadeck
 ```
-Requer **Node.js 18+** e **Chrome ou Edge** instalados (o PDF, o PNG e as conferências visuais usam o navegador).
+Requer **Node.js 22.13+** e **Chrome ou Edge** instalados (o PDF, o PNG e as conferências visuais usam o navegador).
 É tudo Node: não precisa de Python. (O pacote do PyPI parou na 1.5.0.)
 
 ## Comece aqui

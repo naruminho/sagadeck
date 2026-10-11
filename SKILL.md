@@ -11,7 +11,7 @@ O sagadeck gera apresentações profissionais a partir de um arquivo YAML, ofere
 
 Quando a pessoa pede para instalar o sagadeck e deixar pronto:
 
-1. `npm install -g sagadeck` (Node 18+; não precisa de Python).
+1. `npm install -g sagadeck` (Node 22.13+; não precisa de Python).
 2. `sagadeck studio`: o navegador abre sozinho em **http://127.0.0.1:3517** (é também a primeira linha que o
    comando escreve; `--sem-navegador` não abre). **O Studio é a interface do sagadeck**: biblioteca, editor e chat com
    IA. O terminal fica aberto enquanto ela usa.

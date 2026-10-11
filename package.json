@@ -7,9 +7,26 @@
     "sagadeck": "bin/sagadeck.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13.0"
   },
   "license": "MIT",
+  "homepage": "https://github.com/naruminho/sagadeck#readme",
+  "bugs": {
+    "url": "https://github.com/naruminho/sagadeck/issues"
+  },
+  "keywords": [
+    "apresentacoes",
+    "slides",
+    "presentation",
+    "pptx",
+    "powerpoint",
+    "pdf",
+    "yaml",
+    "llm",
+    "ai",
+    "generator",
+    "cli"
+  ],
   "dependencies": {
     "jszip": "^3.10.2",
     "katex": "^0.18.9",
@@ -20,6 +37,9 @@
     "pptxgenjs": "^4.0.1",
     "qrcode-generator": "^2.0.4",
     "yaml": "^2.9.1"
+  },
+  "overrides": {
+    "image-size": "^2.0.4"
   },
   "devDependencies": {
     "@fontsource-variable/caveat": "^5.3.0",

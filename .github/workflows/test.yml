@@ -1,5 +1,6 @@
 # Roda a suíte (motor + runtime + Studio num Chrome headless) em todo push e pull request, no Linux e no Windows
 # (o Studio roda no Windows do banco; caminho com barra invertida e acento só quebra lá).
+# Node 22 e 24: são as versões que as dependências aceitam (pdfjs-dist pede 22.13+; engines do pacote diz o mesmo).
 name: test
 on:
   push:
@@ -17,12 +18,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        node: [22.x, 24.x]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
-        with: { node-version: 24 }
+        with: { node-version: ${{ matrix.node }}, registry-url: 'https://registry.npmjs.org' }
       - run: npm ci
+      # auditoria de dependências de produção: informativa (não derruba o CI); vulnerabilidade conhecida
+      # se resolve no mesmo commit que a introduziu (hoje: override de image-size, dependência morta do pptxgenjs)
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
       - run: npm test
         env:
           SAGADECK_BROWSER: ${{ matrix.os == 'ubuntu-latest' && '/usr/bin/google-chrome' || 'C:\Program Files\Google\Chrome\Application\chrome.exe' }}
