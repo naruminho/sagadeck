@@ -21,14 +21,12 @@ export function sendHtml(res,spec,audience){
 
 // Gera e envia um arquivo da apresentação. PPTX/PDF/roteiro usam o Chrome invisível (os mesmos
 // exportadores de "sagadeck pptx | pdf | roteiro"), numa pasta temporária.
-export async function sendExport(res, kind, spec, name, { notes = true, inline = false, audience, macFonts = false } = {}) {
+export async function generateExport(kind, spec, name, { notes = true, audience, macFonts = false, onProgress = () => {} } = {}) {
   spec=meetingSpec(spec,audience);
-  const cd = (file) => `attachment; filename="${slugify(file.replace(/\.\w+$/, ""))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
+  onProgress({ phase: 'preparing', completed: 0, total: spec.slides?.length || 0 });
   if (kind === "sagadeck") {
     const { zip, missing } = await packDeck(spec, { baseDir: spec._dir || process.cwd(), name, generator: "sagadeck studio" });
-    res.writeHead(200, { "Content-Type": MIME, "Content-Disposition": cd(name + EXTENSION), "X-Sagadeck-Missing": encodeURIComponent(JSON.stringify(missing)) });
-    res.end(zip);
-    return;
+    return { body: zip, file: name + EXTENSION, mime: MIME, missing, warnings: [] };
   }
   const kinds = {
     pptx: { file: `${name}.pptx`, mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
@@ -41,6 +39,7 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
     tudo: { file: `${name}.zip`, mime: "application/zip" },
   };
   const k = kinds[kind];
+  if (!k) throw new Error('Formato de exportação inválido.');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sagadeck-${kind}-`));
   try {
     if (["pptx","pdf","tudo"].includes(kind)) spec=expandApiCollections(spec);
@@ -49,27 +48,31 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
     fs.writeFileSync(htmlFile, r.html);
     const errors = [];
     const make = async (what) => {
+      const progress = event => onProgress({ ...event, format: what });
+      progress({ phase: 'opening', completed: 0, total: r.slidesMeta.length });
       const out = path.join(tmp, `saida-${what}`);
       if (what === "pptx") {
         const { exportPptx } = await import("../export/pptx.js");
-        errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes, fontFallback: macFonts ? "mac" : undefined })).errors);
+        errors.push(...(await exportPptx(htmlFile, out, { theme: r.theme, meta: { ...r.meta, slides: r.slidesMeta }, notes, fontFallback: macFonts ? "mac" : undefined, onProgress: progress })).errors);
       } else if (what === "pdf") {
         const { pdf } = await import("../export/shots.js");
         // Preferências › Exportação: tema escuro com par claro (manual-noite → manual) sai claro no PDF, bom para imprimir
         const light = loadPreferences().exportacao.pdfClaro === true ? lightVariant(spec) : null;
         let file = htmlFile;
         if (light) { file = path.join(tmp, "deck-claro.html"); fs.writeFileSync(file, buildHTML(light).html); }
-        await pdf(file, out);
+        await pdf(file, out, { onProgress: progress });
       } else if (what === "estudo" || what === "estudo-html") {
         const { shots } = await import("../export/shots.js");
         const { estudoHTML, estudoPDF } = await import("../export/estudo.js");
-        const { files } = await shots(htmlFile, path.join(tmp, "fotos"), { scale: what === "estudo" ? 0.6 : 0.75, jpeg: true });
+        const { files } = await shots(htmlFile, path.join(tmp, "fotos"), { scale: what === "estudo" ? 0.6 : 0.75, jpeg: true, onProgress: progress });
+        progress({ phase: 'packing', completed: files.length, total: files.length });
         const html = estudoHTML({ title: r.meta.title, author: r.meta.author, date: spec.date, slidesMeta: r.slidesMeta, shotFiles: files });
         if (what === "estudo-html") fs.writeFileSync(out, html); else await estudoPDF(html, out);
       } else {
         const { shots } = await import("../export/shots.js");
         const { roteiroPDF } = await import("../export/roteiro.js");
-        const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true });
+        const { files } = await shots(htmlFile, path.join(tmp, "miniaturas"), { scale: 0.5, jpeg: true, onProgress: progress });
+        progress({ phase: 'packing', completed: files.length, total: files.length });
         await roteiroPDF({ slidesMeta: r.slidesMeta, shotFiles: files, outFile: out, title: r.meta.title, author: r.meta.author, duration: spec.duration });
       }
       return fs.readFileSync(out);
@@ -78,20 +81,34 @@ export async function sendExport(res, kind, spec, name, { notes = true, inline =
     if (kind === "tudo") {
       const zip = new JSZip();
       for (const what of ["pptx", "pdf", "roteiro"]) zip.file(kinds[what].file, await make(what));
+      onProgress({ phase: 'packing', format: 'tudo', completed: r.slidesMeta.length, total: r.slidesMeta.length });
       body = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
     } else body = await make(kind);
-    res.writeHead(200, {
-      "Content-Type": k.mime, "Content-Disposition": inline ? "inline" : cd(k.file),
-      // só o que afeta o arquivo (falha ao exportar, arquivo não encontrado); o fiscal de conteúdo fica no Revisar
-      "X-Sagadeck-Warnings": encodeURIComponent(JSON.stringify([...(r.warnings || []).filter((w) => /não encontrado/.test(w)), ...errors].slice(0, 20))),
-    });
-    res.end(body);
-  } catch (e) {
-    console.error(`[Studio] exportação ${kind} falhou:`, e.message);
-    res.writeHead(500, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: e.message }));
+    // só o que afeta o arquivo; o fiscal de conteúdo fica no Revisar
+    return { body, file: k.file, mime: k.mime, warnings: [...(r.warnings || []).filter(w => /não encontrado/.test(w)), ...errors].slice(0, 20) };
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+export function exportHeaders(result, inline = false) {
+  const cd = file => `attachment; filename="${slugify(file.replace(/\.\w+$/, ''))}${path.extname(file)}"; filename*=UTF-8''${encodeURIComponent(file)}`;
+  return { 'Content-Type': result.mime, 'Content-Disposition': inline ? 'inline' : cd(result.file),
+    'Cache-Control': 'private, no-store',
+    'X-Sagadeck-Warnings': encodeURIComponent(JSON.stringify(result.warnings || [])),
+    ...(result.missing ? { 'X-Sagadeck-Missing': encodeURIComponent(JSON.stringify(result.missing)) } : {}) };
+}
+
+// Links de compartilhamento e CLI seguem recebendo o arquivo na própria resposta.
+export async function sendExport(res, kind, spec, name, options = {}) {
+  try {
+    const result = await generateExport(kind, spec, name, options);
+    res.writeHead(200, exportHeaders(result, options.inline));
+    res.end(result.body);
+  } catch (e) {
+    console.error(`[Studio] exportação ${kind} falhou:`, e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: e.message }));
   }
 }
 

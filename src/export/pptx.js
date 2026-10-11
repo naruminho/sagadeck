@@ -327,7 +327,7 @@ function materializePseudos() {
 }
 
 // notes: false tira as notas do apresentador (mandar a apresentação para alguém sem a "cola")
-export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, fontFallback, log = () => {} } = {}) {
+export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts = false, notes = true, fontFallback, log = () => {}, onProgress = () => {} } = {}) {
   const notesOpt = notes !== false;
   const { browser, page, errors } = await openDeck(htmlFile, { scale: 2 });
   try {
@@ -351,6 +351,7 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
   const animBySlide = [];
 
   for (let i = 0; i < n; i++) {
+    onProgress({ phase: 'slides', completed: i, total: n, slide: i + 1 });
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     await page.evaluate(([j, k]) => window.sagadeck.goto(j, k, true), [i, S]);
     await settleSlide(page);
@@ -432,8 +433,10 @@ export async function exportPptx(htmlFile, outFile, { theme, meta, nativeCharts 
     if (notes && withNotes) slide.addNotes(notesPlain(notes));
     animBySlide.push({ anims, tr: data.tr });
     log(`  slide ${i + 1}/${n}: ${data.items.length} objetos`);
+    onProgress({ phase: 'slides', completed: i + 1, total: n, slide: i + 1 });
   }
   // pós-processamento: animações + transições
+  onProgress({ phase: 'packing', completed: n, total: n });
   const buf = await pres.write({ outputType: "nodebuffer" });
   const zip = await JSZip.loadAsync(buf);
   for (let i = 0; i < animBySlide.length; i++) {

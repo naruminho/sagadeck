@@ -253,8 +253,7 @@
     m.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => { closeMenus(); act(() => api("api/library/decks/move", { id, topic: b.dataset.move }), `Movida para ${topicOf(b.dataset.move).name}`); });
     m.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => {
       closeMenus();
-      if (b.dataset.dl !== "sagadeck") toast("Gerando… o download começa em alguns segundos.", 6000);
-      location.href = `api/library/download?id=${encodeURIComponent(id)}&kind=${b.dataset.dl}${b.dataset.notas === "0" ? "&notas=0" : ""}`;
+      window.SagadeckExports.start({ id, kind: b.dataset.dl, notes: b.dataset.notas !== '0', title: d.title }).catch(err => toast('Não deu para gerar: ' + err.message, 8000));
     });
   }
 

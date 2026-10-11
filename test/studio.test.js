@@ -12,6 +12,135 @@ import { browserOrSkip, newPage, startStudio, tempDeck, readPptx, novoSlide } fr
 const LIVE = process.env.SAGADECK_LIVE === "1";
 const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
+test('exportação: mostra o estado, continua ao sair do editor e permite baixar pela biblioteca', { timeout: 90000 }, async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  fs.writeFileSync(deck.file, YAML.stringify({ title: 'Geração visível', theme: 'bauhaus', slides: [
+    { layout: 'cover', title: 'Geração visível', notes: 'Nota privada' },
+    { layout: 'statement', text: 'Conteúdo preservado' },
+  ] }));
+  const studio = await startStudio(deck.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + '/editor');
+    await p.click('#btn-export-menu');
+    const response = p.waitForResponse(r => r.url().endsWith('/api/export/jobs') && r.request().method() === 'POST');
+    await p.click('#export-pptx-clean');
+    const { job } = await (await response).json();
+    const row = p.locator(`[data-export-job="${job.id}"]`);
+    await row.waitFor({ state: 'visible' });
+    assert.match(await row.locator('.export-message').textContent(), /Na fila|Preparando|Abrindo/);
+    assert.ok(await row.locator('progress').isVisible());
+    assert.match(await row.locator('.export-time').textContent(), /Tempo decorrido:/);
+    assert.deepEqual(errors, []);
+    await p.close(); // a aba que pediu deixou de existir; o servidor continua trabalhando
+    const { page: library, errors: libraryErrors } = await newPage(browser, studio.url + '/biblioteca');
+    const ready = library.locator(`[data-export-job="${job.id}"]`);
+    await ready.locator('.export-download').waitFor({ state: 'visible', timeout: 60000 });
+    assert.match(await ready.locator('.export-message').textContent(), /Pronto para baixar/);
+    const downloaded = library.waitForEvent('download');
+    await ready.locator('.export-download').click();
+    const file = path.join(deck.dir, 'baixado-com-status.pptx');
+    await (await downloaded).saveAs(file);
+    const result = await readPptx(fs.readFileSync(file));
+    assert.equal(result.slides.length, 2); assert.match(result.slides[1], /Conteúdo preservado/);
+    assert.doesNotMatch(result.notes, /Nota privada/);
+    await library.waitForFunction(id => document.querySelector(`[data-export-job="${id}"] .export-note`).textContent.includes('Download enviado'), job.id);
+    assert.equal(YAML.parse(fs.readFileSync(deck.file, 'utf8')).slides.length, 2);
+    assert.deepEqual(libraryErrors, []);
+    // Uma falha fica na lista, em vez de desaparecer como o antigo aviso temporário.
+    const failed = { ...job, id: 'falha-testada', status: 'failed', error: 'Não foi possível abrir o navegador de exportação.', finishedAt: Date.now() };
+    await library.route('**/api/export/jobs', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ jobs: [failed] }) }));
+    await library.reload({ waitUntil: 'domcontentloaded' });
+    const error = library.locator('[data-export-job="falha-testada"]');
+    await error.waitFor({ state: 'visible' });
+    await library.waitForTimeout(6500);
+    assert.match(await error.locator('.export-message').textContent(), /Falhou:.*navegador/);
+    assert.equal(await error.locator('.export-download').isVisible(), false);
+    assert.deepEqual(libraryErrors, []);
+  } finally { await browser.close(); await studio.close(); deck.cleanup(); }
+});
+
+test('exportação: falha ao salvar interrompe a geração e mantém o erro visível', { timeout: 45000 }, async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck(); const studio = await startStudio(deck.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + '/editor');
+    let starts = 0;
+    await p.route('**/api/deck', route => route.request().method() === 'POST'
+      ? route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Falha de gravação testada' }) }) : route.continue());
+    await p.route('**/api/export/jobs', route => { if (route.request().method() === 'POST') starts++; return route.continue(); });
+    await p.click('#btn-export-menu'); await p.click('#export-pptx');
+    await p.waitForFunction(() => document.querySelector('#export-status .export-message')?.textContent.includes('Falha de gravação testada'));
+    assert.equal(starts, 0, 'não gera um arquivo com a versão antiga do deck');
+    assert.ok(await p.locator('#export-status .export-message').isVisible());
+    assert.equal(await p.locator('#export-pptx').isDisabled(), false);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); deck.cleanup(); }
+});
+
+test('exportação: baixar modelo em prévia preserva o modelo e não cria cópia na biblioteca', { timeout: 90000 }, async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + '/editor?model=lavanda');
+    await p.waitForSelector('.thumb-card[data-idx="1"]');
+    const before = await p.evaluate(async () => ({ deck: await (await fetch('api/deck')).json(), library: await (await fetch('api/library')).json() }));
+    assert.equal(before.deck.file, null); assert.ok(before.deck.preview);
+    await p.click('#btn-export-menu');
+    const event = p.waitForEvent('download', { timeout: 70000 }); await p.click('#export-pptx');
+    const file = path.join(studio.library, 'modelo-exportado.pptx'); await (await event).saveAs(file);
+    assert.equal((await readPptx(fs.readFileSync(file))).slides.length, before.deck.spec.slides.length);
+    const after = await p.evaluate(async () => ({ deck: await (await fetch('api/deck')).json(), library: await (await fetch('api/library')).json() }));
+    assert.equal(after.library.decks.length, before.library.decks.length);
+    assert.equal(after.deck.file, null); assert.ok(after.deck.preview);
+    assert.deepEqual(after.deck.spec.slides, before.deck.spec.slides);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); }
+});
+
+test('exportação: resposta antiga do status não cancela o download; painel não bloqueia janelas', { timeout: 90000 }, async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deck = tempDeck();
+  fs.writeFileSync(deck.file, YAML.stringify({ title: 'Resposta atrasada', theme: 'bauhaus', slides: [
+    { layout: 'cover', title: 'Resposta atrasada' }, { layout: 'statement', text: 'Arquivo pronto' },
+  ] }));
+  const studio = await startStudio(deck.file); let release;
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url + '/editor');
+    let seen, first = true;
+    const captured = new Promise(resolve => { seen = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    await p.route('**/api/export/jobs', async route => {
+      if (route.request().method() === 'GET' && first) {
+        first = false;
+        const response = await route.fetch(), body = await response.text();
+        seen(); await gate; await route.fulfill({ response, body });
+      } else await route.continue();
+    });
+    await captured; // a consulta que ainda não conhecia a geração fica atrasada
+    await p.click('#btn-export-menu');
+    const ack = p.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/api/export/jobs'));
+    const event = p.waitForEvent('download', { timeout: 30000 });
+    await p.click('#export-pptx'); const { job } = await (await ack).json();
+    await p.locator(`[data-export-job="${job.id}"]`).waitFor(); release();
+    const file = path.join(deck.dir, 'resposta-atrasada.pptx'); await (await event).saveAs(file);
+    assert.equal((await readPptx(fs.readFileSync(file))).slides.length, 2);
+    await p.click('#export-status header button'); await p.click('#tab-btn-chat');
+    const panelBounds = await p.locator('#export-status').boundingBox(), inputBounds = await p.locator('#chat-input').boundingBox();
+    assert.ok(panelBounds.y + panelBounds.height <= inputBounds.y, 'recolhido, o painel não cobre a entrada do chat');
+    await p.click('#export-status header button');
+    await p.click('.ribbon-tab[data-tab="inserir"]'); await p.click('#btn-api-envs');
+    await p.locator('#modal-api-envs').waitFor({ state: 'visible' });
+    assert.ok(await p.locator('#btn-api-envs-save').evaluate(el => {
+      const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return hit === el || el.contains(hit);
+    }), 'o painel não cobre o botão Salvar da janela');
+    await p.click('#btn-api-envs-cancel');
+    assert.equal(await p.locator('#modal-api-envs').isVisible(), false);
+    assert.deepEqual(errors, []);
+  } finally { release?.(); await browser.close(); await studio.close(); deck.cleanup(); }
+});
+
 test('experiências: formulário e direção de arte gravam o resultado escolhido', async t => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const { explorationDemo } = await import('../src/studio/exploration-demo.js');

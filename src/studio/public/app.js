@@ -2842,7 +2842,7 @@
   // outra aba/aparelho abriu outra apresentação neste Studio: nada desta foi gravado (o servidor recusou)
   function staleTab(msg) { updateSaveStatus("error"); showToast(msg, 20000, { label: "Recarregar", fn: () => location.reload() }); }
 
-  async function syncDeckToServer() {
+  async function syncDeckToServer({ throwOnError = false } = {}) {
     trackDeck("Edição");
     updateSaveStatus("saving");
     try {
@@ -2852,7 +2852,7 @@
         body: JSON.stringify({ spec: state.deck, expectFile: state.file }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.stale) return staleTab(data.error);
+      if (data.stale) { staleTab(data.error); if (throwOnError) throw new Error(data.error); return; }
       if ("file" in data) state.file = data.file;
       if (data.materialized) previewMaterialized(data.materialized);
       // o servidor dá identidade a slide novo (uid) e leva o ajuste visual junto quando um texto muda: o Studio adota
@@ -2866,9 +2866,11 @@
       if (adopted && !state.applyingHistory) deckHistory.rebase(state.deck);
       updateSaveStatus(res.ok ? "saved" : "error");
       if (res.ok) window.SagaProject?.deckChanged();
+      else if (throwOnError) throw new Error(data.error || 'Não foi possível salvar as mudanças antes de exportar.');
     } catch (err) {
       console.warn("Erro ao sincronizar com servidor:", err);
       updateSaveStatus("error");
+      if (throwOnError) throw err;
     }
   }
 
@@ -4308,29 +4310,24 @@ ${ta.value}`;
       return { res, name };
     }
 
-    // PowerPoint / PDF / roteiro: levam alguns segundos (o Chrome invisível desenha cada slide)
+    // PowerPoint / PDF / roteiro: acompanham a fila do servidor, sem prender a página no download.
     const EXPORTS = {
-      pptx: { label: "o PowerPoint", done: "PowerPoint editável, com animações e notas." },
-      pdf: { label: "o PDF", done: "PDF com um slide por página." },
-      roteiro: { label: "o roteiro", done: "roteiro com miniaturas, notas e tempos." },
-      estudo: { label: "o material de estudo", done: "material de estudo: cada slide inteiro e o texto de consulta." },
-      "estudo-html": { label: "o material de estudo", done: "material de estudo num HTML só." },
-      tudo: { label: "o PowerPoint, o PDF e o roteiro", done: "um .zip com o PowerPoint (com notas), o PDF e o roteiro." },
+      pptx: "o PowerPoint", pdf: "o PDF", roteiro: "o roteiro", estudo: "o material de estudo",
+      "estudo-html": "o material de estudo", tudo: "o PowerPoint, o PDF e o roteiro",
     };
     document.querySelectorAll("[data-export]").forEach((btn) => {
       btn.onclick = async (e) => {
         e.preventDefault();
         if (btn.disabled) return;
         const kind = btn.dataset.export, clean = btn.dataset.notas === "0";
-        const x = clean ? { label: "o PowerPoint sem as notas", done: "PowerPoint sem as notas do apresentador, pronto para mandar." } : EXPORTS[kind];
+        const label = clean ? "o PowerPoint sem as notas" : EXPORTS[kind];
         btn.disabled = true;
-        showToast(`Gerando ${x.label} (${state.deck.slides.length} slides)… pode levar alguns segundos.`, 60000);
         try {
-          const { res, name } = await downloadFrom(`api/export/${kind}${clean ? "?notas=0" : ""}`, `apresentacao.${{ pptx: "pptx", tudo: "zip", "estudo-html": "html" }[kind] || "pdf"}`);
-          const warns = JSON.parse(decodeURIComponent(res.headers.get("X-Sagadeck-Warnings") || "%5B%5D"));
-          showToast(warns.length ? `"${name}" baixado, com ${warns.length} aviso(s): ${warns.slice(0, 2).join("; ")}` : `"${name}" baixado: ${x.done}`, warns.length ? 9000 : 4000);
+          await window.SagadeckExports.start({ kind, notes: !clean, title: state.deck.title }, { beforeStart: async () => {
+            if (!state.preview) await syncDeckToServer({ throwOnError: true });
+          } });
         } catch (err) {
-          showToast(`Não deu para gerar ${x.label}: ${err.message}`, 8000);
+          showToast(`Não deu para gerar ${label}: ${err.message}`, 8000);
         } finally {
           btn.disabled = false;
         }

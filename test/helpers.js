@@ -39,6 +39,7 @@ export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUs
     close: async () => {
       server.closeAllConnections?.();
       await new Promise((r) => server.close(r));
+      await server.closeExports?.();
       // o Chrome que tira as fotos do slide para a IA fica aberto entre pedidos; sem fechar, o processo não termina
       const { closeSnapshots } = await import("../src/studio/snapshot.js");
       await closeSnapshots();
