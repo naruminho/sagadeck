@@ -168,6 +168,20 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Assistente em destaque — 11/10/2026
+
+Pedido de Narumi: o chat não deve ficar perdido entre as propriedades. O acesso ao Assistente fica separado
+do grupo Formatar/Propriedades/Variáveis, por último à direita, com o nome sempre visível e aberto por padrão.
+Os controles de edição mantêm nomes acessíveis e dicas; esse arranjo preserva espaço para o slide. Quem fechou
+o painel continua sendo respeitado. O atalho flutuante aparece para reabrir o painel fechado; com ele aberto,
+o botão fixo já dá acesso ao Assistente, inclusive a avisos de novas respostas.
+
+Teste reproduziu a ordem antiga e passou com a nova: clique real nas quatro opções em temas claro/escuro e
+larguras 1280, 1024 e 390, sem corte do cabeçalho, nome do Assistente visível, seleção acessível correta,
+rascunho preservado, ordem de teclado, troca de slide mantendo o chat e apresentação salva intacta.
+Os testes do atalho e da faixa/painel também passaram, com zero erros de JavaScript.
+Conferência visual da interface real em tela grande e celular, nos dois temas: campo e envio acessíveis, sem erros de JavaScript. Suíte completa: 1001 testes, 975 passaram, 26 pulados, zero falhas e encerramento normal em 28 min 18 s. A CI Ubuntu/Windows precede o merge. Pasta oficial, branch `codex/assistente-visivel`.
+
 ## Correções visuais da demo — 11/10/2026
 
 Pedidos de Narumi por capturas de tela: rótulos brancos cobriam o mapa; fórmula de Reynolds em cima do resultado;

@@ -232,6 +232,47 @@ test('modelos: abrem em prévia sem criar arquivo; a primeira mudança cria a c�
   }finally{await studio.close();await browser.close();}
 });
 
+test('Assistente: último acesso separado, nome sempre visível e rascunho preservado', async t => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url, undefined, { pane: null });
+    const saved = fs.readFileSync(deckFile.file, 'utf8');
+    assert.ok(await p.locator('#tab-btn-chat.active').isVisible(), 'abre no Assistente');
+    const order = await p.locator('#inspector-sidebar .pane-header [role="tab"]').evaluateAll(els => els.map(el => el.id));
+    assert.deepEqual(order, ['tab-btn-props', 'tab-btn-inspect', 'tab-btn-vars', 'tab-btn-chat']);
+    assert.equal(await p.locator('#inspector-sidebar .segmented #tab-btn-chat').count(), 0, 'Assistente separado das propriedades');
+    await p.fill('#chat-input', 'Revise o título com cuidado');
+    for (const theme of ['light', 'dark']) {
+      await p.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+      for (const width of [1280, 1024, 390]) {
+        await p.setViewportSize({ width, height: 800 });
+        if (width < 900 && !await p.evaluate(() => document.getElementById('inspector-sidebar').classList.contains('mobile-open'))) await p.click('#mobile-btn-chat');
+        for (const tab of ['props', 'inspect', 'vars', 'chat']) {
+          await p.click('#tab-btn-' + tab);
+          const m = await p.evaluate(() => {
+            const head = document.querySelector('#inspector-sidebar .pane-header').getBoundingClientRect();
+            const buttons = [...document.querySelectorAll('#inspector-sidebar .pane-header button')].map(b => b.getBoundingClientRect());
+            const label = document.querySelector('#tab-btn-chat .seg-label');
+            return { fits: buttons.every(b => b.left >= head.left && b.right <= head.right), labelVisible: label.getBoundingClientRect().width > 20 && label.scrollWidth <= label.clientWidth + 1 };
+          });
+          assert.ok(m.fits && m.labelVisible, `${theme}/${width}/${tab}: Assistente visível e controles dentro do painel`);
+          assert.equal(await p.getAttribute('#tab-btn-' + tab, 'aria-selected'), 'true');
+          assert.ok(await p.locator('#chat-fab.hidden').count(), 'o acesso fixo dispensa o atalho flutuante com o painel aberto');
+        }
+        assert.equal(await p.inputValue('#chat-input'), 'Revise o título com cuidado', 'trocar de painel preserva o rascunho');
+      }
+    }
+    await p.setViewportSize({ width: 1280, height: 800 });
+    await p.locator('#tab-btn-vars').focus(); await p.keyboard.press('Tab');
+    assert.equal(await p.evaluate(() => document.activeElement.id), 'tab-btn-chat', 'Assistente por último também pelo teclado');
+    await p.click('.thumb-card[data-idx="1"]');
+    assert.ok(await p.locator('#tab-btn-chat.active').isVisible(), 'trocar de slide mantém o Assistente aberto');
+    assert.equal(fs.readFileSync(deckFile.file, 'utf8'), saved, 'navegar pelos painéis não altera a apresentação');
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("faixa e painel: Avançado é a última aba, grupos do Início juntos, abas do painel sem corte", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
@@ -245,17 +286,17 @@ test("faixa e painel: Avançado é a última aba, grupos do Início juntos, abas
       return gs.slice(1).map((g, i) => Math.round(g.left - gs[i].right));
     });
     assert.ok(vaos.every((v) => v < 40), `grupos do Início colados (vãos: ${vaos})`);
-    // as quatro abas do painel cabem; a aberta mostra o nome inteiro
+    // os controles cabem; Assistente tem nome fixo e os ícones de edição têm nomes acessíveis
     for (const id of ["tab-btn-props", "tab-btn-inspect", "tab-btn-chat", "tab-btn-vars"]) {
       await p.click(`#${id}`);
       const m = await p.evaluate((id) => {
-        const seg = document.querySelector("#inspector-sidebar .segmented"), head = seg.closest(".pane-header").getBoundingClientRect();
+        const seg = document.querySelector("#inspector-sidebar .pane-tabs"), head = seg.closest(".pane-header").getBoundingClientRect();
         const btns = [...seg.querySelectorAll(".seg")].map((b) => b.getBoundingClientRect());
-        const label = document.querySelector(`#${id} .seg-label`);
-        return { cabe: seg.scrollWidth <= seg.clientWidth + 1 && btns.every((b) => b.right <= head.right + 0.5), nome: label.scrollWidth <= label.clientWidth + 1 && label.getBoundingClientRect().width > 20 };
+        const label = document.querySelector('#tab-btn-chat .seg-label'), active = document.getElementById(id);
+        return { cabe: seg.scrollWidth <= seg.clientWidth + 1 && btns.every((b) => b.right <= head.right + 0.5), nome: label.scrollWidth <= label.clientWidth + 1 && label.getBoundingClientRect().width > 20 && !!(active.getAttribute('aria-label') || active.textContent.trim()) };
       }, id);
       assert.ok(m.cabe, `${id}: as abas cabem no painel`);
-      assert.ok(m.nome, `${id}: o nome da aba aberta aparece inteiro`);
+      assert.ok(m.nome, `${id}: Assistente aparece inteiro e o controle ativo tem nome`);
     }
     // miniaturas do trilho: o slide inteiro cabe no quadro (a escala acompanha a largura, nada cortado)
     await p.waitForSelector(".thumb-screen .thumb-render .slide");

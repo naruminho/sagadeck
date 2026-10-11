@@ -456,18 +456,19 @@
 
     <aside id="inspector-sidebar" class="task-pane" aria-label="Painel lateral">
       <div class="pane-header">
-        <div class="segmented" role="tablist">
-          <!-- como no VS Code: a aba aberta mostra o nome; as outras, só o ícone (o nome fica na dica) -->
-          <button id="tab-btn-props" class="seg active" role="tab" title="Formatar: o conteúdo do slide"><i class="ic" data-ic="pencil"></i><span class="seg-label">Formatar</span></button>
-          <button id="tab-btn-inspect" class="seg" role="tab" title="Propriedades do objeto selecionado, do slide e da apresentação"><i class="ic" data-ic="sliders-horizontal"></i><span class="seg-label">Propriedades</span></button>
-          <button id="tab-btn-chat" class="seg" role="tab" title="Assistente de IA"><i class="ic" data-ic="sparkles"></i><span class="seg-label">Assistente</span><span id="chat-badge" class="chat-badge-dot"></span></button>
-          <button id="tab-btn-vars" class="seg" role="tab" title="Variáveis do ambiente"><i class="ic" data-ic="braces"></i><span class="seg-label">Variáveis</span></button>
+        <div class="pane-tabs" role="tablist" aria-label="Painéis de edição e Assistente">
+          <div class="segmented" id="property-tabs">
+            <button id="tab-btn-props" class="seg" role="tab" aria-selected="false" aria-label="Formatar" title="Formatar: o conteúdo do slide"><i class="ic" data-ic="pencil"></i><span class="seg-label">Formatar</span></button>
+            <button id="tab-btn-inspect" class="seg" role="tab" aria-selected="false" aria-label="Propriedades" title="Propriedades do objeto selecionado, do slide e da apresentação"><i class="ic" data-ic="sliders-horizontal"></i><span class="seg-label">Propriedades</span></button>
+            <button id="tab-btn-vars" class="seg" role="tab" aria-selected="false" aria-label="Variáveis" title="Variáveis do ambiente"><i class="ic" data-ic="braces"></i><span class="seg-label">Variáveis</span></button>
+          </div>
+          <button id="tab-btn-chat" class="seg active" role="tab" aria-selected="true" title="Assistente de IA"><i class="ic" data-ic="sparkles"></i><span class="seg-label">Assistente</span><span id="chat-badge" class="chat-badge-dot"></span></button>
         </div>
         <button id="btn-close-pane" class="icon-btn" title="Fechar painel"><i class="ic" data-ic="x"></i></button>
       </div>
 
       <div id="tab-panel-inspect" class="tab-panel inspector-panel" role="tabpanel" aria-labelledby="tab-btn-inspect"><div id="inspector-body" class="ip-body"></div></div>
-      <div id="tab-panel-props" class="tab-panel active">
+      <div id="tab-panel-props" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-props">
         <div id="auto-banner" class="auto-banner" hidden></div>
         <div id="slide-fields-form" class="fields-form"></div>
         <div class="pane-section">
@@ -476,7 +477,7 @@
         </div>
       </div>
 
-      <div id="tab-panel-chat" class="tab-panel">
+      <div id="tab-panel-chat" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-chat">
         <div class="chat-options">
           <button id="btn-brainstorm-apply" class="btn btn-primary btn-sm hidden" type="button" title="Autoriza a IA a aplicar o que vocês combinaram na conversa">Pode fazer</button>
         </div>

@@ -3631,9 +3631,8 @@ ${ta.value}`;
 
   const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
 
-  // Painel lateral: Formatar, Assistente ou Variáveis
-  // abas do painel lateral: Formatar (conteúdo), Propriedades (inspetor), Assistente, Variáveis
-  const PANE_TABS = ["props", "inspect", "chat", "vars"];
+  // Formatar, Propriedades e Variáveis ficam agrupados; o Assistente tem acesso fixo separado, por último.
+  const PANE_TABS = ["props", "inspect", "vars", "chat"];
   const paneEls = (w) => ({ btn: document.getElementById(`tab-btn-${w}`), panel: document.getElementById(`tab-panel-${w}`) });
   const currentPane = () => PANE_TABS.find((w) => paneEls(w).panel?.classList.contains("active")) || "props";
   // menu de botão direito genérico (itens: { label, ic, fn, danger, disabled } ou { sep: true })
@@ -3661,7 +3660,7 @@ ${ta.value}`;
     const fab = document.getElementById("chat-fab");
     if (!fab) return;
     const visible = isMobile() ? dom.inspectorSidebar.classList.contains("mobile-open") : !dom.inspectorSidebar.classList.contains("collapsed");
-    fab.classList.toggle("hidden", visible && currentPane() === "chat");
+    fab.classList.toggle("hidden", visible); // com o painel aberto, o botão Assistente já está sempre à vista
     const badge = document.getElementById("chat-badge");
     if (visible && currentPane() === "chat" && badge?.classList.contains("show")) badge.classList.remove("show"); // só se precisar: o observador do selo chama esta função
     fab.classList.toggle("has-news", !!document.getElementById("chat-badge")?.classList.contains("show"));
