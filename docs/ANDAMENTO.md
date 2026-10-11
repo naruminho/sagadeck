@@ -168,6 +168,36 @@ automático. Corrigidos: a planilha fica ao lado do mapa (sugestões de gráfico
 seleção funciona nas duas direções e o enquadramento reserva espaço para a legenda. O teste reproduziu a obstrução
 antes da correção e agora clica no ponto e na célula, sem disparar eventos sintéticos.
 
+## Exportação com progresso e download posterior — 10/10/2026
+
+Pedido: ao baixar a demo como PowerPoint, não ficava claro se estava gerando, tinha falhado ou já havia terminado.
+Na biblioteca, o aviso sumia após seis segundos; no editor, não havia progresso e o aviso prometia poucos segundos.
+
+Editor e biblioteca agora usam uma fila no servidor (`src/studio/export-jobs.js`, `/api/export/jobs`), acompanhada
+por `export-status.js`: preparação, slide atual/total, conclusão do arquivo, tempo decorrido, erro persistente e
+**Pronto para baixar**. Fechar/recarregar a aba não interrompe a geração. Ao voltar à biblioteca ou ao editor, a
+lista reaparece; a aba que pediu tenta iniciar o download quando pronto, e o botão permite baixar novamente.
+O arquivo fica fora da biblioteca/nuvem por até 24 h, enquanto o processo do Studio estiver ligado; mantêm-se
+as dez exportações recentes de cada pessoa. O status e o arquivo só são acessíveis à mesma pessoa no multiusuário.
+Uma geração por vez limita Chrome/memória; pedidos repetidos em andamento reaproveitam a geração existente.
+
+PPTX, PDF, roteiro, material de estudo e Baixar tudo informam etapas reais. Os links antigos e compartilhados
+continuam respondendo com o arquivo. Exportar um modelo em prévia não cria uma cópia na biblioteca. Se salvar
+mudanças falha, o editor interrompe a exportação e mantém a mensagem, em vez de gerar a versão antiga.
+Não foi acrescentado envio de email: a demo oficial de 85 slides terminou em 42 s nesta máquina (44 s até o
+download pelo clique na UI), com os 85 slides no PPTX, zero erros de JavaScript no Studio e nenhuma cópia criada.
+
+Regressão inicial: o pedido assíncrono retornava 404, sem fila nem arquivo recuperável. Testes verificam progresso,
+PPTX real com textos e notas, fechamento da aba e recuperação pela biblioteca, falha persistente, bloqueio após
+erro ao salvar, deduplicação, expiração e isolamento entre pessoas. Suíte completa concluída em 11/10:
+995 testes, 969 passaram, 26 pulados, zero falhas, encerramento normal. PR e merge seguem a CI completa
+no Ubuntu e no Windows; produção do Oracle permanece na 1.7.1, sem atualização nem reinício.
+Uma resposta atrasada de uma consulta anterior podia apagar o acompanhamento de um pedido novo e impedir o download
+automático: reproduzido com a resposta retida, agora só expiram gerações que a consulta já conhecia. O painel fica
+abaixo das janelas de configuração; recolhido no editor, sai da área de digitação do chat. Testes verificam os
+cliques nas janelas e o download real depois da resposta atrasada. A versão antiga também criava uma cópia pessoal
+ao exportar um modelo em prévia: reproduzido usando o app.js da main, e a regressão confere o PPTX e a biblioteca.
+
 ## Fundo do mapa sem a falsa costa — retomada em 10/10/2026
 
 Pedido: esconder a linha marítima do OpenStreetMap que parecia um litoral afastado das áreas. Os modos claro e
@@ -200,7 +230,10 @@ só limpa sua própria referência.
 Validação completa desta retomada: `npm test`, 988 testes, 962 passaram, 26 pulados, zero falhas; o processo
 encerrou normalmente. A revisão do pacote confirmou os renderizadores e suas licenças no npm. Entrega por PR
 com CI verde no Ubuntu e Windows; atualização da porta local 3517 e somente do Oracle dev (3518). O serviço
-estável do Oracle permanece na 1.7.1, conforme pedido de Narumi.
+estável do Oracle permanece na 1.7.1, conforme pedido de Narumi. PR #182 mergeado com a CI concluída verde nos
+dois sistemas; dev atualizado para a main `df5d42d`, produção conferida na 1.7.1 com o mesmo processo. As quatro
+worktrees antigas foram removidas depois de conferir os commits incorporados e as duplicatas locais; a pasta
+oficial e seu node_modules foram preservados.
 
 ## Texto no cenário sai; fundo claro do mapa com o mar visível — 10/10/2026
 

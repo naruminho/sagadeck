@@ -46,6 +46,7 @@ import { llmAvailable, llmConfig, llmConfigured } from "../ai/llm.js";
 import { editDeck, textToSlide, toYaml, materializeImages } from "../ai/deck-ai.js";
 import { transformDeck, jobStatus, sourceHash } from "../ai/transform.js";
 import { sendExport, sendHtml, lightVariant } from "./exporting.js";
+import { createExportJobs } from './export-jobs.js';
 import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
@@ -92,6 +93,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const STARTED = new Date().toISOString();
   const BUILD = buildInfo(); // carimbo calculado uma vez na subida (git pode demorar)
   const workspaces = new Map();
+  const exports = createExportJobs();
   const slideClipboard = new Map();
   function sampleSpec() {
     const samplePath = TEMPLATE_DIRS.map((d) => path.join(d, "exemplo.yaml")).find((f) => fs.existsSync(f)) || "";
@@ -1204,6 +1206,23 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
       // slide API: ambientes, variáveis, envio, tempo real, gravação (src/studio/api-routes.js)
       if (pathname.startsWith("/api/http/")) return apiRoutes({ req, res, pathname, url, W, apiEnv, rtSessions, apiBlocked, ensureEnsaio, readJSON, isBundledTemplate });
 
+      if (pathname === '/api/export/jobs' || pathname.startsWith('/api/export/jobs/')) {
+        const owner = W.user || '';
+        const json = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+        if (pathname === '/api/export/jobs' && req.method === 'GET') return json(200, { jobs: exports.list(owner) });
+        if (pathname === '/api/export/jobs' && req.method === 'POST') {
+          try {
+            const b = await readJSON(req);
+            const file = b.id ? W.library.resolveId(b.id) : W.file;
+            const spec = b.id ? loadSpec(file) : withBase(W, W.spec);
+            const name = file && !isBundledTemplate(file) ? path.basename(file).replace(/\.ya?ml$/i, '') : slugify(spec.title);
+            return json(202, { job: exports.create(owner, b.kind, spec, name, { notes: b.notes !== false, audience: b.audience || undefined, macFonts: b.macFonts === true }) });
+          } catch (e) { return json(400, { error: e.message }); }
+        }
+        const download = pathname.match(/^\/api\/export\/jobs\/([a-f0-9-]+)\/download$/);
+        if (download && req.method === 'GET') return exports.download(owner, download[1], res);
+        return json(405, { error: 'Método ou endereço de exportação não suportado.' });
+      }
       if (pathname.startsWith("/api/library")) return libraryRoutes({ req, res, pathname, url, W, opts, readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS });
 
       // Baixar o deck aberto: .sagadeck (YAML + imagens, CSS, widgets), PowerPoint, PDF ou roteiro
@@ -1293,6 +1312,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
     }
   });
 
-  server.on("close", () => { ensaio?.then((mock) => mock?.close()); });
+  server.closeExports = () => exports.close();
+  server.on("close", () => { exports.close(); ensaio?.then((mock) => mock?.close()); });
   return server;
 }

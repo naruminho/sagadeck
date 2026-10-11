@@ -598,6 +598,16 @@ No YAML: `widgets: [widgets/contador.js]` e `{ widget: contador, rotulo: "Votos"
 
 No Studio, a pasta do deck é um projeto (aba **Arquivos**, à esquerda): o `.yaml`, `imagens/`, `contexto/` (anexos, prints colados, planilhas, anotações `.md`) e `.sagadeck/` (a conversa do chat, o cache e a lixeira do projeto, do próprio Studio). O texto do que está em `contexto/` chega a você junto do pedido, como material anexado (com o caminho, ex.: `contexto/vendas.csv`): use os números e fatos de lá. Uma planilha de `contexto/` pode alimentar um gráfico com `csv: contexto/vendas.csv` (CSV) ou pela sugestão de gráficos da planilha no Studio (que grava `from:`).
 
+## Exportação pelo Studio
+
+Arquivo › Baixar PowerPoint, PDF, roteiro, material de estudo ou Baixar tudo inicia a geração **no servidor do
+Studio** (na própria máquina no modo local). O painel **Exportações** mostra a etapa, o slide atual, o tempo
+decorrido e **Pronto para baixar**, ou a falha. Ele também acompanha os downloads pelo menu do cartão da biblioteca.
+A geração continua ao fechar/recarregar a aba; ao voltar ao editor ou à biblioteca, o arquivo pode ser baixado
+pela mesma lista. Guarda as dez exportações mais recentes da pessoa, por até 24 h enquanto o Studio estiver ligado.
+Exportar a demo em prévia não cria uma cópia pessoal. Não há aviso por email. Ao orientar a pessoa a obter o PPTX,
+indique o menu e o painel; só afirme que o arquivo foi gerado quando houver resultado real de exportação.
+
 ## Apresentação importada de PowerPoint
 
 Um `.pptx` importado (Biblioteca › Importar apresentação, ou `sagadeck importar arquivo.pptx`) chega **fiel ao original**: cada slide é um `canvas` com os elementos na mesma posição, e o deck tem `import: { from, slides, fonts, snapshots }` e `footer: false` (o original tem o próprio rodapé). Cada slide traz `original: { slide: 7, image: original/slide-07.png }` (a foto do slide original, quando o PowerPoint ou o LibreOffice estavam disponíveis) e a pasta `original/` guarda a cópia do arquivo. Elementos que só aparecem em slides importados:

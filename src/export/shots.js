@@ -4,7 +4,7 @@ import path from "node:path";
 import { openDeck, waitForResources, settleSlide } from "./browser.js";
 
 // Estado final de cada slide (todos os cliques revelados)
-export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, jpeg = false } = {}) {
+export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, jpeg = false, onProgress = () => {} } = {}) {
   fs.mkdirSync(outDir, { recursive: true });
   for (const f of fs.readdirSync(outDir)) if (/^slide-\d+.*\.(png|jpg)$|^folha-\d+\.png$/.test(f)) fs.unlinkSync(path.join(outDir, f));
   const { browser, page, errors } = await openDeck(htmlFile, { scale });
@@ -13,6 +13,7 @@ export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, 
   const files = [];
   for (let i = 0; i < n; i++) {
     if (only && !only.includes(i + 1)) continue;
+    onProgress({ phase: 'slides', completed: i, total: n, slide: i + 1 });
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     const list = steps ? Array.from({ length: S + 1 }, (_, k) => k) : [S];
     for (const k of list) {
@@ -23,6 +24,7 @@ export async function shots(htmlFile, outDir, { steps = false, scale = 1, only, 
       await page.screenshot(jpeg ? { path: f, type: "jpeg", quality: 82 } : { path: f });
       files.push(f);
     }
+    onProgress({ phase: 'slides', completed: i + 1, total: n, slide: i + 1 });
   }
   return { files, errors };
   } finally { await browser.close(); }
@@ -49,19 +51,22 @@ export async function contactSheet(files, outDir, { perSheet = 12, cols = 3 } = 
   } finally { await browser.close(); }
 }
 
-export async function pdf(htmlFile, outFile) {
+export async function pdf(htmlFile, outFile, { onProgress = () => {} } = {}) {
   const { browser, page } = await openDeck(htmlFile, { scale: 1 });
   try {
   const n = await page.evaluate(() => window.sagadeck.n);
   const imgs = [], links = [];
   for (let i = 0; i < n; i++) {
+    onProgress({ phase: 'slides', completed: i, total: n, slide: i + 1 });
     const S = await page.evaluate((j) => window.sagadeck.steps(j), i);
     await page.evaluate(([j, k]) => window.sagadeck.goto(j, k), [i, S]);
     await settleSlide(page);
     await page.waitForTimeout(50);
     imgs.push((await page.screenshot({ type: "jpeg", quality: 92 })).toString("base64"));
     links.push(await page.evaluate(gotoRects, i));
+    onProgress({ phase: 'slides', completed: i + 1, total: n, slide: i + 1 });
   }
+  onProgress({ phase: 'packing', completed: n, total: n });
   // cada página é a foto do slide; por cima, áreas clicáveis nos itens com goto (o PDF pula para a página do destino)
   const hit = (l) => `<a href="#p${l.to}" style="position:absolute;left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px"></a>`;
   const { w: W, h: H } = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 }); // deck.aspect

@@ -98,14 +98,23 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
     });
 
     await t.test("menu do cartão: Baixar PowerPoint sem as notas pede o arquivo sem as notas", { timeout: 120000 }, async () => {
+      const { openLibrary } = await import('../src/library.js');
+      const { writeDeckFile } = await import('../src/deck-file.js');
+      const source = openLibrary(studio.library).resolveId((await lib()).decks.find(d => d.topic === 'Trabalho').id);
+      const noteSpec = YAML.parse(fs.readFileSync(source, 'utf8'));
+      noteSpec.slides[0].notes = 'Nota de teste que não deve sair no arquivo';
+      writeDeckFile(source, noteSpec);
       await p.click('[data-view="Trabalho"]');
       await p.click(".card[data-id] [data-more]");
-      const [req] = await Promise.all([p.waitForRequest(/api\/library\/download/), p.click('[data-dl="pptx"][data-notas="0"]', { noWaitAfter: true })]); // o download é "navegação": numa máquina lenta, o PPTX demora mais que o limite do clique
-      const u = new URL(req.url());
-      assert.equal(u.searchParams.get("kind"), "pptx");
-      assert.equal(u.searchParams.get("notas"), "0");
-      const head = await p.evaluate(async (href) => { const r = await fetch(href); return { ok: r.ok, type: r.headers.get("content-type") }; }, req.url());
-      assert.ok(head.ok && /presentationml/.test(head.type), JSON.stringify(head));
+      const download = p.waitForEvent('download', { timeout: 110000 });
+      const [req] = await Promise.all([p.waitForRequest(r => /api\/export\/jobs$/.test(r.url()) && r.method() === 'POST'), p.click('[data-dl="pptx"][data-notas="0"]')]);
+      assert.equal(req.postDataJSON().kind, 'pptx');
+      assert.equal(req.postDataJSON().notes, false);
+      const file = path.join(studio.library, 'sem-notas-baixado.pptx');
+      await (await download).saveAs(file);
+      const { readPptx } = await import('./helpers.js');
+      const result = await readPptx(fs.readFileSync(file));
+      assert.ok(result.slides.length > 0); assert.doesNotMatch(result.notes, /Nota de teste que não deve sair/);
     });
 
     await t.test("baixar .sagadeck pelo menu do cartão e importar de volta", async () => {
