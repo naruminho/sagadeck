@@ -254,3 +254,17 @@ test("nenhum código usa fs.renameSync direto (use renameRetry)", () => {
   }
   assert.deepEqual(achados, []);
 });
+
+// Trava: cópia e remoção de pasta do mesmo jeito (copyRetry/removeRetry); fs.cpSync e fs.rmSync recursivos
+// têm código nativo que no Windows mata o processo (0xC0000409) ou copia/apaga NADA com caminho acentuado
+// (nodejs/node#54476, #61878) — e ainda falham com o arquivo preso por um instante (flake do CI no "mover").
+test("nenhum código usa fs.cpSync nem fs.rmSync recursivo direto (use copyRetry/removeRetry)", () => {
+  const achados = [];
+  for (const dir of ["src", "bin"]) for (const f of fs.readdirSync(path.join(ROOT, dir), { recursive: true }).filter((x) => x.endsWith(".js"))) {
+    const rel = `${dir}/${f.split(path.sep).join("/")}`;
+    if (rel === "src/fs-retry.js" || rel.includes("/public/")) continue;
+    const s = fs.readFileSync(path.join(ROOT, dir, f), "utf8");
+    if (/\bfs\.cpSync\(/.test(s) || /\bfs\.rmSync\([^)]*recursive:\s*true/.test(s)) achados.push(rel);
+  }
+  assert.deepEqual(achados, []);
+});

@@ -8,11 +8,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { groundSpotlights } from "../src/ai/ground.js";
+import { skipWithoutBrowser } from "./helpers.js";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const spot = () => ({ layout: "spotlight", title: "A bacia no mapa", figure: { image: "imagens/mapa.png" }, hotspots: [{ x: 50, y: 50, width: 20, height: 20, title: "Exutório", text: "a saída" }] });
 
-test("o mesmo foco guiado nas duas passadas (escrita e correção): a visão é chamada uma vez e a caixa é a mesma", async () => {
+test("o mesmo foco guiado nas duas passadas (escrita e correção): a visão é chamada uma vez e a caixa é a mesma", async (t) => {
+  if (await skipWithoutBrowser(t)) return; // localizar as caixas passa pela visão (foto reduzida no navegador)
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ground-"));
   try {
     fs.mkdirSync(path.join(dir, "imagens")); fs.writeFileSync(path.join(dir, "imagens", "mapa.png"), PNG);
@@ -31,7 +33,8 @@ test("o mesmo foco guiado nas duas passadas (escrita e correção): a visão é 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("figure como o caminho da imagem direto também é localizada; a visão que não responde é avisada (não some em silêncio)", async () => {
+test("figure como o caminho da imagem direto também é localizada; a visão que não responde é avisada (não some em silêncio)", async (t) => {
+  if (await skipWithoutBrowser(t)) return; // localizar as caixas passa pela visão (foto reduzida no navegador)
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ground-"));
   try {
     fs.mkdirSync(path.join(dir, "imagens")); fs.writeFileSync(path.join(dir, "imagens", "mapa.png"), PNG);
@@ -45,7 +48,8 @@ test("figure como o caminho da imagem direto também é localizada; a visão que
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("caixa do tamanho da figura inteira não destaca nada: fica a da escrita", async () => {
+test("caixa do tamanho da figura inteira não destaca nada: fica a da escrita", async (t) => {
+  if (await skipWithoutBrowser(t)) return; // a descarte da caixa grande só acontece na localização da visão
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-ground-"));
   try {
     fs.mkdirSync(path.join(dir, "imagens")); fs.writeFileSync(path.join(dir, "imagens", "mapa.png"), PNG);

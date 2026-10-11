@@ -14,7 +14,7 @@
 //
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
 import fs from "node:fs";
-import { renameRetry } from "./fs-retry.js";
+import { renameRetry, copyRetry, removeRetry } from "./fs-retry.js";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -228,7 +228,7 @@ export function openLibrary(root, { trashDays } = {}) {
     const dir = topicDir(id);
     const left = fs.readdirSync(dir).filter((n) => !hidden(n));
     if (left.length) throw new Error("o tópico não está vazio: mova ou exclua as apresentações antes");
-    fs.rmSync(dir, { recursive: true, force: true });
+    removeRetry(dir);
   }
 
   // ---- apresentações ----
@@ -291,7 +291,7 @@ export function openLibrary(root, { trashDays } = {}) {
     const title = `${info.title} (cópia)`;
     const ext = unit === file ? path.extname(file) : "";
     const to = uniquePath(path.dirname(unit), safeName(title), ext);
-    fs.cpSync(unit, to, { recursive: true });
+    copyRetry(unit, to);
     let yaml = unit === file ? to : path.join(to, path.basename(file));
     if (unit !== file && path.basename(file).replace(/\.ya?ml$/i, "") === path.basename(unit)) {
       const renamed = path.join(to, path.basename(to) + path.extname(file));
@@ -404,11 +404,11 @@ export function openLibrary(root, { trashDays } = {}) {
     const ext = isFile ? path.extname(o.unit) : "";
     const to = uniquePath(dest, path.basename(o.unit, ext), ext);
     renameRetry(path.join(slot, o.unit), to);
-    fs.rmSync(slot, { recursive: true, force: true });
+    removeRetry(slot);
     return idOf(isFile ? to : path.join(to, o.yaml));
   }
   function purgeDeck(slotId) {
-    fs.rmSync(path.join(root, TRASH, path.basename(slotId)), { recursive: true, force: true });
+    removeRetry(path.join(root, TRASH, path.basename(slotId)));
   }
   // esvaziar a lixeira: tudo de uma vez (a pessoa confirma antes, no Studio)
   function emptyTrash() {
@@ -484,7 +484,7 @@ export function openLibrary(root, { trashDays } = {}) {
       if (!src.startsWith(path.resolve(fromDir)) || !fs.existsSync(src)) continue;
       const dst = path.join(dir, ...rel.split("/"));
       fs.mkdirSync(path.dirname(dst), { recursive: true });
-      fs.copyFileSync(src, dst);
+      copyRetry(src, dst);
     }
     fs.writeFileSync(path.join(dir, "estilo.yaml"), YAML.stringify(style, { indent: 2, lineWidth: 0 }));
     return { id, name: style.name };
@@ -505,7 +505,7 @@ export function openLibrary(root, { trashDays } = {}) {
       const to = `imagens/estilo/${slug(id)}/${path.basename(rel)}`;
       const dst = path.join(deckDir, ...to.split("/"));
       fs.mkdirSync(path.dirname(dst), { recursive: true });
-      fs.copyFileSync(src, dst);
+      copyRetry(src, dst);
       map.set(rel, to);
     }
     const master = structuredClone(style.master);

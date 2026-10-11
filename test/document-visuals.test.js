@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { browserOrSkip } from './helpers.js';
+import { browserOrSkip, skipWithoutBrowser } from './helpers.js';
 import { tempDeck, startStudio } from './helpers.js';
 import { startMockLLM } from './mock-llm.js';
 import { prepareDocumentMaterials, storedDocumentMaterials } from '../src/ai/document-materials.js';
@@ -565,7 +565,8 @@ test('Studio: criar a apresentação do paper pelo chat confere a cobertura (fig
   } finally {await studio.close();await llm.close();deck.cleanup();}
 });
 
-test('Studio: o chat pede para VER o material (ver: página/recorte) e responde já vendo; caminho fora da pasta é recusado', async () => {
+test('Studio: o chat pede para VER o material (ver: página/recorte) e responde já vendo; caminho fora da pasta é recusado', async (t) => {
+  if (await skipWithoutBrowser(t)) return; // ver o material reduz a página/recorte no navegador para mandar à visão
   const zip = new JSZip();
   zip.file('word/document.xml','<w:document><w:body><w:p><w:r><w:t>Resultados</w:t><a:blip r:embed="a"/></w:r></w:p></w:body></w:document>');
   zip.file('word/_rels/document.xml.rels','<Relationships><Relationship Id="a" Target="media/a.png"/></Relationships>');

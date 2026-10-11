@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { buildHTML } from "../src/build.js";
 import { startMockLLM } from "./mock-llm.js";
-import { browserOrSkip } from "./helpers.js";
+import { browserOrSkip, skipWithoutBrowser } from "./helpers.js";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
@@ -29,7 +29,8 @@ test("ilustração gerada sem fit fica com o encaixe automático (não força co
   } finally { await llm.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("ilustração nova sai sem texto (o modelo escrevia rótulos sem sentido); o redesenho de uma figura mantém os rótulos", async () => {
+test("ilustração nova sai sem texto (o modelo escrevia rótulos sem sentido); o redesenho de uma figura mantém os rótulos", async (t) => {
+  if (await skipWithoutBrowser(t)) return; // o redesenho reduz a figura de base no navegador para mandar à visão
   const { materializeImages } = await import("../src/ai/deck-ai.js");
   const asked = [];
   const llm = await startMockLLM((req) => { asked.push(req.lastUser); return { image: `data:image/png;base64,${PNG.toString("base64")}` }; });

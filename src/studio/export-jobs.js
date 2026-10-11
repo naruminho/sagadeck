@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { generateExport, exportHeaders } from './exporting.js';
+import { removeRetry } from '../fs-retry.js';
 
 export const EXPORT_KINDS = ['sagadeck', 'pptx', 'pdf', 'roteiro', 'tudo', 'estudo', 'estudo-html'];
 const TTL = 24 * 3600_000;
@@ -79,7 +80,7 @@ export function createExportJobs({ generate = generateExport, now = () => Date.n
     async close() {
       closed = true; clearInterval(timer); queue.length = 0;
       await active;
-      jobs.clear(); if (dir) fs.rmSync(dir, { recursive: true, force: true });
+      jobs.clear(); if (dir) removeRetry(dir);
     },
   };
 }
