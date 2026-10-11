@@ -40,8 +40,14 @@ jobs:
       - if: failure()
         shell: bash
         run: |
-          falhas=$(grep -cE '^not ok' test-output.txt || true)
-          echo "## $falhas testes falharam (test ${{ matrix.os }}, ${{ matrix.node }})" >> "$GITHUB_STEP_SUMMARY"
-          grep -E '^not ok' test-output.txt | head -20 >> "$GITHUB_STEP_SUMMARY"
-          grep -B1 -A12 '^not ok' test-output.txt | head -120 >> "$GITHUB_STEP_SUMMARY"
-          grep -E '^not ok' test-output.txt | head -10 | while IFS= read -r linha; do echo "::error title=teste falhou::$linha"; done
+          node -e '
+          const fs = require("fs");
+          const lines = fs.readFileSync("test-output.txt", "utf8").split(/\r?\n/);
+          const blocks = [];
+          for (let i = 0; i < lines.length; i++) if (/^\s*not ok/.test(lines[i])) blocks.push(lines.slice(i, i + 14).join("\n"));
+          if (!blocks.length) blocks.push("sem linha de falha; fim do log:\n" + lines.slice(-40).join("\n"));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "## Falhas em test (" + process.env.MATRIX + ")\n\n```\n" + blocks.join("\n```\n```\n") + "\n```\n");
+          for (const b of blocks.slice(0, 10)) console.log("::error title=teste falhou::" + b.replace(/%/g, "%25").replace(/\r/g, "").replace(/\n/g, "%0A").slice(0, 3500));
+          '
+        env:
+          MATRIX: ${{ matrix.os }}, ${{ matrix.node }}
