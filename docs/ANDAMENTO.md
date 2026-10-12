@@ -8,6 +8,21 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Demos de um assunto só: mapas, programação e APIs com curl — 11/10/2026 (branch `demos-recursos`)
+
+Narumi: em vez do demo inchado que faz tudo (o Conheça o SagaDeck), uma demo só de mapas, uma de programação e uma de
+curl. Entraram em `src/studio/feature-demos.js` (`demoDeck('mapas' | 'programacao' | 'apis')`, `FEATURE_DEMO_NAMES`)
+e vão primeiro na vitrine e em Demos oficiais; o Conheça continua lá, depois delas.
+- **Mapas** (tema oceano): reaproveita as demos de mapa do tour (`mapDemos`, agora exportada) em três partes:
+  mostrar, calcular, editar; a cópia leva as capturas do Editar mapa (`demoAssets`).
+- **Programação** (tema musgo, terminal de cenas na capa): código destacado, guiado, consulta, código explorável,
+  algoritmo, dois terminais, duelo de commits, code review, diagrama de sequência e rede explorável.
+- **APIs com curl** (tema wine): a anatomia de um curl (código guiado), chamadas ao vivo abertas na aba curl (POST,
+  GET com consulta, com token, polling, streaming) na API de mentira do Studio (ENSAIO), as opções do dia a dia em
+  cartões que viram e o aviso do token.
+- Teste: `test/demos-recursos.test.js` (montam sem aviso, cada uma só do seu assunto, e cada chamada da de curl
+  funciona contra a API de mentira); a ordem nova da vitrine em `library-ui.test.js`.
+
 ## Temas de infográfico, cartão que vira e botão + — 11/10/2026 (branch `temas-cartoes`, sobre `tema-musgo`)
 
 Pedido da Narumi, com prints de modelos de infográfico interativo: uma variante do musgo com outra paleta e os

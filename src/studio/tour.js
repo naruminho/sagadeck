@@ -102,7 +102,7 @@ const MASP = { nome: "MASP", lat: -23.5614, lon: -46.6559 }, IBIRAPUERA = { nome
 const PUBLICO = [{ nome: "Centro", lat: -23.5489, lon: -46.6388, publico: 42 }, { nome: "Pinheiros", lat: -23.5614, lon: -46.702, publico: 28 },
   { nome: "Mooca", lat: -23.5596, lon: -46.5996, publico: 12 }, { nome: "Santana", lat: -23.5027, lon: -46.6252, publico: 18 }, { nome: "Santo Amaro", lat: -23.6536, lon: -46.7095, publico: 9 }];
 
-function mapDemos() {
+export function mapDemos() {
   return [
     demo({ kicker: "Bolhas", title: "Onde o público ==está==", basemap: "claro", build: true, caption: "Valores ilustrativos. O tamanho de cada bolha vem da coluna público da planilha.", layers: [
       { name: "Público (mil pessoas)", points: PUBLICO, size: "publico", label: "nome", color: "em" },

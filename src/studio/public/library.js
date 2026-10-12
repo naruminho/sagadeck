@@ -71,7 +71,8 @@
   $("#ai-banner-btn").onclick = () => window.SagaAISettings.open(aiSaved);
   const openEditor = (id, present) => { location.href = `editor?deck=${encodeURIComponent(id)}${present ? "&present=1" : ""}`; };
 
-  // Demos oficiais (só leitura): o Conheça o SagaDeck (src/studio/tour.js) e as demos de recursos da vitrine. Moram numa
+  // Demos oficiais (só leitura): as demos de um assunto só (src/studio/feature-demos.js: mapas, programação, APIs com
+  // curl) em primeiro, o Conheça o SagaDeck (src/studio/tour.js) e as demos de recursos da vitrine. Moram numa
   // pasta própria da lateral e o Conheça aparece também entre as apresentações. Abrem em prévia (editor?model=…): navegar
   // e apresentar não gravam nada; editar cria a cópia da pessoa em Modelos, como nos modelos. Sem mover, renomear nem
   // excluir: a demo de fábrica nunca muda.
@@ -305,6 +306,9 @@
     ["visual", "model-lavanda", "Estúdio lavanda", "Mosaicos, cápsulas e composições editoriais", ["#EFE9FB", "#5B3FA8", "#D8C8F5"]],
     ["visual", "model-executivo", "Relatório executivo", "Resumo, indicadores e plano de trabalho", ["#0F1115", "#E4B660", "#EDEBE6"]],
     ["visual", "model-workshop", "Workshop visual", "Perguntas, código guiado e consulta", ["#FFF7E6", "#1A1A1A", "#E8590C"]],
+    ["recurso", "model-mapas", "Mapas", "Pontos, bolhas, regiões, linhas e áreas; rota, alcance, raio e faixa calculados; a IA e o Editar mapa", ["#EAF4F8", "#0B2A3C", "#0E7CB8"]],
+    ["recurso", "model-programacao", "Programação", "Código destacado e guiado, código que a plateia roda, algoritmo animado, Git a dois e diagramas", ["#0C0F0B", "#F0B24A", "#A9C79B"]],
+    ["recurso", "model-apis", "APIs com curl", "A anatomia de um curl, chamadas ao vivo com o curl para copiar, polling, streaming e as opções do dia a dia", ["#170A10", "#F2506A", "#F3A6B5"]],
     ["recurso", "model-conheca", "Conheça o SagaDeck", "Um slide por recurso, com a frase para pedir cada um à IA", ["#F2F0EA", "#1A1A1A", "#F2B33D"]],
     ["recurso", "model-explorar", "Explore uma ideia", "Prever, comparar cenários, curvas conectadas e acompanhar o mesmo objeto entre cenas", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
     ["recurso", "model-novidades", "Novidades", "Carrossel, gráfico do Excel e da planilha do projeto, fórmulas vivas, duelo de commits, terminais e zoom", ["#F4F1EA", "#1B1F3B", "#E8590C"]],

@@ -390,7 +390,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api"]);
+      assert.deepEqual(visiveis, ["model-mapas", "model-programacao", "model-apis", "model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
@@ -628,8 +628,8 @@ test("multiusuário: a configuração da IA (provedor, modelos, final da chave) 
   }
 });
 
-// Demos oficiais: uma pasta própria na lateral ("SagaDeck · demos oficiais"), só leitura, com o Conheça o SagaDeck em
-// primeiro e as outras demos; o Conheça aparece também entre as apresentações da pessoa (inclusive com a biblioteca
+// Demos oficiais: uma pasta própria na lateral ("SagaDeck · demos oficiais"), só leitura, com as demos de um assunto só
+// (mapas, programação, APIs com curl) em primeiro, depois o Conheça o SagaDeck e as outras demos; o Conheça aparece também entre as apresentações da pessoa (inclusive com a biblioteca
 // vazia). Abrir é prévia: navegar não cria arquivo; editar cria a cópia da pessoa, como nos modelos.
 test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck também entre as apresentações; abre em prévia, sem criar arquivo", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
@@ -644,7 +644,8 @@ test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck també
     await p.waitForSelector("#main .card-oficial");
     assert.match(await p.textContent("#main h1"), /demos oficiais/i);
     const ids = await p.$$eval("#main .card-oficial", (els) => els.map((e) => e.dataset.oficial));
-    assert.equal(ids[0], "conheca", "o Conheça o SagaDeck em primeiro");
+    assert.deepEqual(ids.slice(0, 3), ["mapas", "programacao", "apis"], "as demos de um assunto só vêm primeiro");
+    assert.ok(ids.includes("conheca"), "o Conheça o SagaDeck continua na pasta");
     assert.ok(ids.includes("novidades") && ids.includes("hidraulica") && ids.length >= 8, ids.join(","));
     assert.equal(await p.locator("#main .card-oficial [data-more]").count(), 0, "só leitura: sem menu de mover, renomear ou excluir");
     assert.equal(await p.locator("#main .card-oficial[draggable=true]").count(), 0, "não arrasta para outro tópico");
