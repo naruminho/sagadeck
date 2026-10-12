@@ -33,6 +33,14 @@ ação do modelo, preservando conversa e alternativas em prévia. Regressão con
 slides preservados; falhou antes da correção.
 Suíte completa após esse ajuste: 1.035 testes, 1.009 aprovados, 26 condicionais pulados e zero falhas.
 Os cinco testes de prévia passaram; nova CI será exigida para o commit final antes do merge do PR #196.
+Oracle dev e produção receberam também `333857f`: conversa real e mudança de tema pelo modelo funcionaram;
+o tema permaneceu ao reabrir o arquivo pelas APIs nativas. Apresentações sintéticas removidas pela biblioteca.
+A CI aprovou Ubuntu 22/24 e Windows 22. Windows 24 teve timeout na galeria; o teste isolado passou (3/3) e a
+reexecução aprovou o carrossel, mas encontrou `ERR_NO_BUFFER_SPACE` durante exportação. Isso indica pressão de
+recursos de rede no runner; a faixa TCP dinâmica agora é ampliada somente nas máquinas descartáveis da CI,
+com diagnóstico de estados TCP em falhas. Testes e exigência de zero erros de navegador preservados.
+Código da aplicação permanece o mesmo da suíte local completa aprovada (1.009/26/0); ajuste de CI validado como
+YAML, e os quatro ambientes serão novamente conferidos antes do merge.
 
 ## Sobre legível no tema escuro — 12/10/2026 (branch `sobre-tema-escuro`)
 

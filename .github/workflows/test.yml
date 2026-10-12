@@ -27,6 +27,18 @@ jobs:
           node-version: ${{ matrix.node }}
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
+      # A suíte abre muitas conexões locais. No Windows, ampliar as portas de saída evita esgotar
+      # a faixa padrão enquanto conexões encerradas ainda estão em TIME_WAIT (ERR_NO_BUFFER_SPACE).
+      - name: Preparar portas TCP do Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          netsh int ipv4 set dynamicport tcp start=10000 num=55535
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          netsh int ipv6 set dynamicport tcp start=10000 num=55535
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          netsh int ipv4 show dynamicport tcp
+          netsh int ipv6 show dynamicport tcp
       # auditoria de dependências de produção: informativa (não derruba o CI); vulnerabilidade conhecida
       # se resolve no mesmo commit que a introduziu (hoje: override de image-size, dependência morta do pptxgenjs)
       - run: npm audit --omit=dev --audit-level=high
@@ -37,6 +49,13 @@ jobs:
         shell: bash
         env:
           SAGADECK_BROWSER: ${{ matrix.os == 'ubuntu-latest' && '/usr/bin/google-chrome' || 'C:\Program Files\Google\Chrome\Application\chrome.exe' }}
+      - name: Diagnóstico TCP do Windows
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-NetTCPConnection | Group-Object State | Sort-Object Count -Descending | Select-Object Count, Name
+          netsh int ipv4 show dynamicport tcp
+          netsh int ipv6 show dynamicport tcp
       - if: failure()
         shell: bash
         run: |
