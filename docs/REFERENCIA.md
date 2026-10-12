@@ -204,8 +204,9 @@ Os pedidos saem do **Studio** (Node, na sua máquina), nunca do navegador: sem p
 certificado da empresa e com o token fora da página. Sem o Studio (HTML exportado, PDF, servidor
 multiusuário), o slide mostra a **última resposta gravada** e o botão vira *Reproduzir gravação*.
 
-No Studio: **Biblioteca → Nova → Exemplo: aula de APIs ao vivo** cria um deck com um slide de cada tipo;
-no editor, **Inserir → Slide de API** insere um deles e **Inserir → Ambientes** edita os ambientes. Os
+No Studio: a demo **APIs com curl** (Demos oficiais, ou Nova → Modelo pronto) mostra as chamadas mais comuns com o curl;
+o ensaio completo, com um slide de cada tipo (upload, OCR, embeddings, voz, tempo real), sai pelo comando
+`sagadeck ensaio-api`. No editor, **Inserir → Slide de API** insere um deles e **Inserir → Ambientes** edita os ambientes. Os
 exemplos rodam no ambiente embutido **ENSAIO**, uma API de mentira que o Studio local sobe sozinho (não vai
 para o seu arquivo de ambientes; o seu ambiente com o mesmo nome, se existir, vence).
 
@@ -864,7 +865,7 @@ Os três aceitam `kicker`, `title` e `items: [{title, text, value, icon, code, f
 
 No Studio, todo tipo de slide (página de consulta, grade adaptável, diagrama, status semanal…) sai da galeria **Novo slide** (Início › Escolher tipo ou Inserir › Novo slide), com busca e categorias; **Layout** troca o formato do slide atual e leva o conteúdo junto. A aba **Avançado** muda a densidade do slide atual: **Padrão**, **Compacta** ou **Mais conteúdo**. A densidade reduz espaçamentos e tamanhos sem apagar o conteúdo; para explicações longas com seções, prefira `dossier`.
 
-Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Nova → Modelo pronto → Recursos avançados** na biblioteca). Esse demo reúne código denso, página de consulta, grade com oito itens, aviso de segurança e diagrama.
+Para apresentações completas de exemplo, abra **Abrir demos completos** na aba Avançado (ou **Demos oficiais** na biblioteca): uma demo por assunto — mapas, programação (código denso, página de consulta, Git a dois, diagramas), APIs com curl, aula de hidráulica, aula de algoritmos e diagramas vivos.
 
 Modelos, estilos, demos e exemplos de **Modelo pronto** (na vitrine, "Visuais para começar" e "Recursos do SagaDeck", com a capa de cada um) abrem em **prévia**: dá para navegar, apresentar e experimentar sem criar arquivo. A primeira mudança (ou o botão **Usar como base**) cria uma cópia na biblioteca, no tópico de onde veio (padrão `Modelos`), com as imagens; o modelo de fábrica nunca muda.
 

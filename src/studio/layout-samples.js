@@ -204,7 +204,7 @@ export const LAYOUT_SAMPLES = {
     hotspots: [{ x: 4, y: 18, width: 92, height: 15, title: "O pedido", text: "O verbo GET consulta o recurso. A rota identifica a coleção de aulas." },
       { x: 4, y: 38, width: 92, height: 10, title: "A confirmação", text: "200 OK confirma o sucesso. O tempo ajuda a investigar a experiência do usuário." },
       { x: 5, y: 52, width: 78, height: 39, title: "Os dados", text: "A estrutura JSON é o contrato que o front-end precisa entender." }] },
-  // genérico de propósito: troque método, URL e corpo pelos do seu serviço (os exemplos prontos ficam no deck "Exemplo: aula de APIs")
+  // genérico de propósito: troque método, URL e corpo pelos do seu serviço (os exemplos prontos ficam na demo "APIs com curl" e no `sagadeck ensaio-api`)
   api: { layout: "api", kicker: "Ao vivo", title: "Minha ==chamada==", text: "Troque o método, a URL e o corpo pelos do seu serviço", request: { method: "POST", url: "{{base}}/echo", body: { mensagem: "Olá, API" } }, answer: "$.recebido.mensagem" },
   video: { layout: "video", title: "Assista", url: "https://example.com", label: "Assistir" },
   blocks: { layout: "blocks", title: "Blocos livres", content: [{ row: [{ lead: "Esquerda" }, { lead: "Direita" }] }] },

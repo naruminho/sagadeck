@@ -4,9 +4,24 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
-## [Não lançado]
+## [1.9.0] — 12/10/2026
+
+### Novidades
+- **Seis temas novos.** `musgo` (laboratório noturno: verde quase preto, âmbar e sálvia, Fraunces, Space Grotesk e
+  IBM Plex Mono) e o irmão `wine` (o mesmo em vinho); `caderno` (visual thinking, letra de mão e moldura pastel),
+  `lousa` (quadro verde com giz), `cartaz` (cartaz de protesto, faixas vermelhas tortas) e `infografico` (dados
+  chapados, números enormes). Fontes livres embutidas: funcionam sem internet.
+- **Cartão que vira** (`flip` no cartão): o clique gira e mostra o verso.
+- **Botão + com balão** (`pop` em qualquer lugar; `more` no marco da linha do tempo): o detalhe fica guardado até
+  alguém clicar.
+- **Faixa que corre na capa** (`ticker`), **terminal em cenas** (`motion: {type: console}`, que digita o comando e
+  revela a saída) e **rede de nós** atrás da capa (`ambient: rede`).
+- **Demos de um assunto só**: Mapas, Programação e APIs com curl, primeiras em Demos oficiais. As demos que não
+  ensinavam nada claro saíram da vitrine (Explore uma ideia, Novidades, Material de consulta, Recursos avançados e a
+  Aula de APIs, que continua no `sagadeck ensaio-api`).
 
 ### Correções
+- O ajuste para caber não encolhe mais o slide inteiro por causa do verso do cartão ou do balão do +.
 - **Duplicar, apagar e limpar pasta no Windows com acento no nome (a norma aqui) paravam de quebrar**: o
   `fs.cpSync`/`fs.rmSync` recursivos do Node têm código nativo que, no Windows, mata o processo sem aviso
   (0xC0000409) ou copia/apaga **nada** quando o caminho tem acento ou caractere fora do ASCII

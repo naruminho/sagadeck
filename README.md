@@ -234,9 +234,11 @@ formato avisa para atualizar o sagadeck. Se um filtro de e-mail barrar a extens�
 `sagadeck studio` sem arquivo abre a biblioteca: suas apresentações organizadas em tópicos, com capa, busca,
 lixeira (30 dias; o prazo se muda em Preferências) e o menu **⋯** de cada cartão (apresentar, renomear, duplicar, mover, baixar tudo/.sagadeck/PPTX/PDF).
 
-Na lateral, **Demos oficiais** (com cadeado) guarda as apresentações do próprio SagaDeck, só leitura: o **Conheça o
-SagaDeck** (um slide por recurso, inclusive a demonstração dos mapas, cada um com a frase para pedir à IA) e as demos
-de recursos. Elas abrem em prévia, sem criar arquivo; editar cria uma cópia sua em Modelos. O Conheça o SagaDeck
+Na lateral, **Demos oficiais** (com cadeado) guarda as apresentações do próprio SagaDeck, só leitura. Primeiro, as
+demos de um assunto só, curtas: **Mapas** (mostrar, calcular e editar), **Programação** (código destacado e guiado,
+código que a plateia roda, algoritmo animado, Git a dois, diagramas) e **APIs com curl** (a anatomia de um curl e
+chamadas ao vivo com o curl para copiar, rodando na API de mentira do Studio). Depois, o **Conheça o SagaDeck** (um
+slide por recurso, cada um com a frase para pedir à IA) e as outras demos de recursos. Elas abrem em prévia, sem criar arquivo; editar cria uma cópia sua em Modelos. O Conheça o SagaDeck
 aparece também como o primeiro cartão de Recentes e Todas.
 
 **Nova apresentação** tem três caminhos: *Descrever com IA* (o assunto, quanto tempo você tem, que vira o número de
@@ -291,9 +293,11 @@ token nunca vai para a página.
 
 Para ver funcionando sem configurar nada:
 
-- **Biblioteca → Nova → Exemplo: aula de APIs ao vivo.** Cria um deck com um slide de cada tipo, que roda no
-  ambiente **ENSAIO**: uma API de mentira que o Studio sobe sozinho (sem VPN, sem chave). Apresente e clique
-  em **Executar**. (`sagadeck ensaio-api` faz o mesmo pela linha de comando.) O deck também traz um slide
+- **Demos oficiais → APIs com curl.** As chamadas mais comuns (corpo, consulta na URL, token, polling, streaming),
+  cada uma com o curl, rodando no ambiente **ENSAIO**: uma API de mentira que o Studio sobe sozinho (sem VPN, sem
+  chave). Apresente e clique em **Executar**.
+- **`sagadeck ensaio-api`.** O ensaio completo, com um slide de cada tipo (upload, OCR, embeddings, voz, tempo
+  real), no mesmo ambiente ENSAIO. O deck também traz um slide
   **OpenRouter (real)** com `nvidia/nemotron-3-super-120b-a12b:free`. Para usá-lo, defina `OPENROUTER_API_KEY` no
   processo que inicia o Studio e escolha o ambiente **OPENROUTER** no selo do slide. A chave fica fora do
   deck; no PowerShell, por exemplo, defina `$env:OPENROUTER_API_KEY = "sua-chave"` antes de iniciar o
