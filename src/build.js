@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { resolveTheme, themeCSS, scopedThemeCSS } from "./themes.js";
+import { resolveTheme, themeCSS, scopedThemeCSS, THEMES } from "./themes.js";
 import { identityFor, identitiesFile } from "./identity.js";
 import { LAYOUTS, fullAsFigure } from "./layouts.js";
 import { setDeckLocale } from "./locale.js";
@@ -87,7 +87,11 @@ export function wordCount(s) {
 // identidade do deck (fontes da empresa, do arquivo local; ver src/identity.js)
 const identityOf = (spec) => (spec.identity ? identityFor(spec.identity) : null);
 const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette, identityOf(spec)) : deckTheme);
-const skinCSS = (name) => { try { return read(`runtime/skins/${name}.css`); } catch { return ""; } };
+// tema irmão (skin: "musgo" no wine): usa a pele do outro, com o seletor trocado para o nome dele
+const skinCSS = (name) => {
+  const base = THEMES[name]?.skin;
+  try { return base ? read(`runtime/skins/${base}.css`).replaceAll(`.th-${base}`, `.th-${name}`) : read(`runtime/skins/${name}.css`); } catch { return ""; }
+};
 export function deckThemeCSS(spec, deckTheme) {
   const looks = new Map(), names = new Set([deckTheme.name]);
   for (const raw of spec.slides || []) {

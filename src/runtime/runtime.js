@@ -561,6 +561,38 @@
     cmd("goto", [to, 0]);
   }, true);
 
+  // cartão que vira (data-flip) e botão + com balão (data-pop). Clique fora fecha os balões; sair do slide desvira e fecha.
+  const closePops = (root) => $$(".pop.open", root).forEach((p) => { p.classList.remove("open"); $(".pop-btn", p)?.setAttribute("aria-expanded", "false"); });
+  const flip = (c, on) => { c.classList.toggle("flipped", on); c.setAttribute("aria-pressed", String(on)); };
+  document.addEventListener("click", (e) => {
+    if (EXPORT || !e.target.closest) return;
+    const slide = e.target.closest(".slide");
+    if (!slide) return;
+    if (e.target.closest(".pop-card")) return;
+    const pop = e.target.closest("[data-pop]");
+    if (pop) {
+      e.stopPropagation();
+      const open = !pop.classList.contains("open");
+      closePops(slide);
+      pop.classList.toggle("open", open);
+      $(".pop-btn", pop)?.setAttribute("aria-expanded", String(open));
+      return;
+    }
+    closePops(slide);
+    const card = e.target.closest("[data-flip]");
+    if (card) { e.stopPropagation(); flip(card, !card.classList.contains("flipped")); }
+  });
+  document.addEventListener("keydown", (e) => {
+    const card = e.target.closest && e.target.closest("[data-flip]");
+    if (!card || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault(); e.stopPropagation();
+    flip(card, !card.classList.contains("flipped"));
+  }, true);
+  slides.forEach((sl, si) => {
+    if (!sl.querySelector("[data-flip],[data-pop]")) return;
+    hooks[si].leave.push(() => { closePops(sl); $$("[data-flip].flipped", sl).forEach((c) => flip(c, false)); });
+  });
+
   function cmd(c, arg) {
     if (PRESENTER && window.opener && !window.opener.closed) { window.opener.postMessage({ sagadeck: DATA.id, type: "cmd", c, arg }, "*"); return; }
     local(c, arg);
@@ -768,7 +800,7 @@
       const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty, dt = Date.now() - tt;
       tx = ty = null;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { cmd(dx < 0 ? "next" : "prev"); return; }
-      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 500 && !e.target.closest("a,button,input,textarea,select,[contenteditable],video,audio,iframe,.widget,.map-box,[data-goto]")) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 500 && !e.target.closest("a,button,input,textarea,select,[contenteditable],video,audio,iframe,.widget,.map-box,[data-goto],[data-flip],[data-pop]")) {
         const sel = typeof getSelection === "function" && getSelection();
         if (sel && !sel.isCollapsed) return; // selecionando texto: não avança
         cmd("next");

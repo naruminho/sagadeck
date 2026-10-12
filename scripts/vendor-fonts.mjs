@@ -30,6 +30,15 @@ const FONTS = [
   ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2", "400"],
   ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2", "500"],
   ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2", "600"],
+  // caderno (letra de mão alta e serifada de leitura), lousa (giz), cartaz e infográfico (condensada de cartaz)
+  ["Amatic SC", "@fontsource/amatic-sc/files/amatic-sc-latin-400-normal.woff2", "400"],
+  ["Amatic SC", "@fontsource/amatic-sc/files/amatic-sc-latin-700-normal.woff2", "700"],
+  ["Gelasio", "@fontsource-variable/gelasio/files/gelasio-latin-wght-normal.woff2", "400 700"],
+  ["Gelasio", "@fontsource-variable/gelasio/files/gelasio-latin-wght-italic.woff2", "400 700", "italic"],
+  ["Cabin Sketch", "@fontsource/cabin-sketch/files/cabin-sketch-latin-700-normal.woff2", "700"],
+  ["Itim", "@fontsource/itim/files/itim-latin-400-normal.woff2", "400"],
+  ["Bebas Neue", "@fontsource/bebas-neue/files/bebas-neue-latin-400-normal.woff2", "400"],
+  ["Montserrat", "@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2", "100 900"],
 ];
 
 fs.rmSync(OUT, { recursive: true, force: true });

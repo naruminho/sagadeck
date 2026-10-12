@@ -61,8 +61,10 @@ test("trocar o tema muda o arranjo, não só a cor: capa e seção têm geometri
         assert.equal(a.fora, 0, `${nome} no tema ${n}: texto saiu do slide`);
         vistas.set(n, JSON.stringify({ ...a, fora: undefined }));
       }
-      // o par claro/escuro (manual ↔ manual-noite) tem o mesmo arranjo de propósito
-      const iguais = NAMES.filter((n, i) => NAMES.findIndex((m) => vistas.get(m) === vistas.get(n) && THEMES[n].pair !== m) !== i);
+      // o par claro/escuro (manual ↔ manual-noite) e o tema irmão que usa a pele de outro (wine → musgo) têm o mesmo
+      // arranjo de propósito
+      const irmaos = (n, m) => THEMES[n].pair === m || THEMES[n].skin === m || THEMES[m].skin === n;
+      const iguais = NAMES.filter((n, i) => NAMES.findIndex((m) => vistas.get(m) === vistas.get(n) && !irmaos(n, m)) !== i);
       assert.deepEqual(iguais, [], `${nome}: temas com o mesmo arranjo: ${iguais.join(", ")}`);
     }
     assert.deepEqual(errors, []);

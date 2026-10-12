@@ -284,6 +284,35 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 /* cards */
 .cards{display:grid;gap:36px;flex:1;min-height:0;align-content:center}
 .cd{display:flex;flex-direction:column;gap:18px;min-width:0}
+/* cartão que vira (back: no cartão): frente e verso na mesma célula; o clique gira 180 graus; exportação mostra a frente */
+.cd.flip{background:none;padding:0;border:0;box-shadow:none;perspective:1800px;cursor:pointer;outline:none}
+.flip-in{position:relative;flex:1;display:grid;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.3,.75,.2,1)}
+.flip-face{grid-area:1/1;position:relative;display:flex;flex-direction:column;gap:18px;min-width:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip-back{transform:rotateY(180deg);justify-content:center;padding-bottom:84px}
+.flip-front{padding-bottom:84px}
+.cd.flip.flipped .flip-in{transform:rotateY(180deg)}
+.cd.flip:focus-visible .flip-face{outline:3px solid var(--hi);outline-offset:4px}
+.flip-hint{position:absolute;right:20px;bottom:20px;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--fg) 14%,transparent);color:var(--fg);opacity:.8;transition:transform .3s}
+.cd.flip:hover .flip-hint{transform:rotate(-40deg)}
+html[data-motion="none"] .flip-in,.export .flip-in{transition:none}
+.export .cd.flip .flip-in{transform:none}.export .flip-hint{display:none}
+@media(prefers-reduced-motion:reduce){.flip-in{transition:none}}
+/* botão + com balão (pop): o balão abre ao lado do botão; aberto, uma sombra enorme em volta dele escurece o resto */
+.pop{position:relative;display:inline-flex;z-index:4;vertical-align:middle;align-self:flex-start;width:fit-content;height:fit-content}
+.pop-el{z-index:4}
+.pop-btn{width:64px;height:64px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:var(--hi);color:var(--on-hi);box-shadow:0 6px 18px #00000033;transition:transform .25s,background-color .25s}
+.pop-btn svg{width:30px;height:30px;transition:transform .3s}
+.pop-btn:hover{transform:scale(1.08)}
+.pop.open .pop-btn{background:var(--em);color:var(--bg)}.pop.open .pop-btn svg{transform:rotate(45deg)}
+.pop-card{position:absolute;z-index:5;width:max-content;max-width:620px;display:flex;flex-direction:column;gap:10px;padding:28px 32px;border-radius:var(--radius);background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 24px 60px #00000040;opacity:0;visibility:hidden;transform:translateY(10px) scale(.97);transition:opacity .25s,transform .25s,visibility 0s .25s;text-align:left}
+.pop-above .pop-card{bottom:calc(100% + 18px);left:50%;translate:-50% 0}
+.pop-below .pop-card{top:calc(100% + 18px);left:50%;translate:-50% 0}
+.pop-left .pop-card{right:calc(100% + 18px);top:50%;translate:0 -50%}
+.pop-right .pop-card{left:calc(100% + 18px);top:50%;translate:0 -50%}
+.pop.open .pop-card{opacity:1;visibility:visible;transform:none;transition:opacity .25s,transform .25s}
+.pop-title{font-size:34px}.pop-text{font-size:28px;line-height:1.4}
+.pop.open{z-index:6;border-radius:50%;box-shadow:0 0 0 4000px #00000066}
+.export .pop-card{display:none}
 .cd-ico{width:100px;height:100px;border-radius:50%;background:var(--hi);color:var(--on-hi);display:flex;align-items:center;justify-content:center}
 .card-hi .cd-ico{background:var(--on-hi);color:var(--hi)}
 .cd-pic{height:190px;display:flex}

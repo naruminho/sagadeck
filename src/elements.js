@@ -9,7 +9,7 @@ import katex from "katex";
 import { formatNumber, decimalSeparator } from "./locale.js";
 import fs from "node:fs";
 import path from "node:path";
-import { md, esc } from "./markup.js";
+import { md, esc, plain } from "./markup.js";
 import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
@@ -258,6 +258,7 @@ export function el(e, ctx, w, h) {
   if (e.poll) return poll(e, ctx);
   if (e.list) return list(e);
   if (e.cards) return cards(e, ctx);
+  if (e.pop) return popEl(e);
   if (e.stats || e.kpis) return stats(e, ctx);
   if (e.steps || e.process || e.flow) return steps(e, ctx);
   if (e.progress != null) return progress(e);
@@ -478,6 +479,7 @@ export function cards(e, ctx) {
     if (c.check === true || c.status === "pro") extraWidgets += `<div class="check-pill pro">${iconSVG("check", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Recomendado"}</div>`;
     if (c.check === false || c.status === "con") extraWidgets += `<div class="check-pill con">${iconSVG("x", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Evitar"}</div>`;
 
+    if (c.flip != null && c.flip !== "") return flipCard(c, step, top, badgeHtml, extraWidgets);
     return `<div${attrs({ ...c, step, card: c.hl ? "hi" : true }, "cd")}>
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
         ${top}
@@ -491,6 +493,42 @@ export function cards(e, ctx) {
     </div>`;
   }).join("");
   return `<div${attrs(e, "cards", `grid-template-columns:repeat(${cols},1fr);`)}>${body}</div>`;
+}
+
+// Cartão que vira (flip: no cartão): clicar gira e mostra o verso (flipTitle + flip; "back" já é o Voltar da navegação). Frente e verso ficam no
+// mesmo lugar da grade; o mais alto dita a altura. Na exportação e no PPTX vale a frente.
+function flipCard(c, step, top, badgeHtml, extraWidgets) {
+  const face = `card${c.hl ? " card-hi" : ""} flip-face`;
+  const back = typeof c.flip === "object" ? c.flip : { text: c.flip };
+  return `<div${attrs({ ...c, step, card: false }, "cd flip")} data-flip tabindex="0" role="button" aria-pressed="false" aria-label="${esc(plain(String(c.title || "Cartão")))}: virar">
+    <div class="flip-in">
+      <div class="${face} flip-front">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">${top}${badgeHtml}</div>
+        ${c.title ? `<div class="cd-title t f-heading">${md(c.title)}</div>` : ""}
+        ${c.text ? `<div class="cd-text t f-body">${md(c.text)}</div>` : ""}
+        ${extraWidgets}
+        ${c.foot ? `<div class="cd-foot t f-label">${md(c.foot)}</div>` : ""}
+        <span class="flip-hint" aria-hidden="true">${iconSVG("rotate-ccw", { size: 28, stroke: 2.2 })}</span>
+      </div>
+      <div class="${face} flip-back" aria-hidden="true">
+        ${back.title || c.flipTitle ? `<div class="cd-title t f-heading">${md(back.title || c.flipTitle)}</div>` : ""}
+        <div class="cd-text t f-body">${md(String(back.text ?? ""))}</div>
+        <span class="flip-hint" aria-hidden="true">${iconSVG("rotate-ccw", { size: 28, stroke: 2.2 })}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Botão + com balão (pop): clicar abre um balãozinho com título e texto e escurece o resto do slide; clicar de novo,
+// fora dele ou trocar de slide fecha. side: above (padrão) | below | left | right. Na exportação, fechado.
+export function popHTML(more, side = "above") {
+  const m = typeof more === "object" && more ? more : { text: more };
+  const sd = ["above", "below", "left", "right"].includes(m.side || side) ? m.side || side : "above";
+  return `<span class="pop pop-${sd}" data-pop><button type="button" class="pop-btn" aria-expanded="false" aria-label="${esc(plain(String(m.title || "Ver mais")))}">${iconSVG("plus", { size: 30, stroke: 2.6 })}</button><span class="pop-card" role="note">${m.title ? `<span class="pop-title t f-heading">${md(String(m.title))}</span>` : ""}<span class="pop-text t f-body">${md(String(m.text ?? ""))}</span></span></span>`;
+}
+function popEl(e) {
+  const m = typeof e.pop === "object" ? e.pop : { text: e.pop, title: e.title, side: e.side };
+  return `<span${attrs(e, "pop-el")}>${popHTML(m)}</span>`;
 }
 
 export function stats(e, ctx) {

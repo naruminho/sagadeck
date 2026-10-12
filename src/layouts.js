@@ -12,7 +12,7 @@ import { adaptiveHTML } from "./adaptive-layouts.js";
 import { iconSVG, listIcons } from "./figures/icons.js";
 let iconNames = null;
 const diagramIconNames = () => (iconNames ||= new Set(listIcons()));
-import { el, text, figureHTML, imageSize, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code } from "./elements.js";
+import { el, text, figureHTML, imageSize, attrs, SIZES, list, cards, stats, steps, poll, timer, counter, code, popHTML } from "./elements.js";
 import { displayCodeLanguage, resolveCodeLanguage } from "./code-language.js";
 import { mathHTML, plotHTML } from "./science.js";
 import { infographicHTML, itemColors } from "./infographic.js";
@@ -440,7 +440,7 @@ export const LAYOUTS = {
     const body = ev.map((e, i) => `<div${attrs({ step: e.step ?? build(s, i) }, `tl-ev ${hl.has(i) ? "hl" : ""}`)}>
         <div class="tl-dot"></div><div class="tl-when t f-display">${md(e.when)}</div>
         <div class="tl-title t f-heading">${md(e.title || "")}</div>${e.text ? `<div class="tl-text t f-body">${md(e.text)}</div>` : ""}
-        ${e.tag ? `<div class="tl-tag t f-label">${md(e.tag)}</div>` : ""}</div>`).join("");
+        ${e.tag ? `<div class="tl-tag t f-label">${md(e.tag)}</div>` : ""}${e.more ? popHTML(e.more, "above") : ""}</div>`).join("");
     return `<div class="L-timeline">${head(s)}<div class="tl" style="--n:${ev.length}"><div class="tl-line"></div>${body}</div>${s.after ? text(s.after, "h3", { class: "tl-after", step: s.afterStep ?? (s.build ? ev.length + 1 : 1), face: "quote", size: 48 }) : ""}</div>${src(s)}${add(s, ctx)}`;
   },
 
