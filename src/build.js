@@ -264,17 +264,37 @@ export function setFitDefaults(d = {}) {
 export const fitDefaults = () => ({ ...FIT_DEFAULTS });
 
 // eco ambiente: camada viva discreta atrás do conteúdo (só no HTML; PPTX/PDF usam o quadro parado)
-const AMBIENT = ["pontos", "grade"];
-function ambientOf(s, i, ctx) {
-  if (s.ambient == null || s.ambient === "") return "";
+// (rede: nós à deriva ligados por proximidade, num canvas animado pelo runtime; o tema pode pô-la sozinha na capa,
+// coverAmbient, e ambient: false tira)
+const AMBIENT = ["pontos", "grade", "rede"];
+function ambientOf(s, i, ctx, theme, layout) {
+  if (s.ambient === false) return "";
+  if (s.ambient == null || s.ambient === "") return layout === "cover" && theme?.coverAmbient ? theme.coverAmbient : "";
   if (!AMBIENT.includes(s.ambient)) { ctx.warnings?.push(`slide ${i + 1}: ambiente "${s.ambient}" desconhecido (vale: ${AMBIENT.join(", ")})`); return ""; }
   return s.ambient;
+}
+// faixa que corre na capa: `ticker: [..]` no slide, ou automática nos temas com ticker (musgo), com os títulos das
+// seções (sem seções suficientes, os dos slides). `ticker: false` desliga. Só no HTML; parada sem movimento/exportação.
+function tickerOf(s, spec, theme, layout) {
+  if (s.ticker === false || layout !== "cover") return null;
+  const clean = (list) => [...new Set(list.map((x) => plain(String(x ?? "")).trim()).filter(Boolean))].slice(0, 16);
+  if (Array.isArray(s.ticker)) return clean(s.ticker);
+  if (!theme.ticker && s.ticker !== true) return null;
+  const others = (spec.slides || []).filter((x) => x && typeof x === "object");
+  let items = clean(others.filter((x) => inferLayout(x) === "section").map((x) => x.title || x.kicker));
+  if (items.length < 3) items = clean(others.filter((x) => !isCoverLayout(inferLayout(x))).map((x) => x.title || x.kicker));
+  return items.length ? items : null;
+}
+function tickerHTML(items) {
+  const run = items.map((t) => `<span class="tk-it t f-mono">${esc(t)}</span><span class="tk-sep"></span>`).join("");
+  const dur = Math.max(24, Math.round(items.join("").length * 0.22));
+  return `<div class="ticker" aria-hidden="true"><div class="tk-track" style="--tk-dur:${dur}s">${run}${run}</div></div>`;
 }
 // <section> de um slide: tom, textura, estilo do destaque, fundo, área, cabeçalho e rodapé.
 // Única montagem para o Studio (renderSlide) e para a apresentação/exportação (buildHTML).
 function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, current = false }) {
   let inner = innerIn;
-  const ambient = ambientOf(s, i, ctx);
+  const ambient = ambientOf(s, i, ctx, theme, layout);
   const deco = s.deco ?? theme.deco;
   const style = (s.bg ? `--bg:#${String(s.bg).replace("#", "")};` : "") + (s.fg ? `--fg:#${String(s.fg).replace("#", "")};` : "");
   const bars = s.footer !== false && (s.footer === true || !NO_FOOTER.has(layout));
@@ -299,7 +319,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
     if (hd) { bandTitle = `<div class="master-title">${hd[0].replace(/<[a-z0-9]+ [^>]*class="[^"]*\bttl\b[^"]*"[^>]*/, (tag) => `${tag}${/\sdata-fit[\s=>]|\sdata-fit$/.test(tag) ? "" : " data-fit"} data-fit-self`)}</div>`; inner = inner.replace(hd[0], ""); }
   }
   let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${ambient ? ` data-ambient="${ambient}"` : ""}${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
-  if (ambient) html += `<div class="ambient" aria-hidden="true"></div>`;
+  if (ambient) html += `<div class="ambient" aria-hidden="true">${ambient === "rede" ? "<canvas></canvas>" : ""}</div>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;
   // mestre do deck (logos, faixas, número da página: src/master.js), atrás do conteúdo
   if (withMaster) html += `<div class="master" aria-hidden="true">${masterElements(spec, layout, i).map((e) => el(e, ctx)).join("")}</div>`;
@@ -308,7 +328,9 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   if (bars && s.header !== false) html += barHTML("header", spec, i, total);
   if (bandTitle) html += applyVisualEdits(bandTitle, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p });
   html += `<div class="${area}${motionAccent ? ' with-motion-accent' : ''}">${applyVisualEdits(inner, s.visualEdits, { src: (p) => imageSrc(p, ctx) || p })}</div>`;
-  if (motionAccent) {const fg=s.fg||theme.tones[tone]?.fg||'ink';html += `<div class="motion-accent" aria-hidden="true">${el({motion:{background:'transparent',foreground:theme.colors[fg]||fg,...s.motionAccent}},ctx,320,90)}</div>`;}
+  const ticker = tickerOf(s, spec, theme, layout);
+  if (ticker) html += tickerHTML(ticker);
+  if (motionAccent) {const fg=s.fg||theme.tones[tone]?.fg||'ink';html +=`<div class="motion-accent" aria-hidden="true">${el({motion:{background:'transparent',foreground:theme.colors[fg]||fg,...s.motionAccent}},ctx,320,90)}</div>`;}
   if (bars) html += barHTML("footer", spec, i, total);
   if (s.back != null && s.back !== "") {
     const alvo = (spec.slides || []).find((x) => x && String(x.id) === String(s.back));

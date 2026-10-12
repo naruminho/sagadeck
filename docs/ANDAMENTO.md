@@ -8,6 +8,33 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Tema musgo, faixa que corre e terminal em cenas — 11/10/2026 (branch `tema-musgo`)
+
+Pedido da Narumi: trazer para o sagadeck o visual de uma página que ela adorou (um site de "segundo cérebro" gerado
+por outro modelo): tema, cores, fontes, botões, o terminal que digita os `curl`, a faixa que fica correndo e o
+separador das seções. Entrou:
+- **Tema `musgo`** (`src/themes.js`, `src/runtime/skins/musgo.css`): verde quase preto com grão, âmbar e sálvia;
+  Fraunces (com tamanho óptico e itálico de verdade), Space Grotesk e IBM Plex Mono, embutidas (OFL, `vendor-fonts.mjs`
+  agora aceita estilo itálico). PPTX com Georgia, Segoe UI e Cascadia Mono. Capa e seção com grade de pontos que some
+  nas bordas, luz âmbar na capa, chapéu com fio âmbar, destaque do título em âmbar itálico (sem marca-texto), seção
+  como separador (número entre fios na linha do chapéu, título grande embaixo), cartões vazados que sobem no mouse,
+  números em monoespaçada, marcador em losango, código em janela e botões âmbar.
+- **Decisão:** no musgo o tom `accent` (o padrão da seção) é escuro com detalhe em âmbar; a página chapada de âmbar
+  destoava do original.
+- **Faixa que corre** (`ticker`, `src/build.js` + `base.css`): só na capa; automática nos temas com `ticker: true`
+  (por enquanto o musgo), com os títulos das seções (ou dos slides, se houver menos de 3 seções); `ticker: [..]` em
+  qualquer tema; `ticker: false` desliga. Separador desenhado em CSS (losango), parada sem movimento e na exportação.
+- **`motion: {type: console}`** (`src/motion.js`): janela com três bolinhas, legenda e contador; cada cena digita o
+  comando e revela a saída linha a linha, segura a leitura e passa para a próxima. Prompt, cursor e seta em CSS
+  (regra de não usar caractere como ícone). Parado, mostra a primeira cena completa.
+- **`ambient: rede`** (`runtime.js`, `mountAmbientNet`): nós à deriva que se ligam por proximidade, num canvas no
+  tamanho lógico do slide, nas cores do tom; anda só no slide atual, um quadro parado sem movimento/exportação. O tema
+  pode pôr na capa sozinho (`coverAmbient`, o musgo põe); `ambient: false` tira. Também no formulário do Studio.
+- Testes: `test/tema-musgo.test.js`. Referência atualizada (tema, `ticker`, `console`, `rede`).
+
+Fica para depois, se ela pedir: o efeito de "decodificar" a palavra em destaque do título da capa (trocar letras
+mexe na largura e na quebra das linhas; precisa de um jeito que não faça o título pular).
+
 ## 11/10/2026 — Fases 0+1 do plano de melhorias (branch `arena/349f2d88-sagadeck`)
 
 Veio de uma avaliação do repositório pedida pela Narumi: o plano está em `docs/PLANO-MELHORIAS.md`

@@ -694,6 +694,53 @@
     if (document.visibilityState === "visible") requestWakeLock();
   });
 
+  // ---------- eco ambiente "rede": nós à deriva que se ligam por proximidade (canvas no tamanho lógico do slide) ----------
+  // Anda só no slide atual; parada (um quadro) com movimento reduzido e na exportação. Cores do tom: --hi e a 2ª da paleta.
+  function mountAmbientNet() {
+    slides.forEach((sl, si) => {
+      const cv = sl.dataset.ambient === "rede" && $(".ambient canvas", sl);
+      const g = cv && cv.getContext("2d");
+      if (!g) return;
+      const css = getComputedStyle(sl);
+      const hi = css.getPropertyValue("--hi").trim() || "#f0b24a";
+      const alt = css.getPropertyValue("--c-c2").trim() || hi;
+      cv.width = SW; cv.height = SH;
+      let seed = 7 + si * 131;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const nodes = Array.from({ length: Math.round(SW * SH / 32000) }, () => ({
+        x: rnd() * SW, y: rnd() * SH, vx: (rnd() - 0.5) * 0.75, vy: (rnd() - 0.5) * 0.75, r: rnd() * 2.2 + 1, a: rnd() * 0.45 + 0.15,
+      }));
+      const LINK = 210;
+      const draw = (move) => {
+        g.clearRect(0, 0, SW, SH);
+        if (move) for (const n of nodes) {
+          n.x += n.vx; n.y += n.vy;
+          if (n.x < 0 || n.x > SW) n.vx *= -1;
+          if (n.y < 0 || n.y > SH) n.vy *= -1;
+        }
+        g.strokeStyle = hi; g.lineWidth = 1.3;
+        for (let a = 0; a < nodes.length; a++) for (let b = a + 1; b < nodes.length; b++) {
+          const d = Math.hypot(nodes[a].x - nodes[b].x, nodes[a].y - nodes[b].y);
+          if (d >= LINK) continue;
+          g.globalAlpha = 0.16 * (1 - d / LINK);
+          g.beginPath(); g.moveTo(nodes[a].x, nodes[a].y); g.lineTo(nodes[b].x, nodes[b].y); g.stroke();
+        }
+        for (const n of nodes) {
+          g.globalAlpha = n.a; g.fillStyle = n.a > 0.42 ? hi : alt;
+          g.beginPath(); g.arc(n.x, n.y, n.r, 0, Math.PI * 2); g.fill();
+        }
+        g.globalAlpha = 1;
+      };
+      let raf = 0, on = false;
+      const loop = () => { if (!on) return; if (!document.hidden) draw(true); raf = requestAnimationFrame(loop); };
+      const start = () => { if (on) return; if (EXPORT || reducedMotion()) return draw(false); on = true; raf = requestAnimationFrame(loop); };
+      const stop = () => { on = false; cancelAnimationFrame(raf); };
+      draw(false);
+      hooks[si].enter.push(start);
+      hooks[si].leave.push(stop);
+    });
+  }
+
   // ---------- inicialização ----------
   function parseHash() {
     const m = location.hash.match(/^#(\d+)(?:\.(\d+))?/);
@@ -704,6 +751,7 @@
     scale(); window.addEventListener("resize", scale);
     mountWidgets();
     mountLessons();
+    mountAmbientNet();
     initDrawing();
     requestWakeLock();
     document.addEventListener("keydown", onKey);
