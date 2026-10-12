@@ -11,6 +11,10 @@ pula de versão em versão.
   que está rodando, com commit, Node, desde quando, a biblioteca e se a IA está configurada, além de Copiar
   informações para pedir ajuda. Na biblioteca, o mesmo Sobre no botão de informação do alto.
 
+### Correções
+- **Sobre no tema escuro**: a janela abria com fundo branco e texto claro, quase ilegível. Agora segue as cores do
+  tema (claro ou escuro), no editor e na biblioteca.
+
 ## [1.9.0] — 12/10/2026
 
 ### Novidades

@@ -8,6 +8,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Sobre legível no tema escuro — 12/10/2026 (branch `sobre-tema-escuro`)
+
+Narumi (com print): no Windows e no dev da Oracle o Sobre "não abre direito", com texto apagado. Causa: o CSS do
+`about.js` pegava o fundo de `--panel`/`--bg`, que nenhuma página define (caía no branco), e o texto de `--text`,
+que no tema escuro é claro, o que dava contraste 1,16. Agora fundo, borda e botão vêm de `--chrome`, `--ui-line` e
+`--brand-fill`, que o editor (style.css/studio-next.css) e a biblioteca (library.css) definem nos dois temas. Teste
+novo em `test/sobre.test.js`: contraste WCAG mínimo de 4,5 do texto contra o fundo da janela, nos temas claro e
+escuro, no editor e na biblioteca. Ele falha com o CSS antigo.
+
 ## Ajuda › Sobre o SagaDeck — 12/10/2026 (branch `ajuda-sobre`)
 
 Narumi: "insira um help com about no menu onde eu posso ver a versão". A aba **Ajuda** fecha a faixa do editor

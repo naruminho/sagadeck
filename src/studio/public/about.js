@@ -1,13 +1,15 @@
 // "Sobre o SagaDeck" (Ajuda › Sobre, no editor; botão Sobre, na biblioteca): a versão que está rodando e o essencial
 // para dar suporte (commit, Node, desde quando, a biblioteca, se a IA está configurada), com Copiar informações.
 window.SagaAbout = (() => {
-  const css = `.about-dlg{margin:auto;max-width:min(520px,calc(100vw - 32px));width:100%;border:1px solid var(--border,#c9ced6);border-radius:12px;padding:20px 22px;background:var(--panel,var(--bg,#fff));color:var(--text,#1d2433);font:14px/1.45 system-ui,sans-serif}
-.about-dlg::backdrop{background:rgba(0,0,0,.35)}.about-dlg h2{margin:0;font-size:20px}.about-dlg .ver{margin:2px 0 14px;font-size:15px;color:var(--text-2,#555)}
+  // as cores vêm das variáveis que o editor e a biblioteca definem nos dois temas (claro e escuro); fundo e texto
+  // sempre do mesmo par, senão o tema escuro dá texto claro sobre fundo branco
+  const css = `.about-dlg{margin:auto;max-width:min(520px,calc(100vw - 32px));width:100%;border:1px solid var(--ui-line,#c9ced6);border-radius:12px;padding:20px 22px;background:var(--chrome,#fff);color:var(--text,#1d2433);font:14px/1.45 system-ui,sans-serif;box-shadow:0 20px 60px #0004}
+.about-dlg::backdrop{background:rgba(0,0,0,.45)}.about-dlg h2{margin:0;font-size:20px;color:var(--text,#1d2433)}.about-dlg .ver{margin:2px 0 14px;font-size:15px;color:var(--text-2,#555)}
 .about-dlg .ver b{color:var(--text,#1d2433);font-size:22px}.about-dlg dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 14px}
-.about-dlg dt{color:var(--text-3,#777)}.about-dlg dd{margin:0;overflow-wrap:anywhere}.about-dlg code{font:12px ui-monospace,Consolas,monospace}
+.about-dlg dt{color:var(--text-2,#555)}.about-dlg dd{margin:0;overflow-wrap:anywhere;color:var(--text,#1d2433)}.about-dlg code{font:12px ui-monospace,Consolas,monospace;color:inherit}
 .about-dlg .links{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 6px}.about-dlg .links a{color:var(--brand,#5b4bdb)}
-.about-dlg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.about-dlg button{padding:7px 14px;border-radius:8px;border:1px solid var(--border,#c9ced6);background:transparent;color:inherit;cursor:pointer;font:inherit}
-.about-dlg button.primary{background:var(--brand,#5b4bdb);border-color:var(--brand,#5b4bdb);color:#fff}.about-dlg [data-copied]{color:#15803d;align-self:center;margin-right:auto}`;
+.about-dlg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.about-dlg button{padding:7px 14px;border-radius:8px;border:1px solid var(--ui-line,#c9ced6);background:transparent;color:var(--text,#1d2433);cursor:pointer;font:inherit}
+.about-dlg button.primary{background:var(--brand-fill,#5b4bdb);border-color:var(--brand-fill,#5b4bdb);color:#fff}.about-dlg [data-copied]{color:var(--text-2,#555);align-self:center;margin-right:auto}`;
   const REPO = "https://github.com/naruminho/sagadeck";
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   let dialog;
