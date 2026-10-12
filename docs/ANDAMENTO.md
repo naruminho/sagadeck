@@ -24,6 +24,9 @@ Validação: npm test com 1.034 testes, 1.008 aprovados, 26 condicionais pulados
 passaram na suíte. O teste da biblioteca com a espera de carregamento passou também isolado (13 testes).
 Entrega: commit da correção para os dois serviços da Oracle após validação local; merge do PR somente com os quatro
 checks verdes (Ubuntu/Windows, Node 22/24). Não há mudança de dependências nem publicação de versão no npm.
+PR #196 publicado. Oracle dev (3518) e produção (3517) receberam o commit `e32a3c1` e reiniciaram; nos dois,
+o pedido real em uma prévia voltou com `mode: llm`, conversa, sem diagnóstico de erro e sem criar cópia.
+Bibliotecas pessoais não foram alteradas. A CI do PR continua sendo acompanhada para concluir o merge.
 
 ## Sobre legível no tema escuro — 12/10/2026 (branch `sobre-tema-escuro`)
 
