@@ -1,0 +1,29 @@
+/* Infográfico (dados chapados): capa azul com chão verde e nuvens brancas, título enorme em condensada, chapéu numa
+   caixa azul-clara; título dos slides em maiúsculas, chapéu numa tarja verde; números enormes; cartões e números de
+   lista com a cor do grupo (azul, verde, laranja, amarelo, azul-piscina), sem sombra nem degradê */
+.th-infografico.L-cover-slide,.th-infografico.L-end-slide{--bg:var(--c-accent);--fg:#fff;--muted:#E3EEF9;--hi:var(--c-c2);--em:var(--c-c4);--line:#6AA3D8;background-color:var(--c-accent)}
+.th-infografico:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(1){display:block;left:0;right:0;bottom:0;height:150px;background:var(--c-c2)}
+.th-infografico:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(2){display:block;right:170px;top:120px;width:260px;height:90px;border-radius:60px;background:#fff;opacity:.9;box-shadow:-70px 30px 0 -10px #fff,60px 34px 0 -6px #fff}
+.th-infografico:is(.L-cover-slide,.L-end-slide) .orn i:nth-child(3){display:block;left:0;right:0;bottom:150px;height:14px;background:color-mix(in srgb,var(--c-c2) 70%,#fff)}
+.th-infografico :is(.L-cover,.L-end) .ttl{text-transform:uppercase}
+.th-infografico.L-cover-slide .kicker{background:#6AA3D8;color:#fff;padding:12px 22px;width:fit-content}
+.th-infografico .kicker{width:fit-content;background:var(--c-c2);color:#fff;padding:8px 20px}
+.th-infografico .hd .ttl{text-transform:uppercase}
+.th-infografico.L-section-slide .orn i:nth-child(1){display:block;left:0;right:0;bottom:0;height:120px;background:var(--c-c2)}
+.th-infografico .L-section .ttl{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:1.25em;text-transform:uppercase}
+.th-infografico .sc-num{color:var(--c-c4)}
+.th-infografico:not(.ms-sublinhado):not(.ms-cor):not(.ms-negrito):not(.ms-nenhum) .ttl mark{background:none;color:var(--em);padding:0;margin:0}
+.th-infografico :is(.cards,.stats-grid,.steps,.list)>:nth-child(5n+1){--cc:#3F86C9}
+.th-infografico :is(.cards,.stats-grid,.steps,.list)>:nth-child(5n+2){--cc:#8DC63F}
+.th-infografico :is(.cards,.stats-grid,.steps,.list)>:nth-child(5n+3){--cc:#EB6C35}
+.th-infografico :is(.cards,.stats-grid,.steps,.list)>:nth-child(5n+4){--cc:#F5C02F}
+.th-infografico :is(.cards,.stats-grid,.steps,.list)>:nth-child(5n+5){--cc:#3AAFC1}
+.th-infografico .stat-card.stat-card{background:var(--cc,#3F86C9);border:0;border-radius:var(--radius);--fg:#fff;--muted:rgba(255,255,255,.88);color:#fff}
+.th-infografico .st-val{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:150px;color:#fff;line-height:.9}
+.th-infografico :is(.card:not(.card-hi):not(.stat-card),.step-card,.ps-panel){background:var(--surface);border:0;border-top:14px solid var(--cc,#3F86C9);border-radius:var(--radius);box-shadow:none}
+.th-infografico .cd-num{width:110px;height:110px;border-radius:50%;display:grid;place-items:center;background:var(--cc,#3F86C9);color:#fff;font-size:64px}
+.th-infografico .li{align-items:center}
+.th-infografico .li-n{flex:none;width:84px;height:84px;min-width:0;border-radius:50%;display:grid;place-items:center;background:var(--cc,#3F86C9);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:50px;padding-top:4px}
+.th-infografico .li-b{width:26px;height:26px;border:0;background:var(--cc,#3F86C9)}
+.th-infografico .q-mark{color:var(--c-c2)}
+.th-infografico .pop-btn{background:var(--c-c4);color:var(--c-ink)}

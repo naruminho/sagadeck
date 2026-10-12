@@ -8,6 +8,23 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Temas de infográfico, cartão que vira e botão + — 11/10/2026 (branch `temas-cartoes`, sobre `tema-musgo`)
+
+Pedido da Narumi, com prints de modelos de infográfico interativo: uma variante do musgo com outra paleta e os
+visuais dos prints, com destaque para o cartão que gira no clique e mostra o verso. Entrou:
+- **`wine`**: o musgo em vinho (vermelho-rosado, rosé, vermelho forte só no detalhe). Usa a pele do musgo por
+  `skin: "musgo"` (o `build.js` lê a pele do outro e troca o seletor); fontes em `MUSGO_FACES`.
+- **`caderno`** (visual thinking: Amatic SC + Gelasio, cartões com moldura pastel, rabiscos de ícones Lucide como
+  máscara), **`lousa`** (giz: Cabin Sketch + Itim), **`cartaz`** (protesto: Bebas Neue em faixas vermelhas tortas) e
+  **`infografico`** (dados chapados: Bebas Neue + Montserrat). Fontes OFL em `vendor-fonts.mjs`.
+- **Cartão que vira** (`flip` no cartão; `back` já era o Voltar da navegação e o verificador de links lia o verso como destino; `elements.js` `flipCard`, `base.css`, `runtime.js`): frente e verso na mesma
+  célula, clique/Enter gira, sair do slide desvira; exportação mostra a frente.
+- **Botão + com balão** (`pop` em qualquer lugar; `more` no marco da linha do tempo): abre o balão e escurece o resto
+  com uma sombra enorme em volta do botão; um de cada vez, fecha fora e ao trocar de slide.
+- **Defeito achado:** o ajuste para caber (`fit.js`) via o texto do verso "por cima" do da frente e encolhia o slide
+  inteiro; verso e balão saem dessa conta.
+- Teste do arranjo único por tema aceita o tema irmão (`skin`). Testes: `test/temas-infografico.test.js`.
+
 ## Tema musgo, faixa que corre e terminal em cenas — 11/10/2026 (branch `tema-musgo`)
 
 Pedido da Narumi: trazer para o sagadeck o visual de uma página que ela adorou (um site de "segundo cérebro" gerado

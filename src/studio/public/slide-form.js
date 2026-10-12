@@ -68,7 +68,7 @@
       f.bool("push", "git push"), f.bool("pull", "git pull"), f.lines("resolve", "Resolve o conflito", { hint: "ours (fica a sua), theirs (a do remoto), both, ou as linhas: 2: texto final" }),
       f.bool("log", "git log --graph"), f.more([f.text("say", "Explicação no lugar da automática"), f.text("note", "Nota embaixo")])]),
       { addLabel: "Adicionar turno", newItem: () => ({ who: 1, commit: "" }) })];
-  const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"),
+  const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"), f.area("flip", "Verso (o cartão vira no clique)"),
     f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
   const STAT = [f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
     f.more([f.bool("trendUp", "Tendência positiva"), f.color("color", "Cor")])];
@@ -81,7 +81,7 @@
   const STATUS_ITEM = textOrObj([f.area("text", "Texto"), f.text("owner", "Responsável"), f.text("due", "Prazo")]);
   // opção do mapa de caminhos (layout hub): leva à seção do caminho
   const HUB_OPTION = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"), f.text("meta", "Detalhe", { hint: "Ex.: 30 dias, prorrogável" }), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })];
-  const TIMELINE_EV = [f.text("when", "Quando"), f.text("title", "Título"), f.area("text", "Texto"), f.text("tag", "Etiqueta")];
+  const TIMELINE_EV = [f.text("when", "Quando"), f.text("title", "Título"), f.area("text", "Texto"), f.text("tag", "Etiqueta"), f.area("more", "Botão + (texto do balão)")];
   const COMPARE_SIDE = [f.text("label", "Rótulo"), f.text("value", "Valor grande"), f.text("title", "Título"), f.area("text", "Texto"),
     f.list("items", "Itens", T), f.el("figure", "Figura"), f.bool("hl", "Destacar")];
   const MATRIX_CELL = [f.text("title", "Título"), f.area("text", "Texto"), f.text("example", "Exemplo"), f.icon("icon", "Ícone"), f.bool("hl", "Destacar")];

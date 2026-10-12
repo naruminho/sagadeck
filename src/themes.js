@@ -16,6 +16,15 @@
 const SYS_SANS = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 const SYS_MONO = "'Cascadia Mono', Consolas, 'SF Mono', Menlo, monospace";
 
+const MUSGO_FACES = {
+  display: { css: "font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.02em; line-height: 1.04;", pptx: { face: "Georgia", bold: true } },
+  heading: { css: "font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.015em; line-height: 1.08;", pptx: { face: "Georgia", bold: true } },
+  body: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.42;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+  label: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Cascadia Mono" } },
+  mono: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 400; line-height: 1.5;`, pptx: { face: "Cascadia Mono" }, pptxBold: { face: "Cascadia Mono SemiBold" } },
+  quote: { css: "font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; line-height: 1.14;", pptx: { face: "Georgia", italic: true } },
+};
+
 export const THEMES = {
   sinal: {
     label: "Sinal — sinalização/segurança: DIN condensada, amarelo de aviso, pictogramas",
@@ -391,15 +400,132 @@ export const THEMES = {
       alert: { bg: "12160F", fg: "F6F3E7", muted: "muted", line: "B5502F", surface: "1F2820", hi: "E07A55", em: "E07A55", onHi: "0C0F0B" },
     },
     fontFaces: [],
-    faces: {
-      display: { css: "font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.02em; line-height: 1.04;", pptx: { face: "Georgia", bold: true } },
-      heading: { css: "font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.015em; line-height: 1.08;", pptx: { face: "Georgia", bold: true } },
-      body: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.42;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
-      label: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Cascadia Mono" } },
-      mono: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 400; line-height: 1.5;`, pptx: { face: "Cascadia Mono" }, pptxBold: { face: "Cascadia Mono SemiBold" } },
-      quote: { css: "font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; line-height: 1.14;", pptx: { face: "Georgia", italic: true } },
-    },
+    faces: MUSGO_FACES,
     radius: 12, deco: "grain", ticker: true, coverAmbient: "rede",
+  },
+  // Wine: o musgo em vinho — fundo vinho quase preto, vermelho-rosado no destaque e o vermelho forte só no detalhe
+  // (tom alert, bolinha da janela). Mesma pele do musgo (skin), mesmas fontes, faixa e rede na capa.
+  wine: {
+    label: "Wine — o musgo em vinho: fundo vinho quase preto, vermelho-rosado e rosé, serifada Fraunces, faixa correndo e rede na capa",
+    skin: "musgo",
+    colors: {
+      paper: "170A10", ink: "F4EAEC", accent: "F2506A", alert: "CC092F",
+      muted: "B59AA4", line: "3D1E2B", surface: "24101A", surfaceDark: "1D0C14",
+      c1: "F2506A", c2: "F3A6B5", c3: "CC092F", c4: "FFF5F6", c5: "8C2140",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "170A10" },
+      dark: { bg: "0F060A", fg: "FFF5F6", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "accent", onHi: "170A10" },
+      accent: { bg: "1D0C14", fg: "FFF5F6", muted: "muted", line: "line", surface: "2E1521", hi: "accent", em: "accent", onHi: "170A10" },
+      alert: { bg: "CC092F", fg: "FFFFFF", muted: "FFD0D9", line: "E0475F", surface: "A80726", hi: "FFFFFF", em: "FFFFFF", onHi: "CC092F" },
+    },
+    fontFaces: [],
+    faces: MUSGO_FACES,
+    radius: 12, deco: "grain", ticker: true, coverAmbient: "rede",
+  },
+  // Caderno: visual thinking — papel claro, letra de mão alta (Amatic SC), serifada de leitura (Gelasio), cartões
+  // brancos com moldura grossa em tons pastel (menta, lilás, amarelo, coral) e rabiscos de ícones nos cantos.
+  caderno: {
+    label: "Caderno — visual thinking: papel claro, letra de mão alta, cartões com moldura pastel e rabiscos de ícones",
+    colors: {
+      paper: "F5F3EE", ink: "2B2A33", accent: "8E7896", alert: "DE8178",
+      muted: "6E6A73", line: "D9D5CC", surface: "FFFFFF", surfaceDark: "2B2A33",
+      c1: "B5E3C3", c2: "8E7896", c3: "F0D488", c4: "DE8178", c5: "9CC9E8",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "F0D488", em: "alert", onHi: "ink" },
+      dark: { bg: "2B2A33", fg: "F5F3EE", muted: "B7B3BC", line: "4A4853", surface: "37353F", hi: "F0D488", em: "F0D488", onHi: "ink" },
+      accent: { bg: "EFEADF", fg: "ink", muted: "muted", line: "D3CCBD", surface: "FFFFFF", hi: "B5E3C3", em: "alert", onHi: "ink" },
+      alert: { bg: "DE8178", fg: "FFFFFF", muted: "FBE3E0", line: "E9A39C", surface: "C96C63", hi: "F0D488", em: "2B2A33", onHi: "ink" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Amatic SC', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0.01em; line-height: 0.95;", pptx: { face: "Ink Free", bold: true } },
+      heading: { css: "font-family: 'Amatic SC', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0.02em; line-height: 1;", pptx: { face: "Ink Free", bold: true } },
+      body: { css: "font-family: 'Gelasio', Georgia, serif; font-weight: 400; line-height: 1.45;", pptx: { face: "Georgia" } },
+      label: { css: "font-family: 'Gelasio', Georgia, serif; font-weight: 700; letter-spacing: 0.02em; line-height: 1.2;", pptx: { face: "Georgia", bold: true } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Gelasio', Georgia, serif; font-style: italic; font-weight: 500; line-height: 1.2;", pptx: { face: "Georgia", italic: true } },
+    },
+    radius: 26, deco: "grain",
+  },
+  // Lousa: quadro-negro verde com giz — título em giz amarelo (Cabin Sketch), texto em letra redonda (Itim), traços de
+  // giz laranja e amarelo, cartões contornados a giz.
+  lousa: {
+    label: "Lousa — quadro verde com giz: títulos em giz amarelo, traços laranja, cartões contornados a giz",
+    colors: {
+      paper: "2E4A3E", ink: "F1F0E8", accent: "E9DE7A", alert: "E58A5C",
+      muted: "B8C4BB", line: "5E7A6C", surface: "36574A", surfaceDark: "263E34",
+      c1: "E9DE7A", c2: "E58A5C", c3: "9FD3E0", c4: "F1F0E8", c5: "C7A6D9",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "2E4A3E" },
+      dark: { bg: "1F3329", fg: "ink", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "accent", onHi: "2E4A3E" },
+      accent: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "alert", em: "accent", onHi: "2E4A3E" },
+      alert: { bg: "4A3A2C", fg: "F1F0E8", muted: "D8C9B4", line: "6E5A46", surface: "5A4735", hi: "E9DE7A", em: "E58A5C", onHi: "2E4A3E" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Cabin Sketch', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0.01em; line-height: 1;", pptx: { face: "Ink Free", bold: true } },
+      heading: { css: "font-family: 'Cabin Sketch', 'Segoe Print', cursive; font-weight: 700; letter-spacing: 0.01em; line-height: 1.05;", pptx: { face: "Ink Free", bold: true } },
+      body: { css: "font-family: 'Itim', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.4;", pptx: { face: "Segoe UI" } },
+      label: { css: "font-family: 'Itim', 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Itim', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.25;", pptx: { face: "Segoe UI" } },
+    },
+    radius: 14, deco: "none",
+  },
+  // Cartaz: cartaz de protesto — papel cinza com grão, condensada pesada (Bebas Neue) em faixas vermelhas tortas,
+  // etiquetas amarelas, cartões brancos levemente girados como fotos coladas, moldura preta grossa na capa.
+  cartaz: {
+    label: "Cartaz — cartaz de protesto: condensada em faixas vermelhas tortas, etiquetas amarelas, cartões como fotos coladas",
+    colors: {
+      paper: "E8E6E1", ink: "232323", accent: "D9565B", alert: "F2BE4E",
+      muted: "5E5B57", line: "C9C5BE", surface: "FFFFFF", surfaceDark: "2B2B2B",
+      c1: "D9565B", c2: "8CC8BF", c3: "F2BE4E", c4: "C3C7F0", c5: "232323",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "FFFFFF" },
+      dark: { bg: "232323", fg: "E8E6E1", muted: "A9A49C", line: "3D3D3D", surface: "surfaceDark", hi: "accent", em: "alert", onHi: "FFFFFF" },
+      accent: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "FFFFFF" },
+      alert: { bg: "F2BE4E", fg: "232323", muted: "6B5420", line: "D9A43A", surface: "F6CF77", hi: "232323", em: "D9565B", onHi: "F2BE4E" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Bebas Neue', 'Bahnschrift Condensed', 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: 0.01em; line-height: 0.9;", pptx: { face: "Bahnschrift Condensed", bold: true } },
+      heading: { css: "font-family: 'Bebas Neue', 'Bahnschrift Condensed', 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: 0.015em; line-height: 0.95;", pptx: { face: "Bahnschrift Condensed", bold: true } },
+      body: { css: `font-family: ${SYS_SANS}; font-weight: 400; line-height: 1.38;`, pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: 'Bebas Neue', 'Bahnschrift Condensed', sans-serif; font-weight: 400; letter-spacing: 0.06em; line-height: 1.1;", pptx: { face: "Bahnschrift Condensed" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Bebas Neue', 'Bahnschrift Condensed', sans-serif; font-style: italic; font-weight: 400; letter-spacing: 0.01em; line-height: 1.02;", pptx: { face: "Bahnschrift Condensed", italic: true } },
+    },
+    radius: 0, deco: "grain",
+  },
+  // Infográfico: cartaz de dados chapado — azul, verde, laranja e amarelo sem degradê, números enormes em condensada
+  // (Bebas Neue), títulos em Montserrat pesada, faixas de cor, números em círculos coloridos.
+  infografico: {
+    label: "Infográfico — dados chapados: azul, verde, laranja e amarelo, números enormes, faixas de cor e marcadores em círculo",
+    colors: {
+      paper: "FFFFFF", ink: "2E3138", accent: "3F86C9", alert: "EB6C35",
+      muted: "6B7280", line: "E3E6EA", surface: "F2F4F6", surfaceDark: "2E3138",
+      c1: "3F86C9", c2: "8DC63F", c3: "EB6C35", c4: "F5C02F", c5: "3AAFC1",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "F5C02F", em: "accent", onHi: "ink" },
+      dark: { bg: "2E3138", fg: "FFFFFF", muted: "B9BEC7", line: "454953", surface: "3A3E46", hi: "8DC63F", em: "8DC63F", onHi: "2E3138" },
+      accent: { bg: "accent", fg: "FFFFFF", muted: "D6E6F5", line: "6AA3D8", surface: "3577B5", hi: "8DC63F", em: "F5C02F", onHi: "2E3138" },
+      alert: { bg: "8DC63F", fg: "FFFFFF", muted: "EEF7E2", line: "A7D46C", surface: "7DB234", hi: "2E3138", em: "2E3138", onHi: "FFFFFF" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Bebas Neue', 'Bahnschrift Condensed', 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: 0.01em; line-height: 0.9;", pptx: { face: "Bahnschrift Condensed", bold: true } },
+      heading: { css: "font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.01em; line-height: 1.05;", pptx: { face: "Segoe UI Black" } },
+      body: { css: "font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 500; line-height: 1.4;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: "font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+      mono: { css: `font-family: ${SYS_MONO}; line-height: 1.4;`, pptx: { face: "Cascadia Mono" } },
+      quote: { css: "font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2;", pptx: { face: "Segoe UI Semibold" } },
+    },
+    radius: 10, deco: "none",
   },
   // Par técnico (material de consulta, tutorial, apostila): o claro imprime bem, o escuro descansa a vista.
   // pair: o Studio alterna entre os dois (Design › Claro/Escuro) e o PDF pode sair no claro (Preferências).
