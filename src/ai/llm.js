@@ -48,6 +48,8 @@ export function llmConfig(env = process.env) {
     visionModel: env.SAGADECK_VISION_MODEL || m.vision || m.text || "vision",
     // busca na web pelo modelo (no OpenRouter, um modelo ":online"); sem ele, a pesquisa usa os buscadores diretos
     searchModel: env.SAGADECK_SEARCH_MODEL || m.search || (fromEnv ? "search" : ""),
+    // vídeo (opcional): com ele, a geração de vídeo usa esta mesma camada (src/ai/video-generation.js, videoSetup)
+    videoModel: env.SAGADECK_VIDEO_MODEL || m.video || "",
     headers: ia?.headers || {},
     adaptador: ia?.adaptador || "",
     source: fromEnv ? "variável" : ia ? "arquivo" : "nenhuma",
@@ -61,7 +63,7 @@ export const llmConfigured = (cfg = llmConfig()) => !!(cfg.url || cfg.adaptador)
 
 // o papel (text, vision, image, search) vira o modelo configurado; outro nome passa como veio
 export function resolveModel(cfg, name) {
-  const roles = { text: cfg.textModel, vision: cfg.visionModel, image: cfg.imageModel, search: cfg.searchModel };
+  const roles = { text: cfg.textModel, vision: cfg.visionModel, image: cfg.imageModel, search: cfg.searchModel, video: cfg.videoModel };
   return roles[name] || name;
 }
 
@@ -74,6 +76,8 @@ function headers(cfg) {
 // Adaptador (opcional, da pessoa): um .mjs cujo default é (url, init) => Response. Serve para o que não é compatível
 // com a API da OpenAI (outro jeito de autenticar, outro endereço) sem mexer no sagadeck. Sem ele, o fetch normal.
 const adapters = new Map();
+// (exportado: a geração de vídeo manda pelo mesmo caminho, com o mesmo adaptador)
+export const providerFetch = (cfg, url, init) => send(cfg, url, init);
 async function send(cfg, url, init) {
   if (!cfg.adaptador) return fetch(url, init);
   if (!adapters.has(cfg.adaptador)) adapters.set(cfg.adaptador, import(pathToFileURL(path.resolve(cfg.adaptador)).href).then((mod) => mod.default));

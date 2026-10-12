@@ -8,6 +8,33 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## `sagadeck ia-check`: o que de IA funciona, sem tela — 12/10/2026 (branch `ia-check`)
+
+Narumi: "o sagadeck está preparado para ser testado por um agente de IA (tipo o Copilot) sem o front-end?
+Principalmente a execução dos modelos: preciso saber rapidamente quais features de IA funcionam". Não estava: só o
+Testar do Configurar IA (uma pergunta de texto) e os testes ao vivo, que avaliam decisões e levam minutos.
+- `src/ai/ia-check.js` (`iaCheck`): texto, visão, imagem, pesquisa e vídeo em paralelo, prazo próprio por recurso,
+  cada resultado avisado ao chegar. Visão com prova: um PNG de duas faixas de cor sorteadas, desenhado no código; o
+  modelo precisa dizer as cores na ordem, e modelo que não aceita imagem falha (o `chat` refazia sem a imagem e dava
+  "ok" sem ver). Pesquisa: a data de hoje. Imagem: confere o tipo pelos bytes e grava o arquivo.
+- Vídeo: Narumi primeiro quis a geração real sempre, depois decidiu: padrão sem custo (catálogo, status `sem_prova`,
+  que não conta como ok) e `--video-real` quando ela pedir (clipe mais curto e leve que o modelo aceita, baixa e confere
+  o MP4).
+- No caminho, a pergunta dela ("o teste usa a chave do OpenRouter? o setup dos modelos não é uma camada separada?")
+  expôs que o vídeo ficava fora da camada da IA: endereço do OpenRouter no código e chave só em variável. Agora
+  `videoSetup` (`video-generation.js`): com modelo de vídeo em Configurar IA (papel novo `video`), usa endereço, chave,
+  cabeçalhos e adaptador de lá; sem ele, o comportamento antigo (Oracle e quem já usava). A consulta e o download só
+  levam a chave ao mesmo servidor configurado (`videoApiURL`). O catálogo virou opcional.
+- Saídas: `sagadeck ia-check` (`--rapido`, `--so`, `--video-real`, `--json`, código de saída), ferramenta MCP
+  `sagadeck_ia_check`, `POST /api/ia/check` (fora do multiusuário). SKILL.md manda o agente rodar antes de prometer
+  recurso de IA.
+- Medido nesta máquina contra o OpenRouter: texto, visão e pesquisa em 2,3 s (`--rapido`); com imagem, 8 a 11 s.
+- Teste `test/ia-check.test.js` (LLM falso e provedor de vídeo simulado: cada falha com o motivo, paralelismo, vídeo
+  pela camada da IA, linha de comando). Achado: o `spawnSync` do teste da linha de comando travava o LLM falso do
+  próprio processo, e o teste só passava por estourar o prazo; virou `execFile` e exige o motivo certo.
+- Flake corrigido: `studio.test.js` procurava "ocr" no slide inteiro e o uid sorteado `s1ocrpz0ieql` derrubou a CI da
+  `main` depois do #191.
+
 ## Demos de um assunto só: mapas, programação e APIs com curl — 11/10/2026 (branch `demos-recursos`)
 
 Narumi: em vez do demo inchado que faz tudo (o Conheça o SagaDeck), uma demo só de mapas, uma de programação e uma de

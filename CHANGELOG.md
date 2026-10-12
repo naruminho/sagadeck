@@ -4,6 +4,20 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [Não lançado]
+
+### Novidades
+- **`sagadeck ia-check`: o que de IA funciona, em segundos e sem tela.** Texto, visão (o modelo precisa dizer as cores
+  de uma imagem), geração de imagem, pesquisa e vídeo, cada um com uma chamada de verdade, todos ao mesmo tempo; cada
+  resultado sai assim que chega. `--json` e código de saída para agentes e CI; também como ferramenta do MCP
+  (`sagadeck_ia_check`) e `POST /api/ia/check`. Vídeo só é gerado com `--video-real` (é cobrado).
+- **Vídeo na mesma camada da IA**: um modelo de vídeo em Configurar IA faz a geração usar o endereço, a chave e o
+  adaptador de lá (antes era só OpenRouter, com chave em variável). As variáveis antigas continuam valendo.
+
+### Correções
+- A geração de vídeo não depende mais do catálogo de modelos: provedor sem catálogo gera assim mesmo.
+- Teste do slide de API que falhava ao acaso quando o identificador sorteado do slide continha "ocr".
+
 ## [1.9.0] — 12/10/2026
 
 ### Novidades

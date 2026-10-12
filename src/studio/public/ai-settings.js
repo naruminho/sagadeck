@@ -8,8 +8,8 @@ window.SagaAISettings = (() => {
 .ai-cfg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}.ai-cfg button{padding:7px 14px;border-radius:8px;border:1px solid var(--border,#c9ced6);background:transparent;color:inherit;cursor:pointer;font:inherit}
 .ai-cfg .rec{background:var(--selected,#eef);border-radius:8px;padding:8px 10px;margin:6px 0 4px}.ai-cfg .rec button{margin-top:6px;display:block}
 .ai-cfg button.primary{background:var(--brand,#5b4bdb);border-color:var(--brand,#5b4bdb);color:#fff}.ai-cfg [data-status]{margin-top:10px;min-height:1.4em}.ai-cfg [data-status].ok{color:#15803d}.ai-cfg [data-status].err{color:#b91c1c}`;
-  const LABEL = { text: "Modelo de texto", vision: "Modelo que vê imagens", image: "Modelo de imagem", search: "Modelo de busca na web" };
-  const HINT = { text: "obrigatório", vision: "opcional; vazio = o de texto", image: "opcional; para gerar ilustrações", search: "opcional; no OpenRouter, um modelo :online" };
+  const LABEL = { text: "Modelo de texto", vision: "Modelo que vê imagens", image: "Modelo de imagem", search: "Modelo de busca na web", video: "Modelo de vídeo" };
+  const HINT = { text: "obrigatório", vision: "opcional; vazio = o de texto", image: "opcional; para gerar ilustrações", search: "opcional; no OpenRouter, um modelo :online", video: "opcional; para gerar clipes (cobrado por segundo)" };
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   let dialog, info, onSaved = () => {};
 
