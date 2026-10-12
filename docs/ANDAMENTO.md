@@ -22,6 +22,15 @@ e vão primeiro na vitrine e em Demos oficiais; o Conheça continua lá, depois 
   cartões que viram e o aviso do token.
 - Teste: `test/demos-recursos.test.js` (montam sem aviso, cada uma só do seu assunto, e cada chamada da de curl
   funciona contra a API de mentira); a ordem nova da vitrine em `library-ui.test.js`.
+- **Revisão de todas as demos** (Narumi: "mantenha só o que fizer sentido"). Ficam na vitrine e em Demos oficiais:
+  mapas, programação, APIs com curl, Conheça o SagaDeck, aula de hidráulica, aula de algoritmos e diagramas vivos.
+  Saíram: **Explore uma ideia** ("Uma pergunta, vários caminhos", não demonstrava nada claro), **Novidades** (colcha
+  de retalhos; o slide da planilha dependia de um arquivo que a prévia não tem, e a aba Arquivos aparecia vazia),
+  **Material de consulta** e **Recursos avançados** (quase iguais, com cartões genéricos; a consulta está na de
+  programação) e **Aula de APIs ao vivo** (fica uma demo de API só, a de curl; o ensaio completo continua no
+  `sagadeck ensaio-api`). Os decks dessas demos continuam no código porque os testes os usam como material
+  (código denso, arquivos do projeto, exploração); só não aparecem mais. O teste de ponta a ponta da vitrine com
+  o ENSAIO agora abre a de curl, vira cópia e executa corpo, consulta e token no Studio.
 
 ## Temas de infográfico, cartão que vira e botão + — 11/10/2026 (branch `temas-cartoes`, sobre `tema-musgo`)
 

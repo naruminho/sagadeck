@@ -310,14 +310,9 @@
     ["recurso", "model-programacao", "Programação", "Código destacado e guiado, código que a plateia roda, algoritmo animado, Git a dois e diagramas", ["#0C0F0B", "#F0B24A", "#A9C79B"]],
     ["recurso", "model-apis", "APIs com curl", "A anatomia de um curl, chamadas ao vivo com o curl para copiar, polling, streaming e as opções do dia a dia", ["#170A10", "#F2506A", "#F3A6B5"]],
     ["recurso", "model-conheca", "Conheça o SagaDeck", "Um slide por recurso, com a frase para pedir cada um à IA", ["#F2F0EA", "#1A1A1A", "#F2B33D"]],
-    ["recurso", "model-explorar", "Explore uma ideia", "Prever, comparar cenários, curvas conectadas e acompanhar o mesmo objeto entre cenas", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
-    ["recurso", "model-novidades", "Novidades", "Carrossel, gráfico do Excel e da planilha do projeto, fórmulas vivas, duelo de commits, terminais e zoom", ["#F4F1EA", "#1B1F3B", "#E8590C"]],
     ["recurso", "model-hidraulica", "Aula de hidráulica", "Navier–Stokes, curva que se mexe, calculadora de Reynolds ao vivo e exercício resolvido passo a passo", ["#EAF4F8", "#0B5C7A", "#1B998B"]],
     ["recurso", "model-algoritmos", "Aula de algoritmos", "Ordenação e busca rodando de verdade: barras, código, contadores e o botão Tocar", ["#0F1426", "#7C8CFF", "#F2B33D"]],
-    ["recurso", "model-compacto", "Material de consulta", "Código completo, JSON e páginas compactas", ["#F7F6F2", "#20242B", "#0F6CBD"]],
-    ["recurso", "model-avancado", "Recursos avançados", "Conteúdo denso, avisos e diagramas", ["#F7F6F2", "#20242B", "#E8590C"]],
     ["recurso", "model-diagramas", "Diagramas vivos", "Fluxo, sequência, estados e mapa mental", ["#F4F7FB", "#1F6FB2", "#5DBB86"]],
-    ["recurso", "example-api", "Aula de APIs ao vivo", "Slides que executam requisições de verdade. Roda sem configurar nada", ["#111B2B", "#5B8DEF", "#ECF1FF"]],
   ];
   const GALLERY_KINDS = [["", "Todos"], ["visual", "Visuais para começar"], ["recurso", "Recursos do SagaDeck"]];
   async function galleryDialog(topic, kind = "") {

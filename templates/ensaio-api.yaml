@@ -1,5 +1,5 @@
 # Ensaio de aula de APIs de IA: roda contra a API de mentira, no ambiente embutido ENSAIO do Studio
-# (biblioteca → Nova → "Exemplo: aula de APIs ao vivo", ou `sagadeck ensaio-api`).
+# (`sagadeck ensaio-api`; no Studio, a demo "APIs com curl" mostra as chamadas mais comuns).
 # Serve de modelo: troque as URLs e os caminhos $.… pelos do seu serviço e cadastre os seus ambientes
 # no Studio (Inserir → Ambientes), que grava em ~/.sagadeck/ambientes.yaml. Veja "Slide api" em docs/REFERENCIA.md.
 title: "Ensaio: APIs de IA ao vivo"

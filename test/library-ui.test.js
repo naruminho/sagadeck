@@ -302,9 +302,10 @@ test("sem tópico: a pasta 'Sem tópico' e os .yaml soltos na raiz não aparecem
   }
 });
 
-// Quem nunca viu um slide api precisa de um exemplo que funcione sem configurar nada: o deck de ensaio,
-// executando na API de mentira do ambiente embutido ENSAIO (sem ~/.sagadeck/ambientes.yaml, sem VPN).
-test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do upload) e ele executa no ambiente ENSAIO", { timeout: 120000 }, async (t) => {
+// Quem nunca viu um slide api precisa de um exemplo que funcione sem configurar nada: a demo APIs com curl (a única
+// de API na vitrine), executando na API de mentira do ambiente embutido ENSAIO (sem ~/.sagadeck/ambientes.yaml, sem VPN).
+// O ensaio completo (upload, OCR, voz, tempo real) continua no comando `sagadeck ensaio-api` (api-ensaio.test.js).
+test("vitrine → APIs com curl vira cópia e executa no ambiente ENSAIO, mostrando o curl", { timeout: 120000 }, async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
   fs.rmSync(process.env.SAGADECK_AMBIENTES, { force: true }); // ninguém configurou ambiente nenhum
@@ -313,23 +314,24 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
     const { page: p, errors } = await newPage(browser, studio.url);
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
-    assert.match(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/);
-    // o exemplo de aula de APIs é o deck mais pesado da vitrine (muitos slides api + o arquivo do upload): abrir a prévia e
-    // copiar para a biblioteca passa dos 8 s padrão numa máquina lenta (Windows da CI); o prazo aqui é o do passo, não um atraso
-    await Promise.all([p.waitForURL(/\/editor\?model=example-api/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="example-api"]', { noWaitAfter: true })]);
+    assert.match(await p.innerText(".vit-grid"), /APIs com curl/);
+    assert.doesNotMatch(await p.innerText(".vit-grid"), /Aula de APIs ao vivo/, "uma demo de API só");
+    // abrir a prévia e copiar para a biblioteca passa dos 8 s padrão numa máquina lenta (Windows da CI); o prazo aqui é o
+    // do passo, não um atraso
+    await Promise.all([p.waitForURL(/\/editor\?model=apis/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="model-apis"]', { noWaitAfter: true })]);
     await p.click("#btn-model-use", { noWaitAfter: true, timeout: 30000 }); await p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }); // prévia → a cópia
     await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
 
-    // o deck salvo na biblioteca: os slides api do exemplo e, ao lado, o arquivo que o upload envia
+    // o deck salvo na biblioteca: os slides api da demo, todos abrindo na aba curl
     const yamls = fs.readdirSync(studio.library, { recursive: true }).filter((f) => f.endsWith(".yaml"));
     assert.equal(yamls.length, 1, yamls.join(", "));
     const file = path.join(studio.library, yamls[0]);
     const saved = YAML.parse(fs.readFileSync(file, "utf8"));
-    assert.ok(saved.slides.filter((s) => s.layout === "api").length >= 10);
-    assert.ok(fs.existsSync(path.join(path.dirname(file), "contrato.txt")));
+    assert.ok(saved.slides.filter((s) => s.layout === "api").length >= 5);
+    assert.ok(saved.slides.filter((s) => s.layout === "api").every((s) => s.tab === "curl"));
     assert.equal(fs.existsSync(process.env.SAGADECK_AMBIENTES), false, "o ENSAIO não grava nada no arquivo de ambientes");
 
-    // apresentando: ENSAIO no selo, e o Executar funciona de verdade (token → LLM → upload → OCR)
+    // apresentando: ENSAIO no selo, e o Executar funciona de verdade (corpo, consulta na URL, token)
     const contextRequest = p.waitForRequest(r => new URL(r.url()).pathname === '/api/deck');
     await p.evaluate(() => fetch('api/deck'));
     const scope = '?_workspace=' + (await contextRequest).headers()['x-sagadeck-workspace'];
@@ -345,15 +347,13 @@ test("Nova → Exemplo: aula de APIs ao vivo cria o deck (com o arquivo do uploa
       await pv.waitForFunction((sel) => !document.querySelector(`${sel} .L-api`).classList.contains("running"), s, { timeout: 20000 });
       return s;
     };
-    let s = await run("identity");
+    let s = await run("post");
     assert.equal((await pv.innerText(`${s} .api-env-name`)).trim(), "ENSAIO");
-    assert.match(await pv.innerText(`${s} .api-res`), /token JWT gerado/i);
-    s = await run("llm");
-    assert.match(await pv.innerText(`${s} .api-answer`), /eco: O que é RAG, em uma frase\?/);
-    s = await run("upload");
-    assert.match(await pv.innerText(`${s} .api-saved`), /\{\{path_id\}\} = store\/contrato\.txt/);
-    s = await run("ocr");
-    assert.match(await pv.innerText(`${s} .api-answer`), /Cláusula 1: prazo de 30 dias/);
+    assert.match(await pv.innerText(`${s} .api-answer`), /Olá, API/);
+    s = await run("get");
+    assert.match(await pv.innerText(`${s} .api-answer`), /Recife/);
+    s = await run("token");
+    assert.match(await pv.innerText(`${s} .api-answer`), /eco: Qual é o status do pedido 42\?/);
     assert.ok(fs.existsSync(file.replace(/\.yaml$/, ".respostas.json")), "a gravação fica ao lado do deck");
     assert.deepEqual(pvErrors, []);
     assert.deepEqual(errors, []);
@@ -390,7 +390,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.waitForFunction(() => { const img = document.querySelector('.vit-card[data-new="model-perspectiva"] .vit-thumb img'); return img && img.complete && img.naturalWidth > 100; }, null, { timeout: 30000 });
       await p.click('.vit-filter[data-kind="recurso"]');
       const visiveis = await p.$$eval(".vit-card", (els) => els.filter((e) => !e.hidden).map((e) => e.dataset.new));
-      assert.deepEqual(visiveis, ["model-mapas", "model-programacao", "model-apis", "model-conheca", "model-explorar", "model-novidades", "model-hidraulica", "model-algoritmos", "model-compacto", "model-avancado", "model-diagramas", "example-api"]);
+      assert.deepEqual(visiveis, ["model-mapas", "model-programacao", "model-apis", "model-conheca", "model-hidraulica", "model-algoritmos", "model-diagramas"]);
       await p.click('.vit-filter[data-kind="visual"]');
       await Promise.all([p.waitForURL(/\/editor\?model=exp-executivo/, { timeout: 30000, waitUntil: "commit" }), p.click('.vit-card[data-new="exp-executivo"]', { noWaitAfter: true })]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
@@ -646,7 +646,7 @@ test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck també
     const ids = await p.$$eval("#main .card-oficial", (els) => els.map((e) => e.dataset.oficial));
     assert.deepEqual(ids.slice(0, 3), ["mapas", "programacao", "apis"], "as demos de um assunto só vêm primeiro");
     assert.ok(ids.includes("conheca"), "o Conheça o SagaDeck continua na pasta");
-    assert.ok(ids.includes("novidades") && ids.includes("hidraulica") && ids.length >= 8, ids.join(","));
+    assert.deepEqual(ids, ["mapas", "programacao", "apis", "conheca", "hidraulica", "algoritmos", "diagramas"], "só as demos que fazem sentido");
     assert.equal(await p.locator("#main .card-oficial [data-more]").count(), 0, "só leitura: sem menu de mover, renomear ou excluir");
     assert.equal(await p.locator("#main .card-oficial[draggable=true]").count(), 0, "não arrasta para outro tópico");
     assert.equal(await p.locator("#main #card-new").count(), 0, "nem cria apresentação dentro dela");
@@ -662,8 +662,8 @@ test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck també
     // Apresentar, direto da pasta: abre a demo já apresentando
     await p.goto(studio.url + "/", { waitUntil: "networkidle" });
     await p.click('#side [data-view="oficiais"]');
-    await p.click('#main .card-oficial[data-oficial="novidades"] [data-present]');
-    await p.waitForURL(/editor\?model=novidades/, { timeout: 30000 });
+    await p.click('#main .card-oficial[data-oficial="diagramas"] [data-present]');
+    await p.waitForURL(/editor\?model=diagramas/, { timeout: 30000 });
     await p.waitForSelector("#presentation-modal:not(.hidden)", { timeout: 30000 });
     assert.equal((await (await fetch(studio.url + "/api/library")).json()).decks.length, 0);
     assert.deepEqual(errors, []);

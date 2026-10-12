@@ -924,7 +924,7 @@ test("formulário API expõe as opções suportadas pelo runtime", async (t) => 
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
 
-test("demo avançado: abre em prévia pela vitrine, sem criar arquivo no tópico", async (t) => {
+test("demo de diagramas: abre em prévia pela vitrine, sem criar arquivo no tópico", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const studio = await startStudio(null);
   try {
@@ -937,8 +937,8 @@ test("demo avançado: abre em prévia pela vitrine, sem criar arquivo no tópico
     await p.goto(studio.url + "/biblioteca?topic=" + encodeURIComponent(topic.id));
     await p.click("#btn-new");
     await p.click('#new-menu [data-new="gallery"]');
-    await p.click('.vit-card[data-new="model-avancado"]');
-    await p.waitForURL(/editor\?model=avancado/);
+    await p.click('.vit-card[data-new="model-diagramas"]');
+    await p.waitForURL(/editor\?model=diagramas/);
     await p.waitForSelector(".thumb-card[data-idx='5']");
     const data = await p.evaluate(async () => (await (await fetch("/api/deck")).json()));
     assert.equal(data.file, null, "prévia: nenhum arquivo");
@@ -948,10 +948,8 @@ test("demo avançado: abre em prévia pela vitrine, sem criar arquivo no tópico
     await p.waitForSelector(".vit-card:not([hidden])");
     const tipos = await p.locator(".vit-card:not([hidden])").evaluateAll((els) => [...new Set(els.map((e) => e.dataset.kind))]);
     assert.deepEqual(tipos, ["recurso"], "só os recursos do SagaDeck (demos e exemplos)");
-    assert.match(data.spec.title, /recursos avançados/i);
-    assert.deepEqual(data.spec.slides.map((slide) => slide.layout), ["cover", "code", "dossier", "mosaic", "statement", "end"]);
-    assert.equal(data.spec.slides[1].density, "dense");
-    assert.equal(data.spec.slides[4].add.aviso.tipo, "perigo");
+    assert.match(data.spec.title, /diagramas vivos/i);
+    assert.deepEqual(data.spec.slides.map((slide) => slide.layout), ["cover", "diagram", "diagram", "diagram", "diagram", "end"]);
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); }
 });
