@@ -76,6 +76,11 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
   sagadeck diff <a.yaml> <b.yaml> [--json]      o que entrou, saiu, mudou e andou entre dois decks (por uid)
   sagadeck enxugar <deck.yaml> [--fix]          palavras por slide contra o limite do material (--fix: excedente para as notas)
+  sagadeck ia-check [--rapido] [--so=texto,visao,imagem,pesquisa,video] [--video-real] [--json]
+                                   testa a IA configurada, sem tela: cada recurso com uma chamada de verdade, todos ao
+                                   mesmo tempo, cada resultado assim que chega. --rapido pula imagem e vídeo; vídeo, por
+                                   padrão, só confere chave e catálogo; --video-real gera um clipe curto (é cobrado).
+                                   Sai com erro se algo falhou (bom para agentes e CI); --json para máquina
   sagadeck mcp                                 inicia o servidor MCP para IDEs agênticos (Cursor, Claude Code, Cline)
   sagadeck watch <deck.yaml>                   recompila o HTML sempre que o YAML mudar
   sagadeck themes [--out=pasta]                gera uma vitrine com todos os temas
@@ -488,6 +493,24 @@ async function main() {
         (await import("../src/deck-file.js")).writeDeckFile(p.abs, res.spec);
         console.log(`enxugado: ${res.modifiedSlidesCount} slide(s) corrigido(s), excedente nas notas.`);
       }
+      break;
+    }
+    case "ia-check": case "testar-ia": {
+      const { iaCheck, CHECKS } = await import("../src/ai/ia-check.js");
+      const only = flags.so ? String(flags.so).split(",").map((x) => x.trim().normalize("NFD").replace(/[̀-ͯ]/g, "")).filter(Boolean) : null;
+      const bad = (only || []).filter((x) => !CHECKS[x]);
+      if (bad.length) { console.error(`Recurso desconhecido: ${bad.join(", ")}. Vale: ${Object.keys(CHECKS).join(", ")}`); process.exit(2); }
+      const json = !!flags.json, log = json ? (...a) => console.error(...a) : (...a) => console.log(...a);
+      const SELO = { ok: "OK        ", falhou: "FALHOU    ", nao_configurado: "SEM CONFIG", sem_prova: "SEM PROVA " };
+      const seg = (ms) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+      log(`Testando a IA em paralelo${flags["video-real"] ? " (vídeo: gera um clipe de verdade, é cobrado)" : ""}…`);
+      const rep = await iaCheck({ only, rapido: !!flags.rapido, videoReal: !!flags["video-real"], videoTimeoutS: Number(flags["video-prazo"] || 600),
+        onResult: (r) => log(`  ${SELO[r.status] || r.status}  ${r.nome.padEnd(18)} ${seg(r.ms).padStart(7)}  ${r.modelo ? r.modelo + " · " : ""}${r.detalhe || ""}${r.arquivo ? ` · ${r.arquivo}` : ""}`) });
+      const n = (st) => rep.resultados.filter((r) => r.status === st).length;
+      log(`${n("ok")} de ${rep.resultados.length} funcionando${n("falhou") ? `, ${n("falhou")} com falha` : ""}${n("nao_configurado") ? `, ${n("nao_configurado")} sem configuração` : ""}${n("sem_prova") ? `, ${n("sem_prova")} sem prova (use --video-real)` : ""} · ${seg(rep.ms)}`);
+      if (json) console.log(JSON.stringify(rep, null, 2));
+      // sai na hora: conexões que o provedor deixa abertas seguravam o processo por dezenas de segundos
+      process.stdout.write("", () => process.exit(rep.ok ? 0 : 1));
       break;
     }
     case "mcp": {

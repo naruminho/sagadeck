@@ -17,10 +17,10 @@ export const PROVIDERS = {
 // responde, o problema é o ambiente (rede, chave), não o modelo escolhido. Depois, cada um põe o modelo que quiser.
 export const RECOMMENDED = {
   provider: "openrouter",
-  models: { text: "deepseek/deepseek-v4.1-flash", vision: "deepseek/deepseek-v4.1-flash", image: "google/gemini-3.1-flash-image", search: "deepseek/deepseek-v4.1-flash:online" },
+  models: { text: "deepseek/deepseek-v4.1-flash", vision: "deepseek/deepseek-v4.1-flash", image: "google/gemini-3.1-flash-image", search: "deepseek/deepseek-v4.1-flash:online", video: "google/veo-3.1-lite" },
 };
 // os papéis que o sagadeck usa; cada um aponta para um modelo do provedor
-export const ROLES = ["text", "vision", "image", "search"];
+export const ROLES = ["text", "vision", "image", "search", "video"];
 
 export function iaFile(env = process.env, home = os.homedir()) {
   return env.SAGADECK_IA || path.join(home, ".sagadeck", "ia.json");

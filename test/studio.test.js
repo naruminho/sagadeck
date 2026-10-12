@@ -1966,7 +1966,8 @@ test("studio", async (t) => {
     const api = slides.find((sl) => sl.layout === "api" && sl.request?.url === "{{base}}/echo");
     assert.ok(api, "o slide genérico foi salvo no deck");
     // nada de um serviço em particular: sem token de Identity, sem arquivo, sem caminhos de OCR/indexador
-    assert.doesNotMatch(JSON.stringify(api), /identity|client_secret|path_id|ocr|index|file/i);
+    // (sem o uid: ele é sorteado e já saiu "s1ocrpz0ieql", que contém "ocr")
+    assert.doesNotMatch(JSON.stringify({ ...api, uid: undefined }), /identity|client_secret|path_id|ocr|index|file/i);
     assert.equal(await p.locator("#api-examples-popover").count(), 0, "sem a lista de exemplos no botão");
     assert.ok(await p.isVisible(form), "abre o formulário para preencher");
   });

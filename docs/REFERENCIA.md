@@ -1173,6 +1173,23 @@ No chat, `run.language: web` recebe `code` como JSON: `{"action":"search","query
 
 ## Diagnósticos e suporte
 
+**O que de IA funciona nesta máquina:** `sagadeck ia-check` (também `POST /api/ia/check` no Studio local e a ferramenta
+`sagadeck_ia_check` do MCP). Cada recurso com uma chamada de verdade ao provedor configurado, todos ao mesmo tempo, e
+cada resultado sai assim que chega:
+- **texto**: pergunta curta com resposta conhecida;
+- **visão**: uma imagem com duas faixas de cor sorteadas; o modelo precisa dizer as cores na ordem (modelo que não
+  aceita imagem falha, em vez de responder sem ver);
+- **imagem**: gera uma imagem pequena e confere que voltou PNG, JPEG, WebP ou GIF (grava o arquivo e diz onde);
+- **pesquisa**: o modelo de pesquisa precisa dizer a data de hoje;
+- **vídeo**: sem `--video-real`, só confere o modelo no catálogo, de graça, e sai `SEM PROVA`; com `--video-real`,
+  gera o clipe mais curto e leve que o modelo aceita, acompanha, baixa e confere o MP4 (cobrado; leva minutos).
+
+`--rapido` pula imagem e vídeo; `--so=texto,visao` escolhe; `--json` para máquina (o andamento vai para o stderr); sai
+com código 1 se algo falhou. O vídeo usa a mesma camada da IA quando há um **modelo de vídeo** em Configurar IA
+(endereço, chave e adaptador de lá); sem ele, o OpenRouter com `SAGADECK_VIDEO_KEY` ou `OPENROUTER_API_KEY`.
+`SAGADECK_VIDEO_URL` e `SAGADECK_VIDEO_MODEL` trocam endereço e modelo. Sem catálogo no provedor, o vídeo é gerado
+assim mesmo (o catálogo só valida quando existe).
+
 Falhas do Studio e da IA devem explicar a operação, distinguir causa comprovada de causa desconhecida e informar código + referência para suporte. Motivos informados pelo provedor são preservados, inclusive em streaming: limite de tokens não é timeout. Nunca atribua uma falha a tokens sem finish_reason: length. Visão de documentos usa SAGADECK_DOCUMENT_VISION_TOKENS (padrão 5000 por página, entre 256 e 32000); quando o provedor informa limite, tenta uma vez com o dobro, até 32000. SAGADECK_LLM_TIMEOUT controla espera sem resposta (padrão 180 s); SAGADECK_LLM_FIRST_TIMEOUT controla primeira resposta em streaming (padrão 600 s). Nenhuma resposta parcial é apresentada como extração completa. Cancelamento é uma ação normal, sem aviso de erro de suporte.
 
 ### Prioridade das figuras e Word legado

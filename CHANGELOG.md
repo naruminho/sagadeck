@@ -19,8 +19,16 @@ pula de versão em versão.
 - **Demos de um assunto só**: Mapas, Programação e APIs com curl, primeiras em Demos oficiais. As demos que não
   ensinavam nada claro saíram da vitrine (Explore uma ideia, Novidades, Material de consulta, Recursos avançados e a
   Aula de APIs, que continua no `sagadeck ensaio-api`).
+- **`sagadeck ia-check`: o que de IA funciona, em segundos e sem tela.** Texto, visão (o modelo precisa dizer as cores
+  de uma imagem), geração de imagem, pesquisa e vídeo, cada um com uma chamada de verdade, todos ao mesmo tempo; cada
+  resultado sai assim que chega. `--json` e código de saída para agentes e CI; também como ferramenta do MCP
+  (`sagadeck_ia_check`) e `POST /api/ia/check`. Vídeo só é gerado com `--video-real` (é cobrado).
+- **Vídeo na mesma camada da IA**: um modelo de vídeo em Configurar IA faz a geração usar o endereço, a chave e o
+  adaptador de lá (antes era só OpenRouter, com chave em variável). As variáveis antigas continuam valendo.
 
 ### Correções
+- A geração de vídeo não depende mais do catálogo de modelos: provedor sem catálogo gera assim mesmo.
+- Teste do slide de API que falhava ao acaso quando o identificador sorteado do slide continha "ocr".
 - O ajuste para caber não encolhe mais o slide inteiro por causa do verso do cartão ou do balão do +.
 - **Duplicar, apagar e limpar pasta no Windows com acento no nome (a norma aqui) paravam de quebrar**: o
   `fs.cpSync`/`fs.rmSync` recursivos do Node têm código nativo que, no Windows, mata o processo sem aviso

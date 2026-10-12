@@ -11,7 +11,9 @@ test('gerador aceita argumentos documentados separados e URL relativa de polling
  assert.deepEqual(parseVideoArgs(['--prompt','areia dourada','--out=videos/teste.mp4','--dry-run']),{prompt:'areia dourada',out:'videos/teste.mp4','dry-run':true});
  assert.equal(videoApiURL('/api/v1/videos/job-123'),'https://openrouter.ai/api/v1/videos/job-123');
  assert.equal(videoApiURL('/videos/models'),'https://openrouter.ai/api/v1/videos/models');
- assert.throws(()=>videoApiURL('https://outro.example/jobs/123'),/OpenRouter/);
+ assert.throws(()=>videoApiURL('https://outro.example/jobs/123'),/mesmo endereço de vídeo configurado \(openrouter\.ai\)/);
+ assert.equal(videoApiURL('/v1/videos/j1','https://ia.empresa.example/v1'),'https://ia.empresa.example/v1/videos/j1');
+ assert.throws(()=>videoApiURL('https://openrouter.ai/api/v1/videos/j1','https://ia.empresa.example/v1'),/ia\.empresa\.example/,'a chave da empresa não vai para outro servidor');
 });
 
 test('planejar não envia POST; submissão persiste job e download retoma sem expor chave ao CDN',async()=>{

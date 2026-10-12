@@ -20,7 +20,12 @@ Quando a pessoa pede para instalar o sagadeck e deixar pronto:
 4. Para a IA, mostre onde configurar: **Configurar IA** no alto da biblioteca (ou **IA desligada** no editor):
    **Usar a recomendação** (OpenRouter com modelos que funcionam), a chave, Testar e Salvar. A configuração fica em `~/.sagadeck/ia.json`; nunca grave a chave no código nem
    na pasta das apresentações.
-5. As apresentações moram na biblioteca (`SAGADECK_HOME`, senão Documentos\sagadeck no Windows e `~/sagadeck` fora
+5. **Para saber o que de IA funciona**, rode `sagadeck ia-check` (ou a ferramenta `sagadeck_ia_check` do MCP) antes de
+   prometer qualquer recurso de IA: testa texto, visão, geração de imagem, pesquisa e vídeo com chamadas de verdade, em
+   paralelo, em segundos. Cada recurso sai `OK`, `FALHOU` (com o motivo), `SEM CONFIG` ou, no vídeo, `SEM PROVA`: por
+   padrão o vídeo não é gerado (é cobrado); só `--video-real` prova que funciona, e só rode quando a pessoa pedir.
+   `--json` para ler a saída; o comando sai com código 1 se algo falhou.
+6. As apresentações moram na biblioteca (`SAGADECK_HOME`, senão Documentos\sagadeck no Windows e `~/sagadeck` fora
    dele). Não crie decks em outra pasta.
 
 ## Comandos Disponíveis
@@ -30,6 +35,7 @@ Quando a pessoa pede para instalar o sagadeck e deixar pronto:
 | `sagadeck studio [deck.yaml] [--port=3517]` | **Abre o estúdio web estilo PowerPoint** com canvas visual 16:9, edição WYSIWYG direta, detector de sobreposição em tempo real e **chat lateral com IA**. |
 | `sagadeck autofix <deck.yaml>` | **Auto-cura do layout**: detecta e repara automaticamente sobreposição entre elementos, elementos fora das margens seguras (120px) e excesso de texto. |
 | `sagadeck search "<termo>"` | **Pesquisa web sem bloqueio (DuckDuckGo)**: busca dados reais, números e referências confiáveis para enriquecer os slides. |
+| `sagadeck ia-check [--rapido] [--so=texto,visao,imagem,pesquisa,video] [--video-real] [--json]` | **Testa a IA configurada sem tela**: cada recurso com uma chamada de verdade, todos ao mesmo tempo; `--rapido` pula imagem e vídeo; `--video-real` gera um clipe curto (cobrado). Código de saída 1 se algo falhou |
 | `sagadeck mcp` | **Servidor MCP**: expõe ferramentas padronizadas (JSON-RPC) para IDEs agênticos criarem, lerem, pesquisarem, fiscalizarem e editarem decks. |
 | `sagadeck new "<nome>" [--topic=T] [--theme=prata]` | cria um deck de exemplo na biblioteca |
 | `sagadeck build deck.yaml` | compila `deck.html` standalone (abre no navegador; tecla P = modo apresentador) |
@@ -107,6 +113,7 @@ Ferramentas disponíveis no MCP:
 - `sagadeck_autofix_deck`: executa a auto-cura geométrica no arquivo YAML.
 - `sagadeck_build_html`: compila o arquivo `.html` interativo.
 - `sagadeck_launch_studio`: abre o SagaDeck Studio na web.
+- `sagadeck_ia_check`: testa a IA configurada (texto, visão, imagem, pesquisa, vídeo), em paralelo, e diz o que funciona.
 
 ### 2. Via Linha de Comando (CLI)
 O agente no terminal deve seguir o fluxo:

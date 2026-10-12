@@ -26,10 +26,9 @@ export async function estimateSubmitCost(command, { commandEnv, W }) {
   try {
     const req = typeof command.code === "object" && command.code !== null ? command.code : JSON.parse(String(command.code || "{}"));
     if (String(command.language || "").toLowerCase() !== "video" || req?.action !== "submit") return null;
-    const { estimateVideoCost } = await import("../ai/video-generation.js");
+    const { estimateVideoCost, videoSetup } = await import("../ai/video-generation.js");
     const { env } = await commandEnv(W).catch(() => ({ env: {} }));
-    const key = env.SAGADECK_VIDEO_KEY || env.OPENROUTER_API_KEY || process.env.SAGADECK_VIDEO_KEY || process.env.OPENROUTER_API_KEY;
-    return await estimateVideoCost({ model: req.model, duration: req.duration, resolution: req.resolution }, { key });
+    return await estimateVideoCost({ model: req.model, duration: req.duration, resolution: req.resolution }, { setup: videoSetup({ env: { ...process.env, ...env } }) });
   } catch { return null; }
 }
 

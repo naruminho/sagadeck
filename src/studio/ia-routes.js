@@ -29,6 +29,15 @@ export async function iaRoutes({ req, res, pathname, opts, readJSON }) {
     json(res, 200, { config: maskedIA(loadIA()), file: iaFile(), source: cfg.source, configured: !!(cfg.url || cfg.adaptador), problem: cfg.problem || "", providers: PROVIDERS, roles: ROLES, recommended: RECOMMENDED, editable: !opts.multiuser });
     return true;
   }
+  // diagnóstico de todos os recursos (src/ai/ia-check.js), o mesmo do `sagadeck ia-check`: no multiusuário, só quem
+  // administra (diz quais modelos estão configurados)
+  if (pathname === "/api/ia/check" && req.method === "POST") {
+    if (opts.multiuser) { json(res, 403, { error: "No servidor multiusuário, o diagnóstico da IA é de quem administra: rode sagadeck ia-check no servidor." }); return true; }
+    const body = await readJSON(req);
+    const { iaCheck } = await import("../ai/ia-check.js");
+    json(res, 200, await iaCheck({ only: Array.isArray(body.so) ? body.so : null, rapido: !!body.rapido, videoReal: !!body.video_real }));
+    return true;
+  }
   if ((pathname === "/api/ia" || pathname === "/api/ia/test") && req.method === "POST") {
     if (opts.multiuser) { json(res, 403, { error: "No servidor multiusuário, a IA é configurada por quem administra." }); return true; }
     const body = await readJSON(req);

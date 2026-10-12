@@ -130,6 +130,18 @@ const TOOLS = [
     },
   },
   {
+    name: "sagadeck_ia_check",
+    description: "Testa a IA configurada nesta máquina, sem tela: texto, visão (o modelo precisa dizer as cores de uma imagem), geração de imagem, pesquisa na web e vídeo, cada um com uma chamada de verdade, em paralelo. Rode antes de usar recursos de IA. Status por recurso: ok, falhou, nao_configurado ou sem_prova (vídeo sem gerar). Vídeo só é gerado de verdade com video_real: true (é cobrado).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        so: { type: "array", items: { type: "string", enum: ["texto", "visao", "imagem", "pesquisa", "video"] }, description: "Só estes recursos (padrão: todos)" },
+        rapido: { type: "boolean", description: "Pula geração de imagem e vídeo (os lentos e cobrados)" },
+        video_real: { type: "boolean", description: "Gera um clipe curto de verdade e confere o MP4 (cobrado; leva minutos)" },
+      },
+    },
+  },
+  {
     name: "sagadeck_launch_studio",
     description: "Inicia o SagaDeck Studio (página web estilo PowerPoint com canvas visual, edição WYSIWYG e chat lateral com IA).",
     inputSchema: {
@@ -221,6 +233,11 @@ export function runMCPServer() {
 
 async function handleToolCall(name, args) {
   switch (name) {
+    case "sagadeck_ia_check": {
+      const { iaCheck } = await import("../ai/ia-check.js");
+      return iaCheck({ only: args.so, rapido: !!args.rapido, videoReal: !!args.video_real });
+    }
+
     case "sagadeck_read_deck": {
       const spec = loadSpec(path.resolve(args.path));
       return {

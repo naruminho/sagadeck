@@ -11,7 +11,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { videoOperation } from './video-generation.js';
+import { videoOperation, videoSetup } from './video-generation.js';
 import { webOperation } from './web-operation.js';
 
 // Registro de auditoria: cada comando pedido pela IA (aprovado, recusado ou executado), uma linha JSON em
@@ -69,7 +69,7 @@ export async function runCommand(request, { cwd, env = {}, mask = (s) => s, time
   }
   if(language==='video'){
     let args; try { args = typeof code === 'object' && code !== null ? code : JSON.parse(code); } catch(e) { return {language,exitCode:1,stdout:'',stderr:mask(`run.code precisa de JSON válido: ${e.message}`),timedOut:false}; }
-    try{return{language,exitCode:0,stdout:mask(JSON.stringify(await videoOperation(args,{cwd,key:env.SAGADECK_VIDEO_KEY||env.OPENROUTER_API_KEY||process.env.SAGADECK_VIDEO_KEY||process.env.OPENROUTER_API_KEY}))),stderr:'',timedOut:false};}
+    try{return{language,exitCode:0,stdout:mask(JSON.stringify(await videoOperation(args,{cwd,setup:videoSetup({env:{...process.env,...env}})}))),stderr:'',timedOut:false};}
     catch(e){return{language,exitCode:1,stdout:'',stderr:mask(e.message),timedOut:false};}
   }
   const win = process.platform === "win32";
