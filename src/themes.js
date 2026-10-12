@@ -373,6 +373,34 @@ export const THEMES = {
     },
     radius: 6, deco: "none",
   },
+  // Musgo: verde quase preto, âmbar e sálvia, Fraunces + Space Grotesk + IBM Plex Mono (fontes OFL embutidas em
+  // runtime/fonts; no PowerPoint, as faces equivalentes do Office). ticker: a capa ganha a faixa que corre;
+  // coverAmbient: a rede de nós à deriva atrás da capa. O tom accent
+  // (o da seção) continua escuro, com o detalhe em âmbar: o tema não tem página chapada de cor.
+  musgo: {
+    label: "Musgo — laboratório noturno: verde-musgo quase preto, âmbar e sálvia, serifada Fraunces, chapéu com fio, grade de pontos e faixa correndo na capa",
+    colors: {
+      paper: "0C0F0B", ink: "ECE8DB", accent: "F0B24A", alert: "E07A55",
+      muted: "9FA89A", line: "2B352C", surface: "181F16", surfaceDark: "12160F",
+      c1: "F0B24A", c2: "A9C79B", c3: "E07A55", c4: "F6F3E7", c5: "6E8F66",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "0C0F0B" },
+      dark: { bg: "070906", fg: "F6F3E7", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "accent", onHi: "0C0F0B" },
+      accent: { bg: "12160F", fg: "F6F3E7", muted: "muted", line: "line", surface: "1F2820", hi: "accent", em: "accent", onHi: "0C0F0B" },
+      alert: { bg: "12160F", fg: "F6F3E7", muted: "muted", line: "B5502F", surface: "1F2820", hi: "E07A55", em: "E07A55", onHi: "0C0F0B" },
+    },
+    fontFaces: [],
+    faces: {
+      display: { css: "font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.02em; line-height: 1.04;", pptx: { face: "Georgia", bold: true } },
+      heading: { css: "font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-optical-sizing: auto; letter-spacing: -0.015em; line-height: 1.08;", pptx: { face: "Georgia", bold: true } },
+      body: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.42;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+      label: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 500; letter-spacing: 0.25em; text-transform: uppercase; line-height: 1.2;`, pptx: { face: "Cascadia Mono" } },
+      mono: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 400; line-height: 1.5;`, pptx: { face: "Cascadia Mono" }, pptxBold: { face: "Cascadia Mono SemiBold" } },
+      quote: { css: "font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; line-height: 1.14;", pptx: { face: "Georgia", italic: true } },
+    },
+    radius: 12, deco: "grain", ticker: true, coverAmbient: "rede",
+  },
   // Par técnico (material de consulta, tutorial, apostila): o claro imprime bem, o escuro descansa a vista.
   // pair: o Studio alterna entre os dois (Design › Claro/Escuro) e o PDF pode sair no claro (Preferências).
   manual: {

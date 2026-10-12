@@ -12,7 +12,7 @@ const OUT = path.join(ROOT, "src", "runtime", "fonts");
 const require = createRequire(import.meta.url);
 const LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD";
 
-// [família como os temas escrevem, arquivo do pacote, pesos]
+// [família como os temas escrevem, arquivo do pacote, pesos, estilo (padrão normal)]
 const FONTS = [
   ["Caveat", "@fontsource-variable/caveat/files/caveat-latin-wght-normal.woff2", "400 700"],
   ["Patrick Hand", "@fontsource/patrick-hand/files/patrick-hand-latin-400-normal.woff2", "400"],
@@ -23,14 +23,21 @@ const FONTS = [
   ["Inter", "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", "100 900"],
   ["Press Start 2P", "@fontsource/press-start-2p/files/press-start-2p-latin-400-normal.woff2", "400"],
   ["VT323", "@fontsource/vt323/files/vt323-latin-400-normal.woff2", "400"],
+  // musgo: Fraunces com eixo de tamanho óptico (o título grande fica mais contrastado), Space Grotesk e IBM Plex Mono
+  ["Fraunces", "@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2", "100 900"],
+  ["Fraunces", "@fontsource-variable/fraunces/files/fraunces-latin-opsz-italic.woff2", "100 900", "italic"],
+  ["Space Grotesk", "@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2", "300 700"],
+  ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2", "400"],
+  ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2", "500"],
+  ["IBM Plex Mono", "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2", "600"],
 ];
 
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 const byFamily = {};
-for (const [family, file, weight] of FONTS) {
+for (const [family, file, weight, style = "normal"] of FONTS) {
   const b64 = fs.readFileSync(require.resolve(file)).toString("base64");
-  (byFamily[family] ||= []).push(`@font-face{font-family:'${family}';font-style:normal;font-display:swap;font-weight:${weight};src:url(data:font/woff2;base64,${b64}) format('woff2');unicode-range:${LATIN}}`);
+  (byFamily[family] ||= []).push(`@font-face{font-family:'${family}';font-style:${style};font-display:swap;font-weight:${weight};src:url(data:font/woff2;base64,${b64}) format('woff2');unicode-range:${LATIN}}`);
 }
 const slug = (f) => f.toLowerCase().replace(/\s+/g, "-");
 for (const [family, rules] of Object.entries(byFamily)) fs.writeFileSync(path.join(OUT, `${slug(family)}.css`), `/* ${family} (SIL Open Font License 1.1, via @fontsource) */\n${rules.join("\n")}\n`);
