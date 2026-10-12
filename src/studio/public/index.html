@@ -92,6 +92,7 @@
     <button class="ribbon-tab" role="tab" data-tab="revisar">Revisar</button>
     <button class="ribbon-tab" role="tab" data-tab="exibir">Exibir</button>
     <button class="ribbon-tab" role="tab" data-tab="avancado">Avançado</button>
+    <button class="ribbon-tab" role="tab" data-tab="ajuda">Ajuda</button>
   </nav>
 
   <div id="ribbon" class="ribbon">
@@ -212,6 +213,18 @@
           <a class="rbtn" href="biblioteca?galeria=demo" target="_blank" rel="noopener" title="Abre a vitrine de modelos: os demos abrem em prévia, sem criar arquivo">Abrir demos completos</a>
         </div>
         <div class="rgroup-label">Quando usar</div>
+      </div>
+    </div>
+
+    <!-- AJUDA: a versão que está rodando (Sobre) e onde ver o que mudou -->
+    <div class="ribbon-panel" data-panel="ajuda">
+      <div class="rgroup">
+        <div class="rgroup-body">
+          <button id="btn-about" class="rbtn rbtn-lg" data-about title="Versão do SagaDeck que está rodando, e o essencial para pedir ajuda"><i class="ic" data-ic="info"></i><span>Sobre o SagaDeck</span></button>
+          <a class="rbtn rbtn-lg" href="https://github.com/naruminho/sagadeck/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="O que mudou em cada versão"><i class="ic" data-ic="external-link"></i><span>O que mudou</span></a>
+          <a class="rbtn rbtn-lg" href="biblioteca?galeria=demo" target="_blank" rel="noopener" title="As demos oficiais: mapas, programação, APIs com curl e mais (abrem em prévia, sem criar arquivo)"><i class="ic" data-ic="circle-help"></i><span>Demos</span></a>
+        </div>
+        <div class="rgroup-label">Ajuda</div>
       </div>
     </div>
 
@@ -848,6 +861,7 @@
   <script src="ui-icons.js"></script>
   <script src="update-notice.js"></script>
   <script src="ai-settings.js"></script>
+  <script src="about.js"></script>
   <script src="api-envs-form.js"></script>
   <script src="calc-fields.js"></script>
   <script src="map-fields.js"></script>

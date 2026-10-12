@@ -273,13 +273,13 @@ test('Assistente: último acesso separado, nome sempre visível e rascunho prese
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
 
-test("faixa e painel: Avançado é a última aba, grupos do Início juntos, abas do painel sem corte", async (t) => {
+test("faixa e painel: Ajuda fecha a faixa, Avançado logo antes, grupos do Início juntos, abas do painel sem corte", async (t) => {
   const browser = await browserOrSkip(t); if (!browser) return;
   const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
   try {
     const { page: p, errors } = await newPage(browser, studio.url);
     const abas = await p.locator(".ribbon-tab[data-tab]").evaluateAll((els) => els.map((e) => e.dataset.tab));
-    assert.equal(abas.at(-1), "avancado", `Avançado por último: ${abas}`);
+    assert.deepEqual(abas.slice(-2), ["avancado", "ajuda"], `Avançado e, por último, Ajuda (como no PowerPoint): ${abas}`);
     // Início: os grupos de especialista (Abrir, Tom/Fundo) vêm logo depois dos outros, sem um vão até a outra ponta
     const vaos = await p.evaluate(() => {
       const gs = [...document.querySelectorAll('.ribbon-panel[data-panel="inicio"] > .rgroup')].filter((g) => g.offsetParent).map((g) => g.getBoundingClientRect()).sort((a, b) => a.left - b.left);

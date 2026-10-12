@@ -8,6 +8,17 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Ajuda › Sobre o SagaDeck — 12/10/2026 (branch `ajuda-sobre`)
+
+Narumi: "insira um help com about no menu onde eu posso ver a versão". A aba **Ajuda** fecha a faixa do editor
+(depois de Avançado, como no PowerPoint) com Sobre o SagaDeck, O que mudou (CHANGELOG) e Demos. O Sobre
+(`src/studio/public/about.js`, `window.SagaAbout`; qualquer elemento com `data-about` abre) mostra a versão em
+destaque, commit, Node e sistema (novos em `/api/instance`), desde quando está no ar, a biblioteca (no multiusuário,
+só que é do servidor) e se a IA está configurada, com Copiar informações para suporte. Na biblioteca, um botão com o
+ícone de informação no alto. Achados de passagem: o `dialog` nativo abria colado no canto (uma regra global zerava
+a margem; o Sobre põe `margin:auto`) e botão da faixa que é link (`a.rbtn`) saía sublinhado. Teste:
+`test/sobre.test.js`; a ordem da faixa em `studio.test.js`.
+
 ## `sagadeck ia-check`: o que de IA funciona, sem tela — 12/10/2026 (branch `ia-check`)
 
 Narumi: "o sagadeck está preparado para ser testado por um agente de IA (tipo o Copilot) sem o front-end?
