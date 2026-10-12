@@ -27,6 +27,12 @@ checks verdes (Ubuntu/Windows, Node 22/24). Não há mudança de dependências n
 PR #196 publicado. Oracle dev (3518) e produção (3517) receberam o commit `e32a3c1` e reiniciaram; nos dois,
 o pedido real em uma prévia voltou com `mode: llm`, conversa, sem diagnóstico de erro e sem criar cópia.
 Bibliotecas pessoais não foram alteradas. A CI do PR continua sendo acompanhada para concluir o merge.
+Revisão adicional reproduziu perda ao recarregar quando o patch só mudava campos do deck (tema, contexto…) ou
+excluía slides: a lista de slides alterados era vazia e a cópia não nascia. A materialização agora vale para toda
+ação do modelo, preservando conversa e alternativas em prévia. Regressão confere tema salvo, exclusão e demais
+slides preservados; falhou antes da correção.
+Suíte completa após esse ajuste: 1.035 testes, 1.009 aprovados, 26 condicionais pulados e zero falhas.
+Os cinco testes de prévia passaram; nova CI será exigida para o commit final antes do merge do PR #196.
 
 ## Sobre legível no tema escuro — 12/10/2026 (branch `sobre-tema-escuro`)
 

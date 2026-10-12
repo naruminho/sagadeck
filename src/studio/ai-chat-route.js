@@ -230,8 +230,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           result.actions = [...(before.actions || []), ...r.feitos.map((f) => `Mapa: gravei ${f.arquivo} (${f.linhas} ${f.tipo === "contorno" ? "contorno" : "itens"}${f.fonte ? `; fonte: ${f.fonte}` : ""})`), ...r.falhas.map((x) => `Mapa: não deu (${x})`), ...(result.actions || [])];
         }
         if (result.geo?.length) result = { ...result, geo: undefined, talk: true, reply: P ? `${result.reply}\n(Já busquei os dados duas vezes; me diga o que ainda falta.)` : "Os dados do mapa ficam na pasta da apresentação: abra-a pela biblioteca e peça de novo." };
-        if (!taskWorkspace.file && taskWorkspace.preview && !result.talk && !result.variants
-          && (result.changed?.length || result.transform || result.style)) imageOptionsFor(result.spec);
+        if (!taskWorkspace.file && taskWorkspace.preview && !result.talk && !result.variants) imageOptionsFor(result.spec);
         // documento anexado NESTA mensagem e a resposta montou/reescreveu a maior parte do deck (criar a apresentação
         // do paper pelo chat): a mesma conferência de cobertura da geração. Pedido pontual ("use a figura 3 no slide
         // 5") não dispara: mexe em poucos slides.

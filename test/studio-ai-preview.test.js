@@ -118,3 +118,31 @@ test("imagem gerada na prévia usa a pasta da cópia e fica referenciada no deck
     assert.equal((await call("/api/library")).decks.length, 1);
   } finally { await studio.close(); await llm.close(); }
 });
+
+test("prévia salva mudanças só no deck e exclusões sem reescrever os slides restantes", { timeout: 90000 }, async () => {
+  const llm = await startMockLLM(req => /Mude só o tema/.test(req.lastUser)
+    ? '```yaml\ndeck: {theme: musgo}\n```' : '```yaml\ndelete: [2]\n```');
+  const studio = await startStudio(null, { llmUrl: llm.url, multiuser: true });
+  const call = async (route, body) => (await fetch(studio.url + route, {
+    method: body ? "POST" : "GET", headers: { "content-type": "application/json", "x-sagadeck-user": "ana" },
+    body: body ? JSON.stringify(body) : undefined,
+  })).json();
+  try {
+    for (const message of ["Mude só o tema", "Exclua apenas o slide 2"]) {
+      const preview = await call("/api/library/decks/model-preview", { key: "lavanda" });
+      const result = await call("/api/ai/chat", { message, spec: preview.spec, targetSlide: null });
+      assert.equal(result.mode, "llm", result.reply);
+      const after = await call("/api/deck");
+      assert.ok(after.file, "mudar tema ou excluir também cria a cópia pessoal");
+      const saved = YAML.parse(fs.readFileSync(after.file, "utf8"));
+      const clean = slides => slides.map(({ uid, ...slide }) => slide);
+      if (message.startsWith("Mude")) {
+        assert.equal(saved.theme, "musgo");
+        assert.deepEqual(clean(saved.slides), clean(preview.spec.slides));
+      } else {
+        assert.deepEqual(clean(saved.slides), clean(preview.spec.slides.filter((_, i) => i !== 1)));
+      }
+    }
+    assert.equal((await call("/api/library")).decks.length, 2);
+  } finally { await studio.close(); await llm.close(); }
+});
