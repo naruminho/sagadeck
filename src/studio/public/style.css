@@ -209,6 +209,8 @@ kbd { font-family: var(--font-sans); font-size: 11px; color: var(--text-3); bord
 .rgroup-fields { flex-direction: column; justify-content: center; gap: 6px; padding-top: 2px; }
 .rstack { display: flex; flex-direction: column; gap: 2px; }
 
+/* botão da faixa que é link (O que mudou, Demos): mesma cara dos outros, sem sublinhado */
+a.rbtn { text-decoration: none; color: inherit; }
 .rbtn {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 8px; border-radius: 4px; color: var(--text); white-space: nowrap;

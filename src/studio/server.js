@@ -590,7 +590,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       // quem é esta instância (o CLI confere antes de abrir outra na mesma porta)
       if (pathname === "/api/instance" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ app: "sagadeck-studio", ...BUILD, library: libraryRoot, started: STARTED, multiuser: !!opts.multiuser }));
+        res.end(JSON.stringify({ app: "sagadeck-studio", ...BUILD, node: process.version, platform: process.platform, library: libraryRoot, started: STARTED, multiuser: !!opts.multiuser }));
         return;
       }
       if (pathname === "/api/deck" && req.method === "GET") {

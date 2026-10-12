@@ -4,6 +4,13 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [Não lançado]
+
+### Novidades
+- **Ajuda › Sobre o SagaDeck**: a aba Ajuda fecha a faixa do editor (como no PowerPoint) e o Sobre mostra a versão
+  que está rodando, com commit, Node, desde quando, a biblioteca e se a IA está configurada, além de Copiar
+  informações para pedir ajuda. Na biblioteca, o mesmo Sobre no botão de informação do alto.
+
 ## [1.9.0] — 12/10/2026
 
 ### Novidades

@@ -13,7 +13,7 @@ const DIR = path.join(path.dirname(require.resolve("lucide-static/package.json")
 const NAMES = [
   "folder-tree", "file-spreadsheet", "file-image", "table", "refresh-cw", "file", "wand-sparkles",
   "chart-column",
-  "layers", "clapperboard", "crosshair", "terminal", "image", "circle-help",
+  "layers", "clapperboard", "crosshair", "terminal", "image", "circle-help", "info",
   "plus", "copy", "trash-2", "layout-template", "palette", "sun-moon", "grid-3x3", "sparkles", "wand-sparkles",
   "shapes", "workflow", "folder-open", "folder-input", "save", "download", "file-code", "file-text", "external-link",
   "play", "chevron-down", "search", "x", "bot", "message-square-text", "panel-right", "sticky-note", "code-xml",

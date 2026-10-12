@@ -654,7 +654,8 @@ test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck també
     await p.waitForURL(/editor\?model=conheca/, { timeout: 30000 });
     await p.waitForSelector('.thumb-card[data-idx="60"]', { timeout: 30000 });
     assert.ok(await p.isVisible("#preview-banner"), "abre em prévia");
-    assert.match(await p.textContent("#rendered-slide-container"), /Conheça o SagaDeck/);
+    // as miniaturas podem ficar prontas antes do slide grande (Windows lento da CI): espera ele ser desenhado
+    await p.waitForFunction(() => /Conheça o SagaDeck/.test(document.querySelector("#rendered-slide-container")?.textContent || ""), null, { timeout: 30000 });
     await p.click('.thumb-card[data-idx="2"]');
     await p.waitForTimeout(800);
     const lib = await (await fetch(studio.url + "/api/library")).json();
