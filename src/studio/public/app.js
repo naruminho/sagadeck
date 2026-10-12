@@ -3706,7 +3706,7 @@ ${ta.value}`;
 
   // Chat lateral com IA (chat.js): mesma API, agora em módulo próprio.
   const chatApi = window.SagaChat({ state, dom, escHtml, hydrateIcons, showToast, openPane, currentPane,
-    streamAI, syncDeckToServer, renderThumbnails, renderCurrentSlide, trackDeck, fitRendered, refreshAIStatus });
+    streamAI, syncDeckToServer, renderThumbnails, renderCurrentSlide, trackDeck, fitRendered, refreshAIStatus, previewMaterialized });
   const { handleChatSubmit, loadChatHistory, appendChatMessage, createProgressBubble, autoGrowChat, applyBrainstorm, addChatFile } = chatApi;
 
   function setNotesVisible(on) {

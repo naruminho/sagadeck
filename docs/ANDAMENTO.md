@@ -8,6 +8,40 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Assistente em prévia de modelo na Oracle — 12/10/2026
+
+O erro `APP_UNKNOWN · a4670ccb` da produção era `path.dirname(null)` no preparo dos anexos: modelos abertos
+pela vitrine ainda não têm arquivo. O pedido parava antes de chegar ao modelo. Agora o chat só prepara documentos
+em uma pasta existente; documento binário, imagem gerada e edição materializam a cópia com os helpers da biblioteca.
+Conversa simples continua sem criar arquivo. A aba do servidor e o endereço do editor passam a usar essa mesma
+cópia, evitando edição perdida ou segunda cópia no pedido seguinte. Modelo de fábrica e outras pessoas preservados.
+Regressão em `test/studio-ai-preview.test.js`: falhou antes com o erro exato; cobre conversa, edição salva,
+recarregamento no navegador, isolamento por usuário e documento inventariado na pasta pessoal.
+Imagem gerada também é conferida no arquivo e na pasta pessoal. Texto e visão reais passaram nos dois serviços.
+A CI da main apresentou timeout no teclado ao mudar o título logo após abrir o editor no Windows 24; o teste da
+biblioteca agora espera a página terminar de carregar antes de editar, mantendo a conferência do arquivo salvo.
+Validação: npm test com 1.034 testes, 1.008 aprovados, 26 condicionais pulados, zero falhas; quatro regressões novas
+passaram na suíte. O teste da biblioteca com a espera de carregamento passou também isolado (13 testes).
+Entrega: commit da correção para os dois serviços da Oracle após validação local; merge do PR somente com os quatro
+checks verdes (Ubuntu/Windows, Node 22/24). Não há mudança de dependências nem publicação de versão no npm.
+PR #196 publicado. Oracle dev (3518) e produção (3517) receberam o commit `e32a3c1` e reiniciaram; nos dois,
+o pedido real em uma prévia voltou com `mode: llm`, conversa, sem diagnóstico de erro e sem criar cópia.
+Bibliotecas pessoais não foram alteradas. A CI do PR continua sendo acompanhada para concluir o merge.
+Revisão adicional reproduziu perda ao recarregar quando o patch só mudava campos do deck (tema, contexto…) ou
+excluía slides: a lista de slides alterados era vazia e a cópia não nascia. A materialização agora vale para toda
+ação do modelo, preservando conversa e alternativas em prévia. Regressão confere tema salvo, exclusão e demais
+slides preservados; falhou antes da correção.
+Suíte completa após esse ajuste: 1.035 testes, 1.009 aprovados, 26 condicionais pulados e zero falhas.
+Os cinco testes de prévia passaram; nova CI será exigida para o commit final antes do merge do PR #196.
+Oracle dev e produção receberam também `333857f`: conversa real e mudança de tema pelo modelo funcionaram;
+o tema permaneceu ao reabrir o arquivo pelas APIs nativas. Apresentações sintéticas removidas pela biblioteca.
+A CI aprovou Ubuntu 22/24 e Windows 22. Windows 24 teve timeout na galeria; o teste isolado passou (3/3) e a
+reexecução aprovou o carrossel, mas encontrou `ERR_NO_BUFFER_SPACE` durante exportação. Isso indica pressão de
+recursos de rede no runner; a faixa TCP dinâmica agora é ampliada somente nas máquinas descartáveis da CI,
+com diagnóstico de estados TCP em falhas. Testes e exigência de zero erros de navegador preservados.
+Código da aplicação permanece o mesmo da suíte local completa aprovada (1.009/26/0); ajuste de CI validado como
+YAML, e os quatro ambientes serão novamente conferidos antes do merge.
+
 ## Sobre legível no tema escuro — 12/10/2026 (branch `sobre-tema-escuro`)
 
 Narumi (com print): no Windows e no dev da Oracle o Sobre "não abre direito", com texto apagado. Causa: o CSS do

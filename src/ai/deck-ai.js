@@ -1063,7 +1063,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   const touched = { ...edited, slides: changed.map((i) => edited.slides[i]).filter(Boolean) }; // mesmos objetos: gera no lugar
   const nImgs = images && !deferImages ? countImagePrompts(touched) : 0; // deferImages: quem chamou gera depois (Criar com IA)
   const imgs = nImgs
-    ? await materializeImages(touched, { ...imageOptions, keepFailed: true,
+    ? await materializeImages(touched, { ...(typeof imageOptions === "function" ? imageOptions() : imageOptions), keepFailed: true,
       onProgress: (m) => onProgress?.({ phase: "images", text: `${m[0].toUpperCase()}${m.slice(1)} (${nImgs} no total)…` }) })
     : { done: [], failed: [] };
   imgs.done.forEach((d) => actions.push(`Imagem gerada: ${path.basename(d.file)}`));

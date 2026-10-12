@@ -12,6 +12,8 @@ pula de versão em versão.
   informações para pedir ajuda. Na biblioteca, o mesmo Sobre no botão de informação do alto.
 
 ### Correções
+- **Assistente em modelos abertos pela vitrine**: conversar deixa de falhar por falta de arquivo. Edições e
+  documentos usam uma única cópia pessoal, e o editor mantém essa cópia ao recarregar, inclusive no multiusuário.
 - **Sobre no tema escuro**: a janela abria com fundo branco e texto claro, quase ilegível. Agora segue as cores do
   tema (claro ou escuro), no editor e na biblioteca.
 

@@ -105,8 +105,23 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
     res.on('close', onClose);
     // Capture o arquivo da tarefa: abrir outro deck não redireciona a escrita.
     const taskWorkspace = { ...owner, spec: structuredClone(owner.spec) };
+    const originFile = owner.file, originPreview = owner.preview;
+    let materialized = null;
     const prompt = body.message || "";
     const spec = body.spec || taskWorkspace.spec;
+    // Conversar com uma prévia não cria arquivo. Edição/imagem ou documento binário precisam da cópia pessoal.
+    const imageOptionsFor = (deck = spec) => {
+      const options = imageOptions(taskWorkspace, withBase(taskWorkspace, deck));
+      if (originPreview && !originFile && taskWorkspace.file && !materialized) {
+        materialized = { id: taskWorkspace.library.idOf(taskWorkspace.file), title: taskWorkspace.spec.title,
+          topic: originPreview.topic, file: taskWorkspace.file };
+        if (owner.file === originFile && owner.preview === originPreview) {
+          owner.file = taskWorkspace.file;
+          owner.preview = null;
+        }
+      }
+      return materialized ? { ...options, baseDir: path.dirname(taskWorkspace.file) } : options;
+    };
     const issues = body.issues || [];
     // a IA vê (e testa) os slides api no ambiente atual, que pode ser o embutido "ensaio"
     if (!apiBlocked(req) && (spec.slides || []).some((sl) => sl && sl.layout === "api")) await ensureEnsaio();
@@ -128,8 +143,11 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
         const visuals = await lookAt(withBase(taskWorkspace, spec), target, prompt, emit);
         // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
-        let materials = await prepareDocumentMaterials(takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
-          .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id)), path.dirname(taskWorkspace.file), {signal,onProgress:emit});
+        let materials = takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
+          .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id));
+        if (!taskWorkspace.file && taskWorkspace.preview && materials.some(m => m.bytes)) imageOptionsFor();
+        const materialDir = taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? path.dirname(taskWorkspace.file) : null;
+        if (materialDir) materials = await prepareDocumentMaterials(materials, materialDir, {signal,onProgress:emit});
         for (const [i, url] of (Array.isArray(body.attachments) ? body.attachments : []).entries()) {
           if (typeof url === "string" && url.startsWith("data:image/")) visuals.push({ label: `imagem colada pelo usuário ${i + 1}`, dataUrl: url });
         }
@@ -154,7 +172,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           targetSlide: target,
           issues,
           images: true, // a IA decide (regra no prompt: só quando pedirem ou aceitarem)
-          imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)),
+          imageOptions: () => imageOptionsFor(),
           history,
           onProgress: emit,
           visuals,
@@ -212,6 +230,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           result.actions = [...(before.actions || []), ...r.feitos.map((f) => `Mapa: gravei ${f.arquivo} (${f.linhas} ${f.tipo === "contorno" ? "contorno" : "itens"}${f.fonte ? `; fonte: ${f.fonte}` : ""})`), ...r.falhas.map((x) => `Mapa: não deu (${x})`), ...(result.actions || [])];
         }
         if (result.geo?.length) result = { ...result, geo: undefined, talk: true, reply: P ? `${result.reply}\n(Já busquei os dados duas vezes; me diga o que ainda falta.)` : "Os dados do mapa ficam na pasta da apresentação: abra-a pela biblioteca e peça de novo." };
+        if (!taskWorkspace.file && taskWorkspace.preview && !result.talk && !result.variants) imageOptionsFor(result.spec);
         // documento anexado NESTA mensagem e a resposta montou/reescreveu a maior parte do deck (criar a apresentação
         // do paper pelo chat): a mesma conferência de cobertura da geração. Pedido pontual ("use a figura 3 no slide
         // 5") não dispara: mexe em poucos slides.
@@ -220,12 +239,12 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           const rewritten = Array.isArray(result.changed) ? result.changed.length : 0;
           if (rewritten >= Math.max(5, result.spec.slides.length / 2)) {
             const covered = await coverDocumentVisuals(result.spec, { materials, briefing: prompt, say: (s) => emit({ phase: "step", text: s }),
-              edit: (o) => editDeck({ signal, images: true, imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
+              edit: (o) => editDeck({ signal, images: true, imageOptions: () => imageOptionsFor(), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
             signal.throwIfAborted();
             if (covered.spec !== result.spec) { result.spec = covered.spec; result.actions = [...(result.actions || []), ...covered.actions]; }
             if (covered.coverage?.missing.length) result.actions = [...(result.actions || []), `Sem slide (figuras/tabelas do material): ${covered.coverage.missing.join("; ")}`];
             const checked = await checkNumbers(result.spec, { materials, say: (s) => emit({ phase: "step", text: s }),
-              edit: (o) => editDeck({ signal, images: true, imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, spec)), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
+              edit: (o) => editDeck({ signal, images: true, imageOptions: () => imageOptionsFor(), onProgress: emit, materials, drawCheck: diagramCheck, ...o }) });
             signal.throwIfAborted();
             if (checked.spec !== result.spec) { result.spec = checked.spec; result.actions = [...(result.actions || []), ...checked.actions]; }
             if (checked.facts?.unsupported.length) result.actions = [...(result.actions || []), `Números sem base no material: ${checked.facts.unsupported.map((b) => `${b.number} (slide ${b.slide})`).join(", ")}`];
@@ -264,7 +283,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           emit({ phase: "test", text: reports.every((x) => x.ok) ? "Os testes passaram; conferindo…" : "Corrigindo com base no resultado…" });
           const next = await editDeck({
             spec: withBase(taskWorkspace, result.spec), signal, instruction, targetSlide: target, images: false,
-            imageOptions: imageOptions(taskWorkspace, withBase(taskWorkspace, result.spec)), history: convo, onProgress: emit, apiContext: apiContextFor(req, taskWorkspace),
+            imageOptions: () => imageOptionsFor(result.spec), history: convo, onProgress: emit, apiContext: apiContextFor(req, taskWorkspace),
             drawCheck: diagramCheck, runCommand: commandRunner(req, emit, body, taskWorkspace, signal),
           });
           convo.push({ role: "user", text: instruction });
@@ -286,7 +305,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
       persist(taskWorkspace);
       if (owner.file === taskWorkspace.file) owner.spec = taskWorkspace.spec;
       return { ...result, spec: taskWorkspace.spec, conflicts: merged.conflicts, kept: merged.kept };
-    }, signal)); } finally { owner.aiChats.delete(requestId); res.off("close", onClose); }
+    }, signal).then(result => materialized ? { ...result, materialized } : result)); } finally { owner.aiChats.delete(requestId); res.off("close", onClose); }
     return true;
   }
   return false;
