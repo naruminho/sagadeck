@@ -2,7 +2,7 @@
 // Saiu do app.js pela trava de tamanho dos monolitos; o comportamento é o mesmo.
 // Fábrica no molde de slide-select.js: recebe o estado e os ajudantes, devolve a API.
 window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, openPane, currentPane,
-  streamAI, syncDeckToServer, renderThumbnails, renderCurrentSlide, trackDeck, fitRendered, refreshAIStatus }) {
+  streamAI, syncDeckToServer, renderThumbnails, renderCurrentSlide, trackDeck, fitRendered, refreshAIStatus, previewMaterialized }) {
   let chatJob = null;
   const getChatJob = () => chatJob;
   // ==========================================================================
@@ -159,6 +159,10 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       }, (ev) => { if (!commandEvent(ev)) work.update(ev); }, job.controller.signal);
       if (state.file !== job.file) { work.done(); showToast("O pedido terminou na apresentação em que começou; a apresentação atual foi preservada.", 6000); return; }
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
+      if (data.materialized) {
+        state.file = data.materialized.file;
+        previewMaterialized(data.materialized);
+      }
       // conversa salva antes de dispensar o indicador: quem espera o fim da resposta já encontra o arquivo gravado
       const finishWork = async () => { await saveChatHistory(); work.done(); };
       if (data.variants) {

@@ -38,6 +38,7 @@ test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
       await p.click('[data-new="blank"]');
       await Promise.all([p.waitForURL(/\/editor\?deck=/, { timeout: 30000, waitUntil: "commit" }), dlgOk("Minha palestra")]);
       await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
+      await p.waitForLoadState("networkidle", { timeout: 30000 });
       assert.equal(await p.inputValue("#deck-title-input"), "Minha palestra");
       const file = path.join(studio.library, "Palestras", "Minha palestra", "Minha palestra.yaml");
       assert.ok(fs.existsSync(file));
