@@ -35,11 +35,45 @@
 
   // {{nome}} em qualquer texto do pedido (URL, cabeçalhos, corpo). Sem valor: fica como está.
   const VAR = /\{\{\s*([\w.-]+)\s*\}\}/g;
+  function renderBody(body, vars, encoding) {
+    if (typeof body !== "string" || !["json", "urlencoded"].includes(encoding)) return render(body, vars);
+    if (encoding === "urlencoded") return body.replace(VAR, (all, key) => vars && vars[key] != null ? encodeURIComponent(String(vars[key])) : all);
+    // Interpola no texto original, sem converter números ou reformatar o JSON. Dentro de uma
+    // string escapa só o valor; fora dela, insere um literal JSON. Marcador sem valor continua.
+    let result = "", quoted = false;
+    for (let at = 0; at < body.length; at++) {
+      if (body.startsWith("{{", at)) {
+        const marker = body.slice(at).match(/^\{\{\s*([\w.-]+)\s*\}\}/);
+        if (marker && vars && vars[marker[1]] != null) {
+          const value = vars[marker[1]];
+          result += quoted ? JSON.stringify(String(value)).slice(1, -1) : JSON.stringify(value);
+          at += marker[0].length - 1; continue;
+        }
+      }
+      const char = body[at]; result += char;
+      if (quoted && char === "\\" && at + 1 < body.length) { result += body[++at]; continue; }
+      if (char === '"') quoted = !quoted;
+    }
+    return result;
+  }
+  function renderURL(url, vars, encoding) {
+    if (encoding !== "query") return render(url, vars);
+    const text = String(url), query = text.indexOf("?"), fragment = text.indexOf("#");
+    return text.replace(VAR, (all, key, at) => {
+      if (!vars || vars[key] == null) return all;
+      const value = String(vars[key]);
+      return query >= 0 && at > query && (fragment < 0 || at < fragment) ? encodeURIComponent(value) : value;
+    });
+  }
   function render(value, vars) {
     if (typeof value === "string") return value.replace(VAR, (all, k) => (vars && vars[k] != null ? String(vars[k]) : all));
     if (Array.isArray(value)) return value.map((x) => render(x, vars));
     if (value && typeof value === "object" && value.__py) return value;
-    if (value && typeof value === "object") { const o = {}; for (const [k, v] of Object.entries(value)) o[render(k, vars)] = render(v, vars); return o; }
+    if (value && typeof value === "object") {
+      const o = {};
+      for (const [k, v] of Object.entries(value)) o[render(k, vars)] = k === "body" && value.bodyEncoding ? renderBody(v, vars, value.bodyEncoding) : k === "url" && value.urlEncoding ? renderURL(v, vars, value.urlEncoding) : render(v, vars);
+      return o;
+    }
     return value;
   }
   function missing(value, vars) {
@@ -82,6 +116,8 @@
         url: String(req.url || ""),
         headers: req.headers && typeof req.headers === "object" ? req.headers : {},
         body: req.body,
+        ...(["json", "urlencoded"].includes(req.bodyEncoding) ? { bodyEncoding: req.bodyEncoding } : {}),
+        ...(req.urlEncoding === "query" ? { urlEncoding: "query" } : {}),
         form: req.form && typeof req.form === "object" ? req.form : null, // multipart: { campo: "@file" | texto }
         auth: req.auth !== false,
       },
@@ -202,12 +238,12 @@
   }
 
   function curlCmd(r, tokenVar, extra, fileName) {
-    const parts = [`curl -s${extra || ""}${r.method !== "GET" || r.body != null || r.form ? ` -X ${r.method}` : ""} ${dq(r.url)}`];
+    const parts = [`curl -s${extra || ""}${r.method !== "GET" || r.body != null || r.form ? ` -X ${r.method}` : ""} ${r._urlShell || dq(r.url)}`];
     if (r.auth) parts.push(`-H "Authorization: Bearer $${tokenVar}"`);
-    for (const [k, v] of Object.entries(r.headers || {})) parts.push(`-H ${dq(k + ": " + v)}`);
+    for (const [k, v] of Object.entries(r.headers || {})) parts.push(`-H ${r._headerShell?.[k] || dq(k + ": " + v)}`);
     if (r.form) for (const [k, v] of Object.entries(r.form)) parts.push(`-F ${dq(k + "=" + (v === "@file" ? "@" + (fileName || "arquivo") : v))}`);
     else if (isJsonBody(r.body)) { parts.push(`-H "Content-Type: application/json"`); parts.push(`-d ${shq(JSON.stringify(r.body, null, 2))}`); }
-    else if (r.body != null) parts.push(`-d ${shq(r.body)}`);
+    else if (r.body != null) parts.push(r._stdinBody ? "--data-binary @-" : `-d ${r._bodyShell || shq(r.body)}`);
     return parts.join(" \\\n  ");
   }
 
@@ -217,7 +253,70 @@
   const secretsIn = (v) => { const out = new Set(); JSON.stringify(v || "").replace(/\{\{\s*secret\.([\w-]+)\s*\}\}/g, (_, k) => out.add(k)); return [...out]; };
   const fileName = (a, vars) => (vars && vars["file.name"]) || (a.file ? String(a.file).split(/[\\/]/).pop() : "arquivo");
   const usesB64 = (a) => JSON.stringify(a.request.body || "").includes("{{file.base64}}");
+  // Para cURL importado, expressões são montadas por contexto. As partes literais continuam
+  // literais no shell, e JSON/form/query escapam o segredo só na hora de rodar o exemplo.
+  function secretParts(text, encoding) {
+    text = String(text); const parts = []; let last = 0, scan = 0, quoted = false;
+    const query = text.indexOf("?"), fragment = text.indexOf("#");
+    const pattern = /\{\{\s*secret\.([\w-]+)\s*\}\}/g; let match;
+    while ((match = pattern.exec(text))) {
+      if (encoding === "json") for (; scan < match.index; scan++) { if (quoted && text[scan] === "\\") scan++; else if (text[scan] === '"') quoted = !quoted; }
+      if (match.index > last) parts.push(text.slice(last, match.index));
+      const context = encoding === "json" ? (quoted ? "json-string" : "json-literal") : encoding === "urlencoded" || (encoding === "query" && query >= 0 && match.index > query && (fragment < 0 || match.index < fragment)) ? "urlencoded" : "raw";
+      parts.push({ name: secretEnv(match[1]), context }); last = pattern.lastIndex; scan = last;
+    }
+    if (last < text.length || !parts.length) parts.push(text.slice(last));
+    return parts;
+  }
+  function secretExpression(text, encoding, language) {
+    return secretParts(text, encoding).map(part => {
+      if (typeof part === "string") return JSON.stringify(part);
+      const value = language === "python" ? `os.environ[${JSON.stringify(part.name)}]` : `segredo(${JSON.stringify(part.name)})`;
+      if (part.context === "json-string") return language === "python" ? `json.dumps(${value}, ensure_ascii=False)[1:-1]` : `JSON.stringify(${value}).slice(1, -1)`;
+      if (part.context === "json-literal") return language === "python" ? `json.dumps(${value}, ensure_ascii=False)` : `JSON.stringify(${value})`;
+      if (part.context === "urlencoded") return language === "python" ? `quote(${value}, safe="-_.!~*'()")` : `encodeURIComponent(${value})`;
+      return value;
+    }).join(" + ");
+  }
+  function curlImported(a, vars) {
+    const L = Lines(false), name = fileName(a, vars), helpers = [], helperNames = new Map();
+    const cleanVars = Object.fromEntries(Object.entries(vars || {}).filter(([key]) => !key.startsWith("secret.")));
+    const shell = (text, encoding) => secretParts(text, encoding).map(part => {
+      if (typeof part === "string") return shq(part);
+      if (part.context === "raw") return `"$${part.name}"`;
+      const key = `${part.name}:${part.context}`;
+      let helper = helperNames.get(key);
+      if (!helper) {
+        helper = `SAGA_SECRET_${helpers.length + 1}`; helperNames.set(key, helper);
+        const expression = part.context === "urlencoded" ? "encodeURIComponent(valor)" : part.context === "json-string" ? "JSON.stringify(valor).slice(1,-1)" : "JSON.stringify(valor)";
+        const script = `const valor=process.env[${JSON.stringify(part.name)}];if(valor==null)throw new Error(${JSON.stringify("Defina " + part.name)});process.stdout.write(${expression});`;
+        helpers.push(`${helper}=$(node -e ${shq(script)})`);
+      }
+      return `"$${helper}"`;
+    }).join("");
+    const prepare = original => {
+      const r = render(original, { ...cleanVars, "file.name": name });
+      r._urlShell = shell(r.url, r.urlEncoding);
+      r._headerShell = Object.fromEntries(Object.entries(r.headers || {}).map(([key, value]) => [key, shell(`${key}: ${value}`, "raw")]));
+      if (r.body != null) {
+        if (typeof r.body === "object") r.body = JSON.stringify(r.body, null, 2);
+        r._bodyShell = shell(r.body, r.bodyEncoding);
+        r._stdinBody = true; // stdin preserva UTF-8 também com curl.exe no Windows
+      }
+      return r;
+    };
+    const req = prepare(a.request), check = a.polling ? prepare(render(a.polling.check, { ...cleanVars, id: "$ID" })) : null;
+    if (helpers.length) { L.add("# Bash + Node.js: segredos são escapados sem alterar o JSON ou a query."); helpers.forEach(line => L.add(line)); L.blank(); }
+    const command = (r, extra = "") => (r._stdinBody ? `printf '%s' ${r._bodyShell} | \\\n` : "") + curlCmd(r, a.tokenVar, extra, name);
+    if (a.mode === "polling") {
+      L.add("# 1. inicia", "start").add(command(req), "start");
+      L.add(`# guarde ${a.polling.id} da resposta em ID`).blank();
+      L.add("# 2. consulta o andamento", "poll").add(command(check), "poll");
+    } else L.add(command(req, a.mode === "stream" ? "N" : "") + (a.audio ? ` \\\n  --output ${shq(a.audio)}` : ""), "start");
+    return L.out();
+  }
   function curl(a, vars) {
+    if (a.request.bodyEncoding || a.request.urlEncoding) return curlImported(a, vars);
     const L = Lines(false);
     const name = fileName(a, vars);
     const sec = Object.fromEntries(secretsIn(a.request).map((k) => ["secret." + k, MARK(k)]));
@@ -242,14 +341,14 @@
 
   function pyCall(name, r, extra, ind) {
     ind = ind || "";
-    const args = [`${dq(r.url)}`];
+    const args = [r._urlExpr || dq(r.url)];
     if (r.auth || Object.keys(r.headers || {}).length) args.push("headers=HEADERS");
     if (r.form) {
       const files = Object.entries(r.form).filter(([, v]) => v === "@file"), data = Object.entries(r.form).filter(([, v]) => v !== "@file");
       if (files.length) args.push(`files={${files.map(([k]) => `${JSON.stringify(k)}: open(${dq(r._fileName || "arquivo")}, "rb")`).join(", ")}}`);
       if (data.length) args.push(`data={${data.map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(String(v))}`).join(", ")}}`);
     } else if (isJsonBody(r.body)) args.push(`json=${pyLiteral(r.body, ind + "    ")}`);
-    else if (r.body != null) args.push(`data=${JSON.stringify(String(r.body))}`);
+    else if (r.body != null) args.push(`data=${r.bodyEncoding ? `(${r._bodyExpr || JSON.stringify(String(r.body))}).encode("utf-8")` : r._bodyExpr || JSON.stringify(String(r.body))}`);
     args.push(...(extra || []));
     return `${name} = requests.${r.method.toLowerCase()}(\n` + args.map((x) => `${ind}    ${x},`).join("\n") + `\n${ind})`;
   }
@@ -260,7 +359,7 @@
     Object.assign(h, r.headers || {});
     if (!Object.keys(h).length) return;
     const val = (v) => { const m = String(v).match(/^\{\{\s*secret\.([\w-]+)\s*\}\}$/); return m ? `os.environ[${JSON.stringify(String(m[1]).toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}]` : JSON.stringify(String(v)); };
-    const body = Object.entries(h).map(([k, v]) => `    ${JSON.stringify(k)}: ${v === "__TOKEN__" ? 'f"Bearer {TOKEN}"' : val(v)},`).join("\n");
+    const body = Object.entries(h).map(([k, v]) => `    ${JSON.stringify(k)}: ${v === "__TOKEN__" ? 'f"Bearer {TOKEN}"' : r.urlEncoding || r.bodyEncoding ? secretExpression(v, "raw", "python") : val(v)},`).join("\n");
     L.add(`HEADERS = {\n${body}\n}`, null, "cabeçalhos enviados em toda chamada");
   }
 
@@ -271,6 +370,12 @@
     const toPy = (v) => (v === "{{file.base64}}" ? { __py: "CONTEUDO" } : typeof v === "string" && /^\{\{\s*secret\.([\w-]+)\s*\}\}$/.test(v) ? { __py: `os.environ[${JSON.stringify(secretEnv(v.match(/secret\.([\w-]+)/)[1]))}]` } : Array.isArray(v) ? v.map(toPy) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toPy(x)])) : v);
     const req = { ...render({ ...a.request, body: toPy(a.request.body) }, { ...vars, "file.name": name }), _fileName: name };
     const imports = ["import os"];
+    if (req.urlEncoding || req.bodyEncoding) {
+      req._urlExpr = secretExpression(req.url, req.urlEncoding, "python");
+      if (typeof req.body === "string") req._bodyExpr = secretExpression(req.body, req.bodyEncoding, "python");
+      if (req.bodyEncoding === "json") imports.push("import json");
+      if (req.urlEncoding || req.bodyEncoding === "urlencoded") imports.push("from urllib.parse import quote");
+    }
     if (b64) imports.push("import base64");
     if (a.mode === "polling") imports.push("import time");
     if (a.mode === "stream") imports.push("import json");
@@ -368,9 +473,9 @@
       opts.push(`body: JSON.stringify(${jsLiteral(r.body, "  ")})`);
     } else {
       if (hasHeaders) opts.push("headers: HEADERS");
-      if (r.body != null) opts.push(`body: ${JSON.stringify(String(r.body))}`);
+      if (r.body != null) opts.push(`body: ${r._bodyExpr || JSON.stringify(String(r.body))}`);
     }
-    const target = url || dq(r.url);
+    const target = url || r._urlExpr || dq(r.url);
     L.add(opts.length ? `const ${name} = await fetch(${target}, {\n${opts.map((o) => "  " + o + ",").join("\n")}\n});` : `const ${name} = await fetch(${target});`, tag, why);
     L.add(`if (!${name}.ok) throw new Error(\`HTTP \${${name}.status}: \${await ${name}.text()}\`);`, tag, "para aqui se deu erro (4xx/5xx)");
   }
@@ -380,15 +485,21 @@
     const b64 = usesB64(a);
     const toJs = (v) => (v === "{{file.base64}}" ? { __js: "CONTEUDO" } : jsSecret(v) || (Array.isArray(v) ? v.map(toJs) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toJs(x)])) : v));
     const req = { ...render({ ...a.request, body: toJs(a.request.body) }, { ...vars, "file.name": name }), _fileName: name };
+    const imported = !!(req.urlEncoding || req.bodyEncoding);
+    if (imported) {
+      req._urlExpr = secretExpression(req.url, req.urlEncoding, "javascript");
+      if (typeof req.body === "string") req._bodyExpr = secretExpression(req.body, req.bodyEncoding, "javascript");
+    }
     const fsUse = [b64 || req.form ? "readFile" : "", a.audio ? "writeFile" : ""].filter(Boolean);
     L.add("// Node.js 18+ · salve como exemplo.mjs e rode: node exemplo.mjs");
     if (fsUse.length) L.add(`import { ${fsUse.join(", ")} } from "node:fs/promises";`);
     L.blank();
+    if (imported && secretsIn(a.request).length) L.add('const segredo = (nome) => { const valor = process.env[nome]; if (valor == null) throw new Error(`Defina ${nome}`); return valor; };').blank();
     const auth = req.auth || !!(a.polling && a.polling.check.auth);
     if (auth) L.add(`const TOKEN = process.env.${a.tokenVar};`, null, "o token de acesso vem de uma variável de ambiente, nunca escrito no código").blank();
     const h = [];
     if (auth) h.push("  Authorization: `Bearer ${TOKEN}`,");
-    for (const [k, v] of Object.entries(req.headers || {})) h.push(`  ${JSON.stringify(k)}: ${jsSecret(v) ? jsSecret(v).__js : JSON.stringify(String(v))},`);
+    for (const [k, v] of Object.entries(req.headers || {})) h.push(`  ${JSON.stringify(k)}: ${imported ? secretExpression(v, "raw", "javascript") : jsSecret(v) ? jsSecret(v).__js : JSON.stringify(String(v))},`);
     if (h.length) L.add(`const HEADERS = {\n${h.join("\n")}\n};`, null, "cabeçalhos enviados em toda chamada").blank();
     if (b64) L.add(`const CONTEUDO = (await readFile(${dq(name)})).toString("base64");`, "start", "o arquivo, em base64, vai dentro do JSON").blank();
     const out = (expr, why) => {
@@ -525,6 +636,6 @@
 
   // o slide mexe com arquivo? (upload @file ou {{file.…}})
   const usesFile = (s) => { const a = s && s._normalized ? s : normalize(s); return !!a.file || a.mic || !!(a.request.form && Object.values(a.request.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(a.request)); };
-  const api = { isType, cosine, usesFile, parsePath, get, set, render, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
+  const api = { isType, cosine, usesFile, parsePath, get, set, render, renderBody, renderURL, missing, envKind, mask, normalize, key, code, pyLiteral, pyPath, LANGS };
   g.SagadeckApiCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

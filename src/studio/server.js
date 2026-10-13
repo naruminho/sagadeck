@@ -464,7 +464,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         res.end(html);
         return;
       }
-      if (["/style.css", "/library.css", "/studio-next.css"].includes(pathname)) {
+      if (["/style.css", "/library.css", "/studio-next.css", "/developer-authoring.css"].includes(pathname)) {
         const css = fs.readFileSync(path.join(PUBLIC_DIR, pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
         res.end(css);

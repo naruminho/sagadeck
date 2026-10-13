@@ -1,13 +1,13 @@
 {
   "name": "sagadeck",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Gerador de apresentações: YAML -> HTML animado + PowerPoint editável, com temas e figuras geradas na hora.",
   "type": "module",
   "bin": {
     "sagadeck": "bin/sagadeck.js"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "license": "MIT",
   "homepage": "https://github.com/naruminho/sagadeck#readme",

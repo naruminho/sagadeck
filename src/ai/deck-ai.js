@@ -1148,6 +1148,8 @@ export function slidesForMinutes(min) {
 // Estilo do modal (uma coleção) → { theme, direction } para a geração. Desconhecido: null.
 // estilos que não são coleção: material técnico, o par claro/escuro do tema manual
 const TECH_STYLES = {
+  "terminal-pro": { theme: "terminal-pro", direction: "Desenvolvimento em Terminal Pro: fundo grafite, menta, código legível em janelas de IDE e transições discretas. Use os recursos nativos de código guiado, terminal de cenas e API quando ajudarem a explicar o conteúdo; preserve os exemplos da pessoa. Use o tema terminal-pro, sem trocar sua paleta escura por uma clara." },
+  "aurora-dev": { theme: "aurora-dev", direction: "Desenvolvimento em Aurora Dev: azul noite com lilás e ciano, luz ambiente, diagramas e código em painéis legíveis, movimento suave sem competir com a leitura. Use recursos nativos de programação e APIs conforme o pedido; preserve os exemplos da pessoa. Use o tema aurora-dev, sem trocar sua paleta escura por uma clara." },
   manual: { theme: "manual", direction: "Documentação técnica clara: texto corrido legível, código completo, diagramas e avisos; boa para imprimir. Use o tema manual." },
   "manual-noite": { theme: "manual-noite", direction: "Documentação técnica escura: texto corrido legível, código em destaque, diagramas e avisos; descansa a vista. Use o tema manual-noite." },
 };

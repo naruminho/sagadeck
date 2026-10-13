@@ -1,0 +1,33 @@
+/* Terminal Pro: cabeçalho compacto, moldura de IDE, menta e azul nas partes do código; animação ambiente
+   pela rede do runtime, que só anda no slide atual e fica parada na exportação e com movimento reduzido. */
+.th-terminal-pro .orn i:nth-child(1){display:block;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--hi) 6%,transparent) 1px,transparent 1px),linear-gradient(color-mix(in srgb,var(--hi) 6%,transparent) 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(90deg,transparent 38%,#000)}
+.th-terminal-pro .orn i:nth-child(2){display:block;right:48px;top:48px;bottom:48px;width:2px;background:linear-gradient(transparent,var(--hi) 35%,var(--em) 65%,transparent);opacity:.35}
+.th-terminal-pro .orn i:nth-child(3){display:block;right:44px;top:52px;width:10px;height:10px;border:2px solid var(--hi);background:var(--bg)}
+.th-terminal-pro .ambient{opacity:.35!important}
+.th-terminal-pro .kicker{align-self:flex-start;padding:12px 18px;background:var(--surface);color:var(--hi);border:1px solid var(--line);border-radius:7px;font-size:20px;letter-spacing:.1em}
+.th-terminal-pro .L-cover .cv-main,.th-terminal-pro .L-end .en-main{border-left:5px solid var(--hi);padding-left:42px;gap:32px}
+.th-terminal-pro .L-cover .ttl{max-width:1330px}
+.th-terminal-pro .L-cover .sub{max-width:1220px}
+.th-terminal-pro .L-section{gap:48px}
+.th-terminal-pro .sc-num{font-family:'IBM Plex Mono',monospace;font-size:156px;line-height:1.2;padding:20px 26px;border:1px solid var(--hi);border-radius:12px;color:var(--hi);background:var(--surface)}
+.th-terminal-pro .hd{padding:0 0 22px 22px;border-left:4px solid var(--hi);border-bottom:1px solid var(--line);gap:16px}
+.th-terminal-pro :is(.card:not(.card-hi),.stat-card,.step-card){border:1px solid var(--line);border-top:4px solid var(--hi);background:var(--surface);border-radius:12px;box-shadow:0 12px 36px #0002}
+.th-terminal-pro .li-n{font-family:'IBM Plex Mono',monospace;background:var(--surface);padding:8px 12px;border:1px solid var(--line);border-radius:8px;color:var(--hi)}
+.th-terminal-pro .li-b{border:0;border-radius:3px;background:var(--hi);width:14px;height:14px}
+.th-terminal-pro .q-text,.th-terminal-pro .st-body{border-left:4px solid var(--hi);padding-left:32px}
+.th-terminal-pro .nb-val,.th-terminal-pro .st-val{font-family:'IBM Plex Mono',monospace;color:var(--hi)}
+/* Código sempre numa superfície escura estável, inclusive com uma paleta clara aplicada por cima. */
+.th-terminal-pro :is(.code,.codewalk-editor,.api-req,.api-res){background:#0D1720;color:#EAF5F1;border:1px solid #344B58;border-radius:12px;box-shadow:0 22px 60px #0003}
+.th-terminal-pro .codewalk-bar{background:#172530;border-bottom-color:#344B58;color:#EAF5F1}
+.th-terminal-pro .codewalk-editor .code{color:#EAF5F1;border:0;box-shadow:none}
+.th-terminal-pro :is(.codewalk-language,.codewalk-footer,.cn,.tok-comment,.api-code .cl.cm .cc){color:#A4B8B4}
+.th-terminal-pro .codewalk-footer{border-top-color:#344B58}
+.th-terminal-pro .code .cl.hl,.th-terminal-pro .api-code .cl.run{background:#74E8B41A;box-shadow:inset 4px 0 #74E8B4;color:#F4FFF9}
+.th-terminal-pro .tok-keyword,.th-terminal-pro .tok-constant{color:#CEB4FF}.th-terminal-pro .tok-string{color:#74E8B4}.th-terminal-pro .tok-number,.th-terminal-pro .tok-type{color:#FFCB8A}.th-terminal-pro .tok-function{color:#83CCF8}.th-terminal-pro .tok-operator,.th-terminal-pro .tok-punctuation{color:#C1D6E2}
+.th-terminal-pro :is(.api-run,.lesson-controls button,.nav-back){border-radius:8px;font-family:'Space Grotesk',sans-serif}
+.th-terminal-pro :is(.api-run,.lesson-controls button,.api-tabs button,.nav-back):focus-visible{outline:4px solid var(--em);outline-offset:5px}
+.th-terminal-pro .api-tabs button{color:#A4B8B4}.th-terminal-pro .api-tabs button[aria-selected=true]{color:#EAF5F1}
+.th-terminal-pro :is(.api-hint,.api-meta,.api-auth span,.api-tl-i){color:#A4B8B4}
+.th-terminal-pro .lesson-output{border-left:4px solid var(--hi);border-radius:8px}
+html[data-motion="none"] .th-terminal-pro .ambient,.export .th-terminal-pro .ambient{animation:none}
+@media(prefers-reduced-motion:reduce){.th-terminal-pro .ambient{animation:none}}

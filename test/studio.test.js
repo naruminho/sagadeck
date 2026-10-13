@@ -995,6 +995,112 @@ test('coleções: criar modelos e substituir foto preserva a composição', asyn
   } finally { await studio.close(); await browser.close(); }
 });
 
+test("Studio: colar código e cURL sem configurar layouts", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck(), studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    const open = async () => { await p.click('.ribbon-tab[data-tab="inicio"]'); await p.click("#btn-developer-slide"); await p.waitForSelector(".dev-author-dialog[open]"); };
+    const inserted = async title => {
+      await p.click('.dev-author-dialog [data-insert]');
+      await p.waitForSelector(".dev-author-dialog", { state: "detached" });
+      await p.waitForFunction(async title => (await (await fetch("api/deck")).json()).spec.slides.some(s => s.title === title), title);
+      return saved().slides.find(s => s.title === title);
+    };
+    await t.test("colar código preserva conteúdo e permite linguagem manual", async () => {
+      await open();
+      const code = "const nome = 'Naru';\nconsole.log(nome);\n";
+      await p.fill("#dev-source", code);
+      assert.match(await p.textContent('.dev-author-dialog [data-detected]'), /JavaScript/);
+      await p.fill('.dev-author-dialog [data-title]', "Código preservado");
+      await p.selectOption('.dev-author-dialog [data-language]', "TypeScript");
+      const slide = await inserted("Código preservado");
+      assert.equal(slide.layout, "code"); assert.equal(slide.code, code); assert.equal(slide.language, "TypeScript");
+      assert.deepEqual(errors, []);
+    });
+    await t.test("selecionar linhas cria etapas guiadas, inclusive pelo Formatar", async () => {
+      await open();
+      const code = "const entrada = 2;\nconst total = entrada * 3;\nconsole.log(total);\n";
+      await p.fill("#dev-source", code);
+      await p.fill('.dev-author-dialog [data-title]', "Explicação pelas linhas");
+      await p.check('.dev-author-dialog input[value="codewalk"]');
+      const source = p.locator("#dev-source");
+      await source.click(); await source.press("Control+Home"); await source.press("ArrowDown");
+      await source.press("Shift+ArrowDown"); await source.press("Shift+ArrowDown");
+      assert.equal(await p.inputValue('.dev-author-dialog [data-from]'), "2");
+      assert.equal(await p.inputValue('.dev-author-dialog [data-to]'), "3");
+      await p.fill('.dev-author-dialog [data-step-title]', "Calcular e mostrar");
+      await p.fill('.dev-author-dialog [data-step-text]', "A conta usa a entrada e mostra o resultado.");
+      await p.fill('.dev-author-dialog [data-step-output]', "6");
+      await p.click('.dev-author-dialog [data-add-step]');
+      let slide = await inserted("Explicação pelas linhas");
+      assert.equal(slide.code, code); assert.deepEqual(slide.steps[0].highlight, [2, 3]);
+      assert.equal(slide.steps[0].text, "A conta usa a entrada e mostra o resultado.");
+      assert.equal(slide.steps[0].output, "6");
+      const codeField = p.locator('#slide-fields-form .sf-field:has(.sf-label:text-is("Código")) textarea').first();
+      await codeField.click(); await codeField.press("Control+Home"); await codeField.press("Shift+ArrowDown");
+      await p.click('#slide-fields-form button:has-text("Criar etapa com as linhas selecionadas")');
+      await p.waitForFunction(async () => (await (await fetch("api/deck")).json()).spec.slides.find(s => s.title === "Explicação pelas linhas").steps.length === 2);
+      // O formulário salva com debounce; a confirmação verifica também o arquivo, depois da gravação.
+      for (let tries = 0; tries < 60 && saved().slides.find(s => s.title === "Explicação pelas linhas").steps.length < 2; tries++) await p.waitForTimeout(50);
+      slide = saved().slides.find(s => s.title === "Explicação pelas linhas");
+      assert.deepEqual(slide.steps[1].highlight, [1]); assert.equal(slide.code, code);
+      assert.deepEqual(errors, []);
+    });
+    await t.test("cURL vira API com segredos protegidos e aviso antes de salvar", async () => {
+      await open();
+      await p.fill("#dev-source", "curl 'https://example.test/echo?api_key=literal-query' -X POST -H 'Authorization: Bearer literal-token' --json '{\"message\":\"Olá\",\"client_secret\":\"literal-body\"}'");
+      assert.ok(await p.isChecked('.dev-author-dialog input[value="api"]'));
+      assert.match(await p.textContent('.dev-author-dialog [data-secrets]'), /Ambientes.*Segredos/);
+      assert.doesNotMatch(await p.textContent('.dev-author-dialog [data-request]'), /literal-(token|query|body)/);
+      await p.fill('.dev-author-dialog [data-title]', "API colada e protegida");
+      const slide = await inserted("API colada e protegida");
+      assert.equal(slide.layout, "api"); assert.equal(slide.request.method, "POST");
+      assert.equal(slide.request.headers.Authorization, "Bearer {{secret.token}}");
+      assert.equal(JSON.parse(slide.request.body).message, "Olá");
+      assert.doesNotMatch(fs.readFileSync(deckFile.file, "utf8"), /literal-(token|query|body)/);
+      assert.deepEqual(errors, []);
+    });
+    await t.test("Formatar mostra e edita o corpo importado sem aspas extras, conservando os números e variáveis", async () => {
+      await open();
+      const body = '{\n  "id": 9007199254740993,\n  "message": "Olá",\n  "note": "{{note}}"\n}';
+      await p.fill("#dev-source", `curl https://example.test/echo --json '${body}'`);
+      await p.fill('.dev-author-dialog [data-title]', "API para editar JSON");
+      await inserted("API para editar JSON");
+      let field = p.locator('#slide-fields-form .sf-field:has(.sf-label:text-is("Corpo (JSON)")) textarea').first();
+      assert.equal(await field.inputValue(), body);
+      const edited = body.replace('"Olá"', '"Olá, programação"');
+      await field.fill(edited); await field.blur();
+      await p.waitForFunction(async expected => (await (await fetch("api/deck")).json()).spec.slides.find(s => s.title === "API para editar JSON").request.body === expected, edited);
+      for (let tries = 0; tries < 60 && saved().slides.find(s => s.title === "API para editar JSON").request.body !== edited; tries++) await p.waitForTimeout(50);
+      let slide = saved().slides.find(s => s.title === "API para editar JSON");
+      assert.equal(slide.request.body, edited); assert.equal(slide.request.bodyEncoding, "json");
+      await open(); await p.fill("#dev-source", "curl https://example.test/form --data-raw 'name=Ana&city={{city}}'");
+      await p.fill('.dev-author-dialog [data-title]', "API para editar formulário"); await inserted("API para editar formulário");
+      field = p.locator('#slide-fields-form .sf-field:has(.sf-label:text-is("Corpo (formulário)")) textarea').first();
+      assert.equal(await field.inputValue(), "name=Ana&city={{city}}");
+      await field.fill("name=Beto&city={{city}}"); await field.blur();
+      await p.waitForFunction(async () => (await (await fetch("api/deck")).json()).spec.slides.find(s => s.title === "API para editar formulário").request.body === "name=Beto&city={{city}}");
+      for (let tries = 0; tries < 60 && saved().slides.find(s => s.title === "API para editar formulário").request.body !== "name=Beto&city={{city}}"; tries++) await p.waitForTimeout(50);
+      slide = saved().slides.find(s => s.title === "API para editar formulário");
+      assert.equal(slide.request.body, "name=Beto&city={{city}}"); assert.equal(slide.request.bodyEncoding, "urlencoded");
+      assert.deepEqual(errors, []);
+    });
+    await t.test("opção cURL não suportada mostra erro e não grava; cancelar devolve foco", async () => {
+      const before = saved().slides.length;
+      await open(); await p.fill("#dev-source", "curl https://example.test -k");
+      assert.match(await p.textContent('.dev-author-dialog [data-status]'), /-k.*ainda não/);
+      assert.ok(await p.isDisabled('.dev-author-dialog [data-insert]'));
+      await p.keyboard.press("Escape");
+      assert.equal(saved().slides.length, before);
+      assert.equal(await p.evaluate(() => document.activeElement.id), "btn-developer-slide");
+      assert.deepEqual(errors, []);
+    });
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
+});
+
 test("studio", async (t) => {
   const browser = await browserOrSkip(t);
   if (!browser) return;
@@ -1214,7 +1320,7 @@ test("studio", async (t) => {
     const filename = `${form} input[placeholder="exemplo.py"]`;
     const language = p.locator(`${form} select`).first();
     const options = await language.locator("option").evaluateAll((items) => items.map((item) => item.textContent.trim()));
-    assert.deepEqual(options.slice(1), ["Python", "Java", "JavaScript", "TypeScript", "C#"]);
+    assert.deepEqual(options.slice(1), ["Python", "Java", "JavaScript", "TypeScript", "C#", "Bash", "JSON", "SQL"]);
 
     await p.fill(filename, "hello.py"); await settle();
     assert.equal(await language.inputValue(), "Python");
@@ -1362,7 +1468,7 @@ test("studio", async (t) => {
     // um <br> escondido pelo CSS grudava as palavras ("Diagramade texto"); o teste lê o texto
     // visível aba por aba, como a pessoa vê na tela (aba inativa não tem layout e o innerText volta grudado)
     const esperado = {
-      inserir: ["Formas", "Diagrama de texto"],
+      inserir: ["Formas", "Diagrama de texto", "Código / cURL"],
       design: ["Cabeçalho e rodapé"],
       ia: ["Deck com IA"],
       revisar: ["Última fileira", "Mapa de atenção"],
@@ -1372,7 +1478,8 @@ test("studio", async (t) => {
       const visiveis = await p.evaluate(() => [...document.querySelectorAll(".ribbon-panel.active .rbtn-lg > span")]
         .map((s) => s.innerText.replace(/\s+/g, " ").trim()));
       for (const r of rotulos) assert.ok(visiveis.includes(r), `${aba}: sem o botão "${r}" (veio: ${visiveis.join(" | ")})`);
-      for (const v of visiveis) assert.ok(!/[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]/.test(v), `${aba}: palavras grudadas em "${v}"`);
+      // cURL é um nome técnico com maiúsculas internas, não duas palavras grudadas.
+      for (const v of visiveis) assert.ok(!/[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]/.test(v.replace(/\bcURL\b/g, "curl")), `${aba}: palavras grudadas em "${v}"`);
     }
     await tab("inicio");
   });

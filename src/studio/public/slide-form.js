@@ -255,6 +255,7 @@
         { addLabel: "Adicionar fala", newItem: () => ({ who: 1, text: "" }) }),
       f.more([f.num("keep", "Falas visíveis ao mesmo tempo")])],
     codewalk: [f.text("kicker", "Chapéu"), f.text("title", "Título"), ...CODE_SOURCE_FIELDS,
+      f.action("Criar etapa com as linhas selecionadas", (s, button) => window.SagaDeveloperAuthoring.addSelectionStep(s, button, CTX)),
       f.list("steps", "Etapas da explicação", obj([f.text("title", "Título da etapa"), f.area("text", "Explicação"), f.nums("highlight", "Linhas destacadas (a partir de 1)"), f.area("output", "Saída esperada (simulação)", { mono: true, rows: 3 })]),
         { addLabel: "Adicionar etapa", newItem: () => ({ title: "Próximo passo", text: "", highlight: [1] }) }),
       f.more(CODE_SIZE_FIELDS)],
@@ -550,14 +551,17 @@
 
   // estrutura (corpo de requisição, polling…) como JSON: só aplica quando é JSON válido; vazio apaga o campo
   function jsonField(o, spec) {
-    const text = o[spec.k] == null ? "" : JSON.stringify(o[spec.k], null, 2);
+    const raw = spec.k === "body" && ["json", "urlencoded"].includes(o.bodyEncoding) && (typeof o[spec.k] === "string" || o[spec.k] == null);
+    if (raw && o.bodyEncoding === "urlencoded") spec = { ...spec, label: "Corpo (formulário)", hint: "campo=valor separados por &. Variáveis {{nome}} são codificadas ao executar." };
+    const text = o[spec.k] == null ? "" : raw ? o[spec.k] : JSON.stringify(o[spec.k], null, 2);
     const ta = h("textarea", { class: "form-control mono", rows: spec.rows || Math.min(10, Math.max(3, text.split("\n").length)), placeholder: spec.placeholder, spellcheck: "false" });
     ta.value = text;
     const err = h("div", { class: "sf-hint sf-error" });
     ta.addEventListener("input", () => {
       const v = ta.value.trim();
       try {
-        setKey(o, spec.k, v ? JSON.parse(v) : null);
+        if (raw && o.bodyEncoding === "json" && v) JSON.parse(v); // valida; preserva o texto e os números originais
+        setKey(o, spec.k, v ? raw ? ta.value : JSON.parse(v) : null);
         ta.classList.remove("invalid"); err.textContent = ""; commitSoon();
       } catch { ta.classList.add("invalid"); err.textContent = "JSON inválido — não aplicado"; }
     });
@@ -604,24 +608,15 @@
   }
 
   function inferCodeLanguage(filename) {
-    const basename = String(filename || "").trim().split(/[\\/]/).pop() || "";
-    const dot = basename.lastIndexOf(".");
-    if (dot <= 0) return "";
-    const extension = basename.slice(dot).toLowerCase();
-    return ({ ".py": "Python", ".pyw": "Python", ".java": "Java", ".js": "JavaScript", ".jsx": "JavaScript",
-      ".mjs": "JavaScript", ".cjs": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript", ".mts": "TypeScript",
-      ".cts": "TypeScript", ".cs": "C#" })[extension] || "";
+    return window.SagaDeveloperAuthoring.inferLanguage(filename);
   }
 
   function normalizeCodeLanguage(language) {
-    const key = String(language || "").trim().toLowerCase().replace(/[\s._-]/g, "");
-    return ({ python: "Python", py: "Python", java: "Java", javascript: "JavaScript", js: "JavaScript",
-      node: "JavaScript", nodejs: "JavaScript", typescript: "TypeScript", ts: "TypeScript",
-      "c#": "C#", csharp: "C#", cs: "C#" })[key] || "";
+    return window.SagaDeveloperAuthoring.normalizeLanguage(language);
   }
 
   function codeLanguageField(o, spec, filenameField) {
-    const options = ["Python", "Java", "JavaScript", "TypeScript", "C#"];
+    const options = window.SagaDeveloperAuthoring.languages;
     const autoOption = h("option", { value: "", text: "Inferir pela extensão" });
     const select = h("select", { class: "form-control" }, autoOption, options.map((language) => h("option", { value: language, text: language })));
     const detect = () => inferCodeLanguage(o[spec.filenameKey]);

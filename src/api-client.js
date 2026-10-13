@@ -362,10 +362,41 @@ export class ApiEnvironments {
     return out.filter((s) => typeof s === "string" && s.length >= 6);
   }
 
-  maskText(env, text) {
+  maskText(env, text, contextual = false) {
     let s = String(text);
-    for (const secret of this.secrets(env)) s = s.split(secret).join(C.mask(secret));
+    if (!contextual) { for (const secret of this.secrets(env)) s = s.split(secret).join(C.mask(secret)); return s; }
+    // Pedidos importados codificam segredos em JSON/query/form. A resposta e o relatório podem
+    // devolver essas representações; nenhuma delas deve revelar o valor, mesmo quando curto.
+    const replacements = new Map();
+    for (const secret of [...this.secrets(env), ...Object.values(this.secretVars(env))].filter(Boolean)) {
+      const masked = C.mask(secret);
+      for (const [raw, safe] of [[secret, masked], [encodeURIComponent(secret), encodeURIComponent(masked)], [JSON.stringify(secret).slice(1, -1), JSON.stringify(masked).slice(1, -1)]]) if (!replacements.has(raw)) replacements.set(raw, safe);
+    }
+    for (const [raw, safe] of [...replacements].sort((a, b) => b[0].length - a[0].length)) s = s.split(raw).join(safe);
     return s;
+  }
+
+  maskValue(env, value, depth = 0) {
+    if (typeof value === "string") {
+      const masked = this.maskText(env, value, true);
+      if (depth > 64 || !/^\s*[\[{\"]/.test(value) || Object.values(this.secretVars(env)).includes(value)) return masked;
+      try { JSON.parse(value); } catch { return masked; }
+      // APIs podem devolver JSON dentro de strings de logs. Decodifica cada string e mascara
+      // recursivamente; troca apenas esses spans para preservar números grandes e formatação.
+      let result = "", last = 0;
+      for (let at = 0; at < value.length; at++) {
+        if (value[at] !== '"') continue;
+        const from = at++;
+        while (at < value.length) { if (value[at] === "\\") at += 2; else if (value[at++] === '"') break; }
+        const decoded = JSON.parse(value.slice(from, at)), safe = this.maskValue(env, decoded, depth + 1);
+        if (safe !== decoded) { result += value.slice(last, from) + JSON.stringify(safe); last = at; }
+        at--;
+      }
+      return result + value.slice(last);
+    }
+    if (Array.isArray(value)) return value.map(item => this.maskValue(env, item, depth + 1));
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.maskValue(env, item, depth + 1)]));
+    return value;
   }
 
   async token(env, { renew = false } = {}) {
@@ -420,13 +451,13 @@ export class ApiEnvironments {
       });
       throw new ApiError(`Ambiente "${env.name}" não tem ${names.join(", ")} configurado em secrets:`, "config");
     }
-    req = { ...req, url: C.render(req.url, sv), headers: C.render(req.headers || {}, sv), body: C.render(req.body, sv) };
+    req = { ...req, url: C.renderURL(req.url, sv, req.urlEncoding), headers: C.render(req.headers || {}, sv), body: C.renderBody(req.body, sv, req.bodyEncoding) };
     const headers = { Accept: "application/json, text/event-stream, */*", ...C.render(env.headers || {}, sv), ...(req.headers || {}) };
     let body = req.body;
     const file = req.file || null; // { name, type, data: Buffer } — o arquivo do slide (upload ou base64)
     const needsFile = (req.form && Object.values(req.form).includes("@file")) || /\{\{\s*file\./.test(JSON.stringify(body ?? ""));
     if (needsFile && !file) throw new ApiError("Este slide precisa de um arquivo: arraste um para o slide ou defina file: no YAML.", "config");
-    if (file && body != null) body = C.render(body, { "file.base64": file.data.toString("base64"), "file.name": file.name, "file.type": file.type || "application/octet-stream" });
+    if (file && body != null) body = C.renderBody(body, { "file.base64": file.data.toString("base64"), "file.name": file.name, "file.type": file.type || "application/octet-stream" }, req.bodyEncoding);
     if (req.form) {
       // multipart/form-data, montado à mão (sem dependências)
       const boundary = "----sagadeck" + Math.random().toString(16).slice(2);
@@ -453,8 +484,9 @@ export class ApiEnvironments {
       const tok = await this.token(env, { renew });
       return tok ? { ...headers, [authHeader]: (t.prefix ?? "Bearer ") + tok } : headers;
     };
-    const sent = (h) => ({ method, url: this.maskText(env, req.url), headers: JSON.parse(this.maskText(env, JSON.stringify(h))), ...(file ? { file: { name: file.name, type: file.type, size: file.data.length } } : {}) });
-    return { env, method, body, withToken, sent, timeout: (Number(env.timeout) || 60) * 1000 };
+    const contextual = !!(req.bodyEncoding || req.urlEncoding);
+    const sent = (h) => ({ method, url: this.maskText(env, req.url, contextual), headers: contextual ? this.maskValue(env, h) : JSON.parse(this.maskText(env, JSON.stringify(h))), ...(file ? { file: { name: file.name, type: file.type, size: file.data.length } } : {}) });
+    return { env, method, url: req.url, body, withToken, sent, contextual, timeout: (Number(env.timeout) || 60) * 1000 };
   }
 
   // Pedido completo: a resposta volta inteira (JSON ou texto), com os segredos mascarados.
@@ -463,7 +495,7 @@ export class ApiEnvironments {
     const run = async (renew) => {
       const headers = await p.withToken(renew);
       const t0 = Date.now();
-      const res = await open({ method: p.method, url: req.url, headers, body: p.body, ca: this.ca(p.env), insecure: !!p.env.insecure, timeout: p.timeout });
+      const res = await open({ method: p.method, url: p.url, headers, body: p.body, ca: this.ca(p.env), insecure: !!p.env.insecure, timeout: p.timeout });
       const buf = await readAll(res);
       return { res, buf, headers, ms: Date.now() - t0 };
     };
@@ -483,7 +515,7 @@ export class ApiEnvironments {
     }
     // áudio (TTS): vai inteiro, em base64, para o slide tocar
     const body = /^audio\//i.test(type) ? { _audio: true, type: type.split(";")[0], base64: r.buf.toString("base64") }
-      : parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
+      : p.contextual ? this.maskValue(p.env, parseBody(r.buf, type)) : parseBody(Buffer.from(this.maskText(p.env, r.buf.toString("utf8"))), type);
     return {
       ok: r.res.statusCode < 400, status: r.res.statusCode, statusText: r.res.statusMessage || "", ms: r.ms, size: r.buf.length,
       type, body, sent: p.sent(r.headers), env: p.env.name, token: this.tokenInfo(p.env.name), ...(jwt ? { jwt } : {}),
@@ -610,7 +642,7 @@ export class ApiEnvironments {
   async open(req) {
     const p = await this.prepare(req);
     const headers = await p.withToken(false);
-    const res = await open({ method: p.method, url: req.url, headers, body: p.body, ca: this.ca(p.env), insecure: !!p.env.insecure, timeout: p.timeout });
-    return { res, env: p.env, sent: p.sent(headers), mask: (s) => this.maskText(p.env, s) };
+    const res = await open({ method: p.method, url: p.url, headers, body: p.body, ca: this.ca(p.env), insecure: !!p.env.insecure, timeout: p.timeout });
+    return { res, env: p.env, sent: p.sent(headers), mask: (s) => this.maskText(p.env, s, p.contextual) };
   }
 }

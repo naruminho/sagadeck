@@ -12,6 +12,8 @@
   let data = { topics: [], decks: [], trash: [], root: "" };
   let view = new URLSearchParams(location.search).get("topic") || store.get("libView", "recentes");
   let sortBy = store.get("libSort", "editada");
+  let dialogSession = 0;
+  let dialogKeyboard = null, dialogOrigin = null;
 
   function hydrate(root = document) {
     const icons = window.UI_ICONS || {};
@@ -158,6 +160,7 @@
       main.innerHTML = `<div class="head"><div><h1>${title}</h1><div class="sub">${sub}</div></div><div class="spacer"></div>
         ${t && t.id ? `<button class="lib-icon-btn" id="topic-more" title="Tópico: renomear, cor, excluir" aria-label="Opções do tópico">${ic("ellipsis")}</button>` : ""}
         ${emptyTopic || !all.length ? "" : `<select class="sort" id="sort" aria-label="Ordenar"><option value="editada">Editadas recentemente</option><option value="nome">Nome (A–Z)</option></select>`}</div>`;
+      if (!q) main.innerHTML += `<section class="lib-start" aria-labelledby="start-heading"><div><h2 id="start-heading">Da sua ideia aos slides</h2><p>Escolha um caminho e aproveite seu material.</p></div><div><div class="lib-start-actions">${window.SagaGenerationGuide.intents.map((intent) => `<button class="lib-btn ghost" data-ai-intent="${intent.id}">${ic(intent.icon)}${intent.id === "geral" ? "Criar com IA" : intent.title}</button>`).join("")}</div><div class="lib-start-options"><span>Prefere começar sem IA?</span><button type="button" data-starter="programacao">Exemplo de programação</button><button type="button" data-starter="apis">Exemplo de API</button></div></div></section>`;
       if (emptyTopic) {
         main.innerHTML += `<div class="empty"><div class="big">${ic("folder")}</div><h2>Nenhuma apresentação em ${esc(t.name)}</h2><p>Crie uma aqui ou arraste uma de outro tópico para cá.</p>
           <div class="actions"><button class="lib-btn primary" data-empty-new>${ic("plus")}Nova apresentação</button></div></div>`;
@@ -200,6 +203,8 @@
     if (empty) empty.onclick = () => { if (confirm(`Apagar de vez ${data.trash.length === 1 ? "a apresentação" : `as ${data.trash.length} apresentações`} da lixeira? Não dá para desfazer.`)) act(() => api("api/library/trash/empty", {}), "Lixeira esvaziada"); };
     main.querySelectorAll("[data-purge]").forEach((b) => b.onclick = () => { if (confirm("Apagar de vez? Não dá para desfazer.")) act(() => api("api/library/decks/purge", { slot: b.dataset.purge }), "Apagada de vez"); });
     main.querySelectorAll("[data-empty-new], #card-new").forEach((b) => b.onclick = () => openNewMenu(b));
+    main.querySelectorAll("[data-ai-intent]").forEach((b) => b.onclick = () => aiDialog(topicOf(view) ? view : "", b.dataset.aiIntent));
+    main.querySelectorAll("[data-starter]").forEach((b) => b.onclick = () => startNew(`starter-${b.dataset.starter}`, topicOf(view) ? view : ""));
     main.querySelectorAll("[data-empty-topic]").forEach((b) => b.onclick = () => topicDialog());
   }
 
@@ -281,6 +286,10 @@
       try { const { id } = await api(path, { topic, ...body }); openEditor(id); } catch (e) { toast("Não deu: " + e.message, 5000); }
     };
     if (key === "blank") return nameDialog("Nova apresentação", "", (title) => create("api/library/decks", { title }), "Título");
+    if (key === "starter-programacao" || key === "starter-apis") {
+      const starter = key.slice(8);
+      return nameDialog("Começar com exemplo", starter === "programacao" ? "Minha aula de programação" : "Minha demo de API", (title) => create("api/library/decks", { title, starter }), "Título da sua apresentação");
+    }
     if (key === "ai" || key === "ai-file") return aiDialog(topic);
     if (key === "gallery") return galleryDialog(topic);
     // tudo da vitrine abre em prévia: a cópia só nasce quando a pessoa muda algo ou clica "Usar como base".
@@ -342,15 +351,37 @@
   // ---------------------------------------------------------------- diálogos
   function dialog(html, onOpen) {
     const back = $("#dlg"), box = back.firstElementChild;
+    if (!back.classList.contains("open") || !dialogOrigin?.isConnected) dialogOrigin = document.activeElement;
+    const session = ++dialogSession;
     box.className = "ldlg"; // tira o "wide" de um diálogo anterior
+    box.onkeydown = box.ondragover = box.ondragleave = box.ondrop = null;
     box.innerHTML = html;
+    box.tabIndex = -1;
+    const heading = box.querySelector("h3"); if (heading && !heading.id) heading.id = "dialog-heading";
     hydrate(box);
     back.classList.add("open");
-    const close = () => back.classList.remove("open");
+    const isCurrent = () => session === dialogSession && back.classList.contains("open");
+    const close = () => {
+      if (session !== dialogSession) return;
+      dialogSession++; back.classList.remove("open"); dialogKeyboard = null;
+      const origin = dialogOrigin; dialogOrigin = null;
+      (origin?.isConnected && origin.getClientRects().length ? origin : $("#btn-new"))?.focus({ preventScroll: true });
+    };
+    const focusable = () => [...box.querySelectorAll("button, a[href], input, select, textarea, summary, [tabindex]")].filter((element) => !element.disabled && element.tabIndex >= 0 && element.getClientRects().length);
+    dialogKeyboard = (event) => {
+      if (!isCurrent()) return;
+      if (event.key === "Escape") { event.preventDefault(); close(); return; }
+      if (event.key !== "Tab") return;
+      const controls = focusable(), first = controls[0], last = controls.at(-1), active = document.activeElement;
+      if (!controls.length) { event.preventDefault(); box.focus(); return; }
+      if (!box.contains(active) || event.shiftKey && active === first || !event.shiftKey && active === last) {
+        event.preventDefault(); (event.shiftKey ? last : first).focus();
+      }
+    };
     back.onclick = (e) => { if (e.target === back) close(); };
     box.querySelectorAll("[data-cancel]").forEach((b) => b.onclick = close);
-    onOpen(box, close);
-    box.querySelector("input, textarea")?.focus();
+    onOpen(box, close, isCurrent);
+    (box.querySelector("input:not([hidden]), textarea") || focusable()[0] || box).focus();
   }
   function nameDialog(title, value, onOk, label = "Nome") {
     dialog(`<h3>${esc(title)}</h3><label>${esc(label)}</label><input type="text" id="dlg-name" value="${esc(value)}">
@@ -380,46 +411,96 @@
     });
   }
   // Estilos = as coleções (COLLECTION_STYLE em src/studio/template-collections.js decide tema e direção criativa)
-  const STYLES = [["perspectiva", "Perspectiva: corporativo fotográfico"], ["essencial", "Essencial: minimalismo"], ["revista", "Revista: editorial"], ["cromatico", "Cromático: cor e fotografia"], ["tracos", "Traços: geometria criativa"], ["manual", "Documentação técnica: clara (boa para imprimir)"], ["manual-noite", "Documentação técnica: escura (descansa a vista)"]];
+  const STYLES = [["terminal-pro", "Terminal Pro: grafite e menta para código"], ["aurora-dev", "Aurora Dev: luz, lilás e ciano"], ["perspectiva", "Perspectiva: corporativo fotográfico"], ["essencial", "Essencial: minimalismo"], ["revista", "Revista: editorial"], ["cromatico", "Cromático: cor e fotografia"], ["tracos", "Traços: geometria criativa"], ["manual", "Documentação técnica: clara (boa para imprimir)"], ["manual-noite", "Documentação técnica: escura (descansa a vista)"]];
   // mesma conta de slidesForMinutes (src/ai/deck-ai.js): ~1 slide a cada 1,5 min, entre 3 e 40
   const slidesFor = (min) => Math.min(40, Math.max(3, Math.round(Number(min) / 1.5)));
   const readAsDataURL = (f) => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
 
   // "Descrever com IA" e "A partir de um arquivo ou link": o mesmo diálogo, numa tela só (assunto, tempo, estilo,
   // material de apoio). O material vira texto no servidor (/api/ai/context) e vai para a IA junto com o pedido.
-  function aiDialog(topic) {
+  function aiDialog(topic, initialIntent = "geral") {
+    const guide = window.SagaGenerationGuide;
+    let intent = guide.intentById(initialIntent).id, styleTouched = false, generating = false;
     const docs = [];
     let reading = 0;
     dialog(`<h3 id="dialog-heading">Nova apresentação com IA</h3>
-      <label for="dlg-brief">Sobre o que é, para quem e com que objetivo? <span class="muted">Ou só anexe o material abaixo.</span></label>
-      <textarea id="dlg-brief" placeholder="Ex.: palestra para gestores sobre trabalho híbrido, tom leve, começando com um caso real. Ou: resumo deste relatório para a diretoria, focando nos números do ano."></textarea>
+      <p class="dlg-intro">Comece com uma ideia, código ou cURL. O pedido pode ser livre; os campos abaixo ajudam a dar direção.</p>
+      <div class="dlg-intents" role="group" aria-label="Tipo de apresentação">${guide.intents.map((choice) => `<button type="button" class="dlg-intent" data-intent="${choice.id}" aria-pressed="${choice.id === intent}">${ic(choice.icon)}<span><b>${esc(choice.title)}</b><small>${esc(choice.description)}</small></span></button>`).join("")}</div>
+      <button type="button" class="dlg-start-example" id="dlg-start-example" ${intent === "geral" ? "hidden" : ""}>Ou comece com um exemplo editável, sem IA</button>
+      <label for="dlg-brief">Conte sua ideia <span class="muted">ou cole e anexe o material abaixo</span></label>
+      <textarea id="dlg-brief" aria-describedby="dlg-example-label"></textarea>
+      <div class="dlg-examples"><span id="dlg-example-label">Comece com um exemplo:</span><div id="dlg-examples"></div></div>
       <div class="dlg-two">
         <div><label for="dlg-min">Quanto tempo você tem?</label><div class="dlg-min"><input type="number" id="dlg-min" min="1" max="120" value="10"><span>min</span><span class="hint" id="dlg-slides"></span></div></div>
         <div><label for="dlg-style">Estilo</label><select id="dlg-style"><option value="">Automático (a IA escolhe pelo assunto)</option>${STYLES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></div>
       </div>
+      <details class="dlg-details" id="dlg-refine"><summary>Refinar público, objetivo e roteiro <span class="muted">opcional</span></summary>
+        <div class="dlg-two"><div><label for="dlg-audience">Para quem?</label><input type="text" id="dlg-audience" placeholder="Ex.: devs iniciantes ou time de backend"></div><div><label for="dlg-goal">O que a pessoa deve conseguir fazer?</label><input type="text" id="dlg-goal" placeholder="Ex.: autenticar e interpretar os erros da API"></div></div>
+        <label for="dlg-route">Roteiro preferido</label><select id="dlg-route">${guide.routes.map(([id, title]) => `<option value="${id}">${esc(title)}</option>`).join("")}</select>
+      </details>
+      <details class="dlg-details" id="dlg-source-details" ${intent !== "geral" ? "open" : ""}><summary>Colar código, cURL ou resposta da API <span class="muted">opcional</span></summary>
+        <label for="dlg-source">Seu material técnico</label><textarea id="dlg-source" spellcheck="false" placeholder="Cole o exemplo que você quer explicar. Código, comandos e respostas são preservados no pedido."></textarea>
+        <p class="dlg-help">O material vai junto com seu pedido. Use os exemplos originais para orientar a explicação.</p>
+      </details>
       <label>Material de apoio <span class="muted">(opcional: arquivos ou links; dá para arrastar arquivos para cá)</span></label>
       <div class="dlg-att"><button class="lib-btn ghost" id="dlg-file" type="button">${ic("paperclip")}Anexar arquivo</button>
-        <input type="file" id="dlg-files" multiple hidden accept=".pdf,.doc,.docx,.pptx,.xlsx,.txt,.md,.csv">
+        <input type="file" id="dlg-files" multiple hidden accept=".pdf,.doc,.docx,.pptx,.xlsx,.txt,.md,.markdown,.csv,.json,.jsonc,.yaml,.yml,.js,.mjs,.cjs,.ts,.tsx,.jsx,.py,.sh,.bash,.ps1,.http,.sql,.go,.rs,.java,.c,.cpp,.h,.cs,.rb,.php,.html,.css">
         <input type="text" id="dlg-link" placeholder="ou cole um link (https://…)"><button class="lib-btn ghost" id="dlg-link-add" type="button">Adicionar</button></div>
+      <p class="dlg-help">PDF, Word, PowerPoint, planilhas, texto e arquivos de código (JS, TS, Python, Shell, HTTP, SQL e outros).</p>
       <div class="dlg-chips" id="dlg-chips"></div>
-      <div class="status" id="dlg-status"></div>
-      <div class="row"><button class="lib-btn ghost" data-cancel>Cancelar</button><button class="lib-btn primary" id="dlg-ok">${ic("sparkles")}Gerar</button></div>`, (box) => {
-      box.classList.add("wide");
+      <div class="dlg-summary" id="dlg-summary" aria-live="polite"></div>
+      <details class="dlg-details dlg-preview"><summary>Conferir pedido que irá para a IA</summary><pre id="dlg-preview"></pre></details>
+      <div class="status" id="dlg-status" role="status" aria-live="polite"></div>
+      <div class="row dlg-generation-actions"><span class="dlg-help">Gerar: <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span><button class="lib-btn ghost" data-cancel>Cancelar</button><button class="lib-btn primary" id="dlg-ok">${ic("sparkles")}Gerar apresentação</button></div>`, (box, _close, isCurrent) => {
+      box.classList.add("wide", "generation-dialog");
       const status = box.querySelector("#dlg-status"), btn = box.querySelector("#dlg-ok"), min = box.querySelector("#dlg-min");
-      const showSlides = () => { box.querySelector("#dlg-slides").textContent = Number(min.value) > 0 ? `≈ ${slidesFor(min.value)} slides` : ""; };
+      const brief = box.querySelector("#dlg-brief"), source = box.querySelector("#dlg-source"), style = box.querySelector("#dlg-style");
+      const values = () => ({ briefing: brief.value, intent, audience: box.querySelector("#dlg-audience").value, goal: box.querySelector("#dlg-goal").value, route: box.querySelector("#dlg-route").value, source: source.value, hasMaterials: docs.length > 0 });
+      const preview = () => {
+        if (!isCurrent()) return;
+        const request = guide.buildBriefing(values());
+        box.querySelector("#dlg-preview").textContent = request ? `${request}${docs.length ? `\n\nAnexos: ${docs.map((d) => d.name).join(", ")}` : ""}` : "Seu pedido aparecerá aqui ao contar a ideia ou adicionar material.";
+        box.querySelector("#dlg-summary").textContent = `${guide.intentById(intent).title} · ${Number(min.value) || 10} min · cerca de ${slidesFor(Number(min.value) || 10)} slides · ${style.selectedOptions[0].textContent.split(":")[0]}${docs.length ? ` · ${docs.length} anexo(s)` : ""}`;
+      };
+      const chooseIntent = (id) => {
+        const selected = guide.intentById(id); intent = selected.id;
+        box.querySelectorAll("[data-intent]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.intent === intent)));
+        brief.placeholder = selected.placeholder;
+        if (!styleTouched) style.value = selected.style;
+        box.querySelector("#dlg-start-example").hidden = intent === "geral";
+        if (intent !== "geral") box.querySelector("#dlg-source-details").open = true;
+        box.querySelector("#dlg-examples").innerHTML = selected.examples.map(([label], index) => `<button type="button" class="dlg-example" data-example="${index}">${esc(label)}</button>`).join("");
+        box.querySelectorAll("[data-example]").forEach((button) => button.onclick = () => {
+          const text = selected.examples[Number(button.dataset.example)][1];
+          brief.value = brief.value.trim() ? `${brief.value}\n\n${text}` : text;
+          preview(); brief.focus();
+        });
+        preview();
+      };
+      box.querySelectorAll("[data-intent]").forEach((button) => button.onclick = () => chooseIntent(button.dataset.intent));
+      box.querySelector("#dlg-start-example").onclick = () => startNew(`starter-${intent}`, topic);
+      style.onchange = () => { styleTouched = true; preview(); };
+      box.querySelectorAll("#dlg-brief, #dlg-source, #dlg-audience, #dlg-goal, #dlg-route").forEach((input) => input.addEventListener("input", preview));
+      const showSlides = () => { box.querySelector("#dlg-slides").textContent = Number(min.value) > 0 ? `≈ ${slidesFor(min.value)} slides` : ""; preview(); };
+      chooseIntent(intent);
       min.oninput = showSlides; showSlides();
       const chips = () => {
+        if (!isCurrent()) return;
         box.querySelector("#dlg-chips").innerHTML = docs.map((d, i) => `<span class="dlg-chip">${ic(d.url ? "link" : "file-text")}<span>${esc(d.name)}${d.detail ? ` · ${esc(d.detail)}` : ""}</span><button type="button" data-rm="${i}" aria-label="Tirar ${esc(d.name)}">${ic("x")}</button></span>`).join("")
           + (reading ? `<span class="dlg-chip reading">lendo ${reading} material(is)…</span>` : "");
         hydrate(box.querySelector("#dlg-chips"));
         box.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => { docs.splice(+b.dataset.rm, 1); chips(); });
-        btn.disabled = reading > 0;
+        btn.disabled = reading > 0 || generating; preview();
       };
       const add = async (body, label) => {
+        if (!isCurrent()) return;
         reading++; chips();
-        try { docs.push({ ...(await api("api/ai/context", body)), url: !!body.url }); status.textContent = ""; }
-        catch (e) { status.textContent = `Não deu para ler ${label}: ${e.message}`; }
-        reading--; chips();
+        try {
+          const doc = await api("api/ai/context", body);
+          if (!isCurrent()) return;
+          docs.push({ ...doc, url: !!body.url }); status.textContent = "";
+        } catch (e) { if (isCurrent()) status.textContent = `Não deu para ler ${label}: ${e.message}`; }
+        finally { reading--; chips(); }
       };
       const files = box.querySelector("#dlg-files");
       box.querySelector("#dlg-file").onclick = () => files.click();
@@ -432,30 +513,33 @@
       box.querySelector("#dlg-link-add").onclick = addLink;
       link.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } };
       // arrastar arquivos para dentro do modal também anexa
-      box.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); box.classList.add("drop-over"); } });
-      box.addEventListener("dragleave", (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove("drop-over"); });
-      box.addEventListener("drop", async (e) => {
+      box.ondragover = (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); box.classList.add("drop-over"); } };
+      box.ondragleave = (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove("drop-over"); };
+      box.ondrop = async (e) => {
         if (!e.dataTransfer?.files?.length) return;
         e.preventDefault(); box.classList.remove("drop-over");
         for (const f of [...e.dataTransfer.files]) add({ name: f.name, dataUrl: await readAsDataURL(f) }, f.name);
-      });
+      };
       let answer = "";
       // a IA perguntou para que serve o material: opções clicáveis + campo livre; responder gera de novo
       const showQuestion = (q) => {
+        if (!isCurrent()) return;
         status.innerHTML = `<div class="dlg-ask"><b></b><div class="dlg-ask-opts"></div><div class="dlg-ask-free"><input type="text" id="dlg-answer" placeholder="Ou responda com as suas palavras"><button class="lib-btn primary" type="button" id="dlg-answer-go">Responder</button></div></div>`;
         status.querySelector("b").textContent = q.question;
         const opts = status.querySelector(".dlg-ask-opts");
         for (const o of q.options || []) { const b = document.createElement("button"); b.type = "button"; b.className = "lib-btn ghost"; b.textContent = o; b.onclick = () => { answer = o; btn.click(); }; opts.append(b); }
         status.querySelector("#dlg-answer-go").onclick = () => { answer = status.querySelector("#dlg-answer").value.trim(); if (answer) btn.click(); };
-        btn.disabled = false;
+        generating = false; btn.disabled = reading > 0;
       };
       btn.onclick = async () => {
-        let briefing = box.querySelector("#dlg-brief").value.trim();
-        if (!briefing && !docs.length) { status.textContent = "Conte sobre o que é a apresentação ou anexe um arquivo ou link."; return; }
-        if (!briefing) briefing = "Transforme o material anexado numa apresentação clara e bem redigida, para quem não leu o material.";
+        if (!isCurrent() || reading || generating) return;
+        const briefing = guide.buildBriefing(values());
+        if (!briefing) { status.textContent = "Conte sua ideia, cole o material técnico ou anexe um arquivo ou link."; brief.focus(); return; }
+        if (!min.checkValidity()) { min.reportValidity(); return; }
+        generating = true;
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";
-        const payload = { topic, briefing, answer: answer || undefined, stream: true, duration: Number(min.value) || undefined, style: box.querySelector("#dlg-style").value || undefined, materials: docs.map((d) => d.id) };
+        const payload = { topic, briefing, answer: answer || undefined, stream: true, duration: Number(min.value) || undefined, style: style.value || undefined, materials: docs.map((d) => d.id) };
         try {
           const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
@@ -471,19 +555,22 @@
               if (!line.trim()) continue;
               const ev = JSON.parse(line);
               // a etapa (ou as etapas que correm juntas) e o tempo: a geração com documento leva minutos
-              if (ev.type === "progress" && ev.text) status.textContent = `${ev.text}${ev.elapsed ? ` · ${Math.round(ev.elapsed / 1000)}s` : ""}`;
+              if (isCurrent() && ev.type === "progress" && ev.text) status.textContent = `${ev.text}${ev.elapsed ? ` · ${Math.round(ev.elapsed / 1000)}s` : ""}`;
               if (ev.type === "result") result = ev.data;
               if (ev.type === "error") throw new Error(ev.error || "falhou");
             }
           }
+          if (!isCurrent()) return;
           if (result?.question) { showQuestion(result.question); return; }
           if (!result?.id) throw new Error("a geração não terminou");
           openEditor(result.id);
         } catch (e) {
+          if (!isCurrent()) return;
           status.textContent = "Não deu: " + e.message;
-          btn.disabled = false;
+          generating = false; btn.disabled = reading > 0;
         }
       };
+      box.onkeydown = (event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!btn.disabled) btn.click(); } };
     });
   }
 
@@ -508,7 +595,7 @@
     store.set("appTheme", dark ? "dark" : "light");
   };
   document.addEventListener("click", (e) => { if (!e.target.closest(".lmenu, [data-more], #btn-new, #card-new, [data-empty-new], #topic-more")) closeMenus(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeMenus(); $("#dlg").classList.remove("open"); } });
+  document.addEventListener("keydown", (e) => { dialogKeyboard?.(e); if (e.key === "Escape") closeMenus(); });
   hydrate();
   load().then(() => {
     // biblioteca?galeria=demo: abre a vitrine Modelo pronto já filtrada (link "Abrir demos completos" do editor)

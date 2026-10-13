@@ -4,9 +4,21 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
-## [Não lançado]
+## [1.10.0] — 13/10/2026
 
 ### Novidades
+- **Criação técnica mais direta**: Programação e APIs com cURL na biblioteca, exemplos de pedidos,
+  código colado, público/objetivo/roteiro opcionais e prévia do pedido antes de gerar. Arquivos de código
+  podem ser anexados com espaços e linhas preservados. Ctrl+Enter inicia a geração.
+- **Começar sem IA**: duas bases editáveis de cinco slides, com exemplo guiado, saída e terminal animado.
+  A base de APIs inclui uma chamada que funciona na API de ensaio do Studio local.
+- **Código / cURL em Início e Inserir**: cole o conteúdo e escolha código, explicação guiada ou API.
+  Selecionar linhas cria etapas sem editar JSON. O cURL vira requisição sem executar shell; credenciais
+  reconhecidas são substituídas por referências aos Segredos do ambiente antes de salvar.
+- **Terminal Pro e Aurora Dev**: dois temas para desenvolvimento, com fontes embutidas, código legível,
+  janelas de IDE, painéis, rede animada na capa e respeito ao movimento reduzido e à exportação.
+- **Realce offline de Bash/cURL, JSON e SQL**, além das cinco linguagens já disponíveis.
+- **Node 24+** passa a ser o requisito mínimo; a CI verifica Linux e Windows nessa versão.
 - **Ajuda › Sobre o SagaDeck**: a aba Ajuda fecha a faixa do editor (como no PowerPoint) e o Sobre mostra a versão
   que está rodando, com commit, Node, desde quando, a biblioteca e se a IA está configurada, além de Copiar
   informações para pedir ajuda. Na biblioteca, o mesmo Sobre no botão de informação do alto.

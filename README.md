@@ -16,7 +16,7 @@ Ele vem com 11 temas (incluindo prata limpo e respirável, artesanal desenhado �
 ```bash
 npm install -g sagadeck
 ```
-Requer **Node.js 22.13+** e **Chrome ou Edge** instalados (o PDF, o PNG e as conferências visuais usam o navegador).
+Requer **Node.js 24+** e **Chrome ou Edge** instalados (o PDF, o PNG e as conferências visuais usam o navegador).
 É tudo Node: não precisa de Python. (O pacote do PyPI parou na 1.5.0.)
 
 ## Comece aqui
@@ -284,6 +284,12 @@ rede da casa).
 navegador, mas não para editar.
 
 ## Slides para devs: API ao vivo
+
+Na biblioteca, **Programação** e **APIs com cURL** abrem a criação com exemplos de pedidos, código colado,
+anexos técnicos e prévia do briefing. Também há duas bases curtas para começar **sem IA**.
+No editor, **Início ou Inserir → Código / cURL** transforma conteúdo colado em código, explicação guiada
+ou requisição de API. Selecione linhas para criar as etapas; Bash/cURL, JSON e SQL têm realce offline.
+Os temas **Terminal Pro** e **Aurora Dev**, em Design, trazem código legível e capas com rede animada.
 
 O layout `api` é um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente
 (curl, Python e Python comentado), e o botão **Executar** roda o pedido de verdade na frente da plateia:

@@ -23,7 +23,12 @@ export async function extractDocText(name, buf) {
   if (buf.length > UPLOAD_MAX_BYTES) throw new Error(`Arquivo grande demais (${(buf.length / 1048576).toFixed(1)} MB, limite 15 MB).`);
   const ext = (String(name).match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
   if(ext==='doc')return {...await extractDocText('converted.docx',await convertLegacyWord(buf)),detail:'doc (convertido para docx)'};
-  if (["txt", "md", "markdown", "csv", "json", "yaml", "yml"].includes(ext)) {
+  // Código é material da pessoa: espaços e linhas podem fazer parte de strings ou da sintaxe.
+  if (["js", "mjs", "cjs", "ts", "tsx", "jsx", "py", "sh", "bash", "ps1", "http", "sql", "go", "rs", "java", "c", "cpp", "h", "cs", "rb", "php", "html", "css"].includes(ext)) {
+    return { text: buf.toString("utf8"), detail: `código (.${ext})` };
+  }
+  if (["json", "jsonc", "yaml", "yml"].includes(ext)) return { text: buf.toString("utf8"), detail: "texto" };
+  if (["txt", "md", "markdown", "csv"].includes(ext)) {
     return { text: clean(buf.toString("utf8")), detail: "texto" };
   }
   if (ext === "docx") {
@@ -74,7 +79,7 @@ export async function extractDocText(name, buf) {
     return { text: clean(parts.join("\n\n")), detail: `xlsx (${sheets.length} planilha(s))` };
   }
   if (ext === "pdf") return pdfText(buf);
-  throw new Error(`Tipo não suportado${ext ? ` (.${ext})` : ""}: vale txt, md, csv, docx, xlsx, pptx e pdf.`);
+  throw new Error(`Tipo não suportado${ext ? ` (.${ext})` : ""}: anexe texto, código (js, ts, py, sh, http, sql e outros), docx, xlsx, pptx ou pdf.`);
 }
 
 async function pdfText(buf) {

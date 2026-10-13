@@ -2156,6 +2156,7 @@
     showToast("Screenshot pronto. Use Apresentar para percorrer os destaques.");
   }
   function setupCreativeTools() {
+    window.SagaDeveloperAuthoring.bind({ state, syncDeckToServer, renderThumbnails, renderCurrentSlide, openPane, showToast });
     const shotButton = document.createElement("button");
     shotButton.id = "btn-screenshot";
     shotButton.className = "rbtn rbtn-lg";

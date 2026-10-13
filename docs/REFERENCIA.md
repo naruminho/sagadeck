@@ -15,7 +15,7 @@ Mídia paga não é proibida por padrão. Quando for apropriada, proponha seu us
 ```yaml
 title: Nome da palestra          # obrigatório (vira rodapé e título da janela)
 author: Seu Nome · Cargo
-theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | jornal | rabisco | oceano | pop | aurora | prata | aluminio | arcade | relevo | musgo | wine | caderno | lousa | cartaz | infografico (ou customizado, ver fim)
+theme: sinal                     # sinal | editorial | noite | bauhaus | terminal | terminal-pro | jornal | rabisco | oceano | pop | aurora | aurora-dev | prata | aluminio | arcade | relevo | musgo | wine | caderno | lousa | cartaz | infografico (ou customizado, ver fim)
 palette: floresta                # opcional: só as cores, vale em qualquer tema (ver "Temas e paletas"); sem ela, as cores do tema
 duration: 50                     # minutos — o modo apresentador mostra se você está adiantado/atrasado
 event: Summit de Dados 2026       # opcional — para {evento} no rodapé/cabeçalho
@@ -132,7 +132,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 
 ### Cenas interativas para ensinar
 
-`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. No Studio, a linguagem é inferida pela extensão do arquivo e pode ser escolhida no menu: Python (`.py`), Java (`.java`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`) ou C# (`.cs`). Node.js é um runtime de JavaScript, não uma linguagem separada; arquivos Node usam a opção JavaScript. A apresentação aplica realce sintático a essas cinco linguagens sem depender de serviços externos. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
+`codewalk` mantém o código estável e revela a explicação, o destaque de linhas e uma saída esperada por etapa. O código e os comandos cURL são texto; não há execução. No Studio, a linguagem é inferida pela extensão do arquivo e pode ser escolhida no menu: Python, Java, JavaScript, TypeScript, C#, Bash/cURL, JSON ou SQL. Node.js é um runtime de JavaScript, não uma linguagem separada; arquivos Node usam a opção JavaScript. A apresentação aplica realce sintático a essas oito linguagens sem depender de serviços externos. Use as setas da apresentação ou os botões numerados. Depois da última etapa, a seta avança ao slide seguinte. As etapas também aparecem corretamente na prévia do apresentador e são restauradas pelo endereço da apresentação.
 
 ```yaml
 - layout: codewalk
@@ -171,6 +171,46 @@ O cabeçalho do deck aceita `purpose: palestra | consulta` — os dois usos de u
 O cabeçalho do deck aceita `fit: { minCodePt, minTextPt, wrapCode }`: até onde o ajuste para caber encolhe código e texto (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920; padrões 10 e 6, ou os das Preferências do Studio) e se linha longa de código quebra (padrão `true`). Código que não cabe nem no mínimo rola na apresentação e o fiscal avisa, com a opção de dividir em dois slides.
 
 O cabeçalho do deck aceita `motion: none | subtle | expressive` (padrão `subtle`; no Studio, menu **Apresentar ▾ › Animações**: Sem animação, Suaves, Expressivas). A preferência do sistema por movimento reduzido tem prioridade. A intensidade muda a animação; os controles e revelações continuam funcionando.
+
+## Criar apresentações de programação e APIs no Studio
+
+Na biblioteca, **Programação** e **APIs com cURL** abrem a criação com IA já orientada ao assunto. A pessoa pode
+escrever livremente, usar um exemplo de pedido, colar código/comando/resposta ou anexar arquivos técnicos. Público,
+objetivo e roteiro são opcionais. A prévia mostra o pedido completo antes de gerar; Ctrl+Enter inicia a geração.
+O tema sugerido é `terminal-pro` para programação e `aurora-dev` para APIs; uma escolha manual de estilo prevalece.
+Essas escolhas orientam o modelo pelo prompt, sem impor uma sequência fixa de layouts.
+
+**Começar com um exemplo, sem IA** cria uma base editável de cinco slides na biblioteca, com exemplo consistente,
+código guiado, saída e capa com terminal animado. Programação inclui um diagrama do fluxo. APIs inclui uma chamada
+POST ao ambiente `ensaio`, que funciona no Studio local sem configurar credenciais. No servidor multiusuário,
+chamadas de API seguem o modo de gravação existente. Cada uso cria uma apresentação independente.
+
+**Inserir › Código / cURL** aceita conteúdo colado e oferece código para mostrar, código guiado por etapas ou
+requisição de API a partir de cURL. O importador lê os argumentos sem abrir um shell e sem executar a chamada.
+Nos guias, selecionar linhas e adicionar uma etapa cria o destaque, com explicação e saída ilustrativa editáveis;
+o painel Formatar também oferece essa ação. Código de exibição e guia não são executados.
+
+A importação de cURL aceita método/URL, cabeçalhos, corpo literal/JSON, consulta com `-G` e `--data-urlencode`,
+aspas e continuação de linha. Credenciais reconhecidas em cabeçalhos, consulta ou corpo são substituídas por
+`{{secret.nome}}`; a prévia informa os nomes para cadastrar em Ambientes. Os demais bytes do JSON, inclusive números
+grandes e formatação, são preservados. Variáveis existentes `{{nome}}` continuam referenciadas. Opções sem equivalente
+no executor, como `-L`, `-k`, multipart `-F`, corpo vindo de arquivo `@` e substituição de shell, geram um erro claro;
+para apenas exibir o comando completo, escolha Código no slide.
+
+O importador acrescenta `request.bodyEncoding: json | urlencoded` e `request.urlEncoding: query` quando apropriado.
+Esses campos preservam o escape dos valores interpolados no corpo e nos parâmetros da URL, primeiro com variáveis
+e depois com Segredos, inclusive aspas, Unicode e `&`. O restante do corpo literal permanece intacto. Não é preciso
+configurá-los no formulário. Pedidos existentes sem esses campos mantêm a interpolação anterior.
+Os exemplos copiáveis de cURL, JavaScript e Python respeitam esses mesmos escapes. O cURL simples continua curto;
+quando um Segredo precisa ser escapado em JSON/form/query, o exemplo Bash inclui um pequeno helper Node.js e indica
+essa dependência no próprio comando. Literais como `$HOME` continuam literais quando vieram assim no cURL original.
+
+Além de Python, Java, JavaScript, TypeScript e C#, o realce offline aceita **Bash** (`.sh`, `.bash`; aliases `shell`,
+`sh`, `curl`), **JSON** (`.json`, `.jsonc`) e **SQL** (`.sql`). Bash destaca comandos, opções e variáveis; JSON,
+chaves e valores; SQL, palavras-chave sem exigir maiúsculas. O conteúdo continua copiável, com indentação e linhas
+preservadas. Anexos de código (`js`, `ts`, `py`, `sh`, `http`, `sql`, `go`, `rs`, `java`, `cs` e outros) entram como
+material de contexto sem remover espaços ou linhas em branco. Saídas simuladas devem ser identificadas como exemplos;
+nunca afirme execução sem evidência nem invente endpoints ou resultados reais.
 
 ## Screenshots com destaques no Studio
 
@@ -546,6 +586,12 @@ notes: |
 Linhas que começam com PALAVRAS EM MAIÚSCULAS seguidas de `:` viram etiquetas coloridas.
 
 ## Temas e paletas
+
+Temas de desenvolvimento: `terminal-pro` usa grafite, menta e azul, títulos alinhados à esquerda, rótulos
+monoespaçados e janelas de código; `aurora-dev` usa azul noite, lilás e ciano, luz suave e painéis arredondados.
+Ambos usam Space Grotesk e IBM Plex Mono embutidas, código sem ligaduras e cores de sintaxe com contraste de leitura.
+A rede ambiente da capa anima enquanto ela está ativa; `ambient: false` remove o efeito. Movimento reduzido,
+`motion: none` e exportação deixam a rede estática, com código e explicações legíveis.
 
 Como no PowerPoint, são duas escolhas independentes:
 
