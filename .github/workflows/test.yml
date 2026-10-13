@@ -1,6 +1,6 @@
 # Roda a suíte (motor + runtime + Studio num Chrome headless) em todo push e pull request, no Linux e no Windows
 # (o Studio roda no Windows do banco; caminho com barra invertida e acento só quebra lá).
-# Node 22 e 24: são as versões que as dependências aceitam (pdfjs-dist pede 22.13+; engines do pacote diz o mesmo).
+# Node 24 é a versão mínima suportada e validada, conforme engines do pacote.
 name: test
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node: [22.x, 24.x]
+        node: [24.x]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7

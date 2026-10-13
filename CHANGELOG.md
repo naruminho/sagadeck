@@ -18,6 +18,7 @@ pula de versão em versão.
 - **Terminal Pro e Aurora Dev**: dois temas para desenvolvimento, com fontes embutidas, código legível,
   janelas de IDE, painéis, rede animada na capa e respeito ao movimento reduzido e à exportação.
 - **Realce offline de Bash/cURL, JSON e SQL**, além das cinco linguagens já disponíveis.
+- **Node 24+** passa a ser o requisito mínimo; a CI verifica Linux e Windows nessa versão.
 - **Ajuda › Sobre o SagaDeck**: a aba Ajuda fecha a faixa do editor (como no PowerPoint) e o Sobre mostra a versão
   que está rodando, com commit, Node, desde quando, a biblioteca e se a IA está configurada, além de Copiar
   informações para pedir ajuda. Na biblioteca, o mesmo Sobre no botão de informação do alto.

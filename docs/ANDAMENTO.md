@@ -52,7 +52,11 @@ equivalentes copiáveis com segredos em JSON/form/query. Suíte final concluída
 1.066 aprovados, 27 condicionais pulados, zero falhas (24 min). Geradores de cURL/JavaScript/Python também
 enviaram pedidos reais ao ensaio HTTP. Preview e Formatar mantêm JSON literal; respostas/gravações não permitem
 recuperar segredos mesmo em logs com JSON aninhado. Instância local reiniciada na 3517, versão 1.10.0, com os novos
-módulos/CSS respondendo 200. Código pronto para PR e checks Ubuntu/Windows, Node 22/24, antes de merge/release.
+módulos/CSS respondendo 200. PR #197 publicado; os quatro checks originais Ubuntu/Windows, Node 22/24, passaram.
+Por orientação posterior do usuário, o suporte passa a Node 24+: engines, instruções de instalação e matriz da
+CI atualizados, sem mudança no código já aprovado. YAML e metadados conferidos; a nova CI exige Ubuntu e Windows
+com Node 24 antes de merge/release. DEV da Oracle recebeu `135cfd2`, com versão 1.10.0 e ambos os temas disponíveis;
+produção preservada. A publicação npm ainda aguarda merge e CI do commit final.
 
 ## Assistente em prévia de modelo na Oracle — 12/10/2026
 

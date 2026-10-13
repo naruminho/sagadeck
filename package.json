@@ -7,7 +7,7 @@
     "sagadeck": "bin/sagadeck.js"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "license": "MIT",
   "homepage": "https://github.com/naruminho/sagadeck#readme",
