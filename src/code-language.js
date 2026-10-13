@@ -11,6 +11,11 @@ const EXTENSIONS = new Map([
   [".mts", "TypeScript"],
   [".cts", "TypeScript"],
   [".cs", "C#"],
+  [".sh", "Bash"],
+  [".bash", "Bash"],
+  [".json", "JSON"],
+  [".jsonc", "JSON"],
+  [".sql", "SQL"],
 ]);
 
 const ALIASES = new Map([
@@ -26,6 +31,13 @@ const ALIASES = new Map([
   ["c#", "C#"],
   ["csharp", "C#"],
   ["cs", "C#"],
+  ["bash", "Bash"],
+  ["shell", "Bash"],
+  ["sh", "Bash"],
+  ["curl", "Bash"],
+  ["json", "JSON"],
+  ["jsonc", "JSON"],
+  ["sql", "SQL"],
 ]);
 
 export function inferCodeLanguage(filename) {
@@ -48,5 +60,6 @@ export function resolveCodeLanguage(language, filename) {
 
 export function displayCodeLanguage(language, filename) {
   const requested = String(language || "").trim();
+  if (requested.toLowerCase() === "curl") return "cURL";
   return normalizeCodeLanguage(requested) || requested || inferCodeLanguage(filename);
 }

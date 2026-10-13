@@ -61,7 +61,8 @@
     const bodyTxt = bodyEl ? bodyEl.value : "";
     let body;
     if (bodyTxt.trim() !== "" && !cfg.request.form) { // upload: a aba Corpo só mostra os campos do formulário
-      try { body = JSON.parse(bodyTxt); }
+      if (cfg.request.bodyEncoding && typeof cfg.request.body === "string") body = bodyTxt;
+      else try { body = JSON.parse(bodyTxt); }
       catch (e) {
         if (typeof cfg.request.body === "string") body = bodyTxt;
         else throw new Error("O corpo não é um JSON válido: " + e.message);

@@ -1,0 +1,39 @@
+/* Aurora Dev: luzes nos cantos, linha orbital e painéis de leitura opacos. A rede ambiente do runtime respeita
+   movimento reduzido, motion: none, troca de slide e exportação sem depender de animação CSS contínua. */
+.th-aurora-dev .orn i:nth-child(1){display:block;right:-220px;top:-300px;width:920px;height:820px;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--hi) 18%,transparent),transparent 66%)}
+.th-aurora-dev .orn i:nth-child(2){display:block;left:-240px;bottom:-340px;width:860px;height:740px;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--em) 12%,transparent),transparent 66%)}
+.th-aurora-dev .ambient{opacity:.4!important;mask-image:linear-gradient(90deg,transparent 15%,#000)}
+.th-aurora-dev .kicker{align-self:flex-start;color:var(--em);border-top:3px double var(--em);padding:14px 0 0;font-size:20px;letter-spacing:.16em}
+.th-aurora-dev .L-cover:not(:has(.cv-fig)) .cv-main,.th-aurora-dev .L-end:not(:has(.en-fig)) .en-main{max-width:1390px;margin:0 auto;width:100%;gap:34px}
+.th-aurora-dev :is(.L-cover,.L-end) .ttl{padding-bottom:32px;background:linear-gradient(90deg,var(--hi),var(--em),transparent) no-repeat left bottom/460px 3px}
+.th-aurora-dev .L-cover .sub{max-width:1200px}
+.th-aurora-dev .L-section{flex-direction:column;justify-content:center;align-items:flex-start;gap:28px}
+.th-aurora-dev .L-section .sc-num{font-family:'IBM Plex Mono',monospace;font-size:72px;line-height:1.2;padding:12px 30px;background:var(--surface);border:1px solid var(--hi);border-radius:100px;color:var(--hi)}
+.th-aurora-dev .L-section .sc-text{flex:none;width:100%;gap:24px}
+.th-aurora-dev .L-section:has(.sc-fig){display:grid;grid-template-columns:1fr 500px;align-content:center;column-gap:50px}
+.th-aurora-dev .L-section .sc-fig{grid-column:2;grid-row:1/span 2;width:500px;height:580px}
+.th-aurora-dev .L-section .sc-num{justify-self:start}
+.th-aurora-dev .hd{padding-bottom:22px;border-bottom:2px solid color-mix(in srgb,var(--hi) 40%,var(--line));gap:18px}
+.th-aurora-dev :is(.card:not(.card-hi),.stat-card,.step-card){background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:inset 0 2px 0 color-mix(in srgb,var(--hi) 22%,transparent),0 16px 45px #0002}
+.th-aurora-dev .cd-ico{border-radius:16px;background:color-mix(in srgb,var(--hi) 13%,var(--surface));color:var(--em)}
+.th-aurora-dev .li-n{color:var(--em);border-bottom:2px solid var(--hi);padding-bottom:8px;font-family:'IBM Plex Mono',monospace}
+.th-aurora-dev .li-b{width:14px;height:14px;background:var(--hi);border:0;border-radius:50%;box-shadow:0 0 0 6px color-mix(in srgb,var(--hi) 15%,transparent)}
+.th-aurora-dev .L-quote{padding:36px 50px;border:1px solid var(--line);background:var(--surface);border-radius:24px}
+.th-aurora-dev .q-mark{color:var(--em)}
+.th-aurora-dev .st-body{padding-left:32px;border-left:3px solid var(--em)}
+.th-aurora-dev .nb-val,.th-aurora-dev .st-val{color:var(--hi);font-family:'Space Grotesk',sans-serif}
+/* É a superfície que separa a sintaxe das luzes; não use transparência no código. */
+.th-aurora-dev :is(.code,.codewalk-editor,.api-req,.api-res){background:#131A30;color:#F1F2FF;border:1px solid #475071;border-radius:20px;box-shadow:0 24px 70px #080B2080}
+.th-aurora-dev .codewalk-bar{background:#202A47;color:#F1F2FF;border-bottom-color:#475071}
+.th-aurora-dev .codewalk-editor .code{color:#F1F2FF;border:0;box-shadow:none}
+.th-aurora-dev :is(.codewalk-language,.codewalk-footer,.cn,.tok-comment,.api-code .cl.cm .cc){color:#B5BBD9}
+.th-aurora-dev .codewalk-footer{border-top-color:#475071}
+.th-aurora-dev .code .cl.hl,.th-aurora-dev .api-code .cl.run{background:#C4ADFF1A;box-shadow:inset 4px 0 #C4ADFF;color:#FFF}
+.th-aurora-dev .tok-keyword,.th-aurora-dev .tok-type{color:#C4ADFF}.th-aurora-dev .tok-string,.th-aurora-dev .tok-operator{color:#83E7EF}.th-aurora-dev .tok-number{color:#FFDCA2}.th-aurora-dev .tok-function{color:#A9C8FF}.th-aurora-dev .tok-constant{color:#FFADCA}.th-aurora-dev .tok-punctuation{color:#D9DCF0}
+.th-aurora-dev :is(.api-run,.lesson-controls button,.nav-back){border-radius:14px;font-family:'Space Grotesk',sans-serif}
+.th-aurora-dev :is(.api-run,.lesson-controls button,.api-tabs button,.nav-back):focus-visible{outline:4px solid var(--em);outline-offset:5px}
+.th-aurora-dev .api-tabs button{color:#B5BBD9}.th-aurora-dev .api-tabs button[aria-selected=true]{color:#F1F2FF}
+.th-aurora-dev :is(.api-hint,.api-meta,.api-auth span,.api-tl-i){color:#B5BBD9}
+.th-aurora-dev .lesson-output{border-top:3px solid var(--hi);border-radius:16px}
+html[data-motion="none"] .th-aurora-dev .ambient,.export .th-aurora-dev .ambient{animation:none}
+@media(prefers-reduced-motion:reduce){.th-aurora-dev .ambient{animation:none}}

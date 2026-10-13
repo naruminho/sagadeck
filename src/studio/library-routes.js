@@ -9,6 +9,7 @@ import { writeDeckFile } from "../deck-file.js";
 import { createExperienceDeck } from "../experiences.js";
 import { demoDeck } from "./demo-decks.js";
 import { DEMO_FILES } from "../api-demo.js";
+import { developerStarter } from "./developer-starters.js";
 
 export async function libraryRoutes({ req, res, pathname, url, W, opts, readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS }) {
   const L = W.library;
@@ -74,6 +75,12 @@ export async function libraryRoutes({ req, res, pathname, url, W, opts, readJSON
       case "/api/library/topics/update": return ok({ id: L.updateTopic(b.id, b) });
       case "/api/library/topics/delete": L.deleteTopic(b.id); return ok();
       case "/api/library/decks": {
+        if (b.starter) {
+          const spec = developerStarter(b.starter, { title: b.title });
+          if (b.theme) spec.theme = b.theme;
+          buildHTML(spec);
+          return ok({ id: L.createDeck(b.topic || "", spec) });
+        }
         // nova: em branco (uma capa) — "com IA" usa /api/library/decks/ai
         const title = String(b.title || "Nova apresentação").trim();
         const id = L.createDeck(b.topic || "", { title, theme: b.theme || "bauhaus", duration: 10,

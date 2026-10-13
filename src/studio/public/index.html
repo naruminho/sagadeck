@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="studio-next.css">
+  <link rel="stylesheet" href="developer-authoring.css">
   <script>
     // Tema da interface antes do primeiro desenho (sem piscar branco no escuro).
     // Preferência: "system" (padrão), "light" ou "dark" — trocada em Exibir › Preferências.
@@ -104,6 +105,7 @@
             <button id="btn-add-slide" class="rsplit-main" title="Novo slide em branco depois deste" aria-label="Novo slide em branco"><i class="ic" data-ic="plus"></i></button>
             <button id="btn-scenes" class="rsplit-more" aria-haspopup="dialog" title="Escolher o tipo do novo slide: código, gráfico, diagrama, status semanal, quiz…"><span>Novo slide</span><i class="ic caret" data-ic="chevron-down"></i></button>
           </div>
+          <button id="btn-developer-slide" class="rbtn rbtn-lg" data-developer-open title="Cole código ou cURL e crie um slide, uma explicação guiada ou uma API executável"><i class="ic" data-ic="braces"></i><span>Código / cURL</span></button>
           <div class="rstack">
             <button id="btn-copy-slide" class="rbtn" title="Copiar slide para outra apresentação (Ctrl+C na lista)"><i class="ic" data-ic="copy"></i><span>Copiar</span></button>
             <button id="btn-paste-slide" class="rbtn" title="Colar slide copiado (Ctrl+V na lista)"><i class="ic" data-ic="clipboard-paste"></i><span>Colar</span></button>
@@ -179,6 +181,7 @@
       <div class="rgroup">
         <div class="rgroup-body">
           <button id="btn-napkin" class="rbtn rbtn-lg" title="Cole um texto e vire um slide visual (etapas, números, comparação…)"><i class="ic" data-ic="workflow"></i><span>Diagrama de texto</span></button>
+          <button class="rbtn rbtn-lg" data-developer-open title="Criar um slide a partir do seu código ou cURL"><i class="ic" data-ic="braces"></i><span>Código / cURL</span></button>
         </div>
         <div class="rgroup-label">A partir de texto</div>
       </div>
@@ -870,6 +873,7 @@
   <script src="art-preview.js"></script>
   <script src="api-collections.js"></script>
   <script src="developer-fields.js"></script>
+  <script src="developer-authoring.js"></script>
   <script src="lab-fields.js"></script>
   <script src="slide-form.js"></script>
   <script src="screenshot-editor.js"></script>

@@ -8,6 +8,52 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## UX para programação e APIs com cURL — 12/10/2026 (branch `codex/ux-dev-slides`, versão 1.10.0)
+
+Pedido: reduzir dificuldade de uso, facilitar geração técnica, acrescentar recursos e dois temas bonitos com
+animação; testar, PR, merge, publicar no npm e atualizar sagadeck-dev. Trabalho somente na pasta oficial,
+sem worktrees, conforme AGENTS.md. Main começou limpa em `46e0afd`, com a CI dos quatro ambientes verde.
+
+Diagnóstico: recursos técnicos existiam, mas começar dependia de descobrir layouts, escrever briefing do zero e
+preencher campos estruturados. cURL era exibido sem realce de sintaxe; demos extensas não eram uma base curta.
+Mudanças:
+- Biblioteca com entradas Programação/APIs com cURL; Nova com IA oferece exemplos de pedidos, material técnico
+  colado, público/objetivo/roteiro opcionais, resumo, prévia do pedido e Ctrl+Enter. Intenção explícita orienta o
+  modelo pelo prompt, sem regras de decisão por regex; texto e estilo manual continuam prioritários.
+- Bases sem IA (`src/studio/developer-starters.js`), cinco slides com exemplo consistente, guia, saída e terminal
+  de cenas. Criação pela biblioteca; a de APIs usa ENSAIO e funciona localmente sem credenciais externas.
+- Início/Inserir › Código / cURL: conteúdo colado vira código, código guiado ou requisição de API. Parser de
+  argumentos sem shell e sem executar; opções não suportadas geram mensagem antes de inserir. Credenciais
+  reconhecidas viram referências a Segredos antes de gravar. Código de exibição é preservado literalmente.
+- Etapas guiadas por seleção de linhas, no modal e em Formatar; linguagem inferida/selecionável; realce offline
+  novo de Bash/cURL, JSON e SQL. Anexos de código/configuração preservam espaços, indentação e linhas em branco.
+- `terminal-pro` (grafite/menta, IDE) e `aurora-dev` (azul noite/lilás/ciano, painéis e luz suave): fontes embutidas,
+  contraste de texto/sintaxe, rede de capa que para fora dela e em movimento reduzido/exportação. Design usa o
+  mesmo caminho existente de tema salvo; nenhum deck pessoal modificado.
+
+Regressões cobrem parser, segredos, código literal, etapas e arquivos gravados, prompts ao LLM, anexos técnicos,
+criação sem IA, escolha dos temas por teclado, contraste, animação, movimento reduzido e exportação. Testes
+direcionados de motor/fontes/guards: 85 aprovados; temas e geração passaram também no navegador.
+Geração com IA real também aprovada: briefing técnico aplica Aurora Dev e mantém o cURL original copiável (62 s).
+Revisão independente achou e reproduziu perdas de inteiros grandes ao proteger JSON e de variáveis na codificação
+do formulário: proteção agora edita só spans sensíveis do texto. Interpolação contextual opt-in
+(`request.bodyEncoding`/`urlEncoding`) mantém JSON/form/query corretos no envio; ensaio HTTP real confere `&`, aspas,
+barras, Unicode, números grandes e máscara de respostas/gravações. URL com Segredo agora é enviada já resolvida.
+Callbacks de upload/geração são invalidados ao trocar/cancelar modal; Tab fica no diálogo e Escape devolve foco.
+Essas regressões falharam antes das correções e passaram depois. Suíte completa iniciada com as frentes estáveis.
+Entrega final aguardando suíte completa e CI; publicação de `sagadeck@1.10.0` por release com trusted publishing.
+Oracle: atualizar apenas `/opt/sagadeck-dev`/`sagadeck-dev.service` (3518), preservando produção. Reiniciar também
+a instância local verificada na 3517 e conferir versão/recursos depois da atualização.
+Retomada em 13/10 após limite da sessão. Suíte inicial: 1.084 testes, 1.054 aprovados, 27 condicionais pulados e
+3 falhas (uma de Python ausente no PATH, uma de rótulo e a contagem do teste pai). Python passou isolado com o
+runtime disponível no PATH; a guarda de palavras grudadas agora reconhece o nome técnico cURL sem enfraquecer
+os demais rótulos. A revisão final também cobre execução pelo navegador preservando corpo JSON literal e comandos
+equivalentes copiáveis com segredos em JSON/form/query. Suíte final concluída: `npm test`, 1.093 testes,
+1.066 aprovados, 27 condicionais pulados, zero falhas (24 min). Geradores de cURL/JavaScript/Python também
+enviaram pedidos reais ao ensaio HTTP. Preview e Formatar mantêm JSON literal; respostas/gravações não permitem
+recuperar segredos mesmo em logs com JSON aninhado. Instância local reiniciada na 3517, versão 1.10.0, com os novos
+módulos/CSS respondendo 200. Código pronto para PR e checks Ubuntu/Windows, Node 22/24, antes de merge/release.
+
 ## Assistente em prévia de modelo na Oracle — 12/10/2026
 
 O erro `APP_UNKNOWN · a4670ccb` da produção era `path.dirname(null)` no preparo dos anexos: modelos abertos

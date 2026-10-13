@@ -285,6 +285,12 @@ navegador, mas não para editar.
 
 ## Slides para devs: API ao vivo
 
+Na biblioteca, **Programação** e **APIs com cURL** abrem a criação com exemplos de pedidos, código colado,
+anexos técnicos e prévia do briefing. Também há duas bases curtas para começar **sem IA**.
+No editor, **Início ou Inserir → Código / cURL** transforma conteúdo colado em código, explicação guiada
+ou requisição de API. Selecione linhas para criar as etapas; Bash/cURL, JSON e SQL têm realce offline.
+Os temas **Terminal Pro** e **Aurora Dev**, em Design, trazem código legível e capas com rede animada.
+
 O layout `api` é um slide tipo Postman: mostra o pedido (URL, corpo, cabeçalhos) e o código equivalente
 (curl, Python e Python comentado), e o botão **Executar** roda o pedido de verdade na frente da plateia:
 síncrono, polling com linha do tempo, streaming, upload, token (JWT decodificado), embeddings, TTS/STT e

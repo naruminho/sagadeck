@@ -134,7 +134,7 @@ test("linguagens de código são inferidas pela extensão e aceitam aliases comu
   assert.equal(normalizeCodeLanguage("Node.js"), "JavaScript");
   assert.equal(resolveCodeLanguage("C#", "main.py"), "C#");
   assert.equal(resolveCodeLanguage("", "main.py"), "Python");
-  assert.equal(resolveCodeLanguage("cURL", "main.py"), "");
+  assert.equal(resolveCodeLanguage("cURL", "main.py"), "Bash");
   assert.equal(displayCodeLanguage("cURL", "main.py"), "cURL");
 });
 
@@ -163,7 +163,9 @@ test("codewalk infere a linguagem, destaca sintaxe e escapa conteúdo do código
 
   const curl = html({ layout: "codewalk", filename: "request.sh", language: "cURL", code: "curl -X GET" });
   assert.match(curl, /class="codewalk-language f-label">cURL/);
-  assert.doesNotMatch(curl, /class="tok tok-/);
+  assert.match(curl, /data-language="Bash"/);
+  assert.match(curl, /tok-function">curl/);
+  assert.match(curl, /tok-keyword">-X/);
 });
 
 test("foco guiado limita regiões à imagem e aceita figura sem dependência externa", () => {

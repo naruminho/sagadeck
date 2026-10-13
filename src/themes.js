@@ -25,6 +25,16 @@ const MUSGO_FACES = {
   quote: { css: "font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; line-height: 1.14;", pptx: { face: "Georgia", italic: true } },
 };
 
+// Desenvolvimento: fontes já embutidas, com corpo de leitura e código sem ligaduras que mudem a pontuação.
+const DEV_FACES = {
+  display: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: -0.045em; line-height: 1.02;", pptx: { face: "Segoe UI", bold: true } },
+  heading: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: -0.025em; line-height: 1.1;", pptx: { face: "Segoe UI Semibold" } },
+  body: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 400; line-height: 1.45;", pptx: { face: "Segoe UI" }, pptxBold: { face: "Segoe UI Semibold" } },
+  label: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.25;`, pptx: { face: "Cascadia Mono" } },
+  mono: { css: `font-family: 'IBM Plex Mono', ${SYS_MONO}; font-weight: 400; font-variant-ligatures: none; line-height: 1.5;`, pptx: { face: "Cascadia Mono" }, pptxBold: { face: "Cascadia Mono SemiBold" } },
+  quote: { css: "font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: -0.02em; line-height: 1.2;", pptx: { face: "Segoe UI" } },
+};
+
 export const THEMES = {
   sinal: {
     label: "Sinal — sinalização/segurança: DIN condensada, amarelo de aviso, pictogramas",
@@ -151,6 +161,44 @@ export const THEMES = {
       quote: { css: `font-family: ${SYS_MONO}; font-style: italic; line-height: 1.2;`, pptx: { face: "Cascadia Mono", italic: true } },
     },
     radius: 6, deco: "grid",
+  },
+
+  "terminal-pro": {
+    label: "Terminal Pro — programação e APIs: grafite, verde menta, janelas de código e rede viva discreta",
+    dark: true,
+    colors: {
+      paper: "0B1118", ink: "EAF5F1", accent: "74E8B4", alert: "FF9C97",
+      muted: "A4B8B4", line: "2B4145", surface: "131E28", surfaceDark: "0D1720",
+      c1: "74E8B4", c2: "83CCF8", c3: "FFCB8A", c4: "CEB4FF", c5: "FF9C97",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "accent", onHi: "0B1118" },
+      dark: { bg: "070D13", fg: "ink", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "accent", onHi: "0B1118" },
+      accent: { bg: "0D211D", fg: "ink", muted: "B2C8BF", line: "31534A", surface: "152F28", hi: "accent", em: "accent", onHi: "0B1118" },
+      alert: { bg: "27151B", fg: "FFF0EC", muted: "DDB9BD", line: "65404A", surface: "382029", hi: "alert", em: "alert", onHi: "0B1118" },
+    },
+    fontFaces: [],
+    faces: DEV_FACES,
+    radius: 12, deco: "none", coverAmbient: "rede",
+  },
+
+  "aurora-dev": {
+    label: "Aurora Dev — desenvolvimento criativo: azul noite, lilás e ciano, painéis luminosos e rede viva",
+    dark: true,
+    colors: {
+      paper: "101329", ink: "F1F2FF", accent: "C4ADFF", alert: "FFADCA",
+      muted: "B5BBD9", line: "394266", surface: "1B2240", surfaceDark: "151B35",
+      c1: "C4ADFF", c2: "83E7EF", c3: "FFADCA", c4: "A9C8FF", c5: "FFDCA2",
+    },
+    tones: {
+      light: { bg: "paper", fg: "ink", muted: "muted", line: "line", surface: "surface", hi: "accent", em: "83E7EF", onHi: "101329" },
+      dark: { bg: "090D20", fg: "ink", muted: "muted", line: "line", surface: "surfaceDark", hi: "accent", em: "83E7EF", onHi: "101329" },
+      accent: { bg: "211737", fg: "ink", muted: "CCC0E5", line: "594572", surface: "302349", hi: "accent", em: "83E7EF", onHi: "101329" },
+      alert: { bg: "301A32", fg: "FFF1F8", muted: "DEC0D4", line: "684C65", surface: "43273F", hi: "alert", em: "alert", onHi: "101329" },
+    },
+    fontFaces: [],
+    faces: DEV_FACES,
+    radius: 24, deco: "none", coverAmbient: "rede",
   },
 
   jornal: {

@@ -6,6 +6,7 @@ import path from "node:path";
 import YAML from "yaml";
 import { browserOrSkip, newPage, startStudio } from "./helpers.js";
 import { packDeck } from "../src/package.js";
+import { startMockLLM } from "./mock-llm.js";
 
 test("biblioteca no Studio", { timeout: 240000 }, async (t) => {
   const browser = await browserOrSkip(t);
@@ -476,6 +477,157 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
   } finally {
     await browser.close();
     await studio.close();
+  }
+});
+
+test("Nova técnica: atalhos, pedido guiado, código original e exemplo sem IA chegam ao arquivo salvo", { timeout: 180000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const source = "async function dobro(n) {\n  return n * 2;\n}\n";
+  const attachment = "GET https://api.exemplo.test/itens\nX-Exemplo: original\n\n";
+  const llm = await startMockLLM((request) => {
+    if (request.system.includes("Você decide PARA QUE SERVE")) return JSON.stringify({ purpose: "palestra", why: "Aula para iniciantes", idioma: "pt" });
+    if (request.lastUser.includes("Decida se o que você JÁ SABE basta")) return JSON.stringify({ pesquisar: false, motivo: "A pessoa forneceu seu código" });
+    if (request.hasImages) return JSON.stringify({ issues: [] });
+    return "```yaml\n" + YAML.stringify({ title: "Meu código explicado", theme: "terminal-pro", purpose: "palestra", slides: [
+      { layout: "cover", title: "Meu código explicado" },
+      { layout: "code", title: "Exemplo original", language: "javascript", code: source, filename: "dobro.js" },
+      { layout: "end", title: "Pratique" },
+    ] }) + "```";
+  });
+  const studio = await startStudio(null, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    let body = null;
+    const generationRequests = [];
+    await p.route("**/api/library/decks/ai", async (route) => { body = JSON.parse(route.request().postData()); generationRequests.push(body); await route.continue(); });
+
+    await t.test("Tab e Shift+Tab ficam no diálogo; Escape devolve o foco ao atalho que abriu", async () => {
+      await p.click('[data-ai-intent="apis"]');
+      try {
+        await p.focus("#dlg-ok");
+        await p.keyboard.press("Tab");
+        assert.equal(await p.evaluate(() => document.activeElement.dataset.intent), "geral", "Tab volta ao primeiro controle do modal");
+        await p.keyboard.press("Shift+Tab");
+        assert.equal(await p.evaluate(() => document.activeElement.id), "dlg-ok", "Shift+Tab volta ao último controle");
+        await p.keyboard.press("Escape");
+        assert.equal(await p.isVisible("#dlg"), false);
+        assert.equal(await p.evaluate(() => document.activeElement.dataset.aiIntent), "apis", "foco devolvido ao botão de origem");
+      } finally { await p.keyboard.press("Escape"); }
+    });
+
+    await t.test("leitura atrasada não toca o diálogo substituído nem a nova sessão depois de cancelar", async () => {
+      for (const action of ["starter", "cancel"]) {
+        let release, began;
+        const pending = new Promise((resolve) => { release = resolve; });
+        const started = new Promise((resolve) => { began = resolve; });
+        const handler = async (route) => {
+          began(); await pending;
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "material-antigo", name: "demo.py", detail: "código (.py)" }) });
+        };
+        await p.route("**/api/ai/context", handler);
+        try {
+          await p.click('[data-ai-intent="apis"]');
+          await p.setInputFiles("#dlg-files", { name: "demo.py", mimeType: "text/plain", buffer: Buffer.from("print('exemplo original')") });
+          await started;
+          assert.equal(await p.isDisabled("#dlg-ok"), true, "o material ainda está sendo lido");
+          if (action === "starter") {
+            await p.click("#dlg-start-example");
+            assert.equal(await p.inputValue("#dlg-name"), "Minha demo de API");
+          } else {
+            await p.click("#dlg [data-cancel]");
+            await p.click('[data-ai-intent="programacao"]');
+          }
+          const done = p.waitForResponse("**/api/ai/context");
+          release(); await done;
+          await p.waitForTimeout(100);
+          if (action === "starter") assert.equal(await p.inputValue("#dlg-name"), "Minha demo de API");
+          else {
+            assert.equal(await p.textContent("#dlg-chips"), "", "o anexo cancelado não migra para o pedido novo");
+            assert.equal(await p.inputValue("#dlg-style"), "terminal-pro");
+          }
+          assert.deepEqual(errors, [], "a resposta antiga não usa os elementos do modal novo");
+          await p.keyboard.press("Escape");
+        } finally { release(); await p.unroute("**/api/ai/context", handler); await p.keyboard.press("Escape"); }
+      }
+    });
+
+    await t.test("atalho de programação abre a intenção e exemplos; trocar o caminho preserva o texto e estilo escolhido", async () => {
+      await p.click('[data-ai-intent="programacao"]');
+      await p.fill("#dlg-brief", "Este pedido foi cancelado e não deve gerar nada.");
+      await p.click("#dlg [data-cancel]");
+      await p.click('[data-ai-intent="programacao"]');
+      assert.equal(await p.getAttribute('[data-intent="programacao"]', "aria-pressed"), "true");
+      assert.equal(await p.inputValue("#dlg-style"), "terminal-pro");
+      await p.fill("#dlg-brief", "Explique meu código para uma aula.");
+      await p.click('.dlg-example:has-text("Código passo a passo")');
+      assert.match(await p.inputValue("#dlg-brief"), /^Explique meu código para uma aula\./);
+      const original = await p.inputValue("#dlg-brief");
+      await p.selectOption("#dlg-style", "manual-noite");
+      await p.click('[data-intent="apis"]');
+      assert.equal(await p.inputValue("#dlg-brief"), original);
+      assert.equal(await p.inputValue("#dlg-style"), "manual-noite", "a escolha de estilo da pessoa prevalece");
+      assert.match(await p.textContent("#dlg-examples"), /Anatomia do cURL/);
+      await p.click('[data-intent="programacao"]');
+      await p.selectOption("#dlg-style", "terminal-pro");
+    });
+
+    await t.test("público, roteiro e código colado aparecem no pedido; arquivo HTTP é aceito", async () => {
+      await p.click("#dlg-refine summary");
+      await p.fill("#dlg-audience", "Devs iniciantes");
+      await p.fill("#dlg-goal", "Entender async/await");
+      await p.selectOption("#dlg-route", "workshop");
+      await p.fill("#dlg-source", source);
+      await p.setInputFiles("#dlg-files", { name: "exemplo.http", mimeType: "text/plain", buffer: Buffer.from(attachment) });
+      await p.waitForFunction(() => /exemplo\.http/.test(document.querySelector("#dlg-chips")?.textContent || "") && !document.querySelector("#dlg-ok").disabled);
+      await p.click(".dlg-preview summary");
+      const preview = await p.textContent("#dlg-preview");
+      assert.match(preview, /Público informado: Devs iniciantes/);
+      assert.match(preview, /Objetivo informado: Entender async\/await/);
+      assert.match(preview, /Roteiro preferido: conceito curto/);
+      assert.ok(preview.includes(source));
+      assert.match(preview, /Anexos: exemplo\.http/);
+    });
+
+    await t.test("Ctrl+Enter gera com o LLM falso, abre o editor e salva conteúdo e material originais", async () => {
+      await Promise.all([p.waitForURL(/\/editor\?deck=/, { timeout: 90000, waitUntil: "commit" }), p.press("#dlg-source", "Control+Enter")]);
+      await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
+      const files = fs.readdirSync(studio.library, { recursive: true });
+      const yaml = files.find((file) => file.endsWith(".yaml"));
+      assert.ok(yaml, "apresentação criada na biblioteca");
+      const saved = YAML.parse(fs.readFileSync(path.join(studio.library, yaml), "utf8"));
+      assert.equal(saved.theme, "terminal-pro");
+      assert.equal(saved.slides[1].code, source);
+      assert.equal(body.style, "terminal-pro");
+      assert.ok(body.briefing.includes(source));
+      assert.match(body.briefing, /Público informado: Devs iniciantes/);
+      assert.equal(body.materials.length, 1);
+      assert.equal(generationRequests.length, 1, "um único pedido: o diálogo cancelado não recebe Ctrl+Enter");
+      const original = files.find((file) => file.endsWith("exemplo.http"));
+      assert.equal(fs.readFileSync(path.join(studio.library, original), "utf8"), attachment);
+      assert.ok(llm.requests.some((request) => request.lastUser.includes(body.briefing)));
+      assert.ok(llm.requests.some((request) => request.lastUser.includes(attachment)));
+    });
+
+    await t.test("os exemplos sem IA criam decks curtos com o tema e recursos no arquivo salvo", async () => {
+      for (const [starter, theme, title] of [["programacao", "terminal-pro", "Código sem IA"], ["apis", "aurora-dev", "API sem IA"]]) {
+        await p.goto(studio.url + "/biblioteca", { waitUntil: "networkidle" });
+        await p.click(`[data-starter="${starter}"]`);
+        await p.fill("#dlg-name", title);
+        await Promise.all([p.waitForURL(/\/editor\?deck=/, { waitUntil: "commit" }), p.click("#dlg-ok")]);
+        await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
+        const decks = fs.readdirSync(studio.library, { recursive: true }).filter((file) => file.endsWith(".yaml")).map((file) => YAML.parse(fs.readFileSync(path.join(studio.library, file), "utf8")));
+        const saved = decks.find((deck) => deck.title === title);
+        assert.equal(saved.theme, theme);
+        assert.ok(saved.slides.length >= 3 && saved.slides.length <= 6);
+        assert.ok(saved.slides.some((slide) => starter === "programacao" ? slide.layout === "codewalk" || slide.layout === "code" : slide.layout === "api"));
+      }
+    });
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+    await llm.close();
   }
 });
 
