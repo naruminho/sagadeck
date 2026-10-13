@@ -1006,6 +1006,11 @@ test("Studio: colar código e cURL sem configurar layouts", async (t) => {
       await p.click('.dev-author-dialog [data-insert]');
       await p.waitForSelector(".dev-author-dialog", { state: "detached" });
       await p.waitForFunction(async title => (await (await fetch("api/deck")).json()).spec.slides.some(s => s.title === title), title);
+      // Salvar e fechar o modal não significa que o formulário terminou de trocar de slide.
+      await p.waitForFunction(title => {
+        const label = [...document.querySelectorAll("#slide-fields-form .sf-label")].find(element => element.textContent.trim() === "Título");
+        return label?.closest(".sf-field")?.querySelector("input, textarea")?.value === title;
+      }, title);
       return saved().slides.find(s => s.title === title);
     };
     await t.test("colar código preserva conteúdo e permite linguagem manual", async () => {
@@ -1062,7 +1067,15 @@ test("Studio: colar código e cURL sem configurar layouts", async (t) => {
       assert.doesNotMatch(fs.readFileSync(deckFile.file, "utf8"), /literal-(token|query|body)/);
       assert.deepEqual(errors, []);
     });
-    await t.test("Formatar mostra e edita o corpo importado sem aspas extras, conservando os números e variáveis", async () => {
+    await t.test("Formatar mostra e edita o corpo importado sem aspas extras, conservando os números e variáveis", async sub => {
+      // A gravação pode chegar antes da renderização. Simula essa latência para conferir o
+      // formulário do slide inserido, sem ler o textarea ainda montado para o slide anterior.
+      const delayedRender = async route => {
+        if (route.request().postDataJSON()?.slide?.title?.startsWith("API para editar")) await new Promise(resolve => setTimeout(resolve, 400));
+        await route.continue();
+      };
+      await p.route("**/api/render-slide", delayedRender);
+      sub.after(() => p.unroute("**/api/render-slide", delayedRender));
       await open();
       const body = '{\n  "id": 9007199254740993,\n  "message": "Olá",\n  "note": "{{note}}"\n}';
       await p.fill("#dev-source", `curl https://example.test/echo --json '${body}'`);
