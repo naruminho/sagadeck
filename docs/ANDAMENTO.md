@@ -57,6 +57,17 @@ Por orientação posterior do usuário, o suporte passa a Node 24+: engines, ins
 CI atualizados, sem mudança no código já aprovado. YAML e metadados conferidos; a nova CI exige Ubuntu e Windows
 com Node 24 antes de merge/release. DEV da Oracle recebeu `135cfd2`, com versão 1.10.0 e ambos os temas disponíveis;
 produção preservada. A publicação npm ainda aguarda merge e CI do commit final.
+PR #197 integrado em `03f9ff4`; local na 3517 e DEV na 3518 reiniciados com esse commit e versão 1.10.0.
+Os dois checks do PR passaram, mas a nova rodada da main encontrou uma corrida no teste de Formatar: o helper
+confirmava a gravação no servidor antes de o formulário do novo slide terminar de renderizar, lendo o corpo
+do slide anterior. Publicação npm suspensa até corrigir e validar essa sincronização. Correção na branch
+`codex/ux-dev-format-sync`; nenhuma mudança no conteúdo das apresentações nem no código da aplicação.
+Atrasar `api/render-slide` em 400 ms reproduziu exatamente a falha da Ubuntu. O helper agora aguarda a
+identidade do formulário pelo campo Título, além da gravação; a mesma regressão passou após o ajuste.
+Seis testes dirigidos aprovados, zero erros JavaScript e corpos JSON/form conferidos também no arquivo salvo.
+Suíte completa após o ajuste: `npm test`, 1.093 testes, 1.066 aprovados, 27 condicionais pulados e zero falhas
+(30 min). A falha da main ficou restrita a essa sincronização; Windows passou. Correção pronta para commit/PR
+e checks Ubuntu/Windows Node 24 antes de integrar e publicar a versão 1.10.0.
 
 ## Assistente em prévia de modelo na Oracle — 12/10/2026
 
