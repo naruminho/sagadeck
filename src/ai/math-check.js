@@ -73,21 +73,40 @@ function inMaterial(claim, source) {
   return (unLatex(source).match(/\d+(?:[.,]\d+)?/g) || []).some((t) => Math.abs(Number(t.replace(",", ".")) - claim.value) < 1e-9);
 }
 
-// pede à IA as contas dos slides indicados (índices 0-based) e confere cada uma
-export async function auditMath(spec, indices, { materials = [], complete = chat, signal } = {}) {
-  const slides = [...new Set(indices)].filter((i) => spec.slides?.[i]).map((i) => ({ slide: i + 1, ...spec.slides[i], uid: undefined }));
-  if (!slides.length) return { checked: [], divergent: [], unchecked: [], material: [] };
-  const source = (materials || []).filter((m) => m && m.kind !== "critica").map((m) => `${m.name || "material"}:\n${m.text || ""}`).join("\n\n").slice(0, 12000);
-  const res = await complete([
+const BATCH = 4; // slides por pedido: o deck inteiro de uma vez estourava o limite de tokens com o raciocínio
+
+// um lote: com raciocínio; se a resposta estourar o limite de tokens, de novo sem raciocínio
+async function auditBatch(slides, source, { complete, signal }) {
+  const messages = [
     { role: "system", content: SYSTEM },
     { role: "user", content: `${source ? `MATERIAL:\n${source}\n\n` : ""}SLIDES (o número é a posição no deck):\n${JSON.stringify(slides)}` },
-  ], { temperature: 0, signal, onDelta: () => {} }); // em streaming: o prazo é de silêncio, não da resposta inteira
+  ];
+  // em streaming: o prazo é de silêncio, não da resposta inteira
+  const ask = (think) => complete(messages, { temperature: 0, signal, onDelta: () => {}, maxTokens: 16000, ...(think ? {} : { think: false }) });
+  let res;
+  try { res = await ask(true); }
+  catch (e) { if (e.code !== "AI_TOKEN_LIMIT" || signal?.aborted) throw e; res = await ask(false); }
   const m = String(res.text || "").match(/\{[\s\S]*\}/);
   if (!m) throw new Error("a conferência das contas voltou sem JSON");
   const raw = JSON.parse(m[0]).contas;
   if (!Array.isArray(raw)) throw new Error("a conferência das contas voltou sem a lista de contas");
+  return raw.slice(0, 20);
+}
+
+// pede à IA as contas dos slides indicados (índices 0-based), em lotes, e confere cada uma
+export async function auditMath(spec, indices, { materials = [], complete = chat, signal } = {}) {
+  const slides = [...new Set(indices)].filter((i) => spec.slides?.[i]).map((i) => ({ slide: i + 1, ...spec.slides[i], uid: undefined }));
+  if (!slides.length) return { checked: [], divergent: [], unchecked: [], material: [] };
+  const source = (materials || []).filter((m) => m && m.kind !== "critica").map((m) => `${m.name || "material"}:\n${m.text || ""}`).join("\n\n").slice(0, 12000);
+  const batches = [];
+  for (let i = 0; i < slides.length; i += BATCH) batches.push(slides.slice(i, i + BATCH));
+  // lotes em paralelo (poucos: um deck de aula tem 2 ou 3); um lote que falha não derruba os outros
+  const results = await Promise.allSettled(batches.map((b) => auditBatch(b, source, { complete, signal })));
+  if (results.every((r) => r.status === "rejected")) throw results[0].reason;
+  const raw = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   const checked = [], divergent = [], unchecked = [], material = [];
-  for (const c of raw.slice(0, 20)) {
+  results.forEach((r, k) => { if (r.status === "rejected") unchecked.push(...batches[k].map((s) => ({ slide: s.slide, oQue: `não conferido (${r.reason?.message || "falhou"})`, afirmado: "", unidade: "", fn: "", vars: {} }))); });
+  for (const c of raw) {
     const n = Number(c?.slide);
     if (!Number.isInteger(n) || !slides.some((s) => s.slide === n)) continue;
     const claim = parseClaim(c.afirmado), computed = evaluateCheck(c);

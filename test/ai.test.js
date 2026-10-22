@@ -1058,6 +1058,27 @@ test("conta do material que não bate vira aviso para conferir com quem escreveu
   assert.match(mathWarning(r.math), /Contas do material que não batem \(confira com quem escreveu; o deck não mudou\): slide 1, 2,57 m \(a conta dá 1,28\d\)/);
 });
 
+test("conferência das contas em lotes: estouro de tokens tenta de novo sem raciocínio e um lote ruim não derruba os outros", async () => {
+  // o deck de aula inteiro (8 slides com conta) de uma vez estourou o limite de tokens e a conferência não aconteceu
+  const { auditMath } = await import("../src/ai/math-check.js");
+  const spec = { slides: Array.from({ length: 9 }, (_, i) => ({ layout: "solution", title: `Ex. ${i + 1}`, answer: { text: `x = ${i + 1}0` } })) };
+  const calls = [];
+  const complete = async (messages, opts) => {
+    const slides = JSON.parse(messages.at(-1).content.split("deck):\n")[1]);
+    calls.push({ slides: slides.map((s) => s.slide), think: opts.think, maxTokens: opts.maxTokens });
+    if (slides[0].slide === 1 && opts.think !== false) throw Object.assign(new Error("A IA atingiu o limite de tokens da resposta."), { code: "AI_TOKEN_LIMIT" });
+    if (slides[0].slide === 9) throw new Error("provedor fora do ar");
+    return { text: JSON.stringify({ contas: slides.map((s) => ({ slide: s.slide, afirmado: `${s.slide}0`, unidade: "", vars: { n: s.slide }, fn: "n*10" })) }) };
+  };
+  const r = await auditMath(spec, spec.slides.map((_, i) => i), { complete });
+  assert.deepEqual(calls.filter((c) => c.think !== false).map((c) => c.slides), [[1, 2, 3, 4], [5, 6, 7, 8], [9]]);
+  assert.deepEqual(calls.filter((c) => c.think === false).map((c) => c.slides), [[1, 2, 3, 4]], "só o lote que estourou repete, sem raciocínio");
+  assert.ok(calls.every((c) => c.maxTokens >= 16000));
+  assert.equal(r.checked.length, 8);
+  assert.deepEqual(r.unchecked.map((u) => u.slide), [9]);
+  assert.match(r.unchecked[0].oQue, /provedor fora do ar/);
+});
+
 test("correção que esquece o número velho num passo ganha segunda rodada, com os campos onde ele aparece", async () => {
   // no deck de aula, uma rodada trocou a resposta e deixou "≈ 55 m" num passo: a conferência pegou de novo
   const { checkMath, locate } = await import("../src/ai/math-check.js");
