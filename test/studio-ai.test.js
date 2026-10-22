@@ -339,6 +339,9 @@ test("studio + IA: avisos da criação no chat e conferência das contas pelo ch
       assert.match(last, /corrigi/i);
       assert.match(last, /Contas conferidas: 1 ok \(1 corrigida\(s\): slide 2, 55 m\)/);
       assert.ok(llm.requests.some((r) => /Você confere as CONTAS/.test(r.system) && /"slide":2/.test(r.lastUser)));
+      // a correção leva a conversa: o que a pessoa disse ("pode corrigir o material") vale na hora de corrigir
+      const fix = llm.requests.findLast((r) => /Conferência das contas/.test(r.lastUser));
+      assert.ok(fix.messages.some((m) => typeof m.content === "string" && /confira as contas da aula/.test(m.content)), "a conversa foi junto");
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

@@ -66,29 +66,36 @@ Responda só JSON {"contas":[{"slide": 4, "o_que": "descrição curta do resulta
 - Fórmula: números com ponto decimal; variáveis com letras simples, sem acento nem chaves (L1, pa, hf, v0); + - * / ^ ( ); funções sqrt, ln, log10, exp, sin, cos, tan, abs, min, max e a constante pi. "vars" são calculadas na ordem e uma pode usar as anteriores.
 - No máximo 20 contas, as respostas finais primeiro. Sem conta no deck: {"contas":[]}.`;
 
+// o número afirmado está escrito no material (a resposta que veio da pessoa)? Conta dela que não bate é aviso para
+// conferir com quem escreveu, nunca correção silenciosa: o deck não contradiz o material sem ela saber
+function inMaterial(claim, source) {
+  if (!claim || !source || (Number.isInteger(claim.value) && Math.abs(claim.value) < 10)) return false;
+  return (unLatex(source).match(/\d+(?:[.,]\d+)?/g) || []).some((t) => Math.abs(Number(t.replace(",", ".")) - claim.value) < 1e-9);
+}
+
 // pede à IA as contas dos slides indicados (índices 0-based) e confere cada uma
 export async function auditMath(spec, indices, { materials = [], complete = chat, signal } = {}) {
   const slides = [...new Set(indices)].filter((i) => spec.slides?.[i]).map((i) => ({ slide: i + 1, ...spec.slides[i], uid: undefined }));
-  if (!slides.length) return { checked: [], divergent: [], unchecked: [] };
+  if (!slides.length) return { checked: [], divergent: [], unchecked: [], material: [] };
   const source = (materials || []).filter((m) => m && m.kind !== "critica").map((m) => `${m.name || "material"}:\n${m.text || ""}`).join("\n\n").slice(0, 12000);
   const res = await complete([
     { role: "system", content: SYSTEM },
     { role: "user", content: `${source ? `MATERIAL:\n${source}\n\n` : ""}SLIDES (o número é a posição no deck):\n${JSON.stringify(slides)}` },
-  ], { temperature: 0, signal });
+  ], { temperature: 0, signal, onDelta: () => {} }); // em streaming: o prazo é de silêncio, não da resposta inteira
   const m = String(res.text || "").match(/\{[\s\S]*\}/);
   if (!m) throw new Error("a conferência das contas voltou sem JSON");
   const raw = JSON.parse(m[0]).contas;
   if (!Array.isArray(raw)) throw new Error("a conferência das contas voltou sem a lista de contas");
-  const checked = [], divergent = [], unchecked = [];
+  const checked = [], divergent = [], unchecked = [], material = [];
   for (const c of raw.slice(0, 20)) {
     const n = Number(c?.slide);
     if (!Number.isInteger(n) || !slides.some((s) => s.slide === n)) continue;
     const claim = parseClaim(c.afirmado), computed = evaluateCheck(c);
     const item = { slide: n, oQue: String(c.o_que || c.oQue || "").slice(0, 160), afirmado: String(c.afirmado ?? ""), unidade: String(c.unidade || ""), fn: String(c.fn || ""), vars: c.vars || {}, ...(computed != null ? { calculado: Number(computed.toPrecision(6)) } : {}) };
     const ok = claimMatches(claim, computed);
-    (ok == null ? unchecked : ok ? checked : divergent).push(item);
+    (ok == null ? unchecked : ok ? checked : inMaterial(claim, source) ? material : divergent).push(item);
   }
-  return { checked, divergent, unchecked };
+  return { checked, divergent, unchecked, material };
 }
 
 const describe = (d) => `- slide ${d.slide}${d.oQue ? ` (${d.oQue})` : ""}: o slide diz ${d.afirmado}${d.unidade ? ` ${d.unidade}` : ""}; a conta dá ${fmt(d.calculado)}${d.unidade ? ` ${d.unidade}` : ""} [${d.fn} com ${JSON.stringify(d.vars)}]`;
@@ -114,13 +121,16 @@ export async function checkMath(spec, { materials = [], only = null, edit, say =
   let first;
   try { first = await auditMath(spec, targets, { materials, complete, signal }); }
   catch (e) { say(`a conferência das contas falhou (${e.message}); sigo com o deck como está`); return { spec, math: { failed: e.message }, actions: [] }; }
-  const math = { checked: first.checked.length, unchecked: first.unchecked, fixed: [], divergent: first.divergent };
-  if (!first.divergent.length || !edit) return { spec, math, actions: [] };
-  say(`${first.divergent.length} conta(s) não bate(m); pedindo a correção…`);
+  const math = { checked: first.checked.length, unchecked: first.unchecked, fixed: [], divergent: first.divergent, material: first.material };
+  if (first.material.length) say(`conta(s) do material que não bate(m), para conferir com quem escreveu: ${first.material.map((d) => `${d.afirmado} ${d.unidade} (slide ${d.slide}; a conta dá ${fmt(d.calculado)})`).join(", ")}`);
+  if ((!first.divergent.length && !first.material.length) || !edit) return { spec, math, actions: [] };
+  if (first.divergent.length) say(`${first.divergent.length} conta(s) não bate(m); pedindo a correção…`);
   let next = spec, actions = [];
-  const repair = dependents(spec, first.divergent);
+  const repair = dependents(spec, [...first.divergent, ...first.material]);
+  // conta do material: quem decide se o slide muda é a autoria do deck (a mesma regra da leitura crítica)
+  const fromMaterial = first.material.length ? `\nEstes números estão escritos no MATERIAL da pessoa e não fecham com os próprios dados:\n${first.material.map(describe).join("\n")}\nSe a pessoa disse na conversa o que fazer com o material (corrigir no slide, só avisar), faça isso. Senão, siga a autoria do deck: em \`autoria: autor\` ou sem autoria definida (a pessoa apresenta o próprio material), mantenha no slide o número do material e explique a divergência nas notes do slide ("Confira: o material traz X; refazendo a conta, dá Y"), com o resto do slide coerente com o material; em \`autoria: livre\`, corrija no slide e diga nas notes que o material traz outro valor.` : "";
   try {
-    const r = await edit({ spec, repairSlides: repair, instruction: `Conferência das contas: refiz estas contas a partir dos dados e o resultado não bate com o que o slide afirma:\n${first.divergent.map(describe).join("\n")}\nRefaça cada conta com cuidado. Se o slide estiver errado, corrija o resultado e TUDO o que depende dele: os passos, a resposta, a frase de conferência da ordem de grandeza, as notes e os gráficos, tabelas e textos de outros slides que usam esse número (um gráfico só compara grandezas da mesma natureza). Se, refazendo, você concluir que o slide estava certo e a conta acima é que está errada, não mude nada e diga por quê. Não mexa em mais nada.` });
+    const r = await edit({ spec, repairSlides: repair, instruction: `Conferência das contas: refiz estas contas a partir dos dados e o resultado não bate com o que o slide afirma:\n${first.divergent.map(describe).join("\n") || "(nenhuma conta sua)"}${fromMaterial}\nRefaça cada conta com cuidado. Se o slide estiver errado, corrija o resultado e TUDO o que depende dele: os passos, a resposta, a frase de conferência da ordem de grandeza, as notes e os gráficos, tabelas e textos de outros slides que usam esse número (um gráfico só compara grandezas da mesma natureza). Se, refazendo, você concluir que o slide estava certo e a conta acima é que está errada, não mude nada e diga por quê. Não mexa em mais nada.` });
     if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = r.actions || []; }
     else if (r.reply) math.reply = String(r.reply).slice(0, 600);
   } catch (e) { say(`a correção das contas falhou (${e.message})`); }
@@ -129,6 +139,7 @@ export async function checkMath(spec, { materials = [], only = null, edit, say =
       const again = await auditMath(next, repair.filter((i) => hasMath(next.slides?.[i])), { materials, complete, signal });
       math.fixed = first.divergent.filter((d) => !again.divergent.some((x) => x.slide === d.slide));
       math.divergent = again.divergent;
+      math.material = [...math.material, ...again.material.filter((d) => !math.material.some((x) => x.slide === d.slide && x.afirmado === d.afirmado))];
     } catch (e) { say(`não consegui conferir de novo (${e.message})`); }
   }
   if (math.divergent.length) say(`Contas que ainda não batem: ${math.divergent.map((d) => `${d.afirmado} ${d.unidade} (slide ${d.slide}; a conta dá ${fmt(d.calculado)})`).join(", ")}.`);
@@ -137,4 +148,8 @@ export async function checkMath(spec, { materials = [], only = null, edit, say =
 }
 
 // texto curto para avisos (chat, relatório): o que não bate
-export const mathWarning = (math) => math?.divergent?.length ? `Contas que não batem: ${math.divergent.map((d) => `slide ${d.slide}, ${d.afirmado}${d.unidade ? ` ${d.unidade}` : ""} (a conta dá ${fmt(d.calculado)})`).join("; ")}` : "";
+const listed = (list) => list.map((d) => `slide ${d.slide}, ${d.afirmado}${d.unidade ? ` ${d.unidade}` : ""} (a conta dá ${fmt(d.calculado)})`).join("; ");
+export const mathWarning = (math) => [
+  math?.divergent?.length ? `Contas que não batem: ${listed(math.divergent)}` : "",
+  math?.material?.length ? `Contas do material que não batem (confira com quem escreveu; o deck não mudou): ${listed(math.material)}` : "",
+].filter(Boolean).join(". ");

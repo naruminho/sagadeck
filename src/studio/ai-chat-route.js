@@ -301,7 +301,8 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           if (only.length) {
             emit({ phase: "step", text: "Conferindo as contas…" });
             const counted = await checkMath(result.spec, { materials, only, signal, say: (t) => emit({ phase: "step", text: t }),
-              edit: (o) => editDeck({ signal, images: false, onProgress: emit, materials, drawCheck: diagramCheck, ...o, spec: withBase(taskWorkspace, o.spec) }) });
+              // a conversa vai junto: o que a pessoa pediu com todas as letras ("pode corrigir o material") vale
+              edit: (o) => editDeck({ signal, images: false, onProgress: emit, materials, drawCheck: diagramCheck, history: [...history, { role: "user", text: prompt }], ...o, spec: withBase(taskWorkspace, o.spec) }) });
             signal.throwIfAborted();
             if (counted.spec !== result.spec) {
               const fixedChanged = counted.spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(result.spec.slides[i]) ? i : -1)).filter((i) => i >= 0);

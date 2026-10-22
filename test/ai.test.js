@@ -1031,6 +1031,33 @@ test("conta que continua sem bater depois da correção vira aviso (e o aviso sa
   } finally { reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("conta do material que não bate vira aviso para conferir com quem escreveu, sem correção silenciosa", async () => {
+  // a resposta da lista da professora (hf = 2,57 m) não fecha com os próprios dados (dá 1,29 m): o deck não pode
+  // contradizer o material sem ela saber; uma conta da IA errada no mesmo deck continua indo para correção
+  const { checkMath, mathWarning } = await import("../src/ai/math-check.js");
+  const materials = [{ name: "aula.pptx", text: "Exercício 3. [R: f = 0,023; D = 0,2; v = 0,605 m/s; hf = 2,57 m]" }];
+  const spec = { slides: [
+    { layout: "solution", title: "Ex. 3", problem: "f = 0,023, L = 600 m, D = 0,2 m, v = 0,605 m/s", answer: { latex: "h_f \\approx 2{,}57\\ \\mathrm{m}" } },
+    { layout: "table", title: "Sensibilidade", head: ["f", "v"], rows: [["0,020", "≈0,67"]] },
+  ] };
+  const complete = async () => ({ text: JSON.stringify({ contas: [
+    { slide: 1, o_que: "perda de carga", afirmado: "2,57", unidade: "m", vars: { f: 0.023, L: 600, D: 0.2, v: 0.605, g: 9.81 }, fn: "f*L/D*v^2/(2*g)" },
+    { slide: 2, o_que: "velocidade com f = 0,020", afirmado: "0,67", unidade: "m/s", vars: { v0: 0.605, k: "(0.020/0.023)^0.2" }, fn: "v0/k^2" },
+  ] }) });
+  const edits = [];
+  const r = await checkMath(spec, { materials, complete, edit: async (o) => { edits.push(o); return { talk: true, reply: "ok" }; } });
+  assert.deepEqual(r.math.material.map((d) => d.afirmado), ["2,57"]);
+  assert.deepEqual(r.math.divergent.map((d) => d.afirmado), ["0,67"]);
+  assert.equal(edits.length, 1);
+  // a do material vai à parte, com a regra da autoria (autor: o número fica e a divergência vai nas notes)
+  const [mine, theirs] = edits[0].instruction.split("Estes números estão escritos no MATERIAL");
+  assert.doesNotMatch(mine, /2,57/, "a conta do material não entra como erro da IA");
+  assert.match(theirs, /slide 1 \(perda de carga\): o slide diz 2,57 m/);
+  assert.match(theirs, /autoria: autor.*mantenha no slide o número do material.*notes/s);
+  assert.match(edits[0].instruction, /0,67 m\/s; a conta dá 0,639\d m\/s/);
+  assert.match(mathWarning(r.math), /Contas do material que não batem \(confira com quem escreveu; o deck não mudou\): slide 1, 2,57 m \(a conta dá 1,28\d\)/);
+});
+
 test("chat: a IA pede a conferência das contas com contas: true ou contas: [n], junto ou não de mudanças", async () => {
   const spec = { title: "Aula", slides: [
     { layout: "cover", title: "Sifões" },
