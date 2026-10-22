@@ -98,15 +98,31 @@ export async function auditMath(spec, indices, { materials = [], complete = chat
   return { checked, divergent, unchecked, material };
 }
 
-const describe = (d) => `- slide ${d.slide}${d.oQue ? ` (${d.oQue})` : ""}: o slide diz ${d.afirmado}${d.unidade ? ` ${d.unidade}` : ""}; a conta dá ${fmt(d.calculado)}${d.unidade ? ` ${d.unidade}` : ""} [${d.fn} com ${JSON.stringify(d.vars)}]`;
+const numberRe = (afirmado) => new RegExp(`(?<![\\d.,])${unLatex(afirmado).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d]|[.,]\\d)`);
+
+// onde o número aparece no slide ("answer.text", "steps[5].latex", "notes"): a correção que mexia só na resposta
+// deixava o número velho num passo ou nas notes
+export function locate(slide, afirmado) {
+  if (!/\d/.test(String(afirmado))) return [];
+  const re = numberRe(afirmado), out = [];
+  const walk = (v, at) => {
+    if (typeof v === "string" || typeof v === "number") { if (re.test(unLatex(String(v)))) out.push(at); return; }
+    if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${at}[${i}]`));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) if (k !== "uid") walk(x, at ? `${at}.${k}` : k);
+  };
+  walk(slide, "");
+  return out;
+}
+
+const where = (spec, d) => { const at = locate(spec.slides?.[d.slide - 1], d.afirmado); return at.length ? `; aparece em ${at.join(", ")}` : ""; };
+const describeIn = (spec) => (d) => `- slide ${d.slide}${d.oQue ? ` (${d.oQue})` : ""}: o slide diz ${d.afirmado}${d.unidade ? ` ${d.unidade}` : ""}; a conta dá ${fmt(d.calculado)}${d.unidade ? ` ${d.unidade}` : ""} [${d.fn} com ${JSON.stringify(d.vars)}]${where(spec, d)}`;
 
 // slides que citam o número errado (o gráfico, o resumo, a frase de conferência): entram na correção também
 function dependents(spec, divergent) {
   const out = new Set(divergent.map((d) => d.slide - 1));
   for (const d of divergent) {
-    const num = unLatex(d.afirmado).trim();
-    if (!/\d/.test(num)) continue;
-    const re = new RegExp(`(?<![\\d.,])${num.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d]|[.,]\\d)`);
+    if (!/\d/.test(String(d.afirmado))) continue;
+    const re = numberRe(d.afirmado);
     (spec.slides || []).forEach((s, i) => { if (re.test(unLatex(strip(s)))) out.add(i); });
   }
   return [...out].sort((a, b) => a - b);
@@ -124,23 +140,28 @@ export async function checkMath(spec, { materials = [], only = null, edit, say =
   const math = { checked: first.checked.length, unchecked: first.unchecked, fixed: [], divergent: first.divergent, material: first.material };
   if (first.material.length) say(`conta(s) do material que não bate(m), para conferir com quem escreveu: ${first.material.map((d) => `${d.afirmado} ${d.unidade} (slide ${d.slide}; a conta dá ${fmt(d.calculado)})`).join(", ")}`);
   if ((!first.divergent.length && !first.material.length) || !edit) return { spec, math, actions: [] };
-  if (first.divergent.length) say(`${first.divergent.length} conta(s) não bate(m); pedindo a correção…`);
-  let next = spec, actions = [];
-  const repair = dependents(spec, [...first.divergent, ...first.material]);
-  // conta do material: quem decide se o slide muda é a autoria do deck (a mesma regra da leitura crítica)
-  const fromMaterial = first.material.length ? `\nEstes números estão escritos no MATERIAL da pessoa e não fecham com os próprios dados:\n${first.material.map(describe).join("\n")}\nSe a pessoa disse na conversa o que fazer com o material (corrigir no slide, só avisar), faça isso. Senão, siga a autoria do deck: em \`autoria: autor\` ou sem autoria definida (a pessoa apresenta o próprio material), mantenha no slide o número do material e explique a divergência nas notes do slide ("Confira: o material traz X; refazendo a conta, dá Y"), com o resto do slide coerente com o material; em \`autoria: livre\`, corrija no slide e diga nas notes que o material traz outro valor.` : "";
-  try {
-    const r = await edit({ spec, repairSlides: repair, instruction: `Conferência das contas: refiz estas contas a partir dos dados e o resultado não bate com o que o slide afirma:\n${first.divergent.map(describe).join("\n") || "(nenhuma conta sua)"}${fromMaterial}\nRefaça cada conta com cuidado. Se o slide estiver errado, corrija o resultado e TUDO o que depende dele: os passos, a resposta, a frase de conferência da ordem de grandeza, as notes e os gráficos, tabelas e textos de outros slides que usam esse número (um gráfico só compara grandezas da mesma natureza). Se, refazendo, você concluir que o slide estava certo e a conta acima é que está errada, não mude nada e diga por quê. Não mexa em mais nada.` });
-    if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = r.actions || []; }
-    else if (r.reply) math.reply = String(r.reply).slice(0, 600);
-  } catch (e) { say(`a correção das contas falhou (${e.message})`); }
-  if (next !== spec) {
+  let next = spec, actions = [], wrong = first.divergent, theirs = first.material;
+  // até 2 rodadas: a correção às vezes troca a resposta e esquece o número velho num passo ou nas notes
+  for (let round = 1; round <= 2 && (wrong.length || (round === 1 && theirs.length)); round++) {
+    if (wrong.length) say(`${wrong.length} conta(s) não bate(m); pedindo a correção${round > 1 ? " de novo" : ""}…`);
+    const describe = describeIn(next);
+    const repair = dependents(next, [...wrong, ...theirs]);
+    // conta do material: quem decide se o slide muda é o pedido da pessoa ou a autoria do deck (a regra da leitura crítica)
+    const fromMaterial = round === 1 && theirs.length ? `\nEstes números estão escritos no MATERIAL da pessoa e não fecham com os próprios dados:\n${theirs.map(describe).join("\n")}\nSe a pessoa disse na conversa o que fazer com o material (corrigir no slide, só avisar), faça isso. Senão, siga a autoria do deck: em \`autoria: autor\` ou sem autoria definida (a pessoa apresenta o próprio material), mantenha no slide o número do material e explique a divergência nas notes do slide ("Confira: o material traz X; refazendo a conta, dá Y"), com o resto do slide coerente com o material; em \`autoria: livre\`, corrija no slide e diga nas notes que o material traz outro valor.` : "";
+    const before = next;
+    try {
+      const r = await edit({ spec: next, repairSlides: repair, instruction: `Conferência das contas${round > 1 ? " (a correção anterior não pegou tudo: o número errado continua nos campos indicados)" : ""}: refiz estas contas a partir dos dados e o resultado não bate com o que o slide afirma:\n${wrong.map(describe).join("\n") || "(nenhuma conta sua)"}${fromMaterial}\nRefaça cada conta com cuidado. Se o slide estiver errado, corrija o resultado em TODOS os campos onde ele aparece e tudo o que depende dele: os passos, a resposta, a frase de conferência da ordem de grandeza, as notes e os gráficos, tabelas e textos de outros slides que usam esse número (um gráfico só compara grandezas da mesma natureza). Se, refazendo, você concluir que o slide estava certo e a conta acima é que está errada, não mude nada e diga por quê. Não mexa em mais nada.` });
+      if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = [...actions, ...(r.actions || [])]; }
+      else if (r.reply) math.reply = String(r.reply).slice(0, 600);
+    } catch (e) { say(`a correção das contas falhou (${e.message})`); }
+    if (next === before) break;
     try {
       const again = await auditMath(next, repair.filter((i) => hasMath(next.slides?.[i])), { materials, complete, signal });
-      math.fixed = first.divergent.filter((d) => !again.divergent.some((x) => x.slide === d.slide));
-      math.divergent = again.divergent;
-      math.material = [...math.material, ...again.material.filter((d) => !math.material.some((x) => x.slide === d.slide && x.afirmado === d.afirmado))];
-    } catch (e) { say(`não consegui conferir de novo (${e.message})`); }
+      math.fixed = [...math.fixed, ...wrong.filter((d) => !again.divergent.some((x) => x.slide === d.slide && x.afirmado === d.afirmado))];
+      wrong = math.divergent = again.divergent;
+      theirs = again.material.filter((d) => !math.material.some((x) => x.slide === d.slide && x.afirmado === d.afirmado));
+      math.material = [...math.material, ...theirs];
+    } catch (e) { say(`não consegui conferir de novo (${e.message})`); break; }
   }
   if (math.divergent.length) say(`Contas que ainda não batem: ${math.divergent.map((d) => `${d.afirmado} ${d.unidade} (slide ${d.slide}; a conta dá ${fmt(d.calculado)})`).join(", ")}.`);
   else if (math.fixed.length) say(`conta(s) corrigida(s): ${math.fixed.map((d) => `slide ${d.slide}`).join(", ")}`);

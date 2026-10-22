@@ -1058,6 +1058,32 @@ test("conta do material que não bate vira aviso para conferir com quem escreveu
   assert.match(mathWarning(r.math), /Contas do material que não batem \(confira com quem escreveu; o deck não mudou\): slide 1, 2,57 m \(a conta dá 1,28\d\)/);
 });
 
+test("correção que esquece o número velho num passo ganha segunda rodada, com os campos onde ele aparece", async () => {
+  // no deck de aula, uma rodada trocou a resposta e deixou "≈ 55 m" num passo: a conferência pegou de novo
+  const { checkMath, locate } = await import("../src/ai/math-check.js");
+  const spec = { slides: [{ layout: "solution", title: "Ex. 1", problem: "Folga 2,73 m, perda 0,01 m/m", steps: [{ text: "Divida.", latex: "L = 2{,}73/0{,}01 \\approx 55" }], answer: { text: "cerca de 55 m" }, notes: "só 55 m sobem" }] };
+  assert.deepEqual(locate(spec.slides[0], "55"), ["steps[0].latex", "answer.text", "notes"]);
+  const complete = async (messages) => {
+    const slides = messages.at(-1).content;
+    return { text: JSON.stringify({ contas: [{ slide: 1, o_que: "comprimento", afirmado: /≈ ?55|approx 55|cerca de 55/.test(slides) ? "55" : "273", unidade: "m", vars: { a: 2.73, j: 0.01 }, fn: "a/j" }] }) };
+  };
+  const edits = [];
+  const edit = async (o) => {
+    edits.push(o.instruction);
+    const s = structuredClone(o.spec);
+    if (edits.length === 1) { s.slides[0].answer.text = "cerca de 273 m"; s.slides[0].notes = "só 273 m sobem"; } // esqueceu o passo
+    else s.slides[0].steps[0].latex = "L = 2{,}73/0{,}01 \\approx 273";
+    return { spec: s, actions: [] };
+  };
+  const r = await checkMath(spec, { complete, edit });
+  assert.equal(edits.length, 2);
+  assert.match(edits[0], /aparece em steps\[0\]\.latex, answer\.text, notes/);
+  assert.match(edits[1], /a correção anterior não pegou tudo/);
+  assert.match(edits[1], /aparece em steps\[0\]\.latex$/m);
+  assert.equal(r.math.divergent.length, 0);
+  assert.match(r.spec.slides[0].steps[0].latex, /273/);
+});
+
 test("chat: a IA pede a conferência das contas com contas: true ou contas: [n], junto ou não de mudanças", async () => {
   const spec = { title: "Aula", slides: [
     { layout: "cover", title: "Sifões" },
