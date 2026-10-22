@@ -8,6 +8,29 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Painel Revisar › Conferência — 22/10/2026 (branch `claude/laughing-ritchie-81bb23`, sobre `claude/conferir-contas`)
+
+Continuação da conferência das contas (abaixo): os achados das checagens tinham aviso, mas não tinham lugar nem
+botão (relatório num arquivo, uma mensagem do chat na primeira abertura, selo de origem na miniatura). Agora:
+- Revisar › **Conferência** (ao lado de Mudanças), com selo da contagem pendente: por slide, contas que não batem,
+  contas do material que não fecham, números sem base no material, avisos da revisão visual, figuras do material sem
+  slide e slides `derivado`/`proprio`. Montado no servidor (`src/studio/conference.js`) a partir do relatório
+  (`.sagadeck/avaliacao-geracao.json`) e do deck atual; achado que o deck já não tem (o número saiu do slide, o
+  slide não existe) some sozinho. Tela em `src/studio/public/conference-ui.js`.
+- Por item: Ir ao slide; **Corrigir com IA** (pedido pontual no chat; conta vai com `contas: [n]` no corpo do pedido
+  e o Studio confere depois da resposta, mesmo que a IA não peça); **Ignorar** (`decisoes` no relatório). O que não
+  dá para conferir sozinho (aviso visual, figura, origem) sai do painel ao ir para o chat (`enviado`).
+- Toda conferência das contas pelo chat grava o resultado no relatório (`recordMath`): conta corrigida sai do painel.
+- **Conferir de novo** (`/api/conferencia/conferir`): contas (`checkMath` só auditando), números (`unsupportedNumbers`,
+  o núcleo do `checkNumbers`) e figuras (`uncoveredVisuals`) no deck atual; sem IA, confere o que não precisa dela.
+- As pendências vão junto de cada pedido ao chat (`editDeck({ pending })`, bloco PENDÊNCIAS DA CONFERÊNCIA
+  AUTOMÁTICA); o ignorado não vai, nem quando a mensagem antiga dos avisos está na conversa. REFERENCIA atualizada.
+Testes: `ai.test.js` (itens, ignorar, recordMath, Conferir de novo com e sem IA) e `studio-ai.test.js` (o painel
+usado como a pessoa usaria: selo, Conferir de novo, Ignorar, Corrigir com IA numa conta e num slide da IA,
+conferindo deck salvo, relatório e o que foi ao modelo; zero erros JS). Ícones Lucide novos: list-checks,
+calculator, hash, image-off. Suíte completa: `npm test`, 1.116 testes, 1.087 aprovados, 29 condicionais pulados, zero falhas.
+Falta: PR empilhado sobre o #201 (`claude/conferir-contas`), CI verde, merge.
+
 ## Conferência das contas — 22/10/2026 (branch `claude/conferir-contas`, worktree `../sagadeck-conferir-contas`)
 
 Origem: deck de aula criado na Oracle (Hidráulica, Aula 5, conta da Mary) saiu com "L₁ ≈ 55 m" num exercício cuja
