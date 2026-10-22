@@ -226,3 +226,32 @@ test('chat: "confere as contas desse exercício" faz a IA pedir a conferência (
   const r = await editDeck({ spec: CONTA_ERRADA(), instruction: "confere as contas desse exercício", targetSlide: 1 });
   assert.ok(r.contas === "all" || r.contas?.includes(1), `não pediu a conferência: ${r.reply} ${JSON.stringify(r.contas)}`);
 });
+
+// Unidades: o slide esqueceu de converter L/s para m³/s e a velocidade saiu 1000 vezes maior. Exercício genérico.
+test("conferência das contas com unidades: o modelo põe as unidades nas vars e o código pega a conversão esquecida", opts, async () => {
+  const { auditMath } = await import("../src/ai/math-check.js");
+  const spec = { slides: [{ layout: "solution", title: "Velocidade na adutora", problem: "Uma adutora de 25 cm de diâmetro leva 30 L/s de água. Qual a velocidade média?",
+    givens: [{ symbol: "Q", value: "30", unit: "L/s" }, { symbol: "D", value: "25", unit: "cm" }], find: "v",
+    steps: [{ text: "Velocidade é vazão dividida pela área.", latex: "v = \\frac{4Q}{\\pi D^2} = \\frac{4\\cdot 30}{\\pi\\cdot 0{,}25^2} \\approx 611\\ \\mathrm{m/s}" }],
+    answer: { latex: "v \\approx 611\\ \\mathrm{m/s}" } }] };
+  const r = await auditMath(spec, [0]);
+  const all = [...r.divergent, ...r.checked, ...r.unchecked];
+  const v = r.divergent.find((d) => d.afirmado.replace(",", ".").startsWith("611"));
+  assert.ok(v, `não acusou o 611 m/s: ${JSON.stringify(all)}`);
+  assert.ok(Math.abs(v.calculado - 0.611) < 0.01, `a conta com unidades deveria dar 0,611 m/s: ${JSON.stringify(v)}`);
+});
+
+// Contas do material: uma lista com gabarito que não fecha com os próprios dados vira item da leitura crítica.
+test("leitura crítica confere as contas do material com o modelo de verdade", opts, async () => {
+  const { critiqueMaterials } = await import("../src/ai/critique.js");
+  const lista = `Lista 2 — Hidrostática e vazão.
+Exercício 1. Um tanque com 12 m³ de água esvazia por uma tubulação com vazão constante de 0,05 m³/s. Quanto tempo leva para esvaziar? [R: t = 600 s]
+Exercício 2. Uma tubulação de 0,10 m de diâmetro transporta 15 L/s. Qual a velocidade média? [R: v = 1,91 m/s]
+Exercício 3. Qual a pressão a 4 m de profundidade num reservatório de água (peso específico 9,81 kN/m³), sem contar a atmosfera? [R: p = 39,2 kPa]
+${"Revise a matéria da aula antes de resolver. ".repeat(160)}`;
+  const c = await critiqueMaterials([{ name: "lista2.pdf", text: lista, inventory: { items: [] } }], { briefing: "aula de hidráulica" });
+  const contas = c.itens.filter((i) => /Conta do material não fecha/.test(i.titulo));
+  assert.equal(contas.length, 1, `esperava só o exercício 1 (600 s; a conta dá 240 s): ${JSON.stringify(c.itens.map((i) => i.titulo))}`);
+  assert.match(contas[0].texto, /600/);
+  assert.match(contas[0].texto, /240/);
+});
