@@ -5,6 +5,7 @@
 //   <nome>.yaml          a apresentação (sem campos internos da máquina de quem salvou)
 //   imagens/, widgets/…  os arquivos, nos mesmos caminhos relativos do YAML
 //   assets/              arquivos que estavam FORA da pasta do deck (o YAML do pacote aponta para cá)
+//   .sagadeck/geracao.json  o pedido que originou a apresentação com IA, quando existe
 //   FALTANDO.txt         o que o deck usa mas não existia ao salvar
 //
 // Também abre um .zip comum com um .yaml dentro (versão sem manifesto).
@@ -93,6 +94,9 @@ export async function packDeck(spec, { baseDir, name = "apresentacao", generator
     if (size <= budget) { root.file(q.rel, fs.readFileSync(q.abs)); files.push(q.rel); budget -= size; }
     else skipped.push(q.rel);
   }
+  // o pedido que originou a apresentação (src/studio/generation-request.js) viaja junto, para auditar depois
+  const request = path.join(dir, ".sagadeck", "geracao.json");
+  if (fs.existsSync(request)) { root.file(".sagadeck/geracao.json", fs.readFileSync(request)); files.push(".sagadeck/geracao.json"); }
   for (const a of assets) {
     if (a.exists) { root.file(a.rel, fs.readFileSync(a.abs)); files.push(a.rel); }
     else missing.push(a.ref);
