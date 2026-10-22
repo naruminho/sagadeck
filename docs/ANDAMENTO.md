@@ -33,9 +33,19 @@ Feito:
 Testes: `ai.test.js` (filtro, aritmética, geração corrige e avisa, campo contas), `studio-ai.test.js` (avisos no
 chat e correção pelo chat conferida no deck salvo, zero erros JS), `quality-direction.test.js`, e ao vivo
 (`SAGADECK_LIVE=1`): o modelo real achou 600 s → 240 s e pediu `contas:` sozinho no chat.
-Falta: suíte completa, Studio local (3517) com a versão nova para validação dela; depois PR, CI, merge, deploy na
-Oracle (produção estava na 1.9.0) e pedir à IA do sagadeck, no deck da conta da Mary, que confira as contas (a
-correção dos slides 21 e 22 deve ser feita pela IA, não à mão).
+Ensaios com o modelo real no deck da Mary (só em memória, nada gravado) mostraram mais três coisas, já tratadas:
+número que está no material e não fecha (o 2,57 m da lista dela; a conta dá 1,29 m) vai à parte e segue o pedido
+da pessoa ou a autoria (autor: fica no slide com "Confira" nas notes); a correção às vezes esquece o número velho
+num passo (agora diz os campos onde ele aparece e tem segunda rodada); o deck inteiro de uma vez estourava tokens
+(agora lotes de 4 slides, nova tentativa sem raciocínio, lote ruim vira "não conferido"). O 4º ensaio corrigiu
+slides 21 (273 m), 22 (gráfico refeito: 945 cm disponíveis, sobra 273 cm), 26 (tabela) e 30 (resumo); achou também
+erros que ninguém tinha visto (velocidades da tabela do slide 26). A correção pelo chat leva a conversa: "pode
+corrigir o material" da pessoa vale sobre a regra da autoria.
+Suíte completa: `npm test`, 1.108 testes, 1.079 aprovados, 29 condicionais pulados, zero falhas. Studio local na
+3517 rodando `c65772e` a partir desta worktree, para validação dela.
+Falta (depois do ok dela): PR, CI verde, merge, deploy na Oracle (produção estava na 1.9.0) e, no deck da conta da
+Mary, pedir à IA do sagadeck pelo chat que confira e corrija as contas (inclusive as do material: a aula é dela e
+ela autorizou caprichar), corrija os avisos da criação e melhore a aula. A correção é da IA, não à mão.
 
 ## UX para programação e APIs com cURL — 12/10/2026 (branch `codex/ux-dev-slides`, versão 1.10.0)
 
