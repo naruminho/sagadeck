@@ -135,7 +135,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        so: { type: "array", items: { type: "string", enum: ["texto", "visao", "imagem", "pesquisa", "video"] }, description: "Só estes recursos (padrão: todos)" },
+        so: { type: "array", items: { type: "string", enum: ["texto", "visao", "imagem", "pesquisa", "video", "conferencia"] }, description: "Só estes recursos (padrão: todos)" },
         rapido: { type: "boolean", description: "Pula geração de imagem e vídeo (os lentos e cobrados)" },
         video_real: { type: "boolean", description: "Gera um clipe curto de verdade e confere o MP4 (cobrado; leva minutos)" },
       },

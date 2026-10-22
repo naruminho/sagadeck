@@ -27,9 +27,9 @@ test("tudo certo: cada recurso com o seu modelo, o resultado avisado assim que c
   try {
     const avisos = [];
     const rep = await iaCheck({ cfg: cfgOf(llm), env: {}, seed: 5, onResult: (r) => avisos.push(r.id) });
-    assert.deepEqual(status(rep), { texto: "ok", visao: "ok", imagem: "ok", pesquisa: "ok", video: "nao_configurado" });
+    assert.deepEqual(status(rep), { texto: "ok", visao: "ok", imagem: "ok", pesquisa: "ok", video: "nao_configurado", conferencia: "nao_configurado" });
     assert.equal(rep.ok, true, "sem configuração não é falha");
-    assert.equal(avisos.length, 5);
+    assert.equal(avisos.length, 6);
     const modelos = Object.fromEntries(llm.requests.map((r) => [r.body.model, true]));
     for (const m of ["texto-m", "visao-m", "imagem-m", "busca-m:online"]) assert.ok(modelos[m], `chamou ${m}`);
     const img = rep.resultados.find((r) => r.id === "imagem");
@@ -81,7 +81,27 @@ test("imagem, texto e pesquisa: o motivo de cada falha; sem IA configurada, sem 
   try { assert.equal((await iaCheck({ only: ["pesquisa"], cfg: cfgOf(sem, { searchModel: "" }), env: {} })).resultados[0].status, "nao_configurado"); assert.equal(sem.requests.length, 0); }
   finally { await sem.close(); }
   // --rapido: sem os lentos e cobrados
-  assert.deepEqual((await iaCheck({ rapido: true, cfg: { url: "" }, env: {} })).resultados.map((r) => r.id), ["texto", "visao", "pesquisa"]);
+  assert.deepEqual((await iaCheck({ rapido: true, cfg: { url: "" }, env: {} })).resultados.map((r) => r.id), ["texto", "visao", "pesquisa", "conferencia"]);
+});
+
+test("conferência: o modelo para conferir, quando é outro que o de texto, faz uma conta com resposta conhecida", async () => {
+  const llm = await startMockLLM((r) => (/17 × 23/.test(r.lastUser) ? (r.body.model === "conferente-m" ? "391" : "17 vezes 23 dá 401") : "pronto"));
+  try {
+    const [ok] = (await iaCheck({ only: ["conferencia"], cfg: cfgOf(llm, { checkModel: "conferente-m" }), env: {} })).resultados;
+    assert.deepEqual([ok.status, ok.modelo], ["ok", "conferente-m"]);
+    const q = llm.requests.at(-1);
+    assert.equal(q.body.model, "conferente-m");
+    assert.ok(q.body.max_tokens >= 2000 && !q.body.reasoning, "com raciocínio e espaço para ele, como na conferência de verdade");
+    const [ruim] = (await iaCheck({ only: ["conferencia"], cfg: cfgOf(llm, { checkModel: "outro-m" }), env: {} })).resultados;
+    assert.equal(ruim.status, "falhou");
+    assert.match(ruim.detalhe, /esperado: 391/);
+    // sem modelo próprio (o mesmo do texto): nada a testar além do texto, sem chamada
+    const n = llm.requests.length;
+    const [sem] = (await iaCheck({ only: ["conferencia"], cfg: cfgOf(llm, { checkModel: "texto-m" }), env: {} })).resultados;
+    assert.equal(sem.status, "nao_configurado");
+    assert.match(sem.detalhe, /usam o de texto/);
+    assert.equal(llm.requests.length, n);
+  } finally { await llm.close(); }
 });
 
 // provedor de vídeo simulado: catálogo opcional, job, consulta e download
@@ -157,7 +177,7 @@ test("a imagem do teste de visão é um PNG válido, com duas cores sempre difer
   assert.equal(png.readUInt32BE(16), 10);
   for (let s = 0; s < 12; s++) { const [a, b] = colorsFor(s); assert.notEqual(a, b); }
   assert.equal(new Set(Array.from({ length: 12 }, (_, s) => colorsFor(s).join())).size, 12, "12 combinações");
-  assert.deepEqual(Object.keys(CHECKS), ["texto", "visao", "imagem", "pesquisa", "video"]);
+  assert.deepEqual(Object.keys(CHECKS), ["texto", "visao", "imagem", "pesquisa", "video", "conferencia"]);
 });
 
 test("linha de comando: --json para máquina e código de saída 1 quando algo falha", async () => {

@@ -76,7 +76,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
   sagadeck autofix <deck.yaml> [--out=pasta]   auto-corrige sobreposições, margens e excesso de texto no YAML
   sagadeck diff <a.yaml> <b.yaml> [--json]      o que entrou, saiu, mudou e andou entre dois decks (por uid)
   sagadeck enxugar <deck.yaml> [--fix]          palavras por slide contra o limite do material (--fix: excedente para as notas)
-  sagadeck ia-check [--rapido] [--so=texto,visao,imagem,pesquisa,video] [--video-real] [--json]
+  sagadeck ia-check [--rapido] [--so=texto,visao,imagem,pesquisa,video,conferencia] [--video-real] [--json]
                                    testa a IA configurada, sem tela: cada recurso com uma chamada de verdade, todos ao
                                    mesmo tempo, cada resultado assim que chega. --rapido pula imagem e vídeo; vídeo, por
                                    padrão, só confere chave e catálogo; --video-real gera um clipe curto (é cobrado).
