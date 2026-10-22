@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import YAML from "yaml";
-import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, tempDeck, listenSafe } from "./helpers.js";
 
 async function services() {
   const hits = [];
@@ -27,7 +27,7 @@ async function services() {
     }
     res.end("[]");
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  await listenSafe(server);
   return { hits, url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((r) => server.close(r)) };
 }
 const until = async (p, fn, what, ms = 8000) => { for (let t = 0; t < ms / 100; t++) { if (await fn()) return; await p.waitForTimeout(100); } assert.fail(`não aconteceu: ${what}`); };
