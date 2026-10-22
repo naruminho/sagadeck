@@ -20,3 +20,18 @@ test('revisor e auditor recebem direção pedida e consideram hierarquia visual 
   assert.match(JSON.stringify(calls[0]),/requests/, 'revisão compara os recursos da sequência, não só os títulos');
   assert.ok(calls[1].find(m=>m.role==='user').content.some(p=>p.type==='image_url'),'auditor visual confere a imagem em vez de aceitar alegação de corte sem olhar');
 });
+
+test('auditor descarta achado que se contradiz e desproporção que os valores do gráfico desmentem',async()=>{
+  // num deck de aula, a revisão disse que a barra de 120 cm era "menor" que a de 12 cm (a foto mostrava o contrário) e
+  // que uma fórmula "subtrai em vez de descontar"; os dois avisos passaram pela confirmação
+  const calls=[];
+  const complete=async messages=>{calls.push(messages);return {text:JSON.stringify(calls.length===1?{issues:['A barra destacada (120 cm) é menor que a de 12 cm']}:{confirmed:[]})};};
+  const slide={layout:'chart',title:'Balanço',chart:{chart:'bar',data:[{label:'a',value:12},{label:'b',value:120}],highlight:[1]}};
+  const result=await reviewExperience({slides:[slide]},[0],{snapshot:async()=>[{label:'Final',dataUrl:'data:image/png;base64,a'}],complete});
+  assert.deepEqual(result.issues,[]);
+  assert.match(JSON.stringify(calls[0]),/compare o tamanho das barras com os valores do slide/);
+  assert.match(JSON.stringify(calls[0]),/cite as duas e diga qual termo difere/);
+  assert.match(JSON.stringify(calls[1]),/achado que se contradiz/);
+  assert.match(JSON.stringify(calls[1]),/barra é proporcional ao valor/);
+  assert.match(JSON.stringify(calls[1]),/value[\\"]*:120/,'o auditor recebe os valores do slide');
+});
