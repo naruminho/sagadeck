@@ -794,6 +794,21 @@ test("checagem de números: o que não está no material volta para a IA (arredo
   assert.deepEqual(unsupportedNumbers(spec, []), []);
 });
 
+test("checagem de números: resultado de conta (≈ 55 m) e decimal em LaTeX (9{,}45) não escapam por serem pequenos", async () => {
+  // um deck de aula saiu com "L ≈ 55 m" (o certo era 273 m) e a checagem nem viu o número: inteiro de 2 dígitos era
+  // ignorado e "9{,}45" do LaTeX virava "9" e "45"
+  const { unsupportedNumbers } = await import("../src/ai/document-visuals.js");
+  const material = [{ name: "aula.pptx", text: "Pressão atmosférica local igual a 92,65 kN/m². Ponto alto a 5,4 m. Exercício 2." }];
+  const spec = { slides: [
+    { layout: "solution", title: "Exercício 2", problem: "Pressão de 92,65 kN/m², ponto a 5,4 m",
+      steps: [{ text: "Converta.", latex: "\\frac{92{,}65}{9{,}81} = 9{,}45\\ \\mathrm{m} \\Rightarrow L \\le 5{,}4 \\cdot 2 \\approx 55\\ \\mathrm{m}" }],
+      answer: { latex: "L_{max} \\approx 55\\ \\mathrm{m}", text: "cerca de 55 m sobem; 3 passos" } },
+  ] };
+  const got = unsupportedNumbers(spec, material).map((b) => b.number);
+  for (const n of ["9,81", "9,45", "55"]) assert.ok(got.includes(n), `${n} conferido (veio ${got})`);
+  for (const n of ["92,65", "5,4", "2", "3"]) assert.ok(!got.includes(n), `${n} não é resultado nem está fora do material`);
+});
+
 test("Criar com IA confere os números contra o material e pede a correção do que não tem base", async () => {
   const doc = { name: "paper.pdf", text: "O teste de ANOVA deu p inferior a 0,05 para as duas linhas.", detail: "pdf", inventory: { items: [] } };
   const n = llm.requests.length;
@@ -946,4 +961,88 @@ test("Criar com IA: a IA pergunta antes de escrever e o inventário do documento
     assert.match(gen.question.question, /apresentado ou enviado/);
     assert.ok(cancelado, "o inventário foi cancelado");
   } finally { reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("conferência das contas: a fórmula da IA é calculada pelo código e comparada com o slide", async () => {
+  const { evaluateCheck, claimMatches, parseClaim, hasMath } = await import("../src/ai/math-check.js");
+  const conta = { vars: { D: 0.3, f: 0.026, g: 9.81, v: "sqrt(2*g*7.5*D/(f*750))" }, fn: "(D/f)*(2*g/v^2)*(92.65/9.81 - 5.4 - v^2/(2*g) - 1.2)" };
+  const x = evaluateCheck(conta);
+  assert.ok(Math.abs(x - 272.9) < 0.1, `calculou ${x}`);
+  assert.equal(claimMatches(parseClaim("55"), x), false, "55 m não é 273 m");
+  assert.equal(claimMatches(parseClaim("273"), x), true);
+  assert.equal(claimMatches(parseClaim("0{,}107"), evaluateCheck({ vars: { v: 1.505 }, fn: "pi*0.3^2/4*v" })), true, "decimal do LaTeX e arredondamento");
+  assert.equal(claimMatches(parseClaim("1,51"), 1.5046), true, "arredondado nas casas do slide");
+  assert.equal(evaluateCheck({ fn: "a*2" }), null, "letra sem valor: não dá para conferir");
+  assert.equal(evaluateCheck({ vars: { "x.y": 1 }, fn: "1" }), null);
+  assert.equal(claimMatches(parseClaim("cerca de"), 3), null);
+  assert.deepEqual(parseClaim("1.403,5"), { value: 1403.5, decimals: 1 });
+  assert.ok(hasMath({ layout: "solution", title: "x" }));
+  assert.ok(hasMath({ layout: "split", body: "Q = 0,107 m³/s" }));
+  assert.ok(!hasMath({ layout: "statement", text: "Uma ideia" }));
+});
+
+// A IA da geração deixou "L ≈ 55 m" (a própria conta dava 273 m) e um gráfico que citava o número errado
+const contaDeck = () => "Pronto.\n```yaml\nslides:\n  - { layout: cover, title: Sifões }\n  - layout: solution\n    title: Exercício 1\n    problem: Folga de 2,73 m e perda de 0,01 m por metro. Qual o comprimento máximo?\n    steps:\n      - { text: Divida a folga pela perda por metro., latex: \"L = 2{,}73 / 0{,}01\" }\n    answer: { latex: 'L \\approx 55\\ \\mathrm{m}', text: cerca de 55 m de tubo }\n  - { layout: split, title: O limite, body: \"Só cerca de 55 m de tubo podem subir.\" }\n  - { layout: end, title: Fim }\n```";
+const contaAudit = (req) => {
+  const slides = req.lastUser;
+  const afirmado = /\b273\b/.test(slides) ? "273" : "55";
+  const contas = [{ slide: 2, o_que: "comprimento máximo", afirmado, unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" }];
+  if (/"slide":3/.test(slides)) contas.push({ slide: 3, o_que: "comprimento que sobe", afirmado, unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" });
+  return JSON.stringify({ contas });
+};
+
+test("Criar com IA refaz as contas: o que não bate volta para a IA corrigir, com os slides que citam o número", async () => {
+  const n = llm.requests.length;
+  reply = (req) => /Você confere as CONTAS/.test(req.system) ? contaAudit(req)
+    : /Conferência das contas/.test(req.lastUser) ? "Corrigi.\n```yaml\nedit:\n  2:\n    answer: { latex: 'L \\approx 273\\ \\mathrm{m}', text: cerca de 273 m de tubo }\n  3:\n    body: Só cerca de 273 m de tubo podem subir.\n```"
+    : contaDeck();
+  const r = await generateDeck("Aula sobre sifões", { images: false });
+  const fix = genReqs(n).find((q) => /Conferência das contas/.test(q.lastUser));
+  assert.ok(fix, "pediu a correção");
+  assert.match(fix.lastUser, /slide 2 \(comprimento máximo\): o slide diz 55 m; a conta dá 273 m/);
+  assert.match(r.spec.slides[1].answer.text, /273 m/);
+  assert.match(r.spec.slides[2].body, /273 m/, "o slide que citava o número errado também foi corrigido");
+  assert.equal(r.math.divergent.length, 0);
+  // o slide 3 não tem conta (só cita o número): entrou na correção por citar o 55, não pela conferência
+  assert.deepEqual(r.math.fixed.map((d) => d.slide), [2]);
+  // a conferência foi uma etapa da geração, com raciocínio (sem think: false)
+  const audit = genReqs(n).find((q) => /Você confere as CONTAS/.test(q.system));
+  assert.match(audit.lastUser, /"slide":2/);
+  assert.doesNotMatch(audit.lastUser, /"slide":1,/, "capa sem conta não vai para a conferência");
+});
+
+test("conta que continua sem bater depois da correção vira aviso (e o aviso sai no relatório da criação)", async () => {
+  reply = (req) => /Você confere as CONTAS/.test(req.system) ? JSON.stringify({ contas: [{ slide: 2, o_que: "comprimento máximo", afirmado: "55", unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" }] })
+    : /Conferência das contas/.test(req.lastUser) ? "A conta do slide está certa, não mudei." : contaDeck();
+  const r = await generateDeck("Aula sobre sifões", { images: false });
+  assert.equal(r.math.divergent.length, 1);
+  assert.match(r.math.reply, /está certa/);
+  const { saveGenReport, generationNotice } = await import("../src/studio/generation-report.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-rel-"));
+  try {
+    saveGenReport(dir, { ...r, quality: { issues: [{ slide: 3, text: "rótulo cortado" }] } });
+    const saved = JSON.parse(fs.readFileSync(path.join(dir, ".sagadeck", "avaliacao-geracao.json"), "utf8"));
+    assert.equal(saved.math.divergent[0].afirmado, "55");
+    assert.equal(saved.avisado, false);
+    const notice = generationNotice(dir);
+    assert.match(notice, /Contas que não batem: slide 2, 55 m \(a conta dá 273\)/);
+    assert.match(notice, /Slide 3: rótulo cortado/);
+    assert.equal(generationNotice(dir), null, "o aviso sai uma vez só");
+  } finally { reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("chat: a IA pede a conferência das contas com contas: true ou contas: [n], junto ou não de mudanças", async () => {
+  const spec = { title: "Aula", slides: [
+    { layout: "cover", title: "Sifões" },
+    { layout: "solution", title: "Exercício 1", problem: "Folga de 2,73 m e perda de 0,01 m por metro.", steps: [{ text: "Divida.", latex: "L = 2{,}73/0{,}01" }], answer: { latex: "L \\approx 55\\ \\mathrm{m}" } },
+  ] };
+  reply = () => "Vou conferir.\n```yaml\ncontas: true\n```";
+  const asked = await editDeck({ spec, instruction: "Confere as contas da aula" });
+  assert.equal(asked.contas, "all");
+  assert.equal(asked.changed.length, 0);
+  reply = () => "```yaml\ncontas: [2]\nedit:\n  1:\n    title: Sifões e trechos sifonados\n```";
+  const both = await editDeck({ spec, instruction: "Muda a capa e confere o exercício" });
+  assert.deepEqual(both.contas, [1]);
+  assert.match(llm.requests.at(-1).messages.map((m) => typeof m.content === "string" ? m.content : "").join("\n"), /CONFERIR AS CONTAS/, "o chat ensina a pedir a conferência");
+  reply = () => "ok";
 });
