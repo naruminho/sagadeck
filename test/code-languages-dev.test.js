@@ -47,6 +47,6 @@ test("slides de código e guia aplicam realce técnico offline", () => {
     const out = buildHTML({ slides: [{ layout, title: "Chamada", filename: "pedido.sh", code: "curl --fail https://example.test", steps: [{ title: "Chamar", highlight: [1] }] }] });
     assert.deepEqual(out.warnings, []);
     assert.match(out.html, /tok-function[^>]*>curl/);
-    assert.match(out.html, /tok-keyword[^>]*>--fail/);
+    assert.match(out.html, /tok-keyword[^>]*>(?:<span class="hy">-<\/span>){2}fail/); // hífen sem quebra de linha (markup.js: noHyphenBreak)
   }
 });

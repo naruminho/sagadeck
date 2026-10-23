@@ -9,7 +9,7 @@ import katex from "katex";
 import { formatNumber, decimalSeparator } from "./locale.js";
 import fs from "node:fs";
 import path from "node:path";
-import { md, esc, plain } from "./markup.js";
+import { md, esc, plain, noHyphenBreak } from "./markup.js";
 import { iconSVG } from "./figures/icons.js";
 import { picto } from "./figures/pictos.js";
 import { diagram } from "./figures/diagrams.js";
@@ -551,7 +551,7 @@ export function stats(e, ctx) {
         ${iconHtml}
         ${trendHtml}
       </div>
-      <div class="st-val t f-display" style="${valColor}">${md(String(st.value ?? st.stat ?? ""))}</div>
+      <div class="st-val t f-display" style="${valColor}">${md(`${st.prefix ?? ""}${st.value ?? st.stat ?? ""}${st.suffix ?? ""}`)}</div>
       ${st.label ? `<div class="st-lab t f-heading">${md(st.label)}</div>` : ""}
       ${st.text ? `<div class="st-sub t f-body">${md(st.text)}</div>` : ""}
     </div>`;
@@ -619,7 +619,7 @@ export function code(e) {
   const language = resolveCodeLanguage(e.language, e.filename);
   const lines = language ? highlightCode(source, language) : source.split("\n").map(esc);
   const hl = new Set([].concat(e.highlight || []));
-  const body = lines.map((l, i) => `<div class="cl${hl.has(i + 1) ? " hl" : ""}"><span class="cn">${i + 1}</span><span class="cc">${l || " "}</span></div>`).join("");
+  const body = lines.map((l, i) => `<div class="cl${hl.has(i + 1) ? " hl" : ""}"><span class="cn">${i + 1}</span><span class="cc">${noHyphenBreak(l) || " "}</span></div>`).join("");
   return `<div${attrs(e, "code f-mono", `font-size:${e.size || 34}px;`)}${language ? ` data-language="${esc(language)}"` : ""}>${body}</div>`;
 }
 

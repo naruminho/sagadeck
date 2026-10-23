@@ -93,7 +93,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `hub` | `kicker, title, question, options: [{icon, title, text, meta, goto}], cols, build` | mapa de caminhos: cada opção leva (`goto`) à parte da apresentação daquele caminho; ver [Navegação por caminhos](#navegação-por-caminhos-hub-goto-back-next) |
 | `onepage` | `kicker, title, subtitle, journey: [texto ou {icon, title, text, goto}], journeyTitle, problem: {title, text, numbers: [{value, label}], items}, solution: {…}, dashboard: {numbers: [{value, label, trend, title}], figures: [gráfico ou ufmap, com title]}` | tudo numa página (jornada, problema, solução, painel); ver [One-page](#one-page-onepage) |
 | `status` | `kicker, title, health: ok\|risco\|atrasado, healthLabel, progress (0–100), highlight, done, doing, blocked, risks, upcoming: [texto ou {text, owner, due}], shots: [{image, caption}]` | status semanal; ver [Status semanal](#status-semanal-status) |
-| `stats` | `title, stats: [{value, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
+| `stats` | `title, stats: [{value, prefix, suffix, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag, more}], highlight, after, build` | linha do tempo; `more` põe um botão + no marco que abre um balão (ver abaixo) |
 | `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
 | `table` | `title, head, rows, style, color, highlight, total, side, caption, source` | tabela de verdade nas cores do tema |

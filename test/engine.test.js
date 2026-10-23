@@ -165,7 +165,7 @@ test("codewalk infere a linguagem, destaca sintaxe e escapa conteúdo do código
   assert.match(curl, /class="codewalk-language f-label">cURL/);
   assert.match(curl, /data-language="Bash"/);
   assert.match(curl, /tok-function">curl/);
-  assert.match(curl, /tok-keyword">-X/);
+  assert.match(curl, /tok-keyword"><span class="hy">-<\/span>X/); // hífen sem quebra de linha (noHyphenBreak)
 });
 
 test("foco guiado limita regiões à imagem e aceita figura sem dependência externa", () => {
@@ -477,6 +477,19 @@ test("variedade: deck repetitivo é apontado com o motivo", () => {
   assert.match(all, /listas\/cartões/);
   assert.match(all, /nenhum slide de impacto/);
   assert.match(all, /mesmo tom/);
+});
+
+// Rodada de uso real: o guia de Git (purpose: consulta) saiu com "nenhum slide de impacto", e a referência diz que
+// consulta não leva número de impacto nem slide só de título. Repetição e pouca variedade continuam valendo.
+test("variedade: material de consulta não é cobrado de impacto, respiro nem tom; repetição continua", () => {
+  const slides = [{ layout: "cover" }, card(1), card(2), card(3), card(4), { layout: "list" }, { layout: "list" }, { layout: "end" }];
+  const all = varietyReport({ purpose: "consulta", slides }).problems.join(" | ");
+  assert.doesNotMatch(all, /nenhum slide de impacto|listas\/cartões|mesmo tom/);
+  assert.match(all, /4 slides seguidos no mesmo layout/);
+  assert.match(all, /layouts diferentes/);
+  const guide = [{ layout: "cover" }, { layout: "agenda" }, { layout: "diagram" }, { layout: "codewalk" }, { layout: "code" }, { layout: "table" }, { layout: "compare" }, { layout: "dossier" }, { layout: "references" }];
+  assert.deepEqual(varietyReport({ purpose: "consulta", slides: guide }).problems, [], "o guia variado passa");
+  assert.match(varietyReport({ purpose: "palestra", slides: guide }).problems.join(" | "), /nenhum slide de impacto/, "numa palestra, cobra");
 });
 
 test("variedade: deck variado passa (inclusive o deck de teste)", () => {
@@ -966,4 +979,36 @@ test("exercício resolvido: símbolo com índice de várias letras (p_atm) fica 
   assert.match(out, /p_\{atm\} = 92\{,\}65/);
   assert.match(out, /h_f = 3/);
   assert.match(out, /p_\{B\} = 1/);
+});
+
+// Rodada de uso real (23/10/2026): o pitch saiu com "12" e "4" no lugar de "12 h" e "4%". A IA usou prefix/suffix nos
+// indicadores, como no number, no gráfico e no contador, mas o stats ignorava os dois e o número mudava de sentido.
+test("stats: prefixo e sufixo do valor aparecem (4% não vira 4)", () => {
+  const out = html({ layout: "stats", title: "O custo de hoje", stats: [{ value: 12, suffix: " h", label: "por semana" }, { value: 4, suffix: "%", label: "taxa de erro" }, { value: "180", prefix: "R$ ", suffix: " mil", label: "investimento" }, { value: 3, label: "analistas" }] });
+  const vals = [...out.matchAll(/<div class="st-val[^>]*>([^<]*)<\/div>/g)].map((m) => m[1]);
+  assert.deepEqual(vals, ["12 h", "4%", "R$ 180 mil", "3"]);
+});
+
+// Rodada de uso real: "git commit --amend --no-edit" saía quebrado em "--no-" / "edit" no código que quebra linha
+// (quem copia do slide digita errado). O hífen ganha um "word joiner" pelo CSS; o texto do código não muda.
+test("código: o hífen não é ponto de quebra de linha, e o texto do código continua o mesmo", async () => {
+  const { noHyphenBreak } = await import("../src/markup.js");
+  assert.equal(noHyphenBreak('git <span class="tok-flag">--no-edit</span> a-b'), 'git <span class="tok-flag"><span class="hy">-</span><span class="hy">-</span>no<span class="hy">-</span>edit</span> a<span class="hy">-</span>b');
+  const plainText = (s) => s.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const dossier = html({ layout: "dossier", title: "Cola", items: [{ title: "Esqueci um arquivo", code: "git add a.txt\ngit commit --amend --no-edit" }] });
+  assert.match(dossier, /<span class="hy">-<\/span><span class="hy">-<\/span>no<span class="hy">-<\/span>edit/);
+  assert.equal(plainText(dossier.match(/<pre class="adaptive-code[^>]*>([^]*?)<\/pre>/)[1]), "git add a.txt\ngit commit --amend --no-edit");
+  const block = html({ layout: "code", title: "x", code: "git reset --soft HEAD~1", language: "bash" });
+  const lines = [...block.matchAll(/<span class="cc">([^]*?)<\/span><\/div>/g)].map((m) => plainText(m[1]));
+  assert.deepEqual(lines, ["git reset --soft HEAD~1"]);
+  assert.ok(fs.readFileSync(path.join(ROOT, "src", "runtime", "base.css"), "utf8").includes('.hy::after{content:"\\2060"}'), "o CSS põe o word joiner depois do hífen");
+});
+
+// Rodada de uso real: no tema editorial, as barras em destaque (color: hi) saíram rosa-claro, quase sumindo no papel,
+// e as de fundo (muted) mais fortes que elas. A marca do gráfico usa a versão do hi com contraste, como o texto.
+test("gráfico: barra pintada com hi usa a versão com contraste (--hi-ink), não o marca-texto claro", () => {
+  const svg = chart({ chart: "bar", data: [{ label: "Carga", value: 48, color: "hi" }, { label: "Cultura", value: 38, color: "muted" }], suffix: "%" });
+  assert.match(svg, /fill:var\(--hi-ink,var\(--hi\)\)/);
+  assert.match(svg, /fill:var\(--muted\)/);
+  assert.doesNotMatch(svg, /fill:var\(--hi\)[;"]/);
 });
