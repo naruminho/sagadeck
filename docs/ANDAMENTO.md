@@ -8,7 +8,13 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## Enviar cópia para outra pessoa — 23/10/2026 (branch `claude/cranky-bell-62ec04`)
+## 1.11.3 — 23/10/2026 (branch `claude/versao-1.11.3`)
+
+Junta o envio de cópia para outra pessoa (#217), o Corrigir tudo (#218) e os testes ao vivo a cada 3 versões (#216).
+Primeira versão múltipla de 3: `node scripts/ai-live-ci.mjs --na-release` rodou antes de publicar, 27 de 27 de primeira
+(16 min). No Oracle, a Narumi entra em `--admins` do sagadeck e do sagadeck-dev para ver o Enviar cópia para….
+
+Enviar cópia para outra pessoa — 23/10/2026 (branch `claude/cranky-bell-62ec04`)
 
 A versão revisada da aula da Mary foi posta na biblioteca dela à mão, por SSH como root (copiar a pasta, trocar o
 título, `chown`). Agora quem administra o servidor multiusuário faz isso pelo navegador: menu do cartão › **Enviar cópia

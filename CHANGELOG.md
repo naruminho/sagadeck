@@ -4,6 +4,18 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.3] — 23/10/2026
+
+### Novidades
+- **Enviar cópia para…** (Studio multiusuário): quem administra manda uma cópia de uma apresentação para a biblioteca de
+  outra pessoa, como apresentação nova "(versão revisada)", sem substituir nada dela. A conversa, as versões e o
+  relatório de avisos não vão junto. Quem administra: `--admins` (ou `SAGADECK_ADMINS`); sem isso, os `--agentes`.
+- **Corrigir tudo com IA** no painel Revisar › Conferência: manda num pedido só as pendências que ainda valem,
+  agrupadas por slide.
+- **Testes com o modelo de verdade a cada 3 versões**: antes de publicar uma versão múltipla de 3,
+  `node scripts/ai-live-ci.mjs --na-release` roda a bateria, repete o que falhar e resume; o que falhar duas vezes se
+  corrige antes de publicar. Na CI, só pelo botão (Actions › ai-live). Nesta versão: 27 de 27 de primeira.
+
 ## [1.11.2] — 23/10/2026
 
 ### Correções
