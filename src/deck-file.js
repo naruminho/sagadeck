@@ -80,8 +80,15 @@ export function deckText(spec, currentText) {
         const have = doc.toJS() || {};
         if (same(have, want)) return currentText; // nada mudou: o arquivo fica intocado
         syncMap(doc, doc.contents, have, want);
-        const text = keepOriginalSpacing(currentText, doc.toString({ lineWidth: 0 }));
-        if (same(YAML.parse(text), want)) return text;
+        // sem quebra (arquivo escrito à mão, linhas longas) e com a quebra em 80 colunas (o formato que o sagadeck
+        // grava): fica a reemissão que mais preserva as linhas do arquivo. Só uma largura desfazia as quebras de
+        // todo texto longo e regravava o arquivo inteiro por causa de um título.
+        const kept = new Set(currentText.split("\n"));
+        const changedLines = (t) => t.split("\n").filter((l) => !kept.has(l)).length;
+        const text = [0, 80].map((lineWidth) => keepOriginalSpacing(currentText, doc.toString({ lineWidth })))
+          .filter((t) => same(YAML.parse(t), want))
+          .sort((a, b) => changedLines(a) - changedLines(b))[0];
+        if (text != null) return text;
       }
     } catch { /* cai na escrita completa */ }
   }
