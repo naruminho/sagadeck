@@ -26,7 +26,8 @@ pula de versão em versão.
 ### Correções
 - **Checagem de números**: resultado pequeno ("≈ 55 m") e decimal do LaTeX (`9{,}45`) não escapam mais.
 - **Revisão visual**: a confirmação descarta achado que se contradiz e desproporção que os valores do gráfico desmentem.
-- **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide.
+- **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide; conversão feita
+  à mão para a unidade do resultado (`*1000` para L/s) não é convertida de novo.
 - Índice de várias letras nos dados do exercício (`p_atm`) e marcas do formato de ferramenta (`</parameter>`) no chat.
 - **Painel**: aviso visual de slide que já mudou aparece como possivelmente resolvido; o selo não consulta o
   servidor a cada troca de slide.
