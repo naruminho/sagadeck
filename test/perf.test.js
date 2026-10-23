@@ -30,11 +30,16 @@ test("Studio com 200 slides: abre, mostra as miniaturas e troca de slide sem tra
   try {
     const t0 = Date.now();
     const { page: p, errors } = await newPage(browser, studio.url);
+    // trocar de slide não consulta a Conferência: a consulta a cada troca deixava a primeira troca ~2 s mais lenta
+    let conferencias = 0;
+    p.on("request", (r) => { if (r.url().includes("/api/conferencia")) conferencias++; });
     await p.waitForFunction(() => document.querySelectorAll(".thumb-card").length === 200, null, { timeout: 60000 });
     await p.waitForSelector("#rendered-slide-container .slide");
     const open = Date.now() - t0;
     assert.ok(open < 45000, `abriu em ${open} ms`);
     // trocar de slide: o do meio, o último, e voltar (cada troca redesenha só o slide atual)
+    await p.waitForTimeout(900); // a consulta da abertura (debounce de 700 ms) já passou
+    conferencias = 0;
     const times = [];
     for (const i of [120, 199, 3, 60]) {
       const s = Date.now();
@@ -43,6 +48,8 @@ test("Studio com 200 slides: abre, mostra as miniaturas e troca de slide sem tra
       await p.waitForSelector("#rendered-slide-container .slide");
       times.push(Date.now() - s);
     }
+    await p.waitForTimeout(900);
+    assert.equal(conferencias, 0, "navegar entre slides não consulta a Conferência");
     assert.ok(Math.max(...times) < 4000, `trocas de slide: ${times.join(", ")} ms`);
     t.diagnostic(`abrir: ${open} ms; trocas: ${times.join(", ")} ms`);
     assert.deepEqual(errors, []);

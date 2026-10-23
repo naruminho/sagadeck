@@ -23,6 +23,10 @@ nas notes) e depois os avisos da criação (slides 5, 6, 9, 11, 15, 16, 18, 22).
   O relatório guarda a impressão digital de cada slide (`slideMarks`; relatório antigo usa a versão mais antiga
   guardada em `.sagadeck/versoes/`): aviso de slide que mudou aparece como "o slide mudou; confira se ainda vale" e
   não vai mais à IA como pendência.
+- o selo da Conferência consultava o servidor a cada troca de slide; agora só quando o deck é salvo (e na abertura
+  e no fim de cada pedido ao chat). `perf.test.js` conta as consultas durante a navegação (falhou com 4, passa com 0).
+  O teste de desempenho com 200 slides também falha às vezes nesta máquina com uma troca de 4–5 s, inclusive em
+  commits de antes destas mudanças (`3c18855`, `df0f7df`): instabilidade da máquina, não regressão (a CI passa).
 Testes em `ai.test.js` e `engine.test.js`; os ajustes falham sem o conserto.
 
 ## Arquivo travado no Windows — 23/10/2026 (branch `claude/rename-windows`)
