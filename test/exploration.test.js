@@ -295,3 +295,20 @@ test('calculadora com duas curvas e comparação mantém resultados dentro da á
     assert.deepEqual(errors, []);
   } finally { await browser.close(); deck.cleanup(); }
 });
+
+test('foto da revisão mede os rótulos dos desenhos SVG do deck: pequenos demais aparecem com o tamanho', async t => {
+  // num deck de aula, o desenho da IA tinha fonte 24 num viewBox de 1000 e, na coluna do split, o rótulo saía com
+  // 19 px numa tela de 1920 (o texto do slide tem 28 ou mais); a revisão por imagem só dizia "pouco legível"
+  const browser=await browserOrSkip(t);if(!browser)return;await browser.close();
+  const svg=(size)=>`<svg viewBox="0 0 1000 520" xmlns="http://www.w3.org/2000/svg"><rect x="40" y="160" width="180" height="320" fill="none" stroke="currentColor"/><text x="60" y="150" font-size="${size}">N.A.</text><text x="600" y="300" font-size="${size}">C</text></svg>`;
+  const deck=(size)=>({theme:'manual',slides:[{layout:'split',title:'Bernoulli entre A e C',body:'Tomando A na superfície do reservatório.',figure:{svg:svg(size)}}]});
+  try {
+    const [small]=await slideSnapshots(deck(24),0);
+    assert.deepEqual(small.state.tinyText.map((x)=>x.text),['N.A.','C']);
+    assert.ok(small.state.tinyText.every((x)=>x.px<20),JSON.stringify(small.state.tinyText));
+    const [big]=await slideSnapshots(deck(64),0);
+    assert.deepEqual(big.state.tinyText,[],'fonte grande no viewBox: rótulo legível');
+    const [chart]=await slideSnapshots({theme:'manual',slides:[{layout:'chart',title:'Barras',chart:{chart:'bar',data:[{label:'a',value:1},{label:'b',value:2}]}}]},0);
+    assert.deepEqual(chart.state.tinyText,[],'gráfico do sagadeck não é desenho do deck');
+  } finally {await closeSnapshots();}
+});

@@ -23,6 +23,18 @@ import * as MASTER from "./master.js";
 import { unpackDeck } from "./package.js";
 import { writeDeckFile } from "./deck-file.js";
 import { loadPreferences } from "./preferences.js";
+import { conferenceItems, loadGenReport } from "./studio/conference.js";
+
+// Avisos da conferência que ainda valem (contas, números sem base, revisão visual, figuras de fora), para o cartão da
+// biblioteca mostrar "N a conferir" antes de abrir: uma aula foi entregue com a conta errada porque os avisos só
+// apareciam lá dentro. A origem dos slides (calculado/incluído pela IA) não conta: não é aviso.
+const WARNING_KINDS = new Set(["conta", "material", "numero", "visual", "figura"]);
+function pendingWarnings(dir, spec) {
+  try {
+    const report = loadGenReport(dir);
+    return report ? conferenceItems(report, spec, { dir }).filter((i) => WARNING_KINDS.has(i.kind) && !i.stale).length : 0;
+  } catch { return 0; }
+}
 
 export const TRASH_DAYS = 30; // padrão; cada máquina escolhe em Preferências › Biblioteca (lixeiraDias)
 const TRASH = ".lixeira";
@@ -161,10 +173,12 @@ export function openLibrary(root, { trashDays } = {}) {
     let spec = {};
     try { spec = YAML.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
     const own = idOf(file).split("/").length === 3;
+    const pending = own ? pendingWarnings(path.dirname(file), spec) : 0;
     return {
       id: idOf(file), topic: topic || "", title: String(spec.title || path.basename(file).replace(/\.ya?ml$/i, "")),
       slides: Array.isArray(spec.slides) ? spec.slides.length : 0, theme: spec.theme || "", edited: st.mtimeMs,
       folder: own, // true = pasta própria (com imagens etc.); false = .yaml solto
+      ...(pending ? { pendencias: pending } : {}), // só quando há aviso
     };
   }
 

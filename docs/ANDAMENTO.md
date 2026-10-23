@@ -8,7 +8,22 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## Entrega da 1.11.0 — 23/10/2026
+## 1.11.1 — 23/10/2026 (branch `claude/correcoes-1.11.1`)
+
+- Gravação (`deckText`): reemite com e sem quebra em 80 colunas e fica a versão que preserva mais linhas do arquivo.
+  Mudar o título de uma cópia na biblioteca tinha regravado 558 linhas (conteúdo igual). Teste em `deck-file.test.js`.
+- Troca de slide em deck grande: o teste de 200 slides falhava às vezes com uma troca de 4–5 s, também em commits
+  antigos. Medido: o slide da tela esperava atrás da fila das miniaturas (cada uma leva o deck inteiro). Agora a
+  fila espera enquanto o slide da tela é desenhado; trocas de 0,1–0,5 s. `perf.test.js` segura o pedido do slide e
+  confere que nenhuma miniatura começa nesse intervalo (falha sem o conserto).
+- Revisão mede os rótulos dos desenhos SVG do deck (`data-svg-figure`, `tinyText` na foto): fonte na tela abaixo
+  de 20 px vira achado com textos e tamanhos. Calibrado: nenhum exemplo de layout do sagadeck é acusado; na aula de
+  hidráulica, os rótulos de 19 px dos slides 5 e 9 são. Referência ensina fonte de 4% da largura do viewBox.
+- Cartão da biblioteca mostra "N a conferir" (`pendencias` no `deckInfo`, a mesma lista do painel, só avisos que
+  ainda valem): a aula da Mary foi entregue porque os avisos só apareciam dentro do deck. Teste em `library-ui.test.js`.
+- O PR de dependências do dependabot (#200) foi rebaseado e entra com auto-merge se a CI passar.
+
+Entrega da 1.11.0 — 23/10/2026
 
 Integrados com CI verde (Ubuntu e Windows): #201 conferência das contas, #202 modelo para conferir, #203 pedido da
 criação gravado, #204 painel Revisar › Conferência, #205 exercício resolvido calculado, #206 unidades e contas do

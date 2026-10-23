@@ -903,3 +903,34 @@ test("demos oficiais: pasta só leitura na lateral, o Conheça o SagaDeck també
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); }
 });
+
+// Uma aula foi entregue com a conta errada: os avisos da conferência só apareciam dentro do deck. O cartão da
+// biblioteca mostra "N a conferir" antes de abrir (contas, números, revisão visual que ainda vale, figuras de fora).
+test("cartão da biblioteca mostra quantos avisos da conferência faltam ver", { timeout: 60000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null);
+  try {
+    const post = (p, b) => fetch(studio.url + "/" + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+    const { id } = await (await post("api/library/decks", { topic: "", title: "Aula de sifões" })).json();
+    const file = path.join(studio.library, id);
+    const spec = { title: "Aula de sifões", slides: [{ uid: "a", layout: "cover", title: "Sifões" }, { uid: "b", layout: "solution", title: "Ex. 1", answer: { text: "L ≈ 55 m" } }] };
+    fs.writeFileSync(file, YAML.stringify(spec));
+    const report = path.join(path.dirname(file), ".sagadeck", "avaliacao-geracao.json");
+    fs.mkdirSync(path.dirname(report), { recursive: true });
+    fs.writeFileSync(report, JSON.stringify({ avisado: true,
+      math: { divergent: [{ slide: 2, afirmado: "55", unidade: "m", calculado: 273, fn: "a/j", vars: {} }], material: [] },
+      quality: { issues: [{ slide: 1, text: "Rótulo cortado" }] } }));
+    await post("api/library/decks", { topic: "", title: "Sem avisos" });
+    const lib = await (await fetch(studio.url + "/api/library")).json();
+    assert.equal(lib.decks.find((d) => d.title === "Aula de sifões").pendencias, 2);
+    assert.ok(!lib.decks.find((d) => d.title === "Sem avisos").pendencias);
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.waitForSelector(".pend");
+    assert.deepEqual(await p.$$eval(".pend", (els) => els.map((e) => e.textContent)), ["2 a conferir"]);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});

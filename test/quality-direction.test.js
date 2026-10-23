@@ -35,3 +35,12 @@ test('auditor descarta achado que se contradiz e desproporção que os valores d
   assert.match(JSON.stringify(calls[1]),/barra é proporcional ao valor/);
   assert.match(JSON.stringify(calls[1]),/value[\\"]*:120/,'o auditor recebe os valores do slide');
 });
+
+test('rótulo de desenho pequeno medido na foto vira achado com os textos e os tamanhos, sem depender da visão', async () => {
+  const slide = { layout: 'split', title: 'Sifão', figure: { svg: '<svg viewBox="0 0 1000 520"><text font-size="24">N.A.</text></svg>' } };
+  const complete = async () => ({ text: JSON.stringify({ issues: [] }) });
+  const result = await reviewExperience({ slides: [slide] }, [0], { snapshot: async () => [{ label: 'Final', dataUrl: 'data:image/png;base64,a', state: { tinyText: [{ text: 'N.A.', px: 19 }, { text: 'C', px: 19 }] } }], complete });
+  assert.equal(result.issues.length, 1);
+  assert.match(result.issues[0].text, /Texto da figura pequeno demais para ler na tela: "N.A." \(19 px\), "C" \(19 px\)/);
+  assert.match(result.issues[0].text, /use 40 ou mais/);
+});

@@ -286,3 +286,26 @@ test("gravar o deck tolera o arquivo travado por mais de um segundo (antivírus/
   assert.match(fs.readFileSync(file, "utf8"), /Depois/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("mudar só o título não reformata o resto: texto longo que o arquivo quebrou em várias linhas fica como estava", () => {
+  // na biblioteca, mudar o título de uma cópia regravou 558 linhas: a reemissão desfazia as quebras do YAML em 80
+  // colunas (o formato que o próprio sagadeck grava) e cada texto longo "mudava"
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-largura-"));
+  const file = path.join(dir, "deck.yaml");
+  const longo = "Aplicação da equação de Bernoulli, critério de pressão mínima e dimensionamento de sifões em adutoras";
+  const spec = { title: "Aula 5", slides: [{ layout: "cover", title: "Sifões", subtitle: longo }, { layout: "split", title: "Ideia", body: `${longo}. ${longo}.`, notes: `> ${longo}` }] };
+  fs.writeFileSync(file, YAML.stringify(spec, { indent: 2 }));
+  const before = fs.readFileSync(file, "utf8");
+  assert.ok(before.split("\n").length > 8, "o texto longo foi quebrado em várias linhas");
+  writeDeckFile(file, { ...spec, title: "Aula 5 (versão revisada)" });
+  const after = fs.readFileSync(file, "utf8");
+  const changed = after.split("\n").filter((l, i) => l !== before.split("\n")[i]);
+  assert.deepEqual(changed, ["title: Aula 5 (versão revisada)"]);
+  assert.deepEqual(YAML.parse(after), { ...spec, title: "Aula 5 (versão revisada)" });
+  // arquivo escrito à mão com linha longa continua com a linha longa
+  const hand = `title: Deck\nslides:\n  - layout: split\n    title: X\n    body: ${longo} ${longo}\n`;
+  fs.writeFileSync(file, hand);
+  writeDeckFile(file, { title: "Deck 2", slides: [{ layout: "split", title: "X", body: `${longo} ${longo}` }] });
+  assert.equal(fs.readFileSync(file, "utf8"), hand.replace("title: Deck\n", "title: Deck 2\n"));
+  fs.rmSync(dir, { recursive: true, force: true });
+});

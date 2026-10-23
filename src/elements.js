@@ -105,7 +105,7 @@ export function figureHTML(el, ctx, w, h) {
   // (com title: o nome do gráfico em cima, como a IA escreve quando põe dois lado a lado)
   if (el.chart) return `<div${attrs(el, `fig fig-chart${el.title ? " has-title" : ""}`)}>${el.title ? `<div class="t f-label fc-title">${md(String(el.title))}</div>` : ""}${chart(csvChart(el, ctx), el.cw || w || 1200, el.ch || h || 620)}</div>`;
   if (el.ufmap) return `<div${attrs(el, "fig fig-ufmap")}>${ufmap({ cw: w, ...el }, ctx?.warnings)}</div>`;
-  if (el.svg) return `<div${attrs(el, "fig")}>${el.svg}</div>`;
+  if (el.svg) return `<div${attrs(el, "fig")} data-svg-figure>${el.svg}</div>`; // desenho do deck: a revisão mede os rótulos
   if (el.image) {
     const src = imageSrc(el.image, ctx);
     if (!src) return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="Imagem não encontrada: ${esc(el.image)}"><div class="fp-in"><span class="fp-tag f-label">imagem não encontrada</span><span class="fp-text f-body">${esc(el.image)}</span></div></div>`;
