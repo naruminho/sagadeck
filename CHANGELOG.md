@@ -10,8 +10,8 @@ pula de versão em versão.
 - **Conferência das contas**: na criação com IA e no chat, a IA escreve cada resultado do deck como fórmula a partir
   dos dados e o sagadeck calcula (o mesmo compilador do `calc`, sem eval) e compara com o slide. O que não bate volta
   para a IA corrigir em todos os campos onde aparece, inclusive gráficos e resumos que citam o número; o que sobrar
-  vira aviso. No chat, peça "confira as contas" (a IA usa `contas:`). As contas são feitas no SI pelas unidades
-  (L/s e m³/s, cm e m), e a fórmula do slide que soma grandezas diferentes é apontada.
+  vira aviso. No chat, peça "confira as contas" (a IA usa `contas:`). A conversão de unidades (L/s e m³/s, cm e m)
+  só evita alarme falso: só é acusado o que não bate de jeito nenhum.
 - **Contas do material na leitura crítica**: gabarito ou resultado do material que não fecha com os próprios dados
   vira inconsistência, com o trecho literal (duas conferências independentes precisam concordar).
 - **Painel Revisar › Conferência**: tudo o que as checagens acharam, por slide, com Ir ao slide, Corrigir com IA,
@@ -26,8 +26,8 @@ pula de versão em versão.
 ### Correções
 - **Checagem de números**: resultado pequeno ("≈ 55 m") e decimal do LaTeX (`9{,}45`) não escapam mais.
 - **Revisão visual**: a confirmação descarta achado que se contradiz e desproporção que os valores do gráfico desmentem.
-- **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide; conversão feita
-  à mão para a unidade do resultado (`*1000` para L/s) não é convertida de novo.
+- **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide; unidade mal rotulada
+  pelo modelo ou conversão feita à mão (`*1000` para L/s) não vira alarme.
 - Índice de várias letras nos dados do exercício (`p_atm`) e marcas do formato de ferramenta (`</parameter>`) no chat.
 - **Painel**: aviso visual de slide que já mudou aparece como possivelmente resolvido; o selo não consulta o
   servidor a cada troca de slide.
