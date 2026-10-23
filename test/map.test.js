@@ -11,7 +11,7 @@ import http from "node:http";
 import { pathToFileURL } from "node:url";
 import { buildHTML } from "../src/build.js";
 import { mapModel, fromGPX, fromKML, coordNum, splitCoords } from "../src/map.js";
-import { browserOrSkip, newPage } from "./helpers.js";
+import { browserOrSkip, newPage, listenSafe } from "./helpers.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-mapa-"));
 const model = (s, dir) => { const warnings = []; return { m: mapModel(s, { baseDir: dir, warnings }), warnings }; };
@@ -118,7 +118,7 @@ async function tileServer(mode) {
     if (mode.value === "403") { res.writeHead(403); return res.end("proibido"); }
     res.writeHead(200, { "Content-Type": "image/png", "Access-Control-Allow-Origin": "*" }); res.end(PNG);
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  await listenSafe(server);
   return { hits, url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((r) => server.close(r)) };
 }
 

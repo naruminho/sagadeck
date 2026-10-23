@@ -1120,3 +1120,41 @@ test("chat: a IA pede a conferência das contas com contas: true ou contas: [n],
   assert.match(llm.requests.at(-1).messages.map((m) => typeof m.content === "string" ? m.content : "").join("\n"), /CONFERIR AS CONTAS/, "o chat ensina a pedir a conferência");
   reply = () => "ok";
 });
+
+test("modelo para conferir: contas, leitura crítica e confirmação da revisão vão ao modelo de conferência; escrever, ao de texto", async () => {
+  // um modelo de raciocínio mais forte só onde a conta precisa estar certa (Configurar IA › Modelo para conferir); sem
+  // ele configurado, tudo vai ao de texto, como antes
+  const { checkMath } = await import("../src/ai/math-check.js");
+  const { critiqueMaterials } = await import("../src/ai/critique.js");
+  const { reviewExperience } = await import("../src/ai/quality.js");
+  const all = (q) => JSON.stringify(q.messages);
+  const kind = (q) => /Você confere as CONTAS/.test(all(q)) ? "contas" : /LEITURA CRÍTICA/.test(all(q)) ? "critica"
+    : /Audite estes achados/.test(all(q)) ? "confirmacao" : /Você revisa apresentações/.test(all(q)) ? "revisao" : "escrita";
+  reply = (q) => ({
+    contas: JSON.stringify({ contas: [{ slide: 1, o_que: "x", afirmado: "50", unidade: "m", vars: { n: 4 }, fn: "n*10" }] }),
+    critica: JSON.stringify({ itens: [] }),
+    revisao: JSON.stringify({ issues: ["título cortado na borda direita"] }),
+    confirmacao: JSON.stringify({ confirmed: [0] }),
+    escrita: "Refiz a conta: o slide estava certo.",
+  })[kind(q)];
+  const spec = { slides: [{ layout: "solution", title: "Ex. 1", problem: "n = 4", answer: { text: "x = 50 m" } }] };
+  const snapshot = async () => [{ label: "fim", state: {}, dataUrl: "data:image/png;base64,iVBORw0KGgo=" }];
+  const run = async () => {
+    const n = llm.requests.length;
+    await checkMath(spec, { edit: (o) => editDeck(o) });
+    await critiqueMaterials([{ name: "aula.txt", text: "Exercício 1: n = 4, x = 10 n." }], { spec });
+    const rev = await reviewExperience(spec, [0], { snapshot });
+    assert.deepEqual(rev.issues.map((i) => i.text), ["título cortado na borda direita"], "a confirmação respondeu");
+    const models = {};
+    for (const q of llm.requests.slice(n)) (models[kind(q)] ||= new Set()).add(q.body.model);
+    return Object.fromEntries(Object.entries(models).map(([k, v]) => [k, [...v]]));
+  };
+  try {
+    await withMachineIA({ provider: "outro", url: llm.url, models: { text: "escritor-m", check: "conferente-m" } }, async () => {
+      assert.deepEqual(await run(), { contas: ["conferente-m"], escrita: ["escritor-m"], critica: ["conferente-m"], revisao: ["escritor-m"], confirmacao: ["conferente-m"] });
+    });
+    await withMachineIA({ provider: "outro", url: llm.url, models: { text: "escritor-m" } }, async () => {
+      assert.deepEqual(await run(), { contas: ["escritor-m"], escrita: ["escritor-m"], critica: ["escritor-m"], revisao: ["escritor-m"], confirmacao: ["escritor-m"] }, "sem configurar, vai o de texto");
+    });
+  } finally { reply = () => "ok"; }
+});
