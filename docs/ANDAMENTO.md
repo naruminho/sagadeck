@@ -16,7 +16,7 @@ Primeira versão múltipla de 3: `node scripts/ai-live-ci.mjs --na-release` rodo
 salvamento; passou 3 de 3 isolado; agora espera o arquivo salvo). No Oracle, a Narumi entra em `--admins` do
 sagadeck e do sagadeck-dev para ver o Enviar cópia para….
 
-Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
+## Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
 
 Na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava trabalho, e na prática a IA
 resolveu tudo quando recebeu um pedido único ("corrija os avisos da criação"). O cartão da biblioteca já mostrava
