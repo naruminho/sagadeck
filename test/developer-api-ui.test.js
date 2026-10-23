@@ -8,7 +8,7 @@ import YAML from "yaml";
 import { writeDeckFile } from "../src/deck-file.js";
 import { recordingsFile } from "../src/api-client.js";
 import "../src/studio/public/developer-authoring.js";
-import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, tempDeck, listenSafe } from "./helpers.js";
 import { removeRetry } from "../src/fs-retry.js";
 
 const { parseCurl } = globalThis.SagaDeveloperAuthoring;
@@ -32,7 +32,7 @@ test("cURL no preview: corpo JSON original, variáveis escapadas e segredos prot
   let studio;
   const previousEnvFile = process.env.SAGADECK_AMBIENTES;
   try {
-    await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+    await listenSafe(server);
     const base = `http://127.0.0.1:${server.address().port}`;
     process.env.SAGADECK_AMBIENTES = path.join(fixture.dir, "ambientes.yaml");
     fs.writeFileSync(process.env.SAGADECK_AMBIENTES, YAML.stringify({ current: "review", environments: { review: { vars: { base, note, label }, secrets: { corpo_password: secret } } } }));

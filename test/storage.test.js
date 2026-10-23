@@ -84,10 +84,44 @@ test("gerar com IA (editor e biblioteca) grava numa pasta própria da biblioteca
     assert.match(pedido, /Receita de 3 bilhões/, "o anexo vai no pedido");
     assert.match(pedido, /Use o tema "prata"/, "estilo essencial → tema prata");
     assert.match(pedido, /Duração planejada: 20 minutos/);
+    // o pedido fica gravado na pasta da apresentação (.sagadeck/geracao.json)
+    const g = JSON.parse(fs.readFileSync(path.join(path.dirname(file), ".sagadeck", "geracao.json"), "utf8"));
+    assert.equal(g.origem, "biblioteca");
+    assert.equal(g.briefing, "resultado do ano");
+    assert.equal(g.duracao, 20);
+    assert.equal(g.estilo, "essencial");
+    assert.deepEqual(g.materiais.map((m) => [m.nome, m.tipo, m.tamanho]), [["dados.txt", "txt", Buffer.byteLength("Receita de 3 bilhões em 2025")]]);
+    assert.ok(fs.existsSync(path.join(path.dirname(file), ...g.materiais[0].caminho.split("/"))), "o caminho leva ao anexo guardado em contexto/");
   } finally {
     await studio.close();
     await llm.close();
   }
+});
+
+// O registro do pedido não leva chave nem senha (nem a que vai no endereço do provedor) e guarda o pedido anterior
+// quando a apresentação é recriada.
+test("registro do pedido (.sagadeck/geracao.json): sem segredo e com o pedido anterior", async () => {
+  const { saveGenerationRequest } = await import("../src/studio/generation-request.js");
+  const dir = lib();
+  const cfg = { url: "https://fulano:senha-secreta@ia.exemplo.test/v1?api_key=sk-na-url", key: "sk-chave-secreta", textModel: "modelo-texto", visionModel: "modelo-visao", imageModel: "modelo-imagem", searchModel: "", headers: { Authorization: "Bearer sk-cabecalho" } };
+  const prefs = { idioma: "pt", imagens: false, pesquisa: true, perguntar: true, autor: "Profa. Ana" };
+  saveGenerationRequest(dir, { origem: "biblioteca", pedido: { briefing: "aula 5", duration: 30, guide: { padrao: false, intent: "geral" } }, cfg, prefs,
+    materials: [{ name: "aula.pptx", text: "slides", bytes: Buffer.from("PK") }, { name: "https://site.test/x", text: "página", detail: "link" }] });
+  saveGenerationRequest(dir, { origem: "chat", pedido: { briefing: "refaça a partir do pdf" }, cfg, prefs, spec: { title: "Nova", theme: "noite", slides: [{}, {}] } });
+  const raw = fs.readFileSync(path.join(dir, ".sagadeck", "geracao.json"), "utf8");
+  for (const segredo of ["senha-secreta", "fulano", "sk-na-url", "sk-chave-secreta", "sk-cabecalho"]) assert.ok(!raw.includes(segredo), segredo);
+  const g = JSON.parse(raw);
+  assert.equal(g.provedor, "https://ia.exemplo.test/v1");
+  assert.deepEqual(g.modelos, { texto: "modelo-texto", visao: "modelo-visao", imagem: "modelo-imagem" });
+  assert.equal(g.origem, "chat");
+  assert.deepEqual(g.resultado, { titulo: "Nova", tema: "noite", slides: 2 });
+  assert.deepEqual(g.preferencias, { idioma: "pt", imagens: false, pesquisa: true, perguntar: true, autor: "Profa. Ana" });
+  assert.equal(g.anteriores.length, 1, "o pedido de antes fica guardado");
+  const a = g.anteriores[0];
+  assert.equal(a.briefing, "aula 5");
+  assert.equal(a.duracao, 30);
+  assert.equal(a.anteriores, undefined);
+  assert.deepEqual(a.materiais, [{ nome: "aula.pptx", tipo: "pptx", tamanho: 2, caracteres: 6 }, { nome: "https://site.test/x", tipo: "link", detalhe: "link", caracteres: 6 }]);
 });
 
 test("ferramentas MCP de criar deck gravam na biblioteca e nunca sobrescrevem", async () => {

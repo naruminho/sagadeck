@@ -50,7 +50,7 @@ export async function critiqueMaterials(materials, { briefing = "", spec = null,
 - forte: ponto forte que vale defender.
 Cada item: {"tipo", "titulo" (até 10 palavras), "texto" (1 a 3 frases, concretas, com os números do material), "trecho": citação LITERAL e curta do material (até 30 palavras, copiada como está) que sustenta o item, "onde": seção/página/tabela, "slide": número do slide do deck a que o item se liga (obrigatório no tipo slide; nos outros, quando o deck vier, o slide em que o assunto aparece ou onde o ponto entraria; sem deck, omita)}. Sem trecho literal, não inclua o item. No máximo 12 itens, os mais úteis primeiro. Responda só JSON {"itens":[...]}.` },
     { role: "user", content: `${briefing ? `Para que é a apresentação: ${briefing}\n\n` : ""}MATERIAL:\n${source.slice(0, 60000)}${deck}` },
-  ], { temperature: 0.2, signal });
+  ], { model: "check", temperature: 0.2, signal }); // o modelo das conferências (Configurar IA; sem ele, o de texto)
   const m = String(res.text || "").match(/\{[\s\S]*\}/);
   if (!m) throw new Error("A leitura crítica voltou sem JSON.");
   const raw = JSON.parse(m[0]).itens;

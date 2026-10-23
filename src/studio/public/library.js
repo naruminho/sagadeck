@@ -539,7 +539,10 @@
         generating = true;
         btn.disabled = true;
         status.textContent = "Gerando… pode levar um minuto.";
-        const payload = { topic, briefing, answer: answer || undefined, stream: true, duration: Number(min.value) || undefined, style: style.value || undefined, materials: docs.map((d) => d.id) };
+        // guide: o que a pessoa escolheu no pedido guiado; padrao = não escreveu nada e foi o texto padrão (fica no registro da criação)
+        const v = values();
+        const guideInfo = { intent: v.intent, audience: v.audience.trim() || undefined, goal: v.goal.trim() || undefined, route: v.route || undefined, padrao: !v.briefing.trim() };
+        const payload = { topic, briefing, answer: answer || undefined, stream: true, duration: Number(min.value) || undefined, style: style.value || undefined, materials: docs.map((d) => d.id), guide: guideInfo };
         try {
           const res = await fetch("api/library/decks/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);

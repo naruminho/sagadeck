@@ -121,7 +121,8 @@ async function auditBatch(slides, source, { complete, signal }) {
     { role: "user", content: `${source ? `MATERIAL:\n${source}\n\n` : ""}SLIDES (o número é a posição no deck):\n${JSON.stringify(slides)}` },
   ];
   // em streaming: o prazo é de silêncio, não da resposta inteira
-  const ask = (think) => complete(messages, { temperature: 0, signal, onDelta: () => {}, maxTokens: 16000, ...(think ? {} : { think: false }) });
+  // model "check": o modelo das conferências (Configurar IA; sem ele, o de texto)
+  const ask = (think) => complete(messages, { model: "check", temperature: 0, signal, onDelta: () => {}, maxTokens: 16000, ...(think ? {} : { think: false }) });
   let res;
   try { res = await ask(true); }
   catch (e) { if (e.code !== "AI_TOKEN_LIMIT" || signal?.aborted) throw e; res = await ask(false); }
@@ -187,7 +188,7 @@ export async function auditMaterialMath(materials, { complete = chat, signal } =
 
 async function materialRound(source, { complete, signal }) {
   const ask = (think) => complete([{ role: "system", content: SYSTEM_MATERIAL }, { role: "user", content: `MATERIAL:\n${source}` }],
-    { temperature: 0, signal, onDelta: () => {}, maxTokens: 16000, ...(think ? {} : { think: false }) });
+    { model: "check", temperature: 0, signal, onDelta: () => {}, maxTokens: 16000, ...(think ? {} : { think: false }) });
   let res;
   try { res = await ask(true); } catch (e) { if (e.code !== "AI_TOKEN_LIMIT" || signal?.aborted) throw e; res = await ask(false); }
   const m = String(res.text || "").match(/\{[\s\S]*\}/);

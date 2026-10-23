@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
 import YAML from "yaml";
-import { browserOrSkip, newPage, startStudio, tempDeck } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, tempDeck, listenSafe } from "./helpers.js";
 
 const LUGARES = { "Rua A, 10, Recife": [-8.05, -34.88], "Rua B, 20, Recife": [-8.06, -34.9] };
 async function geocoder(mode) {
@@ -21,7 +21,7 @@ async function geocoder(mode) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(hit ? [{ lat: String(hit[0]), lon: String(hit[1]), display_name: q }] : []));
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  await listenSafe(server);
   return { hits, url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((r) => server.close(r)) };
 }
 

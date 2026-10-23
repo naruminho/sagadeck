@@ -1031,6 +1031,66 @@ test("conta que continua sem bater depois da correção vira aviso (e o aviso sa
   } finally { reply = () => "ok"; fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("painel Conferência: achados do relatório e da origem dos slides, ignorar, conferência pelo chat e Conferir de novo", async () => {
+  // a professora entregou a aula com a conta errada: o aviso existia, mas não tinha lugar nem botão
+  const { conferenceItems, conferencePrompt, decideItem, recordMath, recheckDeck, loadGenReport } = await import("../src/studio/conference.js");
+  const spec = { slides: [
+    { layout: "cover", title: "Sifões" },
+    { layout: "solution", title: "Ex. 1", problem: "Folga 2,73 m e perda 0,01 m/m", answer: { text: "cerca de 55 m" } },
+    { layout: "split", title: "O limite", body: "Só cerca de 55 m sobem.", provenance: "proprio", provenanceNote: "analogia da IA" },
+    { layout: "chart", title: "Balanço", provenance: "derivado", uid: "s4" },
+  ] };
+  const report = {
+    math: { divergent: [{ slide: 2, oQue: "comprimento", afirmado: "55", unidade: "m", calculado: 273, fn: "a/j", vars: { a: 2.73, j: 0.01 } }, { slide: 3, afirmado: "99", unidade: "m", calculado: 1 }], material: [] },
+    facts: { unsupported: [{ slide: 3, number: "55" }] },
+    quality: { issues: [{ slide: 3, text: "Rótulo cortado na figura" }, { slide: 9, text: "slide que não existe mais" }] },
+    coverage: { missing: ["Figura 2: esquema do sifão"] },
+  };
+  let items = conferenceItems(report, spec);
+  assert.deepEqual(items.map((i) => `${i.kind}:${i.slide}`), ["conta:2", "numero:3", "visual:3", "figura:null", "proprio:3", "derivado:4"],
+    "o 99 que já saiu do slide e o aviso de slide inexistente ficam de fora");
+  const conta = items[0];
+  assert.deepEqual(conta.contas, [2]);
+  assert.match(conta.text, /o slide diz 55 m; refazendo a conta, dá 273 m/);
+  assert.match(conta.fix, /Confira a conta do slide 2 \(comprimento\).*\[a\/j com \{"a":2.73,"j":0.01\}\]/);
+  assert.equal(items.find((i) => i.kind === "derivado").id, "derivado:s4", "a origem segue o slide pelo uid");
+  assert.match(conferencePrompt(items), /slide 3 · Aviso da revisão visual: Rótulo cortado/);
+  assert.doesNotMatch(conferencePrompt(items), /Incluído pela IA/, "a origem já está no deck que a IA lê");
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-conf-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".sagadeck"));
+    fs.writeFileSync(path.join(dir, ".sagadeck", "avaliacao-geracao.json"), JSON.stringify({ ...report, avisado: true }));
+    const visual = items.find((i) => i.kind === "visual");
+    decideItem(dir, visual.id, "ignorado");
+    assert.throws(() => decideItem(dir, visual.id, "apagado"), /ignorado ou enviado/);
+    items = conferenceItems(loadGenReport(dir), spec);
+    assert.ok(!items.some((i) => i.id === visual.id), "ignorado sai do painel");
+    assert.doesNotMatch(conferencePrompt(items), /Rótulo cortado/, "e dos próximos pedidos");
+    assert.equal(loadGenReport(dir).decisoes[visual.id].status, "ignorado");
+
+    // o chat conferiu o slide 2 e a conta bateu: o relatório deixa de dizer que ela não bate
+    recordMath(dir, [1], { checked: 1, fixed: [], divergent: [], material: [] });
+    assert.deepEqual(loadGenReport(dir).math.divergent.map((d) => d.slide), [3]);
+    assert.ok(!conferenceItems(loadGenReport(dir), spec).some((i) => i.kind === "conta"));
+
+    // Conferir de novo: a IA escreve a fórmula, o código acha que o 55 não bate; números e figuras pelo material
+    const materials = [{ name: "lista.pdf", text: "Folga de 2,73 m e perda de 0,01 m por metro.", inventory: { items: [{ kind: "figure", caption: "Figura 1: sifão", image: "contexto/visuais/f1.png" }] } }];
+    const complete = async () => ({ text: JSON.stringify({ contas: [{ slide: 2, o_que: "comprimento", afirmado: "55", unidade: "m", vars: { a: 2.73, j: 0.01 }, fn: "a/j" }] }) });
+    const r = await recheckDeck(dir, spec, materials, { complete });
+    const saved = loadGenReport(dir);
+    assert.deepEqual(saved.math.divergent.map((d) => `${d.slide}:${d.afirmado}:${d.calculado}`), ["2:55:273"]);
+    assert.deepEqual(saved.coverage.missing, ["Figura 1: sifão"]);
+    assert.ok(saved.conferidoEm);
+    assert.equal(saved.decisoes[visual.id].status, "ignorado", "o que a pessoa decidiu continua valendo");
+    assert.deepEqual(r.notes, []);
+    // sem IA: o resto confere do mesmo jeito e a conta fica como estava
+    const off = await recheckDeck(dir, spec, materials, { complete: async () => { throw new Error("a IA está desligada"); } });
+    assert.match(off.notes.join(" "), /conferência das contas falhou \(a IA está desligada\)/);
+    assert.equal(loadGenReport(dir).math.divergent.length, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("conta do material que não bate vira aviso para conferir com quem escreveu, sem correção silenciosa", async () => {
   // a resposta da lista da professora (hf = 2,57 m) não fecha com os próprios dados (dá 1,29 m): o deck não pode
   // contradizer o material sem ela saber; uma conta da IA errada no mesmo deck continua indo para correção
@@ -1119,4 +1179,42 @@ test("chat: a IA pede a conferência das contas com contas: true ou contas: [n],
   assert.deepEqual(both.contas, [1]);
   assert.match(llm.requests.at(-1).messages.map((m) => typeof m.content === "string" ? m.content : "").join("\n"), /CONFERIR AS CONTAS/, "o chat ensina a pedir a conferência");
   reply = () => "ok";
+});
+
+test("modelo para conferir: contas, leitura crítica e confirmação da revisão vão ao modelo de conferência; escrever, ao de texto", async () => {
+  // um modelo de raciocínio mais forte só onde a conta precisa estar certa (Configurar IA › Modelo para conferir); sem
+  // ele configurado, tudo vai ao de texto, como antes
+  const { checkMath } = await import("../src/ai/math-check.js");
+  const { critiqueMaterials } = await import("../src/ai/critique.js");
+  const { reviewExperience } = await import("../src/ai/quality.js");
+  const all = (q) => JSON.stringify(q.messages);
+  const kind = (q) => /Você confere as CONTAS/.test(all(q)) ? "contas" : /LEITURA CRÍTICA/.test(all(q)) ? "critica"
+    : /Audite estes achados/.test(all(q)) ? "confirmacao" : /Você revisa apresentações/.test(all(q)) ? "revisao" : "escrita";
+  reply = (q) => ({
+    contas: JSON.stringify({ contas: [{ slide: 1, o_que: "x", afirmado: "50", unidade: "m", vars: { n: 4 }, fn: "n*10" }] }),
+    critica: JSON.stringify({ itens: [] }),
+    revisao: JSON.stringify({ issues: ["título cortado na borda direita"] }),
+    confirmacao: JSON.stringify({ confirmed: [0] }),
+    escrita: "Refiz a conta: o slide estava certo.",
+  })[kind(q)];
+  const spec = { slides: [{ layout: "solution", title: "Ex. 1", problem: "n = 4", answer: { text: "x = 50 m" } }] };
+  const snapshot = async () => [{ label: "fim", state: {}, dataUrl: "data:image/png;base64,iVBORw0KGgo=" }];
+  const run = async () => {
+    const n = llm.requests.length;
+    await checkMath(spec, { edit: (o) => editDeck(o) });
+    await critiqueMaterials([{ name: "aula.txt", text: "Exercício 1: n = 4, x = 10 n." }], { spec });
+    const rev = await reviewExperience(spec, [0], { snapshot });
+    assert.deepEqual(rev.issues.map((i) => i.text), ["título cortado na borda direita"], "a confirmação respondeu");
+    const models = {};
+    for (const q of llm.requests.slice(n)) (models[kind(q)] ||= new Set()).add(q.body.model);
+    return Object.fromEntries(Object.entries(models).map(([k, v]) => [k, [...v]]));
+  };
+  try {
+    await withMachineIA({ provider: "outro", url: llm.url, models: { text: "escritor-m", check: "conferente-m" } }, async () => {
+      assert.deepEqual(await run(), { contas: ["conferente-m"], escrita: ["escritor-m"], critica: ["conferente-m"], revisao: ["escritor-m"], confirmacao: ["conferente-m"] });
+    });
+    await withMachineIA({ provider: "outro", url: llm.url, models: { text: "escritor-m" } }, async () => {
+      assert.deepEqual(await run(), { contas: ["escritor-m"], escrita: ["escritor-m"], critica: ["escritor-m"], revisao: ["escritor-m"], confirmacao: ["escritor-m"] }, "sem configurar, vai o de texto");
+    });
+  } finally { reply = () => "ok"; }
 });
