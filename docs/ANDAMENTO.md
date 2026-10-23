@@ -8,6 +8,45 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Conferência das contas — 22/10/2026 (branch `claude/conferir-contas`, worktree `../sagadeck-conferir-contas`)
+
+Origem: deck de aula criado na Oracle (Hidráulica, Aula 5, conta da Mary) saiu com "L₁ ≈ 55 m" num exercício cuja
+resposta o material não trazia; a própria conta escrita no slide dá ≈ 273 m (folga 2,73 m ÷ perda 0,01 m/m). O
+gráfico do slide seguinte nascia desse número e comparava grandezas diferentes. Nenhuma checagem pegou:
+- `unsupportedNumbers` ignorava inteiro de 2 dígitos ("55") e partia o decimal do LaTeX ("9{,}45" → "9", "45");
+- a revisão visual (sem raciocínio) não refaz conta; dois avisos dela eram falsos (slide 11 se contradizia; slide 22
+  dizia que a barra de 120 era menor que a de 12, mas o gráfico renderiza certo, conferido em foto);
+- os 24 avisos ficavam só em `.sagadeck/avaliacao-geracao.json`: o Studio nunca mostrava (ninguém via).
+Feito:
+- Filtro: resultado depois de ≈/\approx/"cerca de" é conferido mesmo pequeno; `{,}` do LaTeX vira um número só.
+- `src/ai/math-check.js`: etapa "Conferindo as contas" na geração (depois da checagem de números) e no chat. A IA
+  escreve cada resultado como fórmula a partir dos dados (sem usar o número do slide); o código calcula com o
+  compilador do `calc` (`src/runtime/formula.js`, sem eval) e compara (casas do slide ou 3%). O que não bate volta
+  para a IA corrigir, junto com os slides que citam o número; confere de novo; o que sobrar vira aviso.
+- Chat: a IA pede a conferência com `contas: [n]` ou `contas: true` (decide pelo prompt, seção CONFERIR AS
+  CONTAS); edição que muda números de slide com conta também é conferida.
+- Relatório da criação grava `facts`, `math`, `coverage` e `avisado`; na primeira abertura os avisos viram mensagem
+  do chat (uma vez) e um toast.
+- Prompt e REFERENCIA: resposta que o material não traz leva `provenance: derivado`; ordem de grandeza por um
+  segundo caminho; gráfico de balanço só compara grandezas da mesma natureza.
+- Revisão: auditor descarta achado que se contradiz e desproporção que os valores do gráfico desmentem.
+Testes: `ai.test.js` (filtro, aritmética, geração corrige e avisa, campo contas), `studio-ai.test.js` (avisos no
+chat e correção pelo chat conferida no deck salvo, zero erros JS), `quality-direction.test.js`, e ao vivo
+(`SAGADECK_LIVE=1`): o modelo real achou 600 s → 240 s e pediu `contas:` sozinho no chat.
+Ensaios com o modelo real no deck da Mary (só em memória, nada gravado) mostraram mais três coisas, já tratadas:
+número que está no material e não fecha (o 2,57 m da lista dela; a conta dá 1,29 m) vai à parte e segue o pedido
+da pessoa ou a autoria (autor: fica no slide com "Confira" nas notes); a correção às vezes esquece o número velho
+num passo (agora diz os campos onde ele aparece e tem segunda rodada); o deck inteiro de uma vez estourava tokens
+(agora lotes de 4 slides, nova tentativa sem raciocínio, lote ruim vira "não conferido"). O 4º ensaio corrigiu
+slides 21 (273 m), 22 (gráfico refeito: 945 cm disponíveis, sobra 273 cm), 26 (tabela) e 30 (resumo); achou também
+erros que ninguém tinha visto (velocidades da tabela do slide 26). A correção pelo chat leva a conversa: "pode
+corrigir o material" da pessoa vale sobre a regra da autoria.
+Suíte completa: `npm test`, 1.108 testes, 1.079 aprovados, 29 condicionais pulados, zero falhas. Studio local na
+3517 rodando `c65772e` a partir desta worktree, para validação dela.
+Falta (depois do ok dela): PR, CI verde, merge, deploy na Oracle (produção estava na 1.9.0) e, no deck da conta da
+Mary, pedir à IA do sagadeck pelo chat que confira e corrija as contas (inclusive as do material: a aula é dela e
+ela autorizou caprichar), corrija os avisos da criação e melhore a aula. A correção é da IA, não à mão.
+
 ## UX para programação e APIs com cURL — 12/10/2026 (branch `codex/ux-dev-slides`, versão 1.10.0)
 
 Pedido: reduzir dificuldade de uso, facilitar geração técnica, acrescentar recursos e dois temas bonitos com

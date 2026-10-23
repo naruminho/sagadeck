@@ -66,6 +66,7 @@ Siga ESTRITAMENTE a referência abaixo: use só layouts, elementos, campos e fig
 - Nunca invente fatos: nada de número, estatística, pesquisa, data, nome ou citação que não esteja no pedido ou no material. Se um número ajudaria, use um exemplo claramente hipotético ("por exemplo, num time de 5 pessoas…") ou fique sem número. Não invente \`author\` nem \`date\` (nem "Seu Nome"): omita se o pedido não disser.
 - Prefira figuras geradas (icon, picto, diagram, chart) a listas de bullets. Ícones são do Lucide, nomes em inglês kebab-case (ex.: rocket, shield-check, trending-up).
 - Ensinar como algo FUNCIONA (algoritmo, método, conta, receita técnica): o mecanismo inteiro, passo a passo, e não só "o que é". Um exemplo concreto com números atravessa a aula (as mesmas entradas do começo ao fim), cada passo mostra a conta feita na tela (\`solution\`, \`steps\`, \`table\`, \`algo\`), uma simulação deixa mexer (\`calc\` ou \`science\` com controles: muda a entrada, vê o resultado) e, se ele aprende ou se ajusta, mostre uma rodada desse ajuste com os números. Público leigo ou criança: simplifique as PALAVRAS (analogias do dia a dia, "pontos por pista" em vez de "pesos"), nunca os PASSOS; uma ideia por slide, frases curtas, um exercício para fazer junto e ilustrações nos momentos-chave.
+- Exercício cuja resposta o material NÃO traz: a resolução é conta sua, então o slide leva \`provenance: derivado\` com \`provenanceNote\` dizendo que a resposta foi calculada pela IA. Antes de escrever a resposta, confira a ordem de grandeza por um segundo caminho (outra fórmula, uma razão simples, uma estimativa: "se a perda é de 0,02 m por metro, 3 m de folga dão uns 150 m de tubo"); a frase de conferência que vai na tela ou nas notes sai dessa conferência, nunca da própria resposta. O sagadeck refaz as contas depois (Conferindo as contas) e devolve o que não bater. Gráfico de um balanço só compara grandezas da mesma natureza (o que se tem × o que se gasta), na mesma unidade.
 - ANTI-FEIJÃO-COM-ARROZ: varie os layouts de verdade; capa (cover) no início e encerramento (end) no fim quando fizer sentido. Regras duras: nunca 2 slides seguidos com o mesmo layout (salvo série intencional); em 6+ slides use 5+ layouts diferentes com 1 slide de impacto (headline, number, statement, full, image, question); no máximo 45% do deck em listas/cartões (cards, list, steps, stats, bento, agenda). Conteúdo manda no layout, não o contrário (ver o mapa em "Layouts válidos").
 - Slide denso (documentação, referência, números): feche com 1 takeaway em ==destaque== e use o elemento \`aviso\` (tipos: \`importante\`, \`atencao\`, \`dica\`, \`perigo\`) para o que não pode passar batido; grife ==palavras-chave== no texto corrido em vez de encher de negrito.
 - Escreva no idioma do pedido do usuário.
@@ -653,6 +654,7 @@ insert:            # slides novos; after = número do slide ORIGINAL depois do q
 delete: [7]        # números (atuais) dos slides a remover
 test: [2, 3]       # slides "api" para o Studio EXECUTAR agora e te devolver o resultado (números no deck DEPOIS das mudanças)
 review: true       # conferir visualmente os slides alterados; use ao criar experiências ou reformular composição
+contas: [5, 6]     # o Studio REFAZ as contas desses slides (ou contas: true = o deck todo) e devolve o que não bate para você corrigir
 \`\`\`
 VER O MATERIAL ANEXADO: do documento você recebe o texto inteiro e o INVENTÁRIO (legendas, caminhos dos recortes e
 das páginas inteiras em \`pages\`), mas NÃO as imagens. Quando a resposta depender do que uma figura, tabela ou página
@@ -682,6 +684,11 @@ estilo:
   aplicar: "nome do estilo salvo"   # ou  salvar: "nome novo"  ·  tirar: true  ·  padrao: "nome do estilo salvo"
 \`\`\`
 Use o nome exatamente como aparece na lista. Trocar o estilo só muda a moldura, as cores e as fontes; o conteúdo fica.
+CONFERIR AS CONTAS: quando a pessoa pedir para conferir, revisar ou corrigir contas, cálculos, exercícios ou valores
+calculados (ou você desconfiar de uma conta do deck), não refaça de cabeça: uma frase e um bloco yaml com
+\`contas: [números dos slides]\` (ou \`contas: true\` para o deck todo), que pode vir junto de outras mudanças. O Studio
+refaz cada conta a partir dos dados (você escreve a fórmula, o código calcula) e devolve o que não bate para você
+corrigir. Mudança sua nos números de um slide com conta passa pela mesma conferência.
 Cuidado com a escrita (o deck é da pessoa):
 - Mude SÓ o que foi pedido. Para ajustar um texto, um campo ou uma lista, use \`edit\` com apenas esses campos: não reescreva o
   slide inteiro (reescrever cria erro de digitação e estraga o que estava bom). \`slides\` só para trocar layout/estrutura.
@@ -913,7 +920,7 @@ function parseEditText(text, base) {
   const { text: body, options } = parseOptions(text);
   text = body;
   // Às vezes o patch vem sem a cerca ```: se há uma linha "slides:"/"deck:"/"insert:"/"delete"/"variants:", é YAML.
-  const bare = /^(slides|edit|deck|insert|delete|variants|test|ver)\s*:/m.exec(text);
+  const bare = /^(slides|edit|deck|insert|delete|variants|test|contas|ver)\s*:/m.exec(text);
   if (!/```/.test(text) && bare) text = `${text.slice(0, bare.index)}\n\`\`\`yaml\n${text.slice(bare.index)}\n\`\`\``;
   const hasYaml = /```/.test(text);
   if (!hasYaml) {
@@ -969,7 +976,14 @@ function parseEditText(text, base) {
     // objeção de conteúdo (soft): refaz o pedido com o fato, e vale a explicação da resposta nova
     if ((spec.slides[n - 1].layout || "") !== "api") throw Object.assign(new Error(`FATO DO DECK: o slide ${n} não é um slide api; só slides api podem ser testados (test:).`), { soft: true });
   }
-  return { spec, prose, changed, review: raw.review === true || (raw.review !== false && changed.some(i => spec.slides[i]?.review === true)), test: test.map((n) => n - 1) };
+  // contas: [n] (ou true = o deck todo) → o Studio confere as contas desses slides (src/ai/math-check.js)
+  let contas = [];
+  if (raw.contas === true) contas = "all";
+  else for (const n of [].concat(raw.contas || []).map(Number)) {
+    if (!Number.isInteger(n) || n < 1 || n > spec.slides.length) throw new Error(`contas: slide ${n} não existe (o deck tem ${spec.slides.length} slides).`);
+    contas.push(n - 1);
+  }
+  return { spec, prose, changed, review: raw.review === true || (raw.review !== false && changed.some(i => spec.slides[i]?.review === true)), test: test.map((n) => n - 1), contas };
 }
 
 // Nomes que o comando recebe (valores nunca vão para o modelo)
@@ -1027,7 +1041,7 @@ Antes de responder, verifique (e siga as Regras de edição):
   ];
   let motifObjected = false;
   const drawWarned = new Set();
-  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], commands = [], transform, style, review, look, geo } =
+  const { spec: edited, prose, attempts, changed = [], talk, options = [], variants, imagesDropped, visionRouted, test = [], contas = [], commands = [], transform, style, review, look, geo } =
     await askUntilValid(messages, async (t) => {
       const parsed = parseEditText(t, spec);
       if (repairSlides && (parsed.spec.slides.length !== spec.slides.length || parsed.changed?.some(i => !repairSlides.includes(i)))) throw new Error('A revisão só pode corrigir os slides indicados, sem inserir, excluir ou alterar outros slides.');
@@ -1083,16 +1097,17 @@ Antes de responder, verifique (e siga as Regras de edição):
       const repaired = await editDeck({ spec: edited, instruction: `Corrija somente estes problemas nos slides indicados, preservando conteúdo, exemplos, ordem e intenção do pedido original (${instruction}). Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Não altere outros slides. Achados: ${JSON.stringify(quality.issues)}`, targetSlide, history, onProgress, images, imageOptions, materials, drawCheck, runCommand, apiContext, visuals, renderNotes, maxImages, styles, signal, reviewDepth: reviewDepth + 1, repairSlides: quality.issues.map(x => x.slide - 1) });
       const finalQuality = await reviewCheck(repaired.spec, changed);
       const status = finalQuality.verified ? 'Composição e estados conferidos após a correção.' : `Revisão incompleta: ${finalQuality.issues.length} problemas; ${finalQuality.unchecked.length} slides sem conferência.`;
-      return { ...repaired, test: [...new Set([...test, ...(repaired.test || [])])], actions: [...actions, ...repaired.actions, status], quality: finalQuality };
+      return { ...repaired, test: [...new Set([...test, ...(repaired.test || [])])], contas: contas === "all" || repaired.contas === "all" ? "all" : [...new Set([...contas, ...(repaired.contas || [])])], actions: [...actions, ...repaired.actions, status], quality: finalQuality };
     }
     actions.push(quality.verified ? 'Composição e estados conferidos visualmente.' : `Revisão incompleta: ${quality.issues.length} problemas; ${quality.unchecked.length} slides sem conferência.`);
   }
   return {
-    reply: prose || (test.length && !changed.length ? "Vou testar." : "Pronto, apliquei o pedido."),
+    reply: prose || (test.length && !changed.length ? "Vou testar." : contas.length && !changed.length ? "Vou conferir as contas." : "Pronto, apliquei o pedido."),
     spec: edited,
     quality,
     reviewRequested: !!review,
     test,
+    contas,
     changed,
     actions,
     targetSlide: changed.includes(targetSlide) ? targetSlide : (changed[0] ?? pickTarget(spec, edited, targetSlide)),
@@ -1349,6 +1364,11 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
   const checked = await stage("Conferindo os números", () => checkNumbers(spec, { materials, say, edit: (o) => editDeck(inStage(o)) }));
   spec = checked.spec;
   const facts = checked.facts;
+  // as contas: a IA escreve cada resultado como fórmula a partir dos dados e o código calcula (src/ai/math-check.js)
+  const { checkMath } = await import("./math-check.js");
+  const counted = await stage("Conferindo as contas", () => checkMath(spec, { materials, say, edit: (o) => editDeck(inStage(o)) }));
+  spec = counted.spec;
+  const math = counted.math;
 
   // a quantidade de texto que a pessoa pediu com todas as letras vale mesmo se o modelo esquecer de gravar
   if (decided?.texto && !spec.maxWords) spec.maxWords = decided.texto === "muito" ? 200 : 35;
@@ -1384,7 +1404,7 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
     if (!quality.verified) say(`Revisão incompleta: ${quality.issues.length} problemas e ${quality.unchecked.length} slides sem conferência.`);
   });
   spec = dropDuplicateSlides(spec).spec; // a correção visual também pode duplicar
-  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(critique ? { critique: { itens: critique.itens.length, naoConfirmados: critique.naoConfirmados.length } } : {}), ...(researchReport ? { research: researchReport } : {}) };
+  return { spec: publicSpec(spec), images: imgs, direction, variety: varietyReport(spec), ...(quality ? { quality } : {}), ...(coverage ? { coverage } : {}), ...(facts ? { facts } : {}), ...(math ? { math } : {}), ...(critique ? { critique: { itens: critique.itens.length, naoConfirmados: critique.naoConfirmados.length } } : {}), ...(researchReport ? { research: researchReport } : {}) };
 }
 
 export function toYaml(spec) {

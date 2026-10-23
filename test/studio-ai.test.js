@@ -274,3 +274,81 @@ test("studio + IA (LLM falso)", async (t) => {
     deckFile.cleanup();
   }
 });
+
+// Uma aula saiu da criação com "L ≈ 55 m" (a conta dava 273 m) e 24 avisos da revisão que ninguém viu: ficavam só
+// no arquivo. Agora os avisos aparecem no chat e a IA corrige as contas pelo chat (contas:), conferidas pelo código.
+const AULA = `title: Aula de sifões
+theme: bauhaus
+slides:
+  - { layout: cover, title: Sifões }
+  - layout: solution
+    title: Exercício 1
+    problem: Folga de 2,73 m e perda de 0,01 m por metro. Qual o comprimento máximo?
+    steps:
+      - { text: Divida a folga pela perda por metro., latex: 'L = 2{,}73 / 0{,}01' }
+    answer: { latex: 'L \\approx 55\\ \\mathrm{m}', text: cerca de 55 m de tubo }
+  - { layout: split, title: O limite, body: "Só cerca de 55 m de tubo podem subir." }
+  - { layout: end, title: Fim }
+`;
+function scriptContas(req) {
+  if (/Você confere as CONTAS/.test(req.system)) {
+    const afirmado = /\b273\b/.test(req.lastUser) ? "273" : "55";
+    return JSON.stringify({ contas: [{ slide: 2, o_que: "comprimento máximo", afirmado, unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" }] });
+  }
+  if (/Conferência das contas/.test(req.lastUser)) return "Refiz: 2,73/0,01 = 273 m.\n```yaml\nedit:\n  2:\n    answer: { latex: 'L \\approx 273\\ \\mathrm{m}', text: cerca de 273 m de tubo }\n  3:\n    body: Só cerca de 273 m de tubo podem subir.\n```";
+  if (/confira as contas/.test(pedido(req))) return "Vou conferir as contas.\n```yaml\ncontas: true\n```";
+  return "Entendi, não mudei nada.";
+}
+
+test("studio + IA: avisos da criação no chat e conferência das contas pelo chat", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const llm = await startMockLLM(scriptContas);
+  const deckFile = tempDeck();
+  fs.writeFileSync(deckFile.file, AULA);
+  const report = path.join(deckFile.dir, ".sagadeck", "avaliacao-geracao.json");
+  fs.mkdirSync(path.dirname(report), { recursive: true });
+  fs.writeFileSync(report, JSON.stringify({ createdAt: "2026-10-22T16:26:00Z", quality: { issues: [{ slide: 3, text: "Rótulo cortado na figura" }] }, math: { checked: 0, fixed: [], unchecked: [], divergent: [{ slide: 2, afirmado: "55", unidade: "m", calculado: 273, fn: "folga/j", vars: {} }] } }));
+  const studio = await startStudio(deckFile.file, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    const waitAI = () => p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 60000 });
+    await p.click("#tab-btn-chat");
+
+    await t.test("os avisos que a criação deixou aparecem no chat, uma vez só", async () => {
+      await p.waitForFunction(() => /conferência automática da criação/.test(document.querySelector("#chat-messages")?.innerText || ""));
+      const chat = await p.innerText("#chat-messages");
+      assert.match(chat, /Contas que não batem: slide 2, 55 m \(a conta dá 273\)/);
+      assert.match(chat, /Slide 3: Rótulo cortado na figura/);
+      assert.equal(JSON.parse(fs.readFileSync(report, "utf8")).avisado, true);
+      await p.reload({ waitUntil: "networkidle" });
+      await p.click("#tab-btn-chat");
+      const again = await p.innerText("#chat-messages");
+      assert.equal(again.match(/conferência automática da criação/g)?.length, 1, "fica na conversa, sem repetir");
+    });
+
+    await t.test("pedir para conferir as contas: a IA corrige o resultado e o slide que citava o número (no deck salvo)", async () => {
+      await p.fill("#chat-input", "confira as contas da aula");
+      await p.click("#chat-send");
+      await p.waitForTimeout(300); await waitAI();
+      const d = saved();
+      assert.match(d.slides[1].answer.text, /273 m/);
+      assert.match(d.slides[2].body, /273 m/);
+      const last = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .ai-msg")].pop()?.innerText || "");
+      assert.match(last, /corrigi/i);
+      assert.match(last, /Contas conferidas: 1 ok \(1 corrigida\(s\): slide 2, 55 m\)/);
+      assert.ok(llm.requests.some((r) => /Você confere as CONTAS/.test(r.system) && /"slide":2/.test(r.lastUser)));
+      // a correção leva a conversa: o que a pessoa disse ("pode corrigir o material") vale na hora de corrigir
+      const fix = llm.requests.findLast((r) => /Conferência das contas/.test(r.lastUser));
+      assert.ok(fix.messages.some((m) => typeof m.content === "string" && /confira as contas da aula/.test(m.content)), "a conversa foi junto");
+    });
+
+    await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+    await llm.close();
+    deckFile.cleanup();
+  }
+});

@@ -321,7 +321,8 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
   async function loadChatHistory() {
     state.autoRunCommands = false; // outra apresentação: nada fica liberado
     try {
-      const { history } = await (await fetch("api/chat/history")).json();
+      const { history, notice } = await (await fetch("api/chat/history")).json();
+      if (notice) showToast("A criação com IA deixou avisos sem resolver: veja no chat da IA.", 8000);
       state.chatHistory = Array.isArray(history) ? history : [];
       state.loadingHistory = true; // conversa guardada não é resposta nova (o atalho do chat não acende)
       setTimeout(() => { state.loadingHistory = false; });

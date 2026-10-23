@@ -738,8 +738,12 @@ export function uncoveredVisuals(spec, documents) {
 // Confere o que se vê no slide (texto e dados de gráfico/tabela), não notes/consulta nem campos de layout. Só número
 // com casa decimal ou de 3+ algarismos: contagem pequena ("3 métricas", "2 linhas") é derivação legítima.
 const SKIP_KEYS = new Set(['notes', 'consulta', 'time', 'duration', 'titleSize', 'size', 'bodySize', 'bulletSize', 'labelSize', 'cols', 'w', 'h', 'x', 'y', 'step', 'build', 'decimals', 'from', 'uid', 'id', 'image', 'image_ref', 'original', 'sourceFigure', 'sourceVisuals', 'highlight', 'ratio', 'maxWords', 'date', 'aspect', 'auto', 'visualEdits', 'review', 'fit', 'radius', 'goto', 'figureStep', 'afterStep', 'contextStep', 'byStep', 'url', 'poster', 'video', 'qr', 'icon', 'mermaid']);
-const numberTokens = (s) => String(s).replace(/\$[^$]*\$/g, ' ').match(/(?<![\w.,/-])-?\d{1,3}(?:\.\d{3})+(?:,\d+)?(?![\w])|(?<![\w.,/-])-?\d+(?:[.,]\d+)?(?![\w])/g) || [];
+// decimal do LaTeX ("9{,}45") é um número só; sem isso virava "9" e "45" e escapava da checagem
+const unLatex = (s) => String(s).replace(/(\d)\{([.,])\}(?=\d)/g, '$1$2');
+const numberTokens = (s) => unLatex(s).replace(/\$[^$]*\$/g, ' ').match(/(?<![\w.,/-])-?\d{1,3}(?:\.\d{3})+(?:,\d+)?(?![\w])|(?<![\w.,/-])-?\d+(?:[.,]\d+)?(?![\w])/g) || [];
 const worthChecking = (t) => /\d[.,]\d/.test(t) || /\d{3,}/.test(t.replace(/[.,]/g, ''));
+// resultado de conta ("≈ 55 m", "\approx 55", "cerca de 55"): é o número que a IA calculou, confere-se mesmo pequeno
+const resultTokens = (s) => [...unLatex(s).matchAll(/(?:≈|\\approx|~|cerca de|aproximadamente)\s*(-?\d+(?:[.,]\d+)?)(?![\d])/gi)].map((m) => m[1]);
 const variants = (t) => {
   const v = new Set([t]);
   if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) { v.add(t.replace(/\./g, '')); v.add(t.replace(/\./g, ' ')); }
@@ -767,7 +771,7 @@ export function unsupportedNumbers(spec, materials = []) {
     const seen = new Set();
     const walk = (v, key) => {
       if (SKIP_KEYS.has(key)) return;
-      if (typeof v === 'string') { for (const t of numberTokens(v)) if (worthChecking(t)) seen.add(t.replace(/^-/, '')); return; }
+      if (typeof v === 'string') { for (const t of numberTokens(v)) if (worthChecking(t)) seen.add(t.replace(/^-/, '')); for (const t of resultTokens(v)) seen.add(t.replace(/^-/, '')); return; }
       if (typeof v === 'number' && ['value', 'values', 'data', 'rows', 'series', 'parts', 'y', 'counter'].includes(key) && (v % 1 || Math.abs(v) >= 100)) { seen.add(String(v)); return; }
       if (Array.isArray(v)) { v.forEach((x) => walk(x, key)); return; }
       if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, ['label', 'title', 'text', 'name'].includes(k) ? k : (typeof x === 'number' ? key && ['data', 'values', 'series', 'rows', 'parts'].includes(key) ? 'value' : k : k));

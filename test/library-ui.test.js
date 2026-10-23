@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
-import { browserOrSkip, newPage, startStudio } from "./helpers.js";
+import { browserOrSkip, newPage, startStudio, listenSafe } from "./helpers.js";
 import { packDeck } from "../src/package.js";
 import { startMockLLM } from "./mock-llm.js";
 
@@ -260,7 +260,7 @@ test("atrás de um proxy com prefixo (/apresentacoes/): biblioteca e editor sem 
       headers: { ...req.headers, "x-sagadeck-user": "ana" } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
     req.pipe(up);
   });
-  await new Promise((r) => proxy.listen(0, "127.0.0.1", r));
+  await listenSafe(proxy);
   const base = `http://127.0.0.1:${proxy.address().port}/apresentacoes/`;
   try {
     const { page: p, errors } = await newPage(browser, base);

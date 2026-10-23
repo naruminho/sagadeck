@@ -199,3 +199,30 @@ test('mapa: "qual loja fica mais perto de cada pedido?" pede a conta ao Studio e
   assert.ok(a, `não pediu a conta: ${r.reply} ${JSON.stringify(r.geo)}`);
   assert.match(String(a.de), /pedidos/); assert.match(String(a.ate), /lojas/);
 });
+
+// Conferência das contas com o modelo de verdade: ele escreve a fórmula certa a partir dos dados (sem copiar o
+// resultado errado do slide), o código calcula e a correção chega ao slide. Exercício genérico, com a resposta errada.
+const CONTA_ERRADA = () => ({ title: "Aula de vazão", slides: [
+  { layout: "cover", title: "Vazão e tempo" },
+  { layout: "solution", title: "Exercício: esvaziar o tanque", problem: "Um tanque com 12 m³ de água esvazia por uma tubulação com vazão constante de 0,05 m³/s. Quanto tempo leva para esvaziar?",
+    givens: [{ symbol: "V", value: "12", unit: "m³" }, { symbol: "Q", value: "0,05", unit: "m³/s" }], find: "t",
+    steps: [{ text: "Tempo é volume dividido pela vazão.", latex: "t = V / Q" }, { text: "Substitua os valores.", latex: "t = 12 / 0{,}05 \\approx 600\\ \\mathrm{s}" }],
+    answer: { latex: "t \\approx 600\\ \\mathrm{s}", text: "cerca de 600 s (10 min)" } },
+  { layout: "end", title: "Fim" },
+] });
+
+test("conferência das contas: o modelo acha a conta errada e a correção chega ao slide (240 s, não 600 s)", opts, async () => {
+  const { checkMath } = await import("../src/ai/math-check.js");
+  const r = await checkMath(CONTA_ERRADA(), { edit: (o) => editDeck(o) });
+  assert.ok(r.math?.fixed?.length || r.math?.divergent?.length, `não achou a conta errada: ${JSON.stringify(r.math)}`);
+  const all = [...(r.math.fixed || []), ...(r.math.divergent || [])];
+  assert.ok(all.some((d) => d.slide === 2 && Math.abs(d.calculado - 240) < 1), JSON.stringify(all));
+  assert.match(JSON.stringify(r.spec.slides[1].answer), /240/, "a resposta foi corrigida");
+  assert.doesNotMatch(JSON.stringify(r.spec.slides[1].answer), /600/);
+  assert.equal(r.math.divergent.length, 0, "conferida de novo depois da correção");
+});
+
+test('chat: "confere as contas desse exercício" faz a IA pedir a conferência (contas:)', opts, async () => {
+  const r = await editDeck({ spec: CONTA_ERRADA(), instruction: "confere as contas desse exercício", targetSlide: 1 });
+  assert.ok(r.contas === "all" || r.contas?.includes(1), `não pediu a conferência: ${r.reply} ${JSON.stringify(r.contas)}`);
+});

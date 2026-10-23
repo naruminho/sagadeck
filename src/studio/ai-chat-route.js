@@ -8,6 +8,7 @@ import { loadSpec } from "../build.js";
 import { writeRecording } from "../api-client.js";
 import { editDeck, coverDocumentVisuals, checkNumbers } from "../ai/deck-ai.js";
 import { reviewExperience } from "../ai/quality.js";
+import { checkMath, hasMath, mathSignature, mathWarning } from "../ai/math-check.js";
 import { maybeResearch } from "../research/chat-research.js";
 import { mapDataPrompt, runMapData, mapDataInstruction } from "../ai/map-data.js";
 import { chatErrorResult } from "./errors.js";
@@ -288,6 +289,36 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           });
           convo.push({ role: "user", text: instruction });
           result = { ...next, actions: [...result.actions, ...(next.actions || [])], spec: next.spec };
+        }
+        // Contas: a IA pediu a conferência (contas: [n] ou true) ou mexeu nos números de um slide com conta. Ela escreve
+        // cada resultado como fórmula, o código calcula (src/ai/math-check.js) e o que não bate volta para ela corrigir.
+        if (!result.talk && !result.transform && !result.style && !result.variants && result.spec?.slides) {
+          const all = result.spec.slides.map((_, i) => i);
+          const asked = result.contas === "all" ? all : (result.contas || []);
+          const before = new Map((spec.slides || []).map((s) => [s?.uid, s]));
+          const touched = (result.changed || []).filter((i) => { const s = result.spec.slides[i]; const old = s?.uid ? before.get(s.uid) : spec.slides?.[i]; return hasMath(s) && mathSignature(s) !== mathSignature(old || {}); });
+          const only = [...new Set([...asked, ...touched])];
+          if (only.length) {
+            emit({ phase: "step", text: "Conferindo as contas…" });
+            const counted = await checkMath(result.spec, { materials, only, signal, say: (t) => emit({ phase: "step", text: t }),
+              // a conversa vai junto: o que a pessoa pediu com todas as letras ("pode corrigir o material") vale
+              edit: (o) => editDeck({ signal, images: false, onProgress: emit, materials, drawCheck: diagramCheck, history: [...history, { role: "user", text: prompt }], ...o, spec: withBase(taskWorkspace, o.spec) }) });
+            signal.throwIfAborted();
+            if (counted.spec !== result.spec) {
+              const fixedChanged = counted.spec.slides.map((s, i) => (JSON.stringify(s) !== JSON.stringify(result.spec.slides[i]) ? i : -1)).filter((i) => i >= 0);
+              result = { ...result, spec: counted.spec, changed: [...new Set([...(result.changed || []), ...fixedChanged])].sort((a, b) => a - b) };
+            }
+            const m = counted.math;
+            result.math = m;
+            result.actions = [...(result.actions || []), ...counted.actions,
+              m?.failed ? `Conferência das contas falhou: ${m.failed}`
+                : m ? `Contas conferidas: ${m.checked + (m.fixed?.length || 0)} ok${m.fixed?.length ? ` (${m.fixed.length} corrigida(s): ${m.fixed.map((d) => `slide ${d.slide}, ${d.afirmado} ${d.unidade}`.trim()).join("; ")})` : ""}${m.unchecked?.length ? `, ${m.unchecked.length} sem como calcular` : ""}` : "Nenhuma conta para conferir nesses slides",
+              ...(mathWarning(m) ? [mathWarning(m)] : [])];
+            if (asked.length && result.reply === "Vou conferir as contas.") result.reply = m?.divergent?.length ? "Conferi as contas; algumas ainda não batem (veja abaixo)." : m?.fixed?.length ? "Conferi as contas e corrigi o que não batia." : "Conferi as contas: estão certas.";
+            if (m?.reply) result.reply = `${result.reply}
+
+${m.reply}`;
+          }
         }
         result.mode = "llm";
       } catch (e) {

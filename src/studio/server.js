@@ -37,7 +37,7 @@ import { openLibrary, defaultLibraryRoot, safeName } from "../library.js";
 import { ApiEnvironments, defaultEnvFile, readRecordings, writeRecording, mimeOf } from "../api-client.js";
 import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
-import { saveGenReport } from './generation-report.js';
+import { saveGenReport, generationNotice } from './generation-report.js';
 import { generateForStudio } from "./generate.js";
 import { runCommand, logCommand } from "../ai/commands.js";
 import { needsApproval, approvalLabel, awaitApproval, commandEnv, estimateSubmitCost } from "./command-approval.js";
@@ -1064,8 +1064,14 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         if (req.method === "GET") {
           let history = W.chatHistory || [];
           if (file) try { history = JSON.parse(fs.readFileSync(file, "utf8")).history || []; } catch { history = []; }
+          // avisos que a criação com IA deixou sem resolver: viram mensagem do chat na primeira abertura
+          const notice = file ? generationNotice(path.dirname(W.file)) : null;
+          if (notice) {
+            history = [...history, { role: "assistant", text: notice, talk: true }];
+            try { const tmp = `${file}.tmp-${process.pid}`; fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(tmp, JSON.stringify({ history }, null, 1)); renameRetry(tmp, file); } catch (e) { console.error("[Studio] conversa:", e.message); }
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ history }));
+          res.end(JSON.stringify({ history, notice: !!notice }));
           return;
         }
         if (req.method === "POST") {
