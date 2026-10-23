@@ -28,7 +28,8 @@ pula de versão em versão.
 - **Revisão visual**: a confirmação descarta achado que se contradiz e desproporção que os valores do gráfico desmentem.
 - **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide.
 - Índice de várias letras nos dados do exercício (`p_atm`) e marcas do formato de ferramenta (`</parameter>`) no chat.
-- **Painel**: aviso visual de slide que já mudou aparece como possivelmente resolvido.
+- **Painel**: aviso visual de slide que já mudou aparece como possivelmente resolvido; o selo não consulta o
+  servidor a cada troca de slide.
 - **Windows**: gravação tolera arquivo travado por até ~4 s (antivírus, OneDrive); testes não usam porta que o
   Chrome bloqueia.
 
