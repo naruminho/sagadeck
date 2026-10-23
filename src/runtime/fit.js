@@ -94,8 +94,9 @@
   function leakingIn(safe, sc) {
     const tol = 6 * sc, sr = safe.getBoundingClientRect();
     for (const e of safe.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
-    // (o verso do cartão que vira e o balão do + ocupam o mesmo lugar de outro texto de propósito: ficam de fora)
-    const texts = [...safe.querySelectorAll(".t")].filter((t) => !t.querySelector(".t") && !t.closest(".flip-back, .pop-card"));
+    // (o verso do cartão que vira, o balão do + e os textos do carrossel que não são o da vez ocupam o mesmo lugar de
+    // outro texto de propósito: ficam de fora; o carrossel encolhia para o mínimo por causa deles)
+    const texts = [...safe.querySelectorAll(".t")].filter((t) => !t.querySelector(".t") && !t.closest(".flip-back, .pop-card, .car-text:not(.active)"));
     const tr = texts.map((t) => t.getBoundingClientRect());
     for (const r of tr) {
       if (!r.width) continue;

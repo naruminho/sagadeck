@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildHTML } from '../src/build.js';
+import { LAYOUT_SAMPLES } from '../src/studio/layout-samples.js';
 import { explorationStates, auditExploration } from '../src/exploration.js';
 import { estudoHTML } from '../src/export/estudo.js';
 import { reviewExperience } from '../src/ai/quality.js';
@@ -311,4 +312,19 @@ test('foto da revisão mede os rótulos dos desenhos SVG do deck: pequenos demai
     const [chart]=await slideSnapshots({theme:'manual',slides:[{layout:'chart',title:'Barras',chart:{chart:'bar',data:[{label:'a',value:1},{label:'b',value:2}]}}]},0);
     assert.deepEqual(chart.state.tinyText,[],'gráfico do sagadeck não é desenho do deck');
   } finally {await closeSnapshots();}
+});
+
+test('carrossel não encolhe por engano: os textos empilhados que ainda não apareceram não contam como vazamento', async t => {
+  // o ajuste de caber via os textos do carrossel um por cima do outro (só o da vez aparece) e reduzia o slide ao
+  // mínimo (61%); na lista de miniaturas, esse ajuste levava 2,6 s e segurava o clique
+  const browser=await browserOrSkip(t);if(!browser)return;const deck=tempDeck();
+  try {
+    const file=path.join(deck.dir,'carrossel.html');
+    fs.writeFileSync(file,buildHTML({theme:'sinal',slides:[{layout:'carousel',...LAYOUT_SAMPLES.carousel}]}).html);
+    const {page,errors}=await newPage(browser,null,{width:1920,height:1080});
+    await page.goto(pathToFileURL(file).href);await page.waitForFunction(()=>window.sagadeck);await page.waitForTimeout(400);
+    const z=await page.evaluate(()=>{const s=document.querySelector('.slide.current');window.SagadeckFit.shrink(s);return s.dataset.shrink||'1';});
+    assert.equal(z,'1','o carrossel cabe sem encolher');
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();deck.cleanup();}
 });

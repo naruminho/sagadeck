@@ -1901,7 +1901,7 @@
       const cached = thumbCache.get(thumbKey(idx, slide));
       if (cached) {
         screen.innerHTML = `<div class="thumb-render">${cached}</div>`;
-        requestAnimationFrame(() => fitRendered(screen));
+        queueThumbFit(screen); // em fatias: reconstruir a lista não ajusta as 200 de uma vez
       } else {
         const fb = document.createElement("div");
         fb.className = "thumb-fallback";
@@ -2011,14 +2011,36 @@
     }
   }
 
+  // Ajuste de caber das miniaturas em fatias: o shrink mede todos os textos a cada passo de zoom, e as ~30 miniaturas
+  // que entram ao rolar a lista faziam isso no mesmo quadro (uma tarefa de 2,5 s que segurava o clique no slide).
+  // Agora cada quadro ajusta miniaturas por até ~8 ms e devolve a vez ao navegador.
+  const thumbFits = new Set();
+  let thumbFitFrame = 0;
+  function queueThumbFit(screen) {
+    thumbFits.add(screen);
+    if (!thumbFitFrame) thumbFitFrame = requestAnimationFrame(runThumbFits);
+  }
+  function runThumbFits() {
+    thumbFitFrame = 0;
+    const until = performance.now() + 8;
+    for (const screen of thumbFits) {
+      thumbFits.delete(screen);
+      if (screen.isConnected) fitRendered(screen);
+      if (performance.now() > until) break;
+    }
+    if (thumbFits.size) thumbFitFrame = requestAnimationFrame(runThumbFits);
+  }
+
   function putThumb(idx, slide, html) {
     if (!html) return;
     thumbCache.set(thumbKey(idx, slide), html);
     const screen = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${idx}"] .thumb-screen`);
     if (!screen) return;
     screen.innerHTML = `<div class="thumb-render">${html}</div>`;
-    requestAnimationFrame(() => fitRendered(screen));
-    window.SagaDiagrams?.mount(screen); // miniatura de diagrama também é desenhada
+    queueThumbFit(screen);
+    // miniatura de diagrama também é desenhada, mas quando o navegador estiver livre: o desenho do Mermaid é pesado e
+    // as miniaturas que aparecem ao rolar a lista atrasavam o clique no slide em segundos
+    if (screen.querySelector(".dg-box")) (window.requestIdleCallback || ((f) => setTimeout(f, 200)))(() => window.SagaDiagrams?.mount(screen), { timeout: 3000 });
   }
 
   function markActiveThumb() {
