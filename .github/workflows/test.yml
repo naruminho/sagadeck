@@ -1,6 +1,9 @@
 # Roda a suíte (motor + runtime + Studio num Chrome headless) em todo push e pull request, no Linux e no Windows
 # (o Studio roda no Windows do banco; caminho com barra invertida e acento só quebra lá).
 # Node 24 é a versão mínima suportada e validada, conforme engines do pacote.
+# A suíte se divide em 3 partes por sistema, ao mesmo tempo (scripts/test-parte.mjs reparte os arquivos pelo peso):
+# no Windows, uma rodada inteira levava 37 min. Os checks exigidos na main continuam sendo "test (ubuntu-latest, 24.x)"
+# e "test (windows-latest, 24.x)": o job test de cada sistema só fica verde se as 3 partes dele passaram.
 name: test
 on:
   push:
@@ -13,12 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  parte:
+    name: parte ${{ matrix.parte }}/3 (${{ matrix.os }}, ${{ matrix.node }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node: [24.x]
+        parte: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -41,11 +46,12 @@ jobs:
           netsh int ipv6 show dynamicport tcp
       # auditoria de dependências de produção: informativa (não derruba o CI); vulnerabilidade conhecida
       # se resolve no mesmo commit que a introduziu (hoje: override de image-size, dependência morta do pptxgenjs)
-      - run: npm audit --omit=dev --audit-level=high
+      - if: matrix.parte == 1
+        run: npm audit --omit=dev --audit-level=high
         continue-on-error: true
       # a suíte vai para arquivo para o passo de falha apontar o que quebrou (anotação + resumo) sem caçar
       # o nome do teste dentro de 30 MB de log do navegador
-      - run: npm test 2>&1 | tee test-output.txt
+      - run: node scripts/test-parte.mjs ${{ matrix.parte }}/3 2>&1 | tee test-output.txt
         shell: bash
         env:
           SAGADECK_BROWSER: ${{ matrix.os == 'ubuntu-latest' && '/usr/bin/google-chrome' || 'C:\Program Files\Google\Chrome\Application\chrome.exe' }}
@@ -69,4 +75,31 @@ jobs:
           for (const b of blocks.slice(0, 10)) console.log("::error title=teste falhou::" + b.replace(/%/g, "%25").replace(/\r/g, "").replace(/\n/g, "%0A").slice(0, 3500));
           '
         env:
-          MATRIX: ${{ matrix.os }}, ${{ matrix.node }}
+          MATRIX: ${{ matrix.os }}, ${{ matrix.node }}, parte ${{ matrix.parte }}/3
+
+  # o check exigido de cada sistema: verde só com as 3 partes daquele sistema verdes (needs junta os dois sistemas,
+  # então o resultado de cada parte vem da API do próprio run)
+  test:
+    needs: parte
+    if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24.x]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Partes deste sistema
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUFIXO: (${{ matrix.os }}, ${{ matrix.node }})
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs?per_page=100" \
+            --jq '.jobs[] | select((.name | startswith("parte ")) and (.name | endswith(env.SUFIXO))) | "\(.name)\t\(.conclusion)"' > partes.txt
+          cat partes.txt
+          [ "$(grep -c . partes.txt)" -eq 3 ] || { echo "::error::esperava 3 partes para $SUFIXO"; exit 1; }
+          if grep -qv "	success$" partes.txt; then echo "::error::parte com falha em $SUFIXO (veja o resumo da parte)"; exit 1; fi

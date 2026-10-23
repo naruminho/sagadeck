@@ -19,6 +19,7 @@ import { esc, notesHTML, plain, md, INLINE_MATH } from "./markup.js";
 import { normalizeSpec } from "./fiscal/normalize.js";
 import { readRecordings } from "./api-client.js";
 import { explorationStates } from './exploration.js';
+import { writeDeckHTML } from "./export/recent-html.js";
 import { calcModel } from './lessons.js';
 import { loadMapConfig, mapaFile, tilesForDeck } from "./map-config.js";
 
@@ -257,7 +258,7 @@ export function buildFile(file, outFile) {
   const spec = loadSpec(file);
   const r = buildHTML(spec);
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  fs.writeFileSync(outFile, r.html);
+  writeDeckHTML(outFile, r.html); // a conferência e a exportação abrem em seguida sem reler (export/recent-html.js)
   return { ...r, spec, outFile };
 }
 

@@ -9,6 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
 import { buildHTML } from "../build.js";
+import { writeDeckHTML } from "../export/recent-html.js";
 import { THEMES } from "../themes.js";
 import { loadPreferences } from "../preferences.js";
 import { packDeck, EXTENSION, MIME } from "../package.js";
@@ -46,7 +47,7 @@ export async function generateExport(kind, spec, name, { notes = true, audience,
     if (["pptx","pdf","tudo"].includes(kind)) spec=expandApiCollections(spec);
     const r = buildHTML(spec);
     const htmlFile = path.join(tmp, "deck.html");
-    fs.writeFileSync(htmlFile, r.html);
+    writeDeckHTML(htmlFile, r.html);
     const errors = [];
     const make = async (what) => {
       const progress = event => onProgress({ ...event, format: what });
@@ -60,7 +61,7 @@ export async function generateExport(kind, spec, name, { notes = true, audience,
         // Preferências › Exportação: tema escuro com par claro (manual-noite → manual) sai claro no PDF, bom para imprimir
         const light = loadPreferences().exportacao.pdfClaro === true ? lightVariant(spec) : null;
         let file = htmlFile;
-        if (light) { file = path.join(tmp, "deck-claro.html"); fs.writeFileSync(file, buildHTML(light).html); }
+        if (light) { file = path.join(tmp, "deck-claro.html"); writeDeckHTML(file, buildHTML(light).html); }
         await pdf(file, out, { onProgress: progress });
       } else if (what === "estudo" || what === "estudo-html") {
         const { shots } = await import("../export/shots.js");

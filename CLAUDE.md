@@ -37,6 +37,11 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
   `~/.sagadeck/ia.json`; nas outras versões ele avisa e pula). O que falhar duas vezes se corrige antes de publicar
   (com teste que reproduz, como todo bug); instável (passou na repetição) só se registra no ANDAMENTO. Nada de rodar
   a cada release nem agendado: custa e roda à toa. Na CI, só pelo botão (Actions › ai-live).
+- **Implantar no Oracle** (sagadeck e sagadeck-dev, depois do merge e da release): `node scripts/implantar-oracle.mjs`
+  (o dev primeiro; o estável só se o dev subir na versão certa; `--so-dev` durante o trabalho). Nada de git, npm e
+  restart à mão. Quem administra o servidor (Enviar cópia para…) fica em `SAGADECK_ADMINS` no `/etc/sagadeck.env`.
+- A CI roda a suíte em 3 partes por sistema (`scripts/test-parte.mjs`, pesos dos arquivos lentos lá dentro);
+  localmente, `npm test` roda tudo.
 - Acompanhando um PR (CI, revisão): confira a cada **10 minutos**, nunca de hora em hora.
 - **Pastas de trabalho (vários agentes ao mesmo tempo)**: a pasta oficial (`C:\Users\narum\src\sagadeck`) fica na
   `main`. Tarefa em andamento vai numa worktree temporária ao lado, com nome descritivo (`sagadeck-mapa-editor`, nunca
