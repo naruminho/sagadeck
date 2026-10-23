@@ -1274,6 +1274,49 @@ test("painel de conferência: aviso visual de slide que já mudou aparece como p
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("painel de conferência: Corrigir tudo monta um pedido só, por slide, sem os avisos de slides que mudaram", async () => {
+  // na aula de hidráulica a criação deixou 24 avisos; um a um dava trabalho, num pedido só a IA resolveu tudo
+  const { conferenceItems, conferenceBatch, decideItems, loadGenReport } = await import("../src/studio/conference.js");
+  const { slideMarks } = await import("../src/studio/generation-report.js");
+  const original = { slides: [
+    { uid: "a", layout: "cover", title: "Sifões" },
+    { uid: "b", layout: "solution", title: "Ex. 1", answer: { text: "cerca de 55 m" } },
+    { uid: "c", layout: "split", title: "O limite", body: "Só cerca de 55 m sobem." },
+    { uid: "d", layout: "chart", title: "Balanço", provenance: "derivado" },
+  ] };
+  const agora = { slides: original.slides.map((s) => (s.uid === "a" ? { ...s, title: "Sifões e bombas" } : s)) };
+  const report = {
+    slideMarks: slideMarks(original),
+    math: { divergent: [{ slide: 2, afirmado: "55", unidade: "m", calculado: 273 }], material: [] },
+    facts: { unsupported: [{ slide: 3, number: "55" }] },
+    quality: { issues: [{ slide: 1, text: "Título cortado" }, { slide: 3, text: "Rótulo cortado na figura" }] },
+    coverage: { missing: ["Figura 2: esquema do sifão"] },
+  };
+  const items = conferenceItems(report, agora);
+  assert.ok(items.find((i) => i.slide === 1).stale);
+  const b = conferenceBatch(items);
+  assert.equal(b.count, items.length - 1, "o aviso do slide que mudou fica de fora");
+  assert.doesNotMatch(b.text, /Título cortado/);
+  assert.match(b.text, /^Corrija de uma vez estas 5 pendências da conferência automática/);
+  // por slide, na ordem, com o "fix" de cada item; o que não é de slide vai no fim
+  const heads = b.text.match(/^(Slide \d+|Deck todo):$/gm);
+  assert.deepEqual(heads, ["Slide 2:", "Slide 3:", "Slide 4:", "Deck todo:"]);
+  for (const it of items.filter((i) => !i.stale)) assert.ok(b.text.includes(`- ${it.fix}`), it.id);
+  assert.deepEqual(b.contas, [2, 4], "contas e slide calculado pela IA: o Studio confere depois da resposta");
+  assert.deepEqual(b.enviados.sort(), items.filter((i) => !i.stale && i.kind !== "conta").map((i) => i.id).sort(),
+    "a conta sai do painel pela conferência, não por ter ido ao chat");
+  assert.equal(conferenceBatch(items.filter((i) => i.stale)), null, "nada que ainda valha: sem pedido");
+  assert.match(conferenceBatch(items.filter((i) => i.kind === "numero")).text, /^Corrija esta pendência/);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-conf-"));
+  try {
+    decideItems(dir, b.enviados, "enviado");
+    const left = conferenceItems({ ...report, decisoes: loadGenReport(dir).decisoes }, agora);
+    assert.deepEqual(left.map((i) => i.kind).sort(), ["conta", "visual"], "sobram a conta (até conferir) e o aviso que mudou");
+    assert.throws(() => decideItems(dir, ["visual:1:x", "nada disso"], "enviado"), /inválido/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("prompt pede variar o tom visual nos momentos-chave (decks saíam todos claros)", async () => {
   // a criação segue o caminho do chat (sem rodada de variedade por cima): quem decide variar é o modelo, pelo prompt
   const { systemPrompt } = await import("../src/ai/deck-ai.js");

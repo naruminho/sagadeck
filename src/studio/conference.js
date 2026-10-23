@@ -99,15 +99,37 @@ export function conferencePrompt(items) {
   return `PENDÊNCIAS DA CONFERÊNCIA AUTOMÁTICA (painel Revisar › Conferência): o que as checagens acharam e a pessoa ainda não resolveu nem ignorou. Avisos antigos da conversa que não estão nesta lista foram resolvidos ou ignorados pela pessoa: não volte a eles. Mexa nestes só se o pedido tiver a ver.\n${list.slice(0, 40).map((it) => `- ${it.slide ? `slide ${it.slide}` : "deck"} · ${it.label}: ${it.text}`).join("\n")}`;
 }
 
+// Corrigir tudo com IA (botão do painel): um pedido só ao chat com todas as pendências que ainda valem, por slide.
+// Na aula de hidráulica a criação deixou 24 avisos: um a um dava trabalho, e num pedido só a IA resolveu tudo.
+// Aviso de slide que mudou fica de fora (talvez já esteja resolvido: a pessoa olha antes). contas: os slides que o
+// Studio confere depois da resposta; enviados: o que sai do painel ao ir para o chat (o resto, a conferência decide).
+export function conferenceBatch(items) {
+  const list = (items || []).filter((it) => !it.stale);
+  if (!list.length) return null;
+  const groups = new Map();
+  for (const it of list) { const k = it.slide || 0; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+  const order = [...groups.keys()].sort((a, b) => (a || 1e9) - (b || 1e9));
+  const text = `Corrija ${list.length === 1 ? "esta pendência" : `de uma vez estas ${list.length} pendências`} da conferência automática (painel Revisar › Conferência). Cada item diz o que fazer; resolva ${list.length === 1 ? "na" : "todos na mesma"} resposta e não mexa no resto do deck.\n\n${order.map((k) => `${k ? `Slide ${k}` : "Deck todo"}:\n${groups.get(k).map((it) => `- ${it.fix}`).join("\n")}`).join("\n\n")}`;
+  const contas = [...new Set(list.flatMap((it) => it.contas || []))].sort((a, b) => a - b);
+  const enviados = list.filter((it) => it.kind !== "conta" && it.kind !== "material").map((it) => it.id);
+  return { text, contas, enviados, count: list.length };
+}
+
 // A pessoa decidiu sobre um item: ignorado ("está certo assim") ou enviado (o pedido de correção foi ao chat)
 export function decideItem(dir, id, status) {
+  return decideItems(dir, [id], status)[0];
+}
+
+// Vários de uma vez (Corrigir tudo): uma gravação só do relatório
+export function decideItems(dir, ids, status) {
   if (!dir) throw new Error("A apresentação precisa estar salva na biblioteca.");
   if (!["ignorado", "enviado"].includes(status)) throw new Error("status: ignorado ou enviado");
-  if (!/^[a-z]+:[^\s]{1,200}$/.test(String(id || ""))) throw new Error("item da conferência inválido");
+  if (!ids.every((id) => /^[a-z]+:[^\s]{1,200}$/.test(String(id || "")))) throw new Error("item da conferência inválido");
   const report = loadGenReport(dir) || { createdAt: new Date().toISOString(), avisado: true };
-  report.decisoes = { ...(report.decisoes || {}), [id]: { status, em: new Date().toISOString() } };
-  writeGenReport(dir, report);
-  return report.decisoes[id];
+  const em = new Date().toISOString();
+  report.decisoes = { ...(report.decisoes || {}), ...Object.fromEntries(ids.map((id) => [id, { status, em }])) };
+  if (ids.length) writeGenReport(dir, report);
+  return ids.map((id) => report.decisoes[id]);
 }
 
 // O chat conferiu as contas de alguns slides (pedido da pessoa, do painel ou edição que mexeu nos números): o resultado

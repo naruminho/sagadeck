@@ -1,7 +1,8 @@
 // Painel Revisar › Conferência: tudo o que as checagens automáticas acharam no deck aberto (contas, números sem base
 // no material, avisos da revisão visual, figuras do material sem slide, slides que a IA calculou ou incluiu), por
-// slide, com Ir ao slide, Corrigir com IA (um pedido pontual ao chat) e Ignorar (gravado no relatório). A lista vem
-// do servidor (src/studio/conference.js); o app passa o que o painel usa (create(ctx)).
+// slide, com Ir ao slide, Corrigir com IA (um pedido pontual ao chat), Ignorar (gravado no relatório) e Corrigir tudo
+// com IA (todas as pendências num pedido só). A lista vem do servidor (src/studio/conference.js); o app passa o que o
+// painel usa (create(ctx)).
 (function () {
   const KIND_ICON = { conta: "calculator", material: "file-text", numero: "hash", visual: "scan-eye", figura: "image-off", derivado: "calculator", proprio: "sparkles" };
   function create(ctx) {
@@ -48,13 +49,25 @@
       if (it.kind !== "conta" && it.kind !== "material") decide(it.id, "enviado");
       askChat(it.fix, it.contas ? { contas: it.contas } : {});
     }
+    // Corrigir tudo com IA: um pedido só ao chat com as pendências que ainda valem, por slide (o servidor monta o
+    // pedido e marca como enviado o que não se confere sozinho; as contas vão com contas: [n] e são conferidas depois)
+    async function fixAll(btn, dlg) {
+      if (chatBusy()) { showToast("Espere a IA terminar o pedido atual.", 3000); return; }
+      btn.disabled = true;
+      try {
+        const j = await json(await fetch("api/conferencia/corrigir-tudo", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }));
+        take(j);
+        dlg.close();
+        askChat(j.pedido, j.contas?.length ? { contas: j.contas } : {});
+      } catch (e) { showToast(e.message); btn.disabled = false; }
+    }
     function open() {
       let dlg = document.getElementById("conference-dialog");
       const fill = () => {
         const groups = new Map();
         for (const it of items) { const k = it.slide || 0; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
         const order = [...groups.keys()].sort((a, b) => (a || 1e9) - (b || 1e9));
-        dlg.innerHTML = `<header><i class="ic" data-ic="list-checks"></i><b>Conferência</b><span class="rv-count">${items.length}</span><span class="grow"></span>${salvo ? `<button type="button" class="btn btn-sm" data-recheck title="Refaz no deck atual a conferência das contas, a checagem dos números e das figuras do material"><i class="ic" data-ic="${checking ? "loader-circle" : "refresh-cw"}"></i> ${checking ? "Conferindo…" : "Conferir de novo"}</button>` : ""}<button type="button" class="btn btn-sm" data-close title="Fechar"><i class="ic" data-ic="x"></i></button></header>
+        dlg.innerHTML = `<header><i class="ic" data-ic="list-checks"></i><b>Conferência</b><span class="rv-count">${items.length}</span><span class="grow"></span>${items.some((it) => !it.stale) ? `<button type="button" class="btn btn-primary btn-sm" data-fix-all${chatBusy() ? " disabled" : ""} title="Manda ao chat, num pedido só, todas as pendências (menos os avisos de slides que já mudaram)"><i class="ic" data-ic="wand-sparkles"></i> Corrigir tudo com IA</button>` : ""}${salvo ? `<button type="button" class="btn btn-sm" data-recheck title="Refaz no deck atual a conferência das contas, a checagem dos números e das figuras do material"><i class="ic" data-ic="${checking ? "loader-circle" : "refresh-cw"}"></i> ${checking ? "Conferindo…" : "Conferir de novo"}</button>` : ""}<button type="button" class="btn btn-sm" data-close title="Fechar"><i class="ic" data-ic="x"></i></button></header>
           <div class="rv-list conf-list">${items.length ? order.map((k) => `<section class="conf-group" data-slide="${k}"><div class="conf-group-head">${k ? `<b class="rv-num">${k}</b><span class="conf-slide-title"></span><button type="button" class="btn btn-sm" data-go="${k}">Ir ao slide</button>` : "<b>Deck todo</b>"}</div>${groups.get(k).map((it) => `<div class="conf-item conf-${it.kind}" data-id="${it.id}"><span class="conf-kind"><i class="ic" data-ic="${KIND_ICON[it.kind] || "circle-alert"}"></i><span></span></span><span class="conf-text"></span><span class="conf-actions"><button type="button" class="btn btn-primary btn-sm" data-fix><i class="ic" data-ic="wand-sparkles"></i> Corrigir com IA</button><button type="button" class="btn btn-sm" data-ignore title="Está certo assim: sai do painel e dos próximos pedidos à IA"><i class="ic" data-ic="eye-off"></i> Ignorar</button></span></div>`).join("")}</section>`).join("")
             : `<div class="rv-empty">${salvo ? "Nada pendente: as checagens automáticas não deixaram avisos neste deck." : "A conferência vale para apresentações salvas na biblioteca."}</div>`}</div>
           ${conferidoEm ? `<div class="conf-foot">Conferido em ${new Date(conferidoEm).toLocaleString("pt-BR")}</div>` : ""}`;
@@ -71,6 +84,7 @@
           row.querySelector("[data-ignore]").onclick = () => decide(it.id, "ignorado");
         });
         dlg.querySelector("[data-recheck]")?.addEventListener("click", (e) => recheck(e.currentTarget));
+        dlg.querySelector("[data-fix-all]")?.addEventListener("click", (e) => fixAll(e.currentTarget, dlg));
         dlg.querySelector("[data-close]").onclick = () => dlg.close();
         hydrateIcons(dlg);
       };
