@@ -1,10 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { mathWarning } from '../ai/math-check.js';
+import { renameRetry } from '../fs-retry.js';
 
 // Relatório da criação com IA (.sagadeck/avaliacao-geracao.json): revisão visual, variedade, números sem base no
 // material, contas e figuras de fora. `avisado` diz se a pessoa já viu os avisos no chat (generationNotice).
 const reportFile = (dir) => path.join(dir, '.sagadeck', 'avaliacao-geracao.json');
+
+export function loadGenReport(dir) {
+  if (!dir) return null;
+  try { return JSON.parse(fs.readFileSync(reportFile(dir), 'utf8')); } catch { return null; }
+}
+
+// grava inteiro (tmp + rename): o painel Conferência e o chat mexem no mesmo arquivo
+export function writeGenReport(dir, report) {
+  const file = reportFile(dir), tmp = `${file}.tmp-${process.pid}`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(tmp, JSON.stringify(report, null, 2), 'utf8');
+  renameRetry(tmp, file);
+}
 
 export function saveGenReport(dir, generation) {
   const reportDir = path.join(dir, '.sagadeck');

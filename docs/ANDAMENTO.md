@@ -31,6 +31,87 @@ A raiz do "L₁ ≈ 55 m": o número do passo era texto da IA. Agora, no `soluti
 - Testes em `test/lessons.test.js` (onde o `solution` já mora): render com valores e arredondamento, erro claro,
   conferência que pula o calculado, apresentação interativa e o formulário do Studio conferido no deck salvo.
 
+## Unidades e contas do material — 23/10/2026 (branch `claude/conferir-unidades`, worktree `../sagadeck-conferir-unidades`)
+
+Continuação da conferência das contas (#201), sugestões 3 e 4 da revisão do deck da Mary.
+- `src/ai/units.js`: unidades comuns de aula e relatório (m, cm, L/s, kN/m², mH2O, °C, %…) → fator para o SI e
+  dimensão. `dimensionOf` acha a dimensão de uma conta sem árvore de expressão: escala cada grandeza de base (×2, ×3)
+  e vê como o resultado muda; soma de grandezas diferentes não muda como potência e é apontada.
+- Conferência das contas com unidades: a IA dá a unidade de cada var; a conta é feita no SI e volta para a unidade
+  do slide (L/s × m³/s, cm × m deixam de dar falso erro; 611 m/s no lugar de 0,611 é pego). `fn_slide` (a fórmula
+  como o slide escreveu) é acusada quando não fecha em unidades, só se a conta da própria IA fecha. Conversão feita
+  à mão pela IA (Q/1000 com Q em L/s) não é convertida de novo; resultado sem unidade fica no SI.
+- Leitura crítica confere as contas do próprio material (`auditMaterialMath`): duas rodadas independentes em
+  paralelo, só fica o que as duas acusam (o modelo real errou a conversão numa rodada); vira item `inconsistencia`
+  com trecho literal conferido. Usa o modelo das conferências (#202).
+Testes: `units.test.js` (unidades, dimensão, conversão, fórmula do slide), `critique.test.js` (gabarito errado vira
+item, rodadas que discordam não viram aviso), ao vivo (`SAGADECK_LIVE=1`): conversão esquecida e lista com
+gabarito errado, 3 de 3. Suíte completa da branch antes da integração: 1.117 testes, 1.086 aprovados, zero falhas.
+Integração com #202, #203 e #204 (base `claude/laughing-ritchie-81bb23`): conflito só na REFERENCIA, as duas frases
+ficaram.
+
+## Painel Revisar › Conferência — 22/10/2026 (branch `claude/laughing-ritchie-81bb23`, sobre `claude/conferir-contas`)
+
+Continuação da conferência das contas (abaixo): os achados das checagens tinham aviso, mas não tinham lugar nem
+botão (relatório num arquivo, uma mensagem do chat na primeira abertura, selo de origem na miniatura). Agora:
+- Revisar › **Conferência** (ao lado de Mudanças), com selo da contagem pendente: por slide, contas que não batem,
+  contas do material que não fecham, números sem base no material, avisos da revisão visual, figuras do material sem
+  slide e slides `derivado`/`proprio`. Montado no servidor (`src/studio/conference.js`) a partir do relatório
+  (`.sagadeck/avaliacao-geracao.json`) e do deck atual; achado que o deck já não tem (o número saiu do slide, o
+  slide não existe) some sozinho. Tela em `src/studio/public/conference-ui.js`.
+- Por item: Ir ao slide; **Corrigir com IA** (pedido pontual no chat; conta vai com `contas: [n]` no corpo do pedido
+  e o Studio confere depois da resposta, mesmo que a IA não peça); **Ignorar** (`decisoes` no relatório). O que não
+  dá para conferir sozinho (aviso visual, figura, origem) sai do painel ao ir para o chat (`enviado`).
+- Toda conferência das contas pelo chat grava o resultado no relatório (`recordMath`): conta corrigida sai do painel.
+- **Conferir de novo** (`/api/conferencia/conferir`): contas (`checkMath` só auditando), números (`unsupportedNumbers`,
+  o núcleo do `checkNumbers`) e figuras (`uncoveredVisuals`) no deck atual; sem IA, confere o que não precisa dela.
+- As pendências vão junto de cada pedido ao chat (`editDeck({ pending })`, bloco PENDÊNCIAS DA CONFERÊNCIA
+  AUTOMÁTICA); o ignorado não vai, nem quando a mensagem antiga dos avisos está na conversa. REFERENCIA atualizada.
+Testes: `ai.test.js` (itens, ignorar, recordMath, Conferir de novo com e sem IA) e `studio-ai.test.js` (o painel
+usado como a pessoa usaria: selo, Conferir de novo, Ignorar, Corrigir com IA numa conta e num slide da IA,
+conferindo deck salvo, relatório e o que foi ao modelo; zero erros JS). Ícones Lucide novos: list-checks,
+calculator, hash, image-off. Suíte completa: `npm test`, 1.116 testes, 1.087 aprovados, 29 condicionais pulados, zero falhas.
+Falta: PR empilhado sobre o #201 (`claude/conferir-contas`), CI verde, merge.
+
+## Pedido da criação gravado — 22/10/2026 (branch `claude/pedido-da-criacao-0d34bc`, sobre `claude/conferir-contas`)
+
+Origem: no deck da Mary dava para provar que ela anexou um PPTX (estava em `contexto/`), mas não o que ela pediu: o
+briefing não ficava salvo e o serviço não loga pedidos.
+Feito: `src/studio/generation-request.js` grava `.sagadeck/geracao.json` em arquivo próprio (não mexe no relatório
+`avaliacao-geracao.json`): data, origem (`biblioteca`, `editor`, `chat`), o briefing exatamente como foi para a IA e
+`briefingPadrao` (a pessoa não escreveu nada e foi o texto padrão da tela; a biblioteca manda `guide.padrao`, com
+intenção, público, objetivo e roteiro), resposta à pergunta da IA, duração, slides, tema, estilo, direção, anexos
+(nome, tipo, tamanho em bytes, caracteres lidos, caminho em `contexto/documentos/<hash>/`), Preferências que mudam a
+geração (idioma, imagens, pesquisa, perguntar, autor), fontes da pesquisa, modelos e o endereço do provedor sem
+usuário, senha nem parâmetros (nada de chave). Criar pelo chat com documento anexado reescrevendo a maior parte do
+deck grava o mesmo arquivo (origem `chat`); o pedido anterior vai para `anteriores` (10 últimos). Duplicar já copia a
+pasta inteira; o pacote `.sagadeck` agora leva `.sagadeck/geracao.json`.
+Testes: `storage.test.js` (biblioteca com anexo; segredos e `anteriores`), `library-ui.test.js` (pedido guiado
+digitado; só com anexo grava o texto padrão marcado, duplicar e o pacote levam o arquivo, zero erros JS),
+`studio-ai.test.js` (Deck com IA do editor e criação pelo chat com docx). Conferido que falham sem a gravação.
+Falta: PR com CI verde e merge (depois do PR #201, que é a base).
+
+## Modelo para conferir — 22/10/2026 (branch `claude/modelo-por-etapa-d74f41`, parte de `claude/conferir-contas`)
+
+Origem: no ensaio real da conferência das contas, o modelo de texto (deepseek flash) levou 5 a 12 min e uma rodada
+estourou tokens. Um modelo de raciocínio mais forte só nas conferências dá precisão sem encarecer a escrita.
+Feito:
+- `~/.sagadeck/ia.json` ganhou o papel opcional `models.check` (`ROLES` em `src/ai/ia-config.js`); `llmConfig()` dá
+  `checkModel` (variável `SAGADECK_CHECK_MODEL`, senão `models.check`, senão o de texto: nada muda para quem não
+  configurar). O apelido `"check"` resolve para ele em `resolveModel`, como `"vision"`.
+- Usam `model: "check"`: a conferência das contas (`auditBatch` em `math-check.js`), a leitura crítica
+  (`critique.js`) e a confirmação dos achados da revisão visual (`quality.js`; se o modelo de conferir não aceitar
+  imagem, a chamada cai no de visão pelo caminho que já existia). A correção que a conferência pede continua no de
+  texto (é escrita). A checagem de números (`checkNumbers`) não tem chamada de conferência: acha os números no código
+  e pede a correção à escrita, então não mudou.
+- Configurar IA: campo "Modelo para conferir" (largura inteira, com a linha "um modelo de raciocínio mais forte só
+  onde a conta precisa estar certa"). Os campos de modelo continuam texto livre, sem lista do provedor (nenhum tem).
+- `ia-check`: recurso `conferencia` (CLI `--so=conferencia`, MCP, `/api/ia/check`): quando o modelo de conferir é
+  outro que o de texto, uma conta com resposta conhecida, com raciocínio e 4000 tokens; senão, `SEM CONFIG`.
+Testes: `ai.test.js` (contas, leitura crítica e confirmação vão ao de conferir; a correção e a revisão ao de texto;
+sem configurar, tudo ao de texto; falha sem a mudança), `ia-check.test.js`, `library-ui.test.js` (tela grava
+`models.check` no ia.json, reabre mostrando, zero erros JS).
+
 ## Conferência das contas — 22/10/2026 (branch `claude/conferir-contas`, worktree `../sagadeck-conferir-contas`)
 
 Origem: deck de aula criado na Oracle (Hidráulica, Aula 5, conta da Mary) saiu com "L₁ ≈ 55 m" num exercício cuja

@@ -995,7 +995,7 @@ function commandEnvNames(apiContext) {
 
 // Chat lateral do Studio: aplica um pedido em linguagem natural ao deck.
 export async function editDeck({ spec, instruction, targetSlide = null, issues = [], images = false, imageOptions = {}, history = [], onProgress,
-  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, signal, reviewCheck = null, reviewDepth = 0, repairSlides = null, mapData = null }) {
+  visuals = [], renderNotes = [], apiContext = null, drawCheck = null, runCommand = null, materials = [], deferImages = false, maxImages, styles = null, signal, reviewCheck = null, reviewDepth = 0, repairSlides = null, mapData = null, pending = "" }) {
   const deck = promptSpec(spec);
   const { slides: _slides, ...numbered } = deck;
   const slidesYaml = deck.slides.map((s, i) => `# ── slide ${i + 1} ──\n${YAML.stringify([s], { indent: 2 })}`).join("");
@@ -1019,7 +1019,7 @@ export async function editDeck({ spec, instruction, targetSlide = null, issues =
 ${YAML.stringify(numbered, { indent: 2 })}slides:
 ${slidesYaml}\`\`\`
 ${focus}${problems}${autoLog}${drawn}${apiEnvText}${styles ? `\nEstilos salvos na biblioteca: ${styles.list.length ? styles.list.map((s) => `"${s.name}"${s.default ? " (padrão das novas)" : ""}`).join(", ") : "nenhum"}. Estilo desta apresentação: ${styles.current ? `"${styles.current}"` : "nenhum"}.` : ""}
-${materialsBlock(materials) ? `\n${materialsBlock(materials)}\n` : ""}
+${materialsBlock(materials) ? `\n${materialsBlock(materials)}\n` : ""}${pending ? `\n${pending}\n` : ""}
 Pedido: ${instruction}
 
 Antes de responder, verifique (e siga as Regras de edição):

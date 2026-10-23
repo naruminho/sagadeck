@@ -11,6 +11,8 @@ import { mediaPrompt } from './art-direction.js';
 //   SAGADECK_VISION_MODEL modelo que vê imagens  (padrão: o "vision" da configuração; quando o de texto não enxerga,
 //                         a chamada com imagem vai para ele em vez de perder a imagem)
 //   SAGADECK_SEARCH_MODEL modelo que busca na web (padrão: o "search" da configuração)
+//   SAGADECK_CHECK_MODEL  modelo das conferências: contas, leitura crítica, confirmação da revisão visual (padrão: o
+//                         "check" da configuração; sem ele, o de texto)
 //   SAGADECK_LLM_TIMEOUT  segundos por chamada; em streaming, segundos sem chegar nada (padrão: 180)
 //   SAGADECK_LLM_FIRST_TIMEOUT  em streaming, segundos até a 1ª palavra (o modelo pensa antes) (padrão: 600)
 
@@ -32,24 +34,27 @@ export class LLMError extends Error {
 }
 
 // De onde vem a IA: variáveis de ambiente (SAGADECK_LLM_URL…, valem por cima; é como os testes apontam para o LLM
-// falso) ou a configuração desta máquina (~/.sagadeck/ia.json, src/ai/ia-config.js). Os papéis text, vision, image e
-// search viram os modelos configurados; sem configuração nenhuma, a IA fica desligada (o Studio usa as regras locais).
+// falso) ou a configuração desta máquina (~/.sagadeck/ia.json, src/ai/ia-config.js). Os papéis text, vision, image,
+// search e check viram os modelos configurados; sem configuração nenhuma, a IA fica desligada (o Studio usa as regras locais).
 let migrated = false;
 export function llmConfig(env = process.env) {
   const fromEnv = !!env.SAGADECK_LLM_URL;
   if (!fromEnv && !migrated) { migrated = true; try { migrateModelrelay({ env, file: iaFile(env) }); } catch { /* segue sem */ } }
   const { config: ia, problem } = fromEnv ? { config: null, problem: "" } : readIA(iaFile(env));
   const m = ia?.models || {};
+  const textModel = env.SAGADECK_TEXT_MODEL || m.text || "text";
   return {
     url: (env.SAGADECK_LLM_URL || ia?.url || "").replace(/\/+$/, ""),
     key: env.SAGADECK_LLM_KEY || (ia ? keyOf(ia, env) : ""),
-    textModel: env.SAGADECK_TEXT_MODEL || m.text || "text",
+    textModel,
     imageModel: env.SAGADECK_IMAGE_MODEL || m.image || "image",
     visionModel: env.SAGADECK_VISION_MODEL || m.vision || m.text || "vision",
     // busca na web pelo modelo (no OpenRouter, um modelo ":online"); sem ele, a pesquisa usa os buscadores diretos
     searchModel: env.SAGADECK_SEARCH_MODEL || m.search || (fromEnv ? "search" : ""),
     // vídeo (opcional): com ele, a geração de vídeo usa esta mesma camada (src/ai/video-generation.js, videoSetup)
     videoModel: env.SAGADECK_VIDEO_MODEL || m.video || "",
+    // conferências (contas, leitura crítica, confirmação da revisão visual): sem modelo próprio, o de texto
+    checkModel: env.SAGADECK_CHECK_MODEL || m.check || textModel,
     headers: ia?.headers || {},
     adaptador: ia?.adaptador || "",
     source: fromEnv ? "variável" : ia ? "arquivo" : "nenhuma",
@@ -61,9 +66,9 @@ export function llmConfig(env = process.env) {
 }
 export const llmConfigured = (cfg = llmConfig()) => !!(cfg.url || cfg.adaptador);
 
-// o papel (text, vision, image, search) vira o modelo configurado; outro nome passa como veio
+// o papel (text, vision, image, search, check) vira o modelo configurado; outro nome passa como veio
 export function resolveModel(cfg, name) {
-  const roles = { text: cfg.textModel, vision: cfg.visionModel, image: cfg.imageModel, search: cfg.searchModel, video: cfg.videoModel };
+  const roles = { text: cfg.textModel, vision: cfg.visionModel, image: cfg.imageModel, search: cfg.searchModel, video: cfg.videoModel, check: cfg.checkModel || cfg.textModel };
   return roles[name] || name;
 }
 
@@ -147,11 +152,11 @@ export async function chat(messages, opts = {}) {
 
 async function chatUnmetered(messages, opts = {}) {
   const cfg = opts.cfg || llmConfig();
-  const key = `${cfg.url}|${opts.model || cfg.textModel}`;
+  const key = `${cfg.url}|${resolveModel(cfg, opts.model || cfg.textModel)}`;
   // o modelo de texto não enxerga: a chamada com imagem vai para o modelo de visão (se o relay tiver um)
   const viaVision = async () => {
     const vision = cfg.visionModel;
-    if (!vision || vision === (opts.model || cfg.textModel) || noVision.has(`${cfg.url}|${vision}`)) return null;
+    if (!vision || vision === resolveModel(cfg, opts.model || cfg.textModel) || noVision.has(`${cfg.url}|${vision}`)) return null;
     try { return { ...(await chatOnce(messages, { ...opts, model: vision, cfg })), visionRouted: vision }; }
     catch (e) { if (refusesImages(e) || e.status === 400 || e.status === 404) { noVision.add(`${cfg.url}|${vision}`); return null; } throw e; }
   };

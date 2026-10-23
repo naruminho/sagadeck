@@ -96,7 +96,8 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     box.scrollIntoView({ block: "nearest" });
   }
 
-  async function handleChatSubmit(e) {
+  // extra: o que o Studio manda junto do pedido (contas: [n] do painel Conferência, conferidas depois da resposta)
+  async function handleChatSubmit(e, extra = {}) {
     if (e) e.preventDefault();
     if (chatJob) { if(e?.type === "submit") chatJob.stop(); return; }
     const message = dom.chatInput.value.trim();
@@ -156,6 +157,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
         renderNotes: state.renderNotes || [],
         autoRun: !!state.autoRunCommands, // a pessoa liberou os comandos desta conversa (só enquanto a página está aberta)
         expectFile: state.file,
+        ...(Array.isArray(extra?.contas) ? { contas: extra.contas } : {}),
       }, (ev) => { if (!commandEvent(ev)) work.update(ev); }, job.controller.signal);
       if (state.file !== job.file) { work.done(); showToast("O pedido terminou na apresentação em que começou; a apresentação atual foi preservada.", 6000); return; }
       if (!data.spec) throw new Error(data.error || "resposta sem deck");
@@ -245,6 +247,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       dom.chatInput.disabled = false;
       dom.chatInput.focus();
       await saveChatHistory();
+      window.dispatchEvent(new Event("sagadeck:chat-done")); // o painel Conferência confere o selo de novo
     }
   }
 

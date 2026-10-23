@@ -398,6 +398,7 @@
     if (dom.tabPanelVars.classList.contains("active")) renderStudioSavedVars();
 
     renderReviewBar(slide, idx);
+    conference.refreshSoon();
     dom.currentSlideLabel.textContent = `Slide ${idx + 1} de ${state.deck.slides.length}`;
     dom.currentLayoutBadge.textContent = layoutLabel(slide.layout);
     dom.toneSelect.value = slide.tone || "light";
@@ -2808,6 +2809,13 @@
     state, showToast: (...a) => showToast(...a), renderThumbnails: () => renderThumbnails(), renderCurrentSlide: () => renderCurrentSlide(),
     trackDeck: (l) => trackDeck(l), hydrateIcons: (el) => hydrateIcons(el), plainTitle: (sl, i) => plainTitle(sl, i),
   });
+  // Revisar › Conferência (conference-ui.js): o que as checagens acharam, com Corrigir com IA (pedido pontual ao chat)
+  const conference = window.SagaConference.create({
+    state, showToast: (...a) => showToast(...a), renderThumbnails: () => renderThumbnails(), renderCurrentSlide: () => renderCurrentSlide(),
+    hydrateIcons: (el) => hydrateIcons(el), plainTitle: (sl, i) => plainTitle(sl, i),
+    chatBusy: () => !!chatApi.getChatJob(),
+    askChat: (text, extra) => { openPane("chat"); dom.chatInput.value = text; chatApi.handleChatSubmit(null, extra); },
+  });
   // Desfazer / refazer único (history.js): todo caminho que muda o deck passa por trackDeck, com o rótulo da origem
   const deckHistory = window.SagaHistory.createHistory();
   function trackDeck(label = "Edição") {
@@ -3911,6 +3919,7 @@ ${ta.value}`;
     document.getElementById("btn-header-footer").addEventListener("click", openHeaderFooter);
     document.getElementById("btn-styles")?.addEventListener("click", openStyles);
     document.getElementById("btn-review-changes")?.addEventListener("click", openReviewList);
+    document.getElementById("btn-conference")?.addEventListener("click", () => conference.open());
     document.getElementById("btn-close-hf").addEventListener("click", closeHeaderFooter);
     document.getElementById("btn-hf-cancel").addEventListener("click", closeHeaderFooter);
     document.getElementById("btn-hf-apply").addEventListener("click", applyHeaderFooter);

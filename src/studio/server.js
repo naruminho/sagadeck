@@ -39,6 +39,7 @@ import { startMockApi, demoEnv, DEMO_FILES } from "../api-demo.js";
 import { slideSnapshots, diagramCheck } from "./snapshot.js";
 import { saveGenReport, generationNotice } from './generation-report.js';
 import { generateForStudio } from "./generate.js";
+import { saveGenerationRequest } from "./generation-request.js";
 import { runCommand, logCommand } from "../ai/commands.js";
 import { needsApproval, approvalLabel, awaitApproval, commandEnv, estimateSubmitCost } from "./command-approval.js";
 import { demoDeck, demoAssets, demoProjectFiles } from "./demo-decks.js";
@@ -51,6 +52,7 @@ import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
 import { aiChatRoutes } from "./ai-chat-route.js";
+import { conferenceRoutes } from "./conference-routes.js";
 import { libraryRoutes } from "./library-routes.js";
 export { lightVariant };
 import { VERSION, buildInfo } from "./instance.js";
@@ -320,16 +322,19 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // Gerar com IA (editor ou biblioteca): a IA trabalha numa pasta oculta do tópico (invisível na biblioteca)
   // e a apresentação só aparece quando pronta, publicada com o título final. Falhou ou a IA perguntou algo:
   // a pasta vai para a lixeira (recuperável). Minutos, estilo, anexos.
-  async function generateIntoLibrary(W, topic, b, emit) {
+  async function generateIntoLibrary(W, topic, b, emit, origin = "biblioteca") {
     const L = W.library;
     const { dir, file } = L.createStagingDeck(topic);
     try {
-      const gen = await generateForStudio(b, { dir, materials: takeMaterials(W, b.materials), emit });
+      const materials = takeMaterials(W, b.materials);
+      const gen = await generateForStudio(b, { dir, materials, emit });
       if (gen.question) { L.discardStaging(topic, dir); return { question: gen.question }; } // a IA quer saber para que serve o material
       // estilo padrão da biblioteca (Brand Kit), se a pessoa não escolheu um tema para esta
       if (!b.theme) gen.spec = L.withDefaultStyle(gen.spec, dir);
       fs.writeFileSync(file, toYaml(gen.spec), "utf8");
       saveGenReport(dir, gen);
+      // o pedido que originou a apresentação, para auditar depois (.sagadeck/geracao.json)
+      try { saveGenerationRequest(dir, { origem: origin, pedido: b, materials, spec: gen.spec, research: gen.research }); } catch { /* o registro não derruba a criação */ }
       const finalId = L.publishStagedDeck(topic, dir, gen.spec.title || "Nova apresentação");
       return { id: finalId, file: L.resolveId(finalId), images: gen.images, research: gen.research, quality: gen.quality, variety: gen.variety };
     } catch (e) {
@@ -707,6 +712,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (await versionRoutes({req,res,pathname,W,readJSON})) return;
       if (await meetingRoutes({req,res,pathname,W,readJSON,persist})) return;
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
+      if (await conferenceRoutes({ req, res, pathname, W, readJSON, isBundledTemplate })) return;
       if (await shares.api({ req, res, pathname, W, readJSON })) return;
       if (pathname === "/api/aspect" && req.method === "POST") {
         const b = await readJSON(req);
@@ -954,7 +960,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         }
         // O deck novo vai para uma pasta própria na biblioteca (regra do CLAUDE.md), no tópico do deck aberto
         await respond(res, body.stream, async (emit) => {
-          const r = await generateIntoLibrary(W, topicOfOpen(W), body, emit);
+          const r = await generateIntoLibrary(W, topicOfOpen(W), body, emit, "editor");
           if (r.question) return { ok: true, question: r.question }; // a IA perguntou para que serve o material
           W.file = r.file;
           W.spec = loadSpec(r.file);

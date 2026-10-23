@@ -41,6 +41,10 @@ function script(req) {
   }
   if (/Analise visualmente/.test(p)) return "Revisei a imagem.\n```yaml\nslides:\n  1: {layout: cover, title: Capa revisada visualmente}\n```";
   if (/versões/.test(p)) return "Duas versões da capa.\n```yaml\nvariants:\n  slide: 1\n  options:\n    - label: Manchete\n      slide: { layout: headline, text: \"Fraude custa ==3 mi==\" }\n    - label: Número\n      slide: { layout: number, value: 3, suffix: \" mi\", label: em fraudes }\n```";
+  if (/monte a apresentação inteira/.test(p)) {
+    return ["Montei a apresentação a partir da aula.", "```yaml", "slides:", "  1: { layout: cover, title: Hidráulica do chat }",
+      ...[2, 3, 4, 5, 6].map((n) => `  ${n}: { layout: statement, text: Ideia ${n} da aula }`), "```"].join("\n");
+  }
   if (/kicker novo/.test(p)) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
   }
@@ -142,6 +146,26 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.ok(!JSON.stringify(req.body).includes("UEsDB"), "zip não vai ao modelo");
     });
 
+    await t.test("criar a apresentação do documento pelo chat grava o pedido e o anexo em .sagadeck/geracao.json", async () => {
+      const { default: JSZip } = await import("jszip");
+      const buf = await new JSZip().file("word/document.xml",
+        "<w:document><w:body><w:p><w:r><w:t>Aula de hidráulica: perda de carga.</w:t></w:r></w:p></w:body></w:document>")
+        .generateAsync({ type: "nodebuffer" });
+      await p.setInputFiles("#chat-attach-input", { name: "aula.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: buf });
+      await p.waitForFunction(() => [...document.querySelectorAll("#chat-attachments .chat-doc b")]
+        .some((b) => b.textContent === "aula.docx" && !/lendo/.test(b.closest(".chat-att").textContent)));
+      await send("monte a apresentação inteira a partir desta aula");
+      const g = JSON.parse(fs.readFileSync(path.join(deckFile.dir, ".sagadeck", "geracao.json"), "utf8"));
+      assert.equal(g.origem, "chat");
+      assert.equal(g.briefing, "monte a apresentação inteira a partir desta aula");
+      assert.equal(g.materiais.length, 1, JSON.stringify(g.materiais));
+      assert.equal(g.materiais[0].nome, "aula.docx");
+      assert.equal(g.materiais[0].tipo, "docx");
+      assert.equal(g.materiais[0].tamanho, buf.length);
+      assert.deepEqual(fs.readFileSync(path.join(deckFile.dir, ...g.materiais[0].caminho.split("/"))), buf, "o caminho leva ao anexo guardado");
+      assert.equal(saved().slides[0].title, "Hidráulica do chat", "a reescrita foi salva");
+    });
+
     await t.test("link colado é lido sozinho (até 2 por mensagem)", async () => {
       const http = await import("node:http");
       const srv = http.createServer((req, res) => {
@@ -230,6 +254,14 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.match(req.lastUser, /Você decide onde ilustrar/);
       assert.match(req.system, /Você PODE pedir ilustrações/);
       assert.equal((await deck()).title, "Deck gerado");
+      // o pedido fica gravado ao lado do deck novo (.sagadeck/geracao.json), para auditar depois
+      const file = await p.evaluate(async () => (await (await fetch("/api/deck")).json()).file);
+      const g = JSON.parse(fs.readFileSync(path.join(path.dirname(file), ".sagadeck", "geracao.json"), "utf8"));
+      assert.equal(g.origem, "editor");
+      assert.equal(g.briefing, "Palestra curta sobre fraudes. Você decide onde ilustrar.");
+      assert.equal(g.briefingPadrao, false);
+      assert.deepEqual(g.materiais, []);
+      assert.equal(g.resultado.titulo, "Deck gerado");
     });
 
     await t.test("comando da IA: aparece o código, só roda com o clique, o resultado volta e o deck salvo muda", async () => {
@@ -342,6 +374,109 @@ test("studio + IA: avisos da criação no chat e conferência das contas pelo ch
       // a correção leva a conversa: o que a pessoa disse ("pode corrigir o material") vale na hora de corrigir
       const fix = llm.requests.findLast((r) => /Conferência das contas/.test(r.lastUser));
       assert.ok(fix.messages.some((m) => typeof m.content === "string" && /confira as contas da aula/.test(m.content)), "a conversa foi junto");
+    });
+
+    await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+    await llm.close();
+    deckFile.cleanup();
+  }
+});
+
+// Painel Revisar › Conferência: os achados das checagens num lugar só, com ação por item. A aula da professora saiu
+// com a conta errada e o aviso estava num arquivo; agora ele tem lugar, selo e botão.
+function scriptConferencia(req) {
+  if (/Você confere as CONTAS/.test(req.system)) {
+    const afirmado = /\b273\b/.test(req.lastUser) ? "273" : "55";
+    return JSON.stringify({ contas: [{ slide: 2, o_que: "comprimento máximo", afirmado, unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" }] });
+  }
+  const p = pedido(req);
+  // a correção vem do painel: o pedido pontual traz a conta refeita; a IA não pede contas: (o Studio confere sozinho)
+  if (/Confira a conta do slide 2/.test(p)) return "Refiz: 2,73/0,01 = 273 m.\n```yaml\nedit:\n  2:\n    answer: { latex: 'L \approx 273\ \mathrm{m}', text: cerca de 273 m de tubo }\n  3:\n    body: Só cerca de 273 m de tubo podem subir.\n```";
+  if (/foi incluído pela IA/.test(p)) return "Conferi o slide 3: o que ele diz está certo e coerente com o material.";
+  return "Entendi, não mudei nada.";
+}
+
+test("studio + IA: painel Conferência (conferir de novo, ignorar, corrigir com IA)", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const llm = await startMockLLM(scriptConferencia);
+  const deckFile = tempDeck();
+  fs.writeFileSync(deckFile.file, AULA.replace("  - { layout: split, title: O limite, body: \"Só cerca de 55 m de tubo podem subir.\" }",
+    "  - { layout: split, title: O limite, body: \"Só cerca de 55 m de tubo podem subir.\", provenance: proprio, provenanceNote: conclusão da IA }"));
+  const report = path.join(deckFile.dir, ".sagadeck", "avaliacao-geracao.json");
+  fs.mkdirSync(path.dirname(report), { recursive: true });
+  fs.writeFileSync(report, JSON.stringify({ createdAt: "2026-10-22T16:26:00Z", avisado: true, quality: { issues: [{ slide: 3, text: "Rótulo cortado na figura" }] }, coverage: { missing: ["Figura 2: esquema do sifão"] } }));
+  const studio = await startStudio(deckFile.file, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    const rel = () => JSON.parse(fs.readFileSync(report, "utf8"));
+    const waitAI = () => p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 60000 });
+    const badge = () => p.innerText("#conference-badge");
+    const kinds = () => p.$$eval("#conference-dialog .conf-item", (els) => els.map((e) => `${e.closest(".conf-group").dataset.slide}:${e.querySelector(".conf-kind").innerText.trim()}`));
+    const item = (slide, kind) => `#conference-dialog .conf-group[data-slide="${slide}"] .conf-${kind}`;
+
+    await t.test("o selo conta o que está pendente e o painel lista por slide", async () => {
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "3");
+      await p.click('.ribbon-tab[data-tab="revisar"]');
+      await p.click("#btn-conference");
+      await p.waitForSelector("#conference-dialog[open] .conf-item");
+      assert.deepEqual(await kinds(), ["3:Aviso da revisão visual", "3:Incluído pela IA", "0:Figura do material sem slide"]);
+      assert.match(await p.innerText('#conference-dialog .conf-group[data-slide="3"] .conf-slide-title'), /O limite/);
+    });
+
+    await t.test("Conferir de novo refaz as contas no deck atual: a de 55 m aparece no slide 2", async () => {
+      await p.click("#conference-dialog [data-recheck]");
+      await p.waitForSelector(`${item(2, "conta")}`, { timeout: 30000 });
+      assert.match(await p.innerText(item(2, "conta")), /o slide diz 55 m; refazendo a conta, dá 273 m/);
+      assert.equal(await badge(), "4");
+      const r = rel();
+      assert.deepEqual(r.math.divergent.map((d) => `${d.slide}:${d.afirmado}`), ["2:55"]);
+      assert.ok(r.conferidoEm);
+    });
+
+    await t.test("Ignorar tira o item do painel, grava no relatório e ele não vai no próximo pedido", async () => {
+      await p.click(`${item(3, "visual")} [data-ignore]`);
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "3");
+      assert.ok(!(await kinds()).includes("3:Aviso da revisão visual"));
+      const decided = Object.entries(rel().decisoes || {});
+      assert.equal(decided.length, 1);
+      assert.match(decided[0][0], /^visual:3:/);
+      assert.equal(decided[0][1].status, "ignorado");
+    });
+
+    await t.test("Corrigir com IA numa conta: pedido pontual no chat, conferido depois; deck salvo e relatório corrigidos", async () => {
+      const before = llm.requests.length;
+      const sent = [];
+      p.on("request", (r) => { if (r.url().endsWith("/api/ai/chat") && r.method() === "POST") sent.push(JSON.parse(r.postData())); });
+      await p.click(`${item(2, "conta")} [data-fix]`);
+      await p.waitForTimeout(300); await waitAI();
+      const d = saved();
+      assert.match(d.slides[1].answer.text, /273 m/);
+      assert.match(d.slides[2].body, /273 m/);
+      const ask = llm.requests.slice(before).find((r) => /Confira a conta do slide 2/.test(pedido(r)));
+      assert.ok(ask, "o pedido foi ao chat");
+      assert.deepEqual(sent.at(-1).contas, [2], "o Studio pede a conferência do slide junto (contas: [2])");
+      assert.match(ask.lastUser, /PENDÊNCIAS DA CONFERÊNCIA AUTOMÁTICA[\s\S]*Figura 2: esquema do sifão/);
+      assert.doesNotMatch(ask.lastUser, /Rótulo cortado/, "o ignorado não vai no pedido");
+      assert.ok(llm.requests.slice(before).some((r) => /Você confere as CONTAS/.test(r.system) && /273/.test(r.lastUser)), "o Studio conferiu a conta depois");
+      assert.deepEqual(rel().math.divergent, []);
+      assert.match(await p.innerText("#chat-messages"), /Confira a conta do slide 2/);
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "2");
+    });
+
+    await t.test("Corrigir com IA num slide incluído pela IA: vai ao chat e sai do painel", async () => {
+      await p.click("#btn-conference");
+      await p.waitForSelector(item(3, "proprio"));
+      await p.click(`${item(3, "proprio")} [data-fix]`);
+      await p.waitForTimeout(300); await waitAI();
+      assert.match(await p.innerText("#chat-messages"), /o que ele diz está certo/);
+      assert.equal(Object.values(rel().decisoes).filter((x) => x.status === "enviado").length, 1);
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "1");
+      assert.equal(saved().slides[2].provenance, "proprio", "conversa não mexe no deck");
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
