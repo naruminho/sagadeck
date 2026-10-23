@@ -4,12 +4,12 @@ window.SagaAISettings = (() => {
   const css = `.ai-cfg{max-width:min(560px,calc(100vw - 32px));width:100%;border:1px solid var(--border,#c9ced6);border-radius:12px;padding:18px 20px;background:var(--panel,var(--bg,#fff));color:var(--text,#1d2433);font:14px/1.45 system-ui,sans-serif}
 .ai-cfg::backdrop{background:rgba(0,0,0,.35)}.ai-cfg h2{margin:0 0 6px;font-size:18px}.ai-cfg p{margin:4px 0 10px;color:var(--text-2,#555)}
 .ai-cfg label{display:block;margin:10px 0 3px;font-weight:600;font-size:12px}.ai-cfg input,.ai-cfg select{width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border,#c9ced6);border-radius:8px;background:var(--bg,#fff);color:inherit;font:inherit}
-.ai-cfg .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.ai-cfg small{color:var(--text-3,#777);font-size:12px}.ai-cfg .warn{background:#fef3c7;color:#78350f;border-radius:8px;padding:8px 10px}
+.ai-cfg .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.ai-cfg .grid .wide{grid-column:1/-1}.ai-cfg small{color:var(--text-3,#777);font-size:12px}.ai-cfg .warn{background:#fef3c7;color:#78350f;border-radius:8px;padding:8px 10px}
 .ai-cfg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}.ai-cfg button{padding:7px 14px;border-radius:8px;border:1px solid var(--border,#c9ced6);background:transparent;color:inherit;cursor:pointer;font:inherit}
 .ai-cfg .rec{background:var(--selected,#eef);border-radius:8px;padding:8px 10px;margin:6px 0 4px}.ai-cfg .rec button{margin-top:6px;display:block}
 .ai-cfg button.primary{background:var(--brand,#5b4bdb);border-color:var(--brand,#5b4bdb);color:#fff}.ai-cfg [data-status]{margin-top:10px;min-height:1.4em}.ai-cfg [data-status].ok{color:#15803d}.ai-cfg [data-status].err{color:#b91c1c}`;
-  const LABEL = { text: "Modelo de texto", vision: "Modelo que vê imagens", image: "Modelo de imagem", search: "Modelo de busca na web", video: "Modelo de vídeo" };
-  const HINT = { text: "obrigatório", vision: "opcional; vazio = o de texto", image: "opcional; para gerar ilustrações", search: "opcional; no OpenRouter, um modelo :online", video: "opcional; para gerar clipes (cobrado por segundo)" };
+  const LABEL = { text: "Modelo de texto", vision: "Modelo que vê imagens", image: "Modelo de imagem", search: "Modelo de busca na web", video: "Modelo de vídeo", check: "Modelo para conferir" };
+  const HINT = { text: "obrigatório", vision: "opcional; vazio = o de texto", image: "opcional; para gerar ilustrações", search: "opcional; no OpenRouter, um modelo :online", video: "opcional; para gerar clipes (cobrado por segundo)", check: "opcional; vazio = o de texto. Um modelo de raciocínio mais forte só onde a conta precisa estar certa (contas, leitura crítica, revisão)" };
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   let dialog, info, onSaved = () => {};
 
@@ -47,7 +47,7 @@ window.SagaAISettings = (() => {
       <input id="ai-cfg-url" data-f="url" placeholder="https://…/v1" spellcheck="false">
       <label for="ai-cfg-key">Chave</label>
       <input id="ai-cfg-key" data-f="key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.keySet ? `configurada (${esc(c.keyHint)}${c.keyFrom === "variável" ? `, da variável ${esc(c.keyEnv)}` : ""}); em branco mantém` : "cole a chave do provedor"}">
-      <div class="grid">${(info.roles || []).map((r) => `<div><label for="ai-cfg-${r}">${LABEL[r] || r}</label><input id="ai-cfg-${r}" data-model="${r}" value="${esc(c.models?.[r])}" placeholder="${info.recommended?.models?.[r] ? `ex.: ${esc(info.recommended.models[r])}` : ""}" spellcheck="false"><small>${HINT[r] || ""}</small></div>`).join("")}</div>
+      <div class="grid">${(info.roles || []).map((r) => `<div${r === "check" ? ' class="wide"' : ""}><label for="ai-cfg-${r}">${LABEL[r] || r}</label><input id="ai-cfg-${r}" data-model="${r}" value="${esc(c.models?.[r])}" placeholder="${info.recommended?.models?.[r] ? `ex.: ${esc(info.recommended.models[r])}` : ""}" spellcheck="false"><small>${HINT[r] || ""}</small></div>`).join("")}</div>
       <p><small>Texto e visão funcionam em qualquer provedor compatível com a API da OpenAI. Gerar imagem e buscar na web dependem do provedor: funcionam no OpenRouter com modelos de imagem e modelos <code>:online</code>; em outros, a pesquisa usa buscadores diretos e a imagem pode não sair.</small></p>
       <div data-status role="status"></div>
       <div class="row"><button type="button" data-close>Fechar</button><button type="button" data-test>Testar</button><button type="button" class="primary" data-save>Salvar</button></div>`;

@@ -19,8 +19,10 @@ export const RECOMMENDED = {
   provider: "openrouter",
   models: { text: "deepseek/deepseek-v4.1-flash", vision: "deepseek/deepseek-v4.1-flash", image: "google/gemini-3.1-flash-image", search: "deepseek/deepseek-v4.1-flash:online", video: "google/veo-3.1-lite" },
 };
-// os papéis que o sagadeck usa; cada um aponta para um modelo do provedor
-export const ROLES = ["text", "vision", "image", "search", "video"];
+// os papéis que o sagadeck usa; cada um aponta para um modelo do provedor. "check" (opcional) é o das conferências
+// (contas, leitura crítica, confirmação da revisão visual): um modelo de raciocínio mais forte só onde a conta precisa
+// estar certa; vazio = o de texto
+export const ROLES = ["text", "vision", "image", "search", "video", "check"];
 
 export function iaFile(env = process.env, home = os.homedir()) {
   return env.SAGADECK_IA || path.join(home, ".sagadeck", "ia.json");

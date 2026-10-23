@@ -96,6 +96,7 @@ de cada papel:
 | visão | ver o slide renderizado e as imagens coladas | opcional; vazio = o de texto |
 | imagem | ilustrações (`image_prompt`) | opcional |
 | busca | pesquisa na web da geração (no OpenRouter, um modelo `:online`) | opcional; sem ele, buscadores diretos |
+| conferir | as conferências: contas, leitura crítica e confirmação da revisão visual (um modelo de raciocínio mais forte só onde a conta precisa estar certa) | opcional; vazio = o de texto |
 
 **Testar** faz uma pergunta curta com o que está na tela antes de salvar. A configuração fica só nesta máquina, em
 `~/.sagadeck/ia.json` (fora do código e fora da biblioteca, que pode sincronizar com a nuvem); a chave nunca volta
@@ -138,7 +139,7 @@ As variáveis abaixo valem por cima da configuração (útil em servidor e em te
 |---|---|
 | `SAGADECK_LLM_URL` | qualquer API compatível com OpenAI (ex.: `https://openrouter.ai/api/v1`) |
 | `SAGADECK_LLM_KEY` | a chave (bearer token) |
-| `SAGADECK_TEXT_MODEL` / `SAGADECK_VISION_MODEL` / `SAGADECK_IMAGE_MODEL` / `SAGADECK_SEARCH_MODEL` | os modelos de cada papel |
+| `SAGADECK_TEXT_MODEL` / `SAGADECK_VISION_MODEL` / `SAGADECK_IMAGE_MODEL` / `SAGADECK_SEARCH_MODEL` / `SAGADECK_CHECK_MODEL` | os modelos de cada papel (`CHECK`: o das conferências) |
 | `SAGADECK_LLM_TIMEOUT` | segundos por chamada (padrão `180`) |
 | `SAGADECK_IA` | outro arquivo de configuração (padrão `~/.sagadeck/ia.json`) |
 

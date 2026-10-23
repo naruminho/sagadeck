@@ -1,4 +1,4 @@
-// Diagnóstico da IA configurada, sem tela: cada recurso (texto, visão, imagem, pesquisa, vídeo) com uma chamada de
+// Diagnóstico da IA configurada, sem tela: cada recurso (texto, visão, imagem, pesquisa, vídeo, conferência) com uma chamada de
 // verdade ao provedor, todos ao mesmo tempo, cada resultado avisado assim que chega. Para quem configura e para agentes
 // (Copilot, Claude) saberem em segundos o que funciona, sem abrir o Studio. `sagadeck ia-check`, a ferramenta
 // sagadeck_ia_check do MCP e POST /api/ia/check usam esta mesma função.
@@ -12,9 +12,9 @@ import zlib from "node:zlib";
 import { chat, generateImage, llmConfig, llmConfigured } from "./llm.js";
 import { videoOperation, videoCatalog, videoSetup } from "./video-generation.js";
 
-export const CHECKS = { texto: "Texto", visao: "Visão", imagem: "Geração de imagem", pesquisa: "Pesquisa na web", video: "Geração de vídeo" };
+export const CHECKS = { texto: "Texto", visao: "Visão", imagem: "Geração de imagem", pesquisa: "Pesquisa na web", video: "Geração de vídeo", conferencia: "Conferência" };
 // prazo de cada um (s): um modelo travado não segura os outros
-const PRAZO = { texto: 30, visao: 45, imagem: 120, pesquisa: 60 };
+const PRAZO = { texto: 30, visao: 45, imagem: 120, pesquisa: 60, conferencia: 90 };
 
 // ---- a imagem do teste de visão: duas faixas de cor, desenhada aqui mesmo (PNG mínimo, sem navegador)
 const CORES = { vermelho: [229, 57, 53], azul: [30, 99, 233], verde: [46, 158, 68], amarelo: [245, 197, 24] };
@@ -76,6 +76,15 @@ const RUN = {
     return dias <= 1 ? { status: "ok", modelo: cfg.searchModel, detalhe: said(r.text) }
       : { status: "falhou", modelo: cfg.searchModel, detalhe: `${said(r.text)}; hoje é ${today()} (não parece ter pesquisado)` };
   },
+  // o modelo das conferências (contas, leitura crítica, revisão), quando é outro que o de texto: uma conta pequena com
+  // resposta conhecida. Sem modelo próprio, a conferência usa o de texto, que o teste "texto" já cobre
+  async conferencia({ cfg }) {
+    if (!cfg.checkModel || cfg.checkModel === cfg.textModel) return { status: "nao_configurado", detalhe: "sem modelo próprio para conferir (opcional: sem ele, as conferências usam o de texto)" };
+    // com raciocínio e espaço para ele, como na conferência de verdade (modelo que sempre pensa não cabe em 80 tokens)
+    const r = await chat([{ role: "user", content: "Quanto é 17 × 23? Responda só o número." }], { cfg: quick(cfg, PRAZO.conferencia), model: cfg.checkModel, temperature: 0, maxTokens: 4000, allowTruncated: true, retries: 0 });
+    return /\b391\b/.test(String(r.text || "")) ? { status: "ok", modelo: cfg.checkModel, detalhe: said(r.text) }
+      : { status: "falhou", modelo: cfg.checkModel, detalhe: `${said(r.text)} (esperado: 391)` };
+  },
   // o mesmo caminho do produto (videoSetup): o modelo de vídeo do Configurar IA, com a chave e o adaptador de lá, ou as
   // variáveis SAGADECK_VIDEO_KEY / OPENROUTER_API_KEY para quem já usava assim
   async video({ cfg, env, fetcher, videoReal, videoTimeoutS, videoPollMs, outDir }) {
@@ -104,7 +113,7 @@ const RUN = {
   },
 };
 
-const NEEDS_LLM = new Set(["texto", "visao", "imagem", "pesquisa"]);
+const NEEDS_LLM = new Set(["texto", "visao", "imagem", "pesquisa", "conferencia"]);
 // only: lista de ids (padrão: todos); rapido: sem imagem e vídeo (os lentos e cobrados); videoReal: gera um clipe
 export async function iaCheck({ only, rapido = false, videoReal = false, videoTimeoutS = 600, videoPollMs = 5000, cfg = llmConfig(), env = process.env, fetcher = fetch, seed, outDir, onResult = () => {} } = {}) {
   const ids = (only?.length ? only : Object.keys(CHECKS)).filter((id) => CHECKS[id] && !(rapido && (id === "imagem" || id === "video")));

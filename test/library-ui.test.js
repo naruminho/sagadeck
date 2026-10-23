@@ -215,6 +215,7 @@ test("Configurar IA: escolher provedor, colar a chave, testar e salvar; a chave 
     assert.equal(saved.url, llm.url);
     assert.equal(saved.key, "sk-teste-9876");
     assert.equal(saved.models.text, "provedor/modelo");
+    assert.equal(saved.models.check, undefined, "modelo para conferir em branco: não grava (as conferências usam o de texto)");
     const info = await (await fetch(studio.url + "/api/ia")).json();
     assert.ok(!JSON.stringify(info).includes("sk-teste-9876"), "a chave não volta inteira");
     assert.equal(info.config.keyHint, "••••9876");
@@ -224,9 +225,20 @@ test("Configurar IA: escolher provedor, colar a chave, testar e salvar; a chave 
     await p.click("#btn-ai");
     await p.waitForSelector("#ai-settings-dialog[open]");
     assert.match(await p.getAttribute('[data-f="key"]', "placeholder"), /••••9876/);
+    // modelo para conferir (opcional): um de raciocínio mais forte só nas conferências; a linha diz para que serve
+    assert.match(await p.innerText('#ai-settings-dialog .wide'), /Modelo para conferir[\s\S]*vazio = o de texto[\s\S]*raciocínio mais forte só onde a conta precisa estar certa/);
+    await p.fill('[data-model="check"]', "provedor/raciocinio");
     await p.click("[data-save]");
     await p.locator("[data-status].ok", { hasText: "Salvo" }).waitFor();
-    assert.equal(JSON.parse(fs.readFileSync(process.env.SAGADECK_IA, "utf8")).key, "sk-teste-9876");
+    const again = JSON.parse(fs.readFileSync(process.env.SAGADECK_IA, "utf8"));
+    assert.equal(again.key, "sk-teste-9876");
+    assert.deepEqual(again.models, { text: "provedor/modelo", check: "provedor/raciocinio" });
+    const { llmConfig } = await import("../src/ai/llm.js");
+    assert.equal(llmConfig().checkModel, "provedor/raciocinio", "as conferências passam a usar o modelo gravado");
+    await p.click("[data-close]");
+    await p.click("#btn-ai");
+    await p.waitForSelector("#ai-settings-dialog[open]");
+    assert.equal(await p.inputValue('[data-model="check"]'), "provedor/raciocinio", "reabrir mostra o modelo gravado");
     assert.deepEqual(errors, []);
   } finally {
     process.env.SAGADECK_LLM_URL = keepUrl;

@@ -52,7 +52,7 @@ export async function iaRoutes({ req, res, pathname, opts, readJSON }) {
     // testar: uma pergunta curta com o que está na tela (antes de salvar)
     const base = llmConfig();
     const cfg = { ...base, url: next.url.replace(/\/+$/, ""), key: keyOf(next), headers: next.headers || {}, adaptador: next.adaptador || "",
-      textModel: next.models.text, visionModel: next.models.vision || next.models.text, imageModel: next.models.image || "image", searchModel: next.models.search || "",
+      textModel: next.models.text, visionModel: next.models.vision || next.models.text, imageModel: next.models.image || "image", searchModel: next.models.search || "", checkModel: next.models.check || next.models.text,
       timeoutMs: 60_000, firstTimeoutMs: 60_000 };
     const t0 = Date.now();
     try {
