@@ -1218,3 +1218,58 @@ test("modelo para conferir: contas, leitura crítica e confirmação da revisão
     });
   } finally { reply = () => "ok"; }
 });
+
+test("resposta da IA não leva pedaço do formato de ferramenta para o chat (</parameter> solto)", async () => {
+  const { extractYaml } = await import("../src/ai/deck-ai.js");
+  const r = extractYaml("Vou corrigir os avisos.\n\n</parameter>\n```yaml\nedit:\n  1:\n    title: X\n```");
+  assert.equal(r.prose, "Vou corrigir os avisos.");
+  assert.equal(extractYaml("Use <b>negrito</b> aqui.\n```yaml\nedit: {}\n```").prose, "Use <b>negrito</b> aqui.", "HTML da pessoa fica");
+});
+
+test("a IA que corrige diz que o slide está certo: uma conferência independente decide se o aviso fica", async () => {
+  // um aviso falso ("273 m dá 617,8") ficou porque a primeira conferência escreveu a fórmula errada
+  const { checkMath } = await import("../src/ai/math-check.js");
+  const spec = { slides: [{ layout: "solution", title: "Ex.", answer: { text: "L ≈ 273 m" } }] };
+  const run = async (second) => {
+    let calls = 0;
+    const complete = async () => {
+      calls++;
+      const fn = calls === 1 ? "a/j*2.26" : second; // 1ª rodada errada; 2ª independente
+      return { text: JSON.stringify({ contas: [{ slide: 1, o_que: "comprimento", afirmado: "273", unidade: "m", vars: { a: 2.73, j: 0.01 }, fn }] }) };
+    };
+    return checkMath(spec, { complete, edit: async () => ({ talk: true, reply: "A conta do slide está certa: 2,73/0,01 = 273 m." }) });
+  };
+  const contestada = await run("a/j");
+  assert.equal(contestada.math.divergent.length, 0, "a segunda conferência concorda com o slide: o aviso cai");
+  assert.equal(contestada.math.contestadas, 1);
+  const confirmada = await run("a/j*2.26");
+  assert.equal(confirmada.math.divergent.length, 1, "as duas acusam: o aviso fica");
+});
+
+test("painel de conferência: aviso visual de slide que já mudou aparece como possivelmente resolvido e não vai mais à IA", async () => {
+  // na cópia do deck de hidráulica a IA corrigiu os avisos da criação pelo chat, mas o painel seguia listando os 24
+  const { conferenceItems, conferencePrompt } = await import("../src/studio/conference.js");
+  const { slideMarks } = await import("../src/studio/generation-report.js");
+  const original = { slides: [{ uid: "a", layout: "split", title: "Sifão", body: "x" }, { uid: "b", layout: "chart", title: "Limite" }] };
+  const quality = { issues: [{ slide: 1, text: "Rótulo cortado na figura" }, { slide: 2, text: "Barra desproporcional" }] };
+  const agora = { slides: [{ ...original.slides[0], body: "x corrigido" }, original.slides[1]] };
+  const items = conferenceItems({ quality, slideMarks: slideMarks(original) }, agora);
+  const s1 = items.find((i) => i.slide === 1), s2 = items.find((i) => i.slide === 2);
+  assert.equal(s1.stale, true);
+  assert.match(s1.text, /^O slide mudou depois deste aviso; confira se ainda vale: Rótulo cortado/);
+  assert.ok(!s2.stale, "slide igual: o aviso continua valendo");
+  const prompt = conferencePrompt(items);
+  assert.doesNotMatch(prompt, /Rótulo cortado/, "aviso de slide que mudou não vai como pendência");
+  assert.match(prompt, /Barra desproporcional/);
+  // relatório antigo, sem marcas: a versão mais antiga guardada do deck faz o papel
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-conf-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".sagadeck", "versoes"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".sagadeck", "versoes", "20261022-171155.yaml"), YAML.stringify(original));
+    fs.writeFileSync(path.join(dir, ".sagadeck", "versoes", "20261023-015018.yaml"), YAML.stringify(agora));
+    const antigos = conferenceItems({ quality }, agora, { dir });
+    assert.equal(antigos.find((i) => i.slide === 1).stale, true);
+    assert.ok(!antigos.find((i) => i.slide === 2).stale);
+    assert.ok(conferenceItems({ quality }, agora).every((i) => !i.stale), "sem pasta nem marcas: não dá para saber, fica como estava");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

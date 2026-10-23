@@ -281,7 +281,19 @@ export async function checkMath(spec, { materials = [], only = null, edit, say =
       if (!r.talk && r.spec?.slides?.length) { next = r.spec; actions = [...actions, ...(r.actions || [])]; }
       else if (r.reply) math.reply = String(r.reply).slice(0, 600);
     } catch (e) { say(`a correção das contas falhou (${e.message})`); }
-    if (next === before) break;
+    if (next === before) {
+      // a IA que corrige disse que o slide está certo: uma conferência independente decide. Fica só o que ela
+      // também acusa (a primeira rodada já escreveu fórmula errada e deixou "273 m dá 617,8" como aviso falso)
+      if (wrong.length) {
+        try {
+          const second = await auditMath(next, [...new Set(wrong.map((d) => d.slide - 1))], { materials, complete, signal });
+          const kept = wrong.filter((d) => second.divergent.some((x) => x.slide === d.slide && x.afirmado === d.afirmado && (d.kind === "unidades" || Math.abs(x.calculado - d.calculado) <= 0.03 * Math.abs(d.calculado))));
+          math.contestadas = wrong.length - kept.length;
+          wrong = math.divergent = kept;
+        } catch (e) { say(`não consegui conferir de novo (${e.message})`); }
+      }
+      break;
+    }
     try {
       const again = await auditMath(next, repair.filter((i) => hasMath(next.slides?.[i])), { materials, complete, signal });
       math.fixed = [...math.fixed, ...wrong.filter((d) => !again.divergent.some((x) => x.slide === d.slide && x.afirmado === d.afirmado))];
