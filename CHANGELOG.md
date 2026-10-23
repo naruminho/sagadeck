@@ -11,6 +11,9 @@ pula de versão em versão.
   deck; abaixo de 20 px (numa tela de 1920) vira achado com os textos e os tamanhos, e a correção automática recebe
   isso. A referência ensina a dimensionar a fonte pelo viewBox (40 ou mais num viewBox de 1000).
 
+- **"N a conferir" na biblioteca**: o cartão da apresentação mostra quantos avisos da conferência ainda faltam ver
+  (contas, números sem base, revisão visual que ainda vale, figuras de fora), antes de abrir.
+
 ### Correções
 - **Troca de slide em deck grande**: logo depois de abrir, a fila das miniaturas atrasava a troca em segundos; o slide
   da tela passa na frente (200 slides: de 1,5–4,9 s para 0,1–0,5 s).

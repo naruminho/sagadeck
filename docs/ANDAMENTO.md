@@ -19,6 +19,8 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 - Revisão mede os rótulos dos desenhos SVG do deck (`data-svg-figure`, `tinyText` na foto): fonte na tela abaixo
   de 20 px vira achado com textos e tamanhos. Calibrado: nenhum exemplo de layout do sagadeck é acusado; na aula de
   hidráulica, os rótulos de 19 px dos slides 5 e 9 são. Referência ensina fonte de 4% da largura do viewBox.
+- Cartão da biblioteca mostra "N a conferir" (`pendencias` no `deckInfo`, a mesma lista do painel, só avisos que
+  ainda valem): a aula da Mary foi entregue porque os avisos só apareciam dentro do deck. Teste em `library-ui.test.js`.
 - O PR de dependências do dependabot (#200) foi rebaseado e entra com auto-merge se a CI passar.
 
 Entrega da 1.11.0 — 23/10/2026

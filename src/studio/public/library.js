@@ -130,7 +130,7 @@
         <img loading="lazy" alt="" src="api/library/cover?id=${encodeURIComponent(d.id)}&v=${Math.round(d.edited)}" onerror="this.remove()">
         <div class="over"><button class="pill" data-present>${ic("play")}Apresentar</button><button class="pill" data-edit>${ic("pencil")}Editar</button></div></div>
       <div class="meta"><div class="t"><div class="name">${esc(d.title)}</div>
-        <div class="info">${withTopic ? `<span class="chip"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span>·` : ""}<span>${d.slides} slides</span>·<span>${ago(d.edited)}</span></div></div>
+        <div class="info">${withTopic ? `<span class="chip"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span>·` : ""}<span>${d.slides} slides</span>·<span>${ago(d.edited)}</span>${d.pendencias ? `·<span class="pend" title="Avisos da conferência automática (contas, números, revisão visual): abra e veja em Revisar › Conferência">${d.pendencias} a conferir</span>` : ""}</div></div>
         <button class="more" data-more title="Mais ações" aria-label="Mais ações">${ic("ellipsis")}</button></div>
     </div>`;
   }
