@@ -934,3 +934,89 @@ test("cartão da biblioteca mostra quantos avisos da conferência faltam ver", {
     await studio.close();
   }
 });
+
+// Quem administra o servidor manda a versão revisada para a biblioteca de outra pessoa pelo menu do cartão (antes, à
+// mão pelo terminal). Chega como apresentação nova, com "(versão revisada)"; a dela não muda. Quem não administra não
+// vê o item e o servidor recusa.
+test("multiusuário: quem administra envia cópia para a biblioteca de outra pessoa; os outros não veem", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const studio = await startStudio(null, { multiuser: true, adminUsers: ["naru"] });
+  const as = (user, p, body) => fetch(studio.url + p, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", "X-Sagadeck-User": user }, body: body ? JSON.stringify(body) : undefined });
+  const open = async (user, name) => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, extraHTTPHeaders: { "X-Sagadeck-User": user } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    await page.route("**/whoami", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ logged_in: true, id: user, username: name, email: `${user}@exemplo.com` }) }));
+    await page.goto(studio.url, { waitUntil: "networkidle" });
+    await page.waitForSelector(".card[data-id] [data-more]");
+    return { ctx, page, errors };
+  };
+  try {
+    // a aula da Mary (a original, com a conta errada) e a revisada, na biblioteca de quem administra
+    await as("mary", "/api/library/topics", { name: "Aulas" });
+    const { id: hers } = await (await as("mary", "/api/library/decks", { topic: "Aulas", title: "Aula de hidráulica" })).json();
+    await as("naru", "/api/library/topics", { name: "Aulas" });
+    const { id: mine } = await (await as("naru", "/api/library/decks", { topic: "Aulas", title: "Aula de hidráulica" })).json();
+    const users = path.join(studio.library, "usuarios");
+    const mineDir = path.dirname(path.join(users, "naru", ...mine.split("/")));
+    fs.mkdirSync(path.join(mineDir, "contexto"));
+    fs.writeFileSync(path.join(mineDir, "contexto", "apostila.md"), "# hidráulica");
+    fs.mkdirSync(path.join(mineDir, ".sagadeck"), { recursive: true });
+    fs.writeFileSync(path.join(mineDir, ".sagadeck", "conversa.json"), JSON.stringify([{ role: "user", content: "corrija a conta" }]));
+    const hersFile = path.join(users, "mary", ...hers.split("/"));
+    const hersBefore = fs.readFileSync(hersFile, "utf8");
+
+    // a Mary abre a biblioteca (o nome do portal fica gravado) e não tem o item
+    const mary = await open("mary", "Mary Silva");
+    await mary.page.click(".card[data-id] [data-more]");
+    await mary.page.waitForSelector('#card-menu.open [data-a="dup"]');
+    assert.equal(await mary.page.locator('#card-menu [data-a="send"]').count(), 0, "quem não administra não vê Enviar cópia");
+    assert.equal((await as("mary", "/api/library/users")).status, 403);
+    assert.equal((await as("mary", "/api/library/decks/send", { id: hers, user: "naru" })).status, 403, "e o servidor recusa");
+    assert.deepEqual(mary.errors, []);
+    await mary.ctx.close();
+    assert.equal(JSON.parse(fs.readFileSync(path.join(users, "mary", ".perfil.json"), "utf8")).name, "Mary Silva");
+
+    // quem administra: Enviar cópia para… › Mary Silva › Enviar
+    const naru = await open("naru", "narumi");
+    const p = naru.page;
+    await p.click(".card[data-id] [data-more]");
+    await p.click('#card-menu [data-a="send"]');
+    await p.locator(".send-user", { hasText: "Mary Silva" }).waitFor();
+    assert.match(await p.innerText(".send-user"), /mary@exemplo\.com[\s\S]*1 apresentação · mais recente: Aula de hidráulica/);
+    assert.equal(await p.locator(".send-user", { hasText: "narumi" }).count(), 0, "a própria biblioteca não aparece");
+    assert.equal(await p.isDisabled("#dlg-ok"), true, "sem escolher ninguém, não envia");
+    await p.click(".send-user");
+    await p.click("#dlg-ok");
+    await p.locator("#toast.show", { hasText: "Enviada para Mary Silva" }).waitFor();
+
+    // na biblioteca da Mary: a dela intacta e a revisada como nova, sem a conversa de quem enviou
+    const lib = await (await as("mary", "/api/library")).json();
+    assert.deepEqual(lib.decks.map((d) => d.title).sort(), ["Aula de hidráulica", "Aula de hidráulica (versão revisada)"]);
+    assert.equal(fs.readFileSync(hersFile, "utf8"), hersBefore, "a apresentação dela não muda");
+    const sent = lib.decks.find((d) => d.title.endsWith("(versão revisada)"));
+    assert.equal(sent.topic, "Aulas");
+    const sentDir = path.dirname(path.join(users, "mary", ...sent.id.split("/")));
+    assert.equal(fs.readFileSync(path.join(sentDir, "contexto", "apostila.md"), "utf8"), "# hidráulica");
+    assert.ok(!fs.existsSync(path.join(sentDir, ".sagadeck", "conversa.json")), "a conversa não vai junto");
+    assert.equal(YAML.parse(fs.readFileSync(path.join(mineDir, path.basename(mine)), "utf8")).title, "Aula de hidráulica", "a de quem enviou não muda");
+    // enviar de novo: mais uma, nunca por cima
+    await p.click(".card[data-id] [data-more]");
+    await p.click('#card-menu [data-a="send"]');
+    await p.click(".send-user");
+    await p.click("#dlg-ok");
+    await p.locator("#toast.show", { hasText: "Enviada para Mary Silva" }).waitFor();
+    assert.equal((await (await as("mary", "/api/library")).json()).decks.length, 3);
+    // destino inválido (fora da pasta de usuários, ou a própria): recusado
+    assert.equal((await as("naru", "/api/library/decks/send", { id: mine, user: "../naru" })).status, 400);
+    assert.equal((await as("naru", "/api/library/decks/send", { id: mine, user: "naru" })).status, 400);
+    assert.deepEqual(naru.errors, []);
+    await naru.ctx.close();
+  } finally {
+    await browser.close();
+    await studio.close();
+  }
+});

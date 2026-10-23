@@ -39,13 +39,13 @@ export async function listenSafe(server, host = "127.0.0.1") {
   }
 }
 
-export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUsers, library: givenLibrary, codeRoot } = {}) {
+export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUsers, adminUsers, library: givenLibrary, codeRoot } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
   // biblioteca temporária: os testes nunca tocam a ~/sagadeck de quem roda
   const library = givenLibrary || fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-biblioteca-"));
   const { createStudioServer } = await import("../src/studio/server.js");
-  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser, agentUsers, codeRoot });
+  const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser, agentUsers, adminUsers, codeRoot });
   const port = await listenSafe(server);
   return {
     url: `http://127.0.0.1:${port}`,

@@ -135,6 +135,10 @@ export function safeName(s, fallback = "Sem título") {
   return /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(clean) || !clean ? fallback : clean;
 }
 
+// o que não vai junto ao enviar uma cópia para outra pessoa (sendDeckTo): conversa, versões, avisos da criação e o
+// que foi apagado no projeto. A conversa antiga (<deck>.conversa.json, ao lado do .yaml) também fica.
+const SEND_SKIP = new Set([".sagadeck/conversa.json", ".sagadeck/versoes", ".sagadeck/avaliacao-geracao.json", ".sagadeck/lixeira"]);
+
 function uniquePath(dir, name, ext = "") {
   let p = path.join(dir, name + ext);
   for (let n = 2; fs.existsSync(p); n++) p = path.join(dir, `${name} (${n})${ext}`);
@@ -316,6 +320,31 @@ export function openLibrary(root, { trashDays } = {}) {
     spec.title = title;
     writeDeckFile(yaml, spec);
     return idOf(yaml);
+  }
+
+  // Envia uma cópia para OUTRA biblioteca (no servidor, quem administra manda a versão revisada para a biblioteca de
+  // alguém): sempre apresentação nova, no tópico de mesmo nome, com nome livre (nunca por cima da dela). Vai a pasta
+  // inteira (imagens, contexto/, widgets); fica de fora o que é da conversa de quem fez a cópia: o chat, as versões
+  // e o relatório de avisos da criação (a outra pessoa recomeça a conferência do zero).
+  function sendDeckTo(id, dest, { suffix = "versão revisada" } = {}) {
+    const { file, unit, info } = unitOf(id);
+    if (path.resolve(dest.root) === root) throw new Error("a biblioteca de destino é esta mesma: use Duplicar");
+    const tail = suffix ? ` (${suffix})` : "";
+    const title = tail && !info.title.endsWith(tail) ? info.title + tail : info.title;
+    const topicDirOf = dest.resolveId(dest.createTopic(info.topic || "Sem tópico"));
+    const ext = unit === file ? path.extname(file) : "";
+    const to = uniquePath(topicDirOf, safeName(title), ext);
+    copyRetry(unit, to, { skip: (rel) => SEND_SKIP.has(rel) || /^[^/]+\.conversa\.json$/i.test(rel) });
+    let yaml = unit === file ? to : path.join(to, path.basename(file));
+    if (unit !== file && path.basename(file).replace(/\.ya?ml$/i, "") === path.basename(unit)) {
+      const renamed = path.join(to, path.basename(to) + path.extname(file));
+      renameRetry(yaml, renamed);
+      yaml = renamed;
+    }
+    const spec = YAML.parse(fs.readFileSync(yaml, "utf8")) || {};
+    spec.title = title;
+    writeDeckFile(yaml, spec); // só o título muda no arquivo
+    return { id: dest.idOf(yaml), title };
   }
 
   // ---- geração em andamento (invisível): a IA trabalha numa pasta oculta do tópico e a apresentação
@@ -533,7 +562,7 @@ export function openLibrary(root, { trashDays } = {}) {
     importOffice,
     root, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,
-    createDeck, moveDeck, renameDeck, duplicateDeck,
+    createDeck, moveDeck, renameDeck, duplicateDeck, sendDeckTo,
     createStagingDeck, publishStagedDeck, discardStaging, recoverStaging,
     trashDeck, restoreDeck, purgeDeck, purgeOld, listTrash, emptyTrash,
     importPackage,
