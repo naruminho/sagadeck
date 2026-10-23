@@ -97,7 +97,8 @@ test('pedindo, gera ("coloca uma foto de um cofre de banco nesse slide")', opts,
 
 for (const [label, extra, check] of [
   ["você decide onde ilustrar → alguns slides, não todos", " Você decide onde vale ilustrar com imagens.", (n, total) => n >= 1 && n <= total - 2],
-  ["sem falar de imagens → nenhuma", "", (n) => n === 0],
+  // não falar de imagem = a IA decide (regra do prompt, conferida em studio-ai.test.js), do mesmo jeito: poucas, não todas
+  ["sem falar de imagens → a IA decide, poucas", "", (n, total) => n <= Math.ceil(total / 3)],
 ]) {
   test(`gerar deck: ${label}`, { ...opts, timeout: 900000 }, async () => {
     const os = await import("node:os");

@@ -4,6 +4,14 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.2] — 23/10/2026
+
+### Correções
+- **Decks saíam todos no mesmo tom (claro)**: o prompt passa a pedir, como regra dura, pelo menos um slide escuro ou
+  de destaque nos momentos-chave em decks de 6+ slides (material de consulta pode ficar todo claro). No teste com o
+  modelo de verdade, o deck variado passou 3 de 3 (antes, nenhuma vez).
+- Teste ao vivo de imagens alinhado à regra do prompt: sem falar de imagem, a IA decide e ilustra poucos slides.
+
 ## [1.11.1] — 23/10/2026
 
 ### Novidades
