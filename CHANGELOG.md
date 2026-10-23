@@ -4,6 +4,18 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.4] — 23/10/2026
+
+### Correções
+- **Exportar no Windows ficava parado 15 a 20 s antes de começar** (PDF, PPTX, imagens, roteiro, material de estudo e
+  a conferência dos slides): o antivírus segurava a releitura do HTML que o sagadeck acabara de gravar. A abertura no
+  navegador agora usa o texto que já está na memória.
+
+### Bastidores
+- CI em 3 partes por sistema, ao mesmo tempo (`scripts/test-parte.mjs`): o PR deixa de esperar 37 min no Windows.
+- Implantação no servidor por roteiro (`scripts/implantar-oracle.mjs`): o dev primeiro, o estável só se o dev subir
+  na versão certa, `npm ci` só quando as dependências mudam.
+
 ## [1.11.3] — 23/10/2026
 
 ### Novidades

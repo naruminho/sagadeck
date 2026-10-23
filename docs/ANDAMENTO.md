@@ -8,7 +8,7 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## CI mais rápida, implantação por roteiro, diário em dia — 23/10/2026 (branch `claude/melhorias-infra`)
+## 1.11.4: CI mais rápida, implantação por roteiro, diário em dia — 23/10/2026 (branch `claude/melhorias-infra`)
 
 - **Antivírus do Windows segurava a abertura do deck** (exportação, fotos, PDF, PPTX e conferência): o Node lia o
   HTML recém-gravado só para ver se tinha mapa, e no Windows essa primeira leitura de um HTML grande fica parada 15 a
