@@ -1,9 +1,10 @@
-// Rotas do painel Revisar › Conferência (src/studio/conference.js): a lista, a decisão por item e o Conferir de novo.
+// Rotas do painel Revisar › Conferência (src/studio/conference.js): a lista, a decisão por item, o Corrigir tudo e o
+// Conferir de novo.
 import path from "node:path";
 import { storedDocumentMaterials } from "../ai/document-materials.js";
 import { llmAvailable } from "../ai/llm.js";
 import * as Project from "./project.js";
-import { conferenceItems, decideItem, recheckDeck, loadGenReport } from "./conference.js";
+import { conferenceItems, conferenceBatch, decideItem, decideItems, recheckDeck, loadGenReport } from "./conference.js";
 
 const send = (res, data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(data)); };
 
@@ -24,6 +25,17 @@ export async function conferenceRoutes({ req, res, pathname, W, readJSON, isBund
     const body = await readJSON(req);
     try { decideItem(dir, String(body.id || ""), String(body.status || "")); send(res, { ok: true, ...list() }); }
     catch (e) { send(res, { error: e.message }, 400); }
+    return true;
+  }
+  // Corrigir tudo com IA: monta o pedido único e marca como enviado o que não se confere sozinho; o Studio manda ao chat
+  if (pathname === "/api/conferencia/corrigir-tudo" && req.method === "POST") {
+    try {
+      if (!dir) throw new Error("A apresentação precisa estar salva na biblioteca.");
+      const batch = conferenceBatch(conferenceItems(loadGenReport(dir), W.spec, { dir }));
+      if (!batch) throw new Error("Nada pendente para corrigir.");
+      decideItems(dir, batch.enviados, "enviado");
+      send(res, { ok: true, pedido: batch.text, contas: batch.contas, count: batch.count, ...list() });
+    } catch (e) { send(res, { error: e.message }, 400); }
     return true;
   }
   if (pathname === "/api/conferencia/conferir" && req.method === "POST") {

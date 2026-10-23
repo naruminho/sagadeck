@@ -487,3 +487,93 @@ test("studio + IA: painel Conferência (conferir de novo, ignorar, corrigir com 
     deckFile.cleanup();
   }
 });
+
+// Corrigir tudo com IA: na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava
+// trabalho, e num pedido só ("corrija os avisos da criação") a IA resolveu tudo. Agora o painel tem o atalho.
+function scriptCorrigirTudo(req) {
+  if (/Você confere as CONTAS/.test(req.system)) {
+    const afirmado = /\b273\b/.test(req.lastUser) ? "273" : "55";
+    return JSON.stringify({ contas: [{ slide: 2, o_que: "comprimento máximo", afirmado, unidade: "m", vars: { folga: 2.73, j: 0.01 }, fn: "folga/j" }] });
+  }
+  // devagar de propósito: dá tempo de conferir que o botão fica desabilitado enquanto a IA responde
+  if (/Corrija de uma vez estas 3 pendências/.test(req.lastUser)) {
+    return new Promise((r) => setTimeout(() => r("Corrigi as três pendências.\n```yaml\nedit:\n  2:\n    answer: { latex: 'L \approx 273\ \mathrm{m}', text: cerca de 273 m de tubo }\n  3:\n    body: Só cerca de 273 m de tubo podem subir.\n    figure: { icon: droplets, size: 280 }\n```"), 1500));
+  }
+  return "Entendi, não mudei nada.";
+}
+
+test("studio + IA: painel Conferência, Corrigir tudo com IA num pedido só", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const llm = await startMockLLM(scriptCorrigirTudo);
+  const deckFile = tempDeck();
+  fs.writeFileSync(deckFile.file, AULA);
+  const report = path.join(deckFile.dir, ".sagadeck", "avaliacao-geracao.json");
+  fs.mkdirSync(path.dirname(report), { recursive: true });
+  fs.writeFileSync(report, JSON.stringify({ createdAt: "2026-10-22T16:26:00Z", avisado: true,
+    math: { checked: 1, fixed: [], unchecked: [], divergent: [{ slide: 2, oQue: "comprimento máximo", afirmado: "55", unidade: "m", calculado: 273, fn: "folga/j", vars: { folga: 2.73, j: 0.01 } }], material: [] },
+    quality: { issues: [{ slide: 3, text: "Rótulo cortado na figura" }] },
+    facts: { checked: 1, unsupported: [{ slide: 3, number: "55" }] } }));
+  const studio = await startStudio(deckFile.file, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+    const rel = () => JSON.parse(fs.readFileSync(report, "utf8"));
+    const waitAI = () => p.waitForFunction(() => !document.querySelector(".ai-working"), null, { timeout: 60000 });
+    const sent = [];
+    p.on("request", (r) => { if (r.url().endsWith("/api/ai/chat") && r.method() === "POST") sent.push(JSON.parse(r.postData())); });
+
+    await t.test("três pendências no painel: conta, aviso visual e número sem base", async () => {
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "3");
+      await p.click('.ribbon-tab[data-tab="revisar"]');
+      await p.click("#btn-conference");
+      await p.waitForSelector("#conference-dialog[open] .conf-item");
+      assert.deepEqual(await p.$$eval("#conference-dialog .conf-item", (els) => els.map((e) => e.className.match(/conf-(\w+)$/)[1])), ["conta", "numero", "visual"]);
+      assert.ok(await p.isEnabled("#conference-dialog [data-fix-all]"));
+    });
+
+    await t.test("Corrigir tudo: um pedido só ao modelo com as três, agrupadas por slide; o botão espera a IA", async () => {
+      const before = llm.requests.length;
+      await p.click("#conference-dialog [data-fix-all]");
+      await p.waitForSelector(".ai-working");
+      assert.equal(await p.$("#conference-dialog[open]"), null, "o painel fecha e o pedido vai ao chat");
+      // enquanto a IA responde, o botão fica desabilitado (sobrou a conta, que só sai depois de conferida)
+      await p.click("#btn-conference");
+      await p.waitForSelector("#conference-dialog[open] [data-fix-all]");
+      assert.equal(await p.isDisabled("#conference-dialog [data-fix-all]"), true);
+      await p.click("#conference-dialog [data-close]");
+      await waitAI();
+
+      assert.equal(sent.length, 1, "um pedido só ao chat");
+      assert.deepEqual(sent[0].contas, [2], "a conta vai com contas: [2] para passar pela conferência");
+      // (a decisão de pesquisar, que roda antes de todo pedido, também lê o texto; o pedido de edição é um só)
+      const asks = llm.requests.slice(before).filter((r) => /motor de IA do sagadeck/.test(r.system) && /Corrija de uma vez/.test(r.lastUser));
+      assert.equal(asks.length, 1, "um pedido só ao modelo");
+      const ask = asks[0].lastUser;
+      assert.match(ask, /Slide 2:\n- Confira a conta do slide 2 \(comprimento máximo\): o slide diz 55 m/);
+      assert.match(ask, /Slide 3:\n- O número 55 do slide 3 não está no material[^\n]*\n- Corrija no slide 3 este aviso: Rótulo cortado na figura/);
+      assert.ok(llm.requests.slice(before).some((r) => /Você confere as CONTAS/.test(r.system) && /273/.test(r.lastUser)), "o Studio conferiu a conta depois");
+    });
+
+    await t.test("deck salvo corrigido e o painel vazio", async () => {
+      const d = saved();
+      assert.match(d.slides[1].answer.text, /273 m/);
+      assert.match(d.slides[2].body, /273 m/);
+      const r = rel();
+      assert.deepEqual(r.math.divergent, []);
+      assert.deepEqual(Object.entries(r.decisoes).map(([id, x]) => `${id.split(":")[0]}:${x.status}`).sort(), ["numero:enviado", "visual:enviado"]);
+      await p.waitForFunction(() => document.querySelector("#conference-badge")?.textContent === "0");
+      await p.click("#btn-conference");
+      await p.waitForSelector("#conference-dialog[open] .rv-empty");
+      assert.match(await p.innerText("#conference-dialog .rv-empty"), /Nada pendente/);
+      assert.equal(await p.$("#conference-dialog [data-fix-all]"), null, "sem pendência, sem botão");
+    });
+
+    await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+    await llm.close();
+    deckFile.cleanup();
+  }
+});

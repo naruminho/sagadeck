@@ -26,6 +26,23 @@ e a conversa antiga `<deck>.conversa.json` (`sendDeckTo` em `src/library.js`; `c
   pela tela duas vezes; Mary não vê o item e leva 403; destino inválido dá 400; zero erros de JavaScript).
 - Falta: no Oracle, conferir se a Narumi está em `--agentes` ou ligar `--admins` no serviço depois do deploy.
 
+## Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
+
+Na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava trabalho, e na prática a IA
+resolveu tudo quando recebeu um pedido único ("corrija os avisos da criação"). O cartão da biblioteca já mostrava
+"N a conferir"; faltava o atalho.
+- Revisar › Conferência ganhou **Corrigir tudo com IA** no cabeçalho: um pedido só ao chat com todas as pendências que
+  ainda valem (sem as ignoradas e sem os avisos de "o slide mudou"), agrupadas por slide ("Slide 2:", "Deck todo:"),
+  cada uma com o `fix` do item. O servidor monta (`conferenceBatch` em `src/studio/conference.js`, rota
+  `POST /api/conferencia/corrigir-tudo`) e marca como `enviado` de uma vez (`decideItems`) o que não se confere
+  sozinho; contas, contas do material e slides `derivado` vão com `contas: [n]` e saem do painel pela conferência
+  depois da resposta, como no botão por item.
+- O botão fica desabilitado enquanto a IA responde; o painel se atualiza no fim do pedido (`sagadeck:chat-done`).
+Testes: `ai.test.js` (agrupamento, aviso que mudou fora, contas, enviados, decisão em lote) e `studio-ai.test.js`
+(três pendências, clique, um pedido só ao modelo com as três, `contas: [2]`, botão desabilitado durante a resposta,
+deck salvo corrigido, painel vazio, zero erros JS). O teste do Studio falha sem o botão. `npm test`: 1.153 testes,
+1.122 aprovados, 31 condicionais pulados, zero falhas.
+
 ## Testes com o modelo de verdade a cada 3 versões — 23/10/2026 (branch `claude/testes-ao-vivo`)
 
 Os testes ao vivo (`ai-live.test.js`) não rodam na CI comum, e dois deles falhavam havia tempo sem ninguém ver. Decisão
