@@ -8,6 +8,21 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Entrega da 1.11.0 — 23/10/2026
+
+Integrados com CI verde (Ubuntu e Windows): #201 conferência das contas, #202 modelo para conferir, #203 pedido da
+criação gravado, #204 painel Revisar › Conferência, #205 exercício resolvido calculado, #206 unidades e contas do
+material, #207 arquivo travado no Windows, #208 segunda opinião e ajustes, #209 versão, #210 selo da Conferência,
+#211 regra conservadora das unidades. Release v1.11.0 (tag em `84006f1`, árvore idêntica à do #209 testado) e
+`sagadeck@1.11.0` publicado no npm com proveniência. Oracle produção (3517) e dev (3518) em `84006f1`, 1.11.0.
+A `main` agora exige os dois checks (proteção sem forçar admins) e o repositório permite auto-merge.
+Teste em produção só na cópia da Narumi (`usuarios/305cc6c7416383c8`): a IA, pelo chat, corrigiu as contas (21, 22,
+25), os avisos da criação e as pendências; a última conferência com o modelo real deu zero alarme falso (três
+suspeitas caíram na segunda opinião, nenhum slide mexido). O deck da conta da Mary não foi alterado.
+Máquina local: Node 24.19.0 do winget passou para o PATH do usuário; Studio local instalado pelo npm, com início
+automático (pasta Inicializar do Windows). O teste de desempenho com 200 slides às vezes acusa uma troca de 4–5 s
+nesta máquina, inclusive em commits antigos (`3c18855`); a CI passa: instabilidade local, não regressão.
+
 ## Conversão para a unidade do resultado — 23/10/2026 (branch `claude/unidade-resultado`)
 
 Terceiro pedido à IA na cópia da Narumi, em produção (`020c243`): ela resolveu as pendências dos slides 12, 23 e 24,
