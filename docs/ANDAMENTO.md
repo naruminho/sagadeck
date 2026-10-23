@@ -8,6 +8,25 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Unidades e contas do material — 23/10/2026 (branch `claude/conferir-unidades`, worktree `../sagadeck-conferir-unidades`)
+
+Continuação da conferência das contas (#201), sugestões 3 e 4 da revisão do deck da Mary.
+- `src/ai/units.js`: unidades comuns de aula e relatório (m, cm, L/s, kN/m², mH2O, °C, %…) → fator para o SI e
+  dimensão. `dimensionOf` acha a dimensão de uma conta sem árvore de expressão: escala cada grandeza de base (×2, ×3)
+  e vê como o resultado muda; soma de grandezas diferentes não muda como potência e é apontada.
+- Conferência das contas com unidades: a IA dá a unidade de cada var; a conta é feita no SI e volta para a unidade
+  do slide (L/s × m³/s, cm × m deixam de dar falso erro; 611 m/s no lugar de 0,611 é pego). `fn_slide` (a fórmula
+  como o slide escreveu) é acusada quando não fecha em unidades, só se a conta da própria IA fecha. Conversão feita
+  à mão pela IA (Q/1000 com Q em L/s) não é convertida de novo; resultado sem unidade fica no SI.
+- Leitura crítica confere as contas do próprio material (`auditMaterialMath`): duas rodadas independentes em
+  paralelo, só fica o que as duas acusam (o modelo real errou a conversão numa rodada); vira item `inconsistencia`
+  com trecho literal conferido. Usa o modelo das conferências (#202).
+Testes: `units.test.js` (unidades, dimensão, conversão, fórmula do slide), `critique.test.js` (gabarito errado vira
+item, rodadas que discordam não viram aviso), ao vivo (`SAGADECK_LIVE=1`): conversão esquecida e lista com
+gabarito errado, 3 de 3. Suíte completa da branch antes da integração: 1.117 testes, 1.086 aprovados, zero falhas.
+Integração com #202, #203 e #204 (base `claude/laughing-ritchie-81bb23`): conflito só na REFERENCIA, as duas frases
+ficaram.
+
 ## Painel Revisar › Conferência — 22/10/2026 (branch `claude/laughing-ritchie-81bb23`, sobre `claude/conferir-contas`)
 
 Continuação da conferência das contas (abaixo): os achados das checagens tinham aviso, mas não tinham lugar nem
