@@ -32,12 +32,15 @@ export function renameRetry(from, to, { delays = RENAME_DELAYS } = {}) {
 
 // arquivo ou pasta inteira (com imagens): duplicar uma apresentação é o caso — no Windows o antivírus segura o
 // arquivo recém-criado por um instante e a cópia falhava com EPERM (era o flake do CI no "mover (pasta inteira…)").
-export function copyRetry(from, to, { delays = RENAME_DELAYS } = {}) {
+// skip(rel): o que fica de fora (rel = caminho relativo à pasta copiada, com "/")
+export function copyRetry(from, to, { delays = RENAME_DELAYS, skip, rel = "" } = {}) {
   const st = fs.statSync(from);
   if (!st.isDirectory()) return retry(delays, () => fs.copyFileSync(from, to));
   fs.mkdirSync(to, { recursive: true });
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-    copyRetry(path.join(from, e.name), path.join(to, e.name), { delays });
+    const sub = rel ? `${rel}/${e.name}` : e.name;
+    if (skip?.(sub)) continue;
+    copyRetry(path.join(from, e.name), path.join(to, e.name), { delays, skip, rel: sub });
   }
 }
 

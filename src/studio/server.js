@@ -190,6 +190,11 @@ export function createStudioServer(deckPath = null, opts = {}) {
   // servidor multiusuário, só quem está em --agentes / SAGADECK_AGENTES (o comando roda NA MÁQUINA DO SERVIDOR); os
   // outros usam tudo (gerar slides, conversar, imagens), só sem comandos, e a IA deles nem sabe que existem.
   const AGENTS = new Set([].concat(opts.agentUsers ?? String(process.env.SAGADECK_AGENTES || "").split(",")).map((u) => String(u).trim()).filter(Boolean));
+  // Quem administra o servidor multiusuário (--admins / SAGADECK_ADMINS; sem lista, os de --agentes, que já mandam
+  // na máquina do servidor): envia cópia de uma apresentação para a biblioteca de outra pessoa (Enviar cópia para…).
+  const adminList = [].concat(opts.adminUsers ?? String(process.env.SAGADECK_ADMINS || "").split(",")).map((u) => String(u).trim()).filter(Boolean);
+  const ADMINS = adminList.length ? new Set(adminList) : AGENTS;
+  const isAdmin = (W) => !!opts.multiuser && !!W?.user && ADMINS.has(W.user);
   function commandsAllowed(req, W) {
     if (!W) return false;
     return opts.multiuser ? !!W.user && AGENTS.has(W.user) : !apiBlocked(req);
@@ -1235,7 +1240,7 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
         if (download && req.method === 'GET') return exports.download(owner, download[1], res);
         return json(405, { error: 'Método ou endereço de exportação não suportado.' });
       }
-      if (pathname.startsWith("/api/library")) return libraryRoutes({ req, res, pathname, url, W, opts, readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS });
+      if (pathname.startsWith("/api/library")) return libraryRoutes({ req, res, pathname, url, W, opts, admin: isAdmin(W), usersRoot: path.join(libraryRoot, "usuarios"), readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS });
 
       // Baixar o deck aberto: .sagadeck (YAML + imagens, CSS, widgets), PowerPoint, PDF ou roteiro
       const exportKind = (pathname.match(/^\/api\/export\/(sagadeck|pptx|pdf|roteiro|tudo|estudo|estudo-html)$/) || [])[1];

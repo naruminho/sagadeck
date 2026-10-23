@@ -321,3 +321,53 @@ test("lixeira guarda pelo prazo das Preferências (padrão 30 dias) e depois apa
   assert.deepEqual(padrao.list().trash.map((t) => t.title), ["Excluída anteontem"]);
   assert.equal(padrao.list().trashDays, 30);
 });
+
+// Quem administra o servidor manda a versão revisada para a biblioteca de outra pessoa (antes, à mão pelo terminal):
+// apresentação nova com "(versão revisada)", pasta inteira (imagens, contexto/), sem a conversa, as versões e os
+// avisos da criação de quem fez a cópia, e nunca por cima do que a outra pessoa já tem.
+test("enviar cópia para outra biblioteca: pasta inteira, sem conversa/versões/avisos, título com sufixo, nunca sobrescreve", () => {
+  const from = openLibrary(tmp()), to = openLibrary(tmp());
+  const id = from.createDeck(from.createTopic("Aulas"), { ...deck("Hidráulica"), notes: "comentário" });
+  const dir = path.dirname(from.resolveId(id));
+  fs.mkdirSync(path.join(dir, "imagens"));
+  fs.writeFileSync(path.join(dir, "imagens", "foto.png"), "png");
+  fs.mkdirSync(path.join(dir, "contexto"));
+  fs.writeFileSync(path.join(dir, "contexto", "apostila.md"), "# material");
+  fs.mkdirSync(path.join(dir, ".sagadeck", "versoes"), { recursive: true });
+  fs.mkdirSync(path.join(dir, ".sagadeck", "lixeira"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".sagadeck", "versoes", "v1.yaml"), "title: velho");
+  fs.writeFileSync(path.join(dir, ".sagadeck", "lixeira", "apagado.md"), "x");
+  fs.writeFileSync(path.join(dir, ".sagadeck", "conversa.json"), "[]");
+  fs.writeFileSync(path.join(dir, ".sagadeck", "avaliacao-geracao.json"), "{}");
+  fs.writeFileSync(path.join(dir, ".sagadeck", "geracao.json"), JSON.stringify({ pedido: "aula" }));
+  fs.writeFileSync(path.join(dir, "Hidráulica.conversa.json"), "[]");
+  // o que a outra pessoa já tem com o mesmo nome continua intacto
+  const mine = to.createDeck(to.createTopic("aulas"), deck("Hidráulica (versão revisada)", 7));
+  const before = fs.readFileSync(to.resolveId(mine), "utf8");
+
+  const sent = from.sendDeckTo(id, to);
+  assert.equal(sent.title, "Hidráulica (versão revisada)");
+  assert.equal(sent.id, "aulas/Hidráulica (versão revisada) (2)/Hidráulica (versão revisada) (2).yaml", "tópico de mesmo nome, nome livre");
+  assert.equal(fs.readFileSync(to.resolveId(mine), "utf8"), before, "não sobrescreve");
+  const out = path.dirname(to.resolveId(sent.id));
+  const spec = YAML.parse(fs.readFileSync(to.resolveId(sent.id), "utf8"));
+  assert.equal(spec.title, "Hidráulica (versão revisada)");
+  assert.equal(spec.slides.length, 2);
+  assert.equal(spec.notes, "comentário");
+  assert.equal(fs.readFileSync(path.join(out, "imagens", "foto.png"), "utf8"), "png");
+  assert.equal(fs.readFileSync(path.join(out, "contexto", "apostila.md"), "utf8"), "# material");
+  assert.ok(fs.existsSync(path.join(out, ".sagadeck", "geracao.json")), "o pedido da criação vai junto");
+  for (const gone of [".sagadeck/conversa.json", ".sagadeck/versoes", ".sagadeck/lixeira", ".sagadeck/avaliacao-geracao.json", "Hidráulica.conversa.json"]) {
+    assert.ok(!fs.existsSync(path.join(out, ...gone.split("/"))), `${gone} fica de fora`);
+  }
+  // a original não mudou
+  assert.equal(YAML.parse(fs.readFileSync(from.resolveId(id), "utf8")).title, "Hidráulica");
+  assert.ok(fs.existsSync(path.join(dir, ".sagadeck", "conversa.json")));
+  // mandar de novo: outra apresentação, sem "(versão revisada) (versão revisada)"
+  const again = from.sendDeckTo(id, to);
+  assert.notEqual(again.id, sent.id);
+  const resent = to.sendDeckTo(sent.id, from);
+  assert.equal(resent.title, "Hidráulica (versão revisada)", "o sufixo não dobra");
+  assert.deepEqual(to.list().decks.map((d) => d.title).sort(), ["Hidráulica (versão revisada)", "Hidráulica (versão revisada)", "Hidráulica (versão revisada)"]);
+  assert.throws(() => from.sendDeckTo(id, openLibrary(from.root)), /esta mesma/);
+});

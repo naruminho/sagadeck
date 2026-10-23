@@ -67,6 +67,7 @@ const HELP = `sagadeck — YAML -> apresentação (HTML animado + PowerPoint edi
                                    --host=0.0.0.0 abre para a rede (padrão: só esta máquina)
                                    --multiuser: uma biblioteca por usuário, atrás de um proxy que envia X-Sagadeck-User
                                    --agentes=naru,ana: no multiusuário, quem pode deixar a IA rodar comandos (padrão: ninguém)
+                                   --admins=naru: no multiusuário, quem envia cópias para a biblioteca dos outros (padrão: os de --agentes)
   sagadeck ensaio-api [--port=3000]            ensaio do slide "api": deck de exemplo contra uma API de mentira (sem VPN)
                                    o deck fica na biblioteca (Sem tópico/Ensaio APIs de IA ao vivo); se já existir, reabre
   sagadeck pack <deck.yaml> [saida.sagadeck]   a apresentação inteira num arquivo (YAML + imagens, CSS, widgets)
@@ -406,7 +407,8 @@ async function main() {
         process.exit(1);
       }
       const agentUsers = typeof flags.agentes === "string" ? flags.agentes.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
-      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers });
+      const adminUsers = typeof flags.admins === "string" ? flags.admins.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
+      const server = createStudioServer(deckFile, { port, host, library, multiuser, userHeader: flags["user-header"], agentUsers, adminUsers });
       server.on("error", (e) => {
         if (e.code !== "EADDRINUSE") throw e;
         console.error(`A porta ${port} está ocupada por outro programa. Use --port=OUTRA.`);

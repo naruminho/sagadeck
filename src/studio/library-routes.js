@@ -10,15 +10,46 @@ import { createExperienceDeck } from "../experiences.js";
 import { demoDeck } from "./demo-decks.js";
 import { DEMO_FILES } from "../api-demo.js";
 import { developerStarter } from "./developer-starters.js";
+import { openLibrary, safeName } from "../library.js";
 
-export async function libraryRoutes({ req, res, pathname, url, W, opts, readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS }) {
+// Bibliotecas das outras pessoas do servidor (<raiz>/usuarios/<usuário>), para quem administra escolher o destino de
+// "Enviar cópia para…". O nome vem do .perfil.json que a biblioteca de cada um grava ao abrir (o id do portal não diz
+// nada); sem ele, o id, quantas apresentações tem e a mais recente ajudam a reconhecer.
+const PROFILE = ".perfil.json";
+function peerLibraries(usersRoot, self) {
+  let dirs = [];
+  try { dirs = fs.readdirSync(usersRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== self).map((d) => d.name); } catch {}
+  return dirs.map((id) => {
+    const dir = path.join(usersRoot, id);
+    let profile = {};
+    try { profile = JSON.parse(fs.readFileSync(path.join(dir, PROFILE), "utf8")); } catch {}
+    let decks = [];
+    try { decks = openLibrary(dir).list().decks; } catch {}
+    const recent = decks.sort((a, b) => b.edited - a.edited)[0];
+    return { id, name: profile.name || "", email: profile.email || "", decks: decks.length, recent: recent?.title || "" };
+  }).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, "pt-BR"));
+}
+function peerLibrary(usersRoot, id, self) {
+  const name = String(id || "");
+  const dir = path.join(usersRoot, name);
+  if (!name || name !== safeName(name, "") || name.startsWith(".") || path.dirname(dir) !== path.resolve(usersRoot) || !fs.existsSync(dir)) throw new Error("usuário não encontrado");
+  if (name === self) throw new Error("esta é a sua biblioteca: use Duplicar");
+  return openLibrary(dir);
+}
+
+export async function libraryRoutes({ req, res, pathname, url, W, opts, admin, usersRoot, readJSON, readBody, slideSnapshots, sendExport, galleryKey, galleryEntry, materializePreview, copyModelAssets, generateIntoLibrary, llmAvailable, llmConfig, respond, templateFile, TEMPLATE_DIRS }) {
   const L = W.library;
   const ok = (obj = {}) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, ...obj })); };
   const fail = (e, code = 400) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: e.message || String(e) })); };
   try {
     if (pathname === "/api/library" && req.method === "GET") {
       const openId = W.file && W.file.startsWith(L.root + path.sep) ? L.idOf(W.file) : null;
-      return ok({ ...L.list(), user: W.user, multiuser: !!opts.multiuser, open: openId });
+      return ok({ ...L.list(), user: W.user, multiuser: !!opts.multiuser, admin, open: openId });
+    }
+    // quem administra escolhe para quem enviar a cópia (só no multiusuário)
+    if (pathname === "/api/library/users" && req.method === "GET") {
+      if (!admin) return fail(new Error("Só quem administra o servidor envia cópias para outras pessoas."), 403);
+      return ok({ users: peerLibraries(usersRoot, path.basename(L.root)) });
     }
     if (pathname === "/api/library/gallery-cover" && req.method === "GET") {
       const key = galleryKey(url.searchParams.get("key")), entry = galleryEntry(key);
@@ -70,6 +101,24 @@ export async function libraryRoutes({ req, res, pathname, url, W, opts, readJSON
         const spec = createExperienceDeck(b.experience, { title: b.title });
         buildHTML(spec); // Valida antes de criar o arquivo na biblioteca.
         return ok({ id: L.createDeck(b.topic || "", spec) });
+      }
+      // o nome do portal (username/e-mail do /whoami), para quem administra reconhecer a biblioteca de cada um
+      case "/api/library/me": {
+        if (!opts.multiuser) return ok();
+        const clip = (v) => String(v || "").trim().slice(0, 120);
+        const profile = { name: clip(b.name), email: clip(b.email) };
+        const file = path.join(L.root, PROFILE);
+        let old = null;
+        try { old = fs.readFileSync(file, "utf8"); } catch {}
+        if (old !== JSON.stringify(profile)) fs.writeFileSync(file, JSON.stringify(profile));
+        return ok();
+      }
+      // Enviar cópia para…: apresentação nova na biblioteca da outra pessoa, nunca por cima da dela (src/library.js)
+      case "/api/library/decks/send": {
+        if (!admin) return fail(new Error("Só quem administra o servidor envia cópias para outras pessoas."), 403);
+        const sent = L.sendDeckTo(b.id, peerLibrary(usersRoot, b.user, path.basename(L.root)));
+        console.log(`[Studio] ${W.user} enviou "${sent.title}" para a biblioteca de ${b.user} (${sent.id})`);
+        return ok(sent);
       }
       case "/api/library/topics": return ok({ id: L.createTopic(b.name, b.color) });
       case "/api/library/topics/update": return ok({ id: L.updateTopic(b.id, b) });
