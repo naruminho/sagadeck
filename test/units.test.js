@@ -75,28 +75,20 @@ test("conta que já converte na mão (Q/1000 com Q em L/s) não é convertida de
   assert.equal(semUnidade.dimOk, true);
 });
 
-test("fórmula do slide que soma metro com pressão vira conta que não bate (unidades), com o motivo", async () => {
-  const spec = { slides: [{ layout: "solution", title: "Ex.", steps: [{ latex: "h = 9{,}45 - p/\\gamma = 2{,}7\\ m" }], answer: { text: "h ≈ 2,7 m" } }] };
+test("conta só é acusada quando não bate de jeito nenhum: nem nos números dados, nem com as unidades", async () => {
+  // num deck real o modelo rotulou mal as unidades (kPa num lugar, N/m³ no outro) e a conferência acusou
+  // "273 m dá 937045"; a correção, empurrada pelo alarme falso, piorou o slide
+  const spec = { slides: [{ layout: "solution", title: "Ex.", answer: { text: "h ≈ 9,44 m; Q ≈ 107 L/s; L ≈ 55 m" } }] };
   const complete = async () => ({ text: JSON.stringify({ contas: [
-    { slide: 1, o_que: "altura disponível", afirmado: "2,7", unidade: "m", vars: { ha: 9.45, p: 66.7, gama: 9.81 }, unidades: { ha: "m", p: "kN/m²", gama: "kN/m³" },
-      fn: "ha - p/gama", fn_slide: "ha - p" },
+    // rótulo errado (pa em kPa e gama em N/m³): com unidades dá 9444, nos números dados dá 9,44: bate
+    { slide: 1, o_que: "carga de pressão", afirmado: "9,44", unidade: "m", vars: { pa: 92.65, gama: 9.81 }, unidades: { pa: "kPa", gama: "N/m³" }, fn: "pa/gama" },
+    // conta em m³/s e slide em L/s: só a conversão faz bater (o caso que as unidades existem para salvar)
+    { slide: 1, o_que: "vazão", afirmado: "107", unidade: "L/s", vars: { A: 0.0707, v: 1.505 }, unidades: { A: "m²", v: "m/s" }, fn: "A*v" },
+    // erro de verdade: não bate de jeito nenhum
+    { slide: 1, o_que: "comprimento", afirmado: "55", unidade: "m", vars: { a: 2.73, j: 0.01 }, unidades: { a: "m", j: "" }, fn: "a/j" },
   ] }) });
   const r = await auditMath(spec, [0], { complete });
-  assert.equal(r.checked.length, 1, "o valor bate");
-  assert.equal(r.divergent.length, 1);
-  assert.equal(r.divergent[0].kind, "unidades");
-  assert.match(r.divergent[0].motivo, /soma grandezas de unidades diferentes/);
-});
-
-test("fórmula do slide só é acusada quando a conta da própria IA fecha em unidades", async () => {
-  // a IA deixou um número com unidade solto na fórmula (7.5 m): a conta dela não fecha, e aí não dá para culpar o slide
-  const spec = { slides: [{ layout: "solution", title: "Ex.", answer: { text: "v ≈ 1,5 m/s" } }] };
-  const complete = async () => ({ text: JSON.stringify({ contas: [
-    { slide: 1, o_que: "velocidade", afirmado: "1,5", unidade: "m/s", vars: { g: 9.81, D: 0.3, f: 0.026, L: 750 }, unidades: { g: "m/s²", D: "m", f: "", L: "m" },
-      fn: "sqrt(2*g*7.5*D/(f*L))", fn_slide: "sqrt(2*g*D/(f*L))" },
-  ] }) });
-  const r = await auditMath(spec, [0], { complete });
-  assert.equal(r.checked.length, 1, "o número confere (literal no SI)");
-  assert.equal(r.divergent.length, 0);
-  assert.match(r.checked[0].unidadesDaConta, /sai em/);
+  assert.deepEqual(r.checked.map((d) => d.afirmado), ["9,44", "107"]);
+  assert.deepEqual(r.divergent.map((d) => d.afirmado), ["55"]);
+  assert.equal(r.divergent[0].calculado, 273);
 });

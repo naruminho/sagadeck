@@ -15,7 +15,14 @@ mas a conferência das contas acusou falsos alarmes ("107 L/s dá 106.400", "120
 conversão para a unidade do resultado na fórmula (`*1000` para L/s, `*100` para cm) e o código convertia de novo.
 A detecção de conversão feita à mão olhava só as unidades das vars; agora olha também a do resultado. Conferido no
 deck: os slides 21, 22 e 27 que a correção mexeu continuaram certos (273 m; 944 cm e sobra de 273 cm; velocidades
-0,64 / 0,605 / 0,58 m/s). Teste em `units.test.js`; falha sem o conserto.
+0,64 / 0,605 / 0,58 m/s).
+Um ensaio em memória com o modelo real mostrou que o problema é maior: o modelo rotula mal as unidades (kPa num
+lugar, N/m³ no outro) e a conta com unidades sai mil vezes errada ("273 m dá 937045"); empurrada pelos alarmes, a
+correção enfeitou o slide 21 com "= 100 × 2,729 m". Regra nova (`judge`): a conta bate se bater nos números dados
+OU com a conversão; só é divergência o que não bate de jeito nenhum. As unidades servem para evitar alarme falso,
+nunca para criar um. Saiu a acusação da fórmula do slide por unidades (`fn_slide`), que deu alarme falso no deck
+real. Testes: `units.test.js` (rótulo errado não acusa; L/s só bate com a conversão; erro de verdade acusa) e ao
+vivo (resultado certo em L/s e cm não vira alarme; 600 s → 240 s com a resposta calculada pelo motor).
 
 ## Ajustes depois do teste na cópia — 23/10/2026 (branch `claude/ajustes-conferencia`)
 
