@@ -16,6 +16,11 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
   antigos. Medido: o slide da tela esperava atrás da fila das miniaturas (cada uma leva o deck inteiro). Agora a
   fila espera enquanto o slide da tela é desenhado; trocas de 0,1–0,5 s. `perf.test.js` segura o pedido do slide e
   confere que nenhuma miniatura começa nesse intervalo (falha sem o conserto).
+- Troca lenta, segunda rodada: com o perfil do Chrome, uma tarefa de 2,6 s era o ajuste de caber da miniatura do
+  carrossel: os textos empilhados do carrossel (só o da vez aparece) contavam como texto por cima de texto e o slide
+  encolhia até o mínimo (0,61), na apresentação também. `fit.js` ignora `.car-text:not(.active)` (teste em
+  `exploration.test.js`, falhou com 0,61). De quebra: ajuste das miniaturas em fatias de ~8 ms por quadro, `contain:
+  strict` em `.thumb-screen`, diagramas das miniaturas no tempo ocioso e pausa entre diagramas na fila do Mermaid.
 - Revisão mede os rótulos dos desenhos SVG do deck (`data-svg-figure`, `tinyText` na foto): fonte na tela abaixo
   de 20 px vira achado com textos e tamanhos. Calibrado: nenhum exemplo de layout do sagadeck é acusado; na aula de
   hidráulica, os rótulos de 19 px dos slides 5 e 9 são. Referência ensina fonte de 4% da largura do viewBox.

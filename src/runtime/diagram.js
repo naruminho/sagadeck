@@ -332,7 +332,9 @@
     boxes.forEach((b) => { b.dataset.dg = "pending"; });
     // a fonte do tema (ou uma mais larga, de rabisco) pode chegar depois: o Mermaid mede o texto com a que estiver
     // carregada, e o rótulo cortaria. Espera as fontes antes de desenhar.
-    chain = chain.then(load).then(() => document.fonts && document.fonts.ready).then(async () => { for (const b of boxes) await renderOne(b); })
+    // Entre um diagrama e outro, devolve a vez ao navegador: cada um são dois desenhos do Mermaid (as duas direções) e,
+    // em fila sem pausa, um deck com vários diagramas segurava cliques e teclas por segundos
+    chain = chain.then(load).then(() => document.fonts && document.fonts.ready).then(async () => { for (const b of boxes) { await new Promise((r) => setTimeout(r)); await renderOne(b); } })
       .catch((e) => boxes.forEach((b) => { if (b.dataset.dg === "pending") { b.dataset.dg = "error"; b.insertAdjacentHTML("beforeend", `<div class="dg-error"><b>${e.message}</b></div>`); } }));
     return chain;
   }

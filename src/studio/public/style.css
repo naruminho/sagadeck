@@ -292,6 +292,9 @@ a.rbtn { text-decoration: none; color: inherit; }
 .thumb-screen {
   grid-column: 2; position: relative; aspect-ratio: var(--aspect, 16 / 9); overflow: hidden;
   background: #fff; border-radius: 3px; box-shadow: var(--shadow-1); outline: 2px solid transparent; outline-offset: 1px;
+  /* cada miniatura é uma ilha: o slide inteiro que mora dentro dela não faz o navegador recalcular a lista toda (com
+     200 miniaturas, uma medida no ajuste de caber custava 2,5 s de layout do documento e segurava o clique) */
+  contain: strict;
 }
 .thumb-card:hover .thumb-screen { outline-color: var(--ui-line-strong); }
 .thumb-card.active .thumb-screen { outline-color: var(--brand); }

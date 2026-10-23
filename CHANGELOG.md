@@ -15,8 +15,11 @@ pula de versão em versão.
   (contas, números sem base, revisão visual que ainda vale, figuras de fora), antes de abrir.
 
 ### Correções
-- **Troca de slide em deck grande**: logo depois de abrir, a fila das miniaturas atrasava a troca em segundos; o slide
-  da tela passa na frente (200 slides: de 1,5–4,9 s para 0,1–0,5 s).
+- **Carrossel encolhia para 61%** na apresentação e no editor: os textos empilhados que ainda não apareceram contavam
+  como vazamento no ajuste de caber.
+- **Troca de slide em deck grande**: o slide da tela passa na frente da fila das miniaturas; o ajuste das miniaturas
+  roda em fatias; cada miniatura é isolada no layout (`contain`); diagramas das miniaturas esperam o navegador ficar
+  livre. No deck de 200 slides, nenhuma tarefa trava mais de 0,5 s (antes, uma de 2,6 s segurava o clique).
 - **Gravação**: mudar só o título regravava todas as linhas de texto longo (a reemissão desfazia as quebras do YAML);
   agora fica a formatação que preserva as linhas do arquivo.
 
