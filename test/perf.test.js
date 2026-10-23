@@ -50,6 +50,24 @@ test("Studio com 200 slides: abre, mostra as miniaturas e troca de slide sem tra
     }
     await p.waitForTimeout(900);
     assert.equal(conferencias, 0, "navegar entre slides não consulta a Conferência");
+    // o slide da tela passa na frente das miniaturas: enquanto o pedido dele espera, nenhuma miniatura nova começa
+    // (logo depois de abrir, a fila delas, cada uma levando o deck inteiro, atrasava a troca em segundos)
+    let mainAt = null, mainDone = null;
+    const starts = [];
+    p.on("request", (r) => { if (r.url().includes("/api/render-slide")) starts.push({ at: Date.now(), index: r.postDataJSON()?.index }); });
+    const hold = async (route) => {
+      if (route.request().postDataJSON()?.index === 150 && mainAt == null) { mainAt = Date.now(); await new Promise((r) => setTimeout(r, 700)); mainDone = Date.now(); }
+      await route.continue().catch(() => {});
+    };
+    await p.route("**/api/render-slide", hold);
+    await p.click('.thumb-card[data-idx="150"]');
+    await p.waitForFunction(() => document.getElementById("current-slide-label")?.textContent.startsWith("Slide 151 "));
+    await p.waitForTimeout(1200);
+    await p.unroute("**/api/render-slide", hold);
+    assert.ok(mainAt && mainDone, "o slide 151 foi pedido");
+    const during = starts.filter((s) => s.index !== 150 && s.at > mainAt + 30 && s.at < mainDone);
+    assert.deepEqual(during, [], "nenhuma miniatura começou enquanto o slide da tela esperava");
+    assert.ok(starts.some((s) => s.index !== 150 && s.at >= mainDone), "a fila das miniaturas volta depois");
     assert.ok(Math.max(...times) < 4000, `trocas de slide: ${times.join(", ")} ms`);
     t.diagnostic(`abrir: ${open} ms; trocas: ${times.join(", ")} ms`);
     assert.deepEqual(errors, []);

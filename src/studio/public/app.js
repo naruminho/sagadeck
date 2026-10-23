@@ -413,12 +413,18 @@
     syncMotionMenu();
 
     try {
-      const res = await fetch("api/render-slide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slide, index: idx, spec: state.deck }),
-      });
-      const data = await res.json();
+      // o slide da tela passa na frente das miniaturas: logo depois de abrir um deck grande a fila delas (cada uma
+      // levando o deck inteiro) atrasava a troca de slide em segundos
+      mainRenders++;
+      let data;
+      try {
+        const res = await fetch("api/render-slide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slide, index: idx, spec: state.deck }),
+        });
+        data = await res.json();
+      } finally { mainRenders--; setTimeout(pumpThumbs); }
       if (seq !== renderSeq) return; // já pediram um render mais novo
 
       // Injetar estilos do Sagadeck se ainda não existirem
@@ -1864,6 +1870,7 @@
   });
   const thumbQueue = [];
   let thumbActive = 0;
+  let mainRenders = 0; // desenhos do slide da tela em andamento: a fila das miniaturas espera
 
   const plainTitle = (slide, idx) => String(slide.title || slide.text || slide.question || slide.quote || `Slide ${idx + 1}`)
     .replace(/==|\*\*|\^\^|~~|`/g, "").replace(/(^|\s)\*(\S[^*]*)\*/g, "$1$2").slice(0, 60);
@@ -1984,7 +1991,7 @@
   }
 
   function pumpThumbs() {
-    while (thumbActive < 3 && thumbQueue.length) {
+    while (!mainRenders && thumbActive < 3 && thumbQueue.length) {
       const idx = thumbQueue.shift();
       const slide = state.deck.slides[idx];
       if (!slide) continue;
