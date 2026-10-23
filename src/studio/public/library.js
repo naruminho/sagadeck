@@ -12,7 +12,7 @@
   let data = { topics: [], decks: [], trash: [], root: "" };
   let view = new URLSearchParams(location.search).get("topic") || store.get("libView", "recentes");
   let sortBy = store.get("libSort", "editada");
-  let dialogSession = 0;
+  let dialogSession = 0, profileSaved = false;
   let dialogKeyboard = null, dialogOrigin = null;
 
   function hydrate(root = document) {
@@ -49,6 +49,8 @@
         const r = await fetch("/whoami");
         const w = r.ok ? await r.json() : null;
         if (w && w.logged_in) name = w.username || w.email || name;
+        // grava o nome do portal na biblioteca (uma vez por página): quem administra reconhece a pessoa em "Enviar cópia para…"
+        if (w && w.logged_in && !profileSaved) { profileSaved = true; api("api/library/me", { name: w.username || "", email: w.email || "" }).catch(() => {}); }
       } catch {}
     }
     if (name) {
@@ -237,6 +239,7 @@
       <div class="sep"></div>
       <button class="mi" data-a="rename">Renomear</button>
       <button class="mi" data-a="dup">${ic("copy")}Duplicar</button>
+      ${data.admin ? `<button class="mi" data-a="send">${ic("send")}Enviar cópia para…<small>outra pessoa</small></button>` : ""}
       ${others.map((t) => `<button class="mi" data-move="${esc(t.id)}"><span class="dot" style="background:${esc(t.color)}"></span>Mover para ${esc(t.name)}</button>`).join("")}
       <div class="sep"></div>
       <button class="mi" data-dl="tudo">${ic("download")}Baixar tudo<small>PowerPoint, PDF e roteiro</small></button>
@@ -254,6 +257,7 @@
       if (a === "open" || a === "present") return openEditor(id, a === "present");
       if (a === "rename") return nameDialog("Renomear apresentação", d.title, (title) => act(() => api("api/library/decks/rename", { id, title }), "Renomeada"));
       if (a === "dup") return act(() => api("api/library/decks/duplicate", { id }), "Cópia criada");
+      if (a === "send") return sendDialog(d);
       if (a === "trash") return act(() => api("api/library/decks/trash", { id }), `Na lixeira — dá para restaurar por ${data.trashDays === 1 ? "um dia" : `${data.trashDays || 30} dias`}`);
     });
     m.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => { closeMenus(); act(() => api("api/library/decks/move", { id, topic: b.dataset.move }), `Movida para ${topicOf(b.dataset.move).name}`); });
@@ -389,6 +393,31 @@
       const go = () => { const v = box.querySelector("#dlg-name").value.trim(); if (!v) return; close(); onOk(v); };
       box.querySelector("#dlg-ok").onclick = go;
       box.querySelector("#dlg-name").onkeydown = (e) => { if (e.key === "Enter") go(); };
+    });
+  }
+  // Enviar cópia para… (só quem administra o servidor): a apresentação vai como NOVA para a biblioteca da outra pessoa,
+  // com "(versão revisada)" no título; a dela não é tocada. Sem a conversa, as versões e os avisos da criação.
+  function sendDialog(d) {
+    dialog(`<h3>Enviar cópia para…</h3>
+      <p class="hint">"${esc(d.title)}" chega como apresentação nova, com "(versão revisada)" no título. Nada do que a pessoa já tem é substituído. A conversa com a IA, as versões e os avisos da criação não vão junto.</p>
+      <div class="send-users" id="send-users"><p class="hint">Carregando…</p></div>
+      <div class="row"><button class="lib-btn ghost" data-cancel>Cancelar</button><button class="lib-btn primary" id="dlg-ok" disabled>Enviar</button></div>`, async (box, close, isCurrent) => {
+      let chosen = null;
+      const list = box.querySelector("#send-users"), okBtn = box.querySelector("#dlg-ok");
+      try {
+        const { users } = await api("api/library/users");
+        if (!isCurrent()) return;
+        list.innerHTML = users.length ? users.map((u) => `<label class="send-user"><input type="radio" name="send-user" value="${esc(u.id)}">
+          <span><b>${esc(u.name || u.id)}</b>${u.email ? ` <small>${esc(u.email)}</small>` : ""}
+          <small>${u.name ? `${esc(u.id)} · ` : ""}${plural(u.decks)}${u.recent ? ` · mais recente: ${esc(u.recent)}` : ""}</small></span></label>`).join("")
+          : `<p class="hint">Ninguém mais tem biblioteca neste servidor ainda.</p>`;
+        list.querySelectorAll("input").forEach((r) => r.onchange = () => { chosen = users.find((u) => u.id === r.value); okBtn.disabled = false; });
+      } catch (e) { list.innerHTML = `<p class="hint">Não deu para listar as pessoas: ${esc(e.message)}</p>`; }
+      okBtn.onclick = () => {
+        if (!chosen) return;
+        close();
+        act(() => api("api/library/decks/send", { id: d.id, user: chosen.id }), `Enviada para ${chosen.name || chosen.id} como apresentação nova`);
+      };
     });
   }
   function topicDialog(t) {

@@ -267,6 +267,8 @@ embutido em iframe de outra origem.
 
 **Comandos da IA (para testar APIs de verdade):** no chat do Studio, a IA pode pedir para rodar um trecho de JavaScript, Python, PowerShell ou shell — por exemplo, testar a API cuja documentação você colou, ajustar o contrato e só então montar o slide. Nada roda sem você ver o código e clicar em **Executar** (ou em *Executar e liberar os próximos*, que vale até recarregar o Studio ou trocar de apresentação). O comando roda na pasta da apresentação e recebe as variáveis do ambiente ativo (`SAGA_VAR_*`, `SAGA_SECRET_*`, `SAGA_TOKEN`); a IA só vê os nomes, e a saída volta para ela com os segredos mascarados. No servidor multiusuário, só quem estiver em `--agentes=usuario1,usuario2` (ou `SAGADECK_AGENTES`) tem comandos, e eles rodam **na máquina do servidor**; os demais usam o resto normalmente.
 
+**Enviar cópia para outra pessoa (servidor multiusuário):** quem administra (`--admins=usuario1` ou `SAGADECK_ADMINS`; sem lista, os de `--agentes`) tem, no menu do cartão da biblioteca, **Enviar cópia para…**: a apresentação chega como nova na biblioteca da pessoa escolhida, com "(versão revisada)" no título, sem substituir nada dela. Vão imagens, `contexto/` e o resto da pasta; ficam de fora a conversa com a IA, as versões e os avisos da criação.
+
 **Vários usuários (servidor):** `sagadeck studio --multiuser --library=/srv/sagadeck` dá uma biblioteca por pessoa
 (`usuarios/<nome>/`), identificada pelo cabeçalho `X-Sagadeck-User` (ou `--user-header=...`) que o proxy de login
 (nginx) coloca. Sem o cabeçalho, nada é servido. Por confiar nesse cabeçalho, só roda escutando em `127.0.0.1`,

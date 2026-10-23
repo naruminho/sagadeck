@@ -241,6 +241,13 @@ body.lib { display: grid; grid-template-columns: 218px minmax(0, 1fr); grid-temp
 
 /* Nova: diálogo largo (IA em uma tela; vitrine "Modelo pronto") */
 .ldlg.wide { width: min(760px, calc(100vw - 32px)); }
+/* Enviar cópia para… (quem administra): uma linha por pessoa do servidor */
+.ldlg .hint { color: var(--text-2); font-size: 12px; line-height: 1.6; margin: 0 0 12px; }
+.send-users { display: grid; gap: 6px; max-height: 320px; overflow-y: auto; }
+.ldlg .send-user { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text); }
+.ldlg .send-user:has(input:checked) { border-color: var(--brand); }
+.send-user input { margin-top: 3px; accent-color: var(--brand); }
+.send-user small { display: block; color: var(--text-3); font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
 .ldlg select { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--ui-line-strong); background: var(--chrome); color: var(--text); font: inherit; font-size: 13px; }
 .ldlg option { background: var(--chrome); color: var(--text); }
 .dlg-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; }

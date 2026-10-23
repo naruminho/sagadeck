@@ -8,6 +8,24 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Enviar cópia para outra pessoa — 23/10/2026 (branch `claude/cranky-bell-62ec04`)
+
+A versão revisada da aula da Mary foi posta na biblioteca dela à mão, por SSH como root (copiar a pasta, trocar o
+título, `chown`). Agora quem administra o servidor multiusuário faz isso pelo navegador: menu do cartão › **Enviar cópia
+para…** › escolhe a pessoa. Chega como apresentação NOVA, no tópico de mesmo nome, com "(versão revisada)" no título
+(sem dobrar o sufixo) e nome livre (nunca por cima da dela). Vai a pasta inteira (imagens, `contexto/`, `geracao.json`);
+ficam de fora `.sagadeck/conversa.json`, `.sagadeck/versoes/`, `.sagadeck/avaliacao-geracao.json`, `.sagadeck/lixeira/`
+e a conversa antiga `<deck>.conversa.json` (`sendDeckTo` em `src/library.js`; `copyRetry` ganhou `skip`).
+- Quem administra: `--admins=…` / `SAGADECK_ADMINS`; sem lista, os de `--agentes` (já mandam na máquina). Rotas
+  `GET /api/library/users` e `POST /api/library/decks/send` respondem 403 para os outros; destino só pasta existente de
+  `usuarios/` (nada de `../`, nem a própria). O servidor registra no log quem enviou o quê para quem.
+- O id do portal não diz quem é: a biblioteca grava o username/e-mail do `/whoami` em `usuarios/<id>/.perfil.json` ao
+  abrir (`POST /api/library/me`); a lista mostra nome, e-mail, id, quantas apresentações e a mais recente.
+- Arquivos criados pelo próprio processo do Studio: o dono já é o usuário do serviço, sem `chown`.
+- Testes: `library.test.js` (cópia completa, exclusões, sufixo, nunca sobrescreve) e `library-ui.test.js` (admin envia
+  pela tela duas vezes; Mary não vê o item e leva 403; destino inválido dá 400; zero erros de JavaScript).
+- Falta: no Oracle, conferir se a Narumi está em `--agentes` ou ligar `--admins` no serviço depois do deploy.
+
 ## Testes com o modelo de verdade a cada 3 versões — 23/10/2026 (branch `claude/testes-ao-vivo`)
 
 Os testes ao vivo (`ai-live.test.js`) não rodam na CI comum, e dois deles falhavam havia tempo sem ninguém ver. Decisão
