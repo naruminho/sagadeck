@@ -25,6 +25,13 @@ nas notes) e depois os avisos da criação (slides 5, 6, 9, 11, 15, 16, 18, 22).
   não vai mais à IA como pendência.
 Testes em `ai.test.js` e `engine.test.js`; os ajustes falham sem o conserto.
 
+## Arquivo travado no Windows — 23/10/2026 (branch `claude/rename-windows`)
+
+A CI da main falhou no Windows depois do #201: o rename atômico do deck deu EPERM por mais tempo que as novas
+tentativas (~1 s) e o teste do formulário do slide api leu o deck sem a última mudança (as rodadas seguintes
+passaram). `RENAME_DELAYS` agora espera até ~4 s (OneDrive/antivírus da pessoa também ganham). Teste novo em
+`deck-file.test.js` simula o arquivo travado por 1,5 s: falhou antes, passa agora.
+
 ## Contas calculadas no exercício resolvido — 22/10/2026 (branch `claude/unruffled-nobel-8f9bce`, parte de `claude/conferir-contas`)
 
 A raiz do "L₁ ≈ 55 m": o número do passo era texto da IA. Agora, no `solution`, o número nasce da conta.

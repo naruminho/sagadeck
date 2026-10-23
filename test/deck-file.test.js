@@ -231,15 +231,15 @@ test("rename com outro erro (não é trava) sobe na hora, sem esperar, e não de
   assert.deepEqual(fs.readdirSync(path.dirname(f)).filter((n) => n.endsWith(".tmp")), []);
 });
 
-test("trava que não solta: desiste em ~1 s e devolve o erro", () => {
+test("trava que não solta: desiste em ~4 s e devolve o erro", () => {
   const f = tmp();
   const spec = YAML.parse(ORIGINAL);
   spec.title = "Travado de vez";
   const trava = travarRename(99, "EPERM");
   const t0 = Date.now();
   try { assert.throws(() => writeDeckFile(f, spec), /EPERM/); } finally { trava.restore(); }
-  assert.ok(trava.calls.n > 1 && trava.calls.n < 10, `tentativas: ${trava.calls.n}`);
-  assert.ok(Date.now() - t0 < 3000);
+  assert.ok(trava.calls.n > 1 && trava.calls.n < 12, `tentativas: ${trava.calls.n}`);
+  assert.ok(Date.now() - t0 < 6000);
   assert.equal(fs.readFileSync(f, "utf8"), ORIGINAL);
 });
 
@@ -267,4 +267,22 @@ test("nenhum código usa fs.cpSync nem fs.rmSync recursivo direto (use copyRetry
     if (/\bfs\.cpSync\(/.test(s) || /\bfs\.rmSync\([^)]*recursive:\s*true/.test(s)) achados.push(rel);
   }
   assert.deepEqual(achados, []);
+});
+
+test("gravar o deck tolera o arquivo travado por mais de um segundo (antivírus/OneDrive no Windows)", () => {
+  // a CI do Windows perdeu um salvamento: o rename deu EPERM por mais tempo que as tentativas (~1 s) e o teste do
+  // formulário do slide api leu o deck sem a última mudança
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-trava-"));
+  const file = path.join(dir, "deck.yaml");
+  fs.writeFileSync(file, "title: Deck\nslides:\n  - { layout: cover, title: Antes }\n");
+  const real = fs.renameSync, start = Date.now();
+  fs.renameSync = (from, to) => {
+    if (Date.now() - start < 1500) throw Object.assign(new Error("EPERM: operation not permitted, rename"), { code: "EPERM" });
+    return real(from, to);
+  };
+  try {
+    writeDeckFile(file, { title: "Deck", slides: [{ layout: "cover", title: "Depois" }] });
+  } finally { fs.renameSync = real; }
+  assert.match(fs.readFileSync(file, "utf8"), /Depois/);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
