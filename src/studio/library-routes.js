@@ -54,7 +54,7 @@ export async function libraryRoutes({ req, res, pathname, url, W, opts, admin, u
     if (pathname === "/api/library/gallery-cover" && req.method === "GET") {
       const key = galleryKey(url.searchParams.get("key")), entry = galleryEntry(key);
       const spec = entry.dir ? { ...entry.spec, _dir: entry.dir } : entry.spec;
-      const cacheDir = path.join(L.root, ".cache", "vitrine");
+      const cacheDir = path.join(L.cacheDir, "vitrine");
       const cached = path.join(cacheDir, `${crypto.createHash("sha1").update(`${key}|${JSON.stringify(entry.spec)}`).digest("hex")}.jpg`);
       if (!fs.existsSync(cached)) {
         const [shot] = await slideSnapshots(spec, 0, { mode: "final", width: 480 });
@@ -68,7 +68,7 @@ export async function libraryRoutes({ req, res, pathname, url, W, opts, admin, u
     if (pathname === "/api/library/cover" && req.method === "GET") {
       const file = L.resolveId(url.searchParams.get("id"));
       const st = fs.statSync(file);
-      const cacheDir = path.join(L.root, ".cache", "capas");
+      const cacheDir = path.join(L.cacheDir, "capas");
       const cached = path.join(cacheDir, `${crypto.createHash("sha1").update(`${L.idOf(file)}|${st.mtimeMs}`).digest("hex")}.jpg`);
       if (!fs.existsSync(cached)) {
         const spec = loadSpec(file);

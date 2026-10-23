@@ -10,9 +10,10 @@
 //     rascunho.yaml                   .yaml solto na raiz = apresentação sem tópico
 // Na raiz, pasta é SEMPRE tópico. "Nova sem tópico" vai para "Sem tópico"; importar sem tópico, para "Importados".
 //     .lixeira/                       excluídas (1 dia), com .origem.json
-//     .cache/                         capas geradas
+//     .cache/                         capas geradas e lista (no OneDrive, fica fora: libraryCacheDir)
 //
 // O id de uma apresentação é o caminho do .yaml dela, relativo à biblioteca, com "/" (ex.: "Palestras/X/X.yaml").
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { renameRetry, copyRetry, removeRetry } from "./fs-retry.js";
 import os from "node:os";
@@ -67,6 +68,20 @@ export function defaultLibraryRoot(env = process.env, { platform = process.platf
   const target = path.join(docs, "sagadeck");
   if (!fs.existsSync(target) && hasContent(legacy) && !isLink(legacy)) return path.resolve(legacy);
   return path.resolve(target);
+}
+
+// Cache do que se refaz sozinho (capas, vitrine, lista da biblioteca). Com a biblioteca no OneDrive, fica na pasta
+// local do Windows (%LOCALAPPDATA%\sagadeck\cache\<biblioteca>), fora da nuvem: não ocupa a cota, não sincroniza a
+// cada capa nova e uma máquina não pega o cache da outra. Fora do OneDrive (e no servidor): <biblioteca>/.cache.
+export function libraryCacheDir(root, { env = process.env, platform = process.platform } = {}) {
+  root = path.resolve(root);
+  const low = root.toLowerCase();
+  const clouds = platform === "win32" ? [env.OneDrive, env.OneDriveCommercial, env.OneDriveConsumer].filter(Boolean).map((p) => path.resolve(p).toLowerCase()) : [];
+  if (env.LOCALAPPDATA && clouds.some((c) => low === c || low.startsWith(c + path.sep))) {
+    const tag = `${safeName(path.basename(root), "biblioteca")}-${crypto.createHash("sha1").update(low).digest("hex").slice(0, 8)}`;
+    return path.join(env.LOCALAPPDATA, "sagadeck", "cache", tag);
+  }
+  return path.join(root, ".cache");
 }
 
 const isLink = (p) => { try { return fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
@@ -150,6 +165,13 @@ export function openLibrary(root, { trashDays } = {}) {
   const keepDays = () => trashDays ?? loadPreferences().biblioteca?.lixeiraDias ?? TRASH_DAYS;
   root = path.resolve(root);
   fs.mkdirSync(root, { recursive: true });
+  const cacheDir = libraryCacheDir(root);
+  // o cache saiu da biblioteca no OneDrive (libraryCacheDir): o que ficou lá dentro é só do sagadeck e se refaz
+  if (cacheDir !== path.join(root, ".cache")) {
+    const old = path.join(root, ".cache");
+    for (const n of ["capas", "vitrine", "lista.json"]) try { fs.rmSync(path.join(old, n), { recursive: true, force: true }); } catch { /* travado pela sincronização: fica para a próxima */ }
+    try { fs.rmdirSync(old); } catch { /* não existe ou tem outra coisa */ }
+  }
 
   // caminho absoluto de um id, sem sair da biblioteca
   function resolveId(id) {
@@ -172,17 +194,48 @@ export function openLibrary(root, { trashDays } = {}) {
     return path.join(dir, same || files.sort()[0]);
   }
 
-  function deckInfo(file, topic) {
-    const st = fs.statSync(file);
+  // O que a listagem mostra de cada apresentação (título, slides, tema, avisos), guardado pela data, tamanho e inode
+  // do .yaml e do relatório de avisos: só relê o que mudou. Ler a data e o tamanho não abre o arquivo; ler o conteúdo,
+  // sim. Com a biblioteca no OneDrive e "arquivos só na nuvem", cada listagem baixava todas as apresentações, e
+  // interpretar o YAML de todas a cada abertura da biblioteca crescia com ela. Fica também em .cache/lista.json, para
+  // valer depois de reiniciar o Studio.
+  const listCacheFile = path.join(cacheDir, "lista.json");
+  let listCache = null, listCacheDirty = false;
+  const stamp = (f) => { const s = fs.statSync(f, { throwIfNoEntry: false }); return s ? `${s.mtimeMs}:${s.size}:${s.ino}` : "-"; };
+  function cachedInfo(file, own) {
+    if (!listCache) { try { listCache = JSON.parse(fs.readFileSync(listCacheFile, "utf8")) || {}; } catch { listCache = {}; } }
+    const id = idOf(file), key = `${stamp(file)}|${own ? stamp(path.join(path.dirname(file), ".sagadeck", "avaliacao-geracao.json")) : ""}`;
+    const hit = listCache[id];
+    if (hit?.key === key) return hit.info;
     let spec = {};
     try { spec = YAML.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
-    const own = idOf(file).split("/").length === 3;
     const pending = own ? pendingWarnings(path.dirname(file), spec) : 0;
+    const info = { title: String(spec.title || path.basename(file).replace(/\.ya?ml$/i, "")), slides: Array.isArray(spec.slides) ? spec.slides.length : 0, theme: spec.theme || "", ...(pending ? { pendencias: pending } : {}) };
+    listCache[id] = { key, info };
+    listCacheDirty = true;
+    return info;
+  }
+  function saveListCache(ids) {
+    if (!listCache) return;
+    for (const id of Object.keys(listCache)) if (!ids.has(id)) { delete listCache[id]; listCacheDirty = true; } // apagada ou movida
+    if (!listCacheDirty) return;
+    try {
+      fs.mkdirSync(path.dirname(listCacheFile), { recursive: true });
+      const tmp = `${listCacheFile}.tmp-${process.pid}`;
+      fs.writeFileSync(tmp, JSON.stringify(listCache));
+      renameRetry(tmp, listCacheFile);
+      listCacheDirty = false;
+    } catch { /* sem cache em disco: só fica a memória */ }
+  }
+
+  function deckInfo(file, topic) {
+    const st = fs.statSync(file);
+    const own = idOf(file).split("/").length === 3;
+    const { pendencias, ...info } = cachedInfo(file, own);
     return {
-      id: idOf(file), topic: topic || "", title: String(spec.title || path.basename(file).replace(/\.ya?ml$/i, "")),
-      slides: Array.isArray(spec.slides) ? spec.slides.length : 0, theme: spec.theme || "", edited: st.mtimeMs,
+      id: idOf(file), topic: topic || "", ...info, edited: st.mtimeMs,
       folder: own, // true = pasta própria (com imagens etc.); false = .yaml solto
-      ...(pending ? { pendencias: pending } : {}), // só quando há aviso
+      ...(pendencias ? { pendencias } : {}), // só quando há aviso
     };
   }
 
@@ -212,6 +265,7 @@ export function openLibrary(root, { trashDays } = {}) {
       topics.push({ id: e.name, name: e.name, color: meta.color || COLORS[topics.length % COLORS.length], count: mine.length, created: meta.created || 0 });
     }
     topics.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    saveListCache(new Set(decks.map((d) => d.id)));
     return { root, topics, decks, trash: listTrash(), trashDays: keepDays() };
   }
 
@@ -560,7 +614,7 @@ export function openLibrary(root, { trashDays } = {}) {
   return {
     listStyles, saveStyle, loadStyle, applyStyleTo, defaultStyle, setDefaultStyle, withDefaultStyle,
     importOffice,
-    root, list, resolveId, idOf,
+    root, cacheDir, list, resolveId, idOf,
     createTopic, updateTopic, deleteTopic,
     createDeck, moveDeck, renameDeck, duplicateDeck, sendDeckTo,
     createStagingDeck, publishStagedDeck, discardStaging, recoverStaging,

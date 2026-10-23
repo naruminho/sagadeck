@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import YAML from "yaml";
-import { openLibrary, safeName, defaultLibraryRoot, migrateLegacyLibrary, TRASH_DAYS } from "../src/library.js";
+import { openLibrary, safeName, defaultLibraryRoot, migrateLegacyLibrary, TRASH_DAYS, libraryCacheDir } from "../src/library.js";
 import { packDeck } from "../src/package.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-lib-"));
@@ -29,6 +29,72 @@ test("tópicos e apresentações: criar, listar (com contagem, cor, slides) e pa
   const l = lib.list();
   assert.deepEqual(l.topics.map((x) => [x.name, x.color, x.count]), [["Palestras", "#d33a2c", 1]]);
   assert.deepEqual({ ...l.decks[0], edited: 0 }, { id, topic: "Palestras", title: "E se o humano for o bug?", slides: 39, theme: "bauhaus", edited: 0, folder: true });
+});
+
+// Com a biblioteca no OneDrive e "arquivos só na nuvem", ler o conteúdo de um .yaml baixa o arquivo: a listagem lia
+// todos a cada abertura da biblioteca. Agora só relê o que mudou (data, tamanho e inode), também depois de reiniciar.
+test("listar a biblioteca só relê a apresentação que mudou (arquivos só na nuvem não são baixados à toa)", () => {
+  const root = tmp();
+  const lib = openLibrary(root);
+  const a = lib.createDeck("Aulas", deck("Hidráulica", 3)), b = lib.createDeck("Aulas", deck("Hidrologia", 2));
+  const yamlReads = (fn) => {
+    const orig = fs.readFileSync; let n = 0;
+    fs.readFileSync = function (p, ...rest) { if (typeof p === "string" && /\.ya?ml$/i.test(p)) n++; return orig.call(this, p, ...rest); };
+    try { return [fn(), n]; } finally { fs.readFileSync = orig; }
+  };
+  const [first] = yamlReads(() => lib.list());
+  assert.deepEqual(first.decks.map((d) => [d.title, d.slides]).sort((x, y) => x[0].localeCompare(y[0], "pt-BR")), [["Hidráulica", 3], ["Hidrologia", 2]]);
+  const [again, reads] = yamlReads(() => lib.list());
+  assert.equal(reads, 0, "nada mudou: nenhum .yaml relido");
+  assert.deepEqual(again.decks.map((d) => d.title).sort((x, y) => x.localeCompare(y, "pt-BR")), ["Hidráulica", "Hidrologia"]);
+  // o Studio reiniciou: vale o que ficou em .cache/lista.json
+  const [, afterRestart] = yamlReads(() => openLibrary(root).list());
+  assert.equal(afterRestart, 0, "depois de reiniciar, também não relê");
+  // mudou uma: só ela é relida, e a listagem mostra o novo
+  const fileA = path.join(root, ...a.split("/"));
+  fs.writeFileSync(fileA, YAML.stringify(deck("Hidráulica básica", 5)));
+  const [changed, oneRead] = yamlReads(() => lib.list());
+  assert.equal(oneRead, 1, "só a que mudou");
+  assert.deepEqual(changed.decks.find((d) => d.id === a), { ...changed.decks.find((d) => d.id === a), title: "Hidráulica básica", slides: 5 });
+  // apagada por fora: some da listagem e do cache
+  fs.rmSync(path.dirname(path.join(root, ...b.split("/"))), { recursive: true });
+  assert.deepEqual(lib.list().decks.map((d) => d.id), [a]);
+  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(root, ".cache", "lista.json"), "utf8"))), [a]);
+  // cache estragado: lê tudo de novo, sem erro
+  fs.writeFileSync(path.join(root, ".cache", "lista.json"), "{quebrado");
+  assert.equal(openLibrary(root).list().decks[0].title, "Hidráulica básica");
+});
+
+// As capas e a lista se refazem sozinhas: com a biblioteca no OneDrive, ocupavam a cota e sincronizavam a cada capa
+// nova (5,8 MB na biblioteca da Narumi). Ficam na pasta local do Windows; fora do OneDrive, onde sempre ficaram.
+test("cache da biblioteca: fora da nuvem quando ela está no OneDrive, e o que ficou lá dentro sai", () => {
+  const base = tmp(), cloud = path.join(base, "OneDrive"), local = path.join(base, "AppData", "Local");
+  const env = { OneDrive: cloud, LOCALAPPDATA: local };
+  const inCloud = path.join(cloud, "Documents", "sagadeck"), outside = path.join(base, "Documentos", "sagadeck");
+  const dir = libraryCacheDir(inCloud, { env, platform: "win32" });
+  assert.ok(dir.startsWith(path.join(local, "sagadeck", "cache") + path.sep), dir);
+  assert.notEqual(dir, libraryCacheDir(path.join(cloud, "Outra", "sagadeck"), { env, platform: "win32" }), "uma pasta por biblioteca");
+  assert.equal(libraryCacheDir(outside, { env, platform: "win32" }), path.join(outside, ".cache"), "fora do OneDrive, como sempre");
+  assert.equal(libraryCacheDir(inCloud, { env, platform: "linux" }), path.join(inCloud, ".cache"), "fora do Windows, como sempre");
+  assert.equal(libraryCacheDir(inCloud, { env: { OneDriveCommercial: cloud, LOCALAPPDATA: local }, platform: "win32" }), dir, "OneDrive da empresa também");
+  // a biblioteca de verdade no OneDrive: as capas antigas saem, o que não é do sagadeck fica, e a lista vai para fora
+  if (process.platform !== "win32") return;
+  const saved = { OneDrive: process.env.OneDrive, LOCALAPPDATA: process.env.LOCALAPPDATA };
+  Object.assign(process.env, env);
+  try {
+    fs.mkdirSync(path.join(inCloud, ".cache", "capas"), { recursive: true });
+    fs.writeFileSync(path.join(inCloud, ".cache", "capas", "x.jpg"), "capa");
+    const lib = openLibrary(inCloud);
+    assert.ok(!fs.existsSync(path.join(inCloud, ".cache")), "o cache antigo saiu da nuvem");
+    assert.equal(lib.cacheDir, dir);
+    lib.createDeck("Aulas", deck("Hidráulica", 2));
+    lib.list();
+    assert.ok(fs.existsSync(path.join(dir, "lista.json")), "a lista mora fora da nuvem");
+    fs.mkdirSync(path.join(inCloud, ".cache"), { recursive: true });
+    fs.writeFileSync(path.join(inCloud, ".cache", "meu.txt"), "da pessoa");
+    openLibrary(inCloud);
+    assert.ok(fs.existsSync(path.join(inCloud, ".cache", "meu.txt")), "só apaga o que é do sagadeck");
+  } finally { for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
 });
 
 test("nova sem tópico vai para 'Sem tópico'; nomes do Windows são respeitados", () => {
