@@ -4,6 +4,19 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.1] — 23/10/2026
+
+### Novidades
+- **Rótulos de desenho medidos na revisão**: a foto da revisão mede a fonte na tela dos textos dos desenhos SVG do
+  deck; abaixo de 20 px (numa tela de 1920) vira achado com os textos e os tamanhos, e a correção automática recebe
+  isso. A referência ensina a dimensionar a fonte pelo viewBox (40 ou mais num viewBox de 1000).
+
+### Correções
+- **Troca de slide em deck grande**: logo depois de abrir, a fila das miniaturas atrasava a troca em segundos; o slide
+  da tela passa na frente (200 slides: de 1,5–4,9 s para 0,1–0,5 s).
+- **Gravação**: mudar só o título regravava todas as linhas de texto longo (a reemissão desfazia as quebras do YAML);
+  agora fica a formatação que preserva as linhas do arquivo.
+
 ## [1.11.0] — 23/10/2026
 
 ### Novidades
