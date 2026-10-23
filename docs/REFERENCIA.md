@@ -771,6 +771,25 @@ Tabela é tabela, nunca imagem: dados de um livro ou de um PowerPoint que vieram
 
 **`solution` — exercício resolvido passo a passo.** À esquerda, `problem` (enunciado), `givens` (dados: `{symbol, value, unit, label}` ou `{latex, label}`; vírgula decimal pode) e `find` (o que se pede, LaTeX). À direita, a conta: o primeiro quadro pergunta `prompt` (padrão "Por onde você começaria?"); cada clique revela o próximo `steps: [{text, latex, note}]` (os anteriores ficam compactos); o último mostra `answer: {latex, text, label}` em destaque. Mantenha cada passo curto (uma ideia, uma linha de conta); de 3 a 6 passos. Use para qualquer matéria com conta: física, engenharia, finanças, estatística. Resposta que o material não traz é cálculo da IA: o slide leva `provenance: derivado` com `provenanceNote` ("resposta calculada pela IA"). Toda conta do deck passa pela **conferência das contas**: a IA escreve cada resultado como fórmula a partir dos dados e o sagadeck calcula (o mesmo compilador do `calc`) e compara com o slide; o que não bate volta para correção e o que sobrar vira aviso. No chat, `contas: [n]` (ou `contas: true`) pede essa conferência.
 
+**Contas calculadas pelo sagadeck (`fn`) — prefira sempre que o exercício tem conta.** Não escreva o resultado à mão: escreva a fórmula e deixe o sagadeck calcular. Cada dado com `symbol` e `value` numérico vira uma variável (o nome vem do símbolo: `L_1` → `L1`, `\rho` → `rho`, `h_f` → `hf`; ou dê `name`). Cada passo pode ter `fn` (fórmula em texto, as mesmas regras do `calc`: `C*(1+i)^n`, `sqrt(2*g*h)`, `(D/f)*(2*g/v^2)*hd`), `name` (para os passos seguintes usarem o resultado), `unit` e `decimals` (casas; sem ele, 4 algarismos). O valor entra no fim do LaTeX do passo (`latex: "L_1 = \frac{D}{f}\cdot\frac{2g}{v^2}\cdot h"` sai `… ≈ 272,9 m`), ou onde estiver `{{nome}}`; passo só com `fn` mostra `nome = valor`. `{{nome}}` vale também nos textos, na `answer` (`latex: "L_1 \approx {{L1}}\ \mathrm{m}"`, `text: "cabem uns {{L1:0}} m de tubo"`) e no enunciado; `{{expressão:casas}}` faz uma conta curta (`{{(M/C - 1)*100:0}}%`). Vírgula decimal e milhar saem sozinhos. Fórmula com erro ou letra sem valor aparece no slide como aviso, com o motivo. A resposta pode ter `fn` também. `interactive: true` põe um controle em cada dado: a pessoa muda um dado na apresentação e todos os passos e a resposta recalculam (`min`/`max`/`step` no dado ajustam o controle; sem eles, de um décimo a dez vezes o valor). Passo sem `fn` continua como sempre (fórmula escrita, sem conta). A conferência das contas só refaz o que foi escrito à mão.
+
+```yaml
+- layout: solution
+  title: Até onde o sifão alcança?
+  givens:
+    - { symbol: D, value: "0,3", unit: m, label: diâmetro }
+    - { symbol: f, value: "0,026", label: fator de atrito }
+    - { symbol: g, value: "9,81", unit: m/s², label: gravidade }
+    - { symbol: v, value: "1,5", unit: m/s, label: velocidade }
+    - { symbol: h, value: "2,73", unit: m, label: carga disponível }
+  find: L_1
+  steps:
+    - { text: Perda por metro de tubo, latex: "J = \\frac{f}{D}\\cdot\\frac{v^2}{2g}", fn: "f/D*v^2/(2*g)", name: J, decimals: 4 }
+    - { text: Comprimento que a carga paga, latex: "L_1 = \\frac{h}{J}", fn: "h/J", name: L1, unit: m, decimals: 1 }
+  answer: { latex: "L_1 \\approx {{L1}}\\ \\mathrm{m}", text: "Cabem cerca de {{L1:0}} m de tubo." }
+  interactive: true
+```
+
 **`calc` — calculadora ao vivo.** `inputs: { nome: {label, value, min, max, step, unit, latex, decimals} }` viram controles deslizantes (`fixed: true` = constante, mostrada com `latex`). `outputs: [{name, label, fn, latex, unit, decimals}]` são calculados na ordem (um usa os anteriores e as entradas pelo nome, inclusive nomes longos como `nu`, `eps`); `fn` é fórmula em texto (as mesmas regras de `plot.functions`: `V*D/nu`, `0.25/(log10(eps/(3.7*D) + 5.74/Re^0.9))^2`; `log` e `log10` são base 10, `ln` é natural). Faixas: `of: Re, cases: [{below: 2300, text: Laminar, color: s3}, {below: 4000, text: Transição, color: em}, {text: Turbulento, color: hi}]` — mostra o selo da faixa; cada faixa pode ter a sua `fn` (f = 64/Re abaixo de 2300, outra acima). `scale: {min, max, log}` desenha a régua com as faixas e o ponteiro. Tudo recalcula enquanto a pessoa arrasta; PDF mostra os valores iniciais.
 
 **`algo` — algoritmo animado.** `algorithm: bubble | insertion | selection | merge | quick | linear | binary`, `array: [5, 1, 4, 2]` (até 16 números), `target` (para as buscas). O sagadeck roda o algoritmo e gera os passos: barras (comparando, trocando, pivô, faixa, já ordenado, achou), o pseudocódigo com a linha da vez, a frase do passo e os contadores (comparações, trocas). Cada clique é um passo; o botão **Tocar** anda sozinho (`speed` em ms). `code` troca o pseudocódigo. Vetor com 6 a 8 números dá uma animação boa de acompanhar; busca binária precisa de vetor ordenado (o sagadeck ordena se não estiver).

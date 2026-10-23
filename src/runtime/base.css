@@ -1303,6 +1303,9 @@ html[data-motion="subtle"] .lesson-panel.active{animation:lesson-soft .6s cubic-
 .sol-label{font-size:20px;color:var(--em);letter-spacing:.08em;white-space:nowrap}
 .sol-givens{display:flex;flex-direction:column;gap:10px}
 .sol-given{display:flex;align-items:baseline;gap:16px;font-size:28px}.sol-given .sol-tex{min-width:7em}.sol-given>span{font-size:22px;color:var(--muted)}
+.sol-given.live{flex-wrap:wrap;row-gap:4px}.sol-slider{flex:1 0 100%;height:30px;accent-color:var(--hi);cursor:pointer}
+.sol-reset{font:inherit;font-size:16px;letter-spacing:normal;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:4px 12px;margin-left:16px;cursor:pointer}.sol-reset:hover{border-color:var(--fg)}
+.sol-error{font-size:20px;margin-top:4px;padding:8px 14px;border-radius:12px}
 .sol-find{display:flex;align-items:baseline;gap:16px;font-size:30px;padding-top:14px;border-top:1px dashed var(--line)}
 .sol-steps{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(to bottom,transparent 0,#000 60px);mask:linear-gradient(to bottom,transparent 0,#000 60px)}.sol-steps.sol-fit{-webkit-mask:none;mask:none}
 /* passos anteriores em tamanho menor só quando não cabem todos no normal (com 3 passos curtos, ficavam miúdos à toa) */
