@@ -12,9 +12,28 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 Junta o envio de cópia para outra pessoa (#217), o Corrigir tudo (#218) e os testes ao vivo a cada 3 versões (#216).
 Primeira versão múltipla de 3: `node scripts/ai-live-ci.mjs --na-release` rodou antes de publicar, 27 de 27 de primeira
-(16 min). No Oracle, a Narumi entra em `--admins` do sagadeck e do sagadeck-dev para ver o Enviar cópia para….
+(16 min). Suíte completa: 1.159 testes, uma falha intermitente (teste de fórmulas esperava 900 ms fixos pelo
+salvamento; passou 3 de 3 isolado; agora espera o arquivo salvo). No Oracle, a Narumi entra em `--admins` do
+sagadeck e do sagadeck-dev para ver o Enviar cópia para….
 
-Enviar cópia para outra pessoa — 23/10/2026 (branch `claude/cranky-bell-62ec04`)
+Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
+
+Na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava trabalho, e na prática a IA
+resolveu tudo quando recebeu um pedido único ("corrija os avisos da criação"). O cartão da biblioteca já mostrava
+"N a conferir"; faltava o atalho.
+- Revisar › Conferência ganhou **Corrigir tudo com IA** no cabeçalho: um pedido só ao chat com todas as pendências que
+  ainda valem (sem as ignoradas e sem os avisos de "o slide mudou"), agrupadas por slide ("Slide 2:", "Deck todo:"),
+  cada uma com o `fix` do item. O servidor monta (`conferenceBatch` em `src/studio/conference.js`, rota
+  `POST /api/conferencia/corrigir-tudo`) e marca como `enviado` de uma vez (`decideItems`) o que não se confere
+  sozinho; contas, contas do material e slides `derivado` vão com `contas: [n]` e saem do painel pela conferência
+  depois da resposta, como no botão por item.
+- O botão fica desabilitado enquanto a IA responde; o painel se atualiza no fim do pedido (`sagadeck:chat-done`).
+Testes: `ai.test.js` (agrupamento, aviso que mudou fora, contas, enviados, decisão em lote) e `studio-ai.test.js`
+(três pendências, clique, um pedido só ao modelo com as três, `contas: [2]`, botão desabilitado durante a resposta,
+deck salvo corrigido, painel vazio, zero erros JS). O teste do Studio falha sem o botão. `npm test`: 1.153 testes,
+1.122 aprovados, 31 condicionais pulados, zero falhas.
+
+## Enviar cópia para outra pessoa — 23/10/2026 (branch `claude/cranky-bell-62ec04`)
 
 A versão revisada da aula da Mary foi posta na biblioteca dela à mão, por SSH como root (copiar a pasta, trocar o
 título, `chown`). Agora quem administra o servidor multiusuário faz isso pelo navegador: menu do cartão › **Enviar cópia
@@ -31,23 +50,6 @@ e a conversa antiga `<deck>.conversa.json` (`sendDeckTo` em `src/library.js`; `c
 - Testes: `library.test.js` (cópia completa, exclusões, sufixo, nunca sobrescreve) e `library-ui.test.js` (admin envia
   pela tela duas vezes; Mary não vê o item e leva 403; destino inválido dá 400; zero erros de JavaScript).
 - Falta: no Oracle, conferir se a Narumi está em `--agentes` ou ligar `--admins` no serviço depois do deploy.
-
-## Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
-
-Na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava trabalho, e na prática a IA
-resolveu tudo quando recebeu um pedido único ("corrija os avisos da criação"). O cartão da biblioteca já mostrava
-"N a conferir"; faltava o atalho.
-- Revisar › Conferência ganhou **Corrigir tudo com IA** no cabeçalho: um pedido só ao chat com todas as pendências que
-  ainda valem (sem as ignoradas e sem os avisos de "o slide mudou"), agrupadas por slide ("Slide 2:", "Deck todo:"),
-  cada uma com o `fix` do item. O servidor monta (`conferenceBatch` em `src/studio/conference.js`, rota
-  `POST /api/conferencia/corrigir-tudo`) e marca como `enviado` de uma vez (`decideItems`) o que não se confere
-  sozinho; contas, contas do material e slides `derivado` vão com `contas: [n]` e saem do painel pela conferência
-  depois da resposta, como no botão por item.
-- O botão fica desabilitado enquanto a IA responde; o painel se atualiza no fim do pedido (`sagadeck:chat-done`).
-Testes: `ai.test.js` (agrupamento, aviso que mudou fora, contas, enviados, decisão em lote) e `studio-ai.test.js`
-(três pendências, clique, um pedido só ao modelo com as três, `contas: [2]`, botão desabilitado durante a resposta,
-deck salvo corrigido, painel vazio, zero erros JS). O teste do Studio falha sem o botão. `npm test`: 1.153 testes,
-1.122 aprovados, 31 condicionais pulados, zero falhas.
 
 ## Testes com o modelo de verdade a cada 3 versões — 23/10/2026 (branch `claude/testes-ao-vivo`)
 
