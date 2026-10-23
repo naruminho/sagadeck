@@ -24,6 +24,21 @@ export function tempDeck(src = FIXTURE) {
 // Sem SAGADECK_LIVE=1 o LLM fica "desligado" (endereço sem ninguém): o Studio usa as regras locais e os testes
 // ficam rápidos e determinísticos.
 // Com { llmUrl }, usa esse LLM (ex.: o falso de test/mock-llm.js).
+// Portas que o Chrome se recusa a abrir (ERR_UNSAFE_PORT), acima de 1024. A CI do Windows amplia a faixa de portas
+// livres e o sistema chegou a entregar a 10080: a página do teste nem abria.
+const CHROME_UNSAFE = new Set([1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080]);
+export const unsafeForBrowser = (port) => port < 1024 || CHROME_UNSAFE.has(port);
+
+// escuta numa porta livre que o navegador aceita abrir (sorteia de novo se cair numa bloqueada)
+export async function listenSafe(server, host = "127.0.0.1") {
+  for (;;) {
+    await new Promise((r) => server.listen(0, host, r));
+    const { port } = server.address();
+    if (!unsafeForBrowser(port)) return port;
+    await new Promise((r) => server.close(r));
+  }
+}
+
 export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUsers, library: givenLibrary, codeRoot } = {}) {
   if (llmUrl) process.env.SAGADECK_LLM_URL = llmUrl;
   else if (process.env.SAGADECK_LIVE !== "1") process.env.SAGADECK_LLM_URL = "http://127.0.0.1:9/v1";
@@ -31,8 +46,7 @@ export async function startStudio(deckFile, { llmUrl, multiuser = false, agentUs
   const library = givenLibrary || fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-biblioteca-"));
   const { createStudioServer } = await import("../src/studio/server.js");
   const server = createStudioServer(deckFile, { host: "127.0.0.1", library, multiuser, agentUsers, codeRoot });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  const { port } = server.address();
+  const port = await listenSafe(server);
   return {
     url: `http://127.0.0.1:${port}`,
     library,

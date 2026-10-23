@@ -1227,6 +1227,9 @@ cada resultado sai assim que chega:
   aceita imagem falha, em vez de responder sem ver);
 - **imagem**: gera uma imagem pequena e confere que voltou PNG, JPEG, WebP ou GIF (grava o arquivo e diz onde);
 - **pesquisa**: o modelo de pesquisa precisa dizer a data de hoje;
+- **conferência**: quando há um **modelo para conferir** em Configurar IA (outro que o de texto; é o das contas, da
+  leitura crítica e da confirmação da revisão visual), uma conta pequena com resposta conhecida, com raciocínio; sem
+  ele, as conferências usam o modelo de texto e sai `SEM CONFIG`;
 - **vídeo**: sem `--video-real`, só confere o modelo no catálogo, de graça, e sai `SEM PROVA`; com `--video-real`,
   gera o clipe mais curto e leve que o modelo aceita, acompanha, baixa e confere o MP4 (cobrado; leva minutos).
 

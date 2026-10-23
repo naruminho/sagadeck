@@ -31,6 +31,45 @@ conferindo deck salvo, relatório e o que foi ao modelo; zero erros JS). Ícones
 calculator, hash, image-off. Suíte completa: `npm test`, 1.116 testes, 1.087 aprovados, 29 condicionais pulados, zero falhas.
 Falta: PR empilhado sobre o #201 (`claude/conferir-contas`), CI verde, merge.
 
+## Pedido da criação gravado — 22/10/2026 (branch `claude/pedido-da-criacao-0d34bc`, sobre `claude/conferir-contas`)
+
+Origem: no deck da Mary dava para provar que ela anexou um PPTX (estava em `contexto/`), mas não o que ela pediu: o
+briefing não ficava salvo e o serviço não loga pedidos.
+Feito: `src/studio/generation-request.js` grava `.sagadeck/geracao.json` em arquivo próprio (não mexe no relatório
+`avaliacao-geracao.json`): data, origem (`biblioteca`, `editor`, `chat`), o briefing exatamente como foi para a IA e
+`briefingPadrao` (a pessoa não escreveu nada e foi o texto padrão da tela; a biblioteca manda `guide.padrao`, com
+intenção, público, objetivo e roteiro), resposta à pergunta da IA, duração, slides, tema, estilo, direção, anexos
+(nome, tipo, tamanho em bytes, caracteres lidos, caminho em `contexto/documentos/<hash>/`), Preferências que mudam a
+geração (idioma, imagens, pesquisa, perguntar, autor), fontes da pesquisa, modelos e o endereço do provedor sem
+usuário, senha nem parâmetros (nada de chave). Criar pelo chat com documento anexado reescrevendo a maior parte do
+deck grava o mesmo arquivo (origem `chat`); o pedido anterior vai para `anteriores` (10 últimos). Duplicar já copia a
+pasta inteira; o pacote `.sagadeck` agora leva `.sagadeck/geracao.json`.
+Testes: `storage.test.js` (biblioteca com anexo; segredos e `anteriores`), `library-ui.test.js` (pedido guiado
+digitado; só com anexo grava o texto padrão marcado, duplicar e o pacote levam o arquivo, zero erros JS),
+`studio-ai.test.js` (Deck com IA do editor e criação pelo chat com docx). Conferido que falham sem a gravação.
+Falta: PR com CI verde e merge (depois do PR #201, que é a base).
+
+## Modelo para conferir — 22/10/2026 (branch `claude/modelo-por-etapa-d74f41`, parte de `claude/conferir-contas`)
+
+Origem: no ensaio real da conferência das contas, o modelo de texto (deepseek flash) levou 5 a 12 min e uma rodada
+estourou tokens. Um modelo de raciocínio mais forte só nas conferências dá precisão sem encarecer a escrita.
+Feito:
+- `~/.sagadeck/ia.json` ganhou o papel opcional `models.check` (`ROLES` em `src/ai/ia-config.js`); `llmConfig()` dá
+  `checkModel` (variável `SAGADECK_CHECK_MODEL`, senão `models.check`, senão o de texto: nada muda para quem não
+  configurar). O apelido `"check"` resolve para ele em `resolveModel`, como `"vision"`.
+- Usam `model: "check"`: a conferência das contas (`auditBatch` em `math-check.js`), a leitura crítica
+  (`critique.js`) e a confirmação dos achados da revisão visual (`quality.js`; se o modelo de conferir não aceitar
+  imagem, a chamada cai no de visão pelo caminho que já existia). A correção que a conferência pede continua no de
+  texto (é escrita). A checagem de números (`checkNumbers`) não tem chamada de conferência: acha os números no código
+  e pede a correção à escrita, então não mudou.
+- Configurar IA: campo "Modelo para conferir" (largura inteira, com a linha "um modelo de raciocínio mais forte só
+  onde a conta precisa estar certa"). Os campos de modelo continuam texto livre, sem lista do provedor (nenhum tem).
+- `ia-check`: recurso `conferencia` (CLI `--so=conferencia`, MCP, `/api/ia/check`): quando o modelo de conferir é
+  outro que o de texto, uma conta com resposta conhecida, com raciocínio e 4000 tokens; senão, `SEM CONFIG`.
+Testes: `ai.test.js` (contas, leitura crítica e confirmação vão ao de conferir; a correção e a revisão ao de texto;
+sem configurar, tudo ao de texto; falha sem a mudança), `ia-check.test.js`, `library-ui.test.js` (tela grava
+`models.check` no ia.json, reabre mostrando, zero erros JS).
+
 ## Conferência das contas — 22/10/2026 (branch `claude/conferir-contas`, worktree `../sagadeck-conferir-contas`)
 
 Origem: deck de aula criado na Oracle (Hidráulica, Aula 5, conta da Mary) saiu com "L₁ ≈ 55 m" num exercício cuja

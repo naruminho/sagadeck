@@ -41,6 +41,10 @@ function script(req) {
   }
   if (/Analise visualmente/.test(p)) return "Revisei a imagem.\n```yaml\nslides:\n  1: {layout: cover, title: Capa revisada visualmente}\n```";
   if (/versões/.test(p)) return "Duas versões da capa.\n```yaml\nvariants:\n  slide: 1\n  options:\n    - label: Manchete\n      slide: { layout: headline, text: \"Fraude custa ==3 mi==\" }\n    - label: Número\n      slide: { layout: number, value: 3, suffix: \" mi\", label: em fraudes }\n```";
+  if (/monte a apresentação inteira/.test(p)) {
+    return ["Montei a apresentação a partir da aula.", "```yaml", "slides:", "  1: { layout: cover, title: Hidráulica do chat }",
+      ...[2, 3, 4, 5, 6].map((n) => `  ${n}: { layout: statement, text: Ideia ${n} da aula }`), "```"].join("\n");
+  }
   if (/kicker novo/.test(p)) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
   }
@@ -142,6 +146,26 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.ok(!JSON.stringify(req.body).includes("UEsDB"), "zip não vai ao modelo");
     });
 
+    await t.test("criar a apresentação do documento pelo chat grava o pedido e o anexo em .sagadeck/geracao.json", async () => {
+      const { default: JSZip } = await import("jszip");
+      const buf = await new JSZip().file("word/document.xml",
+        "<w:document><w:body><w:p><w:r><w:t>Aula de hidráulica: perda de carga.</w:t></w:r></w:p></w:body></w:document>")
+        .generateAsync({ type: "nodebuffer" });
+      await p.setInputFiles("#chat-attach-input", { name: "aula.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: buf });
+      await p.waitForFunction(() => [...document.querySelectorAll("#chat-attachments .chat-doc b")]
+        .some((b) => b.textContent === "aula.docx" && !/lendo/.test(b.closest(".chat-att").textContent)));
+      await send("monte a apresentação inteira a partir desta aula");
+      const g = JSON.parse(fs.readFileSync(path.join(deckFile.dir, ".sagadeck", "geracao.json"), "utf8"));
+      assert.equal(g.origem, "chat");
+      assert.equal(g.briefing, "monte a apresentação inteira a partir desta aula");
+      assert.equal(g.materiais.length, 1, JSON.stringify(g.materiais));
+      assert.equal(g.materiais[0].nome, "aula.docx");
+      assert.equal(g.materiais[0].tipo, "docx");
+      assert.equal(g.materiais[0].tamanho, buf.length);
+      assert.deepEqual(fs.readFileSync(path.join(deckFile.dir, ...g.materiais[0].caminho.split("/"))), buf, "o caminho leva ao anexo guardado");
+      assert.equal(saved().slides[0].title, "Hidráulica do chat", "a reescrita foi salva");
+    });
+
     await t.test("link colado é lido sozinho (até 2 por mensagem)", async () => {
       const http = await import("node:http");
       const srv = http.createServer((req, res) => {
@@ -230,6 +254,14 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.match(req.lastUser, /Você decide onde ilustrar/);
       assert.match(req.system, /Você PODE pedir ilustrações/);
       assert.equal((await deck()).title, "Deck gerado");
+      // o pedido fica gravado ao lado do deck novo (.sagadeck/geracao.json), para auditar depois
+      const file = await p.evaluate(async () => (await (await fetch("/api/deck")).json()).file);
+      const g = JSON.parse(fs.readFileSync(path.join(path.dirname(file), ".sagadeck", "geracao.json"), "utf8"));
+      assert.equal(g.origem, "editor");
+      assert.equal(g.briefing, "Palestra curta sobre fraudes. Você decide onde ilustrar.");
+      assert.equal(g.briefingPadrao, false);
+      assert.deepEqual(g.materiais, []);
+      assert.equal(g.resultado.titulo, "Deck gerado");
     });
 
     await t.test("comando da IA: aparece o código, só roda com o clique, o resultado volta e o deck salvo muda", async () => {

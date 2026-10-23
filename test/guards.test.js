@@ -9,7 +9,17 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
-import { ROOT } from "./helpers.js";
+import { ROOT, listenSafe, unsafeForBrowser } from "./helpers.js";
+
+test("servidor de teste nunca fica numa porta que o Chrome bloqueia (a CI do Windows entregou a 10080)", async () => {
+  assert.ok(unsafeForBrowser(10080) && unsafeForBrowser(6667) && unsafeForBrowser(80));
+  assert.ok(!unsafeForBrowser(3517) && !unsafeForBrowser(54321));
+  const ports = [10080, 6000, 41234], seen = [];
+  let current;
+  const fake = { listen: (_p, _h, cb) => { current = ports.shift(); seen.push(current); cb(); }, address: () => ({ port: current }), close: (cb) => cb() };
+  assert.equal(await listenSafe(fake), 41234);
+  assert.deepEqual(seen, [10080, 6000, 41234]);
+});
 
 const LIMITS = { // bytes
   "src/studio/public/app.js": 240_000,
