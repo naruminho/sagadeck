@@ -53,6 +53,15 @@ test("conta com unidades: converte para o SI e volta para a unidade do resultado
   assert.equal(evaluateUnits({ vars: { x: 1 }, unidades: { x: "furlong" }, unidade: "m" }, "x"), null, "unidade desconhecida: sem unidades");
 });
 
+test("conta que converte na mão para a unidade do resultado (*1000 para L/s, *100 para cm) não é convertida de novo", () => {
+  // em produção: "107 L/s, a conta dá 106.400" e "120 cm, a conta dá 12.000" (o modelo já tinha multiplicado)
+  assert.equal(evaluateUnits({ vars: { A: 0.0707, v: 1.505 }, unidades: { A: "m²", v: "m/s" }, unidade: "L/s" }, "A*v*1000"), null);
+  assert.equal(evaluateUnits({ vars: { p: 1.2 }, unidades: { p: "m" }, unidade: "cm" }, "p*100"), null);
+  // sem converter na mão, o código converte: A*v em m³/s sai em L/s
+  const ok = evaluateUnits({ vars: { A: 0.0707, v: 1.505 }, unidades: { A: "m²", v: "m/s" }, unidade: "L/s" }, "A*v");
+  assert.ok(Math.abs(ok.value - 106.4) < 0.1, String(ok.value));
+});
+
 test("conta que já converte na mão (Q/1000 com Q em L/s) não é convertida de novo; resultado sem unidade fica no SI", () => {
   // o modelo real escreveu "(Q/1000)/(pi*(D/2)^2)" com Q em L/s: converter de novo dava 0,0019 m/s e acusava um
   // gabarito certo (1,91 m/s)

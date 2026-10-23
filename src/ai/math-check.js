@@ -77,9 +77,10 @@ export function evaluateUnits({ vars = {}, unidades, unidade }, formula) {
     if (!u) return null;
     parsed[name] = u;
   }
-  // o modelo converteu na mão mesmo assim ("Q/1000" com Q em L/s): converter de novo daria 1000 vezes menos. Com um
-  // fator de conversão das próprias unidades escrito na fórmula, a conta vale como ele escreveu (nos números dados)
-  const factors = Object.values(parsed).map((u) => u.factor).filter((f) => Math.abs(f - 1) > 1e-12);
+  // o modelo converteu na mão mesmo assim ("Q/1000" com Q em L/s, ou "*1000" para o resultado sair em L/s, "*100" para
+  // cm): converter de novo daria mil ou cem vezes errado. Com um fator de conversão das unidades (das vars ou do
+  // resultado) escrito na fórmula, a conta vale como ele escreveu, nos números dados
+  const factors = [...Object.values(parsed), target].map((u) => u.factor).filter((f) => Math.abs(f - 1) > 1e-12);
   const literals = [...formula.matchAll(/(?<![\w.])\d+(?:\.\d+)?(?:e-?\d+)?/gi)].map((m) => Number(m[0]));
   if (literals.some((x) => factors.some((f) => Math.abs(x - f) <= 1e-9 * f || Math.abs(x * f - 1) <= 1e-9))) return null;
   const run = (scales) => {

@@ -8,6 +8,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Conversão para a unidade do resultado — 23/10/2026 (branch `claude/unidade-resultado`)
+
+Terceiro pedido à IA na cópia da Narumi, em produção (`020c243`): ela resolveu as pendências dos slides 12, 23 e 24,
+mas a conferência das contas acusou falsos alarmes ("107 L/s dá 106.400", "120 cm dá 12.000"): o modelo escreveu a
+conversão para a unidade do resultado na fórmula (`*1000` para L/s, `*100` para cm) e o código convertia de novo.
+A detecção de conversão feita à mão olhava só as unidades das vars; agora olha também a do resultado. Conferido no
+deck: os slides 21, 22 e 27 que a correção mexeu continuaram certos (273 m; 944 cm e sobra de 273 cm; velocidades
+0,64 / 0,605 / 0,58 m/s). Teste em `units.test.js`; falha sem o conserto.
+
 ## Ajustes depois do teste na cópia — 23/10/2026 (branch `claude/ajustes-conferencia`)
 
 Teste em produção na cópia da Narumi (nunca no deck da Mary): a IA, pelo chat, corrigiu as contas (21: 273 m;
