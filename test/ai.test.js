@@ -1273,3 +1273,9 @@ test("painel de conferência: aviso visual de slide que já mudou aparece como p
     assert.ok(conferenceItems({ quality }, agora).every((i) => !i.stale), "sem pasta nem marcas: não dá para saber, fica como estava");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("prompt pede variar o tom visual nos momentos-chave (decks saíam todos claros)", async () => {
+  // a criação segue o caminho do chat (sem rodada de variedade por cima): quem decide variar é o modelo, pelo prompt
+  const { systemPrompt } = await import("../src/ai/deck-ai.js");
+  assert.match(systemPrompt(), /Varie também o TOM visual \(regra dura\): em 6\+ slides, nem todos `tone: light` — pelo menos 1 slide/);
+});

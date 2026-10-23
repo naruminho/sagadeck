@@ -8,7 +8,17 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
-## 1.11.1 — 23/10/2026 (branch `claude/correcoes-1.11.1`)
+## 1.11.2 — 23/10/2026 (branch `claude/ritmo-da-geracao`)
+
+Rodada completa dos testes ao vivo (`SAGADECK_LIVE=1`) depois da 1.11.1: 24 de 27. As três falhas foram comparadas com o
+código de antes (`3c18855`): "refinamento" é variação do modelo (2 de 3 nos dois); "deck variado" e "sem falar de
+imagens → nenhuma" já falhavam. A revisão de ritmo que existia na criação saiu de propósito em `d5b052a` (a criação
+usa o caminho do chat, uma chamada, conferido em `ai.test.js`); então o tom virou regra dura do prompt (ANTI-FEIJÃO),
+e o deck variado passou 3 de 3 ao vivo. O teste de imagens esperava zero sem pedido, mas o prompt manda a IA decidir
+("não falou de imagem → VOCÊ decide", conferido em `studio-ai.test.js`): passou a exigir poucas (até 1/3), 2 de 2.
+Também em produção: o cartão da aula original da Mary mostra "24 a conferir"; a versão revisada, zero.
+
+1.11.1 — 23/10/2026 (branch `claude/correcoes-1.11.1`)
 
 - Gravação (`deckText`): reemite com e sem quebra em 80 colunas e fica a versão que preserva mais linhas do arquivo.
   Mudar o título de uma cópia na biblioteca tinha regravado 558 linhas (conteúdo igual). Teste em `deck-file.test.js`.
