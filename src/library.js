@@ -173,11 +173,12 @@ export function openLibrary(root, { trashDays } = {}) {
     let spec = {};
     try { spec = YAML.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
     const own = idOf(file).split("/").length === 3;
+    const pending = own ? pendingWarnings(path.dirname(file), spec) : 0;
     return {
       id: idOf(file), topic: topic || "", title: String(spec.title || path.basename(file).replace(/\.ya?ml$/i, "")),
       slides: Array.isArray(spec.slides) ? spec.slides.length : 0, theme: spec.theme || "", edited: st.mtimeMs,
       folder: own, // true = pasta própria (com imagens etc.); false = .yaml solto
-      ...(own ? { pendencias: pendingWarnings(path.dirname(file), spec) } : {}),
+      ...(pending ? { pendencias: pending } : {}), // só quando há aviso
     };
   }
 
