@@ -57,6 +57,13 @@ export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 
         return {
           ...(panel ? { stepText: panel.querySelector('.lesson-title, .algo-name')?.textContent, stepVisible: !!panel.getClientRects().length } : {}),
           highlightedLines: [...(slide?.querySelectorAll('.code .cl.hl') || [])].map(line => Number(line.querySelector('.cn')?.textContent)),
+          // texto de desenho SVG do deck (figure.svg) que sai pequeno demais na tela (a página tem 1920 de largura, a medida do slide): o desenho
+          // em SVG feito pela IA usava fonte 24 num viewBox de 1000 e, numa coluna estreita, o rótulo saía com 19 px
+          // (o texto do slide tem 28 ou mais). A medida é a fonte na tela: tamanho calculado × escala do desenho.
+          tinyText: [...new Map([...(slide?.querySelectorAll("[data-svg-figure] svg text") || [])].map((t) => {
+            const r = t.getBoundingClientRect(), m = t.getScreenCTM();
+            return [t.textContent.trim(), r.width > 0 && r.height > 0 ? parseFloat(getComputedStyle(t).fontSize) * (m ? Math.hypot(m.a, m.b) : 1) : 99];
+          }).filter(([txt, px]) => txt && px < 20).map(([txt, px]) => [txt, Math.round(px)])).entries()].slice(0, 8).map(([text, px]) => ({ text: text.slice(0, 40), px })),
           ...(slide?.querySelector('[data-graphlab]')?{graphDirected:JSON.parse(slide.querySelector('.gl-model').textContent).directed,graphResult:slide.querySelector('[data-gl-result]')?.textContent}:{}),
         };
       });
