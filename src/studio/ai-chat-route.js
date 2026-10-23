@@ -19,7 +19,6 @@ import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
 import { conferenceItems, conferencePrompt, recordMath, loadGenReport } from "./conference.js";
-
 import { saveGenerationRequest } from "./generation-request.js";
 
 // Arquivos que a IA pode pedir para ver (ver: […]): imagens DENTRO da pasta da apresentação (os recortes e as
