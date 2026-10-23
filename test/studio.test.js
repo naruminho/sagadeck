@@ -1072,7 +1072,9 @@ test("Studio: colar código e cURL sem configurar layouts", async (t) => {
       // formulário do slide inserido, sem ler o textarea ainda montado para o slide anterior.
       const delayedRender = async route => {
         if (route.request().postDataJSON()?.slide?.title?.startsWith("API para editar")) await new Promise(resolve => setTimeout(resolve, 400));
-        await route.continue();
+        // o subteste pode terminar (e desligar a rota) enquanto este pedido ainda espera: aí ele já foi atendido e
+        // continuar dava "Route is already handled", derrubando o teste pai na CI do Ubuntu
+        await route.continue().catch((e) => { if (!/already handled|closed/i.test(e.message)) throw e; });
       };
       await p.route("**/api/render-slide", delayedRender);
       sub.after(() => p.unroute("**/api/render-slide", delayedRender));
