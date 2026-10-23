@@ -8,6 +8,29 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Contas calculadas no exercício resolvido — 22/10/2026 (branch `claude/unruffled-nobel-8f9bce`, parte de `claude/conferir-contas`)
+
+A raiz do "L₁ ≈ 55 m": o número do passo era texto da IA. Agora, no `solution`, o número nasce da conta.
+- `src/runtime/solution.js` (motor e apresentação, como o `calc.js`): dados com `symbol` + `value` numérico viram
+  variáveis (nome do símbolo: `L_1` → `L1`, `\rho` → `rho`; ou `name`); passo e resposta com `fn` são calculados na
+  ordem pelo compilador de `formula.js` (sem eval). Valor no fim do LaTeX do passo (`≈`, ou `=` se exato) ou onde
+  estiver `{{nome}}` (o próprio nome do passo); `{{nome}}`/`{{expr:casas}}` também nos textos, resposta e enunciado.
+  Vírgula decimal, milhar (`\,` na fórmula, ponto no texto), `decimals` ou 4 algarismos.
+- Erro na fórmula ou letra sem valor: aviso de render ("exercício resolvido: passo 2: a fórmula usa "k"…") e caixa
+  `.sol-error` no passo; o valor vira traço, sem LaTeX quebrado. A IA recebe o aviso como qualquer outro.
+- `interactive: true`: controle deslizante em cada dado (passo na grade das casas do dado; min/max alinhados, senão
+  0,01 virava 0,011), Restaurar, números trocados ao vivo por marcas `\htmlData{solv=k}` (KaTeX com `trust` só para
+  esse atributo) e `<span data-solv>` no texto. Só nesse modo o HTML leva as marcas; o estático segue limpo.
+  O MathML não acompanha o número novo: no modo interativo ele some e o leitor de tela lê o próprio desenho.
+  Carregado em `build.js` só com `solution` interativo; Studio serve `/solution.js` e monta no editor.
+- `math-check.js`: `forAudit` tira os passos/resposta com `fn` e troca `{{…}}` por "(calculado)"; `hasMath` de um
+  exercício com `fn` só é verdade se sobrar número escrito à mão.
+- Formulário (fórmula, nome, unidade, casas do passo; nome/mín./máx. do dado; "Dados ajustáveis"), exemplo da galeria
+  (juros com `fn` e interativo), `REFERENCIA.md` (seção + exemplo do sifão, que renderiza sem aviso) e o prompt
+  ("nunca escreva à mão um resultado que uma fórmula dá").
+- Testes em `test/lessons.test.js` (onde o `solution` já mora): render com valores e arredondamento, erro claro,
+  conferência que pula o calculado, apresentação interativa e o formulário do Studio conferido no deck salvo.
+
 ## Unidades e contas do material — 23/10/2026 (branch `claude/conferir-unidades`, worktree `../sagadeck-conferir-unidades`)
 
 Continuação da conferência das contas (#201), sugestões 3 e 4 da revisão do deck da Mary.

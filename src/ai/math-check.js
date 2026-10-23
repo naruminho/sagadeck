@@ -15,8 +15,20 @@ const RELATION = /(?:=|≈|≤|≥|\\approx|\\le|\\ge|\\Rightarrow)\s*-?\d/;
 const MATH_LAYOUTS = new Set(["solution", "calc"]);
 const strip = (slide) => JSON.stringify({ ...slide, uid: undefined, auto: undefined, review: undefined });
 
+// exercício com `fn`: o motor já calcula esses passos (src/runtime/solution.js) e escreve o valor no lugar de
+// {{nome}}; para a IA vão só os passos escritos à mão
+const computed = (o) => !!o && typeof o === "object" && o.fn != null && o.fn !== "";
+const usesFn = (slide) => slide?.layout === "solution" && ((slide.steps || []).some(computed) || computed(slide.answer));
+const noPlaceholders = (v) => (typeof v === "string" ? v.replace(/\{\{[^{}]+\}\}/g, "(calculado)") : Array.isArray(v) ? v.map(noPlaceholders) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, noPlaceholders(x)])) : v);
+export function forAudit(slide) {
+  if (!usesFn(slide)) return slide;
+  const { answer, ...rest } = slide;
+  return noPlaceholders({ ...rest, steps: (slide.steps || []).filter((st) => !computed(st)), ...(answer && !computed(answer) ? { answer } : {}) });
+}
+
 export function hasMath(slide) {
   if (!slide) return false;
+  if (usesFn(slide)) return RELATION.test(unLatex(strip(forAudit(slide)))); // sobrou número escrito à mão?
   return MATH_LAYOUTS.has(slide.layout) || slide.provenance === "derivado" || RELATION.test(unLatex(strip(slide)));
 }
 
@@ -135,7 +147,7 @@ async function auditBatch(slides, source, { complete, signal }) {
 
 // pede à IA as contas dos slides indicados (índices 0-based), em lotes, e confere cada uma
 export async function auditMath(spec, indices, { materials = [], complete = chat, signal } = {}) {
-  const slides = [...new Set(indices)].filter((i) => spec.slides?.[i]).map((i) => ({ slide: i + 1, ...spec.slides[i], uid: undefined }));
+  const slides = [...new Set(indices)].filter((i) => spec.slides?.[i]).map((i) => ({ slide: i + 1, ...forAudit(spec.slides[i]), uid: undefined }));
   if (!slides.length) return { checked: [], divergent: [], unchecked: [], material: [] };
   const source = (materials || []).filter((m) => m && m.kind !== "critica").map((m) => `${m.name || "material"}:\n${m.text || ""}`).join("\n\n").slice(0, 12000);
   const batches = [];

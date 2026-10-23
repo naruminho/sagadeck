@@ -8,6 +8,7 @@ import katex from "katex";
 import { md, esc } from "./markup.js";
 import "./runtime/formula.js";
 import "./runtime/calc.js";
+import "./runtime/solution.js";
 
 const F = globalThis.SagaFormula;
 const tex = (s, display = true) => katex.renderToString(String(s ?? ""), { displayMode: display, throwOnError: false, strict: "ignore", trust: false, maxExpand: 1000, maxSize: 20 });
@@ -29,32 +30,90 @@ const panel = (i, inner, cls = "") => `<section class="lesson-panel dyn-frame ${
 const PROSE = /\p{L}{3,}/u;
 const isProse = (s) => !/\\[a-zA-Z]|[\^_{}]/.test(s) && PROSE.test(String(s).replace(/\b(sen|cos|tan|tg|log|ln|exp|max|min|lim|mod)\b/g, ""));
 const mathOrText = (s) => (isProse(String(s ?? "")) ? `<span class="sol-txt t f-body">${md(String(s))}</span>` : tex(s, false));
-function givenTex(g) {
+// % (e # & _ $) são comandos no LaTeX: "60 %" saía como erro vermelho na conta da criança
+const unitTex = (u) => String(u).replace(/(?<!\\)[%#&_$]/g, (c) => `\\${c}`).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,");
+const unitSuffix = (u) => (u ? `\\ \\mathrm{${unitTex(u)}}` : "");
+function givenTex(g, value = null) {
   if (typeof g === "string") return g;
   if (g.latex) return g.latex;
-  const value = typeof g.value === "string" && isProse(g.value) ? `\\text{${g.value.replace(/[{}\\$]/g, "")}}` : commaTex(g.value);
-  // % (e # & _ $) são comandos no LaTeX: "60 %" saía como erro vermelho na conta da criança
-  const unit = g.unit ? String(g.unit).replace(/(?<!\\)[%#&_$]/g, (c) => `\\${c}`).replace(/°/g, "^{\\circ}").replace(/ /g, "\\,") : "";
-  return `${g.symbol ?? ""} = ${value}${unit ? `\\ \\mathrm{${unit}}` : ""}`;
+  value ??= typeof g.value === "string" && isProse(g.value) ? `\\text{${g.value.replace(/[{}\\$]/g, "")}}` : commaTex(g.value);
+  return `${g.symbol ?? ""} = ${value}${unitSuffix(g.unit)}`;
 }
+// nome da conta em LaTeX, quando o passo não traz nem latex nem symbol: D2 → D_{2}, rho → \rho, fator → \mathrm{fator}
+const GREEK = /^(alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|xi|pi|rho|sigma|tau|phi|chi|psi|omega|Delta|Omega|Phi|Sigma)(\d*)$/;
+const nameTex = (n) => (n.startsWith("_") ? "" : GREEK.test(n) ? n.replace(GREEK, (_, g, d) => `\\${g}${d ? `_{${d}}` : ""}`) : /^[A-Za-z]\d*$/.test(n) ? n.replace(/^(.)(\d+)$/, "$1_{$2}") : `\\mathrm{${n}}`);
+// {{nome}} ou {{expressão:casas}}: o valor calculado no lugar
+const PH = /\{\{\s*([^{}:]+?)\s*(?::\s*(\d+)\s*)?\}\}/g;
+const S = globalThis.SagaSolution;
+// \htmlData só para a marca do número que a apresentação troca ao vivo
+const texLive = (s, display = true) => katex.renderToString(String(s ?? ""), { displayMode: display, throwOnError: false, strict: "ignore", trust: (c) => c.command === "\\htmlData" && Object.keys(c.attributes || {}).every((k) => k === "data-solv"), maxExpand: 1000, maxSize: 20 });
 export function solutionHTML(s, ctx, head) {
   const steps = (s.steps || []).map((x) => (typeof x === "string" ? { latex: x } : x || {}));
   const givens = [].concat(s.givens || s.data || []);
   const hasAnswer = !!s.answer;
-  const n = 1 + steps.length + (hasAnswer ? 1 : 0); // enunciado · cada passo · resposta
-  const left = `<div class="sol-problem">${s.problem ? `<div class="sol-text t f-body">${md(s.problem)}</div>` : ""}
-    ${givens.length ? `<div class="sol-givens"><div class="sol-label t f-label">Dados</div>${givens.map((g) => `<div class="sol-given"><div class="sol-tex">${typeof g === "string" ? mathOrText(g) : tex(givenTex(g), false)}</div>${g.label ? `<span class="t f-body">${md(g.label)}</span>` : ""}</div>`).join("")}</div>` : ""}
-    ${s.find ? `<div class="sol-find"><span class="sol-label t f-label">Pede-se</span><div class="sol-tex">${mathOrText(s.find)}</div></div>` : ""}</div>`;
-  const stepHTML = (st, i, k) => `<article class="sol-step${i === k - 1 ? " now" : ""}"><span class="sol-n t f-label">${String(i + 1).padStart(2, "0")}</span><div class="sol-body">${st.text ? `<div class="sol-why t f-body">${md(st.text)}</div>` : ""}${st.latex ? `<div class="sol-math">${tex(st.latex)}</div>` : ""}${st.note ? `<div class="sol-note t f-body">${md(st.note)}</div>` : ""}</div></article>`;
   const answer = hasAnswer ? (typeof s.answer === "string" ? { latex: s.answer } : s.answer) : null;
+  // contas: dados com símbolo e valor viram variáveis; passo (e resposta) com fn é calculado pelo motor
+  const m = S.model({ ...s, steps, answer });
+  const { env, results } = S.evaluate(m);
+  const live = !!s.interactive && m.vars.length > 0;
+  const T = live ? texLive : tex;
+  const marks = [], markAt = new Map();
+  const decOf = (name) => m.vars.find((v) => v.name === name)?.decimals ?? m.calcs.find((c) => c.name === name)?.decimals;
+  const mark = (expr, d) => {
+    const decimals = d != null && d !== "" ? Number(d) : decOf(expr), key = `${expr}|${decimals ?? ""}`;
+    if (!markAt.has(key)) { markAt.set(key, marks.length); marks.push({ expr, ...(decimals != null ? { decimals } : {}) }); }
+    return { k: markAt.get(key), decimals, value: S.evalExpr(expr, env) };
+  };
+  const numTex = (r) => { const t = S.format(r.value, r.decimals, "tex"); return live ? `\\htmlData{solv=${r.k}}{${t}}` : t; };
+  const fillTex = (str) => String(str ?? "").replace(PH, (_, e, d) => numTex(mark(e, d)));
+  const fillText = (str) => {
+    const nums = [];
+    const out = md(String(str ?? "").replace(PH, (_, e, d) => {
+      const r = mark(e, d), t = esc(S.format(r.value, r.decimals, "text"));
+      nums.push(live ? `<span data-solv="${r.k}" data-solv-mode="text">${t}</span>` : t);
+      return `\uE000${nums.length - 1}\uE001`;
+    }));
+    return out.replace(/\uE000(\d+)\uE001/g, (_, i) => nums[i]);
+  };
+  const errors = m.calcs.filter((c) => results[c.key].error).map((c) => `${c.label}: ${results[c.key].error}`);
+  if (errors.length) ctx?.warnings?.push(...errors.map((e) => `exercício resolvido: ${e}`));
+  // LaTeX do passo calculado: o valor onde a pessoa pôs {{nome}} (o nome do próprio passo), ou "≈ valor unidade" no fim
+  const calcTex = (o, key) => {
+    const c = m.calcs.find((x) => x.key === key);
+    if (!c) return o.latex ? fillTex(o.latex) : "";
+    if ([...String(o.latex ?? "").matchAll(PH)].some((x) => x[1] === c.name)) return fillTex(o.latex);
+    const r = mark(c.name, c.decimals);
+    const exact = r.value != null && S.parseNum(S.format(r.value, c.decimals, "text")) === r.value;
+    const lhs = o.latex ? fillTex(o.latex) : o.symbol ? String(o.symbol) : nameTex(c.name);
+    const rel = !lhs || /(=|\\approx|≈)\s*$/.test(lhs) ? "" : exact ? "= " : "\\approx ";
+    return `${lhs}${lhs ? " " : ""}${rel}${numTex(r)}${unitSuffix(o.unit)}`;
+  };
+  const calcError = (key) => { const c = m.calcs.find((x) => x.key === key); return c && results[key].error ? `<div class="sol-error dyn-error f-body">${esc(`${c.label[0].toUpperCase()}${c.label.slice(1)}: ${results[key].error}`)}</div>` : ""; };
+  const varOf = (g) => (g && typeof g === "object" ? m.vars.find((v) => v.name === (g.name ? String(g.name) : S.varName(g.symbol))) : null);
+  const givenHTML = (g) => {
+    if (typeof g === "string") return `<div class="sol-given"><div class="sol-tex">${mathOrText(g)}</div></div>`;
+    const v = live && !g.latex ? varOf(g) : null;
+    const t = v ? givenTex(g, numTex(mark(v.name, v.decimals))) : g.latex ? fillTex(g.latex) : givenTex(g);
+    const slider = v ? `<input type="range" class="sol-slider" data-solv-in="${esc(v.name)}" min="${v.min}" max="${v.max}" step="${v.step}" value="${v.value}" aria-label="${esc(v.label)}">` : "";
+    return `<div class="sol-given${slider ? " live" : ""}"><div class="sol-tex">${T(t, false)}</div>${g.label ? `<span class="t f-body">${md(g.label)}</span>` : ""}${slider}</div>`;
+  };
+  const n = 1 + steps.length + (hasAnswer ? 1 : 0); // enunciado · cada passo · resposta
+  const reset = live ? `<button type="button" class="sol-reset" data-solv-reset>Restaurar</button>` : "";
+  const left = `<div class="sol-problem">${s.problem ? `<div class="sol-text t f-body">${fillText(s.problem)}</div>` : ""}
+    ${givens.length ? `<div class="sol-givens"><div class="sol-label t f-label">Dados${reset}</div>${givens.map(givenHTML).join("")}</div>` : ""}
+    ${s.find ? `<div class="sol-find"><span class="sol-label t f-label">Pede-se</span><div class="sol-tex">${mathOrText(s.find)}</div></div>` : ""}</div>`;
+  const stepTex = steps.map((st, i) => calcTex(st, `p${i}`));
+  const stepHTML = (st, i, k) => `<article class="sol-step${i === k - 1 ? " now" : ""}"><span class="sol-n t f-label">${String(i + 1).padStart(2, "0")}</span><div class="sol-body">${st.text ? `<div class="sol-why t f-body">${fillText(st.text)}</div>` : ""}${stepTex[i] ? `<div class="sol-math">${T(stepTex[i])}</div>` : ""}${calcError(`p${i}`)}${st.note ? `<div class="sol-note t f-body">${fillText(st.note)}</div>` : ""}</div></article>`;
+  const answerTex = answer ? calcTex(answer, "resp") : "";
   const frames = Array.from({ length: n }, (_, k) => {
     const done = Math.min(k, steps.length);
     const list = steps.slice(0, done).map((st, i) => stepHTML(st, i, done)).join("");
-    const final = hasAnswer && k === n - 1 ? `<div class="sol-answer"><span class="sol-label t f-label">${esc(answer.label || "Resposta")}</span>${answer.latex ? `<div class="sol-math">${tex(answer.latex)}</div>` : ""}${answer.text ? `<div class="t f-body">${md(answer.text)}</div>` : ""}</div>` : "";
+    const final = hasAnswer && k === n - 1 ? `<div class="sol-answer"><span class="sol-label t f-label">${esc(answer.label || "Resposta")}</span>${answerTex ? `<div class="sol-math">${T(answerTex)}</div>` : ""}${calcError("resp")}${answer.text ? `<div class="t f-body">${fillText(answer.text)}</div>` : ""}</div>` : "";
     const empty = k === 0 ? `<div class="sol-think t f-display">${md(s.prompt || "Por onde você começaria?")}</div>` : "";
     return panel(k, `<div class="sol-steps">${empty}${list}${final}</div>`);
   }).join("");
-  return `<div class="L-solution dyn" data-lesson="solution" data-lesson-count="${n}">${head(s)}<div class="sol-row">${left}<div class="dyn-frames">${frames}</div></div></div>`;
+  const payload = live ? `<script type="application/json" class="sol-model">${JSON.stringify({ ...m, marks }).replace(/</g, "\\u003c")}</script>` : "";
+  return `<div class="L-solution dyn" data-lesson="solution" data-lesson-count="${n}"${live ? " data-solution" : ""}>${head(s)}<div class="sol-row">${left}<div class="dyn-frames">${frames}</div></div>${payload}</div>`;
 }
 
 // ------------------------------------------------------------------------------------------------ calc

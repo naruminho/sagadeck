@@ -243,6 +243,7 @@ ${spec.slides.some(s => s.layout === "codelab") ? `<script>${read("runtime/code-
 ${spec.slides.some((s) => s.layout === "diagram") ? `<script>${read("runtime/vendor/mermaid.min.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/diagram.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "science") ? `<script>${read("runtime/vendor/plotly.min.js").replace(/<\/script/gi,"<\\/script")}</script><script>${read("runtime/formula.js")}</script><script>${read("runtime/science.js")}</script>` : ""}
 ${spec.slides.some(s => s.layout === "calc") ? `${spec.slides.some(s => s.layout === "science") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/calc.js")}</script>` : ""}
+${spec.slides.some(s => s.layout === "solution" && s.interactive) ? `${spec.slides.some(s => s.layout === "science" || s.layout === "calc") ? "" : `<script>${read("runtime/formula.js")}</script>`}<script>${read("runtime/solution.js")}</script>` : ""}
 ${spec.slides.some(s=>s.layout==="portal") ? `<script>${read("runtime/portal-scene.js")}</script>` : ""}
 ${spec.slides.some((s) => s.layout === "map") ? `${embeddedMapBackground(spec, mapTiles)}<style>${read("runtime/vendor/leaflet.css")}</style><script>${read("runtime/vendor/leaflet.js").replace(/<\/script/gi, "<\\/script")}</script><script>${read("runtime/map-background.js")}</script><script>${read("runtime/map.js")}</script>` : ""}
 ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runtime/points.js")}</script>` : ""}
