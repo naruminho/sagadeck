@@ -1,0 +1,54 @@
+# Testes com o modelo de verdade (test/ai-live.test.js): o modelo decide bem? (conversa × ação, contas, tom, imagens…)
+# Não entram no test.yml (precisam da chave, custam e variam de uma rodada para outra). A rodada que vale é antes de
+# publicar cada versão múltipla de 3, na máquina de quem publica (regra no CLAUDE.md: node scripts/ai-live-ci.mjs
+# --na-release). Aqui fica só o botão (Actions › ai-live › Run workflow), para rodar quando alguém quiser: nada roda
+# sozinho nem gasta à toa. A IA vem do segredo SAGADECK_IA_JSON (o conteúdo de um ~/.sagadeck/ia.json); sem ele, o job
+# avisa e termina verde. O script repete uma vez o que falhar (instável ≠ regressão).
+name: ai-live
+on:
+  workflow_dispatch:
+    inputs:
+      filtro:
+        description: "Só os testes cujo nome casa com este trecho (vazio = todos)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - run: npm ci
+      - name: Configurar a IA a partir do segredo
+        id: ia
+        env:
+          IA_JSON: ${{ secrets.SAGADECK_IA_JSON }}
+        shell: bash
+        run: |
+          if [ -z "$IA_JSON" ]; then
+            echo "configurada=nao" >> "$GITHUB_OUTPUT"
+            echo "::notice title=ai-live::Sem o segredo SAGADECK_IA_JSON: os testes com o modelo de verdade não rodaram."
+            printf '## Testes com o modelo de verdade\n\nNão rodaram: falta o segredo `SAGADECK_IA_JSON` (Settings › Secrets and variables › Actions).\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$IA_JSON" > "$RUNNER_TEMP/ia.json"
+          echo "configurada=sim" >> "$GITHUB_OUTPUT"
+      - name: Testes com o modelo de verdade
+        if: steps.ia.outputs.configurada == 'sim'
+        run: node scripts/ai-live-ci.mjs
+        env:
+          SAGADECK_IA: ${{ runner.temp }}/ia.json
+          SAGADECK_BROWSER: /usr/bin/google-chrome
+          AI_LIVE_FILTRO: ${{ github.event.inputs.filtro }}

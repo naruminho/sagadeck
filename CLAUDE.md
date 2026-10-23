@@ -32,6 +32,11 @@ Recurso sem teste some no próximo refactor, e ninguém percebe.
 - Terminou uma mudança: teste, commit, PR e merge sem perguntar, **mas só com a CI verde** (Ubuntu e Windows,
   conferida depois que termina: `gh pr checks`). CI vermelha ou rodando: não mergeia nem publica release. CI que já
   estava vermelha se conserta antes de qualquer outra coisa; "a falha é antiga" não autoriza seguir.
+- **Testes com o modelo de verdade a cada 3 versões**: antes de publicar uma versão cujo último número é múltiplo de 3
+  (1.11.3, 1.11.6, 1.12.0…), rode `node scripts/ai-live-ci.mjs --na-release` nesta máquina (usa a IA de
+  `~/.sagadeck/ia.json`; nas outras versões ele avisa e pula). O que falhar duas vezes se corrige antes de publicar
+  (com teste que reproduz, como todo bug); instável (passou na repetição) só se registra no ANDAMENTO. Nada de rodar
+  a cada release nem agendado: custa e roda à toa. Na CI, só pelo botão (Actions › ai-live).
 - Acompanhando um PR (CI, revisão): confira a cada **10 minutos**, nunca de hora em hora.
 - **Pastas de trabalho (vários agentes ao mesmo tempo)**: a pasta oficial (`C:\Users\narum\src\sagadeck`) fica na
   `main`. Tarefa em andamento vai numa worktree temporária ao lado, com nome descritivo (`sagadeck-mapa-editor`, nunca

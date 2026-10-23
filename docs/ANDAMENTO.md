@@ -25,7 +25,20 @@ Testes: `ai.test.js` (agrupamento, aviso que mudou fora, contas, enviados, decis
 deck salvo corrigido, painel vazio, zero erros JS). O teste do Studio falha sem o botão. `npm test`: 1.153 testes,
 1.122 aprovados, 31 condicionais pulados, zero falhas.
 
-## 1.11.2 — 23/10/2026 (branch `claude/ritmo-da-geracao`)
+## Testes com o modelo de verdade a cada 3 versões — 23/10/2026 (branch `claude/testes-ao-vivo`)
+
+Os testes ao vivo (`ai-live.test.js`) não rodam na CI comum, e dois deles falhavam havia tempo sem ninguém ver. Decisão
+da Narumi: rodar a cada release custa demais e agendado roda à toa; **a cada versão múltipla de 3** (1.11.3, 1.11.6,
+1.12.0…), antes de publicar, na máquina de quem publica (com a IA de `~/.sagadeck/ia.json`), e o que falhar duas vezes
+se corrige antes de publicar. Regra no `CLAUDE.md`.
+- `scripts/ai-live-ci.mjs`: roda a bateria, repete uma vez o que falhar (instável ≠ quebrado), resume em Markdown;
+  `--na-release` pula versões que não são múltiplas de 3 e diz qual é a próxima; `AI_LIVE_FILTRO` roda só um grupo.
+- `.github/workflows/ai-live.yml`: só pelo botão (Run workflow, com filtro opcional); usa o segredo
+  `SAGADECK_IA_JSON` (conteúdo de um ia.json) e, sem ele, avisa e termina verde. O segredo não foi cadastrado: chave é
+  da Narumi (`gh secret set SAGADECK_IA_JSON < ~/.sagadeck/ia.json`, se ela quiser o botão funcionando).
+- Testes em `ai-live-ci.test.js`; o roteiro rodou de verdade com filtro (contas e refinamento): 5 de 5.
+
+1.11.2 — 23/10/2026 (branch `claude/ritmo-da-geracao`)
 
 Rodada completa dos testes ao vivo (`SAGADECK_LIVE=1`) depois da 1.11.1: 24 de 27. As três falhas foram comparadas com o
 código de antes (`3c18855`): "refinamento" é variação do modelo (2 de 3 nos dois); "deck variado" e "sem falar de
