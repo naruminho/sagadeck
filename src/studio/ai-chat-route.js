@@ -18,6 +18,7 @@ import { critiqueMaterials, critiqueMarkdown, saveCritique, loadCritique, critiq
 import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
+import { saveGenerationRequest } from "./generation-request.js";
 
 // Arquivos que a IA pode pedir para ver (ver: […]): imagens DENTRO da pasta da apresentação (os recortes e as
 // páginas do material ficam em contexto/visuais/). Caminho que sai da pasta, que não existe ou que não é imagem fica
@@ -144,8 +145,9 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         const target = typeof body.targetSlide === "number" ? body.targetSlide : null;
         const visuals = await lookAt(withBase(taskWorkspace, spec), target, prompt, emit);
         // anexos: imagens vão como visão; documentos (id do /api/ai/context) vão como texto
-        let materials = takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
+        const attached = takeMaterials(taskWorkspace, (Array.isArray(body.attachments) ? body.attachments : [])
           .filter((a) => a && typeof a === "object" && a.type === "doc").map((a) => a.id));
+        let materials = attached;
         if (!taskWorkspace.file && taskWorkspace.preview && materials.some(m => m.bytes)) imageOptionsFor();
         const materialDir = taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? path.dirname(taskWorkspace.file) : null;
         if (materialDir) materials = await prepareDocumentMaterials(materials, materialDir, {signal,onProgress:emit});
@@ -249,6 +251,8 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
             signal.throwIfAborted();
             if (checked.spec !== result.spec) { result.spec = checked.spec; result.actions = [...(result.actions || []), ...checked.actions]; }
             if (checked.facts?.unsupported.length) result.actions = [...(result.actions || []), `Números sem base no material: ${checked.facts.unsupported.map((b) => `${b.number} (slide ${b.slide})`).join(", ")}`];
+            // criou a apresentação do documento pelo chat: o pedido fica gravado como na geração (.sagadeck/geracao.json)
+            if (materialDir) try { saveGenerationRequest(materialDir, { origem: "chat", pedido: { briefing: prompt }, materials: attached, spec: result.spec, research: chatResearch.report }); } catch { /* o registro não derruba a resposta */ }
           }
         }
         if (linkActions.length) result.actions = [...linkActions, ...(result.actions || [])];

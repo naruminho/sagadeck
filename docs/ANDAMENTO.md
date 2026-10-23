@@ -8,6 +8,24 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Pedido da criação gravado — 22/10/2026 (branch `claude/pedido-da-criacao-0d34bc`, sobre `claude/conferir-contas`)
+
+Origem: no deck da Mary dava para provar que ela anexou um PPTX (estava em `contexto/`), mas não o que ela pediu: o
+briefing não ficava salvo e o serviço não loga pedidos.
+Feito: `src/studio/generation-request.js` grava `.sagadeck/geracao.json` em arquivo próprio (não mexe no relatório
+`avaliacao-geracao.json`): data, origem (`biblioteca`, `editor`, `chat`), o briefing exatamente como foi para a IA e
+`briefingPadrao` (a pessoa não escreveu nada e foi o texto padrão da tela; a biblioteca manda `guide.padrao`, com
+intenção, público, objetivo e roteiro), resposta à pergunta da IA, duração, slides, tema, estilo, direção, anexos
+(nome, tipo, tamanho em bytes, caracteres lidos, caminho em `contexto/documentos/<hash>/`), Preferências que mudam a
+geração (idioma, imagens, pesquisa, perguntar, autor), fontes da pesquisa, modelos e o endereço do provedor sem
+usuário, senha nem parâmetros (nada de chave). Criar pelo chat com documento anexado reescrevendo a maior parte do
+deck grava o mesmo arquivo (origem `chat`); o pedido anterior vai para `anteriores` (10 últimos). Duplicar já copia a
+pasta inteira; o pacote `.sagadeck` agora leva `.sagadeck/geracao.json`.
+Testes: `storage.test.js` (biblioteca com anexo; segredos e `anteriores`), `library-ui.test.js` (pedido guiado
+digitado; só com anexo grava o texto padrão marcado, duplicar e o pacote levam o arquivo, zero erros JS),
+`studio-ai.test.js` (Deck com IA do editor e criação pelo chat com docx). Conferido que falham sem a gravação.
+Falta: PR com CI verde e merge (depois do PR #201, que é a base).
+
 ## Modelo para conferir — 22/10/2026 (branch `claude/modelo-por-etapa-d74f41`, parte de `claude/conferir-contas`)
 
 Origem: no ensaio real da conferência das contas, o modelo de texto (deepseek flash) levou 5 a 12 min e uma rodada

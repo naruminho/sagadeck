@@ -435,6 +435,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       assert.equal(body.duration, 20);
       assert.equal(body.style, "revista");
       assert.equal(body.briefing, "resultado do ano para a diretoria");
+      assert.equal(body.guide.padrao, false);
       assert.equal(body.materials.length, 1);
       assert.equal(typeof body.materials[0], "string");
       await p.keyboard.press("Escape");
@@ -458,6 +459,7 @@ test("Nova: três caminhos, vitrine com filtro e IA com tempo, estilo e anexo nu
       await p.unroute("**/api/library/decks/ai");
       assert.match(body.briefing, /material anexado/);
       assert.equal(body.materials.length, 1);
+      assert.equal(body.guide.padrao, true, "sem texto da pessoa: o pedido é o texto padrão");
       await p.keyboard.press("Escape");
     });
 
@@ -619,6 +621,21 @@ test("Nova técnica: atalhos, pedido guiado, código original e exemplo sem IA c
       assert.equal(fs.readFileSync(path.join(studio.library, original), "utf8"), attachment);
       assert.ok(llm.requests.some((request) => request.lastUser.includes(body.briefing)));
       assert.ok(llm.requests.some((request) => request.lastUser.includes(attachment)));
+      // o pedido fica gravado ao lado da apresentação, exatamente como foi para a IA
+      const g = JSON.parse(fs.readFileSync(path.join(studio.library, path.dirname(yaml), ".sagadeck", "geracao.json"), "utf8"));
+      assert.equal(g.origem, "biblioteca");
+      assert.equal(g.briefing, body.briefing);
+      assert.equal(g.briefingPadrao, false, "a pessoa escreveu o pedido");
+      assert.equal(g.guia.intencao, "programacao");
+      assert.equal(g.guia.publico, "Devs iniciantes");
+      assert.equal(g.guia.roteiro, "workshop");
+      assert.equal(g.estilo, "terminal-pro");
+      assert.equal(g.materiais.length, 1);
+      assert.equal(g.materiais[0].nome, "exemplo.http");
+      assert.equal(g.materiais[0].tamanho, Buffer.byteLength(attachment));
+      assert.equal(fs.readFileSync(path.join(studio.library, path.dirname(yaml), ...g.materiais[0].caminho.split("/")), "utf8"), attachment);
+      assert.equal(g.resultado.tema, "terminal-pro");
+      assert.ok(g.modelos.texto, "o modelo usado");
     });
 
     await t.test("os exemplos sem IA criam decks curtos com o tema e recursos no arquivo salvo", async () => {
@@ -636,6 +653,57 @@ test("Nova técnica: atalhos, pedido guiado, código original e exemplo sem IA c
       }
     });
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally {
+    await browser.close();
+    await studio.close();
+    await llm.close();
+  }
+});
+
+// Auditoria: "ela gerou a partir de um prompt ou de um material? o que pediu?". Sem texto, só com o anexo, o pedido é
+// o texto padrão da tela, e o registro diz isso; duplicar e baixar o pacote levam o registro junto.
+test("Criar com IA só com anexo grava o pedido padrão marcado em .sagadeck/geracao.json; duplicar e o pacote levam junto", { timeout: 180000 }, async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const material = "# Aula 5\nPerda de carga em tubulações: 0,01 m por metro.";
+  const llm = await startMockLLM((request) => {
+    if (request.system.includes("Você decide PARA QUE SERVE")) return JSON.stringify({ purpose: "aula", why: "Aula", idioma: "pt" });
+    if (request.lastUser.includes("Decida se o que você JÁ SABE basta")) return JSON.stringify({ pesquisar: false, motivo: "O material basta" });
+    if (request.hasImages) return JSON.stringify({ issues: [] });
+    return "```yaml\n" + YAML.stringify({ title: "Aula 5", theme: "editorial", slides: [{ layout: "cover", title: "Aula 5" }, { layout: "end", title: "Fim" }] }) + "```";
+  });
+  const studio = await startStudio(null, { llmUrl: llm.url });
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#btn-new");
+    await p.click('#new-menu [data-new="ai"]');
+    await p.setInputFiles("#dlg-files", { name: "aula5.md", mimeType: "text/markdown", buffer: Buffer.from(material) });
+    await p.waitForFunction(() => /aula5\.md/.test(document.querySelector("#dlg-chips")?.textContent || "") && !document.querySelector("#dlg-ok").disabled);
+    await Promise.all([p.waitForURL(/\/editor\?deck=/, { timeout: 90000, waitUntil: "commit" }), p.click("#dlg-ok")]);
+    await p.waitForSelector("#rendered-slide-container .slide", { timeout: 30000 });
+    const yaml = fs.readdirSync(studio.library, { recursive: true }).find((file) => file.endsWith(".yaml"));
+    const dir = path.join(studio.library, path.dirname(yaml));
+    const raw = fs.readFileSync(path.join(dir, ".sagadeck", "geracao.json"), "utf8");
+    const g = JSON.parse(raw);
+    assert.equal(g.briefingPadrao, true, "marcado como texto padrão");
+    assert.match(g.briefing, /^Transforme o material anexado numa apresentação/);
+    assert.ok(llm.requests.some((request) => request.lastUser.includes(g.briefing)), "exatamente o que foi para a IA");
+    assert.deepEqual(g.materiais.map((m) => [m.nome, m.tipo]), [["aula5.md", "md"]]);
+    assert.equal(fs.readFileSync(path.join(dir, ...g.materiais[0].caminho.split("/")), "utf8"), material);
+    assert.equal(g.preferencias.imagens, true);
+    assert.doesNotMatch(raw, /"key"|Bearer/i, "nada de chave");
+
+    const id = path.relative(studio.library, path.join(studio.library, yaml)).split(path.sep).join("/");
+    const copy = await p.evaluate(async (id) => (await (await fetch("/api/library/decks/duplicate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })).json()).id, id);
+    const copyDir = path.dirname(path.join(studio.library, ...copy.split("/")));
+    assert.notEqual(copyDir, dir);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(copyDir, ".sagadeck", "geracao.json"), "utf8")), g, "a cópia leva o pedido");
+
+    const zip = await p.evaluate(async (id) => [...new Uint8Array(await (await fetch(`/api/library/download?id=${encodeURIComponent(id)}&kind=sagadeck`)).arrayBuffer())], id);
+    const { default: JSZip } = await import("jszip");
+    const pack = await JSZip.loadAsync(Buffer.from(zip));
+    assert.deepEqual(JSON.parse(await pack.file(".sagadeck/geracao.json").async("string")), g, "o pacote .sagadeck leva o pedido");
+    assert.deepEqual(errors, []);
   } finally {
     await browser.close();
     await studio.close();
