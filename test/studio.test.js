@@ -2398,7 +2398,8 @@ test("fórmulas e funções: escrever a fórmula plota, a letra vira controle de
     await p.waitForSelector('#slide-fields-form [data-plot-param="k.value"]');
     await p.fill('#slide-fields-form [data-plot-param="k.value"]', "0,5");
     await p.fill('#slide-fields-form [data-plot-param="k.max"]', "2");
-    await p.waitForTimeout(900);
+    // espera o salvamento chegar ao arquivo (com a suíte inteira rodando, 900 ms fixos às vezes não bastavam)
+    for (const t0 = Date.now(); saved().slides[idx].plot?.params?.k?.max !== 2 && Date.now() - t0 < 8000;) await p.waitForTimeout(150);
     let plot = saved().slides[idx].plot;
     assert.equal(plot.functions[0], "k*x^2 - 3");
     assert.deepEqual(plot.params.k, { value: 0.5, max: 2 });

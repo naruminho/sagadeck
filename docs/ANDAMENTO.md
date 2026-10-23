@@ -8,6 +8,14 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.3 — 23/10/2026 (branch `claude/versao-1.11.3`)
+
+Junta o envio de cópia para outra pessoa (#217), o Corrigir tudo (#218) e os testes ao vivo a cada 3 versões (#216).
+Primeira versão múltipla de 3: `node scripts/ai-live-ci.mjs --na-release` rodou antes de publicar, 27 de 27 de primeira
+(16 min). Suíte completa: 1.159 testes, uma falha intermitente (teste de fórmulas esperava 900 ms fixos pelo
+salvamento; passou 3 de 3 isolado; agora espera o arquivo salvo). No Oracle, a Narumi entra em `--admins` do
+sagadeck e do sagadeck-dev para ver o Enviar cópia para….
+
 ## Corrigir tudo com IA no painel Conferência — 23/10/2026 (branch `claude/jovial-hellman-4b4379`)
 
 Na aula de hidráulica a criação deixou 24 avisos; corrigir um por um pelo painel dava trabalho, e na prática a IA
