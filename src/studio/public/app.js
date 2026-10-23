@@ -378,6 +378,7 @@
       renderThumbnails();
       selectSlide(0);
       loadChatHistory();
+      conference.refresh(); // o selo da Conferência: uma consulta ao abrir; depois, a cada salvamento
     } catch (err) {
       showToast("Erro ao carregar apresentação: " + err.message);
     }
