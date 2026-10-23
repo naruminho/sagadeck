@@ -4,6 +4,36 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.0] — 23/10/2026
+
+### Novidades
+- **Conferência das contas**: na criação com IA e no chat, a IA escreve cada resultado do deck como fórmula a partir
+  dos dados e o sagadeck calcula (o mesmo compilador do `calc`, sem eval) e compara com o slide. O que não bate volta
+  para a IA corrigir em todos os campos onde aparece, inclusive gráficos e resumos que citam o número; o que sobrar
+  vira aviso. No chat, peça "confira as contas" (a IA usa `contas:`). A conversão de unidades (L/s e m³/s, cm e m)
+  só evita alarme falso: só é acusado o que não bate de jeito nenhum.
+- **Contas do material na leitura crítica**: gabarito ou resultado do material que não fecha com os próprios dados
+  vira inconsistência, com o trecho literal (duas conferências independentes precisam concordar).
+- **Painel Revisar › Conferência**: tudo o que as checagens acharam, por slide, com Ir ao slide, Corrigir com IA,
+  Ignorar e Conferir de novo. Os avisos da criação também aparecem no chat na primeira abertura.
+- **Exercício resolvido calculado**: passos do `solution` com `fn` são calculados pelo motor (`{{nome}}` no LaTeX)
+  e podem ser interativos: mudar um dado recalcula os passos.
+- **Modelo para conferir** (Configurar IA): as conferências podem usar um modelo de raciocínio mais forte que o de
+  escrita.
+- **Pedido da criação gravado** em `.sagadeck/geracao.json` (briefing, anexos, escolhas e modelos usados).
+- Resposta calculada pela IA leva `provenance: derivado`; a IA confere a ordem de grandeza por um segundo caminho.
+
+### Correções
+- **Checagem de números**: resultado pequeno ("≈ 55 m") e decimal do LaTeX (`9{,}45`) não escapam mais.
+- **Revisão visual**: a confirmação descarta achado que se contradiz e desproporção que os valores do gráfico desmentem.
+- **Aviso falso de conta**: quando a IA que corrige discorda, uma conferência independente decide; unidade mal rotulada
+  pelo modelo ou conversão feita à mão (`*1000` para L/s) não vira alarme.
+- Índice de várias letras nos dados do exercício (`p_atm`) e marcas do formato de ferramenta (`</parameter>`) no chat.
+- **Painel**: aviso visual de slide que já mudou aparece como possivelmente resolvido; o selo não consulta o
+  servidor a cada troca de slide.
+- **Windows**: gravação tolera arquivo travado por até ~4 s (antivírus, OneDrive); testes não usam porta que o
+  Chrome bloqueia.
+
 ## [1.10.0] — 13/10/2026
 
 ### Novidades

@@ -378,6 +378,7 @@
       renderThumbnails();
       selectSlide(0);
       loadChatHistory();
+      conference.refresh(); // o selo da Conferência: uma consulta ao abrir; depois, a cada salvamento
     } catch (err) {
       showToast("Erro ao carregar apresentação: " + err.message);
     }
@@ -398,7 +399,6 @@
     if (dom.tabPanelVars.classList.contains("active")) renderStudioSavedVars();
 
     renderReviewBar(slide, idx);
-    conference.refreshSoon();
     dom.currentSlideLabel.textContent = `Slide ${idx + 1} de ${state.deck.slides.length}`;
     dom.currentLayoutBadge.textContent = layoutLabel(slide.layout);
     dom.toneSelect.value = slide.tone || "light";
@@ -2875,7 +2875,8 @@
       });
       if (adopted && !state.applyingHistory) deckHistory.rebase(state.deck);
       updateSaveStatus(res.ok ? "saved" : "error");
-      if (res.ok) window.SagaProject?.deckChanged();
+      // o selo da Conferência acompanha o que mudou no deck (navegar entre slides não muda nada: não consulta)
+      if (res.ok) { window.SagaProject?.deckChanged(); conference.refreshSoon(); }
       else if (throwOnError) throw new Error(data.error || 'Não foi possível salvar as mudanças antes de exportar.');
     } catch (err) {
       console.warn("Erro ao sincronizar com servidor:", err);
