@@ -8,6 +8,28 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.4: CI mais rápida, implantação por roteiro, diário em dia — 23/10/2026 (branch `claude/melhorias-infra`)
+
+- **Antivírus do Windows segurava a abertura do deck** (exportação, fotos, PDF, PPTX e conferência): o Node lia o
+  HTML recém-gravado só para ver se tinha mapa, e no Windows essa primeira leitura de um HTML grande fica parada 15 a
+  20 s (o Chrome abre na hora). Agora quem grava usa `writeDeckHTML` (`src/export/recent-html.js`: build, exportação
+  do Studio) e a abertura usa o texto da memória; sem ele, quem lê é o Chrome, e o Node só relê se houver mapa (o
+  mapa abre por endereço local, servido da memória). `lengths.test.js` caiu de 84 s para 18 s nesta máquina; cada
+  exportação no Windows de quem usa deixa de esperar. Teste: `test/open-deck.test.js` (conta as leituras do arquivo
+  pelo Node; falha com o código antigo).
+- **CI em 3 partes por sistema**, ao mesmo tempo: `scripts/test-parte.mjs` reparte os arquivos pelo peso (os lentos
+  numa tabela lá dentro; dividir pela ordem dos arquivos dava 22 min × 13 min). Os checks exigidos na main continuam
+  `test (ubuntu-latest, 24.x)` e `test (windows-latest, 24.x)`: o job `test` de cada sistema confere pela API do run
+  que as 3 partes dele passaram. Antes: 26 min no Ubuntu e 37 no Windows por PR. Teste: `test/test-parte.test.js`
+  (todo arquivo em exatamente uma parte, partes equilibradas, pesos só de arquivos que existem).
+- **Implantação no Oracle por roteiro**: `node scripts/implantar-oracle.mjs` (dev primeiro, estável só se o dev subiu
+  na versão certa; git como root; npm ci só quando o lock muda além do número da versão; confere `/api/instance`).
+  Hoje à mão o git sem sudo falhou calado e o npm ci rodou sem precisar. Teste: `test/implantar-oracle.test.js` roda o
+  roteiro de verdade com git real e sudo/systemctl/curl/npm de mentira (no Linux; conferido no próprio Oracle).
+- `SAGADECK_ADMINS=305cc6c7416383c8` (a Narumi) em `/etc/sagadeck.env` no Oracle: vale para os dois serviços.
+- Diário: as pendências "Falta: PR…" do Painel Conferência (#204), do Pedido da criação (#203), da Conferência das
+  contas (#201, 1.11.0) e da Frente E (Frente F) viraram "Concluído".
+
 ## 1.11.3 — 23/10/2026 (branch `claude/versao-1.11.3`)
 
 Junta o envio de cópia para outra pessoa (#217), o Corrigir tudo (#218) e os testes ao vivo a cada 3 versões (#216).
@@ -216,7 +238,7 @@ Testes: `ai.test.js` (itens, ignorar, recordMath, Conferir de novo com e sem IA)
 usado como a pessoa usaria: selo, Conferir de novo, Ignorar, Corrigir com IA numa conta e num slide da IA,
 conferindo deck salvo, relatório e o que foi ao modelo; zero erros JS). Ícones Lucide novos: list-checks,
 calculator, hash, image-off. Suíte completa: `npm test`, 1.116 testes, 1.087 aprovados, 29 condicionais pulados, zero falhas.
-Falta: PR empilhado sobre o #201 (`claude/conferir-contas`), CI verde, merge.
+Concluído: entrou no PR #204 (depois do #201) e saiu na 1.11.0.
 
 ## Pedido da criação gravado — 22/10/2026 (branch `claude/pedido-da-criacao-0d34bc`, sobre `claude/conferir-contas`)
 
@@ -234,7 +256,7 @@ pasta inteira; o pacote `.sagadeck` agora leva `.sagadeck/geracao.json`.
 Testes: `storage.test.js` (biblioteca com anexo; segredos e `anteriores`), `library-ui.test.js` (pedido guiado
 digitado; só com anexo grava o texto padrão marcado, duplicar e o pacote levam o arquivo, zero erros JS),
 `studio-ai.test.js` (Deck com IA do editor e criação pelo chat com docx). Conferido que falham sem a gravação.
-Falta: PR com CI verde e merge (depois do PR #201, que é a base).
+Concluído: entrou no PR #203 (depois do #201) e saiu na 1.11.0.
 
 ## Modelo para conferir — 22/10/2026 (branch `claude/modelo-por-etapa-d74f41`, parte de `claude/conferir-contas`)
 
@@ -292,9 +314,8 @@ erros que ninguém tinha visto (velocidades da tabela do slide 26). A correção
 corrigir o material" da pessoa vale sobre a regra da autoria.
 Suíte completa: `npm test`, 1.108 testes, 1.079 aprovados, 29 condicionais pulados, zero falhas. Studio local na
 3517 rodando `c65772e` a partir desta worktree, para validação dela.
-Falta (depois do ok dela): PR, CI verde, merge, deploy na Oracle (produção estava na 1.9.0) e, no deck da conta da
-Mary, pedir à IA do sagadeck pelo chat que confira e corrija as contas (inclusive as do material: a aula é dela e
-ela autorizou caprichar), corrija os avisos da criação e melhore a aula. A correção é da IA, não à mão.
+Concluído: entrou no PR #201 e saiu na 1.11.0 (Oracle e npm); a IA do sagadeck corrigiu o deck da conta da Mary pelo
+chat, e a versão revisada foi para a pasta dela como outra apresentação.
 
 ## UX para programação e APIs com cURL — 12/10/2026 (branch `codex/ux-dev-slides`, versão 1.10.0)
 
@@ -2242,8 +2263,8 @@ raciocínio, a mesma conferência sai em 1–2 s e acha o que importa (título r
   "a partir de um arquivo" só com o anexo), `studio-themes.test.js` (prévia sem gravar, clique aplica),
   `studio.test.js` (Baixar tudo: zip com pptx com notas, pdf e roteiro), `storage.test.js` (gerado na biblioteca).
 
-Falta da lista: modo simples por padrão (avançado dobrável) e as fontes do Google embutidas (a rede do banco barra
-`fonts.googleapis.com`: temas perdem a letra, abrir/exportar pode esperar, e cada abertura avisa o Google).
+Concluído depois, na Frente F (28/09/2026, logo acima): modo simples e fontes embutidas, sem o Google. O modo
+simples saiu mais tarde (a faixa mostra tudo).
 
 ## Frente D (preguiçoso): trocar o tema muda o arranjo dos slides de conteúdo — 28/09/2026
 

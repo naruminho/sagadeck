@@ -4,6 +4,8 @@ import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
+import { recentHTML } from "./recent-html.js";
+export { writeDeckHTML } from "./recent-html.js";
 
 const CANDIDATES = [
   process.env.SAGADECK_BROWSER,
@@ -24,10 +26,12 @@ export function findBrowser() {
 
 // Deck com mapa abre por um endereço local (http://127.0.0.1), não como arquivo: o servidor de tiles do OpenStreetMap
 // pede que o navegador diga de onde vem o pedido, e página aberta do disco não diz. Só lê a pasta do deck.
-async function serveDir(dir) {
+// main: { "deck.html": texto } serve o deck da memória (sem o Node reler o arquivo; veja writeDeckHTML)
+async function serveDir(dir, main = {}) {
   const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/+/, "");
     const file = path.resolve(dir, rel);
+    if (req.method === "GET" && Object.hasOwn(main, rel)) { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(main[rel]); }
     if (req.method !== "GET" || !file.startsWith(path.resolve(dir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { "Content-Type": file.endsWith(".html") ? "text/html; charset=utf-8" : "application/octet-stream" });
     fs.createReadStream(file).pipe(res);
@@ -41,15 +45,23 @@ export const settleSlide = (page) => page.evaluate(() => window.SagaMap?.settled
 
 export async function openDeck(htmlFile, { scale = 1 } = {}) {
   const browser = await chromium.launch({ executablePath: findBrowser() });
-  const hasMap = fs.readFileSync(htmlFile, "utf8").includes('class="map-box');
-  const server = hasMap ? await serveDir(path.dirname(htmlFile)) : null;
-  if (server) { const close = browser.close.bind(browser); browser.close = async () => { await close(); server.close(); }; }
   try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: scale });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-  await page.goto((server ? `http://127.0.0.1:${server.address().port}/${encodeURIComponent(path.basename(htmlFile))}` : pathToFileURL(htmlFile).href) + "?export=1");
+  const fileURL = pathToFileURL(htmlFile).href + "?export=1";
+  // tem mapa? Pelo texto na memória; sem ele, quem lê o arquivo é o Chrome, e o Node só relê se houver mapa
+  let html = recentHTML(htmlFile), hasMap;
+  if (html != null) hasMap = html.includes('class="map-box');
+  else { await page.goto(fileURL); hasMap = await page.evaluate(() => !!document.querySelector(".map-box")); }
+  if (hasMap) {
+    const name = path.basename(htmlFile);
+    const server = await serveDir(path.dirname(htmlFile), { [name]: html ?? fs.readFileSync(htmlFile) });
+    const close = browser.close.bind(browser); browser.close = async () => { await close(); server.close(); };
+    errors.length = 0;
+    await page.goto(`http://127.0.0.1:${server.address().port}/${encodeURIComponent(name)}?export=1`);
+  } else if (html != null) await page.goto(fileURL);
   await page.waitForFunction(() => window.sagadeck && window.sagadeck.cur >= 0 && document.fonts.status === "loaded");
   // a janela com o tamanho do slide (deck.aspect: 4:3 → 1920 × 1440): foto, PDF e PPTX sem faixa nem corte
   const size = await page.evaluate(() => window.sagadeck.size || { w: 1920, h: 1080 });

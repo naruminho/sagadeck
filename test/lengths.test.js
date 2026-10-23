@@ -9,6 +9,7 @@ import path from "node:path";
 import { buildHTML } from "../src/build.js";
 import { LAYOUT_SAMPLES } from "../src/studio/layout-samples.js";
 import { browserOrSkip } from "./helpers.js";
+import { writeDeckHTML } from "../src/export/recent-html.js";
 
 const SKIP = new Set(["api", "video", "image", "full", "canvas"]);
 const KEEP = new Set(["layout", "theme", "icon", "image", "language", "algorithm", "scene", "kind", "id", "from", "to", "start", "goal", "program", "call", "html", "css", "javascript", "tone", "ratio", "chart", "type"]);
@@ -30,7 +31,7 @@ test("cada tipo de slide aguenta conteúdo longo e a proporção 4:3 sem problem
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-len-"));
     try {
       const file = path.join(dir, "d.html");
-      fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", aspect, slides }).html);
+      writeDeckHTML(file, buildHTML({ title: "x", theme: "sinal", aspect, slides }).html);
       const { report } = await check(file);
       for (const r of report) for (const i of r.issues) ((issues[kinds[r.slide - 1][0]] ||= {})[`${aspect} ${len}`] ||= new Set()).add(i.kind);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
