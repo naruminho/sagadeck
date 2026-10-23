@@ -414,6 +414,8 @@ async function main() {
         console.error(`A porta ${port} está ocupada por outro programa. Use --port=OUTRA.`);
         process.exit(1);
       });
+      // SIGTERM do systemd ao reiniciar: sai em segundos, sem esperar o SIGKILL (src/studio/shutdown.js)
+      (await import("../src/studio/shutdown.js")).installShutdown(server);
       server.listen(port, host, async () => {
         const { studioBanner } = await import("../src/studio/banner.js");
         for (const line of studioBanner({ version: VERSION, url: `http://${shownHost}:${port}/`, library, ai: (await import("../src/ai/llm.js")).llmConfig(), multiuser, usersDir: path.join(library, "usuarios"), isLibrary: !deckFile })) console.log(line);

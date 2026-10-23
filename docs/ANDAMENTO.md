@@ -8,6 +8,24 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.5: parada do servidor, biblioteca no OneDrive — 23/10/2026 (branch `claude/parada-e-fotos`)
+
+- **Parada**: o Playwright, ao abrir o Chrome, instala um tratador de SIGTERM que só fecha o navegador; com ele, o
+  Node não sai mais sozinho. No Oracle, cada reinício ficava 90 s fora do ar até o SIGKILL (o log de toda semana:
+  "Failed with result 'timeout'"). `src/studio/shutdown.js`: SIGTERM/SIGHUP param de aceitar conexões, dão 8 s para
+  as que estão em uso, cortam o resto, fecham o Chrome das miniaturas e saem. Teste: `test/studio-shutdown.test.js`
+  (o prazo; e o Studio de verdade, depois de abrir o Chrome, sai em segundos com SIGTERM; só no Linux, porque no
+  Windows o SIGTERM mata na hora). Conferido no Oracle: sem a correção, não saiu em 15 s; com ela, saiu em 2 s.
+- **Biblioteca no OneDrive**: a listagem lia e interpretava o YAML de todas as apresentações a cada abertura (com
+  "arquivos só na nuvem", isso baixa cada uma). Agora guarda título, slides, tema e avisos pela data, tamanho e inode
+  do `.yaml` e do relatório de avisos, em memória e em `lista.json` no cache. Teste: `library.test.js` (nenhum
+  `.yaml` relido sem mudança, nem depois de reiniciar; só o que mudou; apagado some; cache estragado não quebra).
+- **Cache fora da nuvem**: `libraryCacheDir` põe capas, vitrine e lista em `%LOCALAPPDATA%\sagadeck\cache\<biblioteca>`
+  quando a biblioteca está dentro do OneDrive (variáveis `OneDrive`, `OneDriveCommercial`, `OneDriveConsumer`); o
+  `.cache` antigo de dentro dela sai (só `capas`, `vitrine` e `lista.json`). Fora do OneDrive e no servidor, nada muda.
+- **Fotos da transformação, medido e deixado como está**: cada foto custa ~0,4 s e o lote tem no máximo 5 slides;
+  abrir o deck uma vez por lote pouparia ~10 s numa transformação de 40 slides, que leva minutos de IA.
+
 ## 1.11.4: CI mais rápida, implantação por roteiro, diário em dia — 23/10/2026 (branch `claude/melhorias-infra`)
 
 - **Antivírus do Windows segurava a abertura do deck** (exportação, fotos, PDF, PPTX e conferência): o Node lia o

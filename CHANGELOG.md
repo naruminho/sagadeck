@@ -4,6 +4,17 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.5] — 23/10/2026
+
+### Correções
+- **Reiniciar o servidor deixava o sagadeck 90 s fora do ar** e matava à força o que estivesse rodando: depois de
+  abrir o Chrome uma vez (capas, exportação), o Studio não saía quando o sistema pedia para parar. Agora ele para de
+  aceitar conexões, dá alguns segundos para o que está em andamento, fecha o Chrome e sai.
+- **Biblioteca no OneDrive com "arquivos só na nuvem"**: abrir a biblioteca lia todas as apresentações, o que baixava
+  cada uma da nuvem. Agora só relê a que mudou (vale também depois de reiniciar o Studio).
+- **Capas fora da nuvem**: com a biblioteca no OneDrive, as capas e a lista (que se refazem sozinhas) ficam na pasta
+  local do Windows, sem ocupar a cota nem sincronizar a cada capa nova.
+
 ## [1.11.4] — 23/10/2026
 
 ### Correções
