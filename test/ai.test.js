@@ -1218,3 +1218,30 @@ test("modelo para conferir: contas, leitura crítica e confirmação da revisão
     });
   } finally { reply = () => "ok"; }
 });
+
+test("resposta da IA não leva pedaço do formato de ferramenta para o chat (</parameter> solto)", async () => {
+  const { extractYaml } = await import("../src/ai/deck-ai.js");
+  const r = extractYaml("Vou corrigir os avisos.\n\n</parameter>\n```yaml\nedit:\n  1:\n    title: X\n```");
+  assert.equal(r.prose, "Vou corrigir os avisos.");
+  assert.equal(extractYaml("Use <b>negrito</b> aqui.\n```yaml\nedit: {}\n```").prose, "Use <b>negrito</b> aqui.", "HTML da pessoa fica");
+});
+
+test("a IA que corrige diz que o slide está certo: uma conferência independente decide se o aviso fica", async () => {
+  // um aviso falso ("273 m dá 617,8") ficou porque a primeira conferência escreveu a fórmula errada
+  const { checkMath } = await import("../src/ai/math-check.js");
+  const spec = { slides: [{ layout: "solution", title: "Ex.", answer: { text: "L ≈ 273 m" } }] };
+  const run = async (second) => {
+    let calls = 0;
+    const complete = async () => {
+      calls++;
+      const fn = calls === 1 ? "a/j*2.26" : second; // 1ª rodada errada; 2ª independente
+      return { text: JSON.stringify({ contas: [{ slide: 1, o_que: "comprimento", afirmado: "273", unidade: "m", vars: { a: 2.73, j: 0.01 }, fn }] }) };
+    };
+    return checkMath(spec, { complete, edit: async () => ({ talk: true, reply: "A conta do slide está certa: 2,73/0,01 = 273 m." }) });
+  };
+  const contestada = await run("a/j");
+  assert.equal(contestada.math.divergent.length, 0, "a segunda conferência concorda com o slide: o aviso cai");
+  assert.equal(contestada.math.contestadas, 1);
+  const confirmada = await run("a/j*2.26");
+  assert.equal(confirmada.math.divergent.length, 1, "as duas acusam: o aviso fica");
+});

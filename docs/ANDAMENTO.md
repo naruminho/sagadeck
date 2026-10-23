@@ -8,6 +8,19 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Ajustes depois do teste na cópia — 23/10/2026 (branch `claude/ajustes-conferencia`)
+
+Teste em produção na cópia da Narumi (nunca no deck da Mary): a IA, pelo chat, corrigiu as contas (21: 273 m;
+22: gráfico com 944 cm disponíveis e a sobra de 272 cm; 25: D ≈ 0,17 m, comercial 0,20 m, hf 1,29 m com "Confira"
+nas notes) e depois os avisos da criação (slides 5, 6, 9, 11, 15, 16, 18, 22). Três ajustes:
+- a conferência deixou um aviso falso ("273 m dá 617,8": fórmula errada do verificador; a IA que corrige disse que
+  o slide estava certo). Agora, quando ela discorda, uma conferência independente decide; o aviso só fica se as
+  duas acusarem (`math.contestadas` conta os que caíram).
+- a resposta do chat trazia `</parameter>` solto (formato de ferramenta do modelo): `cleanProse` tira essas
+  marcas, sem mexer em HTML da pessoa.
+- dado `p_atm` no exercício aparecia "pₐtm": índice de várias letras ganha chaves (`symbolTex` em `src/lessons.js`).
+Testes em `ai.test.js` e `engine.test.js`; os três falham sem o conserto.
+
 ## Contas calculadas no exercício resolvido — 22/10/2026 (branch `claude/unruffled-nobel-8f9bce`, parte de `claude/conferir-contas`)
 
 A raiz do "L₁ ≈ 55 m": o número do passo era texto da IA. Agora, no `solution`, o número nasce da conta.

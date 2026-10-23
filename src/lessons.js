@@ -37,8 +37,10 @@ function givenTex(g, value = null) {
   if (typeof g === "string") return g;
   if (g.latex) return g.latex;
   value ??= typeof g.value === "string" && isProse(g.value) ? `\\text{${g.value.replace(/[{}\\$]/g, "")}}` : commaTex(g.value);
-  return `${g.symbol ?? ""} = ${value}${unitSuffix(g.unit)}`;
+  return `${symbolTex(g.symbol)} = ${value}${unitSuffix(g.unit)}`;
 }
+// "p_atm" é p com índice "atm": sem chaves o LaTeX subscrevia só o "a" (aparecia "pₐtm" num exercício de aula)
+const symbolTex = (s) => String(s ?? "").replace(/_([A-Za-z0-9]{2,})/g, "_{$1}");
 // nome da conta em LaTeX, quando o passo não traz nem latex nem symbol: D2 → D_{2}, rho → \rho, fator → \mathrm{fator}
 const GREEK = /^(alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|xi|pi|rho|sigma|tau|phi|chi|psi|omega|Delta|Omega|Phi|Sigma)(\d*)$/;
 const nameTex = (n) => (n.startsWith("_") ? "" : GREEK.test(n) ? n.replace(GREEK, (_, g, d) => `\\${g}${d ? `_{${d}}` : ""}`) : /^[A-Za-z]\d*$/.test(n) ? n.replace(/^(.)(\d+)$/, "$1_{$2}") : `\\mathrm{${n}}`);
