@@ -217,8 +217,11 @@ test("conferência das contas: o modelo acha a conta errada e a correção chega
   assert.ok(r.math?.fixed?.length || r.math?.divergent?.length, `não achou a conta errada: ${JSON.stringify(r.math)}`);
   const all = [...(r.math.fixed || []), ...(r.math.divergent || [])];
   assert.ok(all.some((d) => d.slide === 2 && Math.abs(d.calculado - 240) < 1), JSON.stringify(all));
-  assert.match(JSON.stringify(r.spec.slides[1].answer), /240/, "a resposta foi corrigida");
-  assert.doesNotMatch(JSON.stringify(r.spec.slides[1].answer), /600/);
+  // a resposta pode vir escrita ou calculada pelo motor ({{t}} com fn): o que vale é o slide desenhado
+  const { renderSlide } = await import("../src/build.js");
+  const answer = renderSlide(r.spec.slides[1], 1, r.spec).html.split(/class="[^"]*sol-answer/)[1] || "";
+  assert.match(answer, /240/, "a resposta foi corrigida");
+  assert.doesNotMatch(answer, /600/);
   assert.equal(r.math.divergent.length, 0, "conferida de novo depois da correção");
 });
 
@@ -227,18 +230,17 @@ test('chat: "confere as contas desse exercício" faz a IA pedir a conferência (
   assert.ok(r.contas === "all" || r.contas?.includes(1), `não pediu a conferência: ${r.reply} ${JSON.stringify(r.contas)}`);
 });
 
-// Unidades: o slide esqueceu de converter L/s para m³/s e a velocidade saiu 1000 vezes maior. Exercício genérico.
-test("conferência das contas com unidades: o modelo põe as unidades nas vars e o código pega a conversão esquecida", opts, async () => {
+// Unidades: resultado certo escrito em outra unidade (L/s, cm) não vira alarme falso. Exercício genérico.
+test("conferência das contas com unidades: resultado certo em L/s e em cm não vira alarme", opts, async () => {
   const { auditMath } = await import("../src/ai/math-check.js");
-  const spec = { slides: [{ layout: "solution", title: "Velocidade na adutora", problem: "Uma adutora de 25 cm de diâmetro leva 30 L/s de água. Qual a velocidade média?",
-    givens: [{ symbol: "Q", value: "30", unit: "L/s" }, { symbol: "D", value: "25", unit: "cm" }], find: "v",
-    steps: [{ text: "Velocidade é vazão dividida pela área.", latex: "v = \\frac{4Q}{\\pi D^2} = \\frac{4\\cdot 30}{\\pi\\cdot 0{,}25^2} \\approx 611\\ \\mathrm{m/s}" }],
-    answer: { latex: "v \\approx 611\\ \\mathrm{m/s}" } }] };
+  const spec = { slides: [{ layout: "solution", title: "Vazão na adutora", problem: "Uma adutora de 25 cm de diâmetro tem velocidade média de 0,61 m/s. Qual a vazão? E a carga cinética?",
+    givens: [{ symbol: "D", value: "25", unit: "cm" }, { symbol: "v", value: "0,61", unit: "m/s" }], find: "Q, v^2/2g",
+    steps: [{ text: "Vazão é área vezes velocidade.", latex: "Q = \\frac{\\pi\\,0{,}25^2}{4}\\cdot 0{,}61 \\approx 30\\ \\mathrm{L/s}" },
+      { text: "Carga cinética.", latex: "\\frac{v^2}{2g} = \\frac{0{,}61^2}{2\\cdot 9{,}81} \\approx 1{,}9\\ \\mathrm{cm}" }],
+    answer: { latex: "Q \\approx 30\\ \\mathrm{L/s}" } }] };
   const r = await auditMath(spec, [0]);
-  const all = [...r.divergent, ...r.checked, ...r.unchecked];
-  const v = r.divergent.find((d) => d.afirmado.replace(",", ".").startsWith("611"));
-  assert.ok(v, `não acusou o 611 m/s: ${JSON.stringify(all)}`);
-  assert.ok(Math.abs(v.calculado - 0.611) < 0.01, `a conta com unidades deveria dar 0,611 m/s: ${JSON.stringify(v)}`);
+  assert.equal(r.divergent.length, 0, `alarme falso: ${JSON.stringify(r.divergent)}`);
+  assert.ok(r.checked.length >= 1, JSON.stringify(r));
 });
 
 // Contas do material: uma lista com gabarito que não fecha com os próprios dados vira item da leitura crítica.
