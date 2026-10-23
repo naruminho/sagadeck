@@ -959,3 +959,11 @@ test("números no idioma do deck: em inglês 1,403 e 0.93; em português 1.403 e
   // o idioma volta ao padrão no deck seguinte (sem vazar de um render para o outro)
   assert.equal(cv(pt, 0.5), "0,5");
 });
+
+test("exercício resolvido: símbolo com índice de várias letras (p_atm) fica com o índice inteiro", () => {
+  // aparecia "pₐtm": sem chaves, o LaTeX subscrevia só a primeira letra
+  const out = html({ layout: "solution", title: "Ex.", problem: "x", givens: [{ symbol: "p_atm", value: "92,65", unit: "kN/m²" }, { symbol: "h_f", value: "3", unit: "m" }, { symbol: "p_{B}", value: "1" }], steps: [{ text: "a", latex: "x = 1" }] });
+  assert.match(out, /p_\{atm\} = 92\{,\}65/);
+  assert.match(out, /h_f = 3/);
+  assert.match(out, /p_\{B\} = 1/);
+});

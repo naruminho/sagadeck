@@ -18,7 +18,7 @@ export async function deckMaterials(file) {
 export async function conferenceRoutes({ req, res, pathname, W, readJSON, isBundledTemplate }) {
   if (!pathname.startsWith("/api/conferencia")) return false;
   const dir = W.file && !isBundledTemplate(W.file) ? path.dirname(W.file) : null;
-  const list = (report = loadGenReport(dir)) => ({ items: dir ? conferenceItems(report, W.spec) : [], conferidoEm: report?.conferidoEm || null, salvo: !!dir });
+  const list = (report = loadGenReport(dir)) => ({ items: dir ? conferenceItems(report, W.spec, { dir }) : [], conferidoEm: report?.conferidoEm || null, salvo: !!dir });
   if (pathname === "/api/conferencia" && req.method === "GET") { send(res, list()); return true; }
   if (pathname === "/api/conferencia/item" && req.method === "POST") {
     const body = await readJSON(req);

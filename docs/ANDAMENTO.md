@@ -8,6 +8,34 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Ajustes depois do teste na cópia — 23/10/2026 (branch `claude/ajustes-conferencia`)
+
+Teste em produção na cópia da Narumi (nunca no deck da Mary): a IA, pelo chat, corrigiu as contas (21: 273 m;
+22: gráfico com 944 cm disponíveis e a sobra de 272 cm; 25: D ≈ 0,17 m, comercial 0,20 m, hf 1,29 m com "Confira"
+nas notes) e depois os avisos da criação (slides 5, 6, 9, 11, 15, 16, 18, 22). Três ajustes:
+- a conferência deixou um aviso falso ("273 m dá 617,8": fórmula errada do verificador; a IA que corrige disse que
+  o slide estava certo). Agora, quando ela discorda, uma conferência independente decide; o aviso só fica se as
+  duas acusarem (`math.contestadas` conta os que caíram).
+- a resposta do chat trazia `</parameter>` solto (formato de ferramenta do modelo): `cleanProse` tira essas
+  marcas, sem mexer em HTML da pessoa.
+- dado `p_atm` no exercício aparecia "pₐtm": índice de várias letras ganha chaves (`symbolTex` em `src/lessons.js`).
+- o painel Revisar › Conferência seguia com os 24 avisos visuais mesmo depois de a IA corrigir os slides pelo chat.
+  O relatório guarda a impressão digital de cada slide (`slideMarks`; relatório antigo usa a versão mais antiga
+  guardada em `.sagadeck/versoes/`): aviso de slide que mudou aparece como "o slide mudou; confira se ainda vale" e
+  não vai mais à IA como pendência.
+- o selo da Conferência consultava o servidor a cada troca de slide; agora só quando o deck é salvo (e na abertura
+  e no fim de cada pedido ao chat). `perf.test.js` conta as consultas durante a navegação (falhou com 4, passa com 0).
+  O teste de desempenho com 200 slides também falha às vezes nesta máquina com uma troca de 4–5 s, inclusive em
+  commits de antes destas mudanças (`3c18855`, `df0f7df`): instabilidade da máquina, não regressão (a CI passa).
+Testes em `ai.test.js` e `engine.test.js`; os ajustes falham sem o conserto.
+
+## Arquivo travado no Windows — 23/10/2026 (branch `claude/rename-windows`)
+
+A CI da main falhou no Windows depois do #201: o rename atômico do deck deu EPERM por mais tempo que as novas
+tentativas (~1 s) e o teste do formulário do slide api leu o deck sem a última mudança (as rodadas seguintes
+passaram). `RENAME_DELAYS` agora espera até ~4 s (OneDrive/antivírus da pessoa também ganham). Teste novo em
+`deck-file.test.js` simula o arquivo travado por 1,5 s: falhou antes, passa agora.
+
 ## Contas calculadas no exercício resolvido — 22/10/2026 (branch `claude/unruffled-nobel-8f9bce`, parte de `claude/conferir-contas`)
 
 A raiz do "L₁ ≈ 55 m": o número do passo era texto da IA. Agora, no `solution`, o número nasce da conta.

@@ -151,9 +151,11 @@ export function extractYaml(text) {
   return { yaml: String(text), prose: "" };
 }
 
-// Tira a numeração "1." / "2." que o formato de resposta pedido induz.
+// Tira a numeração "1." / "2." que o formato de resposta pedido induz e pedaços do formato de ferramenta que alguns
+// modelos deixam escapar no texto ("</parameter>" solto no fim de uma resposta do chat).
+const TOOL_MARKUP = /<\/?(?:parameter|invoke|function_calls|function_results|tool_call|tool_use)\b[^>]*>/gi;
 function cleanProse(s) {
-  return s.split("\n").map((l) => l.replace(/^\s*\d+[.)]\s+/, "")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return s.replace(TOOL_MARKUP, "").split("\n").map((l) => l.replace(/^\s*\d+[.)]\s+/, "")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 
