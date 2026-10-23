@@ -18,6 +18,7 @@ import { critiqueMaterials, critiqueMarkdown, saveCritique, loadCritique, critiq
 import { styleAction } from "./style-routes.js";
 import * as Project from "./project.js";
 import { carryVisualEdits } from "./visual-keys.js";
+import { conferenceItems, conferencePrompt, recordMath, loadGenReport } from "./conference.js";
 import { saveGenerationRequest } from "./generation-request.js";
 
 // Arquivos que a IA pode pedir para ver (ver: […]): imagens DENTRO da pasta da apresentação (os recortes e as
@@ -169,6 +170,8 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         materials = chatResearch.materials;
         if (chatResearch.report?.fontes?.length) linkActions.push(`Pesquisa na web: ${chatResearch.report.fontes.length} fonte(s) (${chatResearch.report.fontes.map((f) => f.site).join(", ")})`);
         const firstInstruction = chatResearch.instruction ? `${chatResearch.instruction}\n${prompt}` : prompt;
+        // o que o painel Conferência ainda tem pendente (o ignorado não vai): a IA sabe o que falta sem reler avisos velhos
+        const pending = materialDir ? conferencePrompt(conferenceItems(loadGenReport(materialDir), spec)) : "";
         const editOpts = (extra = {}) => ({
           spec: withBase(taskWorkspace, spec), signal,
           instruction: firstInstruction,
@@ -188,6 +191,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
           styles: taskWorkspace.file && !isBundledTemplate(taskWorkspace.file) ? { list: taskWorkspace.library.listStyles(), current: taskWorkspace.spec?.style?.name || null } : null,
           // dados para o mapa (bloco mapa:): só com a pasta da apresentação, que é onde os arquivos ficam
           mapData: P ? mapDataPrompt() : null,
+          pending,
           ...extra,
         });
         result = await editDeck(editOpts());
@@ -298,7 +302,9 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         // cada resultado como fórmula, o código calcula (src/ai/math-check.js) e o que não bate volta para ela corrigir.
         if (!result.talk && !result.transform && !result.style && !result.variants && result.spec?.slides) {
           const all = result.spec.slides.map((_, i) => i);
-          const asked = result.contas === "all" ? all : (result.contas || []);
+          // contas pedidas pelo Studio (Corrigir com IA no painel Conferência): conferidas depois da resposta, sempre
+          const fromPanel = [].concat(body.contas || []).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= all.length).map((n) => n - 1);
+          const asked = result.contas === "all" ? all : [...new Set([...(result.contas || []), ...fromPanel])];
           const before = new Map((spec.slides || []).map((s) => [s?.uid, s]));
           const touched = (result.changed || []).filter((i) => { const s = result.spec.slides[i]; const old = s?.uid ? before.get(s.uid) : spec.slides?.[i]; return hasMath(s) && mathSignature(s) !== mathSignature(old || {}); });
           const only = [...new Set([...asked, ...touched])];
@@ -314,6 +320,8 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
             }
             const m = counted.math;
             result.math = m;
+            // o painel Conferência passa a mostrar o resultado desta conferência para esses slides
+            if (deckDir) try { recordMath(deckDir, only, m); } catch (e) { console.error("[Studio] conferência:", e.message); }
             result.actions = [...(result.actions || []), ...counted.actions,
               m?.failed ? `Conferência das contas falhou: ${m.failed}`
                 : m ? `Contas conferidas: ${m.checked + (m.fixed?.length || 0)} ok${m.fixed?.length ? ` (${m.fixed.length} corrigida(s): ${m.fixed.map((d) => `slide ${d.slide}, ${d.afirmado} ${d.unidade}`.trim()).join("; ")})` : ""}${m.unchecked?.length ? `, ${m.unchecked.length} sem como calcular` : ""}` : "Nenhuma conta para conferir nesses slides",

@@ -52,6 +52,7 @@ import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
 import { apiRoutes } from "./api-routes.js";
 import { aiChatRoutes } from "./ai-chat-route.js";
+import { conferenceRoutes } from "./conference-routes.js";
 import { libraryRoutes } from "./library-routes.js";
 export { lightVariant };
 import { VERSION, buildInfo } from "./instance.js";
@@ -711,6 +712,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (await versionRoutes({req,res,pathname,W,readJSON})) return;
       if (await meetingRoutes({req,res,pathname,W,readJSON,persist})) return;
       if (await styleRoutes({ req, res, pathname, W, persist, readJSON })) return;
+      if (await conferenceRoutes({ req, res, pathname, W, readJSON, isBundledTemplate })) return;
       if (await shares.api({ req, res, pathname, W, readJSON })) return;
       if (pathname === "/api/aspect" && req.method === "POST") {
         const b = await readJSON(req);

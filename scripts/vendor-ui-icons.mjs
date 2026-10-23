@@ -28,6 +28,7 @@ const NAMES = [
   "align-horizontal-distribute-center", "align-vertical-distribute-center", "paintbrush", "clipboard-paste", "lock", "lock-open", "eye-off", "share-2", "globe",
   "scan-search", "compass", "map-pin", "map",
   "mouse-pointer-2", "spline", "pentagon", "ruler", "route", "hexagon",
+  "list-checks", "calculator", "hash", "image-off",
 ];
 
 const icons = {};
