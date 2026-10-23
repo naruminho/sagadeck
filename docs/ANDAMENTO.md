@@ -19,7 +19,11 @@ nas notes) e depois os avisos da criação (slides 5, 6, 9, 11, 15, 16, 18, 22).
 - a resposta do chat trazia `</parameter>` solto (formato de ferramenta do modelo): `cleanProse` tira essas
   marcas, sem mexer em HTML da pessoa.
 - dado `p_atm` no exercício aparecia "pₐtm": índice de várias letras ganha chaves (`symbolTex` em `src/lessons.js`).
-Testes em `ai.test.js` e `engine.test.js`; os três falham sem o conserto.
+- o painel Revisar › Conferência seguia com os 24 avisos visuais mesmo depois de a IA corrigir os slides pelo chat.
+  O relatório guarda a impressão digital de cada slide (`slideMarks`; relatório antigo usa a versão mais antiga
+  guardada em `.sagadeck/versoes/`): aviso de slide que mudou aparece como "o slide mudou; confira se ainda vale" e
+  não vai mais à IA como pendência.
+Testes em `ai.test.js` e `engine.test.js`; os ajustes falham sem o conserto.
 
 ## Contas calculadas no exercício resolvido — 22/10/2026 (branch `claude/unruffled-nobel-8f9bce`, parte de `claude/conferir-contas`)
 

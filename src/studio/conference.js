@@ -7,7 +7,22 @@
 // (.sagadeck/avaliacao-geracao.json, campo `decisoes`): o item some do painel e dos próximos pedidos à IA.
 import { locate, checkMath } from "../ai/math-check.js";
 import { unsupportedNumbers, uncoveredVisuals } from "../ai/document-visuals.js";
-import { loadGenReport, writeGenReport } from "./generation-report.js";
+import fs from "node:fs";
+import path from "node:path";
+import YAML from "yaml";
+import { loadGenReport, writeGenReport, slideMark, slideMarks } from "./generation-report.js";
+
+// Como os slides eram quando os avisos da revisão visual nasceram: as marcas do relatório; relatório antigo, sem
+// marcas, usa a versão mais antiga guardada do deck (a primeira gravação depois da criação).
+export function reportBaseline(report, dir) {
+  if (report?.slideMarks) return report.slideMarks;
+  if (!dir) return null;
+  try {
+    const vdir = path.join(dir, ".sagadeck", "versoes");
+    const first = fs.readdirSync(vdir).filter((f) => /\.ya?ml$/i.test(f)).sort()[0];
+    return first ? slideMarks(YAML.parse(fs.readFileSync(path.join(vdir, first), "utf8"))) : null;
+  } catch { return null; }
+}
 
 export const CONF_KINDS = {
   conta: "Conta que não bate",
@@ -26,8 +41,11 @@ const unit = (d) => (d.unidade ? ` ${d.unidade}` : "");
 
 // Os itens pendentes: relatório + origem dos slides do deck atual, menos o que a pessoa já decidiu. Achado que o
 // deck já não tem (o número saiu do slide, o slide não existe mais) não aparece: foi resolvido.
-export function conferenceItems(report, spec) {
+export function conferenceItems(report, spec, { dir = null } = {}) {
   const slides = spec?.slides || [];
+  const baseline = report?.quality?.issues?.length ? reportBaseline(report, dir) : null;
+  // o slide mudou depois do aviso (a IA ou a pessoa já mexeu nele): o aviso pode estar resolvido
+  const changed = (n) => { if (!baseline) return false; const s = slides[n - 1], was = baseline[s?.uid || `#${n}`]; return was != null && was !== slideMark(s); };
   const decided = report?.decisoes || {};
   const out = [];
   const still = (n, number) => slides[n - 1] && locate(slides[n - 1], number).length > 0;
@@ -51,9 +69,10 @@ export function conferenceItems(report, spec) {
   }
   for (const i of report?.quality?.issues || []) {
     if (!slides[i.slide - 1]) continue;
-    const text = String(i.text || "").trim();
-    out.push({ id: `visual:${i.slide}:${hash(text)}`, kind: "visual", slide: i.slide, text,
-      fix: `Corrija no slide ${i.slide} este aviso da revisão visual: ${text}` });
+    const text = String(i.text || "").trim(), stale = changed(i.slide);
+    out.push({ id: `visual:${i.slide}:${hash(text)}`, kind: "visual", slide: i.slide, ...(stale ? { stale: true } : {}),
+      text: stale ? `O slide mudou depois deste aviso; confira se ainda vale: ${text}` : text,
+      fix: `${stale ? "O slide mudou depois deste aviso da revisão visual; olhe o slide e, se o problema ainda existir, corrija" : "Corrija"} no slide ${i.slide} este aviso: ${text}` });
   }
   for (const caption of report?.coverage?.missing || []) {
     out.push({ id: `figura:${hash(caption)}`, kind: "figura", slide: null, text: String(caption),
@@ -74,7 +93,8 @@ export function conferenceItems(report, spec) {
 // As pendências que vão junto do pedido ao chat (editDeck: pending). O que foi ignorado não vai: a IA não volta a
 // insistir nisso, nem quando a pessoa pede "corrija os avisos da criação" com a mensagem antiga na conversa.
 export function conferencePrompt(items) {
-  const list = (items || []).filter((it) => it.kind !== "derivado" && it.kind !== "proprio");
+  // aviso de slide que já mudou não vai: a IA refazia a correção de algo que talvez já tenha corrigido
+  const list = (items || []).filter((it) => it.kind !== "derivado" && it.kind !== "proprio" && !it.stale);
   if (!list.length) return "";
   return `PENDÊNCIAS DA CONFERÊNCIA AUTOMÁTICA (painel Revisar › Conferência): o que as checagens acharam e a pessoa ainda não resolveu nem ignorou. Avisos antigos da conversa que não estão nesta lista foram resolvidos ou ignorados pela pessoa: não volte a eles. Mexa nestes só se o pedido tiver a ver.\n${list.slice(0, 40).map((it) => `- ${it.slide ? `slide ${it.slide}` : "deck"} · ${it.label}: ${it.text}`).join("\n")}`;
 }

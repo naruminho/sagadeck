@@ -1245,3 +1245,31 @@ test("a IA que corrige diz que o slide está certo: uma conferência independent
   const confirmada = await run("a/j*2.26");
   assert.equal(confirmada.math.divergent.length, 1, "as duas acusam: o aviso fica");
 });
+
+test("painel de conferência: aviso visual de slide que já mudou aparece como possivelmente resolvido e não vai mais à IA", async () => {
+  // na cópia do deck de hidráulica a IA corrigiu os avisos da criação pelo chat, mas o painel seguia listando os 24
+  const { conferenceItems, conferencePrompt } = await import("../src/studio/conference.js");
+  const { slideMarks } = await import("../src/studio/generation-report.js");
+  const original = { slides: [{ uid: "a", layout: "split", title: "Sifão", body: "x" }, { uid: "b", layout: "chart", title: "Limite" }] };
+  const quality = { issues: [{ slide: 1, text: "Rótulo cortado na figura" }, { slide: 2, text: "Barra desproporcional" }] };
+  const agora = { slides: [{ ...original.slides[0], body: "x corrigido" }, original.slides[1]] };
+  const items = conferenceItems({ quality, slideMarks: slideMarks(original) }, agora);
+  const s1 = items.find((i) => i.slide === 1), s2 = items.find((i) => i.slide === 2);
+  assert.equal(s1.stale, true);
+  assert.match(s1.text, /^O slide mudou depois deste aviso; confira se ainda vale: Rótulo cortado/);
+  assert.ok(!s2.stale, "slide igual: o aviso continua valendo");
+  const prompt = conferencePrompt(items);
+  assert.doesNotMatch(prompt, /Rótulo cortado/, "aviso de slide que mudou não vai como pendência");
+  assert.match(prompt, /Barra desproporcional/);
+  // relatório antigo, sem marcas: a versão mais antiga guardada do deck faz o papel
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-conf-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".sagadeck", "versoes"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".sagadeck", "versoes", "20261022-171155.yaml"), YAML.stringify(original));
+    fs.writeFileSync(path.join(dir, ".sagadeck", "versoes", "20261023-015018.yaml"), YAML.stringify(agora));
+    const antigos = conferenceItems({ quality }, agora, { dir });
+    assert.equal(antigos.find((i) => i.slide === 1).stale, true);
+    assert.ok(!antigos.find((i) => i.slide === 2).stale);
+    assert.ok(conferenceItems({ quality }, agora).every((i) => !i.stale), "sem pasta nem marcas: não dá para saber, fica como estava");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -171,7 +171,7 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
         if (chatResearch.report?.fontes?.length) linkActions.push(`Pesquisa na web: ${chatResearch.report.fontes.length} fonte(s) (${chatResearch.report.fontes.map((f) => f.site).join(", ")})`);
         const firstInstruction = chatResearch.instruction ? `${chatResearch.instruction}\n${prompt}` : prompt;
         // o que o painel Conferência ainda tem pendente (o ignorado não vai): a IA sabe o que falta sem reler avisos velhos
-        const pending = materialDir ? conferencePrompt(conferenceItems(loadGenReport(materialDir), spec)) : "";
+        const pending = materialDir ? conferencePrompt(conferenceItems(loadGenReport(materialDir), spec, { dir: materialDir })) : "";
         const editOpts = (extra = {}) => ({
           spec: withBase(taskWorkspace, spec), signal,
           instruction: firstInstruction,

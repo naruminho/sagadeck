@@ -20,11 +20,22 @@ export function writeGenReport(dir, report) {
   renameRetry(tmp, file);
 }
 
+// impressão digital de um slide (o que ele mostra, sem uid nem marcas do Studio): o aviso da revisão visual vale para
+// o slide como ele era; mudou, o painel avisa que o aviso pode estar velho
+export function slideMark(slide) {
+  const s = JSON.stringify({ ...slide, uid: undefined, auto: undefined, review: undefined });
+  let h = 5381; for (const c of s) h = ((h << 5) + h + c.codePointAt(0)) >>> 0;
+  return h.toString(36);
+}
+// marcas por slide: pelo uid (sobrevive a inserir e apagar slides) e, sem uid, pela posição
+export const slideMarks = (spec) => Object.fromEntries((spec?.slides || []).map((s, i) => [s?.uid || `#${i + 1}`, slideMark(s)]));
+
 export function saveGenReport(dir, generation) {
   const reportDir = path.join(dir, '.sagadeck');
   fs.mkdirSync(reportDir, { recursive: true });
   fs.writeFileSync(reportFile(dir), JSON.stringify({
     createdAt: new Date().toISOString(), quality: generation.quality, variety: generation.variety,
+    ...(generation.spec ? { slideMarks: slideMarks(generation.spec) } : {}),
     ...(generation.facts ? { facts: generation.facts } : {}), ...(generation.math ? { math: generation.math } : {}),
     ...(generation.coverage ? { coverage: generation.coverage } : {}), avisado: false,
   }, null, 2), 'utf8');
