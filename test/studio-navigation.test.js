@@ -90,6 +90,9 @@ test("navegar nos slides do editor é leve: CSS base uma vez, miniaturas em lote
     const withBase = calls.filter((c) => typeof c.json?.baseCSS === "string" && c.json.baseCSS.length > 10000);
     assert.equal(withBase.length, 1, `o CSS base desce uma vez só (desceu ${withBase.length} vezes)`);
 
+    // trocar de slide não refaz a miniatura que já está certa (recolocava o mesmo HTML e media tudo de novo a cada
+    // clique: na palestra de 39 slides, ~35 ms por troca)
+    await p.evaluate(() => { for (const r of document.querySelectorAll(".thumb-card .thumb-render")) r.dataset.marca = "antes"; });
     // trocar de slide: o desenho vem sem o CSS base, pequeno; o slide aparece com o estilo do sagadeck
     calls.length = 0;
     for (const i of [1, 2, 3]) {
@@ -102,6 +105,9 @@ test("navegar nos slides do editor é leve: CSS base uma vez, miniaturas em lote
     for (const r of renders) {
       assert.equal(r.json?.baseCSS, undefined, "a troca de slide não baixa de novo o CSS base");
       assert.ok(r.down < 40000, `troca de slide leve: ${r.down} bytes`);
+    }
+    for (const i of [1, 2, 3]) {
+      assert.equal(await p.evaluate((k) => document.querySelector(`.thumb-card[data-idx="${k}"] .thumb-render`)?.dataset.marca, i), "antes", `a miniatura ${i + 1} não foi refeita`);
     }
     const style = await p.evaluate(() => getComputedStyle(document.querySelector("#rendered-slide-container .slide")).position);
     assert.equal(style, "absolute", "o slide continua com o CSS do sagadeck aplicado");

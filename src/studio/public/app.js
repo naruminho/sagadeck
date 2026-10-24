@@ -1853,6 +1853,7 @@
   // Miniaturas = o próprio slide renderizado, em escala. Renderizadas sob demanda (quando aparecem
   // na lista), com cache por conteúdo; o slide aberto atualiza a sua a cada edição (putThumb).
   const thumbCache = new Map(); // chave (tema + índice + slide) -> html
+  const thumbShown = new WeakMap(); // tela da miniatura -> html que ela mostra (putThumb não refaz o mesmo)
   // tudo do deck que muda o desenho de um slide (tema, destaque, cabeçalho/rodapé e o que eles mostram)
   const deckLook = () => {
     const d = state.deck || {};
@@ -1897,6 +1898,7 @@
       const cached = thumbCache.get(thumbKey(idx, slide));
       if (cached) {
         screen.innerHTML = `<div class="thumb-render">${cached}</div>`;
+        thumbShown.set(screen, cached);
         queueThumbFit(screen); // em fatias: reconstruir a lista não ajusta as 200 de uma vez
       } else {
         const fb = document.createElement("div");
@@ -2028,6 +2030,9 @@
     thumbCache.set(thumbKey(idx, slide), html);
     const screen = dom.thumbnailsList.querySelector(`.thumb-card[data-idx="${idx}"] .thumb-screen`);
     if (!screen) return;
+    // mesmo HTML já na tela: nada a refazer (cada troca de slide recolocava a miniatura dele e media tudo de novo)
+    if (thumbShown.get(screen) === html) return;
+    thumbShown.set(screen, html);
     screen.innerHTML = `<div class="thumb-render">${html}</div>`;
     queueThumbFit(screen);
     // miniatura de diagrama também é desenhada, mas quando o navegador estiver livre: o desenho do Mermaid é pesado e
@@ -3058,7 +3063,8 @@
     };
     run();
     report();
-    document.fonts?.ready.then(() => { run(); report(); }); // a fonte do tema pode chegar depois e mudar as medidas
+    // a fonte do tema pode chegar depois e mudar as medidas; já carregada, medir de novo era o dobro do trabalho por troca
+    if (document.fonts && document.fonts.status !== "loaded") document.fonts.ready.then(() => { run(); report(); });
   }
 
   // ==========================================================================

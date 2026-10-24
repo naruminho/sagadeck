@@ -19,6 +19,14 @@ de 22/10 a 24/10. Corrigido: todo `explorer.exe` passa por `src/studio/reveal.js
 `SAGADECK_TEST_ISOLATED` (test/isolate.js); guarda em `guards.test.js` (nenhum outro arquivo de `src/` chama
 `explorer.exe`). As 19 janelas foram fechadas (memória em uso: 20,3 GB → 15,7 GB; CPU em repouso < 1%).
 
+**Troca de slide no editor (perfil de CPU na palestra de 39 slides dela, Studio local): 430 ms → ~45 ms.**
+- `fitSlideText` ajustava o slide duas vezes por troca: na hora e de novo no `document.fonts.ready`, que já carregado
+  resolve na hora. Agora só repete se as fontes ainda estão chegando.
+- `putThumb` recolocava o mesmo HTML na miniatura do slide atual a cada troca e media tudo de novo
+  (`runThumbFits`, ~35 ms). Agora guarda o que cada miniatura mostra (`thumbShown`, WeakMap) e não refaz o igual.
+  Teste em `studio-navigation.test.js` (a miniatura não é refeita; falha sem a correção).
+- Medido e descartado: `content-visibility: auto` nas miniaturas não ajudou (a página tem ~4.300 elementos).
+
 Pedido: "ficou super lento pra navegar nos slides". No Studio local (127.0.0.1) a troca de slide leva 20–80 ms e a
 apresentação não perde quadro; o peso estava na rede, e pelo portal ninguém comprimia nada (nginx com `gzip on` mas sem
 `gzip_types` nem `gzip_proxied`). Medido no servidor e no deck de teste:
