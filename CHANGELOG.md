@@ -19,6 +19,11 @@ pula de versão em versão.
 - **Miniaturas em lote**: um pedido para várias miniaturas, com o deck subindo uma vez, em vez de um pedido (e o deck
   inteiro) por miniatura.
 
+### Bastidores
+- A suíte de testes abria uma janela de verdade do Explorador do Windows a cada rodada (no teste das identidades), que
+  ficava aberta na pasta temporária e pesava na máquina inteira. Agora o Studio nunca abre o Explorador durante os
+  testes.
+
 ### Segurança
 - No servidor multiusuário, o desenho do slide lia as imagens da pasta que o navegador indicava: dava para pedir
   arquivos da biblioteca de outra pessoa. Agora a pasta é sempre a do deck aberto, e o endereço das imagens só entrega

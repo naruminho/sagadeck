@@ -4,6 +4,7 @@ import { cancellable, respond } from "./ai-response.js";
 import {chatErrorResult,installErrorResponses} from './errors.js';
 import { installCompression } from "./compress.js";
 import { renderRoutes } from "./render-routes.js";
+import { reveal } from "./reveal.js";
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { publicScript } from "./public-files.js";
@@ -20,7 +21,6 @@ import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
 import YAML from "yaml";
 import { buildHTML, renderSlide, loadSpec, inferLayout, setFitDefaults } from "../build.js";
 import { loadPreferences, savePreferences, preferencesFile, PREF_SCHEMA } from "../preferences.js";
@@ -594,7 +594,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
         const { ensureIdentitiesFile } = await import("../identity.js");
         const file = ensureIdentitiesFile();
-        if (process.platform === "win32") spawn("explorer.exe", [`/select,${file}`], { detached: true, stdio: "ignore" }).unref();
+        reveal(file, { select: true }); // nunca nos testes (reveal.js)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ file }));
         return;

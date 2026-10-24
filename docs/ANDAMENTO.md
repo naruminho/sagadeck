@@ -10,6 +10,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ## 1.11.7: navegação leve pela rede — 24/10/2026 (branch `claude/navegacao-leve`)
 
+**A máquina toda lenta era culpa da suíte de testes.** Medido no Windows dela: 19 processos `explorer.exe`, todos
+janelas "Temp - File Explorer", ~6 GB de memória e ~22 mil s de CPU cada (juntas, uns 3 núcleos ocupados o tempo todo,
+vigiando a Temp, onde os testes criam e apagam milhares de arquivos). Origem: o teste das identidades
+(`studio.test.js`) clica em Configurar, o servidor abria o Explorador de verdade com `/select,` no arquivo da pasta
+temporária do teste; a pasta era apagada e a janela recuava para a Temp e ficava. Uma janela por rodada da suíte,
+de 22/10 a 24/10. Corrigido: todo `explorer.exe` passa por `src/studio/reveal.js`, que não abre nada com
+`SAGADECK_TEST_ISOLATED` (test/isolate.js); guarda em `guards.test.js` (nenhum outro arquivo de `src/` chama
+`explorer.exe`). As 19 janelas foram fechadas (memória em uso: 20,3 GB → 15,7 GB; CPU em repouso < 1%).
+
 Pedido: "ficou super lento pra navegar nos slides". No Studio local (127.0.0.1) a troca de slide leva 20–80 ms e a
 apresentação não perde quadro; o peso estava na rede, e pelo portal ninguém comprimia nada (nginx com `gzip on` mas sem
 `gzip_types` nem `gzip_proxied`). Medido no servidor e no deck de teste:
