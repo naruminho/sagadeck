@@ -25,10 +25,16 @@ export function varietyReport(spec) {
   if (n >= 6) {
     const want = Math.min(8, Math.ceil(n * 0.5));
     if (distinct < want) problems.push(`só ${distinct} layouts diferentes em ${n} slides de conteúdo (bom: ${want} ou mais)`);
-    const listy = body.filter((s) => LISTY.has(s.layout)).length;
-    if (listy / n > 0.45) problems.push(`${listy} de ${n} slides são listas/cartões — falta respiro (manchete, número grande, imagem, pergunta)`);
-    if (!body.some((s) => IMPACT.has(s.layout))) problems.push("nenhum slide de impacto (manchete, número grande, frase, página inteira, pergunta)");
-    if (new Set(slides.map((s) => s.tone)).size === 1) problems.push(`todos os slides no mesmo tom (${slides[0].tone}) — alterne com escuro/destaque nos momentos-chave`);
+    // material de consulta (purpose: consulta) é para estudar depois: sem "número de impacto" nem slide só de título
+    // (REFERENCIA), e lista é o normal. Cobrar respiro e impacto ali era aviso falso, e a revisão empurrava a IA a pôr
+    // slides que o propósito pede para não ter (rodada de uso real, guia de Git, 23/10/2026)
+    if (spec?.purpose !== "consulta") {
+      const listy = body.filter((s) => LISTY.has(s.layout)).length;
+      if (listy / n > 0.45) problems.push(`${listy} de ${n} slides são listas/cartões — falta respiro (manchete, número grande, imagem, pergunta)`);
+      if (!body.some((s) => IMPACT.has(s.layout))) problems.push("nenhum slide de impacto (manchete, número grande, frase, página inteira, pergunta)");
+      // consulta pode ficar toda clara (imprime e lê bem); a regra do tom é de palco
+      if (new Set(slides.map((s) => s.tone)).size === 1) problems.push(`todos os slides no mesmo tom (${slides[0].tone}) — alterne com escuro/destaque nos momentos-chave`);
+    }
   }
   const counts = {};
   body.forEach((s) => (counts[s.layout] = (counts[s.layout] || 0) + 1));

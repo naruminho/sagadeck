@@ -16,6 +16,12 @@ export function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+// Código que quebra linha (pre-wrap): o navegador quebra depois do hífen, e "git commit --amend --no-edit" saía como
+// "--no-" / "edit" (quem copia do slide digita errado). Cada hífen vira <span class="hy">, e o CSS põe um "word joiner"
+// (U+2060) depois dele por ::after: a linha não quebra ali, e o texto copiado continua o mesmo (o ::after não é copiado).
+// Recebe HTML já escapado ou realçado: só troca o hífen fora das tags.
+export const noHyphenBreak = (html) => String(html).replace(/(<[^>]*>)|-/g, (m, tag) => tag || '<span class="hy">-</span>');
+
 // tabela em markdown no meio do texto (uma linha "| a | b |" por linha, com ou sem a linha "|---|---|" depois do
 // cabeçalho): vira tabela de verdade (src/table.js), não texto com barras
 const PIPE_TABLE = /(^|\n)((?:[ \t]*\|[^\n]*\|[ \t]*(?:\n|$)){2,})/g;

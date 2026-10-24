@@ -70,7 +70,7 @@
       { addLabel: "Adicionar turno", newItem: () => ({ who: 1, commit: "" }) })];
   const CARD = [f.icon("icon", "Ícone"), f.text("title", "Título"), f.area("text", "Texto"), f.area("flip", "Verso (o cartão vira no clique)"),
     f.more([f.text("number", "Número"), f.text("foot", "Rodapé"), f.text("badge", "Selo"), f.bool("hl", "Destacar"), f.num("step", "Aparece no clique"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
-  const STAT = [f.text("value", "Valor"), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
+  const STAT = [f.text("value", "Valor"), f.text("prefix", "Antes do valor", { hint: "Ex.: R$ " }), f.text("suffix", "Depois do valor", { hint: "Ex.: %, h, mil" }), f.text("label", "Rótulo"), f.text("trend", "Tendência"), f.icon("icon", "Ícone"),
     f.more([f.bool("trendUp", "Tendência positiva"), f.color("color", "Cor")])];
   const STEP = [f.text("title", "Título"), f.area("text", "Texto"), f.icon("icon", "Ícone"), f.more([f.text("tag", "Etiqueta"), f.text("goto", "Ao clicar, ir para", { hint: "Id do slide de destino (ou o número dele): navegação por caminhos." })])];
   // bloco do one-page (problema, solução): texto, números grandes e tópicos

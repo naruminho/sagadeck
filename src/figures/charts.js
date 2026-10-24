@@ -21,6 +21,10 @@ const cvar = (c, d) => {
   if (/^#?[0-9a-f]{6}$/i.test(c)) return `#${String(c).replace("#", "")}`;
   // paleta do tema é namespaced (--c-c1…): nome pelado ("c3") viraria var indefinida = preto
   if (/^c[1-9]\d*$/.test(c) || /^(accent|alert|ink|paper)$/.test(c)) return `var(--c-${c})`;
+  // "hi" é a cor do marca-texto, clara nos temas de papel: a barra em destaque saía rosa-claro, quase sumindo, e as
+  // de fundo (muted) mais fortes que ela. Como no texto (elements.js: textColorVal), a marca usa a versão com
+  // contraste (--hi-ink: o hi se ele aparece no fundo, senão a ênfase). Rodada de uso real, 23/10/2026.
+  if (c === "hi") return "var(--hi-ink,var(--hi))";
   return `var(--${c})`;
 };
 const fmt = (v, o) => {

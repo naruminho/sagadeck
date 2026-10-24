@@ -1,4 +1,4 @@
-import {md,esc} from './markup.js';
+import {md,esc,noHyphenBreak} from './markup.js';
 import {iconSVG} from './figures/icons.js';
 export function adaptiveGrid(items=[],variant='mosaic') {
   const n=items.length;
@@ -14,5 +14,5 @@ export function adaptiveHTML(s,variant) {
   <div class="adaptive-index f-label">${item.icon?iconSVG(item.icon,{size:38}):String(i+1).padStart(2,'0')}</div>
   ${item.value!=null?`<div class="adaptive-value t f-display">${md(String(item.value))}</div>`:''}
   <h3 class="t f-heading">${md(item.title||'')}</h3>${item.text?`<div class="adaptive-text t f-body">${md(item.text)}</div>`:''}
-  ${item.code?`<pre class="adaptive-code f-mono">${esc(item.code)}</pre>`:''}${item.foot?`<div class="adaptive-foot t f-label">${md(item.foot)}</div>`:''}</article>`).join('')}</div>`;
+  ${item.code?`<pre class="adaptive-code f-mono">${noHyphenBreak(esc(item.code))}</pre>`:''}${item.foot?`<div class="adaptive-foot t f-label">${md(item.foot)}</div>`:''}</article>`).join('')}</div>`;
 }

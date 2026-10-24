@@ -4,6 +4,21 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.6] — 23/10/2026
+
+Correções que saíram de uma rodada de uso real: quatro apresentações geradas pela IA no servidor (uma aula técnica,
+um pitch, um guia de consulta e uma palestra), revisadas slide a slide.
+
+### Correções
+- **Indicadores perdiam a unidade**: num slide de indicadores (`stats`), "12 h" e "4%" apareciam como "12" e "4". O
+  `stats` passa a aceitar `prefix` e `suffix`, como o número grande, o gráfico e o contador.
+- **Comando cortado no hífen**: no código que quebra linha, `git commit --amend --no-edit` aparecia como `--no-` numa
+  linha e `edit` na outra. A linha não quebra mais depois de hífen, e o texto copiado do slide continua o mesmo.
+- **Barras em destaque quase sumindo**: em temas de papel, a barra pintada com a cor de destaque saía no tom claro do
+  marca-texto, mais fraca que as barras de fundo. Agora usa a versão com contraste, como o texto.
+- **Aviso falso em material de consulta**: guias e apostilas (`purpose: consulta`) eram cobrados de "slide de
+  impacto", "respiro" e alternância de tom, que a própria regra de consulta dispensa.
+
 ## [1.11.5] — 23/10/2026
 
 ### Correções

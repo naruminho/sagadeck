@@ -8,6 +8,33 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.6: rodada de uso real — 23/10/2026 (branch `claude/parada-e-fotos`)
+
+Quatro pedidos reais no sagadeck-dev (conta de teste `verificacao`, tópico "Rodada de uso real"), pelo caminho da
+biblioteca (Nova › Com IA, `POST /api/library/decks/ai`), com o modelo do servidor (deepseek-v4.1-flash): aula de
+vigas de concreto (20 min, com exemplo numérico), pitch de automação da conciliação (5 min), guia de Git (consulta) e
+palestra sobre burnout (15 min). Os quatro saíram em 4 a 9 min cada, variados (11, 3, 12 e 9 layouts diferentes). A
+revisão automática deixou avisos; cada um foi conferido no YAML e na foto do slide:
+- **Bug: `stats` ignorava `prefix`/`suffix`** (o pitch mostrava "4" por "4%"). Corrigido em `elements.js`, com
+  REFERENCIA e formulário do Studio. Teste no `engine.test.js`.
+- **Bug: código quebrava a linha no hífen** (`--no-` / `edit` no dossier do guia). `noHyphenBreak` (markup.js) põe
+  cada hífen num `<span class="hy">`, e o CSS um word joiner por `::after` (não vai na cópia); vale no `code()` e no
+  código do dossier. Testes: `engine.test.js` e `test/code-hyphen.test.js` (no Chrome, com o slide do guia; falha sem a
+  correção).
+- **Bug: barra com `color: hi` usava o marca-texto claro** (palestra, tema editorial: destaque mais fraco que o fundo).
+  `charts.js` usa `--hi-ink`, como o texto. Teste no `engine.test.js`.
+- **Bug: variedade cobrava impacto/respiro/tom de material de consulta**, contra a REFERENCIA. `variety.js` só cobra
+  isso fora de `purpose: consulta`. Teste no `engine.test.js`.
+- **Alarmes falsos da revisão (não mexidos)**: "barras de 48% e 43% quase iguais" (estão proporcionais) e "nota em
+  cinza escuro no preto" (é cinza claro, legível). Ficam como observação: a revisão por imagem ainda erra em proporção
+  e contraste; se voltar a aparecer, olhar a resolução das fotos que vão para ela.
+- Conteúdo, para a IA corrigir (Corrigir tudo com IA): coeficiente 0,68 sem a origem (0,85 × 0,8) e diagrama pequeno
+  na aula; quarto risco só nas notas do pitch.
+- **Testes com o modelo de verdade (1.11.6 é múltipla de 3)**: 25 de 27 de primeira em 25 min, nenhum quebrado.
+  Instáveis (passaram na repetição): "refinamento: conversa e depois 'pode fazer'" (o modelo trocou o slide por outro
+  texto em vez de aplicar o combinado; já tinha aparecido antes) e "gerar deck: sai variado" (estourou os 10 min do
+  teste esperando o provedor; não é a regra da variedade, que só mudou para `consulta`).
+
 ## 1.11.5: parada do servidor, biblioteca no OneDrive — 23/10/2026 (branch `claude/parada-e-fotos`)
 
 - **Parada**: o Playwright, ao abrir o Chrome, instala um tratador de SIGTERM que só fecha o navegador; com ele, o
