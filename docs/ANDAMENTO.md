@@ -44,6 +44,11 @@ Feito:
   imagem/vídeo dentro da biblioteca da pessoa, da pasta do deck e das pastas de modelos do sagadeck. Teste:
   `studio-navigation.test.js` (foto por endereço que aparece, miniatura sem `data:`, 404 fora das pastas e para
   arquivo que não é imagem, `_dir` do pedido ignorado; falha sem a correção).
+- Com as fotos descendo pelas mesmas conexões, apareceram duas corridas (a CI pegou): o fim da transformação dizia
+  "A transformação terminou" antes de recarregar o deck (agora diz depois, com as miniaturas novas na tela), e as
+  fotos das miniaturas fora da tela disputavam a conexão (agora `loading="lazy"` no `render-slides`). O teste do
+  "trocar imagem" (`editor-tools.test.js`) conferia que o `src` não tinha "a.png", e "nova.png" tem: passa a exigir o
+  caminho da nova.
 - Os testes da biblioteca (`library-ui.test.js`) estouram o tempo nesta máquina também na main (11 falhas, mesmo
   código): carga da máquina, não regressão; na CI passam. A capa da vitrine (`gallery-cover`) leva ~15 s na primeira
   vez (foto pelo Chrome) e segura o "rede parada" dos testes.

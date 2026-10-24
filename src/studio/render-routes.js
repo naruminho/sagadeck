@@ -67,7 +67,8 @@ export async function renderRoutes({ req, res, pathname, url, W, readJSON, roots
     for (const i of [].concat(indices || []).slice(0, MAX_BATCH)) {
       const s = deck.slides?.[i];
       if (!s) continue;
-      try { const r = renderSlide(s, i, deck); first ||= r; slides.push({ index: i, html: r.html }); } catch (e) { slides.push({ index: i, error: e.message }); }
+      // foto de miniatura só desce quando a miniatura aparece (as de fora da tela disputavam a conexão com o resto)
+      try { const r = renderSlide(s, i, deck); first ||= r; slides.push({ index: i, html: r.html.replace(/<img (?![^>]*\bloading=)/g, '<img loading="lazy" decoding="async" ') }); } catch (e) { slides.push({ index: i, error: e.message }); }
     }
     const css = first ? withoutKnownCSS(first, { baseHash, themeHash }) : {};
     return json({ baseHash: css.baseHash, themeHash: css.themeHash, baseCSS: css.baseCSS, themeCSS: css.themeCSS, slides });

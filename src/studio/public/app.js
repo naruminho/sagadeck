@@ -3291,8 +3291,8 @@
       if (run) { work.update({ type: "progress", ...(run.progress || {}), phase: run.progress?.phase || "transform", mode: run.mode, text: run.progress?.text || "Transformando…" }); setTimeout(tick, 3000); return; }
       work.done();
       const job = st.jobs?.[0];
+      await loadDeck(); // o aviso vem com o deck novo já na tela (antes, aparecia e as miniaturas ainda eram as velhas)
       appendChatMessage("ai", job?.status === "parcial" ? "A transformação parou antes do fim; o que ficou pronto está guardado e pedir de novo continua de onde parou." : "A transformação terminou.");
-      await loadDeck();
     };
     tick();
   }
