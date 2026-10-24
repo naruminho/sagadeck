@@ -7,3 +7,6 @@ vitrine/
 .artifacts/
 .task-*.mjs
 browsers/
+
+# imagens geradas pela IA sem pasta de deck (testes ao vivo): nunca no repositório
+/imagens/

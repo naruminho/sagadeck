@@ -8,6 +8,15 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Imagens da IA fora do repositório — 24/10/2026 (branch `claude/imagens-fora-do-repo`)
+
+Dois testes ao vivo pedem imagem sem pasta de deck, e `materializeImages` grava em `process.cwd()`: rodando a bateria
+do repositório, as fotos iam para `<repo>/imagens/`, e um `git add -A` levou 6 PNGs (~1,5 MB cada) e 2 imagens da web
+para os commits das versões 1.11.2 e 1.11.3 (o pacote do npm não leva `imagens/`, não foi afetado). Saíram do git;
+`/imagens/` foi para o `.gitignore`; `ai-live.test.js` roda num temporário (`process.chdir`). Guarda em
+`guards.test.js` (nada de `imagens/` no git, o `.gitignore` e o temporário da bateria). O histórico antigo continua com
+os arquivos (reescrever a main não compensa).
+
 ## 1.11.6: rodada de uso real — 23/10/2026 (branch `claude/parada-e-fotos`)
 
 Quatro pedidos reais no sagadeck-dev (conta de teste `verificacao`, tópico "Rodada de uso real"), pelo caminho da

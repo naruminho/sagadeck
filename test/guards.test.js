@@ -83,3 +83,12 @@ test("nenhuma menção ao programa de apresentações da maçã no código e na 
   }
   assert.deepEqual(achados, []);
 });
+
+// Fotos geradas pela IA nos testes ao vivo caíam na pasta atual (o repositório) e entraram em commits das versões
+// 1.11.2 e 1.11.3. O repositório não guarda imagens de deck: a pasta fica fora do git e a bateria roda num temporário.
+test("imagens geradas pela IA nunca entram no repositório", () => {
+  const tracked = execFileSync("git", ["ls-files", "imagens"], { cwd: ROOT, encoding: "utf8" }).trim();
+  assert.equal(tracked, "", "imagens/ na raiz do repositório está no git");
+  assert.match(fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8"), /^\/imagens\/$/m);
+  assert.match(fs.readFileSync(path.join(ROOT, "test", "ai-live.test.js"), "utf8"), /process\.chdir\(fs\.mkdtempSync\(/, "a bateria ao vivo roda numa pasta temporária");
+});

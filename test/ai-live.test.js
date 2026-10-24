@@ -2,12 +2,19 @@
 // Só roda com SAGADECK_LIVE=1 (lento, depende do modelo). Ex.: SAGADECK_LIVE=1 node --test test/ai-live.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { editDeck, generateDeck } from "../src/ai/deck-ai.js";
 import { loadSpec } from "../src/build.js";
 import { plain } from "../src/markup.js";
 import { FIXTURE } from "./helpers.js";
 
 const LIVE = process.env.SAGADECK_LIVE === "1";
+// Imagem gerada sem pasta do deck cai na pasta atual (materializeImages: baseDir = process.cwd()). Rodando do
+// repositório, as fotos da IA iam para <repo>/imagens/ e entraram em commits (1.11.2 e 1.11.3). A bateria roda numa
+// pasta temporária: o que um teste esquecer de mandar para o temporário também não suja o repositório.
+if (LIVE) process.chdir(fs.mkdtempSync(path.join(os.tmpdir(), "sagadeck-live-cwd-")));
 const opts = { skip: !LIVE && "defina SAGADECK_LIVE=1", timeout: 240000 };
 const spec = () => loadSpec(FIXTURE);
 const idx = (s, layout) => s.slides.findIndex((x) => x.layout === layout);
