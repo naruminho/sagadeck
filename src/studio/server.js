@@ -797,7 +797,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
       }
 
       // o slide do editor e as miniaturas em lote, sem reenviar o CSS que o editor já tem (render-routes.js)
-      if (pathname.startsWith("/api/render-slide") && await renderRoutes({ req, res, pathname, W, readJSON })) return;
+      if (["/api/render-slide", "/api/render-slides", "/api/deck-asset"].includes(pathname) && await renderRoutes({ req, res, pathname, url, W, readJSON, roots: [MODEL_ASSETS_DIR, ...TEMPLATE_DIRS] })) return;
 
       if (pathname === "/api/icons" && req.method === "GET") {
         const q = url.searchParams.get("q") || "";

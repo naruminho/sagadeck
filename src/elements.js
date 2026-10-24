@@ -213,7 +213,15 @@ export function imageSrc(p, ctx) {
     return null;
   }
   const ext = path.extname(f).slice(1).toLowerCase().replace("jpg", "jpeg").replace("svg", "svg+xml");
-  return `data:image/${ext};base64,${fs.readFileSync(f).toString("base64")}`;
+  return fileSrc(f, `image/${ext}`, ctx);
+}
+
+// Arquivo do deck dentro do HTML: embutido (data:), para o HTML exportado valer sozinho; no editor do Studio, o
+// endereço do arquivo (ctx.assetURL, render-routes.js), que o navegador baixa uma vez e guarda. Embutida, a mesma foto
+// descia em cada troca de slide e em cada miniatura (megabytes por clique pela internet).
+export function fileSrc(f, mime, ctx = {}) {
+  if (ctx.assetURL) return ctx.assetURL(f);
+  return `data:${mime};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
 const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr || el.points);

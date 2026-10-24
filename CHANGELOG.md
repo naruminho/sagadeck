@@ -7,6 +7,9 @@ pula de versão em versão.
 ## [1.11.7] — 24/10/2026
 
 ### Desempenho
+- **Fotos e vídeos sem descer de novo a cada clique**: no editor, a imagem ia embutida no desenho de cada slide e de
+  cada miniatura: um slide com foto passava de 5 MB por clique. Agora vai por endereço, e o navegador baixa uma vez e
+  guarda (o mesmo slide: 5 kB). A apresentação e as exportações continuam com tudo embutido.
 - **Navegar nos slides pelo servidor ficou leve**: cada troca de slide baixava ~170 kB (o CSS inteiro, igual em todo
   clique) e subia o deck inteiro duas vezes. Agora o CSS desce uma vez; trocar de slide 10 vezes passou de ~1,7 MB
   para ~24 kB.
@@ -15,6 +18,11 @@ pula de versão em versão.
   257 kB para 64 kB (e zero, se o deck não mudou). Versão nova do sagadeck continua chegando na hora.
 - **Miniaturas em lote**: um pedido para várias miniaturas, com o deck subindo uma vez, em vez de um pedido (e o deck
   inteiro) por miniatura.
+
+### Segurança
+- No servidor multiusuário, o desenho do slide lia as imagens da pasta que o navegador indicava: dava para pedir
+  arquivos da biblioteca de outra pessoa. Agora a pasta é sempre a do deck aberto, e o endereço das imagens só entrega
+  imagem ou vídeo da biblioteca da própria pessoa, da pasta do deck e dos modelos do sagadeck.
 
 ## [1.11.6] — 23/10/2026
 

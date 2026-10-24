@@ -32,6 +32,21 @@ Feito:
 - Testes: `test/compress.test.js` (gzip, pequeno/sem aceite/HEAD/imagem, `pipe`, erro com diagnóstico, streams não
   seguradas, ETag/304) e `test/studio-navigation.test.js` (no editor: CSS base uma vez, troca leve, miniaturas em lote,
   variedade pequena, `app.js` em gzip, zero erros JS; falha com o editor antigo).
+- **O maior peso eram as fotos**: `imageSrc` (e o vídeo, `video-player.js`) embutiam o arquivo em base64 no HTML de
+  cada slide. Um slide de modelo com foto: `render-slide` de 5.652 kB, o lote de 6 miniaturas de 2.840 kB, a cada
+  clique. Isso também fazia o desenho do slide da tela chegar depois do lote de miniaturas, e o formulário ficava no
+  slide anterior (o teste "coleções" da CI pegou). Agora `fileSrc` (elements.js) usa `ctx.assetURL` quando há:
+  `render-routes.js` passa `_assetURL`, e a foto vira `api/deck-asset?v=<data+tamanho>&p=<caminho>` (o caminho por
+  último: o player reconhece o vídeo pela terminação), com `Cache-Control: immutable`. Mesmo slide: 5 kB. A
+  apresentação, as exportações e as fotos para a IA continuam embutindo (o HTML vale sozinho).
+- **Segurança (multiusuário)**: o render usava o `_dir` mandado pelo navegador para ler as imagens; dava para ler a
+  biblioteca de outra pessoa. Agora a pasta é a do deck aberto no servidor, e `/api/deck-asset` só entrega
+  imagem/vídeo dentro da biblioteca da pessoa, da pasta do deck e das pastas de modelos do sagadeck. Teste:
+  `studio-navigation.test.js` (foto por endereço que aparece, miniatura sem `data:`, 404 fora das pastas e para
+  arquivo que não é imagem, `_dir` do pedido ignorado; falha sem a correção).
+- Os testes da biblioteca (`library-ui.test.js`) estouram o tempo nesta máquina também na main (11 falhas, mesmo
+  código): carga da máquina, não regressão; na CI passam. A capa da vitrine (`gallery-cover`) leva ~15 s na primeira
+  vez (foto pelo Chrome) e segura o "rede parada" dos testes.
 - Sobra, se ainda pesar: ~70 pedidos ao abrir o editor (cada um uma ida e volta, mesmo com 304); juntar os scripts
   num só reduziria a espera em conexão lenta.
 
