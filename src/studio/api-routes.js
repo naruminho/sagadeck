@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn } from "node:child_process";
+import { reveal } from "./reveal.js";
 import YAML from "yaml";
 import { writeRecording, readRecordings, mimeOf } from "../api-client.js";
 
@@ -115,7 +115,7 @@ export async function apiRoutes({ req, res, pathname, url, W, apiEnv, rtSessions
     if (pathname === "/api/http/vars/folder") {
       const dir = path.dirname(apiEnv.file);
       fs.mkdirSync(dir, { recursive: true });
-      if (process.platform === "win32") spawn("explorer.exe", [dir], { detached: true, stdio: "ignore" }).unref();
+      reveal(dir); // nunca nos testes (reveal.js)
       return reply(200, { dir });
     }
     if (pathname === "/api/http/send") return reply(200, await apiEnv.send({ ...(body.request || {}), file: fileOf(body) }));

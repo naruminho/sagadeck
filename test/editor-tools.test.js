@@ -106,7 +106,9 @@ test("editor visual: alinhar, distribuir, estilo, travar, lista de objetos, guia
     assert.ok(im && (/^imagens\/nova.*\.png$/.test(im.image) || im.image.startsWith("data:image/png")), JSON.stringify(im));
     assert.equal(saved().elements[3].image, "imagens/a.png", "o elemento original não muda (o ajuste troca)");
     const src = await img.locator("img").getAttribute("src");
-    assert.ok(!/a\.png/.test(src), `a tela mostra a nova (${src.slice(0, 60)})`);
+    // no editor a imagem vai por endereço (api/deck-asset?…&p=<caminho>): o caminho é o da nova, não "…/a.png"
+    const shown = decodeURIComponent(src);
+    assert.ok(/nova/.test(shown) && !/[\\/]a\.png$/.test(shown), `a tela mostra a nova (${shown.slice(-60)})`);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); deck.cleanup(); }
 });

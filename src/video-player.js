@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { esc } from './markup.js';
+import { fileSrc } from './elements.js';
 import {iconSVG} from './figures/icons.js';
 
 export function youtubeId(value) {
@@ -20,14 +21,14 @@ export function videoPlayer(e, ctx = {}) {
     const file = path.resolve(ctx.baseDir || process.cwd(), url);
     if (fs.existsSync(file)) {
       const mime = /\.mp4$/i.test(file) ? 'video/mp4' : /\.webm$/i.test(file) ? 'video/webm' : 'video/ogg';
-      url = `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`;
+      url = fileSrc(file, mime, ctx); // no editor, o endereço do arquivo (elements.js: fileSrc)
     } else { ctx.warnings?.push(`Vídeo não encontrado: ${url}`); return `<div class="fig-pending">${label}: arquivo não encontrado</div>`; }
   }
   if (/\.(mp4|webm|ogg)(?:\?|$)|^data:video\//i.test(url)) {
     let poster=e.poster;
     if(poster&&!/^(https?:|data:)/i.test(poster)){
       const file=path.resolve(ctx.baseDir||process.cwd(),poster);
-      if(fs.existsSync(file)){const ext=path.extname(file).slice(1).toLowerCase();poster=`data:image/${ext==='jpg'?'jpeg':ext};base64,${fs.readFileSync(file).toString('base64')}`;}
+      if(fs.existsSync(file)){const ext=path.extname(file).slice(1).toLowerCase();poster=fileSrc(file,`image/${ext==='jpg'?'jpeg':ext}`,ctx);}
       else ctx.warnings?.push(`Poster não encontrado: ${poster}`);
     }
     // loop silencioso (fundo vivo, detalhe animado): sem controles, repete sozinho

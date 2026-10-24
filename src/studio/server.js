@@ -2,6 +2,9 @@ import { lookAt, readBody, readJSON } from "./request-helpers.js";
 import { workspaceResolver, scopePreviewHTML, staleTab } from "./workspaces.js";
 import { cancellable, respond } from "./ai-response.js";
 import {chatErrorResult,installErrorResponses} from './errors.js';
+import { installCompression } from "./compress.js";
+import { renderRoutes } from "./render-routes.js";
+import { reveal } from "./reveal.js";
 // sagadeck Studio · Servidor HTTP local para o editor visual PowerPoint + Chat Lateral IA
 import { slideCopyRoutes } from "./slide-copy-routes.js";
 import { publicScript } from "./public-files.js";
@@ -18,7 +21,6 @@ import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
 import YAML from "yaml";
 import { buildHTML, renderSlide, loadSpec, inferLayout, setFitDefaults } from "../build.js";
 import { loadPreferences, savePreferences, preferencesFile, PREF_SCHEMA } from "../preferences.js";
@@ -401,6 +403,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
     res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
     res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 
+    installCompression(req, res); // gzip quando o navegador aceita (compress.js); por dentro do ajuste das respostas de erro
     installErrorResponses(res);
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const pathname = url.pathname;
@@ -591,7 +594,7 @@ export function createStudioServer(deckPath = null, opts = {}) {
         if (blocked) { res.writeHead(blocked.code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Configurar identidades só no Studio desta máquina." })); return; }
         const { ensureIdentitiesFile } = await import("../identity.js");
         const file = ensureIdentitiesFile();
-        if (process.platform === "win32") spawn("explorer.exe", [`/select,${file}`], { detached: true, stdio: "ignore" }).unref();
+        reveal(file, { select: true }); // nunca nos testes (reveal.js)
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ file }));
         return;
@@ -793,14 +796,8 @@ export function createStudioServer(deckPath = null, opts = {}) {
         return;
       }
 
-      if (pathname === "/api/render-slide" && req.method === "POST") {
-        const { slide, index, spec } = await readJSON(req);
-        const deckSpec = spec || W.spec;
-        const rendered = renderSlide(slide, index ?? 0, deckSpec);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(rendered));
-        return;
-      }
+      // o slide do editor e as miniaturas em lote, sem reenviar o CSS que o editor já tem (render-routes.js)
+      if (["/api/render-slide", "/api/render-slides", "/api/deck-asset"].includes(pathname) && await renderRoutes({ req, res, pathname, url, W, readJSON, roots: [MODEL_ASSETS_DIR, ...TEMPLATE_DIRS] })) return;
 
       if (pathname === "/api/icons" && req.method === "GET") {
         const q = url.searchParams.get("q") || "";

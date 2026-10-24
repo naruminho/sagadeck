@@ -8,6 +8,70 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.7: navegação leve pela rede — 24/10/2026 (branch `claude/navegacao-leve`)
+
+**A máquina toda lenta era culpa da suíte de testes.** Medido no Windows dela: 19 processos `explorer.exe`, todos
+janelas "Temp - File Explorer", ~6 GB de memória e ~22 mil s de CPU cada (juntas, uns 3 núcleos ocupados o tempo todo,
+vigiando a Temp, onde os testes criam e apagam milhares de arquivos). Origem: o teste das identidades
+(`studio.test.js`) clica em Configurar, o servidor abria o Explorador de verdade com `/select,` no arquivo da pasta
+temporária do teste; a pasta era apagada e a janela recuava para a Temp e ficava. Uma janela por rodada da suíte,
+de 22/10 a 24/10. Corrigido: todo `explorer.exe` passa por `src/studio/reveal.js`, que não abre nada com
+`SAGADECK_TEST_ISOLATED` (test/isolate.js); guarda em `guards.test.js` (nenhum outro arquivo de `src/` chama
+`explorer.exe`). As 19 janelas foram fechadas (memória em uso: 20,3 GB → 15,7 GB; CPU em repouso < 1%).
+
+**Troca de slide no editor (perfil de CPU na palestra de 39 slides dela, Studio local): 430 ms → ~45 ms.**
+- `fitSlideText` ajustava o slide duas vezes por troca: na hora e de novo no `document.fonts.ready`, que já carregado
+  resolve na hora. Agora só repete se as fontes ainda estão chegando.
+- `putThumb` recolocava o mesmo HTML na miniatura do slide atual a cada troca e media tudo de novo
+  (`runThumbFits`, ~35 ms). Agora guarda o que cada miniatura mostra (`thumbShown`, WeakMap) e não refaz o igual.
+  Teste em `studio-navigation.test.js` (a miniatura não é refeita; falha sem a correção).
+- Medido e descartado: `content-visibility: auto` nas miniaturas não ajudou (a página tem ~4.300 elementos).
+
+Pedido: "ficou super lento pra navegar nos slides". No Studio local (127.0.0.1) a troca de slide leva 20–80 ms e a
+apresentação não perde quadro; o peso estava na rede, e pelo portal ninguém comprimia nada (nginx com `gzip on` mas sem
+`gzip_types` nem `gzip_proxied`). Medido no servidor e no deck de teste:
+- Cada troca de slide: `/api/render-slide` subia o deck inteiro e descia ~171 kB, dos quais 158 kB o CSS base (igual
+  em todo clique); `/api/variety` subia o deck inteiro de novo. Cada miniatura, um pedido com o deck inteiro.
+- Abrir o editor: ~5,4 MB; abrir de novo: ~1,3 MB (`katex.css` com as fontes embutidas, 924 kB, sem cabeçalho de
+  cache).
+
+Feito:
+- `src/studio/render-routes.js` (sai do `server.js`): `render-slide` devolve `baseHash`/`themeHash` e só manda o CSS
+  quando o hash informado é outro; `render-slides` desenha até 24 slides num pedido. No editor,
+  `public/render-client.js` guarda o CSS e devolve a resposta preenchida (o resto do `app.js` não muda);
+  `pumpThumbs` pede em lotes de 6. A variedade sobe só `purpose` e `layout`/`tone` de cada slide.
+- `src/studio/compress.js`: gzip para texto a partir de 1 kB quando o navegador aceita (nunca `x-ndjson` nem
+  `event-stream`, que chegam aos poucos); ETag nos arquivos da página fora de `/api/`, com 304 sem corpo e
+  `Cache-Control: no-cache` quando não há prazo próprio (versão nova chega na hora). Repassa o `drain` do gzip (sem
+  isso, arquivo servido por `pipe` travava: o teste pegou).
+- Resultado (deck de teste, bytes na rede): trocar 10 vezes, 1.708 kB → 24 kB; abrir, 5,4 MB → 2,1 MB; abrir de novo,
+  1,3 MB → 55 kB; apresentação, 257 kB → 64 kB (304 sem mudança).
+- Testes: `test/compress.test.js` (gzip, pequeno/sem aceite/HEAD/imagem, `pipe`, erro com diagnóstico, streams não
+  seguradas, ETag/304) e `test/studio-navigation.test.js` (no editor: CSS base uma vez, troca leve, miniaturas em lote,
+  variedade pequena, `app.js` em gzip, zero erros JS; falha com o editor antigo).
+- **O maior peso eram as fotos**: `imageSrc` (e o vídeo, `video-player.js`) embutiam o arquivo em base64 no HTML de
+  cada slide. Um slide de modelo com foto: `render-slide` de 5.652 kB, o lote de 6 miniaturas de 2.840 kB, a cada
+  clique. Isso também fazia o desenho do slide da tela chegar depois do lote de miniaturas, e o formulário ficava no
+  slide anterior (o teste "coleções" da CI pegou). Agora `fileSrc` (elements.js) usa `ctx.assetURL` quando há:
+  `render-routes.js` passa `_assetURL`, e a foto vira `api/deck-asset?v=<data+tamanho>&p=<caminho>` (o caminho por
+  último: o player reconhece o vídeo pela terminação), com `Cache-Control: immutable`. Mesmo slide: 5 kB. A
+  apresentação, as exportações e as fotos para a IA continuam embutindo (o HTML vale sozinho).
+- **Segurança (multiusuário)**: o render usava o `_dir` mandado pelo navegador para ler as imagens; dava para ler a
+  biblioteca de outra pessoa. Agora a pasta é a do deck aberto no servidor, e `/api/deck-asset` só entrega
+  imagem/vídeo dentro da biblioteca da pessoa, da pasta do deck e das pastas de modelos do sagadeck. Teste:
+  `studio-navigation.test.js` (foto por endereço que aparece, miniatura sem `data:`, 404 fora das pastas e para
+  arquivo que não é imagem, `_dir` do pedido ignorado; falha sem a correção).
+- Com as fotos descendo pelas mesmas conexões, apareceram duas corridas (a CI pegou): o fim da transformação dizia
+  "A transformação terminou" antes de recarregar o deck (agora diz depois, com as miniaturas novas na tela), e as
+  fotos das miniaturas fora da tela disputavam a conexão (agora `loading="lazy"` no `render-slides`). O teste do
+  "trocar imagem" (`editor-tools.test.js`) conferia que o `src` não tinha "a.png", e "nova.png" tem: passa a exigir o
+  caminho da nova.
+- Os testes da biblioteca (`library-ui.test.js`) estouram o tempo nesta máquina também na main (11 falhas, mesmo
+  código): carga da máquina, não regressão; na CI passam. A capa da vitrine (`gallery-cover`) leva ~15 s na primeira
+  vez (foto pelo Chrome) e segura o "rede parada" dos testes.
+- Sobra, se ainda pesar: ~70 pedidos ao abrir o editor (cada um uma ida e volta, mesmo com 304); juntar os scripts
+  num só reduziria a espera em conexão lenta.
+
 ## Imagens da IA fora do repositório — 24/10/2026 (branch `claude/imagens-fora-do-repo`)
 
 Dois testes ao vivo pedem imagem sem pasta de deck, e `materializeImages` grava em `process.cwd()`: rodando a bateria

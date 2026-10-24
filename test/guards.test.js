@@ -92,3 +92,18 @@ test("imagens geradas pela IA nunca entram no repositório", () => {
   assert.match(fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8"), /^\/imagens\/$/m);
   assert.match(fs.readFileSync(path.join(ROOT, "test", "ai-live.test.js"), "utf8"), /process\.chdir\(fs\.mkdtempSync\(/, "a bateria ao vivo roda numa pasta temporária");
 });
+
+// O teste das identidades clicava em Configurar e abria uma janela de verdade do Explorador na pasta temporária; a
+// pasta era apagada e a janela ficava na Temp. Em dois dias, 19 janelas, ~6 GB e muita CPU: a máquina toda lenta.
+// Todo explorer.exe do Studio passa por src/studio/reveal.js, que nunca abre nos testes.
+test("o Explorador do Windows só abre por reveal.js, e nunca nos testes", async () => {
+  const { reveal } = await import("../src/studio/reveal.js");
+  assert.equal(process.env.SAGADECK_TEST_ISOLATED, "1");
+  assert.equal(reveal("C:\qualquer", { platform: "win32" }), false, "nos testes, não abre janela");
+  assert.equal(reveal("/tmp", { platform: "linux", env: {} }), false, "fora do Windows, não há Explorador");
+  const files = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== "vendor") walk(p); } else if (/\.(js|mjs)$/.test(e.name)) files.push(p); } };
+  walk(path.join(ROOT, "src"));
+  const outros = files.filter((f) => !f.endsWith(path.join("studio", "reveal.js")) && /explorer\.exe/i.test(fs.readFileSync(f, "utf8")));
+  assert.deepEqual(outros.map((f) => path.relative(ROOT, f)), [], "abra pelo reveal (src/studio/reveal.js)");
+});

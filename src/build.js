@@ -351,7 +351,8 @@ export function renderSlide(raw, i = 0, spec = {}) {
   const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
   const s = { ...(spec.defaults || {}), ...raw };
   const theme = slideTheme(s, deckTheme, spec);
-  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [], mapTiles: inferLayout(s) === "map" ? tilesForDeck(loadMapConfig(mapaFile())) : null };
+  // _assetURL (só o editor do Studio, render-routes.js): imagens e vídeos por endereço, não embutidos no HTML
+  const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [], assetURL: typeof spec._assetURL === "function" ? spec._assetURL : null, mapTiles: inferLayout(s) === "map" ? tilesForDeck(loadMapConfig(mapaFile())) : null };
   const layout = inferLayout(s);
   const fn = LAYOUTS[layout];
   if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe.`);
