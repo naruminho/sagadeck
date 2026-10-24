@@ -30,6 +30,10 @@ revisão automática deixou avisos; cada um foi conferido no YAML e na foto do s
   e contraste; se voltar a aparecer, olhar a resolução das fotos que vão para ela.
 - Conteúdo, para a IA corrigir (Corrigir tudo com IA): coeficiente 0,68 sem a origem (0,85 × 0,8) e diagrama pequeno
   na aula; quarto risco só nas notas do pitch.
+- **Testes com o modelo de verdade (1.11.6 é múltipla de 3)**: 25 de 27 de primeira em 25 min, nenhum quebrado.
+  Instáveis (passaram na repetição): "refinamento: conversa e depois 'pode fazer'" (o modelo trocou o slide por outro
+  texto em vez de aplicar o combinado; já tinha aparecido antes) e "gerar deck: sai variado" (estourou os 10 min do
+  teste esperando o provedor; não é a regra da variedade, que só mudou para `consulta`).
 
 ## 1.11.5: parada do servidor, biblioteca no OneDrive — 23/10/2026 (branch `claude/parada-e-fotos`)
 
