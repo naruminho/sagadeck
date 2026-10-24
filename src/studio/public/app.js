@@ -418,12 +418,7 @@
       mainRenders++;
       let data;
       try {
-        const res = await fetch("api/render-slide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slide, index: idx, spec: state.deck }),
-        });
-        data = await res.json();
+        data = await window.SagaRender.slide({ slide, index: idx, spec: state.deck }); // sem rebaixar o CSS (render-client.js)
       } finally { mainRenders--; setTimeout(pumpThumbs); }
       if (seq !== renderSeq) return; // já pediram um render mais novo
 
@@ -1174,7 +1169,8 @@
     dom.storyArcDot.setAttribute("cy", currentPt.y);
 
     // variedade medida no servidor (src/ai/variety.js — a mesma régua da geração com IA)
-    fetch("api/variety", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: state.deck }) })
+    // só o que a régua usa (layout, tom, propósito): subia o deck inteiro a cada troca de slide
+    fetch("api/variety", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spec: { purpose: state.deck.purpose, slides: (state.deck.slides || []).map((s) => ({ layout: s.layout, tone: s.tone })) } }) })
       .then((r) => r.json()).then((v) => {
         const ok = v.ok;
         dom.arcStatusBadge.className = `arc-badge ${ok ? "ok" : "warn"}`;
@@ -1991,20 +1987,16 @@
   }
 
   function pumpThumbs() {
-    while (!mainRenders && thumbActive < 3 && thumbQueue.length) {
-      const idx = thumbQueue.shift();
-      const slide = state.deck.slides[idx];
-      if (!slide) continue;
+    // em lotes de até 6, com o deck subindo uma vez por lote (render-client.js); o CSS que a página já tem não volta
+    while (!mainRenders && thumbActive < 2 && thumbQueue.length) {
+      const deck = state.deck, batch = [];
+      while (thumbQueue.length && batch.length < 6) { const idx = thumbQueue.shift(); if (deck.slides[idx]) batch.push(idx); }
+      if (!batch.length) continue;
       thumbActive++;
-      fetch("api/render-slide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slide, index: idx, spec: state.deck }),
-      })
-        .then((r) => r.json())
+      window.SagaRender.slides({ indices: batch, spec: deck })
         .then((data) => {
           ensureSlideStyles(data.baseCSS, data.themeCSS);
-          putThumb(idx, slide, data.html);
+          for (const r of data.slides) if (r.html != null && deck.slides[r.index]) putThumb(r.index, deck.slides[r.index], r.html);
         })
         .catch(() => {})
         .finally(() => { thumbActive--; pumpThumbs(); });

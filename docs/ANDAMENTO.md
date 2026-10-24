@@ -8,6 +8,33 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## 1.11.7: navegação leve pela rede — 24/10/2026 (branch `claude/navegacao-leve`)
+
+Pedido: "ficou super lento pra navegar nos slides". No Studio local (127.0.0.1) a troca de slide leva 20–80 ms e a
+apresentação não perde quadro; o peso estava na rede, e pelo portal ninguém comprimia nada (nginx com `gzip on` mas sem
+`gzip_types` nem `gzip_proxied`). Medido no servidor e no deck de teste:
+- Cada troca de slide: `/api/render-slide` subia o deck inteiro e descia ~171 kB, dos quais 158 kB o CSS base (igual
+  em todo clique); `/api/variety` subia o deck inteiro de novo. Cada miniatura, um pedido com o deck inteiro.
+- Abrir o editor: ~5,4 MB; abrir de novo: ~1,3 MB (`katex.css` com as fontes embutidas, 924 kB, sem cabeçalho de
+  cache).
+
+Feito:
+- `src/studio/render-routes.js` (sai do `server.js`): `render-slide` devolve `baseHash`/`themeHash` e só manda o CSS
+  quando o hash informado é outro; `render-slides` desenha até 24 slides num pedido. No editor,
+  `public/render-client.js` guarda o CSS e devolve a resposta preenchida (o resto do `app.js` não muda);
+  `pumpThumbs` pede em lotes de 6. A variedade sobe só `purpose` e `layout`/`tone` de cada slide.
+- `src/studio/compress.js`: gzip para texto a partir de 1 kB quando o navegador aceita (nunca `x-ndjson` nem
+  `event-stream`, que chegam aos poucos); ETag nos arquivos da página fora de `/api/`, com 304 sem corpo e
+  `Cache-Control: no-cache` quando não há prazo próprio (versão nova chega na hora). Repassa o `drain` do gzip (sem
+  isso, arquivo servido por `pipe` travava: o teste pegou).
+- Resultado (deck de teste, bytes na rede): trocar 10 vezes, 1.708 kB → 24 kB; abrir, 5,4 MB → 2,1 MB; abrir de novo,
+  1,3 MB → 55 kB; apresentação, 257 kB → 64 kB (304 sem mudança).
+- Testes: `test/compress.test.js` (gzip, pequeno/sem aceite/HEAD/imagem, `pipe`, erro com diagnóstico, streams não
+  seguradas, ETag/304) e `test/studio-navigation.test.js` (no editor: CSS base uma vez, troca leve, miniaturas em lote,
+  variedade pequena, `app.js` em gzip, zero erros JS; falha com o editor antigo).
+- Sobra, se ainda pesar: ~70 pedidos ao abrir o editor (cada um uma ida e volta, mesmo com 304); juntar os scripts
+  num só reduziria a espera em conexão lenta.
+
 ## Imagens da IA fora do repositório — 24/10/2026 (branch `claude/imagens-fora-do-repo`)
 
 Dois testes ao vivo pedem imagem sem pasta de deck, e `materializeImages` grava em `process.cwd()`: rodando a bateria

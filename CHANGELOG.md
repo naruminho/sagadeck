@@ -4,6 +4,18 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.7] — 24/10/2026
+
+### Desempenho
+- **Navegar nos slides pelo servidor ficou leve**: cada troca de slide baixava ~170 kB (o CSS inteiro, igual em todo
+  clique) e subia o deck inteiro duas vezes. Agora o CSS desce uma vez; trocar de slide 10 vezes passou de ~1,7 MB
+  para ~24 kB.
+- **Respostas comprimidas e guardadas no navegador**: o Studio comprime o que manda (gzip) e os arquivos da página
+  respondem "não mudou" na visita seguinte. Abrir o editor de novo passou de ~1,3 MB para ~55 kB; a apresentação, de
+  257 kB para 64 kB (e zero, se o deck não mudou). Versão nova do sagadeck continua chegando na hora.
+- **Miniaturas em lote**: um pedido para várias miniaturas, com o deck subindo uma vez, em vez de um pedido (e o deck
+  inteiro) por miniatura.
+
 ## [1.11.6] — 23/10/2026
 
 Correções que saíram de uma rodada de uso real: quatro apresentações geradas pela IA no servidor (uma aula técnica,
