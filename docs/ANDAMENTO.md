@@ -43,7 +43,7 @@ O que cada ponto virou:
 
 Publicado na **1.11.8** junto com a votação pela rede e o "sem spoiler".
 
-**Depois da 1.11.8 (na main e no servidor; sai no npm na 1.11.9, que pede os testes com o modelo de verdade):** as
+**Depois da 1.11.8 (publicado na 1.11.9, com os testes com o modelo de verdade rodados antes):** as
 equações sem gráfico, maiores desde a 1.11.8, passavam do rodapé com chapéu e título de duas linhas (o teste só media
 com título curto). Tamanhos refeitos (50/40/32 px para 3/4/5 equações, com menos espaço entre elas) e teste com o
 título comprido. Visto na cópia revisada da aula, no servidor, minutos depois de implantar.
