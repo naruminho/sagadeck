@@ -467,7 +467,10 @@ export function list(e) {
 export function cards(e, ctx) {
   const cols = e.cols || e.cards.length;
   const body = e.cards.map((c, i) => {
-    const step = e.build ? (e.buildFrom ?? 1) + i : c.step;
+    // build: flip — cada cartão entra num clique e vira no seguinte (a seta faz tudo; o mouse continua virando)
+    const flipBuild = e.build === "flip";
+    const step = flipBuild ? (e.buildFrom ?? 1) + i * 2 : e.build ? (e.buildFrom ?? 1) + i : c.step;
+    const flipStep = flipBuild && c.flip != null && c.flip !== "" ? step + 1 : c.flipStep;
     let top = "";
     if (c.icon) top = `<div class="cd-ico">${iconSVG(c.icon, { size: 64, stroke: 1.8 })}</div>`;
     else if (c.picto) top = `<div class="cd-pic">${picto(c)}</div>`;
@@ -487,7 +490,7 @@ export function cards(e, ctx) {
     if (c.check === true || c.status === "pro") extraWidgets += `<div class="check-pill pro">${iconSVG("check", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Recomendado"}</div>`;
     if (c.check === false || c.status === "con") extraWidgets += `<div class="check-pill con">${iconSVG("x", { size: 26, stroke: 2.4 })} ${c.checkText ? md(c.checkText) : "Evitar"}</div>`;
 
-    if (c.flip != null && c.flip !== "") return flipCard(c, step, top, badgeHtml, extraWidgets);
+    if (c.flip != null && c.flip !== "") return flipCard(c, step, top, badgeHtml, extraWidgets, flipStep);
     return `<div${attrs({ ...c, step, card: c.hl ? "hi" : true }, "cd")}>
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
         ${top}
@@ -505,10 +508,10 @@ export function cards(e, ctx) {
 
 // Cartão que vira (flip: no cartão): clicar gira e mostra o verso (flipTitle + flip; "back" já é o Voltar da navegação). Frente e verso ficam no
 // mesmo lugar da grade; o mais alto dita a altura. Na exportação e no PPTX vale a frente.
-function flipCard(c, step, top, badgeHtml, extraWidgets) {
+function flipCard(c, step, top, badgeHtml, extraWidgets, flipStep) {
   const face = `card${c.hl ? " card-hi" : ""} flip-face`;
   const back = typeof c.flip === "object" ? c.flip : { text: c.flip };
-  return `<div${attrs({ ...c, step, card: false }, "cd flip")} data-flip tabindex="0" role="button" aria-pressed="false" aria-label="${esc(plain(String(c.title || "Cartão")))}: virar">
+  return `<div${attrs({ ...c, step, card: false }, "cd flip")} data-flip${Number(flipStep) > 0 ? ` data-flip-step="${Number(flipStep)}"` : ""} tabindex="0" role="button" aria-pressed="false" aria-label="${esc(plain(String(c.title || "Cartão")))}: virar">
     <div class="flip-in">
       <div class="${face} flip-front">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">${top}${badgeHtml}</div>

@@ -28,6 +28,7 @@
     let m = +s.dataset.steps || 0;
     $$("[data-step]", s).forEach((e) => { m = Math.max(m, +e.dataset.step); });
     $$("[data-exit]", s).forEach((e) => { m = Math.max(m, +e.dataset.exit); });
+    $$("[data-flip-step]", s).forEach((e) => { m = Math.max(m, +e.dataset.flipStep); });
     $$("[data-lesson]", s).forEach((e) => { m = Math.max(m, (+e.dataset.lessonCount || 1) - 1); });
     return m;
   }
@@ -46,6 +47,10 @@
     // fazia cada clique inverter os itens ainda escondidos (tudo, 1º, tudo, último…).
     $$("[data-step]", s).forEach((e) => e.classList.toggle("in", !!(k >= +e.dataset.step || opts.all)));
     $$("[data-exit]", s).forEach((e) => e.classList.toggle("out", !opts.all && k >= +e.dataset.exit));
+    // pergunta que dá lugar à resposta (titleAfter, guess): em "mostrar tudo" fica só a resposta, senão as duas se sobrepõem
+    if (opts.all) $$(".swap-q", s).forEach((e) => e.classList.add("out"));
+    // cartão que vira no clique (build: flip / flipStep): "mostrar tudo" deixa a frente, como na exportação
+    $$("[data-flip-step]", s).forEach((e) => { const on = !opts.all && k >= +e.dataset.flipStep; e.classList.toggle("flipped", on); e.setAttribute("aria-pressed", String(on)); });
     $$(".pl, mark, .chart", s).forEach((e) => {
       if (!hiddenByStep(e, s)) play(e, opts.instant);
     });
@@ -254,6 +259,7 @@
   function applyStatic(node, k) {
     $$("[data-step]", node).forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
     $$("[data-exit]", node).forEach((e) => e.classList.toggle("out", k >= +e.dataset.exit));
+    $$("[data-flip-step]", node).forEach((e) => e.classList.toggle("flipped", k >= +e.dataset.flipStep));
     $$(".pl, mark, .chart", node).forEach((e) => e.classList.add("play"));
     $$(".e", node).forEach((e) => (e.style.animation = "none"));
     $$(".counter", node).forEach((c) => { $(".cv", c).textContent = c.dataset.prefix + fmtNum(+c.dataset.to, +c.dataset.dec) + c.dataset.suffix; });

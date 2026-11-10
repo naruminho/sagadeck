@@ -1116,3 +1116,26 @@ test("fiscal de monotonia: avisa de muitos slides seguidos com a mesma cara ou o
   // material de estudo: a uniformidade é esperada
   assert.deepEqual(warn(same, { purpose: "consulta" }), []);
 });
+
+test("sem spoiler: palpite antes do número, título que troca e cartão que vira no clique", () => {
+  // número: a pergunta e um "?" saem no clique em que o valor e a legenda entram; o contexto vem no seguinte
+  const num = html({ layout: "number", value: 55, suffix: "%", label: "de diferença", guess: "Quanto você acha que deu?", context: "A diretoria apostava em 10%." });
+  assert.match(num, /<div class="nb-q swap-q" data-exit="1">[\s\S]*?>\?<\/div>[\s\S]*?Quanto você acha que deu\?/);
+  assert.match(num, /<div class="nb-a" data-step="1">[\s\S]*?de diferença/);
+  assert.match(num, /nb-ctx[^>]*data-step="2"/);
+  // sem guess nem valueStep, nada muda
+  assert.doesNotMatch(html({ layout: "number", value: 55, label: "x" }), /nb-swap|data-step|data-exit/);
+  // título: a pergunta sai e a conclusão entra no mesmo clique, no mesmo lugar
+  const t = html({ layout: "list", title: "Quem acerta mais?", titleAfter: "A IA sozinha acertou mais.", titleAfterStep: 2, items: ["a"] });
+  assert.match(t, /<div class="ttl-swap"><div class="[^"]*swap-q[^"]*"[^>]*data-exit="2"[^>]*>Quem acerta mais\?<\/div><div class="[^"]*ttl-after[^"]*"[^>]*data-step="2"[^>]*>A IA sozinha acertou mais\.<\/div><\/div>/);
+  assert.doesNotMatch(html({ layout: "list", title: "Só um título", items: ["a"] }), /ttl-swap/);
+  // cartões com build: flip — entra no clique 1, 3, 5… e vira no 2, 4, 6…
+  const c = html({ layout: "cards", title: "x", build: "flip", items: [{ title: "Spam", flip: "OUT" }, { title: "Retina", flip: "IN" }, { title: "Sem verso" }] });
+  const cards = [...c.matchAll(/<div class="cd(?:"| [^"]*")[^>]*>/g)].map((m) => m[0]);
+  assert.match(cards[0], /data-step="1"[^>]*data-flip data-flip-step="2"/);
+  assert.match(cards[1], /data-step="3"[^>]*data-flip data-flip-step="4"/);
+  assert.match(cards[2], /data-step="5"/);
+  assert.doesNotMatch(cards[2], /data-flip/);
+  // build: true continua um cartão por clique, sem virar sozinho
+  assert.doesNotMatch(html({ layout: "cards", title: "x", build: true, items: [{ title: "a", flip: "b" }] }), /data-flip-step/);
+});

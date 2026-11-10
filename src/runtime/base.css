@@ -417,6 +417,14 @@ html[data-motion="none"] .flip-in,.export .flip-in{transition:none}
 .L-number{flex:1;display:flex;gap:90px;align-items:center;min-height:0}
 .nb-main{flex:1.2;display:flex;flex-direction:column;gap:26px;min-width:0}
 .nb-val{margin:10px 0 6px -10px}
+/* palpite antes do número (guess) e título que troca (titleAfter): pergunta e resposta na mesma célula, nada pula */
+.nb-swap,.ttl-swap{display:grid}
+.nb-swap>*,.ttl-swap>*{grid-area:1/1;min-width:0}
+.nb-q,.nb-a{display:flex;flex-direction:column;gap:26px}
+.nb-mark{line-height:.9;color:var(--muted)}
+.ttl-swap>[data-exit].out,.nb-swap>[data-exit].out{transform:none!important}
+.ttl-swap>[data-step]:not(.in),.nb-swap>[data-step]:not(.in){transform:none}
+.export .nb-q,.export .ttl-swap>[data-exit]{display:none}
 .nb-side{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;align-self:stretch}
 .nb-side>*{max-width:100%}
 .nb-side>.fig{width:100%;height:100%}

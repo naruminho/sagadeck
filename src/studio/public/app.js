@@ -2993,10 +2993,14 @@
   function applyEditorStep(idx) {
     const root = dom.renderedSlideContainer;
     const nodes = [...root.querySelectorAll("[data-step]")];
-    const total = nodes.reduce((m, e) => Math.max(m, +e.dataset.step || 0), 0);
+    // também contam: o que sai num clique (data-exit) e o cartão que vira num clique (data-flip-step)
+    const total = [...nodes.map((e) => +e.dataset.step || 0), ...[...root.querySelectorAll("[data-exit]")].map((e) => +e.dataset.exit || 0), ...[...root.querySelectorAll("[data-flip-step]")].map((e) => +e.dataset.flipStep || 0)].reduce((m, v) => Math.max(m, v), 0);
     const k = state.editorStep === "all" || state.editorStep == null ? Infinity : Math.min(+state.editorStep, total);
     nodes.forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
     root.querySelectorAll("[data-exit]").forEach((e) => e.classList.toggle("out", k !== Infinity && k >= +e.dataset.exit));
+    // pergunta que dá lugar à resposta (titleAfter, guess): em "Tudo" fica só a resposta, senão as duas se sobrepõem
+    if (k === Infinity) root.querySelectorAll(".swap-q").forEach((e) => e.classList.add("out"));
+    root.querySelectorAll("[data-flip-step]").forEach((e) => e.classList.toggle("flipped", k !== Infinity && k >= +e.dataset.flipStep));
     root.querySelectorAll(".pl, mark, .chart").forEach((e) => e.classList.add("play"));
     renderStepControl(total);
   }

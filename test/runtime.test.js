@@ -392,3 +392,73 @@ test("transições saida e morph: saída e entrada comparáveis, sem erros", asy
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
   } finally { await browser.close(); deck.cleanup(); }
 });
+
+// Revelar sem spoiler: a pergunta fica na tela e a resposta entra no clique (seta), sem depender do mouse.
+test("runtime: sem spoiler (palpite, título que troca, cartão que vira, gráfico por etapas)", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck();
+  try {
+    const file = path.join(deck.dir, "sem-spoiler.html");
+    const spec = { title: "Sem spoiler", theme: "sinal", slides: [
+      { layout: "number", value: 55, suffix: "%", label: "de diferença", guess: "Quanto você acha que deu?", context: "A diretoria apostava em 10%." },
+      { layout: "list", title: "Quem acerta mais?", titleAfter: "A IA sozinha acertou mais.", items: ["médicos", "IA"] },
+      { layout: "cards", title: "Onde fica o humano?", build: "flip", items: [{ title: "Spam", flip: "OUT" }, { title: "Alerta nuclear", flip: "IN" }] },
+      { layout: "chart", title: "O que você vê?", source: "Estudo X", sourceStep: 1, chart: { chart: "line", labels: ["9h", "", "12h"], series: [{ values: [60, 30, 5] }], yLabel: "aprovados", axisLabelStep: 1, bands: [{ at: 1, text: "LANCHE", step: 2 }] } },
+    ] };
+    fs.writeFileSync(file, buildHTML(spec).html);
+    const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck && window.sagadeck.n === 4);
+    const seen = (sel) => page.evaluate((sel) => { const e = document.querySelector(`.slide.current ${sel}`); return !!e && getComputedStyle(e).opacity !== "0" && !e.classList.contains("out"); }, sel);
+    const key = async () => { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(80); };
+
+    await t.test("número: primeiro a pergunta, depois o valor, depois o contexto", async () => {
+      assert.equal(await page.evaluate(() => window.sagadeck.steps(0)), 2);
+      assert.equal(await seen(".nb-q"), true);
+      assert.equal(await page.locator(".slide.current .nb-a.in").count(), 0);
+      await key();
+      assert.equal(await page.locator(".slide.current .nb-q.out").count(), 1);
+      assert.equal(await page.locator(".slide.current .nb-a.in").count(), 1);
+      assert.equal(await page.locator(".slide.current .nb-ctx.in").count(), 0);
+      await key();
+      assert.equal(await page.locator(".slide.current .nb-ctx.in").count(), 1);
+    });
+    await t.test("título: a pergunta dá lugar à conclusão no clique", async () => {
+      await key();
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 1);
+      assert.equal(await page.locator(".slide.current .ttl-after.in").count(), 0);
+      await key();
+      assert.equal(await page.locator(".slide.current .swap-q.out").count(), 1);
+      assert.equal(await page.locator(".slide.current .ttl-after.in").count(), 1);
+    });
+    await t.test("cartões: a seta mostra o cartão e, no clique seguinte, vira; o seguinte só então aparece", async () => {
+      await key();
+      assert.equal(await page.evaluate(() => [window.sagadeck.cur, window.sagadeck.steps(2)].join()), "2,4");
+      const state = () => page.evaluate(() => [...document.querySelectorAll(".slide.current .cd.flip")].map((c) => (c.classList.contains("in") ? "v" : "-") + (c.classList.contains("flipped") ? "F" : "f")).join(" "));
+      assert.equal(await state(), "-f -f");
+      await key(); assert.equal(await state(), "vf -f");
+      await key(); assert.equal(await state(), "vF -f");
+      await key(); assert.equal(await state(), "vF vf");
+      await key(); assert.equal(await state(), "vF vF");
+      await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(80);
+      assert.equal(await state(), "vF vf", "voltar um clique desvira");
+    });
+    await t.test("gráfico: escala visível desde o início; nome do eixo, fonte e faixa entram nos cliques", async () => {
+      await key(); await key();
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 3);
+      const inside = (txt) => page.evaluate((txt) => { const e = [...document.querySelectorAll(".slide.current svg text")].find((x) => x.textContent.includes(txt)); if (!e) return "ausente"; for (let p = e; p && p.tagName !== "svg"; p = p.parentNode) if (p.dataset && p.dataset.step && !p.classList.contains("in")) return "escondido"; return "visível"; }, txt);
+      assert.equal(await inside("9h"), "visível");
+      assert.equal(await inside("aprovados"), "escondido");
+      assert.equal(await inside("LANCHE"), "escondido");
+      assert.equal(await page.locator(".slide.current .src.in").count(), 0);
+      await key();
+      assert.equal(await inside("aprovados"), "visível");
+      assert.equal(await page.locator(".slide.current .src.in").count(), 1);
+      assert.equal(await inside("LANCHE"), "escondido");
+      await key();
+      assert.equal(await inside("LANCHE"), "visível");
+    });
+    await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
+  } finally { await browser.close(); deck.cleanup(); }
+});
