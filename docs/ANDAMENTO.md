@@ -43,6 +43,11 @@ O que cada ponto virou:
 
 Publicado na **1.11.8** junto com a votação pela rede e o "sem spoiler".
 
+**Depois da 1.11.8 (na main e no servidor; sai no npm na 1.11.9, que pede os testes com o modelo de verdade):** as
+equações sem gráfico, maiores desde a 1.11.8, passavam do rodapé com chapéu e título de duas linhas (o teste só media
+com título curto). Tamanhos refeitos (50/40/32 px para 3/4/5 equações, com menos espaço entre elas) e teste com o
+título comprido. Visto na cópia revisada da aula, no servidor, minutos depois de implantar.
+
 **Falta / ideias que ficaram**: o campo de tamanho do editor mostra o valor antes do encolhimento (92 num título que
 está com 67 na tela a 73%); a revisão ainda gasta rodadas em achados que só o motor resolve (não há como a IA
 saber que um defeito é do layout); o `solution` com um passo só deixa meia tela vazia; o fiscal de layout acusa

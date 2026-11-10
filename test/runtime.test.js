@@ -510,3 +510,33 @@ test("runtime: sem spoiler (palpite, título que troca, cartão que vira, gráfi
     await t.test("sem erros de JavaScript", () => assert.deepEqual(errors, []));
   } finally { await browser.close(); deck.cleanup(); }
 });
+
+// Retorno de uso (10/11), logo depois da 1.11.8: as equações maiores (sem gráfico) passavam do rodapé quando o slide
+// tinha chapéu e título de duas linhas. O teste anterior só media com título curto.
+test("equações sem gráfico cabem na área útil mesmo com chapéu e título de duas linhas", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck();
+  const file = path.join(deck.dir, "equacoes.html");
+  const eqs = (n) => Array.from({ length: n }, (_, k) => ({ label: `Objetivo ${k + 1}`, latex: `f_${k + 1}(X) = 650000 A + 450000 B + 800000 C` }));
+  fs.writeFileSync(file, buildHTML({ title: "Equações", theme: "oceano", slides: [3, 4, 5].map((n) => (
+    { layout: "science", tone: "dark", kicker: "O problema completo", title: "Minimizar custo, escoamento e poluentes ao mesmo tempo", plot: false, equations: eqs(n) })) }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1920, height: 1080 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    await page.evaluate(() => window.SagaScienceReady);
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate((k) => window.sagadeck.goto(k, 0, true), i);
+      await page.waitForTimeout(150);
+      const m = await page.evaluate((k) => {
+        const s = document.querySelector(`[data-idx="${k}"]`), safe = s.querySelector(".safe").getBoundingClientRect();
+        const last = [...s.querySelectorAll(".science-equation")].pop().getBoundingClientRect();
+        return { sobra: Math.round(safe.bottom - last.bottom), px: parseFloat(getComputedStyle(s.querySelector(".katex-display")).fontSize), zoom: s.dataset.shrink || "1" };
+      }, i);
+      assert.ok(m.sobra >= -4, `${i + 3} equações: a última passa ${-m.sobra} px da área útil (fonte ${m.px} px)`);
+      assert.ok(m.px >= 30, `${i + 3} equações: fonte de ${m.px} px ainda se lê`);
+    }
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); deck.cleanup(); }
+});
