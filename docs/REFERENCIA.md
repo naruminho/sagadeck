@@ -523,6 +523,8 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
 | QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
+| celular | `{ mock: phone, time: "8:07", date: "sábado, 13 de janeiro", notifications: [{ app: "Alerta de emergência", text: "…", step: 1 }] }` — a tela de bloqueio com a notificação que chegou; põe a plateia dentro da cena. Uma notificação só: `app` e `text` direto no elemento |
+| documento | `{ mock: document, kicker: "Currículo · triagem", title: "Candidata #2317", lines: [86, 64, { text: "Capitã do clube de xadrez **feminino**", mark: true, step: 1, note: "−" }, 72], score: "★★☆☆☆", scoreLabel: "nota do modelo" }` — uma ficha, laudo, currículo ou formulário: número em `lines` = linha de texto borrada (largura em %); `mark: true` destaca a linha, e com `step` o destaque só acende no clique (a linha fica na tela para a plateia procurar) |
 | pontos | `{ points: fone }` ou `{ points: { de: fone, para: mic, legenda: "Ouvindo", legendaPara: "Agindo" } }` — ícone desenhado com luzinhas que viajam de uma forma a outra no clique (só no HTML; PPTX/PDF usam a inicial). Formas: `fone`, `mic`, `doc`, `planilha`, `busca`, `chat` |
 | forma | `{ shape: rect|rounded|circle|pill|line|triangle|diamond|hexagon|star|arrow|chevron|bubble, fill: hi, stroke: fg, strokeWidth, w, h, content }` (circle vira elipse se w ≠ h; triangle…bubble são desenhos com preenchimento e contorno) |
 | selo | `{ badge: "NOVO" }` |

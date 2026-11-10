@@ -1146,3 +1146,16 @@ test("optional: o tempo planejado sai com e sem os slides opcionais", () => {
   assert.equal(r.plannedRequired, 3);
   assert.deepEqual(r.meta.slides.map((s) => !!s.optional), [false, true, false]);
 });
+
+test("peças prontas de tela (mock): celular com notificação e documento com linha que só acende no clique", () => {
+  const ph = html({ layout: "split", title: "Seu celular apita", figure: { mock: "phone", time: "8:07", date: "sábado", notifications: [{ app: "Alerta", text: "Procure **abrigo**" }, { app: "Depois", text: "Era engano", step: 2 }] } });
+  assert.match(ph, /fig fig-mock[\s\S]*mk-phone[\s\S]*mk-time">8:07<[\s\S]*mk-app">Alerta<[\s\S]*<strong>abrigo<\/strong>|<b>abrigo<\/b>/);
+  assert.match(ph, /<div class="mk-note" data-step="2">/);
+  const doc = html({ layout: "blocks", content: [{ mock: "document", kicker: "Currículo", title: "Candidata", lines: [86, { text: "Capitã do clube feminino", mark: true, step: 1, note: "−" }, "linha comum"], score: "2/5", scoreLabel: "nota" }] });
+  assert.match(doc, /mk-doc[\s\S]*mk-bar" style="width:86%"/);
+  // a linha marcada fica na tela; só o destaque e o sinal esperam o clique
+  assert.match(doc, /<div class="mk-line mk-marked"><i class="mk-hl" data-step="1"><\/i><span class="mk-ltext">Capitã do clube feminino<\/span><span class="mk-pen" data-step="1">−<\/span><\/div>/);
+  assert.match(doc, /<div class="mk-line"><span class="mk-ltext">linha comum<\/span><\/div>/);
+  assert.match(doc, /mk-sval">2\/5<[\s\S]*mk-slabel">nota</);
+  assert.throws(() => html({ layout: "blocks", content: [{ mock: "tv" }] }), /mock "tv" não existe/);
+});

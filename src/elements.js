@@ -1,3 +1,4 @@
+import { mockHTML } from "./figures/mocks.js";
 import {motionHTML} from './motion.js';
 import { videoPlayer } from './video-player.js';
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
@@ -95,6 +96,8 @@ export function figureHTML(el, ctx, w, h) {
     try { return `<div${attrs(el, "fig")}>${pointsSVG(el.points)}</div>`; }
     catch (e) { ctx.warnings?.push(String(e.message)); return `<div${attrs(el, "fig fig-pending fig-missing")} role="img" aria-label="${esc(String(e.message))}"><div class="fp-in"><span class="fp-tag f-label">figura de pontos indisponível</span><span class="fp-text f-body">${esc(String(e.message))}</span></div></div>`; }
   }
+  // peça pronta de tela: celular com notificações, documento/ficha (src/figures/mocks.js)
+  if (el.mock) return `<div${attrs(el, "fig fig-mock f-body")}>${mockHTML(el)}</div>`;
   if (el.qr) {    const size = el.size || 360;
     const svg = qrSVG(el.qr, { ec: el.ec, ink: el.ink || "#111", paper: el.paper || "#fff" });
     return `<div${attrs(el, "fig fig-qr")}><div class="qr-box" style="width:${size}px;">${svg}</div>${el.label ? `<div class="qr-label f-label">${md(el.label)}</div>` : ""}</div>`;
@@ -224,7 +227,7 @@ export function fileSrc(f, mime, ctx = {}) {
   return `data:${mime};base64,${fs.readFileSync(f).toString("base64")}`;
 }
 
-const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr || el.points);
+const isFigure = (el) => el && (el.icon || el.picto || el.diagram || el.chart || el.ufmap || el.svg || el.image || el.qr || el.points || el.mock);
 
 // Caixa de aviso/dica: { aviso: { tipo: importante|atencao|dica|perigo, titulo, texto } }.
 // Atalho: { aviso: "texto" } vira dica sem título. O tipo aceita "atenção" com ou sem acento.
