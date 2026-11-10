@@ -38,10 +38,12 @@
     f.text("sectionPalette", "Paleta deste slide em diante", { datalist: PALETTES, hint: "Vale até o próximo slide que também tiver uma. Use no slide de seção: uma cor por parte" }),
   ];
 
-  // número grande: o palpite antes do valor
+  // número grande: o palpite antes do valor e em que clique entra cada parte
   const numberFields = (f) => [
     f.text("guess", "Pergunta antes do número (palpite)", { hint: "Aparece com um ? no lugar do número; o valor entra no clique" }),
     f.num("valueStep", "Número no clique"),
+    f.num("contextStep", "Contexto no clique"),
+    f.num("sideStep", "Lado no clique"),
   ];
   // cartões: de uma vez, um por clique, ou um por clique virando no seguinte
   const cardsBuild = (f) => f.select("build", "Revelar", [["true", "Um por clique"], ["flip", "Um por clique, e vira no seguinte"]], { empty: "Todos de uma vez", parse: (v) => (v === "true" ? true : v) });

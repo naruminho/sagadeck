@@ -509,7 +509,7 @@ export const LAYOUTS = {
     if(s.manual)return manualPollHTML(s,head)+add(s,ctx);
     return `<div class="L-poll">${kicker(s)}${text(s.question || s.title, "h2", { class: "ttl e", style: "--d:1;", size: s.titleSize })}
       ${s.context ? text(s.context, "lead", { class: "muted" }) : ""}
-      ${poll({ poll: s.id || s.poll, options: s.options, compare: s.compare, hint: s.hint, class: "e", style: "--d:2;" }, ctx)}</div>${add(s, ctx)}`;
+      ${poll({ poll: s.id || s.poll, options: s.options, compare: s.compare, hint: s.hint, live: s.live, class: "e", style: "--d:2;" }, ctx)}</div>${add(s, ctx)}`;
   },
 
   image(s, ctx) {

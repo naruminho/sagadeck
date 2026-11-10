@@ -105,7 +105,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |
 | `matrix` | `title, x: [esq, dir], y: [cima, baixo], cells: [4 × {title, text, example, hl}], build` | matriz 2×2 |
 | `question` | `question, options: [texto ou {key, text, sub}], keys, cols, timer, hint, optionSize` | pergunta para a plateia (com timer) |
-| `poll` | `question, id, options, compare: outroId, hint` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete |
+| `poll` | `question, id, options, compare: outroId, hint, live` | enquete: o apresentador digita os resultados e o slide anima as barras; `compare` mostra a diferença para outra enquete; `live: true` abre a votação pelo celular (QR code no slide, barras ao vivo): ver [Votação da plateia pela rede](#votação-da-plateia-pela-rede-poll-com-live-true) |
 | `video` | `title, url, label, figure, caption` | cartão que abre um vídeo |
 | `code` | `title, filename, language, code, highlight: [linhas], size, note` | código com linhas destacadas; cabem ~16 linhas por slide a 10 pt (~12 no tamanho normal): mais que isso, divida em slides de continuação |
 | `codewalk` | `title, filename, language, code, highlight: [linhas], size, steps: [{title, text, highlight: [linhas], output}]` | código guiado: usa o mesmo editor, tema e realce de sintaxe; cada etapa pode trocar as linhas destacadas e explicar uma saída simulada |
@@ -438,6 +438,41 @@ PowerPoint (clique pula para o slide).
   items: [{ title: Teclado, text: sem o mouse }, { title: Modelos, text: reaproveite }, { title: Automação, text: sem cliques }]
 ```
 
+## Votação da plateia pela rede (`poll` com `live: true`)
+
+```yaml
+- layout: poll
+  id: antes                 # obrigatório e único: é o nome da enquete no endereço de voto
+  live: true                # a plateia vota pelo celular
+  question: A média resume bem os salários de uma empresa?
+  options: [Sim, Não, Depende]        # até 8
+- layout: poll
+  id: depois
+  live: true
+  compare: antes            # mostra a diferença para a primeira votação
+  question: E agora, depois do exemplo?
+  options: [Sim, Não, Depende]
+```
+
+Com `live: true` o slide mostra um QR code; cada pessoa aponta o celular, escolhe uma opção numa página simples (sem
+login, sem instalar nada) e as barras sobem ao vivo. Um voto por aparelho, e dá para trocar. O `compare` funciona igual
+com votos da rede. Quem apresenta ainda pode clicar no número e digitar; Zerar votos, ao lado do QR code, limpa a enquete.
+Os votos somem sozinhos 12 horas depois do último (cada aula começa limpa). O voto é anônimo: não há nome, e-mail nem
+cookie.
+
+**Onde funciona**: com a apresentação aberta pelo Studio de um servidor que a plateia alcança pela internet (o Apresentar
+do Studio no servidor ou o link de compartilhamento). No Studio do próprio computador (127.0.0.1), no HTML exportado, no
+PDF e no PowerPoint não há QR code: o slide avisa numa linha discreta e fica como a enquete de sempre, com os votos
+digitados. Nada quebra sem rede.
+
+**Quando propor** `live: true`: só quando o pedido quer a plateia votando (enquete, votação, "o que vocês acham?", medir
+a opinião antes e depois) e ela tem celular com internet, como numa aula ou palestra ao vivo, presencial ou online.
+**Não proponha** quando o pedido disser que a plateia não tem como votar (sem celular, sem internet, plataforma sem
+interação, apresentação gravada, material para ler depois), quando o deck vai ser entregue só como PDF, PowerPoint ou HTML,
+nem em apresentação acadêmica formal que não pediu interação. Nesses casos use `poll` sem `live` (quem apresenta digita
+o resultado de uma votação por mão levantada) ou transforme a pergunta em `question` sem voto. `live` não combina com
+`manual: true` (a enquete de decisão de reunião segue digitada).
+
 ## One-page (`onepage`)
 
 Tudo numa página só: **jornada** (etapas com ícone e mini-frase, lado a lado), **o problema** (texto, números
@@ -518,7 +553,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | linha / coluna | `{ row: [ … ], gap: 40, valign: center }` · `{ col: [ … ], gap: 20 }` |
 | contador | `{ counter: 79, suffix: "%", from: 0, decimals: 0, size: 240 }` |
 | timer | `{ timer: 30, size: 200, label: "segundos", auto: true }` (clique pausa; tecla R zera) |
-| enquete | `{ poll: id, options: [...], compare: outroId }` |
+| enquete | `{ poll: id, options: [...], compare: outroId, live: true }` (`live`: votação pelo celular, como no layout `poll`) |
 | lista | `{ list: [...], numbered: true, build: true }` |
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
@@ -1152,7 +1187,7 @@ No `portal`, `skin: aurora | neon | editorial | industrial` muda o ambiente. `au
 Tema `prisma`: fundo claro contemporâneo, tipografia Plus Jakarta Sans offline, azul, verde, violeta, laranja e magenta. Os tons `light`, `accent` e `alert` mantêm superfícies claras; use `dark` somente se pedido. Fluxos têm trilhas coloridas, números e ícones recebem cores por item. Recomendado para apresentações de inovação sem estética retrô. Varie a composição conforme a função narrativa: capa com ilustração, pôster para uma jornada, seção para uma ideia central e portal claro para explorar exemplos; não transforme todos os slides em cards.
 # Reunião de decisão e versão para participantes
 
-Uma enquete com `layout: poll`, `manual: true`, `id` único, `question` e `options` (textos) permite ao apresentador digitar votos e abstenções. Não coleta votos pela rede dos participantes. No preview do Studio, contagens e aprovação são salvas no YAML; empate e ausência de votos impedem aprovação. Reabrir permite corrigir. HTML offline informa que salvar decisões exige Studio.
+Uma enquete com `layout: poll`, `manual: true`, `id` único, `question` e `options` (textos) permite ao apresentador digitar votos e abstenções. Essa enquete de decisão não coleta votos pela rede (para a plateia votar pelo celular, use `poll` com `live: true`, sem `manual`). No preview do Studio, contagens e aprovação são salvas no YAML; empate e ausência de votos impedem aprovação. Reabrir permite corrigir. HTML offline informa que salvar decisões exige Studio.
 
 `values: [2, 3]` associa valores numéricos às opções. Uma entrada de `calc` com `decision: id-da-enquete` acompanha esse valor após aprovação: tanto no carregamento quanto imediatamente durante a reunião. O controle continua ajustável para simular alternativas; reabrir a decisão não aprova o cenário simulado. Cenografia ajusta o título à região do texto para preservar convite e subtítulo, inclusive com várias linhas.
 

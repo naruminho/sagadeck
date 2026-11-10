@@ -2556,3 +2556,34 @@ test("formulário: palpite antes do número, título depois do clique, opcional,
     assert.deepEqual(errors, []);
   } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });
+
+test("Enquete: Votação pelo celular (Formatar) liga e desliga o live no deck salvo, e o slide ganha a marca da votação", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides = [{ layout: "poll", id: "opiniao", question: "Vocês concordam?", options: ["Sim", "Não"] }, { layout: "end", title: "Fim" }];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[0];
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const box = p.locator("label.sf-check", { hasText: "Votação pelo celular" }).locator("input");
+    assert.equal(await box.isChecked(), false);
+    await box.check();
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].live === true);
+    await p.waitForSelector('#stage .poll[data-net="opiniao"], .slide .poll[data-net="opiniao"]', { state: "attached" });
+    await p.waitForTimeout(700);
+    assert.equal(saved().live, true, "ligou no deck salvo");
+    // neste computador a apresentação avisa em vez de mostrar o QR code (a plateia não alcança 127.0.0.1)
+    const pres = await browser.newPage();
+    await pres.goto(`${studio.url}/preview`);
+    await pres.waitForFunction(() => /A plateia não alcança este computador/.test(document.querySelector(".po-note")?.textContent || ""));
+    assert.equal(await pres.locator(".po-net").isVisible(), false);
+    await pres.close();
+    await p.locator("label.sf-check", { hasText: "Votação pelo celular" }).locator("input").uncheck();
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].live === undefined);
+    await p.waitForTimeout(700);
+    assert.equal(saved().live, undefined, "desligou: o campo sai do deck");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); deckFile.cleanup(); }
+});

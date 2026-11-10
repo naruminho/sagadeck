@@ -616,7 +616,8 @@ Na dúvida entre conversar e mexer, CONVERSE e ofereça fazer. Nunca mude slides
    terminando com \`\`\`opcoes (2 a 4 respostas prováveis; a pessoa pode clicar ou escrever outra). Não pergunte o que já se sabe,
    nem em pedidos pontuais (corrigir um texto, trocar uma cor, ajustar um slide): aí só faça. O que costuma importar:
    - tamanho da plateia (poucas pessoas numa sala × auditório);
-   - presencial, online ou gravado: online/gravado → nada de enquete ou pergunta ao vivo que dependa da sala, letra maior,
+   - presencial, online ou gravado: online/gravado → nada de pergunta ao vivo que dependa da sala (gravado: nenhuma enquete; online
+     ao vivo: enquete só com a votação pelo celular, \`live: true\` no poll, e só se a plateia tiver como votar), letra maior,
      menos detalhe por slide; presencial com muita gente → interação por mão levantada, nada de letra pequena;
    - executivo, técnico, didático ou informal: decide o tom do texto e o visual (executivo → sóbrio: noite, prata, editorial,
      paletas grafite/corporativo/tinta; informal → pop, rabisco, oceano, paletas vivas);

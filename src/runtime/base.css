@@ -374,6 +374,20 @@ html[data-motion="none"] .flip-in,.export .flip-in{transition:none}
 .po-val input{width:190px;font:inherit;color:inherit;background:transparent;border:0;border-bottom:4px solid var(--hi);text-align:right;outline:none}
 .po-delta{display:block;font-size:24px;color:var(--em);margin-top:4px}
 .po-hint{font-size:18px;color:var(--muted);opacity:.7}
+/* votação pela rede (live: true): a caixa do QR code só aparece quando o runtime liga (.net-on) */
+.po-rows{display:flex;flex-direction:column;gap:30px;min-width:0}
+.po-net{display:none}
+.po-note{font-size:18px;color:var(--muted);opacity:.8;text-transform:none;letter-spacing:0}
+.poll.net-on{display:grid;grid-template-columns:minmax(0,1fr) 400px;column-gap:70px;row-gap:30px;align-content:center;align-items:center}
+.poll.net-on .po-net{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.poll.net-on .po-hint{grid-column:1/-1}
+.po-qr{width:360px;height:360px;box-sizing:border-box;padding:10px;border-radius:18px;background:#fff}
+.po-qr svg{display:block;width:100%;height:100%}
+.po-net-t{font-size:34px}
+.po-url{max-width:400px;font-size:17px;color:var(--muted);word-break:break-all;text-transform:none;letter-spacing:0}
+.po-count{font-size:26px;font-variant-numeric:tabular-nums}
+.po-reset{padding:6px 16px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:16px;cursor:pointer;opacity:.35;transition:opacity .2s}
+.po-reset:hover,.po-reset:focus-visible,.po-reset[data-sure]{opacity:1}
 
 /* vídeo */
 .video{display:flex;align-items:center;gap:40px;padding:40px 48px;border-radius:var(--radius);background:var(--surface);color:var(--fg);text-decoration:none;flex-wrap:wrap}

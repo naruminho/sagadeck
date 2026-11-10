@@ -51,7 +51,7 @@ export const LAYOUT_INFO = {
   compare: ["Comparação", "A × B lado a lado"],
   matrix: ["Matriz 2×2", "Quatro quadrantes"],
   question: ["Pergunta", "Pergunta para a plateia com timer"],
-  poll: ["Enquete", "Votação ao vivo"],
+  poll: ["Enquete", "Votação ao vivo: resultados digitados ou votos da plateia pelo celular (QR code)"],
   image: ["Imagem", "Imagem em tela cheia com legenda"],
   code: ["Código", "Código com linhas destacadas"],
   codewalk: ["Código guiado", "Explique uma linha por vez, com destaques e saída simulada"],

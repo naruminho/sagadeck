@@ -18,9 +18,11 @@
   const hooks = slides.map(() => ({ enter: [], leave: [], step: [] }));
 
   // ---------- armazenamento (localStorage pode falhar em file:// restrito) ----------
+  // sem localStorage o valor vale na memória, enquanto a página estiver aberta (os votos pela rede passam por aqui)
+  const mem = {};
   const store = {
-    get(k, d) { try { const v = localStorage.getItem(KEY + ":" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem(KEY + ":" + k, JSON.stringify(v)); } catch (e) {} broadcast({ type: "store", k }); },
+    get(k, d) { try { const v = localStorage.getItem(KEY + ":" + k); return v == null ? d : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
+    set(k, v) { mem[k] = v; try { localStorage.setItem(KEY + ":" + k, JSON.stringify(v)); } catch (e) {} broadcast({ type: "store", k }); },
   };
 
   // ---------- passos ----------
@@ -137,6 +139,100 @@
       inp.addEventListener("blur", () => { if (v.querySelector("input")) done(); });
     }));
   });
+
+  // ---------- enquete: votos pela rede (live: true) ----------
+  // O Studio que serve a apresentação diz onde fica a sala de votos do deck (DATA.vote). O slide desenha o QR code
+  // com o endereço público (só o navegador sabe qual é) e busca a contagem, que cai na mesma chave dos votos
+  // digitados: por isso o compare funciona igual. Sem a sala (HTML exportado, arquivo aberto do disco), num computador
+  // que a plateia não alcança (127.0.0.1) ou sem resposta do servidor, o slide avisa e segue com a digitação.
+  (function liveVotes() {
+    const live = $$(".poll[data-net]");
+    if (!live.length || EXPORT || PRESENTER) return;
+    const V = DATA.vote;
+    const TYPE = " Clique no número para digitar o resultado.";
+    const note = (t) => live.forEach((p) => { const n = $(".po-note", p); n.textContent = t; n.hidden = !t; });
+    const host = location.hostname;
+    const unreachable = !/^https?:$/.test(location.protocol) || host === "localhost" || host === "[::1]" || /^127\./.test(host) || host.endsWith(".localhost");
+    if (!V || typeof qrcode !== "function") { note("Votação pela rede: só com a apresentação aberta pelo Studio de um servidor." + TYPE); return; }
+    if (unreachable) { note("A plateia não alcança este computador: a votação pela rede abre quando a apresentação é mostrada pelo Studio do servidor." + TYPE); return; }
+    const base = new URL(V.url, location.href).href.replace(/\/+$/, "");
+    const urlOf = (p) => base + "/" + p.dataset.net;
+    const AUTO = "clique no número para digitar o resultado";
+    function qrSVG(text) {
+      const q = qrcode(0, "M"); q.addData(text, "Byte"); q.make();
+      const n = q.getModuleCount(), m = 2, size = n + m * 2;
+      let d = "";
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        if (!q.isDark(r, c)) continue;
+        let run = 1;
+        while (c + run < n && q.isDark(r, c + run)) run++;
+        d += "M" + (c + m) + " " + (r + m) + "h" + run + "v1h-" + run + "z";
+        c += run - 1;
+      }
+      return '<svg viewBox="0 0 ' + size + " " + size + '" shape-rendering="crispEdges" role="img" aria-label="QR code para votar"><rect width="' + size + '" height="' + size + '" fill="#fff"/><path d="' + d + '" fill="#111"/></svg>';
+    }
+    let on = false, fails = 0, busy = false, beat = 0, iv = null;
+    function turnOn() {
+      on = true; note("");
+      live.forEach((p) => {
+        p.classList.add("net-on");
+        $(".po-qr", p).innerHTML = qrSVG(urlOf(p));
+        $(".po-url", p).textContent = urlOf(p).replace(/^https?:\/\//, "");
+        const h = $(".po-hint[data-auto]", p); if (h) h.textContent = "aponte a câmera do celular para o código";
+      });
+    }
+    function turnOff(text) {
+      on = false; note(text);
+      live.forEach((p) => { p.classList.remove("net-on"); const h = $(".po-hint[data-auto]", p); if (h) h.textContent = AUTO; });
+    }
+    const countText = (p, total) => { $(".po-count", p).textContent = total === 1 ? "1 voto" : total + " votos"; };
+    function apply(polls) {
+      let changed = false;
+      live.forEach((p) => {
+        const id = p.dataset.poll, r = polls[p.dataset.net], votes = (r && r.votos) || [], total = votes.reduce((a, b) => a + (+b || 0), 0);
+        const mark = store.get("pollnet:" + id, null);
+        if (total > 0) {
+          if (mark !== r.rodada || JSON.stringify(store.get("poll:" + id, [])) !== JSON.stringify(votes)) { store.set("poll:" + id, votes); store.set("pollnet:" + id, r.rodada); changed = true; }
+        } else if (mark != null) { store.set("poll:" + id, []); store.set("pollnet:" + id, null); changed = true; } // a rodada acabou (zerada ou vencida)
+        countText(p, total);
+      });
+      if (changed) $$(".poll").forEach(renderPoll);
+    }
+    async function tick() {
+      if (busy || document.hidden) return;
+      // fora do slide da enquete a contagem não tem pressa: uma consulta a cada 10 s
+      if (on && !(slides[cur] && slides[cur].querySelector(".poll[data-net]")) && beat++ % 5) return;
+      busy = true;
+      try {
+        const r = await fetch(base + "/resultado", { headers: { "X-Voto-Chave": V.key }, cache: "no-store" });
+        const j = r.ok ? await r.json() : null;
+        if (!j) throw new Error("sem resposta");
+        if (j.publico === false) { clearInterval(iv); turnOff("Este servidor ainda não abre a votação para quem não entrou no portal." + TYPE); return; }
+        fails = 0;
+        if (!on) turnOn();
+        apply(j.polls || {});
+      } catch (e) {
+        fails++;
+        if (on ? fails === 3 : fails === 1) turnOff("Sem resposta do servidor de votos." + TYPE);
+      } finally { busy = false; }
+    }
+    live.forEach((p) => {
+      const b = $(".po-reset", p);
+      b.addEventListener("click", async (e) => {
+        e.stopPropagation(); b.blur();
+        if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Zerar mesmo?"; b._t = setTimeout(() => { delete b.dataset.sure; b.textContent = "Zerar votos"; }, 3000); return; }
+        clearTimeout(b._t); delete b.dataset.sure; b.textContent = "Zerar votos";
+        try {
+          const r = await fetch(urlOf(p) + "/zerar", { method: "POST", headers: { "X-Voto-Chave": V.key } });
+          if (!r.ok) throw new Error("recusado");
+          store.set("poll:" + p.dataset.poll, []); store.set("pollnet:" + p.dataset.poll, null);
+          countText(p, 0); $$(".poll").forEach(renderPoll);
+        } catch (err) { toast("Não deu para zerar os votos"); }
+      });
+    });
+    iv = setInterval(tick, 2000);
+    tick();
+  })();
 
   // ---------- ajuste para caber (src/runtime/fit.js, o mesmo código do Studio) ----------
   function fitAll(root = document) {

@@ -1,5 +1,6 @@
 import { mockHTML } from "./figures/mocks.js";
 import {motionHTML} from './motion.js';
+import { voteKey } from "./vote.js";
 import { videoPlayer } from './video-player.js';
 // Elementos: os "tijolos" que os layouts (e o layout livre `canvas`) usam.
 // Todo elemento aceita: step (clique em que aparece), exit (clique em que some),
@@ -443,12 +444,17 @@ export function timer(e) {
 export function poll(e, ctx) {
   const opts = e.options || [];
   const letters = "ABCDEFGH";
-  let h = `<div${attrs(e, "poll pl")} data-poll="${esc(e.poll)}" ${e.compare ? `data-compare="${esc(e.compare)}"` : ""}>`;
+  // live: true liga a votação da plateia pela rede. O QR code e a contagem ao vivo entram pelo runtime, e só quando a
+  // apresentação é servida por um Studio que a plateia alcança; fora disso a caixa fica escondida e o slide é o de sempre.
+  const net = e.live ? voteKey(e.poll) : "";
+  let h = `<div${attrs(e, "poll pl")} data-poll="${esc(e.poll)}" ${e.compare ? `data-compare="${esc(e.compare)}"` : ""}${net ? ` data-net="${net}"` : ""}>`;
+  if (net) h += `<div class="po-rows">`;
   opts.forEach((o, i) => {
     const label = typeof o === "string" ? o : o.label;
     h += `<div class="po-row" data-i="${i}"><div class="po-key f-display">${letters[i]}</div><div class="po-main"><div class="po-label f-heading">${md(label)}</div><div class="po-track"><div class="po-ghost"></div><div class="po-fill"></div></div></div><div class="po-val f-display" title="clique para digitar o resultado">—</div></div>`;
   });
-  h += `<div class="po-hint f-label">${e.hint ? md(e.hint) : "clique no número para digitar o resultado"}</div></div>`;
+  if (net) h += `</div><aside class="po-net"><div class="po-qr"></div><div class="po-net-t f-heading">Vote pelo celular</div><div class="po-url f-body"></div><div class="po-count f-label"></div><button class="po-reset f-label" type="button" title="Apaga os votos desta enquete no servidor">Zerar votos</button></aside>`;
+  h += `<div class="po-hint f-label"${e.hint ? "" : " data-auto"}>${e.hint ? md(e.hint) : "clique no número para digitar o resultado"}</div>${net ? `<div class="po-note f-body" hidden></div>` : ""}</div>`;
   return h;
 }
 
