@@ -1139,3 +1139,10 @@ test("sem spoiler: palpite antes do número, título que troca e cartão que vir
   // build: true continua um cartão por clique, sem virar sozinho
   assert.doesNotMatch(html({ layout: "cards", title: "x", build: true, items: [{ title: "a", flip: "b" }] }), /data-flip-step/);
 });
+
+test("optional: o tempo planejado sai com e sem os slides opcionais", () => {
+  const r = buildHTML({ title: "Teste", slides: [{ layout: "statement", text: "a", time: 2 }, { layout: "statement", text: "b", time: 1.5, optional: true }, { layout: "statement", text: "c", time: 1 }] });
+  assert.equal(r.planned, 4.5);
+  assert.equal(r.plannedRequired, 3);
+  assert.deepEqual(r.meta.slides.map((s) => !!s.optional), [false, true, false]);
+});

@@ -664,7 +664,7 @@
     cl(".pv-next", nextIdx, nextK);
     $(".pv-nextlbl").textContent = k < STEPS[i] ? `Próximo clique (${k + 1}/${STEPS[i]})` : "Próximo slide";
     const d = DATA.slides[i] || {};
-    $(".pv-notes").innerHTML = `<div class="pv-step">Slide ${i + 1}/${N}${STEPS[i] ? ` · clique ${k}/${STEPS[i]}` : ""}${d.time ? ` · ${d.time} min planejados` : ""}</div>` + (d.notes || "<p style='color:#777'>Sem notas.</p>");
+    $(".pv-notes").innerHTML = `<div class="pv-step">Slide ${i + 1}/${N}${STEPS[i] ? ` · clique ${k}/${STEPS[i]}` : ""}${d.time ? ` · ${d.time} min planejados` : ""}${d.optional ? ` · <b class="pv-opt">opcional: pode pular</b>` : ""}</div>` + (d.notes || "<p style='color:#777'>Sem notas.</p>");
     $(".pv-title").textContent = d.title || "";
   }
   function presenterUI() {

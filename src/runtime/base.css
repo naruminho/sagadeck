@@ -545,6 +545,10 @@ html[data-motion="none"] .flip-in,.export .flip-in{transition:none}
 .ch-fig{flex:2;display:flex;min-width:0}
 .ch-fig>.fig{width:100%;height:100%}
 .ch-side{flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px;min-width:0}
+/* comentário que entra num clique (sideStep): até lá o gráfico fica no centro, com a largura toda; depois cede o lugar */
+.ch-side[data-step]{transition:flex-grow .6s var(--ease),margin .6s var(--ease),opacity .55s var(--ease)}
+.ch-side[data-step]:not(.in){flex:0 1 0;margin-left:-70px;overflow:hidden;transform:none}
+.ch-fig{transition:flex-grow .6s var(--ease)}
 
 .cp-row{flex:0 1 auto;margin-block:auto;display:flex;align-items:stretch;gap:40px;min-height:0} /* altura do conteúdo, no meio (texto curto não vira um cartão vazio do tamanho do slide) */
 .cp-col{flex:1;display:flex;flex-direction:column;gap:22px;padding:48px;border-radius:var(--radius);background:var(--surface);min-width:0}
@@ -708,6 +712,7 @@ body.presenter #viewport{display:none}
 .pv-notes h4{margin:14px 0 8px;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#aaa}
 .pv-notes mark{background:#ffc20e;color:#111}
 .pv-step{font-size:15px;color:#aaa}
+.pv-opt{color:#ffb627;font-weight:600}
 
 /* ---------- layouts criativos ---------- */
 .L-full{position:absolute;inset:0;overflow:hidden}

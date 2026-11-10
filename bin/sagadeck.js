@@ -106,7 +106,7 @@ function doBuild(p, quiet) {
   const r = buildFile(p.abs, p.html);
   if (!quiet) {
     console.log(`✓ HTML: ${p.html}`);
-    console.log(`  ${r.meta.slides.length} slides · tema ${r.theme.name} · tempo planejado ${r.planned} min${r.spec.duration ? ` de ${r.spec.duration}` : ""}`);
+    console.log(`  ${r.meta.slides.length} slides · tema ${r.theme.name} · tempo planejado ${r.planned} min${r.plannedRequired < r.planned ? ` (${r.plannedRequired} sem os opcionais)` : ""}${r.spec.duration ? ` de ${r.spec.duration}` : ""}`);
     if (r.warnings.length) { console.log("⚠ Avisos:"); r.warnings.forEach((w) => console.log("  - " + w)); }
   }
   return r;

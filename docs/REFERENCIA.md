@@ -57,6 +57,7 @@ slides:
 | `notes` | roteiro do apresentador (Markdown simples, ver abaixo) |
 | `consulta` | texto de consulta: só no **material de estudo** (a outra visão do mesmo deck), logo depois do slide; não aparece na apresentação (Markdown simples, como `notes`) |
 | `time` | minutos planejados para o slide (soma no cronômetro) |
+| `optional: true` | slide que **pode ser pulado** se o tempo apertar (um exemplo a mais, um vídeo): a visão do apresentador avisa, e o tempo planejado sai com e sem os opcionais. Marque assim, em vez de escrever "opcional" só nas notas |
 | `build: true` | revela os itens (lista, cards, linha do tempo, matriz…) **um por clique** |
 | `build: flip` | só em `cards`: cada cartão **entra num clique e vira no seguinte** (frente = a pergunta, `flip` = a resposta). A seta faz tudo, sem precisar do mouse |
 | `steps: N` | força N cliques no slide (útil para widgets) |
@@ -98,7 +99,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `status` | `kicker, title, health: ok\|risco\|atrasado, healthLabel, progress (0–100), highlight, done, doing, blocked, risks, upcoming: [texto ou {text, owner, due}], shots: [{image, caption}]` | status semanal; ver [Status semanal](#status-semanal-status) |
 | `stats` | `title, stats: [{value, prefix, suffix, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag, more}], highlight, after, build` | linha do tempo; `more` põe um botão + no marco que abre um balão (ver abaixo) |
-| `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
+| `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário; com `sideStep`, o gráfico fica no centro com a largura toda até o comentário entrar |
 | `table` | `title, head, rows, style, color, highlight, total, side, caption, source` | tabela de verdade nas cores do tema |
 | `map` | `kicker, title, basemap, layers: [{name, points \| geojson \| gpx \| kml \| areas, color, size, label, colors, popup, step, view}], build, view, caption` | **mapa ao vivo** com pontos, linhas e áreas (sensores, medidores, unidades de atendimento, cinemas, trajetos, regiões…): os dados vêm da planilha do projeto ou de arquivos GeoJSON/GPX/KML; ver [Mapa](#mapa-map) |
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |

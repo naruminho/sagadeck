@@ -404,12 +404,13 @@ test("runtime: sem spoiler (palpite, título que troca, cartão que vira, gráfi
       { layout: "number", value: 55, suffix: "%", label: "de diferença", guess: "Quanto você acha que deu?", context: "A diretoria apostava em 10%." },
       { layout: "list", title: "Quem acerta mais?", titleAfter: "A IA sozinha acertou mais.", items: ["médicos", "IA"] },
       { layout: "cards", title: "Onde fica o humano?", build: "flip", items: [{ title: "Spam", flip: "OUT" }, { title: "Alerta nuclear", flip: "IN" }] },
+      { layout: "chart", title: "Quem acerta mais?", sideStep: 1, side: "Um comentário que só entra no clique.", optional: true, time: 2, chart: { chart: "column", data: [{ label: "a", value: 1 }, { label: "b", value: 2 }] } },
       { layout: "chart", title: "O que você vê?", source: "Estudo X", sourceStep: 1, chart: { chart: "line", labels: ["9h", "", "12h"], series: [{ values: [60, 30, 5] }], yLabel: "aprovados", axisLabelStep: 1, bands: [{ at: 1, text: "LANCHE", step: 2 }] } },
     ] };
     fs.writeFileSync(file, buildHTML(spec).html);
     const { page, errors } = await newPage(browser, null, { width: 1280, height: 720 });
     await page.goto(pathToFileURL(file).href);
-    await page.waitForFunction(() => window.sagadeck && window.sagadeck.n === 4);
+    await page.waitForFunction(() => window.sagadeck && window.sagadeck.n === 5);
     const seen = (sel) => page.evaluate((sel) => { const e = document.querySelector(`.slide.current ${sel}`); return !!e && getComputedStyle(e).opacity !== "0" && !e.classList.contains("out"); }, sel);
     const key = async () => { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(80); };
 
@@ -444,9 +445,20 @@ test("runtime: sem spoiler (palpite, título que troca, cartão que vira, gráfi
       await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(80);
       assert.equal(await state(), "vF vf", "voltar um clique desvira");
     });
-    await t.test("gráfico: escala visível desde o início; nome do eixo, fonte e faixa entram nos cliques", async () => {
+    await t.test("gráfico com comentário por clique: ocupa a largura toda até o comentário entrar; slide opcional vai nos dados", async () => {
       await key(); await key();
       assert.equal(await page.evaluate(() => window.sagadeck.cur), 3);
+      const w = () => page.evaluate(() => Math.round(document.querySelector(".slide.current .ch-fig").getBoundingClientRect().width));
+      const before = await w();
+      await key(); await page.waitForTimeout(900);
+      const after = await w();
+      assert.ok(before > after * 1.3, `gráfico largo antes (${before}) e mais estreito com o comentário (${after})`);
+      assert.equal(await page.evaluate(() => window.sagadeck.data.slides[3].optional), true);
+      assert.equal(await page.evaluate(() => window.sagadeck.data.slides[0].optional), undefined);
+    });
+    await t.test("gráfico: escala visível desde o início; nome do eixo, fonte e faixa entram nos cliques", async () => {
+      await key();
+      assert.equal(await page.evaluate(() => window.sagadeck.cur), 4);
       const inside = (txt) => page.evaluate((txt) => { const e = [...document.querySelectorAll(".slide.current svg text")].find((x) => x.textContent.includes(txt)); if (!e) return "ausente"; for (let p = e; p && p.tagName !== "svg"; p = p.parentNode) if (p.dataset && p.dataset.step && !p.classList.contains("in")) return "escondido"; return "visível"; }, txt);
       assert.equal(await inside("9h"), "visível");
       assert.equal(await inside("aprovados"), "escondido");

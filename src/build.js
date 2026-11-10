@@ -205,7 +205,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const limit = wordLimit(s, spec, layout);
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
-    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, layout, words });
+    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, ...(s.optional ? { optional: true } : {}), layout, words });
   });
 
   for(const [i,s]of spec.slides.entries())if(['graphlab','codelab','playground','portal'].includes(s.layout))slidesMeta[i].interactiveModel={theme:spec.theme||'manual',slide:s};
@@ -235,6 +235,8 @@ export function buildHTML(rawSpec, opts = {}) {
   const size = slideSize(spec);
   const data = { size: { w: size.w, h: size.h }, id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, consulta, ...m }) => m) };
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
+  // optional: true no slide = pode pular se o tempo apertar; o tempo "sem os opcionais" é o piso da apresentação
+  const plannedRequired = slidesMeta.reduce((a, s) => a + (s.optional ? 0 : s.time), 0);
 
   const doc = `<!doctype html>
 <html lang="${spec.lang || "pt-BR"}" style="--sh:${size.h}px;--aspect:${size.ratio}"${size.h > size.w ? ' data-orient="portrait"' : ""}><head><meta charset="utf-8">
@@ -292,7 +294,7 @@ ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runt
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}
 </body></html>`;
-  return { html: doc, warnings, meta: data, planned, theme, slidesMeta };
+  return { html: doc, warnings, meta: data, planned, plannedRequired, theme, slidesMeta };
 }
 
 export function buildFile(file, outFile) {
