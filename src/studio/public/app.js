@@ -440,6 +440,7 @@
       fitSlideText(dom.renderedSlideContainer);
       // a miniatura deste slide usa o mesmo HTML (acompanha cada edição)
       putThumb(idx, slide, data.html);
+      refreshActThumbs();
 
       // Habilitar edição WYSIWYG inline
       enableInlineEditing();
@@ -1531,6 +1532,7 @@
     { title: "Apresentar deste slide", cat: "Apresentar", ic: "play", fn: () => startPresentation() },
     { title: "Apresentar do início", cat: "Apresentar", ic: "play", fn: () => { state.currentSlideIndex = 0; startPresentation(); } },
     { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => startPresentation({ pen: true }) },
+    { title: "Ver todos os slides lado a lado", cat: "Exibir", ic: "layout-grid", fn: () => startPresentation({ overview: true }) },
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
     { title: "Baixar apresentação (.sagadeck)", cat: "Arquivo", ic: "download", fn: () => dom.exportSagadeck.click() },
@@ -1859,7 +1861,24 @@
     const d = state.deck || {};
     return JSON.stringify([d.theme, d.palette, d.identity, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
   };
-  const thumbKey = (idx, slide) => `${deckLook()}|${idx}|${JSON.stringify(slide)}`;
+  // paleta do ato (sectionPalette de um slide anterior): mudou lá, as miniaturas daqui em diante mudam de cara
+  const actPaletteAt = (idx) => { const sl = state.deck?.slides || []; for (let k = Math.min(idx, sl.length - 1); k >= 0; k--) { const v = sl[k]?.sectionPalette; if (v != null && v !== "") return JSON.stringify(v); } return ""; };
+  const thumbKey = (idx, slide) => `${deckLook()}|${actPaletteAt(idx)}|${idx}|${JSON.stringify(slide)}`;
+  // sectionPalette (paleta de um slide em diante) mudou em algum slide: as miniaturas já desenhadas que ficaram com a
+  // cara antiga entram na fila de novo (a chave delas mudou; as que nunca apareceram são desenhadas ao rolar)
+  let actSig = null;
+  function refreshActThumbs() {
+    const slides = state.deck?.slides || [];
+    const sig = JSON.stringify(slides.map((x, i) => (x?.sectionPalette != null && x.sectionPalette !== "" ? [i, x.sectionPalette] : 0)).filter(Boolean));
+    if (actSig === null) { actSig = sig; return; }
+    if (sig === actSig) return;
+    actSig = sig;
+    dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((card) => {
+      const j = +card.dataset.idx;
+      if (card.querySelector(".thumb-render") && slides[j] && !thumbCache.has(thumbKey(j, slides[j])) && !thumbQueue.includes(j)) thumbQueue.push(j);
+    });
+    pumpThumbs();
+  }
   let thumbObserver = null;
   // o slide (1920×1080) encolhe para a largura do quadro da miniatura, qualquer que seja a do trilho
   const thumbScaleObserver = new ResizeObserver((entries) => {
@@ -2629,14 +2648,15 @@
     try { return dom.presFrame.contentWindow?.sagadeck || null; } catch { return null; }
   }
 
-  async function startPresentation({ pen = false } = {}) {
+  // overview: abre na visão de todos os slides lado a lado (Exibir › Todos os slides); clicar num deles apresenta dali
+  async function startPresentation({ pen = false, overview = false } = {}) {
     // a apresentação é montada a partir do deck do servidor. Modelo em prévia: o servidor já tem o mesmo deck (qualquer
     // mudança teria criado a cópia e saído da prévia), e enviar de novo contaria como mudança: apresentar não grava nada
     if (!state.preview) await syncDeckToServer();
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
-    dom.presFrame.src = scopedURL(`preview?t=${Date.now()}#${start}`);
-    document.documentElement.requestFullscreen?.().catch(() => {});
+    dom.presFrame.src = scopedURL(`preview?t=${Date.now()}${overview ? "&geral=1" : ""}#${start}`);
+    if (!overview) document.documentElement.requestFullscreen?.().catch(() => {});
     dom.presFrame.onload = async () => {
       const win = dom.presFrame.contentWindow;
       if (dom.presModal.classList.contains("hidden") || win.location.href === "about:blank") return;
@@ -4400,6 +4420,7 @@ ${ta.value}`;
 
     // Modo Apresentação Fullscreen
     dom.btnPresent.onclick = startPresentation;
+    document.getElementById("btn-all-slides").onclick = () => startPresentation({ overview: true });
     dom.modalClosePresent.onclick = closePresentation;
 
 

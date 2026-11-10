@@ -823,6 +823,8 @@
       goto: (j, kk, all) => { goto(j, kk, { instant: true, force: true, all }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); },
       fit: fitAll, data: DATA, size: { w: SW, h: SH },
     };
+    // ?geral=1: abre já na visão de todos os slides lado a lado (a mesma da tecla G); o Studio usa em Exibir › Todos os slides
+    if (/[?&]geral=1/.test(location.search) && !PRESENTER && !EXPORT) overview();
   }
   init();
 })();

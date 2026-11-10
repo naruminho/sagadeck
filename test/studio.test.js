@@ -1980,6 +1980,24 @@ test("studio", async (t) => {
     assert.ok(!(await p.isVisible("#presentation-modal")));
   });
 
+  await t.test("Exibir › Todos os slides: abre a visão geral com um quadro por slide, e clicar num deles apresenta dali", async () => {
+    await go("cover");
+    await p.click('.ribbon-tab[data-tab="exibir"]');
+    await p.click("#btn-all-slides"); await settle(2500);
+    const fr = p.frames().find((f) => f.url().includes("/preview"));
+    assert.ok(fr, "iframe do /preview");
+    assert.match(fr.url(), /geral=1/);
+    const n = (await deck()).slides.length;
+    assert.equal(await fr.evaluate(() => document.body.classList.contains("ov")), true);
+    assert.equal(await fr.locator("#overview .ov-item").count(), n);
+    await fr.locator("#overview .ov-item").nth(2).click(); await settle(400);
+    assert.equal(await fr.evaluate(() => document.body.classList.contains("ov")), false);
+    assert.equal(await fr.evaluate(() => window.sagadeck.cur), 2);
+    await fr.press("body", "Escape"); await settle(500);
+    assert.ok(!(await p.isVisible("#presentation-modal")));
+    await p.click('.ribbon-tab[data-tab="inicio"]');
+  });
+
   // ------------------------------------------------------------ PowerPoint
   await t.test("Baixar PowerPoint (.pptx): baixa um pptx com todos os slides", { timeout: 180000 }, async () => {
     const n = (await deck()).slides.length;
@@ -2490,4 +2508,51 @@ test("Preferências › Biblioteca: escolher 1 dia para a lixeira grava no arqui
     assert.deepEqual(errors, []);
     assert.deepEqual(libErrors, []);
   } finally { fs.rmSync(file, { force: true }); await browser.close(); await studio.close(); deckFile.cleanup(); }
+});
+
+test("formulário: palpite antes do número, título depois do clique, opcional, paleta em diante e cartões que viram", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides = [
+    { layout: "number", value: 55, suffix: "%", label: "de diferença" },
+    { layout: "cards", title: "Onde fica o humano?", items: [{ icon: "star", title: "Spam", flip: "OUT" }, { icon: "star", title: "Alerta", flip: "IN" }] },
+  ];
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec), "utf8");
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    await p.click("#tab-btn-props");
+    const form = "#slide-fields-form";
+    const field = (label) => `${form} .sf-field:has(> .sf-label:text-is("${label}"))`;
+    const slide = (i) => p.evaluate(async (i) => (await (await fetch("/api/deck")).json()).spec.slides[i], i);
+    const type = async (label, value) => { await p.fill(`${field(label)} input`, value); await p.press(`${field(label)} input`, "Enter"); };
+    // os campos novos ficam em "Mais opções" (os do layout e os comuns a todo slide)
+    for (const d of await p.locator(`${form} details.sf-more > summary`).all()) await d.click();
+    await type("Pergunta antes do número (palpite)", "Quanto você acha que deu?");
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[0].guess === "Quanto você acha que deu?");
+    await type("Título depois do clique (a conclusão)", "Deu 55%.");
+    await type("Paleta deste slide em diante", "mar");
+    await p.locator(`${form} label:has-text("Opcional (pode pular se o tempo apertar)") input[type=checkbox]`).check();
+    await p.waitForFunction(async () => { const s = (await (await fetch("/api/deck")).json()).spec.slides[0]; return s.optional === true && s.sectionPalette === "mar" && s.titleAfter === "Deu 55%."; });
+    // o slide na tela já mostra a pergunta e o "?" do palpite
+    await p.waitForSelector("#rendered-slide-container .nb-q");
+    // a paleta vale também para o slide seguinte (miniatura dele com a cara "mar")
+    await p.waitForSelector('.thumb-card[data-idx="1"] .slide[class*="--mar"]');
+    await p.click('.thumb-card[data-idx="1"]'); await p.waitForTimeout(600);
+    await p.evaluate(() => document.querySelectorAll("#slide-fields-form > details.sf-more").forEach((d) => { d.open = true; }));
+    await p.selectOption(`${field("Revelar")} select`, "flip");
+    await p.waitForFunction(async () => (await (await fetch("/api/deck")).json()).spec.slides[1].build === "flip");
+    await p.waitForTimeout(900);
+    // o seletor de cliques do editor conta entrada e virada de cada cartão: 2 cartões = 4 cliques
+    await p.waitForFunction(() => document.querySelectorAll("#step-control .step-btn").length === 6);
+    const saved = YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides;
+    assert.equal(saved[0].guess, "Quanto você acha que deu?");
+    assert.equal(saved[0].titleAfter, "Deu 55%.");
+    assert.equal(saved[0].optional, true);
+    assert.equal(saved[0].sectionPalette, "mar");
+    assert.equal(saved[1].build, "flip");
+    assert.equal((await slide(1)).items.length, 2);
+    assert.deepEqual(errors, []);
+  } finally { await studio.close(); await browser.close(); deckFile.cleanup(); }
 });

@@ -624,6 +624,8 @@ Numa palestra ou aula, o slide que já entrega a conclusão no título mata a di
 
 Regras: o título do slide **nunca** antecipa o que um clique vai revelar (pergunte, em vez de afirmar); título de seção não entrega o veredito do ato; a `source` com nome de estudo vai com `sourceStep`. Não transforme tudo em suspense: slide de conceito, de transição ou de resumo diz logo a que veio. Nas `notes`, escreva o que falar em cada clique ("CLIQUE 1: …").
 
+No Studio, **Exibir › Todos os slides** mostra a apresentação inteira lado a lado, com tudo revelado (a mesma visão da tecla `G` ao apresentar): é onde se enxerga repetição de cor e de arranjo. Pelo comando, `sagadeck shots deck.yaml` grava as folhas de contato.
+
 **Ritmo visual.** O fiscal avisa quando seis ou mais slides seguidos têm o mesmo fundo e as mesmas cores, ou quatro ou mais usam o mesmo layout: a plateia deixa de perceber a troca de slide. Varie o `tone` (`dark`, `accent`, `alert`) nos momentos de virada, dê uma cor a cada parte com `sectionPalette` no slide de seção e alterne os arranjos. `monotony: false` no deck desliga o aviso (catálogos e galerias, uniformes de propósito); material de estudo (`purpose: consulta`) não é avisado.
 
 ## Direção cinematográfica
