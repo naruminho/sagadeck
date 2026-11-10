@@ -1067,3 +1067,52 @@ test("paletas próprias diferentes em slides diferentes não se misturam", () =>
   assert.match(rule(keys[0]), /F5EFE3/);
   assert.match(rule(keys[1]), /0A1020/);
 });
+
+test("sectionPalette vale do slide em diante, até o próximo; palette do slide vence; 'tema' volta ao deck", () => {
+  const deck = { title: "Teste", theme: "terminal", slides: [
+    { layout: "statement", text: "abertura" },
+    { layout: "section", title: "Ato I", sectionPalette: "mar" },
+    { layout: "statement", text: "dentro do ato I" },
+    { layout: "statement", text: "exceção", palette: "cereja" },
+    { layout: "section", title: "Ato II", sectionPalette: { paper: "0A1020", ink: "EAF2FF", accent: "35D0FF", alert: "FF5A6E" } },
+    { layout: "statement", text: "dentro do ato II" },
+    { layout: "statement", text: "epílogo", sectionPalette: "tema" },
+    { layout: "statement", text: "depois" },
+  ] };
+  const { html: page } = buildHTML(deck);
+  const keys = [...page.matchAll(/<section class="slide[^"]* (lk-[\w-]+)/g)].map((m) => m[1]);
+  assert.equal(keys.length, 8);
+  assert.equal(keys[0], "lk-terminal");
+  assert.equal(keys[1], "lk-terminal--mar");
+  assert.equal(keys[2], "lk-terminal--mar", "o slide seguinte herda a paleta do ato");
+  assert.equal(keys[3], "lk-terminal--cereja", "palette do próprio slide vence");
+  assert.match(keys[4], /^lk-terminal--propria-/);
+  assert.equal(keys[5], keys[4]);
+  assert.equal(keys[6], "lk-terminal", "'tema' volta às cores do deck");
+  assert.equal(keys[7], "lk-terminal");
+  // um slide sozinho (editor do Studio) enxerga a paleta do ato pelo índice
+  assert.match(renderSlide(deck.slides[2], 2, deck).html, /lk-terminal--mar/);
+  assert.match(renderSlide(deck.slides[7], 7, deck).html, /lk-terminal /);
+});
+
+test("fiscal de monotonia: avisa de muitos slides seguidos com a mesma cara ou o mesmo layout", () => {
+  const st = (text, extra = {}) => ({ layout: "statement", text, ...extra });
+  const warn = (slides, extra = {}) => buildHTML({ title: "Teste", theme: "terminal", slides, ...extra }).warnings.filter((w) => /seguidos/.test(w));
+  // seis iguais em tudo: os dois avisos, com o intervalo certo (a capa não conta)
+  const same = [{ layout: "cover", title: "Capa" }, ...Array.from({ length: 6 }, (_, i) => st(`frase ${i}`))];
+  const w = warn(same);
+  assert.equal(w.length, 2);
+  assert.match(w[0], /^slides 2 a 7: seis seguidos com o mesmo fundo/);
+  assert.match(w[1], /^slides 2 a 7: seis seguidos no mesmo layout \(statement\)/);
+  // variar o tom no meio quebra a sequência de fundo; o layout continua igual
+  const tones = same.map((s, i) => (i === 3 ? { ...s, tone: "accent" } : s));
+  assert.deepEqual(warn(tones).map((x) => x.slice(0, 40)), ["slides 2 a 7: seis seguidos no mesmo lay"]);
+  // uma paleta por ato também quebra
+  const acts = same.map((s, i) => (i === 4 ? { ...s, sectionPalette: "mar" } : s));
+  assert.ok(!warn(acts).some((x) => /mesmo fundo/.test(x)));
+  // layouts alternados e tons variados: nenhum aviso
+  const varied = [st("a"), { layout: "list", title: "b", items: ["x", "y"] }, st("c", { tone: "dark" }), { layout: "number", value: 5, label: "d" }, st("e", { tone: "accent" }), { layout: "list", title: "f", items: ["x"] }, st("g")];
+  assert.deepEqual(warn(varied), []);
+  // material de estudo: a uniformidade é esperada
+  assert.deepEqual(warn(same, { purpose: "consulta" }), []);
+});

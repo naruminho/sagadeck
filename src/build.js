@@ -1,7 +1,7 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
 import {meetingSpec} from './meeting.js';
 import { slideSize } from "./aspect.js";
-import { wordLimit } from "./purpose.js";
+import { wordLimit, isDense } from "./purpose.js";
 import { barHTML } from "./chrome.js";
 import { masterApplies, masterElements, masterCSS, isCoverLayout, titleBand } from "./master.js";
 import fs from "node:fs";
@@ -87,6 +87,20 @@ export function wordCount(s) {
 // rearruma capa, seção e encerramento); a paleta, só das cores.
 // identidade do deck (fontes da empresa, do arquivo local; ver src/identity.js)
 const identityOf = (spec) => (spec.identity ? identityFor(spec.identity) : null);
+// Paleta por ato: `sectionPalette` num slide vale dele em diante, até o próximo slide que também tiver
+// sectionPalette ("tema" volta às cores do deck). Normalmente fica no slide de seção: a cor troca no começo do ato
+// sem repetir a paleta em cada slide. O `palette` do próprio slide vence.
+export function actPalette(slides, i, own) {
+  if (own != null && own !== "") return own;
+  if (!Array.isArray(slides)) return undefined;
+  for (let k = Math.min(i, slides.length - 1); k >= 0; k--) { const v = slides[k]?.sectionPalette; if (v != null && v !== "") return v; }
+  return undefined;
+}
+const withAct = (s, i, spec) => {
+  if (s.palette != null) return s;
+  const p = actPalette(spec?.slides, i, s.sectionPalette);
+  return p == null ? s : { ...s, palette: p };
+};
 const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette, identityOf(spec)) : deckTheme);
 // tema irmão (skin: "musgo" no wine): usa a pele do outro, com o seletor trocado para o nome dele
 const skinCSS = (name) => {
@@ -95,8 +109,8 @@ const skinCSS = (name) => {
 };
 export function deckThemeCSS(spec, deckTheme) {
   const looks = new Map(), names = new Set([deckTheme.name]);
-  for (const raw of spec.slides || []) {
-    const t = slideTheme({ ...(spec.defaults || {}), ...raw }, deckTheme, spec);
+  for (const [i, raw] of (spec.slides || []).entries()) {
+    const t = slideTheme(withAct({ ...(spec.defaults || {}), ...raw }, i, spec), deckTheme, spec);
     if (t.key !== deckTheme.key) looks.set(t.key, t);
   }
   let css = themeCSS(deckTheme);
@@ -126,6 +140,26 @@ function navTargets(slide) {
   walk(slide, "");
   return out;
 }
+// Monotonia: a plateia "nem percebe que trocou de slide" quando vários seguidos têm o mesmo fundo ou o mesmo
+// arranjo. looks = [{ look, layout }] na ordem do deck (look = tema + paleta + tom). Capa, encerramento e
+// referências não contam; quem conserta é o tom, a paleta do ato (sectionPalette) ou outro layout.
+const SAME_LOOK = 6, SAME_LAYOUT = 4;
+const EXTENSO = { 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez" };
+export function monotonyWarnings(looks = []) {
+  const out = [], n = (k) => EXTENSO[k] || String(k);
+  const runs = (key, min, msg) => {
+    let start = 0;
+    for (let i = 1; i <= looks.length; i++) {
+      if (i < looks.length && looks[i][key] != null && looks[i][key] === looks[start][key]) continue;
+      const len = i - start;
+      if (looks[start][key] != null && len >= min) out.push(msg(start + 1, i, len));
+      start = i;
+    }
+  };
+  runs("look", SAME_LOOK, (a, b, len) => `slides ${a} a ${b}: ${n(len)} seguidos com o mesmo fundo e as mesmas cores — varie o tone de alguns (dark, accent, alert) ou dê uma cor ao trecho (sectionPalette)`);
+  runs("layout", SAME_LAYOUT, (a, b, len) => `slides ${a} a ${b}: ${n(len)} seguidos no mesmo layout (${looks[a - 1].layout}) — troque o arranjo de alguns para a plateia perceber a mudança`);
+  return out;
+}
 export function navWarnings(slides = []) {
   const ids = new Map(), warns = [];
   slides.forEach((s, i) => { if (s && s.id != null && s.id !== "") { const id = String(s.id); if (ids.has(id)) warns.push(`slide ${i + 1}: id "${id}" repetido (o slide ${ids.get(id) + 1} já usa)`); else ids.set(id, i); } });
@@ -151,8 +185,9 @@ export function buildHTML(rawSpec, opts = {}) {
   const slidesMeta = [];
   let html = "";
 
+  const looks = [];
   spec.slides.forEach((raw, i) => {
-    const s = { ...(spec.defaults || {}), ...raw };
+    const s = withAct({ ...(spec.defaults || {}), ...raw }, i, spec);
     const layout = inferLayout(s);
     const fn = LAYOUTS[layout];
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
@@ -161,6 +196,9 @@ export function buildHTML(rawSpec, opts = {}) {
     const th = slideTheme(s, theme, spec), sctx = th === theme ? ctx : { ...ctx, theme: th };
     try { inner = fn(s, sctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
     html += slideShell({ s, i, spec, theme: th, ctx: sctx, layout, tone, inner }) + "\n";
+    // bg/background próprios já mudam a cara do slide: entram no "look"
+    const quiet = ["cover", "end", "references"].includes(layout);
+    looks.push(quiet ? { look: null, layout: null } : { look: `${th.key}|${tone}|${s.bg || ""}|${s.background ? JSON.stringify(s.background).slice(0, 60) : ""}`, layout });
 
     const words = wordCount({ ...raw, notes: undefined });
     // limite pelo propósito do material (purpose: consulta/aula aceitam texto corrido) e pelo layout (one-page, status)
@@ -173,6 +211,9 @@ export function buildHTML(rawSpec, opts = {}) {
   for(const [i,s]of spec.slides.entries())if(['graphlab','codelab','playground','portal'].includes(s.layout))slidesMeta[i].interactiveModel={theme:spec.theme||'manual',slide:s};
   // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)
   warnings.push(...navWarnings(spec.slides));
+  // só em material para apresentar: no de estudo (purpose: consulta) a uniformidade é esperada
+  // (monotony: false no deck desliga: catálogos e galerias, como o tour, são uniformes de propósito)
+  if (!isDense(spec) && spec.monotony !== false) warnings.push(...monotonyWarnings(looks));
 
   // CSS e widgets próprios ficam ao lado do YAML. Se faltar um (ex.: deck aberto pelo navegador no
   // Studio, sem a pasta original), a apresentação sai sem ele e com aviso — não quebra inteira.
@@ -349,7 +390,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
 export function renderSlide(raw, i = 0, spec = {}) {
   setDeckLocale(spec.lang);
   const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
-  const s = { ...(spec.defaults || {}), ...raw };
+  const s = withAct({ ...(spec.defaults || {}), ...raw }, i, spec);
   const theme = slideTheme(s, deckTheme, spec);
   // _assetURL (só o editor do Studio, render-routes.js): imagens e vídeos por endereço, não embutidos no HTML
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [], assetURL: typeof spec._assetURL === "function" ? spec._assetURL : null, mapTiles: inferLayout(s) === "map" ? tilesForDeck(loadMapConfig(mapaFile())) : null };
