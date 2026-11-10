@@ -8,6 +8,30 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Retorno de uso no servidor: revisão que "recomeça", fila no chat e leitura — 10/11/2026 (branch `claude/revisao-rodadas`)
+
+Uma pessoa gerou no servidor (1.11.7) uma aula de 20 slides a partir de um roteiro e mandou o retorno enquanto usava.
+O que cada ponto virou:
+
+- **"A revisão chega no 20 e recomeça."** Não era queda nem timeout: depois de corrigir 2 ou 3 slides, a revisão
+  conferia os 20 de novo, com o mesmo texto, até 3 vezes (uns 55 s por slide). Agora a segunda passada confere só os
+  slides corrigidos (`mergeReview` em `src/ai/quality.js` junta com o que já foi visto), o texto diz "Conferindo de
+  novo o slide N, que foi corrigido" e antes disso avisa quantos problemas vai corrigir. A primeira passada confere 3
+  slides por vez (`parallel` em `reviewExperience`; os achados saem na ordem dos slides).
+- **"Posso pedir outra alteração enquanto uma está pensando?"** Não podia: o Enter não fazia nada. Agora o pedido
+  escrito durante o trabalho entra numa fila à vista acima da caixa ("Na fila", com botão de tirar) e sai sozinho, na
+  ordem, quando o atual termina. O botão Parar devolve a fila para a caixa de texto. Trocar de apresentação descarta.
+- **Defeitos de leitura no deck gerado** (a revisão por imagem apontava, mas a IA não tinha como consertar):
+  `split` empilhado com fórmula em destaque ou texto longo esmagava a figura numa tira (agora fica lado a lado);
+  rótulos de `svg` saíam em fonte serifada (agora a do tema); a frase da resposta do `solution` saía com 16 px
+  (30); `science` com `plot: false` e 3 ou mais equações usava o tamanho da coluna estreita (agora 54/44/34 px); a
+  dica do gráfico do `science` subiu de 17 para 22 px.
+
+**Falta / ideias que ficaram**: a revisão ainda gasta rodadas em achados que só o motor resolve (não há como a IA
+saber que um defeito é do layout); o `solution` com um passo só deixa meia tela vazia; o fiscal de layout acusa
+baixo contraste no chapéu (`kicker`) em pílula, que se lê bem (falso positivo).
+---
+
 ## Votação da plateia pela rede — 09/11/2026 (branch `claude/votacao-rede`)
 
 Pedido: palestra online para a graduação, sem ferramenta de enquete na plataforma. O aluno aponta o celular para um

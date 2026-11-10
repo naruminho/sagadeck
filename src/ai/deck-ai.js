@@ -17,6 +17,7 @@ import { normalizeSpec } from "../fiscal/normalize.js";
 import { autofixSlide } from "../fiscal/autofix.js";
 import { chat, generateImage, LLMError } from "./llm.js";
 import { varietyReport } from "./variety.js";
+import { mergeReview } from "./quality.js";
 import { materialsBlock } from "./context.js";
 import { webVisualNodes, materializeWebVisuals } from '../research/visuals.js';
 import { COLLECTION_STYLE } from "../studio/template-collections.js";
@@ -1394,9 +1395,14 @@ Faça agora, sem oferecer versões. Só pergunte se não der mesmo para saber o 
       const fresh = quality.issues.filter(x => !attempted.has(JSON.stringify(x)));
       if (!fresh.length) { say('Revisão: nada novo para corrigir; encerro as tentativas.'); break; }
       fresh.forEach(x => attempted.add(JSON.stringify(x)));
+      const target = [...new Set(fresh.map(x => x.slide - 1))];
+      say(`Revisão: ${fresh.length} problema${fresh.length > 1 ? 's' : ''} em ${target.length} slide${target.length > 1 ? 's' : ''}. Corrigindo e conferindo de novo só ${target.length > 1 ? 'esses' : 'esse'}…`);
       try {
-        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(fresh)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: fresh.map(x => x.slide - 1), onProgress: emit });
-        const nextQuality = await reviewCheck(repaired.spec, repaired.spec.slides.map((_, i) => i), { onProgress: emit });
+        const repaired = await editDeck({ spec, instruction: `Corrija somente os problemas observados. Não elimine recursos explicitamente pedidos para resolver uma colisão: reposicione, redimensione ou reorganize a composição mantendo a função. Preserve conteúdo e ordem do briefing (${briefing}): ${JSON.stringify(fresh)}.`, images, imageOptions, materials, drawCheck, reviewDepth: 1, repairSlides: target, onProgress: emit });
+        // só o que a correção mexeu volta para a conferência (antes eram os 20 slides de novo a cada rodada: a
+        // pessoa via a contagem voltar ao 1 e achava que tinha travado); o resto mantém o que já foi visto
+        const redo = [...new Set([...target, ...(repaired.changed || [])])].filter(i => repaired.spec.slides[i]).sort((a, b) => a - b);
+        const nextQuality = mergeReview(quality, await reviewCheck(repaired.spec, redo, { onProgress: emit, again: true }), redo);
         spec = repaired.spec; quality = nextQuality;
       } catch (error) {
         quality = { ...quality, verified: false, failures: [...(quality.failures || []), { stage: 'repair', reason: error.message }] };

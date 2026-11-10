@@ -3,7 +3,7 @@
 // Fábrica no molde de slide-select.js: recebe o estado e os ajudantes, devolve a API.
 window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, openPane, currentPane,
   streamAI, syncDeckToServer, renderThumbnails, renderCurrentSlide, trackDeck, fitRendered, refreshAIStatus, previewMaterialized }) {
-  let chatJob = null;
+  let chatJob = null, chatPlaceholder = null;
   const getChatJob = () => chatJob;
   // ==========================================================================
   // --------------------------------------------------------------------------
@@ -99,8 +99,13 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
   // extra: o que o Studio manda junto do pedido (contas: [n] do painel Conferência, conferidas depois da resposta)
   async function handleChatSubmit(e, extra = {}) {
     if (e) e.preventDefault();
-    if (chatJob) { if(e?.type === "submit") chatJob.stop(); return; }
-    const message = dom.chatInput.value.trim();
+    if (chatJob) {
+      // o botão (que virou Parar) para; Enter com texto escrito põe o pedido na fila: vai sozinho quando este terminar
+      if (e?.type === "submit") { const back = chatQueue.splice(0).map((q) => (q.el.remove(), q.text)); if (back.length) dom.chatInput.value = [...back, dom.chatInput.value].filter(Boolean).join("\n"); chatJob.stop(); }
+      else if (dom.chatInput.value.trim() && !state.chatAttachments.length) enqueueChat(dom.chatInput.value.trim());
+      return;
+    }
+    const message = (extra.queued ?? dom.chatInput.value).trim();
     if (state.chatAttachments.some(a => a.t === "doc" && !a.id)) { showToast("Aguarde a leitura do anexo antes de enviar.", 4000); return; }
     if (!message) return;
 
@@ -115,7 +120,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       });
       bubble.querySelector(".user-content")?.appendChild(row);
     }
-    dom.chatInput.value = "";
+    if (extra.queued == null) dom.chatInput.value = ""; // pedido da fila: o que a pessoa está escrevendo agora fica
     autoGrowChat();
 
     // a IA sempre sabe qual slide está na tela; outros slides (ou o deck todo) a pessoa diz no pedido
@@ -134,6 +139,8 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     dom.chatSend.title = 'Parar processamento'; dom.chatSend.setAttribute('aria-label','Parar');
     dom.chatSend.innerHTML = '<i class="ic" data-ic="square"></i>'; hydrateIcons(dom.chatSend);
     dom.chatInput.disabled = false;
+    chatPlaceholder ??= dom.chatInput.placeholder;
+    dom.chatInput.placeholder = "A IA está trabalhando. Escreva o próximo pedido e tecle Enter: ele entra na fila.";
     // a conversa inteira deste deck (o servidor compacta as mensagens antigas; nada é esquecido)
     const history = state.chatHistory.slice();
     const baseDeck = JSON.parse(JSON.stringify(state.deck));
@@ -241,6 +248,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       else work.fail(err.message);
     } finally {
       chatJob = null;
+      if (chatPlaceholder) dom.chatInput.placeholder = chatPlaceholder;
       dom.chatSend.title = "Enviar (Enter)"; dom.chatSend.setAttribute("aria-label","Enviar");
       dom.chatSend.innerHTML = '<i class="ic" data-ic="send"></i>'; hydrateIcons(dom.chatSend);
       dom.chatSend.disabled = false;
@@ -248,7 +256,26 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
       dom.chatInput.focus();
       await saveChatHistory();
       window.dispatchEvent(new Event("sagadeck:chat-done")); // o painel Conferência confere o selo de novo
+      // o próximo da fila sai sozinho (na mesma apresentação; se a pessoa trocou de deck, a fila é descartada)
+      const next = chatQueue.shift();
+      if (next) { next.el.remove(); if (state.file === job.file) handleChatSubmit(null, { queued: next.text }); else chatQueue.splice(0).forEach((q) => q.el.remove()); }
     }
+  }
+
+  // Pedidos escritos enquanto a IA trabalha: ficam à vista, na ordem, e cada um pode ser tirado antes de sair.
+  const chatQueue = [];
+  function enqueueChat(text) {
+    const el = document.createElement("div");
+    el.className = "chat-queued";
+    el.innerHTML = '<span class="cq-tag">Na fila</span><span class="cq-text"></span><button type="button" class="cq-remove" title="Tirar da fila" aria-label="Tirar da fila"><i class="ic" data-ic="x"></i></button>';
+    el.querySelector(".cq-text").textContent = text;
+    hydrateIcons(el);
+    const item = { text, el };
+    el.querySelector(".cq-remove").onclick = () => { const k = chatQueue.indexOf(item); if (k >= 0) chatQueue.splice(k, 1); el.remove(); };
+    chatQueue.push(item);
+    dom.chatForm.before(el);
+    dom.chatInput.value = "";
+    autoGrowChat();
   }
 
   // A conversa é desta apresentação e fica ao lado dela (<deck>.conversa.json): volta ao reabrir o deck.

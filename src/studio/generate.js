@@ -39,7 +39,7 @@ export async function generateForStudio(b, { dir, materials = [], emit, prefs = 
       imageOptions: { baseDir: dir, assetsDir: path.join(dir, "imagens") },
       onEvent: emit,
       drawCheck: diagramCheck,
-      reviewCheck: (deck, indices, o = {}) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: o.onProgress || emit, briefing: b.briefing }),
+      reviewCheck: (deck, indices, o = {}) => reviewExperience({ ...deck, _dir: dir }, indices, { snapshot: slideSnapshots, onProgress: o.onProgress || emit, briefing: b.briefing, again: o.again }),
       // pesquisa na web quando a IA decidir que precisa (Preferências › IA pode desligar; SAGADECK_WEB=0 no banco);
       // as fontes lidas ficam em contexto/pesquisa/ do deck
       research: prefs.pesquisa === false ? false : "auto",

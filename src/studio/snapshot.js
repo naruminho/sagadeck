@@ -31,7 +31,7 @@ async function browser() {
  */
 export async function slideSnapshots(spec, index, { mode = "final", maxFrames = 6, width = 960 } = {}) {
   const { html } = buildHTML(spec);
-  const file = path.join(os.tmpdir(), `sagadeck-snap-${process.pid}-${Date.now()}.html`);
+  const file = path.join(os.tmpdir(), `sagadeck-snap-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.html`);
   fs.writeFileSync(file, html);
   const b = await browser();
   const page = await b.newPage({ viewport: { width: 1920, height: slideSize(spec).h }, deviceScaleFactor: width / 1920 }); // deck.aspect
