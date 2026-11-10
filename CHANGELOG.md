@@ -4,6 +4,13 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.9] — 10/11/2026
+
+### Correções
+- **Equações sem gráfico não passam mais do rodapé**: no slide de fórmulas sem gráfico, as equações (maiores desde a
+  1.11.8) passavam da área útil quando o slide tinha chapéu e título de duas linhas. Os tamanhos foram refeitos para
+  três, quatro e cinco equações.
+
 ## [1.11.8] — 10/11/2026
 
 ### Novidades
