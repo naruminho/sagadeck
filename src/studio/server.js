@@ -52,6 +52,7 @@ import { sendExport, sendHtml, lightVariant } from "./exporting.js";
 import { createExportJobs } from './export-jobs.js';
 import { styleRoutes, styleAction } from "./style-routes.js";
 import { shareRoutes } from "./share-routes.js";
+import { voteRoutes, voteURL, voteDeckRef } from "./vote-routes.js";
 import { apiRoutes } from "./api-routes.js";
 import { aiChatRoutes } from "./ai-chat-route.js";
 import { conferenceRoutes } from "./conference-routes.js";
@@ -136,10 +137,13 @@ export function createStudioServer(deckPath = null, opts = {}) {
   const USER_HEADER = String(opts.userHeader || "x-sagadeck-user").toLowerCase();
   const workspaceOf = workspaceResolver({ opts, USER_HEADER, workspaces, newWorkspace });
   // links de ver, só leitura (Arquivo › Compartilhar link; src/studio/share-routes.js): a biblioteca de quem compartilhou
-  const shares = shareRoutes({ libraryRoot, multiuser: !!opts.multiuser, libraryOf: (u) => {
+  const libraryOfUser = (u) => {
     if (!workspaces.has(u || "")) workspaces.set(u || "", newWorkspace(u || null));
     return workspaces.get(u || "").library;
-  } });
+  };
+  // votação da plateia pela rede (enquete com live: true; src/studio/vote-routes.js): uma sala de votos por deck
+  const votes = voteRoutes({ libraryRoot, multiuser: !!opts.multiuser, libraryOf: libraryOfUser, limits: opts.voteLimits, now: opts.voteNow });
+  const shares = shareRoutes({ libraryRoot, multiuser: !!opts.multiuser, libraryOf: libraryOfUser, votes });
   // Arquivo esperado protege gravações de clientes antigos sem escopo de aba.
   const layoutPreviewCache = new Map(); // tema -> { layout: html }
 
@@ -417,6 +421,14 @@ export function createStudioServer(deckPath = null, opts = {}) {
     // link de ver (só leitura): o público não tem usuário; o "ver" exige o do portal no multiusuário
     if (shares.serveView(req, res, pathname, opts.multiuser ? String(req.headers[USER_HEADER] || "").trim() : "")) return;
 
+    // votação da plateia: quem vota não tem usuário. No multiusuário o IP de quem pede vem do proxy.
+    if (pathname === "/voto" || pathname.startsWith("/voto/")) {
+      const ip = opts.multiuser ? String(req.headers["x-real-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0]).trim() : String(req.socket.remoteAddress || "");
+      try { await votes.serve(req, res, pathname, { user: opts.multiuser ? String(req.headers[USER_HEADER] || "").trim() : "", foreign: foreignOrigin(req), ip }); }
+      catch (e) { console.error("[Studio] votação:", e.message); if (!res.headersSent) { res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ error: "Não deu para registrar." })); } }
+      return;
+    }
+
     let W;
     try { W = workspaceOf(req); } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: e.message })); return;
@@ -543,7 +555,9 @@ export function createStudioServer(deckPath = null, opts = {}) {
       if (pathname === "/preview") {
         let out;
         try {
-          out = buildHTML(W.spec,{audience:url.searchParams.get('audience')||undefined});
+          // enquete com live: true: o endereço da sala de votos deste deck vai no HTML (o slide desenha o QR code)
+          const room = votes.roomFor(opts.multiuser ? String(W.user || "") : "", voteDeckRef(W, !!opts.multiuser), W.spec);
+          out = buildHTML(room ? { ...W.spec, _vote: { url: voteURL(pathname, room.code), key: room.key } } : W.spec,{audience:url.searchParams.get('audience')||undefined});
         } catch (e) {
           W.lastPreview = { ok: false, error: e.message, warnings: [] };
           res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
@@ -1327,6 +1341,6 @@ Responda só com JSON: {"colunas": [{"nome": "…", "tipo": "tempo|categoria|num
   });
 
   server.closeExports = () => exports.close();
-  server.on("close", () => { exports.close(); ensaio?.then((mock) => mock?.close()); });
+  server.on("close", () => { votes.flush(); exports.close(); ensaio?.then((mock) => mock?.close()); });
   return server;
 }

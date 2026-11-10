@@ -18,6 +18,7 @@ import { buildHTML, loadSpec } from "../build.js";
 import { esc } from "../markup.js";
 import { iconSVG } from "../figures/icons.js";
 import { sendExport } from "./exporting.js";
+import { voteURL } from "./vote-routes.js";
 
 const VIEW = /^\/(ver|publico)\/([A-Za-z0-9_-]{16,64})(?:\/baixar\/([a-z-]+))?\/?$/;
 // formatos para quem recebe o link (o roteiro e o "tudo" levam as notas: só no link com as notas)
@@ -57,9 +58,9 @@ const page = (status, title, text) => `<!doctype html><html lang="pt-BR"><head><
 const NOINDEX = { "X-Robots-Tag": "noindex, nofollow, noarchive", "Referrer-Policy": "no-referrer", "Cache-Control": "private, no-store" };
 
 /**
- * @param {{ libraryRoot: string, multiuser: boolean, libraryOf: (user: string) => { resolveId: Function, idOf: Function } }} o
+ * @param {{ libraryRoot: string, multiuser: boolean, libraryOf: (user: string) => { resolveId: Function, idOf: Function }, votes?: { roomFor: Function } }} o
  */
-export function shareRoutes({ libraryRoot, multiuser, libraryOf }) {
+export function shareRoutes({ libraryRoot, multiuser, libraryOf, votes = null }) {
   const store = shareStore(libraryRoot);
   const ownerOf = (W) => (multiuser ? String(W.user || "") : "");
   const deckRef = (W) => {
@@ -91,6 +92,9 @@ export function shareRoutes({ libraryRoot, multiuser, libraryOf }) {
     try { spec = loadSpec(file); } catch { return send(500, page(500, "Não deu para abrir", "A apresentação tem um erro e não pôde ser mostrada.")), true; }
     if (!l.notas) spec.slides = spec.slides.map((s) => { if (!s || typeof s !== "object") return s; const { notes, ...rest } = s; return rest; });
     if (download) return sendDownload(req, res, l, spec, file, download), true;
+    // enquete com votação pela rede (live: true): a sala de votos do deck, a mesma do Apresentar de quem compartilhou
+    const room = votes?.roomFor(l.owner, l.id ? { id: l.id } : { file: l.file }, spec);
+    if (room) spec._vote = { url: voteURL(pathname, room.code), key: room.key };
     const html = buildHTML(spec).html.replace(/<head>/i, '<head><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">');
     // O Mermaid contém "</body>" em strings: inserir somente no fechamento real do HTML.
     send(200, req.method === "HEAD" ? html : html.replace(/<\/body>(\s*<\/html>\s*)$/i, (_, end) => `${downloadBar(l)}</body>${end}`));

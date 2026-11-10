@@ -8,6 +8,73 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Votação da plateia pela rede — 09/11/2026 (branch `claude/votacao-rede`)
+
+Pedido: palestra online para a graduação, sem ferramenta de enquete na plataforma. O aluno aponta o celular para um
+QR code no slide, escolhe uma opção e as barras da enquete sobem ao vivo. Até aqui o `poll` só aceitava números
+digitados por quem apresenta.
+
+**Decisão de arquitetura** (escrita antes do código):
+
+- **Liga com `live: true`** no slide `poll` (e no elemento `{ poll: … }` dos blocos). Sem o campo, nada muda.
+- **De onde se apresenta.** A votação existe quando a apresentação é servida por um Studio que a plateia alcança: o
+  Studio do servidor (`/preview`, o Apresentar de sempre) ou o link de compartilhamento (`/ver/…`, `/publico/…`). O
+  servidor põe no HTML o endereço da "sala" de votos do deck (`DATA.vote`); o próprio slide desenha o QR code no
+  navegador, porque só ele sabe o endereço público (o Studio fica atrás do proxy e não conhece o prefixo). A
+  biblioteca do QR (`qrcode-generator`, já dependência) vai embutida só nos decks com `live`.
+- **Studio local (127.0.0.1), HTML exportado, PDF, PowerPoint**: sem QR. O slide avisa numa linha discreta que a
+  plateia não alcança este computador e a digitação dos votos continua valendo (clique no número). Studio local
+  aberto para a rede (`--host`) funciona, para quem está na mesma rede. Nada quebra sem rede: se o servidor de votos
+  não responde, o slide fica como a enquete de sempre.
+- **Rotas próprias, fora do deck** (`src/studio/vote-routes.js`), em `/voto/…`, e não debaixo do link de
+  compartilhamento: quem vota recebe um código que não é o do link, então do endereço de voto não se chega ao deck.
+  - `GET /voto/<sala>/<enquete>`: a página do celular (HTML único, fonte do sistema, sem CDN). Mostra só a pergunta e
+    as opções daquela enquete, em texto puro. Nada do resto do deck, nada das notas.
+  - `POST /voto/<sala>/<enquete>` `{ o: índice, d: aparelho }`: registra ou troca o voto.
+  - `GET /voto/<sala>/resultado` e `POST /voto/<sala>/<enquete>/zerar`: só com a chave de leitura (cabeçalho
+    `X-Voto-Chave`), que vai no HTML da apresentação e não no QR. Quem só vota não vê a contagem nem zera.
+- **Onde ficam os votos**: `<biblioteca>/.votos.json` (ao lado do `.compartilhados.json`), gravação atômica e
+  agrupada (no máximo uma por segundo). Uma sala por apresentação (dono + deck), criada na primeira vez que o deck
+  com `live` é servido. **Duram 12 horas depois do último voto** daquela enquete (cada aula começa limpa sem ninguém
+  lembrar de zerar; dentro da aula o antes/depois do `compare` fica inteiro); o botão Zerar votos no slide apaga na
+  hora. A contagem que chega é espelhada no `localStorage` de quem apresenta, na mesma chave dos votos digitados:
+  por isso o `compare` funciona sem mudança.
+- **Voto repetido sem login**: o celular sorteia um identificador e guarda no `localStorage`; o servidor guarda só o
+  hash dele (SHA-256 com a sala e a enquete, truncado), um voto por aparelho por enquete, e votar de novo troca o
+  voto. Quem limpa o navegador vota de novo: aceito numa sala de aula; o limite de taxa segura o abuso.
+- **Nada pessoal**: sem nome, sem e-mail, sem cookie, sem IP em disco (o IP só conta na memória para o limite de
+  taxa). Em disco: hash do aparelho e o índice da opção.
+- **Segurança**: corpo de no máximo 512 bytes; índice conferido contra as opções do deck; enquete que não existe ou
+  sem `live` dá 404; até 5.000 aparelhos por enquete; limite de 120 pedidos por minuto por IP (uma turma no mesmo roteador divide o IP) e
+  1.200 por minuto por sala; quem apresenta, com a chave, não entra no limite; `Origin` de outro site é barrado; páginas com `noindex`, `no-store`, sem Referer e com CSP fechada.
+- **Servidor da Oracle (nginx)**: a votação só fica pública com uma `location /sagadeck/voto/` própria (sem
+  `auth_request`, `X-Sagadeck-User` vazio, GET/HEAD/POST, corpo pequeno, `X-Real-IP`). Sem ela o pedido cai na
+  `location` com login e chega com usuário: o Studio percebe (multiusuário + usuário no pedido de voto = não é
+  público) e o slide avisa em vez de mostrar um QR que os alunos não abririam.
+
+**Feito**: `src/vote.js` (quais enquetes votam pela rede, em comum entre motor e servidor), `src/studio/vote-routes.js`
+(sala, rotas, página do celular, limites, gravação), o bloco "votos pela rede" do `runtime.js`, a caixa do QR no
+`poll` (`elements.js`, `base.css`), `DATA.vote` e a biblioteca do QR no `build.js` só quando o Studio serve com sala,
+a sala no `/preview` e no link de compartilhamento, o campo no Formatar (layout e elemento), `docs/REFERENCIA.md`
+(com quando a IA propõe e quando não), o README (com a `location` do nginx) e a frase do prompt sobre online × gravado.
+O atributo no slide é `data-net` (`data-vote` já é dos campos da enquete de decisão).
+Testes: `test/vote.test.js` (motor; rotas e segurança por HTTP; validade de 12 h e reinício; limites; o aluno vota de
+verdade num Chrome com nome de servidor de mentira, o QR é lido dos pixels com `jsqr`, as barras e o `compare` sobem,
+zerar, servidor caindo no meio; HTML do disco e Studio em 127.0.0.1 sem QR e com digitação) e um em
+`test/studio.test.js` (o campo no Formatar, conferido no deck salvo).
+
+**Falta, fora deste repositório** (não foi feito: implantar e mexer no servidor só a pedido):
+- oraculo-workspace: a `location /sagadeck/voto/` no `infra/nginx/oracle-portal` (modelo no README) e a linha na
+  tabela do `infra/DEPLOY-sagadeck.md`. Até lá, no servidor, o slide mostra o aviso e não o QR.
+- Release e `node scripts/implantar-oracle.mjs`.
+
+**Ficou para depois**: um QR só para a aula inteira (a página do celular seguir a enquete que está na tela), fechar a
+votação no clique de revelar, e mostrar o resultado no celular depois do voto.
+
+**Atenção para quem mesclar a `claude/sem-spoiler`** (ainda fora da main): ela mexe nos mesmos trechos de
+`elements.js`, `layouts.js`, `runtime.js`, `base.css`, `slide-form.js` e `REFERENCIA.md`; os conflitos são de
+vizinhança, as duas coisas convivem.
+
 ## Gráfico revelado por clique — 09/11/2026 (branch `claude/grafico-etapas`)
 
 Nasceu de uma palestra real: mostrar a curva sem dizer do que ela trata, discutir o padrão e só depois revelar.

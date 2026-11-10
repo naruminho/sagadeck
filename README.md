@@ -283,6 +283,25 @@ sessão e sem o cabeçalho). Os links ficam em `<biblioteca>/.compartilhados.jso
 vão com `noindex` e sem Referer. No Studio local, o link abre para quem alcança o Studio (com `--host=0.0.0.0`, a
 rede da casa).
 
+**Votação da plateia pelo celular:** uma enquete com `live: true` mostra um QR code no slide; cada pessoa vota numa
+página simples (`/voto/<sala>/<enquete>`, sem login) e as barras sobem ao vivo. Funciona com a apresentação aberta por
+um Studio que a plateia alcança (o Apresentar do Studio no servidor ou o link de compartilhamento); no Studio do próprio
+computador o slide avisa e os votos continuam digitados. No servidor, o proxy precisa de uma entrada pública só para
+`/voto/` (sem sessão, `X-Sagadeck-User` vazio, GET/HEAD/POST, corpo pequeno e o IP de quem pede em `X-Real-IP`, que o
+Studio usa no limite de taxa); sem ela o slide avisa em vez de mostrar o QR code. Os votos ficam em
+`<biblioteca>/.votos.json` (hash do aparelho e opção, nada pessoal) e somem 12 horas depois do último.
+
+```nginx
+location /sagadeck/voto/ {
+    proxy_pass http://127.0.0.1:3517/voto/;
+    proxy_set_header X-Sagadeck-User "";
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $host;
+    client_max_body_size 2k;
+    limit_except GET HEAD POST { deny all; }
+}
+```
+
 **Baixar para apresentar (HTML)** é outra coisa: um HTML único, com tudo embutido, para apresentar em qualquer
 navegador, mas não para editar.
 

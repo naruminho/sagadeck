@@ -22,6 +22,8 @@ import { explorationStates } from './exploration.js';
 import { writeDeckHTML } from "./export/recent-html.js";
 import { calcModel } from './lessons.js';
 import { loadMapConfig, mapaFile, tilesForDeck } from "./map-config.js";
+import { createRequire } from "node:module";
+import { livePolls } from "./vote.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(HERE, p), "utf8");
@@ -193,6 +195,11 @@ export function buildHTML(rawSpec, opts = {}) {
 <script>${read("runtime/api-core.js")}</script>` : "";
   const size = slideSize(spec);
   const data = { size: { w: size.w, h: size.h }, id, title: spec.title || "", author: spec.author || "", motion: ["none", "subtle", "expressive"].includes(spec.motion) ? spec.motion : "subtle", duration: spec.duration || null, slides: slidesMeta.map(({ notesRaw, consulta, ...m }) => m) };
+  // Votação pela rede (enquete com live: true): o Studio que serve a apresentação diz onde fica a sala de votos
+  // (spec._vote, src/studio/vote-routes.js). Só aí entram o endereço e a biblioteca do QR code; o HTML exportado
+  // não leva nenhum dos dois e o slide fica como a enquete de sempre.
+  const vote = rawSpec._vote && livePolls(spec).size ? { url: String(rawSpec._vote.url), key: String(rawSpec._vote.key) } : null;
+  if (vote) data.vote = vote;
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
 
   const doc = `<!doctype html>
@@ -233,6 +240,7 @@ ${html}
 <script type="application/json" id="sagadeck-data">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
 <script>window.Sagadeck={_q:[],widget:function(n,d){this._q.push([n,d])}};</script>
 <script>${widgets.replace(/<\/script/gi, "<\\/script")}</script>
+${vote ? `<script>${fs.readFileSync(createRequire(import.meta.url).resolve("qrcode-generator"), "utf8").replace(/<\/script/gi, "<\\/script")}</script>` : ""}
 <script>${read("runtime/fit.js")}</script>
 <script>${read("runtime/runtime.js")}</script>
 <script>${read("runtime/motion.js")}</script>
