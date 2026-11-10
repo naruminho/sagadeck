@@ -1861,18 +1861,13 @@
     const d = state.deck || {};
     return JSON.stringify([d.theme, d.palette, d.identity, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
   };
-  // paleta do ato (sectionPalette de um slide anterior): mudou lá, as miniaturas daqui em diante mudam de cara
-  const actPaletteAt = (idx) => { const sl = state.deck?.slides || []; for (let k = Math.min(idx, sl.length - 1); k >= 0; k--) { const v = sl[k]?.sectionPalette; if (v != null && v !== "") return JSON.stringify(v); } return ""; };
-  const thumbKey = (idx, slide) => `${deckLook()}|${actPaletteAt(idx)}|${idx}|${JSON.stringify(slide)}`;
-  // sectionPalette (paleta de um slide em diante) mudou em algum slide: as miniaturas já desenhadas que ficaram com a
-  // cara antiga entram na fila de novo (a chave delas mudou; as que nunca apareceram são desenhadas ao rolar)
+  const thumbKey = (idx, slide) => `${deckLook()}|${window.SagaReveal.actPaletteAt(state.deck?.slides, idx)}|${idx}|${JSON.stringify(slide)}`;
+  // sectionPalette mudou em algum slide: as miniaturas já desenhadas com a cara antiga voltam para a fila (reveal-ui.js)
   let actSig = null;
   function refreshActThumbs() {
-    const slides = state.deck?.slides || [];
-    const sig = JSON.stringify(slides.map((x, i) => (x?.sectionPalette != null && x.sectionPalette !== "" ? [i, x.sectionPalette] : 0)).filter(Boolean));
-    if (actSig === null) { actSig = sig; return; }
-    if (sig === actSig) return;
+    const slides = state.deck?.slides || [], sig = window.SagaReveal.actSignature(slides), was = actSig;
     actSig = sig;
+    if (was === null || was === sig) return;
     dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((card) => {
       const j = +card.dataset.idx;
       if (card.querySelector(".thumb-render") && slides[j] && !thumbCache.has(thumbKey(j, slides[j])) && !thumbQueue.includes(j)) thumbQueue.push(j);
@@ -2648,7 +2643,6 @@
     try { return dom.presFrame.contentWindow?.sagadeck || null; } catch { return null; }
   }
 
-  // overview: abre na visão de todos os slides lado a lado (Exibir › Todos os slides); clicar num deles apresenta dali
   async function startPresentation({ pen = false, overview = false } = {}) {
     // a apresentação é montada a partir do deck do servidor. Modelo em prévia: o servidor já tem o mesmo deck (qualquer
     // mudança teria criado a cópia e saído da prévia), e enviar de novo contaria como mudança: apresentar não grava nada
@@ -2670,8 +2664,7 @@
         const key = `${state.file || state.deck?.title}|${status.warnings.join("|")}`;
         if (!state.shownPreviewWarnings?.has(key)) {
           (state.shownPreviewWarnings ||= new Set()).add(key);
-          // só os avisos de arquivo faltando (CSS, widget) viram este recado; os outros (link sem destino, ritmo) são do
-          // painel Revisar e tratavam qualquer texto entre aspas como nome de arquivo ("Sem sleep, human…")
+          // só aviso de arquivo faltando vira este recado (os outros citam coisas entre aspas que não são arquivos)
           const files = status.warnings.filter((w) => /não encontrado em/.test(w)).map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
           if (files.length) showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
         }
@@ -3014,15 +3007,9 @@
   // esconde até a hora); o seletor da barra de status mostra o slide como a plateia vê em cada clique.
   function applyEditorStep(idx) {
     const root = dom.renderedSlideContainer;
-    const nodes = [...root.querySelectorAll("[data-step]")];
-    // também contam: o que sai num clique (data-exit) e o cartão que vira num clique (data-flip-step)
-    const total = [...nodes.map((e) => +e.dataset.step || 0), ...[...root.querySelectorAll("[data-exit]")].map((e) => +e.dataset.exit || 0), ...[...root.querySelectorAll("[data-flip-step]")].map((e) => +e.dataset.flipStep || 0)].reduce((m, v) => Math.max(m, v), 0);
+    const total = window.SagaReveal.totalSteps(root); // entradas, saídas e viradas de cartão (reveal-ui.js)
     const k = state.editorStep === "all" || state.editorStep == null ? Infinity : Math.min(+state.editorStep, total);
-    nodes.forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
-    root.querySelectorAll("[data-exit]").forEach((e) => e.classList.toggle("out", k !== Infinity && k >= +e.dataset.exit));
-    // pergunta que dá lugar à resposta (titleAfter, guess): em "Tudo" fica só a resposta, senão as duas se sobrepõem
-    if (k === Infinity) root.querySelectorAll(".swap-q").forEach((e) => e.classList.add("out"));
-    root.querySelectorAll("[data-flip-step]").forEach((e) => e.classList.toggle("flipped", k !== Infinity && k >= +e.dataset.flipStep));
+    window.SagaReveal.applyStep(root, k);
     root.querySelectorAll(".pl, mark, .chart").forEach((e) => e.classList.add("play"));
     renderStepControl(total);
   }

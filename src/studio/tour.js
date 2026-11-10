@@ -81,8 +81,7 @@ export function tourDeck() {
   slides.push({ layout: "cards", title: "Com os seus arquivos", cols: 3, items: EXTRAS.slice(6, 9).map(([icon, title, text]) => ({ icon, title, text })) });
   slides.push({ layout: "cards", title: "Na hora de apresentar", cols: 3, items: EXTRAS.slice(9).map(([icon, title, text]) => ({ icon, title, text })) });
   slides.push({ layout: "end", title: "Agora é a sua vez.", subtitle: "Crie uma apresentação e peça à IA o que você viu aqui." });
-  // monotony: false — é um catálogo (um slide por recurso), não uma palestra: a uniformidade é de propósito
-  return { title: TOUR_TITLE, theme: "sinal", duration: 30, maxWords: 140, monotony: false, slides };
+  return { title: TOUR_TITLE, theme: "sinal", duration: 30, maxWords: 140, slides };
 }
 
 // ---- a demonstração dos mapas (além do exemplo do layout): estados por valor com câmera, linhas e áreas, cobertura

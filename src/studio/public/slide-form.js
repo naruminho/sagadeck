@@ -89,10 +89,7 @@
     f.text("back", "Botão Voltar para", { hint: "Id do slide (ex.: mapa): mostra 'Voltar' no canto" }),
     f.text("next", "No fim, avançar para", { hint: "Id do slide: o fim de um caminho volta ao mapa em vez de seguir a ordem" }),
     f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
-    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.num("sourceStep", "Fonte no clique", { hint: "Quando o nome do estudo entregaria a resposta antes da hora" }),
-    f.text("titleAfter", "Título depois do clique (a conclusão)", { hint: "O título vira este no clique: pergunte em cima, responda aqui" }), f.num("titleAfterStep", "Trocar o título no clique"),
-    f.bool("optional", "Opcional (pode pular se o tempo apertar)"),
-    f.text("sectionPalette", "Paleta deste slide em diante", { datalist: ["tema", "tinta", "floresta", "mar", "entardecer", "lavanda", "grafite", "neon", "areia", "cereja", "corporativo", "rubi", "ametista", "tangerina", "safira", "esmeralda", "luzquente"], hint: "Vale até o próximo slide que também tiver uma. Use no slide de seção: uma cor por parte" }), f.text("transition", "Transição", { datalist: ["fade", "cut", "saida", "morph"] }), f.text("ambient", "Ambiente de fundo", { datalist: ["pontos", "grade", "rede"] }),
+    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), ...SagaReveal.common(f), f.text("transition", "Transição", { datalist: ["fade", "cut", "saida", "morph"] }), f.text("ambient", "Ambiente de fundo", { datalist: ["pontos", "grade", "rede"] }),
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".
@@ -153,14 +150,14 @@
     number: [f.text("kicker", "Chapéu"), f.num("value", "Valor"), f.text("prefix", "Antes do número"), f.text("suffix", "Depois do número"), f.text("label", "Rótulo"),
       f.area("context", "Contexto"), f.el("side", "Ao lado"),
       f.more([f.num("decimals", "Casas decimais"), f.num("from", "Contar a partir de"), f.color("valueColor", "Cor do número"), f.num("size", "Tamanho (px)"),
-        f.num("labelSize", "Tamanho do rótulo (px)"), f.text("guess", "Pergunta antes do número (palpite)", { hint: "Aparece com um ? no lugar do número; o valor entra no clique" }), f.num("valueStep", "Número no clique"), f.num("contextStep", "Contexto no clique"), f.num("sideStep", "Lado no clique")])],
+        f.num("labelSize", "Tamanho do rótulo (px)"), ...SagaReveal.number(f), f.num("contextStep", "Contexto no clique"), f.num("sideStep", "Lado no clique")])],
     split: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.area("body", "Texto"), f.list("bullets", "Tópicos", T, { addLabel: "Adicionar tópico" }),
       f.el("figure", "Figura"), f.els("content", "Blocos abaixo do texto"),
       f.more([f.text("ratio", "Proporção texto:figura", { placeholder: "1:1" }), f.bool("reverse", "Figura à esquerda"), f.bool("build", "Tópicos um por clique"),
         f.select("bodyAs", "Estilo do texto", TEXT_ROLES, { empty: "Destaque" }), f.num("bulletSize", "Tamanho dos tópicos (px)"),
         f.select("titleAs", "Estilo do título", TEXT_ROLES, { empty: "Título" }), f.num("figureStep", "Figura no clique")])],
     cards: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Cartões", obj(CARD), { addLabel: "Adicionar cartão", newItem: () => ({ icon: "star", title: "Novo cartão", text: "" }) }),
-      f.more([f.num("cols", "Colunas"), f.select("build", "Revelar", [["true", "Um por clique"], ["flip", "Um por clique, e vira no seguinte"]], { empty: "Todos de uma vez", parse: (v) => (v === "true" ? true : v) })])],
+      f.more([f.num("cols", "Colunas"), SagaReveal.cards(f)])],
     stats: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["stats", "kpis", "items"], "Indicadores", obj(STAT), { addLabel: "Adicionar indicador", newItem: () => ({ value: "100%", label: "Indicador" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
     steps: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["steps", "process", "flow", "items"], "Etapas", obj(STEP), { addLabel: "Adicionar etapa", newItem: () => ({ title: "Nova etapa", text: "" }) }),

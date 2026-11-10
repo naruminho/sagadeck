@@ -1,7 +1,7 @@
 // YAML -> HTML (arquivo único, abre com duplo clique, funciona offline)
 import {meetingSpec} from './meeting.js';
 import { slideSize } from "./aspect.js";
-import { wordLimit, isDense } from "./purpose.js";
+import { wordLimit } from "./purpose.js";
 import { barHTML } from "./chrome.js";
 import { masterApplies, masterElements, masterCSS, isCoverLayout, titleBand } from "./master.js";
 import fs from "node:fs";
@@ -143,26 +143,6 @@ function navTargets(slide) {
   for (const [k, v] of Object.entries(slide || {})) if (k !== "notes") walk(v, k, true);
   return out;
 }
-// Monotonia: a plateia "nem percebe que trocou de slide" quando vários seguidos têm o mesmo fundo ou o mesmo
-// arranjo. looks = [{ look, layout }] na ordem do deck (look = tema + paleta + tom). Capa, encerramento e
-// referências não contam; quem conserta é o tom, a paleta do ato (sectionPalette) ou outro layout.
-const SAME_LOOK = 6, SAME_LAYOUT = 4;
-const EXTENSO = { 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez" };
-export function monotonyWarnings(looks = []) {
-  const out = [], n = (k) => EXTENSO[k] || String(k);
-  const runs = (key, min, msg) => {
-    let start = 0;
-    for (let i = 1; i <= looks.length; i++) {
-      if (i < looks.length && looks[i][key] != null && looks[i][key] === looks[start][key]) continue;
-      const len = i - start;
-      if (looks[start][key] != null && len >= min) out.push(msg(start + 1, i, len));
-      start = i;
-    }
-  };
-  runs("look", SAME_LOOK, (a, b, len) => `slides ${a} a ${b}: ${n(len)} seguidos com o mesmo fundo e as mesmas cores — varie o tone de alguns (dark, accent, alert) ou dê uma cor ao trecho (sectionPalette)`);
-  runs("layout", SAME_LAYOUT, (a, b, len) => `slides ${a} a ${b}: ${n(len)} seguidos no mesmo layout (${looks[a - 1].layout}) — troque o arranjo de alguns para a plateia perceber a mudança`);
-  return out;
-}
 export function navWarnings(slides = []) {
   const ids = new Map(), warns = [];
   slides.forEach((s, i) => { if (s && s.id != null && s.id !== "") { const id = String(s.id); if (ids.has(id)) warns.push(`slide ${i + 1}: id "${id}" repetido (o slide ${ids.get(id) + 1} já usa)`); else ids.set(id, i); } });
@@ -188,7 +168,6 @@ export function buildHTML(rawSpec, opts = {}) {
   const slidesMeta = [];
   let html = "";
 
-  const looks = [];
   spec.slides.forEach((raw, i) => {
     const s = withAct({ ...(spec.defaults || {}), ...raw }, i, spec);
     const layout = inferLayout(s);
@@ -199,9 +178,6 @@ export function buildHTML(rawSpec, opts = {}) {
     const th = slideTheme(s, theme, spec), sctx = th === theme ? ctx : { ...ctx, theme: th };
     try { inner = fn(s, sctx); } catch (e) { throw new Error(`Slide ${i + 1} (${layout}${s.title ? `: ${plain(s.title).slice(0, 40)}` : ""}): ${e.message}`); }
     html += slideShell({ s, i, spec, theme: th, ctx: sctx, layout, tone, inner }) + "\n";
-    // bg/background próprios já mudam a cara do slide: entram no "look"
-    const quiet = ["cover", "end", "references"].includes(layout);
-    looks.push(quiet ? { look: null, layout: null } : { look: `${th.key}|${tone}|${s.bg || ""}|${s.background ? JSON.stringify(s.background).slice(0, 60) : ""}`, layout });
 
     const words = wordCount({ ...raw, notes: undefined });
     // limite pelo propósito do material (purpose: consulta/aula aceitam texto corrido) e pelo layout (one-page, status)
@@ -214,9 +190,6 @@ export function buildHTML(rawSpec, opts = {}) {
   for(const [i,s]of spec.slides.entries())if(['graphlab','codelab','playground','portal'].includes(s.layout))slidesMeta[i].interactiveModel={theme:spec.theme||'manual',slide:s};
   // navegação por caminhos: todo goto/back/next e [texto](#id) tem de levar a um slide (id ou número)
   warnings.push(...navWarnings(spec.slides));
-  // só em material para apresentar: no de estudo (purpose: consulta) a uniformidade é esperada
-  // (monotony: false no deck desliga: catálogos e galerias, como o tour, são uniformes de propósito)
-  if (!isDense(spec) && spec.monotony !== false) warnings.push(...monotonyWarnings(looks));
 
   // CSS e widgets próprios ficam ao lado do YAML. Se faltar um (ex.: deck aberto pelo navegador no
   // Studio, sem a pasta original), a apresentação sai sem ele e com aviso — não quebra inteira.

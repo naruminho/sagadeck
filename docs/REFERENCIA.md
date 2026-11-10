@@ -622,11 +622,13 @@ Numa palestra ou aula, o slide que já entrega a conclusão no título mata a di
 | várias perguntas rápidas, uma por vez | `cards` com `build: flip` (frente = o caso, `flip` = a resposta) |
 | um caso em capítulos | `split`/`list`/`timeline` com `build: true`, o desfecho por último |
 
+**Prefira revelar no próprio slide.** Um slide só de pergunta seguido de outro só com a resposta gasta dois slides e a plateia perde o fio: `guess`, `titleAfter` e `axisLabelStep` fazem a pergunta e a resposta no mesmo lugar. O layout `question` fica para uma escolha de verdade entre opções, não para anunciar o próximo dado.
+
 Regras: o título do slide **nunca** antecipa o que um clique vai revelar (pergunte, em vez de afirmar); título de seção não entrega o veredito do ato; a `source` com nome de estudo vai com `sourceStep`. Não transforme tudo em suspense: slide de conceito, de transição ou de resumo diz logo a que veio. Nas `notes`, escreva o que falar em cada clique ("CLIQUE 1: …").
 
 No Studio, **Exibir › Todos os slides** mostra a apresentação inteira lado a lado, com tudo revelado (a mesma visão da tecla `G` ao apresentar): é onde se enxerga repetição de cor e de arranjo. Pelo comando, `sagadeck shots deck.yaml` grava as folhas de contato.
 
-**Ritmo visual.** O fiscal avisa quando seis ou mais slides seguidos têm o mesmo fundo e as mesmas cores, ou quatro ou mais usam o mesmo layout: a plateia deixa de perceber a troca de slide. Varie o `tone` (`dark`, `accent`, `alert`) nos momentos de virada, dê uma cor a cada parte com `sectionPalette` no slide de seção e alterne os arranjos. `monotony: false` no deck desliga o aviso (catálogos e galerias, uniformes de propósito); material de estudo (`purpose: consulta`) não é avisado.
+**Ritmo visual.** Seis ou mais slides seguidos com o mesmo fundo e as mesmas cores, ou três ou mais no mesmo layout, e a plateia deixa de perceber a troca de slide (a revisão de ritmo acusa; no Studio, o botão Ritmo). Varie o `tone` (`dark`, `accent`, `alert`) nos momentos de virada, dê uma cor a cada parte com `sectionPalette` no slide de seção e alterne os arranjos. Material de estudo (`purpose: consulta`) pode ficar uniforme.
 
 ## Direção cinematográfica
 

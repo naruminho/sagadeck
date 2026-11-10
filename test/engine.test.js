@@ -1097,28 +1097,6 @@ test("sectionPalette vale do slide em diante, até o próximo; palette do slide 
   assert.match(renderSlide(deck.slides[7], 7, deck).html, /lk-terminal /);
 });
 
-test("fiscal de monotonia: avisa de muitos slides seguidos com a mesma cara ou o mesmo layout", () => {
-  const st = (text, extra = {}) => ({ layout: "statement", text, ...extra });
-  const warn = (slides, extra = {}) => buildHTML({ title: "Teste", theme: "terminal", slides, ...extra }).warnings.filter((w) => /seguidos/.test(w));
-  // seis iguais em tudo: os dois avisos, com o intervalo certo (a capa não conta)
-  const same = [{ layout: "cover", title: "Capa" }, ...Array.from({ length: 6 }, (_, i) => st(`frase ${i}`))];
-  const w = warn(same);
-  assert.equal(w.length, 2);
-  assert.match(w[0], /^slides 2 a 7: seis seguidos com o mesmo fundo/);
-  assert.match(w[1], /^slides 2 a 7: seis seguidos no mesmo layout \(statement\)/);
-  // variar o tom no meio quebra a sequência de fundo; o layout continua igual
-  const tones = same.map((s, i) => (i === 3 ? { ...s, tone: "accent" } : s));
-  assert.deepEqual(warn(tones).map((x) => x.slice(0, 40)), ["slides 2 a 7: seis seguidos no mesmo lay"]);
-  // uma paleta por ato também quebra
-  const acts = same.map((s, i) => (i === 4 ? { ...s, sectionPalette: "mar" } : s));
-  assert.ok(!warn(acts).some((x) => /mesmo fundo/.test(x)));
-  // layouts alternados e tons variados: nenhum aviso
-  const varied = [st("a"), { layout: "list", title: "b", items: ["x", "y"] }, st("c", { tone: "dark" }), { layout: "number", value: 5, label: "d" }, st("e", { tone: "accent" }), { layout: "list", title: "f", items: ["x"] }, st("g")];
-  assert.deepEqual(warn(varied), []);
-  // material de estudo: a uniformidade é esperada
-  assert.deepEqual(warn(same, { purpose: "consulta" }), []);
-});
-
 test("sem spoiler: palpite antes do número, título que troca e cartão que vira no clique", () => {
   // número: a pergunta e um "?" saem no clique em que o valor e a legenda entram; o contexto vem no seguinte
   const num = html({ layout: "number", value: 55, suffix: "%", label: "de diferença", guess: "Quanto você acha que deu?", context: "A diretoria apostava em 10%." });
