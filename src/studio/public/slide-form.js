@@ -372,7 +372,7 @@
     { id: "timer", label: "Timer", is: (e) => e.timer != null, tpl: () => ({ timer: 30 }),
       fields: [f.num("timer", "Segundos"), f.text("label", "Rótulo"), f.bool("auto", "Começa sozinho", { default: true }), f.num("size", "Tamanho (px)")] },
     { id: "poll", label: "Enquete", is: (e) => e.poll, tpl: () => ({ poll: "enquete-1", options: ["Sim", "Não"] }),
-      fields: [f.text("poll", "Identificador"), f.list("options", "Opções", T), f.text("compare", "Comparar com (identificador)"), f.text("hint", "Dica")] },
+      fields: [f.text("poll", "Identificador"), f.list("options", "Opções", T), f.bool("live", "Votação pelo celular"), f.text("compare", "Comparar com (identificador)"), f.text("hint", "Dica")] },
     { id: "list", label: "Lista", is: (e) => e.list, tpl: () => ({ list: ["Primeiro", "Segundo"] }),
       fields: [f.list("list", "Itens", textOrObj([f.area("text", "Texto"), f.text("sub", "Detalhe")])), f.bool("numbered", "Numerada"), f.bool("build", "Um por clique"), f.num("size", "Tamanho (px)")] },
     { id: "cards", label: "Cartões", is: (e) => e.cards, tpl: () => ({ cards: [{ icon: "star", title: "Cartão" }] }),

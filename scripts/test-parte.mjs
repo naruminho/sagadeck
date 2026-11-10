@@ -22,7 +22,7 @@ export const PESOS = {
   "diagram.test.js": 20, "slide-select.test.js": 19, "science-visual.test.js": 19, "studio-delete.test.js": 19,
   "ribbon-fit.test.js": 18, "studio-scripts.test.js": 17, "themes-skin.test.js": 17, "interactive-labs.test.js": 16,
   "studio-themes.test.js": 16, "share.test.js": 16, "editor-tools.test.js": 16, "studio-chat-jobs.test.js": 16,
-  "map.test.js": 16,
+  "map.test.js": 16, "vote.test.js": 30,
 };
 export const PESO_PADRAO = 5; // a média dos arquivos fora da tabela
 
