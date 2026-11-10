@@ -89,7 +89,7 @@
     f.text("back", "Botão Voltar para", { hint: "Id do slide (ex.: mapa): mostra 'Voltar' no canto" }),
     f.text("next", "No fim, avançar para", { hint: "Id do slide: o fim de um caminho volta ao mapa em vez de seguir a ordem" }),
     f.select("markStyle", "Estilo do ==destaque== neste slide", [["marca-texto", "Marca-texto"], ["sublinhado", "Sublinhado"], ["cor", "Só cor"], ["negrito", "Negrito colorido"], ["nenhum", "Sem destaque"]], { empty: "O do deck" }),
-    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), f.text("transition", "Transição", { datalist: ["fade", "cut", "saida", "morph"] }), f.text("ambient", "Ambiente de fundo", { datalist: ["pontos", "grade", "rede"] }),
+    f.num("titleSize", "Tamanho do título (px)"), f.bool("fit", "Encolher o título para caber"), f.text("source", "Fonte (rodapé)"), ...SagaReveal.common(f), f.text("transition", "Transição", { datalist: ["fade", "cut", "saida", "morph"] }), f.text("ambient", "Ambiente de fundo", { datalist: ["pontos", "grade", "rede"] }),
     f.els("add", "Elementos extras no fim"), f.el("background", "Figura de fundo")];
 
   // Campos de cada layout (o que src/layouts.js lê). "more" = recolhido em "Mais opções".
@@ -150,14 +150,14 @@
     number: [f.text("kicker", "Chapéu"), f.num("value", "Valor"), f.text("prefix", "Antes do número"), f.text("suffix", "Depois do número"), f.text("label", "Rótulo"),
       f.area("context", "Contexto"), f.el("side", "Ao lado"),
       f.more([f.num("decimals", "Casas decimais"), f.num("from", "Contar a partir de"), f.color("valueColor", "Cor do número"), f.num("size", "Tamanho (px)"),
-        f.num("labelSize", "Tamanho do rótulo (px)"), f.num("contextStep", "Contexto no clique"), f.num("sideStep", "Lado no clique")])],
+        f.num("labelSize", "Tamanho do rótulo (px)"), ...SagaReveal.number(f)])],
     split: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.area("body", "Texto"), f.list("bullets", "Tópicos", T, { addLabel: "Adicionar tópico" }),
       f.el("figure", "Figura"), f.els("content", "Blocos abaixo do texto"),
       f.more([f.text("ratio", "Proporção texto:figura", { placeholder: "1:1" }), f.bool("reverse", "Figura à esquerda"), f.bool("build", "Tópicos um por clique"),
         f.select("bodyAs", "Estilo do texto", TEXT_ROLES, { empty: "Destaque" }), f.num("bulletSize", "Tamanho dos tópicos (px)"),
         f.select("titleAs", "Estilo do título", TEXT_ROLES, { empty: "Título" }), f.num("figureStep", "Figura no clique")])],
     cards: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list("items", "Cartões", obj(CARD), { addLabel: "Adicionar cartão", newItem: () => ({ icon: "star", title: "Novo cartão", text: "" }) }),
-      f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
+      f.more([f.num("cols", "Colunas"), SagaReveal.cards(f)])],
     stats: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["stats", "kpis", "items"], "Indicadores", obj(STAT), { addLabel: "Adicionar indicador", newItem: () => ({ value: "100%", label: "Indicador" }) }),
       f.more([f.num("cols", "Colunas"), f.bool("build", "Um por clique")])],
     steps: [f.text("kicker", "Chapéu"), f.text("title", "Título"), f.list(["steps", "process", "flow", "items"], "Etapas", obj(STEP), { addLabel: "Adicionar etapa", newItem: () => ({ title: "Nova etapa", text: "" }) }),

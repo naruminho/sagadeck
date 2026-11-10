@@ -36,6 +36,21 @@ export function varietyReport(spec) {
       if (new Set(slides.map((s) => s.tone)).size === 1) problems.push(`todos os slides no mesmo tom (${slides[0].tone}) — alterne com escuro/destaque nos momentos-chave`);
     }
   }
+  // 6+ slides seguidos com o mesmo fundo e as mesmas cores (tom + paleta, inclusive a do ato: sectionPalette vale do
+  // slide em diante): a plateia deixa de perceber a troca de slide. Capa e encerramento não contam.
+  if (spec?.purpose !== "consulta") {
+    let act = null;
+    const looks = (spec?.slides || []).map((s) => {
+      if (s?.sectionPalette != null && s.sectionPalette !== "") act = s.sectionPalette;
+      return FRAME.has(s?.layout) || s?.layout === "references" ? null : JSON.stringify([s?.tone || "light", s?.palette ?? act, s?.theme || "", s?.bg || "", s?.background ? 1 : 0]);
+    });
+    for (let i = 0; i < looks.length;) {
+      let j = i;
+      while (looks[i] != null && j + 1 < looks.length && looks[j + 1] === looks[i]) j++;
+      if (looks[i] != null && j - i + 1 >= 6) problems.push(`${j - i + 1} slides seguidos com o mesmo fundo e as mesmas cores (slides ${i + 1}–${j + 1}) — varie o tone nos momentos de virada ou dê uma cor a cada parte (sectionPalette no slide de seção)`);
+      i = j + 1;
+    }
+  }
   const counts = {};
   body.forEach((s) => (counts[s.layout] = (counts[s.layout] || 0) + 1));
   return { slides: slides.length, distinct, runs, counts, problems, ok: problems.length === 0 };
