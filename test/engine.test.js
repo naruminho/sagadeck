@@ -1051,3 +1051,19 @@ test("gráfico de linha: axisLabelStep segura só os nomes dos eixos; rótulos e
   const size = +svg.match(/font-size="(\d+(?:\.\d+)?)"[^>]*>(?:<tspan[^>]*>)?10h30/)[1];
   assert.equal(size, 22);
 });
+
+test("paletas próprias diferentes em slides diferentes não se misturam", () => {
+  const deck = { title: "Teste", theme: "terminal", slides: [
+    { layout: "statement", text: "um", palette: { paper: "F5EFE3", ink: "17130F", accent: "E4572E", alert: "1F6F8B" } },
+    { layout: "statement", text: "dois", palette: { paper: "0A1020", ink: "EAF2FF", accent: "35D0FF", alert: "FF5A6E" } },
+  ] };
+  const { html: page } = buildHTML(deck);
+  const keys = [...page.matchAll(/<section class="slide[^"]* (lk-[\w-]+)/g)].map((m) => m[1]);
+  assert.equal(keys.length, 2);
+  assert.notEqual(keys[0], keys[1], "cada paleta própria tem a sua chave");
+  // as cores de cada uma valem só no seletor dela
+  const rule = (k) => page.slice(page.indexOf(`.slide.${k}`), page.indexOf(`.slide.${k}`) + 4000).toUpperCase();
+  assert.ok(page.includes(`.slide.${keys[0]}`) && page.includes(`.slide.${keys[1]}`));
+  assert.match(rule(keys[0]), /F5EFE3/);
+  assert.match(rule(keys[1]), /0A1020/);
+});

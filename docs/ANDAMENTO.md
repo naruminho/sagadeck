@@ -18,11 +18,13 @@ Nasceu de uma palestra real: mostrar a curva sem dizer do que ela trata, discuti
   Foi o que ela pediu depois de ver o `axisStep`: sem eixo nenhum "nem dá pra saber que é um gráfico".
 - Correção: rótulos espaçados no eixo (um a cada vários pontos) encolhiam para o mínimo porque cada um só contava
   com o vão de um ponto; agora usam o vão até o rótulo vizinho que existe.
+- Correção: paletas próprias (`palette: { paper, ink, … }`) diferentes em slides diferentes dividiam a mesma chave
+  (`lk-<tema>--propria`) e a última pintava todos. A chave agora leva as cores. Apareceu ao dar uma paleta a cada ato.
 - `sourceStep` (qualquer layout): a linha de `source` entra só no clique, para a fonte não entregar a resposta.
 - CSS: peça de gráfico revelada só aparece, sem deslizar dentro do desenho.
 - Testes em `engine.test.js`; `docs/REFERENCIA.md` atualizada.
-- **Estado**: branch enviada, sem PR. O Studio local (porta 3517) roda desta worktree para validação; PR e merge
-  depois do ok dela. Ao fechar: desfazer a junção do `node_modules` antes de remover a worktree.
+- **Estado**: PR #228 aberto depois do ok dela; merge com a CI verde. O Studio local (porta 3517) roda desta worktree
+  até lá; depois volta para a pasta oficial. Ao fechar: desfazer a junção do `node_modules` antes de remover a worktree.
 - **Ideias que ficaram para depois** (vieram da mesma palestra): "chute o número" antes de revelar (hoje se monta com
   `blocks` + `step`), identidade de cor por ato, votação da plateia pela rede (hoje a enquete é só digitada), campos
   novos no formulário do Studio (`axisStep`, `step`, `sourceStep` ainda só pelo YAML).
