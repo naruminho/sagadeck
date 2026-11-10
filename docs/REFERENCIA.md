@@ -48,6 +48,8 @@ slides:
 | `layout` | um dos layouts abaixo (se omitido, o sagadeck adivinha pelo conteúdo) |
 | `tone` | `light` (padrão), `dark`, `accent` (cor forte do tema), `alert` |
 | `theme` / `palette` | tema e/ou paleta só deste slide (o resto da apresentação não muda); `palette: tema` volta às cores do tema |
+| `sectionPalette` | paleta **deste slide em diante**, até o próximo slide que também tiver `sectionPalette` (nome de paleta ou `{ paper, ink, accent, alert }`; `tema` volta às cores do deck). Ponha no slide de seção: cada ato ganha a sua cor sem repetir `palette` em cada slide. O `palette` do próprio slide vence |
+| `titleAfter` / `titleAfterStep` | o título começa como **pergunta** (`title`) e vira a **conclusão** (`titleAfter`) no clique `titleAfterStep` (padrão 1), no mesmo lugar: a plateia pensa antes de ler a resposta |
 | `kicker` | linha pequena acima do título (rótulo) |
 | `title` / `titleSize` / `titleAs` | título; tamanho em px; papel tipográfico (`title`, `h2`, `h3`) |
 | `source` | fonte/nota de rodapé do slide |
@@ -55,7 +57,9 @@ slides:
 | `notes` | roteiro do apresentador (Markdown simples, ver abaixo) |
 | `consulta` | texto de consulta: só no **material de estudo** (a outra visão do mesmo deck), logo depois do slide; não aparece na apresentação (Markdown simples, como `notes`) |
 | `time` | minutos planejados para o slide (soma no cronômetro) |
+| `optional: true` | slide que **pode ser pulado** se o tempo apertar (um exemplo a mais, um vídeo): a visão do apresentador avisa, e o tempo planejado sai com e sem os opcionais. Marque assim, em vez de escrever "opcional" só nas notas |
 | `build: true` | revela os itens (lista, cards, linha do tempo, matriz…) **um por clique** |
+| `build: flip` | só em `cards`: cada cartão **entra num clique e vira no seguinte** (frente = a pergunta, `flip` = a resposta). A seta faz tudo, sem precisar do mouse |
 | `steps: N` | força N cliques no slide (útil para widgets) |
 | `background` | figura de fundo atrás do conteúdo |
 | `bg` / `fg` | cor de fundo / texto (hex) só neste slide |
@@ -86,7 +90,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `poster` | `kicker, title, subtitle, hero` (ilustração principal: `{ image_prompt }`, imagem, gráfico…), `panels: [{label, title, text, icon` ou `figure` ou `image_prompt, facts: [{value, label}]}], flow, cols, key, build` | infográfico de UMA página no estilo de figura de revista científica (Nature, Scientific American): a ilustração principal e painéis com letra (a, b, c…), cada um com um desenho, título, texto curto e números com unidade; `flow: true` põe setas na ordem (receita, processo, protocolo); `key` é a nota de rodapé (fonte, condições). Para "infográfico de uma página", "pôster" ou "como fazer X numa página", este e não o `onepage` (que é jornada, problema e solução de um projeto). Ilustre os painéis com `image_prompt` no mesmo estilo (ex.: "clean scientific illustration, flat, white background") |
 | `definition` | `kicker, term, origin, parts: [{word, meaning}], text, icon` (ou `figure`), `build`, `termSize` (px do termo) | definição de um termo, como verbete: o termo em destaque, a origem da palavra em partes (`origin: do grego`, `parts: [{word: hydor, meaning: água}, {word: logos, meaning: ciência}]`) e a definição; para "o que é X", use este e não um `statement` com o parágrafo inteiro |
 | `quote` | `quote, by, role, after, afterStep` | citação; `after` aparece num clique |
-| `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor` | número gigante animado (conta de `from` até `value`) |
+| `number` | `value, prefix, suffix, decimals, from, label, context, side, valueColor, guess, valueStep` | número gigante animado (conta de `from` até `value`). `guess: "Quanto você acha que deu?"` mostra a pergunta com um `?` no lugar do número; o valor e a legenda entram no clique (`valueStep`, padrão 1) e o `context` no seguinte |
 | `split` | `title, body, bullets, content, figure, ratio: "1.2:1", reverse, build` | texto + figura |
 | `cards` | `title, items: [{icon, picto, number, title, text, foot, hl, goto, flip}], cols, build` | 2–4 cartões; com `flip` o cartão **vira** no clique (ver abaixo) |
 | `list` | `title, items: [texto ou {text, sub, goto}], numbered, size, build` | lista numerada grande |
@@ -95,7 +99,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 | `status` | `kicker, title, health: ok\|risco\|atrasado, healthLabel, progress (0–100), highlight, done, doing, blocked, risks, upcoming: [texto ou {text, owner, due}], shots: [{image, caption}]` | status semanal; ver [Status semanal](#status-semanal-status) |
 | `stats` | `title, stats: [{value, prefix, suffix, label, text, icon, trend, trendUp, color}], cols, build` | indicadores (KPIs) em cartões, com tendência (`trend: "+12%"`) |
 | `timeline` | `title, events: [{when, title, text, tag, more}], highlight, after, build` | linha do tempo; `more` põe um botão + no marco que abre um balão (ver abaixo) |
-| `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário |
+| `chart` | `title, chart: {…}, side (texto ou elemento), chartHeight` | gráfico + comentário; com `sideStep`, o gráfico fica no centro com a largura toda até o comentário entrar |
 | `table` | `title, head, rows, style, color, highlight, total, side, caption, source` | tabela de verdade nas cores do tema |
 | `map` | `kicker, title, basemap, layers: [{name, points \| geojson \| gpx \| kml \| areas, color, size, label, colors, popup, step, view}], build, view, caption` | **mapa ao vivo** com pontos, linhas e áreas (sensores, medidores, unidades de atendimento, cinemas, trajetos, regiões…): os dados vêm da planilha do projeto ou de arquivos GeoJSON/GPX/KML; ver [Mapa](#mapa-map) |
 | `compare` | `title, left: {label, value, title, text, items, figure, hl}, right: {…}, vs, after, build` | A × B |
@@ -554,6 +558,8 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 | cartões | `{ cards: [...], cols: 3 }` |
 | código | `{ code: "…", highlight: [2] }` |
 | QR code | `{ qr: "https://linkedin.com/in/voce", size: 360, label: "Meu LinkedIn" }` — sempre escuro sobre claro, legível mesmo em slide escuro |
+| celular | `{ mock: phone, time: "8:07", date: "sábado, 13 de janeiro", notifications: [{ app: "Alerta de emergência", text: "…", step: 1 }] }` — a tela de bloqueio com a notificação que chegou; põe a plateia dentro da cena. Uma notificação só: `app` e `text` direto no elemento |
+| documento | `{ mock: document, kicker: "Currículo · triagem", title: "Candidata #2317", lines: [86, 64, { text: "Capitã do clube de xadrez **feminino**", mark: true, step: 1, note: "−" }, 72], score: "★★☆☆☆", scoreLabel: "nota do modelo" }` — uma ficha, laudo, currículo ou formulário: número em `lines` = linha de texto borrada (largura em %); `mark: true` destaca a linha, e com `step` o destaque só acende no clique (a linha fica na tela para a plateia procurar) |
 | pontos | `{ points: fone }` ou `{ points: { de: fone, para: mic, legenda: "Ouvindo", legendaPara: "Agindo" } }` — ícone desenhado com luzinhas que viajam de uma forma a outra no clique (só no HTML; PPTX/PDF usam a inicial). Formas: `fone`, `mic`, `doc`, `planilha`, `busca`, `chat` |
 | forma | `{ shape: rect|rounded|circle|pill|line|triangle|diamond|hexagon|star|arrow|chevron|bubble, fill: hi, stroke: fg, strokeWidth, w, h, content }` (circle vira elipse se w ≠ h; triangle…bubble são desenhos com preenchimento e contorno) |
 | selo | `{ badge: "NOVO" }` |
@@ -637,6 +643,27 @@ Como no PowerPoint, são duas escolhas independentes:
 - **Identidade** (`identity: trabalho`, no deck): as fontes da empresa da pessoa (e a paleta preferida), configuradas só no computador dela (`~/.sagadeck/identidades.yaml`; no Studio, aba Design, grupo Identidade). Corpo, rótulos e código sempre na fonte da empresa; títulos também, menos nos temas com personalidade (`rabisco`, `pop`, `terminal`, `jornal`, `bauhaus`), que mantêm o título deles. A paleta da identidade vale quando o deck não escolheu outra. Nunca invente o nome de uma identidade: use só a que a pessoa pedir ou a que o deck já tem; numa máquina sem ela, a apresentação sai com as fontes do tema.
 
 Os dois valem no deck todo ou num slide só (`theme:`/`palette:` no slide). No Studio, aba Design: clique aplica em todos os slides; botão direito, "Só neste slide".
+
+## Sem spoiler: a pergunta antes da resposta
+
+Numa palestra ou aula, o slide que já entrega a conclusão no título mata a discussão: a plateia lê a resposta antes de pensar. Sempre que o slide traz um **dado surpreendente, um resultado de estudo, um caso com reviravolta ou um gráfico com padrão**, monte em duas etapas: primeiro o que faz pensar, depois (no clique) o que responde. Na tela fica o convite neutro ("Qual é o seu palpite?", "Escolha: 1, 2 ou 3"); não escreva "responda no chat" nem dependa de enquete, reação ou microfone, a não ser que o pedido diga que a plateia tem isso (a sugestão de usar o chat vai em `notes`, como "SE TIVER CHAT: …").
+
+| quero… | use |
+|---|---|
+| perguntar e só depois mostrar a conclusão no título | `title: "Quem acerta mais?"` + `titleAfter: "A IA sozinha acertou mais."` |
+| pedir um palpite antes de um número | `layout: number` com `guess: "Quanto você acha que deu?"` |
+| mostrar o gráfico sem dizer do que trata | `chart` de linha com `axisLabelStep: 1` (escala e rótulos visíveis; os nomes dos eixos entram no clique), `step` nas faixas/séries/anotações e `sourceStep` na fonte (o nome do estudo entrega a resposta) |
+| segurar o gráfico ou o comentário | `chartStep`, `sideStep`, `add: { lead: "…", step: n }` |
+| várias perguntas rápidas, uma por vez | `cards` com `build: flip` (frente = o caso, `flip` = a resposta) |
+| um caso em capítulos | `split`/`list`/`timeline` com `build: true`, o desfecho por último |
+
+**Prefira revelar no próprio slide.** Um slide só de pergunta seguido de outro só com a resposta gasta dois slides e a plateia perde o fio: `guess`, `titleAfter` e `axisLabelStep` fazem a pergunta e a resposta no mesmo lugar. O layout `question` fica para uma escolha de verdade entre opções, não para anunciar o próximo dado.
+
+Regras: o título do slide **nunca** antecipa o que um clique vai revelar (pergunte, em vez de afirmar); título de seção não entrega o veredito do ato; a `source` com nome de estudo vai com `sourceStep`. Não transforme tudo em suspense: slide de conceito, de transição ou de resumo diz logo a que veio. Nas `notes`, escreva o que falar em cada clique ("CLIQUE 1: …").
+
+No Studio, **Exibir › Todos os slides** mostra a apresentação inteira lado a lado, com tudo revelado (a mesma visão da tecla `G` ao apresentar): é onde se enxerga repetição de cor e de arranjo. Pelo comando, `sagadeck shots deck.yaml` grava as folhas de contato.
+
+**Ritmo visual.** Seis ou mais slides seguidos com o mesmo fundo e as mesmas cores, ou três ou mais no mesmo layout, e a plateia deixa de perceber a troca de slide (a revisão de ritmo acusa; no Studio, o botão Ritmo). Varie o `tone` (`dark`, `accent`, `alert`) nos momentos de virada, dê uma cor a cada parte com `sectionPalette` no slide de seção e alterne os arranjos. Material de estudo (`purpose: consulta`) pode ficar uniforme.
 
 ## Direção cinematográfica
 

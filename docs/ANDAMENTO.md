@@ -27,10 +27,58 @@ O que cada ponto virou:
   (30); `science` com `plot: false` e 3 ou mais equações usava o tamanho da coluna estreita (agora 54/44/34 px); a
   dica do gráfico do `science` subiu de 17 para 22 px.
 
-**Falta / ideias que ficaram**: a revisão ainda gasta rodadas em achados que só o motor resolve (não há como a IA
+- **"Texto ele salva, mas tamanho de texto e espaço voltam ao inicial."** O ajuste era gravado; o que desfazia era o
+  "encolher tudo para caber": num slide cheio (já a 73%), aumentar um texto fazia o slide inteiro encolher de novo
+  (o texto quase não mudava na tela e o resto diminuía). Agora o primeiro ajuste à mão no slide grava o piso do
+  encolhimento (`visualEdits._slide.minZoom`, vira `data-min-zoom` no slide; `shrink` em `src/runtime/fit.js` não
+  passa dele). Tirar coisas ainda desencolhe; limpar os ajustes tira o piso.
+- **Legenda do gráfico virou fórmula.** Abrir no formulário um `science` criado pela IA trocava cada curva
+  `{ fn, name, color }` pela fórmula solta (nome e cor sumiam). O formulário agora edita só o `fn`.
+
+- **"O fiscal marcou tudo como ruim e ficou difícil até de clicar"** (ajustando à mão um slide com muitos elementos).
+  As marcações vermelhas ficavam na frente do clique (só a de texto pequeno deixava passar) até a pessoa entrar no
+  ajuste de objetos. Agora nunca interceptam o clique, somem enquanto há um objeto selecionado, e o que a pessoa moveu,
+  redimensionou ou mudou de tamanho à mão não vira aviso de "um em cima do outro" nem de margem (fora do slide ainda
+  avisa).
+
+Publicado na **1.11.8** junto com a votação pela rede e o "sem spoiler".
+
+**Falta / ideias que ficaram**: o campo de tamanho do editor mostra o valor antes do encolhimento (92 num título que
+está com 67 na tela a 73%); a revisão ainda gasta rodadas em achados que só o motor resolve (não há como a IA
 saber que um defeito é do layout); o `solution` com um passo só deixa meia tela vazia; o fiscal de layout acusa
 baixo contraste no chapéu (`kicker`) em pílula, que se lê bem (falso positivo).
 ---
+
+## Sem spoiler e ritmo visual, para a IA gerar sozinha — 10/11/2026 (branch `claude/sem-spoiler`)
+
+Continuação da palestra "E se o humano for o bug?": tudo o que foi montado à mão no deck virou recurso, documentado
+na REFERENCIA para a IA do sagadeck usar (ela precisa conseguir gerar isso sem ajuda de fora).
+
+- **Paleta por ato**: `sectionPalette` num slide vale dele em diante, até o próximo slide com `sectionPalette`
+  (`tema` volta ao deck); o `palette` do próprio slide vence. Miniaturas do Studio acompanham.
+- **Ritmo**: o relatório de variedade que a IA revisa e o Studio mostra (`src/ai/variety.js`) acusa 6+ slides seguidos
+  com o mesmo fundo e cores (tom + paleta, inclusive a do ato). Cheguei a pôr o mesmo aviso na montagem (`build`), mas
+  ele disparava em todas as demos e aulas de exemplo e duplicava a regra: ficou só no relatório de variedade.
+- **Revelar sem spoiler**: `guess`/`valueStep` no `number` (palpite antes do número), `titleAfter`/`titleAfterStep`
+  (o título-pergunta vira a conclusão), `build: flip` em `cards` (entra num clique, vira no seguinte). O seletor de
+  cliques do editor conta saídas e viradas; em "Tudo" fica só a resposta.
+- **`optional: true`**: slide que pode ser pulado; a visão do apresentador avisa e o tempo sai com e sem os opcionais.
+- **Gráfico em largura cheia** até o comentário (`sideStep`) entrar.
+- **Peças prontas de tela** (`mock: phone | document`): celular com notificações e documento/ficha com linha que só
+  acende no clique. Substituíram HTML e CSS soltos no deck da palestra.
+- **Studio**: Exibir › Todos os slides (abre a apresentação na visão geral, `?geral=1`); campos novos no formulário.
+- **Defeitos**: `back: sleep` no desenho do carro acusava link sem destino e virava o recado "Sem sleep, human"
+  (back/next só são links no nível do slide; o recado de arquivo faltando só fala de arquivo).
+- **Prompt**: regra SEM SPOILER nas regras de geração (`deck-ai.js`) e seção "Sem spoiler" na REFERENCIA.
+- **Testes ao vivo** (`ai-live.test.js`, três novos): edição do gráfico dos juízes e do número passaram de primeira
+  (a IA montou `axisLabelStep`, `step` nas faixas, `titleAfter`, `sourceStep` e as notas por clique). Geração de
+  palestra: na primeira rodada usou `sectionPalette` mas pôs slides `question` antes dos dados em vez de revelar
+  no próprio slide; a regra no prompt veio daí. Na segunda rodada, com a regra, passou: `guess`, `titleAfter`, `build: flip` e três
+  `sectionPalette` no mesmo deck.
+- **Não entrou**: votação da plateia pela rede (tarefa própria: precisa de servidor alcançável pelos alunos, estado
+  dos votos e cuidado de segurança no servidor público); aviso de encolhimento no fiscal (o ajuste de caber roda
+  no navegador; o Studio já mostra "Texto reduzido para caber"); vídeo do YouTube na foto do slide (o player recusa
+  página aberta por arquivo); campos do gráfico (`axisLabelStep`, `step`) no formulário (só pelo YAML e pela IA).
 
 ## Votação da plateia pela rede — 09/11/2026 (branch `claude/votacao-rede`)
 
@@ -114,8 +162,7 @@ Nasceu de uma palestra real: mostrar a curva sem dizer do que ela trata, discuti
 - `sourceStep` (qualquer layout): a linha de `source` entra só no clique, para a fonte não entregar a resposta.
 - CSS: peça de gráfico revelada só aparece, sem deslizar dentro do desenho.
 - Testes em `engine.test.js`; `docs/REFERENCIA.md` atualizada.
-- **Estado**: PR #228 aberto depois do ok dela; merge com a CI verde. O Studio local (porta 3517) roda desta worktree
-  até lá; depois volta para a pasta oficial. Ao fechar: desfazer a junção do `node_modules` antes de remover a worktree.
+- **Estado**: PR #228 mesclado em 10/11/2026 (CI verde nos dois sistemas); worktree removida. Ao fechar: desfazer a junção do `node_modules` antes de remover a worktree.
 - **Ideias que ficaram para depois** (vieram da mesma palestra): "chute o número" antes de revelar (hoje se monta com
   `blocks` + `step`), identidade de cor por ato, votação da plateia pela rede (hoje a enquete é só digitada), campos
   novos no formulário do Studio (`axisStep`, `step`, `sourceStep` ainda só pelo YAML).

@@ -286,6 +286,7 @@
       commit: () => { syncDeckToServer(); renderCurrentSlide(); renderThumbnails(); },
       // como no Figma: clicar num objeto com o painel em Formatar mostra as propriedades dele; soltar a seleção volta
       onSelection: (els, why) => {
+        dom.inspectorOverlay.classList.toggle("quiet", els.length > 0); // mexendo num objeto: as marcações do fiscal saem da frente
         const open = !dom.inspectorSidebar.classList.contains("collapsed");
         if (els.length && why === "user" && open && currentPane() === "props") { state.autoInspect = true; openPane("inspect"); }
         // soltou a seleção, trocou de slide com algo selecionado: o conteúdo do slide volta a ficar à mão
@@ -440,6 +441,7 @@
       fitSlideText(dom.renderedSlideContainer);
       // a miniatura deste slide usa o mesmo HTML (acompanha cada edição)
       putThumb(idx, slide, data.html);
+      refreshActThumbs();
 
       // Habilitar edição WYSIWYG inline
       enableInlineEditing();
@@ -687,13 +689,18 @@
       state.issues.push({ kind: "codigo-cortado", text: label(el), px: Math.round(el.scrollHeight - el.clientHeight), logical: toLogical(R(el)) });
     });
 
+    // o que a pessoa pôs no lugar à mão (moveu, redimensionou, mudou o tamanho) é escolha dela: não vira aviso de
+    // "um em cima do outro" nem de margem (ajustando um slide cheio, o fiscal marcava tudo de vermelho)
+    const ve = state.deck?.slides?.[state.currentSlideIndex]?.visualEdits || {};
+    const byHand = (el) => [el.closest("[data-vkey]"), ...el.querySelectorAll("[data-vkey]")].some((n) => n && ["dx", "dy", "w", "h", "size"].some((k) => ve[n.dataset.vkey]?.[k] != null));
+
     // 1. Checagem de Margem Segura (Safe Area: top 92, bottom 976, left 120, right 1800)
     for (const el of candidates) {
       if (el.closest(".foot, .headbar")) continue;
       const r = toLogical(R(el));
 
       // Margem Inferior (Safe area termina em 976px)
-      if (r.bottom > 976 + 18) {
+      if (r.bottom > 976 + 18 && !byHand(el)) {
         const overflow = Math.round(r.bottom - 976);
         state.issues.push({
           kind: "passa-da-margem-inferior",
@@ -738,7 +745,7 @@
     for (let a = 0; a < candidates.length; a++) {
       for (let b = a + 1; b < candidates.length; b++) {
         const A = candidates[a], B = candidates[b];
-        if (A.contains(B) || B.contains(A)) continue;
+        if (A.contains(B) || B.contains(A) || byHand(A) || byHand(B)) continue;
 
         const ra = toLogical(R(A)), rb = toLogical(R(B));
         const ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
@@ -1531,6 +1538,7 @@
     { title: "Apresentar deste slide", cat: "Apresentar", ic: "play", fn: () => startPresentation() },
     { title: "Apresentar do início", cat: "Apresentar", ic: "play", fn: () => { state.currentSlideIndex = 0; startPresentation(); } },
     { title: "Apresentar com caneta", cat: "Apresentar", ic: "play", fn: () => startPresentation({ pen: true }) },
+    { title: "Ver todos os slides lado a lado", cat: "Exibir", ic: "layout-grid", fn: () => startPresentation({ overview: true }) },
     { title: "Abrir arquivo do computador", cat: "Arquivo", ic: "folder-open", fn: () => dom.fileInputYaml.click() },
     { title: "Abrir por caminho", cat: "Arquivo", ic: "folder-input", fn: () => dom.menuOpenServer.click() },
     { title: "Baixar apresentação (.sagadeck)", cat: "Arquivo", ic: "download", fn: () => dom.exportSagadeck.click() },
@@ -1859,7 +1867,19 @@
     const d = state.deck || {};
     return JSON.stringify([d.theme, d.palette, d.identity, d.markStyle, d.footer, d.header, d.title, d.author, d.event, d.department, d.date, d.slides?.length]);
   };
-  const thumbKey = (idx, slide) => `${deckLook()}|${idx}|${JSON.stringify(slide)}`;
+  const thumbKey = (idx, slide) => `${deckLook()}|${window.SagaReveal.actPaletteAt(state.deck?.slides, idx)}|${idx}|${JSON.stringify(slide)}`;
+  // sectionPalette mudou em algum slide: as miniaturas já desenhadas com a cara antiga voltam para a fila (reveal-ui.js)
+  let actSig = null;
+  function refreshActThumbs() {
+    const slides = state.deck?.slides || [], sig = window.SagaReveal.actSignature(slides), was = actSig;
+    actSig = sig;
+    if (was === null || was === sig) return;
+    dom.thumbnailsList.querySelectorAll(".thumb-card").forEach((card) => {
+      const j = +card.dataset.idx;
+      if (card.querySelector(".thumb-render") && slides[j] && !thumbCache.has(thumbKey(j, slides[j])) && !thumbQueue.includes(j)) thumbQueue.push(j);
+    });
+    pumpThumbs();
+  }
   let thumbObserver = null;
   // o slide (1920×1080) encolhe para a largura do quadro da miniatura, qualquer que seja a do trilho
   const thumbScaleObserver = new ResizeObserver((entries) => {
@@ -2629,14 +2649,14 @@
     try { return dom.presFrame.contentWindow?.sagadeck || null; } catch { return null; }
   }
 
-  async function startPresentation({ pen = false } = {}) {
+  async function startPresentation({ pen = false, overview = false } = {}) {
     // a apresentação é montada a partir do deck do servidor. Modelo em prévia: o servidor já tem o mesmo deck (qualquer
     // mudança teria criado a cópia e saído da prévia), e enviar de novo contaria como mudança: apresentar não grava nada
     if (!state.preview) await syncDeckToServer();
     const start = state.currentSlideIndex + 1;
     dom.presModal.classList.remove("hidden");
-    dom.presFrame.src = scopedURL(`preview?t=${Date.now()}#${start}`);
-    document.documentElement.requestFullscreen?.().catch(() => {});
+    dom.presFrame.src = scopedURL(`preview?t=${Date.now()}${overview ? "&geral=1" : ""}#${start}`);
+    if (!overview) document.documentElement.requestFullscreen?.().catch(() => {});
     dom.presFrame.onload = async () => {
       const win = dom.presFrame.contentWindow;
       if (dom.presModal.classList.contains("hidden") || win.location.href === "about:blank") return;
@@ -2650,8 +2670,9 @@
         const key = `${state.file || state.deck?.title}|${status.warnings.join("|")}`;
         if (!state.shownPreviewWarnings?.has(key)) {
           (state.shownPreviewWarnings ||= new Set()).add(key);
-          const files = status.warnings.map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
-          showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
+          // só aviso de arquivo faltando vira este recado (os outros citam coisas entre aspas que não são arquivos)
+          const files = status.warnings.filter((w) => /não encontrado em/.test(w)).map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
+          if (files.length) showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
         }
       }
       dom.presFrame.focus();
@@ -2992,11 +3013,9 @@
   // esconde até a hora); o seletor da barra de status mostra o slide como a plateia vê em cada clique.
   function applyEditorStep(idx) {
     const root = dom.renderedSlideContainer;
-    const nodes = [...root.querySelectorAll("[data-step]")];
-    const total = nodes.reduce((m, e) => Math.max(m, +e.dataset.step || 0), 0);
+    const total = window.SagaReveal.totalSteps(root); // entradas, saídas e viradas de cartão (reveal-ui.js)
     const k = state.editorStep === "all" || state.editorStep == null ? Infinity : Math.min(+state.editorStep, total);
-    nodes.forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
-    root.querySelectorAll("[data-exit]").forEach((e) => e.classList.toggle("out", k !== Infinity && k >= +e.dataset.exit));
+    window.SagaReveal.applyStep(root, k);
     root.querySelectorAll(".pl, mark, .chart").forEach((e) => e.classList.add("play"));
     renderStepControl(total);
   }
@@ -4396,6 +4415,7 @@ ${ta.value}`;
 
     // Modo Apresentação Fullscreen
     dom.btnPresent.onclick = startPresentation;
+    document.getElementById("btn-all-slides").onclick = () => startPresentation({ overview: true });
     dom.modalClosePresent.onclick = closePresentation;
 
 

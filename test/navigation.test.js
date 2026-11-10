@@ -95,3 +95,12 @@ test("PDF e PowerPoint: os itens com goto viram links para a página/slide de de
   const rels = await zip.file("ppt/slides/_rels/slide2.xml.rels").async("string");
   assert.match(rels, /slide4\.xml/, "a opção Já uso aponta para o slide 4");
 });
+
+test("back/next dentro de um elemento não são links (o banco de trás do carro: back: sleep)", () => {
+  const car = { layout: "blocks", content: [{ row: [{ col: [{ picto: "scene", name: "car-top", driver: "machine", back: "sleep" }] }] }] };
+  assert.deepEqual(navWarnings([car, { layout: "video", figure: { picto: "scene", name: "car-top", back: "human" } }]), []);
+  // no slide, back e next continuam sendo links; goto vale em qualquer nível
+  const w = navWarnings([{ back: "mapa" }, { next: "fim" }, { layout: "cards", items: [{ title: "x", goto: "dev" }] }]);
+  assert.equal(w.length, 3);
+  assert.match(w.join("\n"), /"mapa"[\s\S]*"fim"[\s\S]*"dev"/);
+});

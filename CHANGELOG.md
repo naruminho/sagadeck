@@ -4,6 +4,38 @@ O que muda em cada versão publicada no npm. O diário completo (decisões, bast
 em cada frente) vive em [`docs/ANDAMENTO.md`](docs/ANDAMENTO.md) — este arquivo é o resumo para quem
 pula de versão em versão.
 
+## [1.11.8] — 10/11/2026
+
+### Novidades
+- **Votação da plateia pela rede**: `live: true` numa enquete (`poll`) põe um QR code no slide; a plateia vota pelo
+  celular e as barras sobem ao vivo. Funciona quando a apresentação é servida por um Studio que a plateia alcança;
+  fora disso, a enquete continua como sempre.
+- **Revelar sem spoiler**: a pergunta fica na tela e a resposta entra no clique. Título que troca pela conclusão
+  (`titleAfter`), número grande com palpite antes (`guess`), fonte que só aparece depois (`sourceStep`), cartões que
+  viram (`build: flip`) e gráfico de linha revelado por etapas (eixos, faixas, séries e anotações com `step`).
+- **Uma cor por parte da apresentação**: `sectionPalette` no slide de seção vale dali em diante, até a próxima.
+- **Peças prontas de tela**: `mock: phone` (celular com notificações) e `mock: document` (ficha ou currículo com
+  linha destacada), sem escrever HTML.
+- **Slide opcional**: `optional: true` marca o que pode ser pulado; a duração aparece com e sem os opcionais.
+- **Todos os slides**: botão no Studio que abre a apresentação já na visão geral.
+- **Fila no chat da IA**: dá para escrever o próximo pedido enquanto a IA trabalha. Ele fica "Na fila" acima da caixa
+  de texto e sai sozinho quando o pedido atual termina.
+
+### Correções
+- **A revisão dos slides não "recomeça" mais**: ao criar uma apresentação, depois de corrigir os slides com problema a
+  revisão conferia todos de novo, com o mesmo texto, até três vezes. Agora confere de novo só os corrigidos, avisa
+  que é uma nova conferência, e a primeira passada olha três slides por vez.
+- **Ajuste de tamanho à mão que "voltava"**: num slide cheio, aumentar um texto fazia o slide inteiro encolher de novo
+  para caber. Agora, depois do primeiro ajuste à mão, o slide não encolhe mais do que já estava.
+- **Legenda do gráfico de fórmulas**: abrir o slide no formulário apagava o nome e a cor das curvas.
+- **Figura esmagada**: figura em cima e texto com fórmulas embaixo deixava a tabela numa tira ilegível; agora ficam
+  lado a lado.
+- Rótulos de desenho SVG na fonte do tema (saíam serifados); frase da resposta do exercício resolvido e equações sem
+  gráfico em tamanho que se lê.
+- **Fiscal de layout fora do caminho**: as marcações vermelhas não ficam mais na frente do clique, somem enquanto um
+  objeto está selecionado, e o que foi posto no lugar à mão não vira aviso de sobreposição.
+- Paletas próprias diferentes em slides do mesmo deck não se misturam mais.
+
 ## [1.11.7] — 24/10/2026
 
 ### Desempenho

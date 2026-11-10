@@ -89,6 +89,20 @@ export function wordCount(s) {
 // rearruma capa, seção e encerramento); a paleta, só das cores.
 // identidade do deck (fontes da empresa, do arquivo local; ver src/identity.js)
 const identityOf = (spec) => (spec.identity ? identityFor(spec.identity) : null);
+// Paleta por ato: `sectionPalette` num slide vale dele em diante, até o próximo slide que também tiver
+// sectionPalette ("tema" volta às cores do deck). Normalmente fica no slide de seção: a cor troca no começo do ato
+// sem repetir a paleta em cada slide. O `palette` do próprio slide vence.
+export function actPalette(slides, i, own) {
+  if (own != null && own !== "") return own;
+  if (!Array.isArray(slides)) return undefined;
+  for (let k = Math.min(i, slides.length - 1); k >= 0; k--) { const v = slides[k]?.sectionPalette; if (v != null && v !== "") return v; }
+  return undefined;
+}
+const withAct = (s, i, spec) => {
+  if (s.palette != null) return s;
+  const p = actPalette(spec?.slides, i, s.sectionPalette);
+  return p == null ? s : { ...s, palette: p };
+};
 const slideTheme = (s, deckTheme, spec) => (s.theme || s.palette ? resolveTheme(s.theme || spec.theme, s.palette ?? spec.palette, identityOf(spec)) : deckTheme);
 // tema irmão (skin: "musgo" no wine): usa a pele do outro, com o seletor trocado para o nome dele
 const skinCSS = (name) => {
@@ -97,8 +111,8 @@ const skinCSS = (name) => {
 };
 export function deckThemeCSS(spec, deckTheme) {
   const looks = new Map(), names = new Set([deckTheme.name]);
-  for (const raw of spec.slides || []) {
-    const t = slideTheme({ ...(spec.defaults || {}), ...raw }, deckTheme, spec);
+  for (const [i, raw] of (spec.slides || []).entries()) {
+    const t = slideTheme(withAct({ ...(spec.defaults || {}), ...raw }, i, spec), deckTheme, spec);
     if (t.key !== deckTheme.key) looks.set(t.key, t);
   }
   let css = themeCSS(deckTheme);
@@ -117,15 +131,18 @@ export function fontsCSSFor(css) {
 // Destinos de navegação de um slide: goto (em qualquer item), back, next e os [texto](#id) do texto
 function navTargets(slide) {
   const out = [];
-  const walk = (v, k) => {
+  // back/next são do slide (o botão Voltar, o fim do caminho); dentro de um elemento, `back` é outra coisa (o banco
+  // de trás do carro em { picto: scene, name: car-top, back: sleep }) e não um link. goto vale em qualquer nível.
+  const walk = (v, k, top) => {
+    const nav = k === "goto" || (top && (k === "back" || k === "next"));
     if (typeof v === "string") {
-      if (k === "goto" || k === "back" || (k === "next" && v)) out.push(v);
+      if (nav && (k !== "next" || v)) out.push(v);
       for (const m of v.matchAll(/\]\(#([\w-]+)\)/g)) out.push(m[1]);
-    } else if (typeof v === "number" && (k === "goto" || k === "back" || k === "next")) out.push(String(v));
-    else if (Array.isArray(v)) v.forEach((x) => walk(x, k));
-    else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) if (kk !== "notes") walk(vv, kk);
+    } else if (typeof v === "number" && nav) out.push(String(v));
+    else if (Array.isArray(v)) v.forEach((x) => walk(x, k, top));
+    else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) if (kk !== "notes") walk(vv, kk, false);
   };
-  walk(slide, "");
+  for (const [k, v] of Object.entries(slide || {})) if (k !== "notes") walk(v, k, true);
   return out;
 }
 export function navWarnings(slides = []) {
@@ -154,7 +171,7 @@ export function buildHTML(rawSpec, opts = {}) {
   let html = "";
 
   spec.slides.forEach((raw, i) => {
-    const s = { ...(spec.defaults || {}), ...raw };
+    const s = withAct({ ...(spec.defaults || {}), ...raw }, i, spec);
     const layout = inferLayout(s);
     const fn = LAYOUTS[layout];
     if (!fn) throw new Error(`Slide ${i + 1}: layout "${layout}" não existe. Use: ${Object.keys(LAYOUTS).join(", ")}`);
@@ -169,7 +186,7 @@ export function buildHTML(rawSpec, opts = {}) {
     const limit = wordLimit(s, spec, layout);
     if (words > limit) warnings.push(`slide ${i + 1}: ${words} palavras (limite ${limit}) — divida em dois ou use cliques`);
     const t = plain(s.title || s.text || s.question || s.quote || (s.lines && (s.lines[0].text || s.lines[0])) || s.kicker || layout);
-    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, layout, words });
+    slidesMeta.push({ title: t.slice(0, 90), notes: notesHTML(s.notes), notesRaw: s.notes || "", consulta: s.consulta ? notesHTML(s.consulta) : "", ...(s.layout === 'calc' ? { exploration: explorationStates(s), explorationModel: calcModel(s), illustrative: !!s.illustrative, prediction: s.prediction || '', outputLabels: Object.fromEntries((s.outputs || []).map(o => [o.name, [o.label || o.name, o.unit || ''].join(' ').trim()])) } : {}), time: s.time || 0, ...(s.optional ? { optional: true } : {}), layout, words });
   });
 
   for(const [i,s]of spec.slides.entries())if(['graphlab','codelab','playground','portal'].includes(s.layout))slidesMeta[i].interactiveModel={theme:spec.theme||'manual',slide:s};
@@ -201,6 +218,8 @@ export function buildHTML(rawSpec, opts = {}) {
   const vote = rawSpec._vote && livePolls(spec).size ? { url: String(rawSpec._vote.url), key: String(rawSpec._vote.key) } : null;
   if (vote) data.vote = vote;
   const planned = slidesMeta.reduce((a, s) => a + s.time, 0);
+  // optional: true no slide = pode pular se o tempo apertar; o tempo "sem os opcionais" é o piso da apresentação
+  const plannedRequired = slidesMeta.reduce((a, s) => a + (s.optional ? 0 : s.time), 0);
 
   const doc = `<!doctype html>
 <html lang="${spec.lang || "pt-BR"}" style="--sh:${size.h}px;--aspect:${size.ratio}"${size.h > size.w ? ' data-orient="portrait"' : ""}><head><meta charset="utf-8">
@@ -259,7 +278,7 @@ ${JSON.stringify(spec.slides || []).includes('"points"') ? `<script>${read("runt
 ${spec.slides.some(s=>s.layout==="playground") ? `<script>${read("runtime/playground.js")}</script>` : ""}
 ${hasApi ? `${apiScripts}\n<script>${read("runtime/api-ui.js")}</script><script>${read("runtime/api-collection-ui.js")}</script>` : ""}
 </body></html>`;
-  return { html: doc, warnings, meta: data, planned, theme, slidesMeta };
+  return { html: doc, warnings, meta: data, planned, plannedRequired, theme, slidesMeta };
 }
 
 export function buildFile(file, outFile) {
@@ -322,6 +341,9 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
   // mínimos do ajuste para caber (em pt, como no PowerPoint; 1 pt = 2 px no slide de 1920): deck > Preferências > padrão
   const fit = { ...FIT_DEFAULTS, ...(spec.fit || {}) };
   const fitAttrs = ` data-min-code="${Math.round(Number(fit.minCodePt) * 2) || 20}" data-min-text="${Math.round(Number(fit.minTextPt) * 2) || 0}"${fit.wrapCode === false ? ' data-code-wrap="0"' : ""}`;
+  // a pessoa ajustou tamanhos à mão neste slide: o "encolher tudo para caber" não passa de onde estava (fit.js: shrink)
+  const minZoom = Number(s.visualEdits?._slide?.minZoom);
+  const zoomAttr = minZoom > 0 && minZoom <= 1 ? ` data-min-zoom="${minZoom}"` : "";
   const withMaster = masterApplies(spec, s, layout);
   // faixa do título do mestre: o cabeçalho do layout sai do fluxo e vai para cima do fio (src/master.js: titleBand)
   const band = withMaster && !isCoverLayout(layout) && area === "safe" ? titleBand(spec) : null;
@@ -332,7 +354,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
     const hd = inner.match(/<header class="hd">[\s\S]*?<\/header>/);
     if (hd) { bandTitle = `<div class="master-title">${hd[0].replace(/<[a-z0-9]+ [^>]*class="[^"]*\bttl\b[^"]*"[^>]*/, (tag) => `${tag}${/\sdata-fit[\s=>]|\sdata-fit$/.test(tag) ? "" : " data-fit"} data-fit-self`)}</div>`; inner = inner.replace(hd[0], ""); }
   }
-  let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${ambient ? ` data-ambient="${ambient}"` : ""}${nav}${fitAttrs}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
+  let html = `<section class="slide${current ? " current" : ""}${withMaster ? ` has-master${isCoverLayout(layout) ? " master-cover" : ""}${band ? " master-band" : ""}` : ""} th-${theme.name} lk-${theme.key} tone-${tone} ${deco && deco !== "none" ? "deco-" + deco : ""} ${markStyle && markStyle !== "marca-texto" ? "ms-" + markStyle : ""} L-${layout}-slide${["compact", "dense"].includes(s.density) ? " density-" + s.density : ""}" data-idx="${i}"${s.uid ? ` data-uid="${esc(String(s.uid))}"` : ""} data-layout="${layout}" data-tr="${s.transition || "fade"}"${ambient ? ` data-ambient="${ambient}"` : ""}${nav}${fitAttrs}${zoomAttr}${!Array.isArray(s.steps) && Number.isFinite(Number(s.steps)) && Number(s.steps) > 0 ? ` data-steps="${Number(s.steps)}"` : ""}${style ? ` style="${style}"` : ""}>`;
   if (ambient) html += `<div class="ambient" aria-hidden="true">${ambient === "rede" ? "<canvas></canvas>" : ""}</div>`;
   if (s.background) html += `<div class="bgfig" style="${s.backgroundStyle || ""}">${el(s.background, ctx, 1920, slideSize(spec).h)}</div>`;
   // mestre do deck (logos, faixas, número da página: src/master.js), atrás do conteúdo
@@ -357,7 +379,7 @@ function slideShell({ s, i, spec, theme, ctx, layout, tone, inner: innerIn, curr
 export function renderSlide(raw, i = 0, spec = {}) {
   setDeckLocale(spec.lang);
   const deckTheme = resolveTheme(spec.theme, spec.palette, identityOf(spec));
-  const s = { ...(spec.defaults || {}), ...raw };
+  const s = withAct({ ...(spec.defaults || {}), ...raw }, i, spec);
   const theme = slideTheme(s, deckTheme, spec);
   // _assetURL (só o editor do Studio, render-routes.js): imagens e vídeos por endereço, não embutidos no HTML
   const ctx = { baseDir: spec._dir || process.cwd(), theme, spec, warnings: [], assetURL: typeof spec._assetURL === "function" ? spec._assetURL : null, mapTiles: inferLayout(s) === "map" ? tilesForDeck(loadMapConfig(mapaFile())) : null };

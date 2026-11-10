@@ -27,7 +27,13 @@ import { mapModel, mapPreviewSVG, mapSummary } from "./map.js";
 const plainTitle = (s) => String(s.title || s.kicker || s.layout || "").replace(/[*=^~`]/g, "").slice(0, 40);
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
 const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
-const head = (s, as = "h2") => (s.kicker || s.title ? `<header class="hd">${kicker(s)}${title(s, as)}</header>` : "");
+// titleAfter: o título começa como pergunta e vira a conclusão no clique titleAfterStep (padrão 1): a plateia pensa
+// antes de ler a resposta. Os dois ocupam o mesmo lugar (grade de uma célula), então nada pula.
+const titleSwap = (s, as) => {
+  const n = Math.max(1, Number(s.titleAfterStep) || 1);
+  return `<div class="ttl-swap">${title(s, as, 1, { exit: n, class: "ttl e swap-q" })}${title({ ...s, title: s.titleAfter }, as, 1, { step: n, class: "ttl ttl-after" })}</div>`;
+};
+const head = (s, as = "h2") => (s.kicker || s.title ? `<header class="hd">${kicker(s)}${s.title && s.titleAfter ? titleSwap(s, as) : title(s, as)}</header>` : "");
 // sourceStep: a fonte entra só no clique pedido (quando o nome do estudo entregaria a resposta antes da hora)
 const src = (s) => (s.source ? `<div class="src t f-body"${Number(s.sourceStep) > 0 ? ` data-step="${Number(s.sourceStep)}"` : ""}>${md(s.source)}</div>` : "");
 const add = (s, ctx) => (s.add ? el(s.add, ctx) : "");
@@ -381,11 +387,16 @@ export const LAYOUTS = {
 
   number(s, ctx) {
     const v = typeof s.value === "object" ? s.value : { counter: s.value, prefix: s.prefix, suffix: s.suffix, decimals: s.decimals, from: s.from };
+    // guess: a pergunta aparece primeiro, com um "?" no lugar do número; o valor e a legenda entram no clique valueStep
+    // (padrão 1). Sem guess, valueStep sozinho só segura o número. O contexto vem depois (contextStep, padrão: o seguinte).
+    const vs = s.guess || s.valueStep ? Math.max(1, Number(s.valueStep) || 1) : 0;
+    const answer = `<div class="nb-val e" style="--d:1;${s.valueColor ? `color:var(--${s.valueColor});` : ""}">${counter({ ...v, size: s.size || 300, fit: true })}</div>
+        ${s.label ? text(s.label, "lead", { class: "nb-label e", style: "--d:2;", size: s.labelSize || 52 }) : ""}`;
+    const main = !vs ? answer : `<div class="nb-swap">${s.guess ? `<div class="nb-q swap-q" data-exit="${vs}"><div class="nb-val nb-mark t f-display" style="font-size:${s.size || 300}px">?</div>${text(s.guess, "lead", { class: "nb-label", size: s.labelSize || 52 })}</div>` : ""}<div class="nb-a" data-step="${vs}">${answer}</div></div>`;
     return `<div class="L-number">
       <div class="nb-main">${kicker(s)}
-        <div class="nb-val e" style="--d:1;${s.valueColor ? `color:var(--${s.valueColor});` : ""}">${counter({ ...v, size: s.size || 300, fit: true })}</div>
-        ${s.label ? text(s.label, "lead", { class: "nb-label e", style: "--d:2;", size: s.labelSize || 52 }) : ""}
-        ${s.context ? text(s.context, "body", { class: "nb-ctx muted", step: s.contextStep }) : ""}
+        ${main}
+        ${s.context ? text(s.context, "body", { class: "nb-ctx muted", step: s.contextStep ?? (vs ? vs + 1 : undefined) }) : ""}
       </div>
       ${s.side ? `<div class="nb-side" ${s.sideStep ? `data-step="${s.sideStep}"` : ""}>${el(s.side, ctx, 640, 700)}</div>` : ""}
     </div>${src(s)}${add(s, ctx)}`;

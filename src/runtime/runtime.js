@@ -30,6 +30,7 @@
     let m = +s.dataset.steps || 0;
     $$("[data-step]", s).forEach((e) => { m = Math.max(m, +e.dataset.step); });
     $$("[data-exit]", s).forEach((e) => { m = Math.max(m, +e.dataset.exit); });
+    $$("[data-flip-step]", s).forEach((e) => { m = Math.max(m, +e.dataset.flipStep); });
     $$("[data-lesson]", s).forEach((e) => { m = Math.max(m, (+e.dataset.lessonCount || 1) - 1); });
     return m;
   }
@@ -48,6 +49,10 @@
     // fazia cada clique inverter os itens ainda escondidos (tudo, 1º, tudo, último…).
     $$("[data-step]", s).forEach((e) => e.classList.toggle("in", !!(k >= +e.dataset.step || opts.all)));
     $$("[data-exit]", s).forEach((e) => e.classList.toggle("out", !opts.all && k >= +e.dataset.exit));
+    // pergunta que dá lugar à resposta (titleAfter, guess): em "mostrar tudo" fica só a resposta, senão as duas se sobrepõem
+    if (opts.all) $$(".swap-q", s).forEach((e) => e.classList.add("out"));
+    // cartão que vira no clique (build: flip / flipStep): "mostrar tudo" deixa a frente, como na exportação
+    $$("[data-flip-step]", s).forEach((e) => { const on = !opts.all && k >= +e.dataset.flipStep; e.classList.toggle("flipped", on); e.setAttribute("aria-pressed", String(on)); });
     $$(".pl, mark, .chart", s).forEach((e) => {
       if (!hiddenByStep(e, s)) play(e, opts.instant);
     });
@@ -350,6 +355,7 @@
   function applyStatic(node, k) {
     $$("[data-step]", node).forEach((e) => e.classList.toggle("in", k >= +e.dataset.step));
     $$("[data-exit]", node).forEach((e) => e.classList.toggle("out", k >= +e.dataset.exit));
+    $$("[data-flip-step]", node).forEach((e) => e.classList.toggle("flipped", k >= +e.dataset.flipStep));
     $$(".pl, mark, .chart", node).forEach((e) => e.classList.add("play"));
     $$(".e", node).forEach((e) => (e.style.animation = "none"));
     $$(".counter", node).forEach((c) => { $(".cv", c).textContent = c.dataset.prefix + fmtNum(+c.dataset.to, +c.dataset.dec) + c.dataset.suffix; });
@@ -754,7 +760,7 @@
     cl(".pv-next", nextIdx, nextK);
     $(".pv-nextlbl").textContent = k < STEPS[i] ? `Próximo clique (${k + 1}/${STEPS[i]})` : "Próximo slide";
     const d = DATA.slides[i] || {};
-    $(".pv-notes").innerHTML = `<div class="pv-step">Slide ${i + 1}/${N}${STEPS[i] ? ` · clique ${k}/${STEPS[i]}` : ""}${d.time ? ` · ${d.time} min planejados` : ""}</div>` + (d.notes || "<p style='color:#777'>Sem notas.</p>");
+    $(".pv-notes").innerHTML = `<div class="pv-step">Slide ${i + 1}/${N}${STEPS[i] ? ` · clique ${k}/${STEPS[i]}` : ""}${d.time ? ` · ${d.time} min planejados` : ""}${d.optional ? ` · <b class="pv-opt">opcional: pode pular</b>` : ""}</div>` + (d.notes || "<p style='color:#777'>Sem notas.</p>");
     $(".pv-title").textContent = d.title || "";
   }
   function presenterUI() {
@@ -913,6 +919,8 @@
       goto: (j, kk, all) => { goto(j, kk, { instant: true, force: true, all }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); },
       fit: fitAll, data: DATA, size: { w: SW, h: SH },
     };
+    // ?geral=1: abre já na visão de todos os slides lado a lado (a mesma da tecla G); o Studio usa em Exibir › Todos os slides
+    if (/[?&]geral=1/.test(location.search) && !PRESENTER && !EXPORT) overview();
   }
   init();
 })();

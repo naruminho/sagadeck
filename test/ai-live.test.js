@@ -265,3 +265,44 @@ ${"Revise a matéria da aula antes de resolver. ".repeat(160)}`;
   assert.match(contas[0].texto, /600/);
   assert.match(contas[0].texto, /240/);
 });
+
+// ---------- sem spoiler e ritmo visual: a IA do sagadeck monta a revelação sozinha (docs/REFERENCIA.md) ----------
+const JUIZES = { layout: "chart", kicker: "O resultado", title: "A chance de ser solto despenca… e volta depois de comer.",
+  chart: { chart: "line", labels: ["9h00", "", "", "", "", "", "10h30", "", "", "", "", "11h50", "", "13h30", "", "", "", "16h00"],
+    series: [{ values: [65, 56, 46, 33, 18, 4, null, 65, 52, 38, 22, 8, null, 65, 49, 31, 15, 2] }], bands: [{ at: 6, text: "LANCHE" }, { at: 12, text: "ALMOÇO" }],
+    yLabel: "pedidos aprovados", xLabel: "hora da audiência", suffix: "%" },
+  source: "Danziger, Levav & Avnaim-Pesso, PNAS (2011): decisões de juízes sobre liberdade condicional." };
+
+test('sem spoiler: "mostrar o gráfico sem dizer do que trata e só depois revelar" usa a revelação por clique', opts, async () => {
+  const s = { title: "E se o humano for o bug?", theme: "terminal", slides: [{ layout: "cover", title: "E se o humano for o bug?" }, JUIZES] };
+  const r = await editDeck({ spec: s, targetSlide: 1, instruction: "Esse slide entrega tudo de cara. Quero primeiro mostrar o gráfico sem dizer do que ele trata, discutir com a turma que ali tem um padrão, e só depois revelar que são decisões de juízes e as pausas para comer." });
+  assert.ok(!r.talk, `ficou só conversando: ${r.reply}`);
+  const out = r.spec.slides[1], c = out.chart || {};
+  console.log(JSON.stringify(out).slice(0, 900));
+  assert.ok(c.axisLabelStep || c.axisStep, "os nomes dos eixos (ou os eixos) esperam um clique");
+  assert.ok((c.bands || []).every((b) => b.step > 0), "LANCHE e ALMOÇO entram num clique");
+  assert.doesNotMatch(plain(out.title || ""), /comer|despenca|solto|juiz/i, "o título não entrega mais a conclusão");
+  assert.ok(!out.source || out.sourceStep > 0, "a fonte (com o nome do estudo) não aparece antes da hora");
+});
+
+test('sem spoiler: "quero que a turma chute o número antes" vira palpite (guess)', opts, async () => {
+  const s = { title: "Ruído", theme: "sinal", slides: [{ layout: "cover", title: "Ruído" },
+    { layout: "number", kicker: "Ruído", value: 55, suffix: "%", label: "de diferença no preço que dois especialistas deram para o MESMO caso.", context: "A diretoria da seguradora apostava em 10%." }] };
+  const r = await editDeck({ spec: s, targetSlide: 1, instruction: "quero que a turma chute o número antes de eu mostrar" });
+  assert.ok(!r.talk, `ficou só conversando: ${r.reply}`);
+  const out = r.spec.slides[1];
+  console.log(JSON.stringify(out).slice(0, 600));
+  assert.ok(typeof out.guess === "string" && out.guess.trim().length > 5, "o slide ganhou a pergunta do palpite");
+  assert.equal(out.value, 55);
+});
+
+test("gerar deck de palestra: perguntas antes das respostas e uma cor por parte, sem depender de enquete", { ...opts, timeout: 900000 }, async () => {
+  const { varietyReport } = await import("../src/ai/variety.js");
+  const r = await generateDeck("Palestra online de 20 minutos para alunos de graduação sobre vieses na tomada de decisão humana (fome, cansaço, ancoragem) e o que isso muda quando comparamos pessoas com algoritmos. Quero provocar reflexão, não entregar conclusão: os dados surpreendentes devem aparecer depois de uma pergunta para a turma pensar. A plataforma não tem enquete nem microfone aberto. Divida em três partes e dê uma cor para cada parte.", { slides: 14 });
+  const slides = r.spec.slides, json = JSON.stringify(slides);
+  console.log(`layouts: ${slides.map((s) => s.layout).join(", ")}\nrevelações: ${["guess", "titleAfter", "axisLabelStep", "sourceStep", '"build":"flip"', "sectionPalette"].map((k) => `${k}=${json.split(k).length - 1}`).join(" ")}`);
+  assert.ok(/"guess"|"titleAfter"|"axisLabelStep"|"build":"flip"/.test(json), "pelo menos um slide usa a pergunta antes da resposta (guess, titleAfter, axisLabelStep ou build: flip)");
+  assert.ok(slides.filter((s) => s.sectionPalette != null).length >= 2, "as partes têm cor própria (sectionPalette)");
+  assert.ok(!slides.some((s) => s.layout === "poll"), "sem enquete: a plataforma não tem");
+  assert.ok(!varietyReport(r.spec).problems.some((p) => /mesmo fundo/.test(p)), varietyReport(r.spec).problems.join("; "));
+});

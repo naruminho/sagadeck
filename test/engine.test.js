@@ -496,7 +496,9 @@ test("variedade: deck variado passa (inclusive o deck de teste)", () => {
   const v = varietyReport({ slides: [{ layout: "cover" }, { layout: "headline" }, card(1), { layout: "number", tone: "dark" }, { layout: "timeline" },
     { layout: "compare" }, { layout: "question" }, { layout: "bento" }, { layout: "end" }] });
   assert.deepEqual(v.problems, []);
-  assert.equal(varietyReport(loadSpec(FIXTURE)).ok, true);
+  // o deck de teste varia os layouts, mas fica todo no tom padrão (os testes do Studio contam com isso): a única
+  // objeção que ele merece é a de cor, que tem teste próprio abaixo
+  assert.deepEqual(varietyReport(loadSpec(FIXTURE)).problems.filter((p) => !/mesmo fundo/.test(p)), []);
 });
 
 test("direções criativas: várias, e o sorteio cobre todas", () => {
@@ -1066,4 +1068,85 @@ test("paletas próprias diferentes em slides diferentes não se misturam", () =>
   assert.ok(page.includes(`.slide.${keys[0]}`) && page.includes(`.slide.${keys[1]}`));
   assert.match(rule(keys[0]), /F5EFE3/);
   assert.match(rule(keys[1]), /0A1020/);
+});
+
+test("sectionPalette vale do slide em diante, até o próximo; palette do slide vence; 'tema' volta ao deck", () => {
+  const deck = { title: "Teste", theme: "terminal", slides: [
+    { layout: "statement", text: "abertura" },
+    { layout: "section", title: "Ato I", sectionPalette: "mar" },
+    { layout: "statement", text: "dentro do ato I" },
+    { layout: "statement", text: "exceção", palette: "cereja" },
+    { layout: "section", title: "Ato II", sectionPalette: { paper: "0A1020", ink: "EAF2FF", accent: "35D0FF", alert: "FF5A6E" } },
+    { layout: "statement", text: "dentro do ato II" },
+    { layout: "statement", text: "epílogo", sectionPalette: "tema" },
+    { layout: "statement", text: "depois" },
+  ] };
+  const { html: page } = buildHTML(deck);
+  const keys = [...page.matchAll(/<section class="slide[^"]* (lk-[\w-]+)/g)].map((m) => m[1]);
+  assert.equal(keys.length, 8);
+  assert.equal(keys[0], "lk-terminal");
+  assert.equal(keys[1], "lk-terminal--mar");
+  assert.equal(keys[2], "lk-terminal--mar", "o slide seguinte herda a paleta do ato");
+  assert.equal(keys[3], "lk-terminal--cereja", "palette do próprio slide vence");
+  assert.match(keys[4], /^lk-terminal--propria-/);
+  assert.equal(keys[5], keys[4]);
+  assert.equal(keys[6], "lk-terminal", "'tema' volta às cores do deck");
+  assert.equal(keys[7], "lk-terminal");
+  // um slide sozinho (editor do Studio) enxerga a paleta do ato pelo índice
+  assert.match(renderSlide(deck.slides[2], 2, deck).html, /lk-terminal--mar/);
+  assert.match(renderSlide(deck.slides[7], 7, deck).html, /lk-terminal /);
+});
+
+test("sem spoiler: palpite antes do número, título que troca e cartão que vira no clique", () => {
+  // número: a pergunta e um "?" saem no clique em que o valor e a legenda entram; o contexto vem no seguinte
+  const num = html({ layout: "number", value: 55, suffix: "%", label: "de diferença", guess: "Quanto você acha que deu?", context: "A diretoria apostava em 10%." });
+  assert.match(num, /<div class="nb-q swap-q" data-exit="1">[\s\S]*?>\?<\/div>[\s\S]*?Quanto você acha que deu\?/);
+  assert.match(num, /<div class="nb-a" data-step="1">[\s\S]*?de diferença/);
+  assert.match(num, /nb-ctx[^>]*data-step="2"/);
+  // sem guess nem valueStep, nada muda
+  assert.doesNotMatch(html({ layout: "number", value: 55, label: "x" }), /nb-swap|data-step|data-exit/);
+  // título: a pergunta sai e a conclusão entra no mesmo clique, no mesmo lugar
+  const t = html({ layout: "list", title: "Quem acerta mais?", titleAfter: "A IA sozinha acertou mais.", titleAfterStep: 2, items: ["a"] });
+  assert.match(t, /<div class="ttl-swap"><div class="[^"]*swap-q[^"]*"[^>]*data-exit="2"[^>]*>Quem acerta mais\?<\/div><div class="[^"]*ttl-after[^"]*"[^>]*data-step="2"[^>]*>A IA sozinha acertou mais\.<\/div><\/div>/);
+  assert.doesNotMatch(html({ layout: "list", title: "Só um título", items: ["a"] }), /ttl-swap/);
+  // cartões com build: flip — entra no clique 1, 3, 5… e vira no 2, 4, 6…
+  const c = html({ layout: "cards", title: "x", build: "flip", items: [{ title: "Spam", flip: "OUT" }, { title: "Retina", flip: "IN" }, { title: "Sem verso" }] });
+  const cards = [...c.matchAll(/<div class="cd(?:"| [^"]*")[^>]*>/g)].map((m) => m[0]);
+  assert.match(cards[0], /data-step="1"[^>]*data-flip data-flip-step="2"/);
+  assert.match(cards[1], /data-step="3"[^>]*data-flip data-flip-step="4"/);
+  assert.match(cards[2], /data-step="5"/);
+  assert.doesNotMatch(cards[2], /data-flip/);
+  // build: true continua um cartão por clique, sem virar sozinho
+  assert.doesNotMatch(html({ layout: "cards", title: "x", build: true, items: [{ title: "a", flip: "b" }] }), /data-flip-step/);
+});
+
+test("optional: o tempo planejado sai com e sem os slides opcionais", () => {
+  const r = buildHTML({ title: "Teste", slides: [{ layout: "statement", text: "a", time: 2 }, { layout: "statement", text: "b", time: 1.5, optional: true }, { layout: "statement", text: "c", time: 1 }] });
+  assert.equal(r.planned, 4.5);
+  assert.equal(r.plannedRequired, 3);
+  assert.deepEqual(r.meta.slides.map((s) => !!s.optional), [false, true, false]);
+});
+
+test("peças prontas de tela (mock): celular com notificação e documento com linha que só acende no clique", () => {
+  const ph = html({ layout: "split", title: "Seu celular apita", figure: { mock: "phone", time: "8:07", date: "sábado", notifications: [{ app: "Alerta", text: "Procure **abrigo**" }, { app: "Depois", text: "Era engano", step: 2 }] } });
+  assert.match(ph, /fig fig-mock[\s\S]*mk-phone[\s\S]*mk-time">8:07<[\s\S]*mk-app">Alerta<[\s\S]*<strong>abrigo<\/strong>|<b>abrigo<\/b>/);
+  assert.match(ph, /<div class="mk-note" data-step="2">/);
+  const doc = html({ layout: "blocks", content: [{ mock: "document", kicker: "Currículo", title: "Candidata", lines: [86, { text: "Capitã do clube feminino", mark: true, step: 1, note: "−" }, "linha comum"], score: "2/5", scoreLabel: "nota" }] });
+  assert.match(doc, /mk-doc[\s\S]*mk-bar" style="width:86%"/);
+  // a linha marcada fica na tela; só o destaque e o sinal esperam o clique
+  assert.match(doc, /<div class="mk-line mk-marked"><i class="mk-hl" data-step="1"><\/i><span class="mk-ltext">Capitã do clube feminino<\/span><span class="mk-pen" data-step="1">−<\/span><\/div>/);
+  assert.match(doc, /<div class="mk-line"><span class="mk-ltext">linha comum<\/span><\/div>/);
+  assert.match(doc, /mk-sval">2\/5<[\s\S]*mk-slabel">nota</);
+  assert.throws(() => html({ layout: "blocks", content: [{ mock: "tv" }] }), /mock "tv" não existe/);
+});
+
+test("variedade (o que a IA revisa): sequência longa com o mesmo fundo vira problema; cor por ato resolve", () => {
+  const st = (i, extra = {}) => ({ layout: ["statement", "list", "number", "split"][i % 4], text: `x ${i}`, ...extra });
+  const flat = { slides: [{ layout: "cover", title: "c" }, ...Array.from({ length: 8 }, (_, i) => st(i))] };
+  assert.ok(varietyReport(flat).problems.some((p) => /8 slides seguidos com o mesmo fundo e as mesmas cores \(slides 2–9\)/.test(p)));
+  const acts = { slides: flat.slides.map((s, i) => (i === 4 ? { ...s, sectionPalette: "mar" } : s)) };
+  assert.ok(!varietyReport(acts).problems.some((p) => /mesmo fundo/.test(p)));
+  const tones = { slides: flat.slides.map((s, i) => (i === 5 ? { ...s, tone: "accent" } : s)) };
+  assert.ok(!varietyReport(tones).problems.some((p) => /mesmo fundo/.test(p)));
+  assert.ok(!varietyReport({ ...flat, purpose: "consulta" }).problems.some((p) => /mesmo fundo/.test(p)));
 });
