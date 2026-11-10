@@ -129,15 +129,18 @@ export function fontsCSSFor(css) {
 // Destinos de navegação de um slide: goto (em qualquer item), back, next e os [texto](#id) do texto
 function navTargets(slide) {
   const out = [];
-  const walk = (v, k) => {
+  // back/next são do slide (o botão Voltar, o fim do caminho); dentro de um elemento, `back` é outra coisa (o banco
+  // de trás do carro em { picto: scene, name: car-top, back: sleep }) e não um link. goto vale em qualquer nível.
+  const walk = (v, k, top) => {
+    const nav = k === "goto" || (top && (k === "back" || k === "next"));
     if (typeof v === "string") {
-      if (k === "goto" || k === "back" || (k === "next" && v)) out.push(v);
+      if (nav && (k !== "next" || v)) out.push(v);
       for (const m of v.matchAll(/\]\(#([\w-]+)\)/g)) out.push(m[1]);
-    } else if (typeof v === "number" && (k === "goto" || k === "back" || k === "next")) out.push(String(v));
-    else if (Array.isArray(v)) v.forEach((x) => walk(x, k));
-    else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) if (kk !== "notes") walk(vv, kk);
+    } else if (typeof v === "number" && nav) out.push(String(v));
+    else if (Array.isArray(v)) v.forEach((x) => walk(x, k, top));
+    else if (v && typeof v === "object") for (const [kk, vv] of Object.entries(v)) if (kk !== "notes") walk(vv, kk, false);
   };
-  walk(slide, "");
+  for (const [k, v] of Object.entries(slide || {})) if (k !== "notes") walk(v, k, true);
   return out;
 }
 // Monotonia: a plateia "nem percebe que trocou de slide" quando vários seguidos têm o mesmo fundo ou o mesmo

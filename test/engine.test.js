@@ -496,7 +496,9 @@ test("variedade: deck variado passa (inclusive o deck de teste)", () => {
   const v = varietyReport({ slides: [{ layout: "cover" }, { layout: "headline" }, card(1), { layout: "number", tone: "dark" }, { layout: "timeline" },
     { layout: "compare" }, { layout: "question" }, { layout: "bento" }, { layout: "end" }] });
   assert.deepEqual(v.problems, []);
-  assert.equal(varietyReport(loadSpec(FIXTURE)).ok, true);
+  // o deck de teste varia os layouts, mas fica todo no tom padrão (os testes do Studio contam com isso): a única
+  // objeção que ele merece é a de cor, que tem teste próprio abaixo
+  assert.deepEqual(varietyReport(loadSpec(FIXTURE)).problems.filter((p) => !/mesmo fundo/.test(p)), []);
 });
 
 test("direções criativas: várias, e o sorteio cobre todas", () => {
@@ -1158,4 +1160,15 @@ test("peças prontas de tela (mock): celular com notificação e documento com l
   assert.match(doc, /<div class="mk-line"><span class="mk-ltext">linha comum<\/span><\/div>/);
   assert.match(doc, /mk-sval">2\/5<[\s\S]*mk-slabel">nota</);
   assert.throws(() => html({ layout: "blocks", content: [{ mock: "tv" }] }), /mock "tv" não existe/);
+});
+
+test("variedade (o que a IA revisa): sequência longa com o mesmo fundo vira problema; cor por ato resolve", () => {
+  const st = (i, extra = {}) => ({ layout: ["statement", "list", "number", "split"][i % 4], text: `x ${i}`, ...extra });
+  const flat = { slides: [{ layout: "cover", title: "c" }, ...Array.from({ length: 8 }, (_, i) => st(i))] };
+  assert.ok(varietyReport(flat).problems.some((p) => /8 slides seguidos com o mesmo fundo e as mesmas cores \(slides 2–9\)/.test(p)));
+  const acts = { slides: flat.slides.map((s, i) => (i === 4 ? { ...s, sectionPalette: "mar" } : s)) };
+  assert.ok(!varietyReport(acts).problems.some((p) => /mesmo fundo/.test(p)));
+  const tones = { slides: flat.slides.map((s, i) => (i === 5 ? { ...s, tone: "accent" } : s)) };
+  assert.ok(!varietyReport(tones).problems.some((p) => /mesmo fundo/.test(p)));
+  assert.ok(!varietyReport({ ...flat, purpose: "consulta" }).problems.some((p) => /mesmo fundo/.test(p)));
 });

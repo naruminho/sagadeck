@@ -2670,8 +2670,10 @@
         const key = `${state.file || state.deck?.title}|${status.warnings.join("|")}`;
         if (!state.shownPreviewWarnings?.has(key)) {
           (state.shownPreviewWarnings ||= new Set()).add(key);
-          const files = status.warnings.map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
-          showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
+          // só os avisos de arquivo faltando (CSS, widget) viram este recado; os outros (link sem destino, ritmo) são do
+          // painel Revisar e tratavam qualquer texto entre aspas como nome de arquivo ("Sem sleep, human…")
+          const files = status.warnings.filter((w) => /não encontrado em/.test(w)).map((w) => (w.match(/"([^"]+)"/) || [])[1]).filter(Boolean);
+          if (files.length) showToast(`Sem ${files.join(", ")} (ficam na pasta original do deck). Para usá-los, abra o deck por Arquivo › Abrir por caminho.`, 7000);
         }
       }
       dom.presFrame.focus();
