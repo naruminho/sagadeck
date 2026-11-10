@@ -62,18 +62,34 @@ export function auditText(spec, indices, { briefing = '', render = null } = {}) 
   return issues;
 }
 
-export async function reviewExperience(spec, indices, { snapshot, complete = chat, onProgress, signal, briefing = '' } = {}) {
+// Junta a conferência de alguns slides (os corrigidos) com a anterior do deck inteiro: o que foi visto nos slides
+// que não mudaram continua valendo, sem conferir tudo de novo.
+export function mergeReview(prev, next, indices) {
+  const redone = new Set(indices.map(i => i + 1));
+  const keep = x => !redone.has(typeof x === 'number' ? x : x?.slide);
+  const issues = [...(prev.issues || []).filter(keep), ...(next.issues || [])].sort((a, b) => a.slide - b.slide);
+  const unchecked = [...new Set([...(prev.unchecked || []).filter(keep), ...(next.unchecked || [])])].sort((a, b) => a - b);
+  return { ...next, issues, unchecked, failures: [...(prev.failures || []).filter(keep), ...(next.failures || [])], verified: !issues.length && !unchecked.length };
+}
+
+// again: segunda passada, só nos slides corrigidos (o texto do avanço diz isso; sem ele parecia que a revisão
+// tinha recomeçado do zero). parallel: quantos slides por vez (cada um é uma foto + uma chamada de visão).
+export async function reviewExperience(spec, indices, { snapshot, complete = chat, onProgress, signal, briefing = '', again = false, parallel = 3 } = {}) {
   const issues = [], unchecked = [], failures = [];
   const selected = [...new Set(indices)].filter(index => spec.slides[index]);
   const { renderSlide } = await import('../build.js');
   issues.push(...auditText(spec, selected, { briefing, render: (s, i) => renderSlide(s, i, spec).html }));
-  for (const [position, index] of selected.entries()) {
+  // cada slide junta os seus achados à parte: no fim entram na ordem dos slides, não na ordem em que terminaram
+  const perSlide = selected.map(() => ({ issues: [], unchecked: [], failures: [] }));
+  let cursor = 0;
+  const one = async (position, index, { issues, unchecked, failures }) => {
     signal?.throwIfAborted();
     const slide = spec.slides[index];
     onProgress?.({ phase: 'review', slide: index + 1, current: position + 1, total: selected.length,
-      text: `Conferindo slide ${index + 1} (${position + 1} de ${selected.length})…` });
+      text: again ? `Conferindo de novo o slide ${index + 1}, que foi corrigido (${position + 1} de ${selected.length})…`
+        : `Conferindo slide ${index + 1} (${position + 1} de ${selected.length})…` });
     issues.push(...auditExploration(slide).map(text => ({ slide: index + 1, text })));
-    if (!snapshot) { unchecked.push(index + 1); continue; }
+    if (!snapshot) { unchecked.push(index + 1); return; }
     try {
       const frames = await snapshot(spec, index, { mode: 'exploration', maxFrames: 6 });
       // medida objetiva da foto: texto de figura menor que 15 px numa tela de 1920 não se lê (vai direto para a correção,
@@ -109,7 +125,10 @@ export async function reviewExperience(spec, indices, { snapshot, complete = cha
         } catch (error) { unchecked.push(index + 1); failures.push({ slide: index + 1, reason: error.message }); }
       }
       issues.push(...findings.map(text => ({ slide: index + 1, text })));
-    } catch (error) { unchecked.push(index + 1); failures.push({ slide: index + 1, reason: error.message }); }
-  }
+    } catch (error) { if (signal?.aborted) throw error; unchecked.push(index + 1); failures.push({ slide: index + 1, reason: error.message }); }
+  };
+  const worker = async () => { while (cursor < selected.length) { const position = cursor++; await one(position, selected[position], perSlide[position]); } };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(Number(parallel) || 1, selected.length)) }, worker));
+  for (const p of perSlide) { issues.push(...p.issues); unchecked.push(...p.unchecked); failures.push(...p.failures); }
   return { issues, unchecked, failures, rhythm: varietyReport(spec).problems, verified: !issues.length && !unchecked.length };
 }

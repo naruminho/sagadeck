@@ -286,6 +286,7 @@
       commit: () => { syncDeckToServer(); renderCurrentSlide(); renderThumbnails(); },
       // como no Figma: clicar num objeto com o painel em Formatar mostra as propriedades dele; soltar a seleção volta
       onSelection: (els, why) => {
+        dom.inspectorOverlay.classList.toggle("quiet", els.length > 0); // mexendo num objeto: as marcações do fiscal saem da frente
         const open = !dom.inspectorSidebar.classList.contains("collapsed");
         if (els.length && why === "user" && open && currentPane() === "props") { state.autoInspect = true; openPane("inspect"); }
         // soltou a seleção, trocou de slide com algo selecionado: o conteúdo do slide volta a ficar à mão
@@ -688,13 +689,18 @@
       state.issues.push({ kind: "codigo-cortado", text: label(el), px: Math.round(el.scrollHeight - el.clientHeight), logical: toLogical(R(el)) });
     });
 
+    // o que a pessoa pôs no lugar à mão (moveu, redimensionou, mudou o tamanho) é escolha dela: não vira aviso de
+    // "um em cima do outro" nem de margem (ajustando um slide cheio, o fiscal marcava tudo de vermelho)
+    const ve = state.deck?.slides?.[state.currentSlideIndex]?.visualEdits || {};
+    const byHand = (el) => [el.closest("[data-vkey]"), ...el.querySelectorAll("[data-vkey]")].some((n) => n && ["dx", "dy", "w", "h", "size"].some((k) => ve[n.dataset.vkey]?.[k] != null));
+
     // 1. Checagem de Margem Segura (Safe Area: top 92, bottom 976, left 120, right 1800)
     for (const el of candidates) {
       if (el.closest(".foot, .headbar")) continue;
       const r = toLogical(R(el));
 
       // Margem Inferior (Safe area termina em 976px)
-      if (r.bottom > 976 + 18) {
+      if (r.bottom > 976 + 18 && !byHand(el)) {
         const overflow = Math.round(r.bottom - 976);
         state.issues.push({
           kind: "passa-da-margem-inferior",
@@ -739,7 +745,7 @@
     for (let a = 0; a < candidates.length; a++) {
       for (let b = a + 1; b < candidates.length; b++) {
         const A = candidates[a], B = candidates[b];
-        if (A.contains(B) || B.contains(A)) continue;
+        if (A.contains(B) || B.contains(A) || byHand(A) || byHand(B)) continue;
 
         const ra = toLogical(R(A)), rb = toLogical(R(B));
         const ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);

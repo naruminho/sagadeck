@@ -1130,19 +1130,19 @@
     const F = window.SagaFormula;
     const check = (src, vars) => { try { return { params: F.compile(src, vars).params }; } catch (e) { return { error: e.message }; } };
     const box = h("fieldset", { class: "sf-object sf-plot" }, h("legend", { text: spec.label }));
-    pl.functions = [].concat(pl.functions ?? []).map((x) => (typeof x === "string" ? x : x?.fn ?? ""));
+    pl.functions = [].concat(pl.functions ?? []); const G = SagaReveal.fnOf;
     // fórmulas: uma por linha; o erro aparece embaixo enquanto digita
     const list = h("div", { class: "sf-plot-fns" });
     const drawFns = () => {
       list.replaceChildren(...pl.functions.map((src, i) => {
         const input = h("input", { type: "text", class: "form-control mono", placeholder: "a*sin(b*x)", spellcheck: "false", "aria-label": `Fórmula ${i + 1}`, "data-plot-fn": String(i) });
-        input.value = src;
+        input.value = G(src);
         const err = h("div", { class: "sf-hint sf-error" });
         const validate = () => { const r = input.value.trim() ? check(input.value, ["x"]) : {}; err.textContent = r.error ? `Não entendi: ${r.error}` : ""; input.classList.toggle("invalid", !!r.error); return r; };
         validate();
-        input.addEventListener("input", () => { pl.functions[i] = input.value; if (!validate().error) commitSoon(); });
+        input.addEventListener("input", () => { SagaReveal.fnSet(pl.functions, i, input.value); if (!validate().error) commitSoon(); });
         // ao sair do campo: letra nova vira controle deslizante (o formulário se refaz)
-        input.addEventListener("change", () => { pl.functions = pl.functions.filter((x) => x.trim()); commitStructure(); });
+        input.addEventListener("change", () => { pl.functions = pl.functions.filter((x) => G(x).trim()); commitStructure(); });
         const del = h("button", { class: "icon-btn icon-btn-sm", type: "button", title: "Remover fórmula", onclick: () => { pl.functions.splice(i, 1); commitStructure(); } }, icon("trash-2"));
         return h("div", { class: "sf-plot-fn" }, h("span", { class: "sf-plot-y mono", text: "y =" }), input, del, err);
       }));
@@ -1156,7 +1156,7 @@
     box.append(range);
     // parâmetros: os que aparecem nas fórmulas; valor inicial, mínimo, máximo e nome
     const names = new Set();
-    pl.functions.forEach((src) => { if (src.trim()) (check(src, ["x"]).params || []).forEach((n) => names.add(n)); });
+    pl.functions.map(G).forEach((src) => { if (src.trim()) (check(src, ["x"]).params || []).forEach((n) => names.add(n)); });
     if (String(pl.surface || "").trim()) (check(pl.surface, ["x", "y"]).params || []).forEach((n) => names.add(n));
     if (names.size) {
       if (!pl.params || typeof pl.params !== "object") pl.params = {};

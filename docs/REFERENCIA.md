@@ -1324,7 +1324,7 @@ Falhas do Studio e da IA devem explicar a operação, distinguir causa comprovad
 
 ### Prioridade das figuras e Word legado
 
-Em `split`, `arrangement: stacked` coloca figura dominante entre título e resumo. `arrangement: side` ou `ratio` explícito mantém escolha da pessoa. Figuras informativas largas do inventário usam disposição vertical automaticamente; esquemas altos recebem proporção 1:2. Imagens de contexto/visuais usam contain também no layout image, sem legenda sobre a figura. `bodySize` controla tamanho do resumo. Texto deve ser resumido, não disputando espaço com eixos e rótulos.
+Em `split`, `arrangement: stacked` coloca figura dominante entre título e resumo; o resumo precisa ser curto (uma ou duas frases, sem fórmula em destaque `$$`): com fórmula, texto longo ou mais de três itens, o slide fica lado a lado. `arrangement: side` ou `ratio` explícito mantém escolha da pessoa. Figuras informativas largas do inventário usam disposição vertical automaticamente; esquemas altos recebem proporção 1:2. Imagens de contexto/visuais usam contain também no layout image, sem legenda sobre a figura. `bodySize` controla tamanho do resumo. Texto deve ser resumido, não disputando espaço com eixos e rótulos.
 
 Upload aceita .doc: conversão isolada com macros desativadas pelo Word no Windows ou LibreOffice no servidor (SAGADECK_OFFICE_BIN). Objetos antigos são conferidos na renderização PDF; fórmulas legíveis fornecem latex e tabelas fornecem rows para reconstrução nativa. Arquivo original permanece na apresentação.
 

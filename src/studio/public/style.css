@@ -325,8 +325,8 @@ a.rbtn { text-decoration: none; color: inherit; }
 .safe-guides-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
 .safe-box { position: absolute; left: 120px; right: 120px; top: 92px; bottom: 104px; border: 2px dashed rgba(15, 108, 189, .35); border-radius: 4px; }
 .inspector-layer { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
-.issue-bounding-box { position: absolute; border: 3px dashed var(--err); background: rgba(197, 15, 31, .08); border-radius: 4px; pointer-events: auto; }
-.issue-bounding-box.issue-info { pointer-events: none; } /* aviso de leitura: não bloqueia o clique para editar o texto */
+.issue-bounding-box { position: absolute; border: 3px dashed var(--err); background: rgba(197, 15, 31, .08); border-radius: 4px; pointer-events: none; } /* a marcação nunca fica na frente do clique: é só um aviso */
+.inspector-layer.quiet { display: none; } /* com um objeto selecionado, as marcações saem da frente */
 .issue-tag { position: absolute; top: -34px; left: 0; background: var(--err); color: #fff; font-size: 18px; font-weight: 600; padding: 3px 10px; border-radius: 4px; white-space: nowrap; }
 [contenteditable="true"] { outline: none; cursor: text; border-radius: 4px; transition: box-shadow .12s; }
 [contenteditable="true"]:hover { box-shadow: 0 0 0 3px rgba(15, 108, 189, .35); }
@@ -1392,3 +1392,9 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .mpe-table{width:100%;border-collapse:collapse;font-size:13px}.mpe-table th{text-align:left;color:var(--text-muted);font-weight:600;padding:4px}.mpe-table td{padding:3px 4px}
 .mpe-x{border:0;background:none;color:var(--text-muted);cursor:pointer;padding:4px}.mpe-x .ic{width:14px;height:14px}
 @media (max-width:1100px){.mpe{grid-template-columns:200px minmax(0,1fr) 280px}}
+
+/* pedido escrito enquanto a IA trabalha: espera a vez acima da caixa de texto */
+.chat-queued { display: flex; align-items: center; gap: 8px; margin: 4px 12px 0; padding: 6px 10px; border: 1px dashed var(--ui-line-strong); border-radius: 8px; font-size: 13px; color: var(--text); }
+.chat-queued .cq-tag { flex: none; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.chat-queued .cq-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-queued .cq-remove { flex: none; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px; display: flex; }

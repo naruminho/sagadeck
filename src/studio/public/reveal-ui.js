@@ -48,5 +48,10 @@
   // cartões: de uma vez, um por clique, ou um por clique virando no seguinte
   const cardsBuild = (f) => f.select("build", "Revelar", [["true", "Um por clique"], ["flip", "Um por clique, e vira no seguinte"]], { empty: "Todos de uma vez", parse: (v) => (v === "true" ? true : v) });
 
-  window.SagaReveal = { totalSteps, applyStep, actPaletteAt, actSignature, common: commonFields, number: numberFields, cards: cardsBuild };
+  // fórmula de uma curva do gráfico (science): texto solto ou { fn, name, color }. O formulário edita só a fórmula;
+  // nome e cor da curva (que viram a legenda) ficam como estavam (antes, abrir o slide no formulário os apagava).
+  const fnOf = (x) => (typeof x === "string" ? x : x?.fn ?? "");
+  const fnSet = (list, i, v) => { if (list[i] && typeof list[i] === "object") list[i].fn = v; else list[i] = v; };
+
+  window.SagaReveal = { fnOf, fnSet, totalSteps, applyStep, actPaletteAt, actSignature, common: commonFields, number: numberFields, cards: cardsBuild };
 })();

@@ -26,7 +26,14 @@
   const shapeSize = k => k==='line' ? {w:420,h:8,thickness:8} : k==='circle' ? {w:280,h:280} : k==='pill' ? {w:380,h:120} : {w:320,h:240};
   function saveBefore() {} // o desfazer é o do Studio (history.js): cada gravação vira um passo
   function edit(el = primary()) { return (slide.visualEdits ||= {})[el.dataset.vkey] ||= {}; }
-  function finish() { commit?.(); }
+  // primeiro ajuste à mão no slide: guarda onde o "encolher para caber" estava; dali não passa mais (o que a pessoa
+  // aumenta fica do tamanho que ela pôs, sem o resto encolher de novo). Sem ajuste nenhum, o piso sai.
+  function finish() {
+    const ve = slide.visualEdits;
+    if (ve && Object.keys(ve).some(k => k !== '_slide' && Object.keys(ve[k] || {}).length)) { if (!ve._slide?.minZoom) ve._slide = { ...ve._slide, minZoom: +(root.querySelector('.slide')?.dataset.shrink || 1) }; }
+    else if (ve?._slide) { delete ve._slide; if (!Object.keys(ve).length) delete slide.visualEdits; }
+    commit?.();
+  }
   function change(fn) { if(!sel.length)return;saveBefore();sel.forEach(el=>fn(edit(el)));finish(); }
   // retângulo do objeto em px do slide (o palco pode estar com zoom)
   function frame() { const r=root.querySelector('.slide').getBoundingClientRect(); return { r, k: r.width/1920, W: 1920, H: r.height/(r.width/1920) }; }

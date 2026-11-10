@@ -126,7 +126,10 @@
     zoom(1);
     const sc = scaleOf(slide);
     let z = 1;
-    while (leakingIn(safe, sc) && z > MIN) {
+    // piso do slide (data-min-zoom): onde o encolhimento estava quando a pessoa passou a ajustar tamanhos à mão no
+    // Studio. Sem ele, aumentar um texto fazia tudo encolher de novo e o ajuste "voltava". Tirar coisas ainda desencolhe.
+    const floor = Math.max(MIN, Math.min(1, +slide.dataset.minZoom || 0));
+    while (leakingIn(safe, sc) && z > floor) {
       z = +(z - 0.03).toFixed(2);
       zoom(z);
     }

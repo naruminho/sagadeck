@@ -1609,3 +1609,12 @@ html[data-orient="portrait"] .adaptive:is([data-item-count="1"],[data-item-count
 .map-card-in{font-size:18px;line-height:1.35}.map-card-in b{display:block;font-size:21px;margin-bottom:6px}.map-card-in table{border-collapse:collapse}.map-card-in th{text-align:left;font-weight:600;color:var(--muted);padding:2px 12px 2px 0}.map-card-in td{padding:2px 0}
 .map-box .leaflet-control-attribution{font-size:13px;background:color-mix(in srgb,var(--bg) 82%,transparent);color:var(--muted)}.map-box .leaflet-control-attribution a{color:inherit}
 .export .map-box .leaflet-control-zoom,.export .map-notice button{display:none}
+
+/* resposta do problema resolvido: a frase de conclusão se lê do fundo da sala (saía com 16 px) */
+.sol-answer>.t{font-size:30px;line-height:1.35;margin-top:6px}
+/* só equações (plot: false) com três ou mais: ocupam a largura livre em vez do tamanho pensado para a coluna estreita ao lado do gráfico */
+.science-body.equations-only .science-equations:has(.science-equation:nth-child(3)) .katex-display{font-size:54px}
+.science-body.equations-only .science-equations:has(.science-equation:nth-child(4)) .katex-display{font-size:44px}
+.science-body.equations-only .science-equations:has(.science-equation:nth-child(6)) .katex-display{font-size:34px}
+.science-body.equations-only .science-equation p{font-size:26px}
+.science-help{font-size:22px}

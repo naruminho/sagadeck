@@ -20,7 +20,7 @@ const NEW_DECK = ["```yaml", "title: Deck gerado", "theme: bauhaus", "duration: 
 
 // comandos: pede para rodar, recebe o resultado (ou a recusa) e só então edita
 const RUN_CONTA = "Vou conferir antes.\n```yaml\nrun:\n  language: javascript\n  why: conferir a conta de 6 x 7\n  code: |\n    import fs from 'node:fs';\n    fs.writeFileSync('rodou.txt', 'sim');\n    console.log(6 * 7);\n```";
-function script(req) {
+async function script(req) {
   if (/Crie a apresentação inteira/.test(req.lastUser)) return NEW_DECK;
   if (/Resultado do comando 1/.test(req.lastUser)) return `Conferi.\n\`\`\`yaml\nedit:\n  1:\n    kicker: "Conta ${/\b42\b/.test(req.lastUser) ? "42" : "?"}"\n\`\`\``;
   if (/NÃO autorizou/.test(req.lastUser)) return "Tudo bem, não rodei nada.";
@@ -48,6 +48,8 @@ function script(req) {
   if (/kicker novo/.test(p)) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
   }
+  if (/pedido demorado/.test(p)) { await new Promise((ok) => setTimeout(ok, 1500)); return "Terminei o demorado."; }
+  if (/segundo da fila/.test(p)) return "Fiz o segundo da fila.\n```yaml\nedit:\n  1:\n    subtitle: Veio da fila\n```";
   return "Entendi, não mudei nada.";
 }
 
@@ -296,6 +298,31 @@ test("studio + IA (LLM falso)", async (t) => {
       assert.ok(log.some((e) => e.decision === "recusado" && /rodou\.txt/.test(e.code)));
       const ran = log.find((e) => e.decision === "aprovado");
       assert.ok(ran && ran.exit === 0 && /42/.test(ran.output) && ran.deck && ran.ms >= 0, JSON.stringify(log).slice(0, 400));
+    });
+
+    // Retorno de uso (10/11): "posso pedir mais de uma alteração enquanto uma está pensando?" Antes o Enter não fazia nada.
+    await t.test("pedido escrito enquanto a IA trabalha entra na fila e sai sozinho, na ordem; dá para tirar da fila", async () => {
+      await p.fill("#chat-input", "pedido demorado, por favor");
+      await p.press("#chat-input", "Enter");
+      await p.waitForSelector(".ai-working");
+      assert.match(await p.getAttribute("#chat-input", "placeholder"), /entra na fila/);
+      await p.fill("#chat-input", "este eu desisto");
+      await p.press("#chat-input", "Enter");
+      await p.fill("#chat-input", "segundo da fila: mude o subtítulo");
+      await p.press("#chat-input", "Enter");
+      assert.equal(await p.locator(".chat-queued").count(), 2);
+      assert.equal(await p.inputValue("#chat-input"), "", "a caixa fica livre para o próximo");
+      await p.locator(".chat-queued", { hasText: "desisto" }).locator(".cq-remove").click();
+      assert.equal(await p.locator(".chat-queued").count(), 1);
+      await p.waitForFunction(() => /Fiz o segundo da fila/.test([...document.querySelectorAll("#chat-messages .ai-msg")].pop()?.innerText || ""), null, { timeout: 60000 });
+      await waitAI();
+      assert.equal(await p.locator(".chat-queued").count(), 0);
+      // a esta altura do teste o Studio já está noutra apresentação (criada pelo chat): confere o deck que o servidor gravou
+      assert.equal((await deck()).slides[0].subtitle, "Veio da fila", "o pedido da fila foi aplicado no deck do servidor");
+      assert.ok(!llm.requests.some((r) => /este eu desisto/.test(r.lastUser)), "o que saiu da fila não foi enviado");
+      const texts = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .user-msg")].map((m) => m.innerText));
+      assert.ok(texts.findIndex((x) => /pedido demorado/.test(x)) < texts.findIndex((x) => /segundo da fila/.test(x)));
+      assert.doesNotMatch(await p.getAttribute("#chat-input", "placeholder"), /fila/);
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));

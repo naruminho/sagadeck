@@ -393,6 +393,42 @@ test("transições saida e morph: saída e entrada comparáveis, sem erros", asy
   } finally { await browser.close(); deck.cleanup(); }
 });
 
+// Retorno de uso (10/11), deck de aula gerado no servidor: rótulos do desenho SVG saíam em fonte serifada, a frase da
+// resposta do problema resolvido saía com 16 px e quatro equações sem gráfico ficavam miúdas com meia tela vazia.
+test("tamanhos que se leem: desenho SVG na fonte do tema, resposta do problema e equações sem gráfico", async (t) => {
+  const browser = await browserOrSkip(t);
+  if (!browser) return;
+  const deck = tempDeck();
+  const file = path.join(deck.dir, "leitura.html");
+  fs.writeFileSync(file, buildHTML({ title: "Leitura", theme: "oceano", slides: [
+    { layout: "question", question: "Como escolher?", add: [{ svg: '<svg viewBox="0 0 1000 360" xmlns="http://www.w3.org/2000/svg"><text x="120" y="90" font-size="44">frente de Pareto</text></svg>' }] },
+    { layout: "solution", title: "Quanto escoa?", problem: "Chuva de 80 mm em 100 ha.", givens: [{ symbol: "P", value: 80, unit: "mm" }], find: "V_0",
+      steps: [{ text: "Volume", latex: "V_0 = P", fn: "P*10", name: "V0" }], answer: { latex: "V_0 = {{V0}}", text: "Escoam cerca de {{V0:0}} m³ no evento." } },
+    { layout: "science", title: "O problema completo", plot: false, equations: [1, 2, 3, 4].map((n) => ({ label: `Objetivo ${n}`, latex: `f_${n}(X) = 650000 A + 450000 B + 800000 C` })) },
+  ] }).html);
+  const { page, errors } = await newPage(browser, null, { width: 1920, height: 1080 });
+  try {
+    await page.goto(pathToFileURL(file).href);
+    await page.waitForFunction(() => window.sagadeck?.cur === 0);
+    await page.evaluate(() => window.SagaScienceReady);
+    const fam = await page.evaluate(() => [getComputedStyle(document.querySelector("[data-svg-figure] svg text")).fontFamily, getComputedStyle(document.querySelector('[data-idx="0"] .t')).fontFamily]);
+    assert.doesNotMatch(fam[0], /^(serif|Times)/i);
+    assert.equal(fam[0].split(",")[0], fam[1].split(",")[0], "o rótulo do desenho usa a mesma fonte do texto do slide");
+    await page.evaluate(() => window.sagadeck.goto(1, window.sagadeck.steps(1), true));
+    const ans = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-idx="1"] .sol-answer > .t')).fontSize));
+    assert.ok(ans >= 28, `frase da resposta com ${ans} px`);
+    await page.evaluate(() => window.sagadeck.goto(2, 0, true));
+    const eq = await page.evaluate(() => {
+      const s = document.querySelector('[data-idx="2"]'), k = s.querySelector(".katex-display");
+      const body = s.querySelector(".science-body").getBoundingClientRect(), box = s.getBoundingClientRect();
+      return { px: parseFloat(getComputedStyle(k).fontSize), inside: body.bottom <= box.bottom && [...s.querySelectorAll(".katex")].every((e) => e.getBoundingClientRect().right <= box.right) };
+    });
+    assert.ok(eq.px >= 40, `equação com ${eq.px} px`);
+    assert.ok(eq.inside, "as equações maiores continuam dentro do slide");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); deck.cleanup(); }
+});
+
 // Revelar sem spoiler: a pergunta fica na tela e a resposta entra no clique (seta), sem depender do mouse.
 test("runtime: sem spoiler (palpite, título que troca, cartão que vira, gráfico por etapas)", async (t) => {
   const browser = await browserOrSkip(t);

@@ -2587,3 +2587,110 @@ test("Enquete: Votação pelo celular (Formatar) liga e desliga o live no deck s
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await studio.close(); deckFile.cleanup(); }
 });
+
+// Retorno de uso (10/11): abrir no formulário um slide de fórmulas criado pela IA apagava o nome e a cor das curvas
+// (a legenda virava "y = s*0.25*(1-e^(-0.35*x))"): o formulário trocava cada { fn, name, color } pela fórmula solta.
+test("fórmulas e funções: editar a fórmula no formulário mantém o nome e a cor da curva", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides.push({ layout: "science", title: "Curvas com nome", plot: { x: [0, 20], functions: [
+    { fn: "0.25*(1-e^(-0.35*x))", name: "Jardim de chuva", color: "hi" }, { fn: "0.30*(1-e^(-0.12*x))", name: "Pavimento", color: "#0CA678" }] } });
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec));
+  const idx = spec.slides.length - 1;
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[idx].plot.functions;
+    await p.click(`.thumb-card[data-idx="${idx}"]`);
+    const fn = p.locator('#slide-fields-form [data-plot-fn="0"]');
+    await fn.waitFor();
+    assert.equal(await fn.inputValue(), "0.25*(1-e^(-0.35*x))");
+    await fn.fill("0.4*(1-e^(-0.35*x))");
+    await fn.press("Tab");
+    for (const t0 = Date.now(); saved()[0]?.fn !== "0.4*(1-e^(-0.35*x))" && Date.now() - t0 < 8000;) await p.waitForTimeout(150);
+    assert.deepEqual(saved(), [{ fn: "0.4*(1-e^(-0.35*x))", name: "Jardim de chuva", color: "hi" }, { fn: "0.30*(1-e^(-0.12*x))", name: "Pavimento", color: "#0CA678" }]);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); deckFile.cleanup(); }
+});
+
+// Retorno de uso (10/11): "texto ele salva, mas tamanho de texto e espaço voltam ao inicial". O ajuste era gravado,
+// mas num slide cheio (já encolhido para caber) aumentar um texto fazia o slide inteiro encolher de novo: na tela o
+// texto quase não mudava e o resto diminuía. Agora o encolhimento não passa de onde estava no primeiro ajuste à mão.
+test("ajuste de tamanho à mão num slide que já encolheu para caber: o resto não encolhe de novo", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  const side = (label, value) => ({ label, value, title: "Total do lado", text: "Uma explicação comprida o bastante para ocupar várias linhas dentro do cartão e apertar o slide inteiro até ele precisar encolher.", items: ["Primeiro item da lista deste lado", "Segundo item da lista deste lado", "Terceiro item da lista deste lado", "Quarto item da lista deste lado"] });
+  spec.slides.push({ layout: "compare", kicker: "Dois limites", title: "A solução precisa satisfazer as duas restrições ao mesmo tempo", vs: "e", left: side("Orçamento", "R$ 8 mi"), right: side("Área", "20 ha") });
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec));
+  const idx = spec.slides.length - 1;
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[idx];
+    await p.click(`.thumb-card[data-idx="${idx}"]`);
+    await p.waitForFunction(() => +document.querySelector("#rendered-slide-container .slide")?.dataset.shrink < 1, null, { timeout: 15000 });
+    const state = () => p.evaluate(() => {
+      const s = document.querySelector("#rendered-slide-container .slide");
+      const px = (sel) => { const n = s.querySelector(sel); return parseFloat(getComputedStyle(n).fontSize); };
+      return { zoom: +(s.dataset.shrink || 1), title: px(".cp-title"), item: px("li .t") };
+    });
+    const before = await state();
+    await p.locator("#rendered-slide-container .cp-title").first().click({ position: { x: 4, y: 4 } });
+    const size = p.locator("[data-size]").first();
+    await size.fill(String(Math.round(before.title) + 20));
+    await size.dispatchEvent("change");
+    for (const t0 = Date.now(); !saved().visualEdits && Date.now() - t0 < 8000;) await p.waitForTimeout(150);
+    await p.waitForFunction((want) => parseFloat(getComputedStyle(document.querySelector("#rendered-slide-container .cp-title")).fontSize) >= want, before.title + 19);
+    await p.waitForTimeout(600);
+    const after = await state();
+    assert.equal(after.zoom, before.zoom, "o slide não encolheu mais por causa do ajuste");
+    assert.equal(after.item, before.item, "os outros textos ficaram do tamanho que estavam");
+    const ve = saved().visualEdits;
+    assert.equal(ve._slide.minZoom, before.zoom, "o piso do encolhimento vai gravado no deck");
+    assert.equal(Object.values(ve).find((e) => e.size)?.size, Math.round(before.title) + 20);
+    // na apresentação (e na exportação) vale o mesmo piso
+    const html = await (await fetch(`${studio.url}/preview`)).text();
+    assert.match(html, new RegExp(`data-min-zoom="${before.zoom}"`));
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); deckFile.cleanup(); }
+});
+
+// Retorno de uso (10/11): ajustando à mão um slide com muitos elementos, o fiscal marcava tudo de vermelho e as
+// marcações ficavam na frente do clique. O que a pessoa pôs no lugar à mão não vira aviso de "um em cima do outro",
+// a marcação nunca intercepta o clique e some enquanto há um objeto selecionado.
+test("fiscal não atrapalha o ajuste à mão: sem aviso para o que a pessoa moveu, marcação fora da frente do clique", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const deckFile = tempDeck();
+  const spec = YAML.parse(fs.readFileSync(deckFile.file, "utf8"));
+  spec.slides.push({ layout: "cards", title: "Três frentes", cols: 3, items: [1, 2, 3].map((n) => ({ title: `Cartão ${n}`, text: "Um texto curto de apoio." })) });
+  fs.writeFileSync(deckFile.file, YAML.stringify(spec));
+  const idx = spec.slides.length - 1;
+  const studio = await startStudio(deckFile.file);
+  try {
+    const { page: p, errors } = await newPage(browser, studio.url);
+    const saved = () => YAML.parse(fs.readFileSync(deckFile.file, "utf8")).slides[idx];
+    await p.click(`.thumb-card[data-idx="${idx}"]`);
+    const title = p.locator("#rendered-slide-container .ttl").first();
+    await title.waitFor();
+    await p.waitForTimeout(700);
+    // a marcação do fiscal nunca fica na frente do clique (antes, só a de "texto pequeno" deixava passar)
+    const pe = await p.evaluate(() => { const b = document.createElement("div"); b.className = "issue-bounding-box"; document.getElementById("inspector-overlay").appendChild(b); const v = getComputedStyle(b).pointerEvents; b.remove(); return v; });
+    assert.equal(pe, "none");
+    // arrasta o título para cima do primeiro cartão
+    const tb = await title.boundingBox(), cb = await p.locator("#rendered-slide-container .card").first().boundingBox();
+    await p.mouse.move(tb.x + 12, tb.y + tb.height / 2); await p.mouse.down();
+    await p.mouse.move(tb.x + 12, cb.y + cb.height / 2, { steps: 8 }); await p.mouse.up();
+    assert.ok(await p.locator("#inspector-overlay").evaluate((el) => el.classList.contains("quiet")), "com objeto selecionado, as marcações saem da frente");
+    for (const t0 = Date.now(); !Object.values(saved().visualEdits || {}).some((e) => e.dy) && Date.now() - t0 < 8000;) await p.waitForTimeout(150);
+    assert.ok(Object.values(saved().visualEdits).some((e) => e.dy > 50), "o título foi movido e gravado");
+    await p.waitForTimeout(900);
+    const over = await p.evaluate(() => { const a = document.querySelector("#rendered-slide-container .ttl").getBoundingClientRect(), b = document.querySelector("#rendered-slide-container .card").getBoundingClientRect(); return a.bottom > b.top + 8 && a.top < b.bottom - 8; });
+    assert.ok(over, "o título está mesmo por cima do cartão");
+    assert.doesNotMatch(await p.locator("#fix-panel").innerText(), /um em cima do outro/, "o que foi posto à mão não vira aviso");
+    await p.keyboard.press("Escape");
+    assert.ok(!(await p.locator("#inspector-overlay").evaluate((el) => el.classList.contains("quiet"))), "sem seleção, as marcações voltam");
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); await studio.close(); deckFile.cleanup(); }
+});

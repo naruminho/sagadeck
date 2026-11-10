@@ -406,7 +406,11 @@ export const LAYOUTS = {
     const image=s.figure?.image, dimensions=image?imageSize(image,ctx):null;
     const documentImage=typeof image==='string'&&image.replace(/\\/g,'/').includes('contexto/visuais/');
     const visual=s.figure&&(documentImage||s.figure.fit==='contain'||s.figure.chart||s.figure.diagram||s.figure.math||s.figure.table);
-    const stacked=s.arrangement==='stacked'||(!s.arrangement&&!s.ratio&&visual&&(!dimensions||dimensions.w/dimensions.h>1.2));
+    // empilhado só cabe com resumo curto: fórmula em destaque ($$), texto longo ou muitos itens tomam a altura e a
+    // figura (uma tabela de três linhas) virava uma tira ilegível. Nesses casos fica lado a lado, mesmo se pedido.
+    const summaryLen=String(s.body||'').replace(/\$\$[\s\S]*?\$\$/g,'').length+(s.bullets||[]).reduce((n,b)=>n+String(typeof b==='string'?b:b?.text||'').length,0);
+    const heavy=/\$\$/.test(String(s.body||''))||summaryLen>280||(s.bullets||[]).length>3||(s.content&&(s.body||s.bullets));
+    const stacked=!heavy&&(s.arrangement==='stacked'||(!s.arrangement&&!s.ratio&&visual&&(!dimensions||dimensions.w/dimensions.h>1.2)));
     if(stacked) return `<div class="L-split sp-stacked">${head({...s,titleSize:s.titleSize||64})}<div class="sp-fig e" style="--d:2" ${s.figureStep?`data-step="${s.figureStep}"`:''}>${el({...s.figure,...(image?{fit:'contain'}:{})},ctx,1680,620)}</div><div class="sp-summary">${s.body?text(s.body,'body',{size:s.bodySize||32}):''}${s.bullets?list({list:s.bullets,build:s.build,size:s.bulletSize||30}):''}${s.content?el(s.content,ctx):''}</div></div>${src(s)}${add(s,ctx)}`;
     const ratio = String(s.ratio || (visual?'1:2':'1:1')).split(":").map(Number);
     const left = `${s.body ? text(s.body, s.bodyAs || "lead", { class: "sp-body e", style: "--d:2;" }) : ""}

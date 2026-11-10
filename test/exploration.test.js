@@ -251,6 +251,45 @@ test('revisão informa avanço por slide inclusive quando uma captura falha', as
   assert.equal(r.verified, false);
 });
 
+// Retorno de uso (10/11): num deck de 20 slides a revisão "recomeçava" do 1 depois de chegar ao 20. Era a segunda
+// rodada, conferindo de novo os 20 depois de corrigir 2 ou 3, com o mesmo texto da primeira (parecia travado em laço).
+test('depois de corrigir, a revisão confere de novo só os slides corrigidos e avisa que é a segunda passada', async () => {
+  const calls = [], said = [];
+  const llm = await startMockLLM(req => req.lastUser.includes('Corrija somente') ? '```yaml\nedit:\n  2:\n    text: Corrigido\n```' : '```yaml\ndeck:\n  title: Exemplo\nslides:\n  - layout: cover\n    title: Exemplo\n  - layout: statement\n    text: Conteúdo\n  - layout: statement\n    text: Terceiro\n```');
+  const before = process.env.SAGADECK_LLM_URL; process.env.SAGADECK_LLM_URL = llm.url;
+  try {
+    const r = await generateDeck('Crie três slides sem perguntar', { research: false, images: false, onProgress: t => said.push(t),
+      reviewCheck: async (_deck, indices, o = {}) => {
+        calls.push({ indices: [...indices], again: !!o.again });
+        // 1ª passada: defeito no slide 2 e o slide 3 ficou sem conferência; 2ª: o slide 2 passou
+        return calls.length === 1 ? { issues: [{ slide: 2, text: 'Texto cortado' }], unchecked: [3], failures: [{ slide: 3, reason: 'Sem visão' }], verified: false }
+          : { issues: [], unchecked: [], failures: [], verified: true };
+      } });
+    assert.deepEqual(calls, [{ indices: [0, 1, 2], again: false }, { indices: [1], again: true }], 'a 2ª passada só olha o slide corrigido');
+    assert.equal(r.spec.slides[1].text, 'Corrigido');
+    // o que a 1ª passada viu nos slides que não mudaram continua valendo
+    assert.deepEqual(r.quality.issues, []); assert.deepEqual(r.quality.unchecked, [3]); assert.equal(r.quality.verified, false);
+    assert.ok(said.some(t => /1 problema.*1 slide.*[Cc]orrigindo/.test(t)), `avisa que vai corrigir: ${said.join(' | ')}`);
+  } finally { if (before == null) delete process.env.SAGADECK_LLM_URL; else process.env.SAGADECK_LLM_URL = before; await llm.close(); }
+});
+
+test('revisão confere vários slides ao mesmo tempo, mantém a ordem dos achados e diz quando é a segunda passada', async () => {
+  let running = 0, peak = 0;
+  const events = [];
+  const spec = { slides: [1, 2, 3, 4, 5].map(n => ({ layout: 'statement', text: `Ideia ${n}` })) };
+  const r = await reviewExperience(spec, [0, 1, 2, 3, 4], {
+    again: true, onProgress: e => events.push(e),
+    snapshot: async (_s, index) => { running++; peak = Math.max(peak, running); await new Promise(ok => setTimeout(ok, index === 0 ? 60 : 10)); running--; return [{ label: 'Completo', dataUrl: 'data:image/png;base64,AA==' }]; },
+    complete: async (messages) => {
+      const first = !JSON.stringify(messages).includes('"findings"');
+      return { text: first ? '{"issues":["Texto cortado"]}' : '{"confirmed":[0]}' };
+    },
+  });
+  assert.ok(peak > 1 && peak <= 3, `até 3 slides por vez (pico ${peak})`);
+  assert.deepEqual(r.issues.filter(x => x.text === 'Texto cortado').map(x => x.slide), [1, 2, 3, 4, 5], 'achados na ordem dos slides, mesmo com o 1º demorando mais');
+  assert.match(events[0].text, /de novo/);
+});
+
 test('geração preserva o último deck válido se o provedor cai durante a correção visual', async () => {
   const llm = await startMockLLM(req => req.lastUser.includes('Corrija somente')
     ? { status: 502, error: 'Provedor indisponível' }

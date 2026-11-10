@@ -14,3 +14,13 @@ test('figura informativa usa área dominante e nunca sangra ou cobre a legenda p
   const decorative=renderSlide({layout:'split',figure:{icon:'star'}},0,{}).html;
   assert.doesNotMatch(decorative,/sp-stacked/);
 });
+
+// Retorno de uso (10/11): split empilhado com duas fórmulas em destaque no texto; a tabela virou uma tira ilegível.
+test('split empilhado com resumo pesado (fórmula em destaque, texto longo) fica lado a lado', () => {
+  const figure = { table: { head: ['Intervenção', 'k'], rows: [['Jardins', '0,35'], ['Pavimentos', '0,12']] } };
+  const formula = renderSlide({ layout: 'split', arrangement: 'stacked', title: 'Objetivo 3', body: 'Carga inicial.\n\n$$e_i = e_{max}(1 - e^{-kA})$$\n\ne a carga residual.', figure }, 0, {}).html;
+  assert.doesNotMatch(formula, /sp-stacked/);
+  const long = renderSlide({ layout: 'split', title: 'Resultado', body: 'palavra '.repeat(40), figure }, 0, {}).html;
+  assert.doesNotMatch(long, /sp-stacked/);
+  assert.match(renderSlide({ layout: 'split', arrangement: 'stacked', title: 'Resultado', body: 'Resumo curto.', figure }, 0, {}).html, /sp-stacked/);
+});

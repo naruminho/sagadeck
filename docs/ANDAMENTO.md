@@ -8,6 +8,47 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Retorno de uso no servidor: revisão que "recomeça", fila no chat e leitura — 10/11/2026 (branch `claude/revisao-rodadas`)
+
+Uma pessoa gerou no servidor (1.11.7) uma aula de 20 slides a partir de um roteiro e mandou o retorno enquanto usava.
+O que cada ponto virou:
+
+- **"A revisão chega no 20 e recomeça."** Não era queda nem timeout: depois de corrigir 2 ou 3 slides, a revisão
+  conferia os 20 de novo, com o mesmo texto, até 3 vezes (uns 55 s por slide). Agora a segunda passada confere só os
+  slides corrigidos (`mergeReview` em `src/ai/quality.js` junta com o que já foi visto), o texto diz "Conferindo de
+  novo o slide N, que foi corrigido" e antes disso avisa quantos problemas vai corrigir. A primeira passada confere 3
+  slides por vez (`parallel` em `reviewExperience`; os achados saem na ordem dos slides).
+- **"Posso pedir outra alteração enquanto uma está pensando?"** Não podia: o Enter não fazia nada. Agora o pedido
+  escrito durante o trabalho entra numa fila à vista acima da caixa ("Na fila", com botão de tirar) e sai sozinho, na
+  ordem, quando o atual termina. O botão Parar devolve a fila para a caixa de texto. Trocar de apresentação descarta.
+- **Defeitos de leitura no deck gerado** (a revisão por imagem apontava, mas a IA não tinha como consertar):
+  `split` empilhado com fórmula em destaque ou texto longo esmagava a figura numa tira (agora fica lado a lado);
+  rótulos de `svg` saíam em fonte serifada (agora a do tema); a frase da resposta do `solution` saía com 16 px
+  (30); `science` com `plot: false` e 3 ou mais equações usava o tamanho da coluna estreita (agora 54/44/34 px); a
+  dica do gráfico do `science` subiu de 17 para 22 px.
+
+- **"Texto ele salva, mas tamanho de texto e espaço voltam ao inicial."** O ajuste era gravado; o que desfazia era o
+  "encolher tudo para caber": num slide cheio (já a 73%), aumentar um texto fazia o slide inteiro encolher de novo
+  (o texto quase não mudava na tela e o resto diminuía). Agora o primeiro ajuste à mão no slide grava o piso do
+  encolhimento (`visualEdits._slide.minZoom`, vira `data-min-zoom` no slide; `shrink` em `src/runtime/fit.js` não
+  passa dele). Tirar coisas ainda desencolhe; limpar os ajustes tira o piso.
+- **Legenda do gráfico virou fórmula.** Abrir no formulário um `science` criado pela IA trocava cada curva
+  `{ fn, name, color }` pela fórmula solta (nome e cor sumiam). O formulário agora edita só o `fn`.
+
+- **"O fiscal marcou tudo como ruim e ficou difícil até de clicar"** (ajustando à mão um slide com muitos elementos).
+  As marcações vermelhas ficavam na frente do clique (só a de texto pequeno deixava passar) até a pessoa entrar no
+  ajuste de objetos. Agora nunca interceptam o clique, somem enquanto há um objeto selecionado, e o que a pessoa moveu,
+  redimensionou ou mudou de tamanho à mão não vira aviso de "um em cima do outro" nem de margem (fora do slide ainda
+  avisa).
+
+Publicado na **1.11.8** junto com a votação pela rede e o "sem spoiler".
+
+**Falta / ideias que ficaram**: o campo de tamanho do editor mostra o valor antes do encolhimento (92 num título que
+está com 67 na tela a 73%); a revisão ainda gasta rodadas em achados que só o motor resolve (não há como a IA
+saber que um defeito é do layout); o `solution` com um passo só deixa meia tela vazia; o fiscal de layout acusa
+baixo contraste no chapéu (`kicker`) em pílula, que se lê bem (falso positivo).
+---
+
 ## Sem spoiler e ritmo visual, para a IA gerar sozinha — 10/11/2026 (branch `claude/sem-spoiler`)
 
 Continuação da palestra "E se o humano for o bug?": tudo o que foi montado à mão no deck virou recurso, documentado
