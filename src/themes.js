@@ -749,7 +749,10 @@ export function resolveTheme(spec, palette, identity = null) {
   if (pal) Object.assign(theme, paletteColors(pal));
   theme.palette = pal ? (typeof palette === "string" ? palette : "propria") : null;
   // a "cara" do slide: tema + paleta (o CSS de cores de cada combinação vale só nos slides dela)
-  theme.key = theme.palette ? `${theme.name}--${theme.palette}` : theme.name;
+  // paleta própria: a chave leva as cores, senão dois slides com paletas próprias diferentes dividiam o mesmo
+  // seletor (.lk-<tema>--propria) e a última pintava todos
+  const own = pal && typeof palette === "object" ? `-${[pal.paper, pal.ink, pal.accent, pal.alert, ...(Array.isArray(pal.family) ? pal.family : [])].map((c) => String(c || "").replace("#", "").toLowerCase()).join("").replace(/[^0-9a-z]/g, "")}` : "";
+  theme.key = theme.palette ? `${theme.name}--${theme.palette}${own}` : theme.name;
   Object.assign(theme.colors, t.colors || {});
   for (const [k, v] of Object.entries(t.tones || {})) theme.tones[k] = { ...(theme.tones[k] || {}), ...v };
   for (const [k, v] of Object.entries(t.faces || {})) theme.faces[k] = { ...(theme.faces[k] || {}), ...v };

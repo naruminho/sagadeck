@@ -126,7 +126,7 @@ Tabela em markdown no meio de um texto (`problem`, `body`, `text`, passo do `sol
 
 ### Ajustes finos de campos
 
-- Em qual clique uma parte aparece: `byStep` (statement), `chartStep` e `sideStep` (chart, number), `contextStep` (number), `figureStep` (split), `noteStep` (cards). Valor = número do clique.
+- Em qual clique uma parte aparece: `byStep` (statement), `chartStep` e `sideStep` (chart, number), `contextStep` (number), `figureStep` (split), `noteStep` (cards), `sourceStep` (a linha de `source`, em qualquer layout: use quando a fonte entregaria a resposta antes da hora). Valor = número do clique.
 - Tamanhos e papéis: `bodyAs` (split: papel tipográfico do `body`, padrão `lead`), `bulletSize` (split: tamanho dos bullets), `labelSize` (number: tamanho do rótulo, padrão 52), `timerLabel` (question: texto do cronômetro).
 - Nomes alternativos aceitos: `kpis` = `stats`; `process` e `flow` = `steps`.
 
@@ -555,7 +555,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
 { chart: isotype, total: 20, highlight: 4, icon: car }
 { chart: stacked, data: [{label, value}, …] }
 ```
-`null` numa série quebra a linha (ex.: sessões diferentes). Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
+`null` numa série quebra a linha (ex.: sessões diferentes). **Revelar o gráfico de linha aos poucos** (mostrar a curva sem dizer do que trata e só depois explicar): `axisLabelStep: 1` mostra o gráfico completo (linhas, escala, rótulos) e segura só os **nomes** dos eixos (`xLabel`/`yLabel`) até o clique 1: dá para ver que é um gráfico e ler os valores sem saber o que eles medem (o mais comum). `axisStep: 1` esconde os eixos inteiros (escala, rótulos e nomes) até o clique 1; cada faixa, série e anotação aceita `step: n` (`bands: [{at: 6, text: LANCHE, step: 3}]`, `series: [{…}, {name: "o esperado", values: […], step: 4}]`). Combine com `sideStep`/`chartStep` do slide e com um título que pergunta em vez de entregar a conclusão. Cores aceitam papéis do tema (`fg`, `hi`, `em`, `muted`, `line`) ou hex.
 `xLabel` / `yLabel` dão nome aos eixos (linhas e colunas). `from: { file, sheet, columns: [rótulo, série…] }` num slide de gráfico diz de que planilha do projeto os dados vieram (o Studio põe ao inserir uma sugestão; "Atualizar da planilha" relê o arquivo). Não invente `from`.
 `csv:` (qualquer tipo com dados) troca `data`/`labels`/`series` pelo conteúdo do arquivo (`;`, `,` ou tab; vírgula decimal; cabeçalho vira o nome das séries): atualizou o arquivo, o slide atualiza. Arquivo sumido: ficam os dados do slide e o fiscal avisa. No Studio, os dados ficam numa **planilha** no Formatar: cola do Excel (Ctrl+V em qualquer célula preenche a partir dela), importa CSV e ganha colunas de série.
 Tabela colada no chat pedindo gráfico: a IA sugere com prévia (`variants` com 2 a 3 tipos — barras, linhas, pizza — nos mesmos dados) em vez de montar um `chart` direto; só faz direto com o tipo já dito.
