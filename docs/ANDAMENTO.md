@@ -8,6 +8,27 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Gráfico revelado por clique — 09/11/2026 (branch `claude/grafico-etapas`)
+
+Nasceu de uma palestra real: mostrar a curva sem dizer do que ela trata, discutir o padrão e só depois revelar.
+
+- Gráfico de linha: `axisStep` (escala, rótulos e nomes dos eixos entram no clique pedido) e `step` em cada faixa
+  (`bands`), série e anotação. As peças ganham `data-step` dentro do SVG; o runtime já cuidava do resto.
+- `axisLabelStep`: o gráfico aparece inteiro (linhas, escala, horas) e só os **nomes** dos eixos esperam o clique.
+  Foi o que ela pediu depois de ver o `axisStep`: sem eixo nenhum "nem dá pra saber que é um gráfico".
+- Correção: rótulos espaçados no eixo (um a cada vários pontos) encolhiam para o mínimo porque cada um só contava
+  com o vão de um ponto; agora usam o vão até o rótulo vizinho que existe.
+- `sourceStep` (qualquer layout): a linha de `source` entra só no clique, para a fonte não entregar a resposta.
+- CSS: peça de gráfico revelada só aparece, sem deslizar dentro do desenho.
+- Testes em `engine.test.js`; `docs/REFERENCIA.md` atualizada.
+- **Estado**: branch enviada, sem PR. O Studio local (porta 3517) roda desta worktree para validação; PR e merge
+  depois do ok dela. Ao fechar: desfazer a junção do `node_modules` antes de remover a worktree.
+- **Ideias que ficaram para depois** (vieram da mesma palestra): "chute o número" antes de revelar (hoje se monta com
+  `blocks` + `step`), identidade de cor por ato, votação da plateia pela rede (hoje a enquete é só digitada), campos
+  novos no formulário do Studio (`axisStep`, `step`, `sourceStep` ainda só pelo YAML).
+- **Achado a investigar**: abrir um deck com `picto: scene` (`back: sleep`, `driver: human`) pelo `?deck=` mostra o
+  aviso "Sem sleep, human (ficam na pasta original do deck)", como se fossem arquivos faltando.
+
 ## 1.11.7: navegação leve pela rede — 24/10/2026 (branch `claude/navegacao-leve`)
 
 **A máquina toda lenta era culpa da suíte de testes.** Medido no Windows dela: 19 processos `explorer.exe`, todos

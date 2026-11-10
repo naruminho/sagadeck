@@ -163,6 +163,8 @@ code.f-mono{font-size:.86em;background:color-mix(in srgb,var(--fg) 9%,transparen
 @keyframes enter{from{opacity:0;transform:translateY(34px)}}
 [data-step]{transition:opacity .55s var(--ease),transform .75s var(--ease-out),filter .6s var(--ease)}
 [data-step]:not(.in){opacity:0;transform:translateY(36px);pointer-events:none}
+/* peça de gráfico revelada por clique (eixos, faixa, série): só aparece, sem deslizar dentro do desenho */
+svg [data-step]:not(.in){transform:none}
 [data-anim="fade"]:not(.in){transform:none}
 [data-anim="pop"]:not(.in){transform:scale(.82)}
 [data-anim="left"]:not(.in){transform:translateX(-70px)}

@@ -28,7 +28,8 @@ const plainTitle = (s) => String(s.title || s.kicker || s.layout || "").replace(
 const kicker = (s, d = 0) => (s.kicker ? `<div class="kicker t f-label e" style="--d:${d}">${md(s.kicker)}</div>` : "");
 const title = (s, as = "h2", d = 1, extra = {}) => (s.title ? text(s.title, as, { class: "ttl e", style: `--d:${d};`, fit: s.fit, ...extra, ...(s.titleSize ? { size: s.titleSize } : {}) }) : "");
 const head = (s, as = "h2") => (s.kicker || s.title ? `<header class="hd">${kicker(s)}${title(s, as)}</header>` : "");
-const src = (s) => (s.source ? `<div class="src t f-body">${md(s.source)}</div>` : "");
+// sourceStep: a fonte entra só no clique pedido (quando o nome do estudo entregaria a resposta antes da hora)
+const src = (s) => (s.source ? `<div class="src t f-body"${Number(s.sourceStep) > 0 ? ` data-step="${Number(s.sourceStep)}"` : ""}>${md(s.source)}</div>` : "");
 const add = (s, ctx) => (s.add ? el(s.add, ctx) : "");
 const fig = (f, ctx, w, h, cls = "") => (f ? `<div class="figbox ${cls}" style="${w ? `width:${w}px;` : ""}${h ? `height:${h}px;` : ""}">${typeof f === "object" ? el(f, ctx, w, h) : el({ image: f }, ctx)}</div>` : "");
 const build = (s, i, base = 1) => (s.build ? base + i : undefined);

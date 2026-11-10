@@ -1012,3 +1012,42 @@ test("gráfico: barra pintada com hi usa a versão com contraste (--hi-ink), nã
   assert.match(svg, /fill:var\(--muted\)/);
   assert.doesNotMatch(svg, /fill:var\(--hi\)[;"]/);
 });
+
+test("gráfico de linha revela eixos, faixas, séries e anotações por clique (axisStep, step)", () => {
+  const base = { chart: "line", labels: ["início", "", "fim"], series: [{ values: [60, 30, 5] }, { name: "o esperado", values: [40, 41, 39], step: 4 }],
+    bands: [{ at: 1, text: "LANCHE", step: 3 }], annotations: [{ at: 0, text: "pico", step: 5 }], yLabel: "aprovados", suffix: "%" };
+  const svg = chart({ ...base, axisStep: 1 }, 1120, 600);
+  const group = (n) => svg.split(`<g data-step="${n}">`).slice(1).map((p) => p);
+  // eixos: a escala e os rótulos ficam num grupo do clique 1, e o nome do eixo também
+  assert.equal(group(1).length, 2, "escala/rótulos e nomes dos eixos entram no clique 1");
+  assert.match(group(1)[0], /início/);
+  assert.match(group(1)[1], /aprovados/);
+  assert.match(group(3)[0], /^<line[^>]*stroke-dasharray[^>]*\/><text[^>]*>LANCHE/);
+  assert.match(group(4)[0], /^<path class="draw"/);
+  assert.match(group(4).join(""), /o esperado/);
+  assert.match(group(5)[0], /pico/);
+  // a primeira série (sem step) aparece desde o início: o primeiro traço vem antes de qualquer grupo de série
+  assert.ok(svg.indexOf('<path class="draw"') < svg.indexOf('<g data-step="4">'));
+  // sem os campos, nada muda: nenhum grupo de clique no desenho
+  const plain = chart({ ...base, series: base.series.map(({ step, ...s }) => s), bands: [{ at: 1, text: "LANCHE" }], annotations: [{ at: 0, text: "pico" }] }, 1120, 600);
+  assert.doesNotMatch(plain, /data-step/);
+});
+
+test("sourceStep: a fonte do slide entra só no clique pedido", () => {
+  const slide = { layout: "chart", title: "O que você vê?", chart: { chart: "line", labels: ["a", "b"], series: [{ values: [1, 2] }] }, source: "Estudo X (2011)" };
+  assert.match(html({ ...slide, sourceStep: 1 }), /<div class="src t f-body" data-step="1"[^>]*>Estudo X/);
+  assert.doesNotMatch(html(slide), /class="src t f-body" data-step/);
+});
+
+test("gráfico de linha: axisLabelStep segura só os nomes dos eixos; rótulos espaçados não encolhem", () => {
+  const vals = Array.from({ length: 18 }, (_, i) => 60 - i * 3);
+  const labels = vals.map((_, i) => ({ 0: "9h00", 6: "10h30", 12: "12h30", 17: "16h00" })[i] || "");
+  const svg = chart({ chart: "line", labels, series: [{ values: vals }], yLabel: "aprovados", xLabel: "hora", axisLabelStep: 1, suffix: "%" }, 1120, 600);
+  const groups = svg.split('<g data-step="1">').slice(1);
+  assert.equal(groups.length, 1, "só os nomes dos eixos esperam o clique");
+  assert.match(groups[0], /aprovados/);
+  assert.ok(svg.indexOf("9h00") < svg.indexOf('<g data-step="1">'), "os rótulos do eixo aparecem desde o início");
+  // um rótulo a cada 6 pontos tem o vão de 6 pontos para si: sai no tamanho cheio (22), não no mínimo
+  const size = +svg.match(/font-size="(\d+(?:\.\d+)?)"[^>]*>(?:<tspan[^>]*>)?10h30/)[1];
+  assert.equal(size, 22);
+});

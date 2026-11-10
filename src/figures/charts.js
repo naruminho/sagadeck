@@ -217,6 +217,10 @@ function line(o, W, H) {
   const X = (i) => L + (n === 1 ? cw / 2 : (cw * i) / (n - 1));
   const Y = (v) => T + ch - ((v - min) / (max - min)) * ch;
   let g = useLegend ? legendSVG(series, W) : "";
+  // revelação por clique: eixos (axisStep), cada faixa, série e anotação (step) entram no clique pedido, como os
+  // outros elementos do slide; serve para mostrar a curva "muda" e só depois dizer do que ela trata
+  const stepG = (inner, step) => (Number(step) > 0 && inner ? `<g data-step="${Number(step)}">${inner}</g>` : inner);
+  const before = g; g = "";
   const ticks = o.ticks ?? niceTicks(min, max);
   // casas do passo (0,25 não vira "0,3"); o decimals do slide vale
   const tickDec = Math.min(4, Math.max(0, ...ticks.map((t) => (String(t).split(".")[1] || "").length)));
@@ -231,7 +235,12 @@ function line(o, W, H) {
     const anchor = !edge ? "middle" : i === 0 ? "start" : "end";
     // cada rótulo usa só a SUA metade do vão para o lado do vizinho; as pontas podem avançar na margem externa
     const x = !edge ? X(i) : i === 0 ? Math.max(4, X(i) - (L - 14)) : Math.min(W - 4, X(i) + (R - 4));
-    const room = !edge ? gap * 0.9 : Math.abs(X(i) - x) + gap * 0.45;
+    // vizinho = o rótulo mais perto que existe: com rótulos espaçados (um a cada 6 pontos), cada um usa o vão todo
+    // até o próximo, e não o de um ponto, que deixava a letra minúscula
+    const near = (dir) => { for (let j = i + dir; j >= 0 && j < n; j += dir) if (labels[j]) return Math.abs(j - i); return Infinity; };
+    const side = Math.min(near(-1), near(1));
+    const span = Number.isFinite(side) ? side * gap : cw;
+    const room = !edge ? span * 0.9 : Math.abs(X(i) - x) + span * 0.45;
     return { anchor, x, lbl: fitLabel(l, room, 22, 15, EM.caps) };
   });
   sameSize(axis.filter(Boolean).map((a) => a.lbl));
@@ -239,11 +248,14 @@ function line(o, W, H) {
     if (!a) return;
     g += labelSVG(a.lbl, a.x, H - (o.xLabel ? 64 : 24) - (a.lbl.lines.length - 1) * a.lbl.fs * 1.12, `text-anchor="${a.anchor}" class="f-label" style="fill:var(--muted)"`, false);
   });
+  g = before + stepG(g, o.axisStep);
   (o.bands || []).forEach((b) => {
-    g += `<line x1="${X(b.at)}" x2="${X(b.at)}" y1="${T - 20}" y2="${T + ch}" style="stroke:var(--em)" stroke-width="3" stroke-dasharray="10 10"/>`;
-    if (b.text) g += `<text x="${X(b.at) + 12}" y="${T - 4}" class="f-label" font-size="22" style="fill:var(--em)">${esc(b.text)}</text>`;
+    let bg = `<line x1="${X(b.at)}" x2="${X(b.at)}" y1="${T - 20}" y2="${T + ch}" style="stroke:var(--em)" stroke-width="3" stroke-dasharray="10 10"/>`;
+    if (b.text) bg += `<text x="${X(b.at) + 12}" y="${T - 4}" class="f-label" font-size="22" style="fill:var(--em)">${esc(b.text)}</text>`;
+    g += stepG(bg, b.step);
   });
   series.forEach((s, si) => {
+    const outer = g; g = "";
     const color = s.color ? cvar(s.color) : `var(--s${si + 1})`;
     // quebra em segmentos nos null
     let segs = [[]];
@@ -265,16 +277,17 @@ function line(o, W, H) {
       const isTop = s.values[lastIdx] >= Math.max(...endVals);
       g += `<text x="${X(lastIdx)}" y="${Y(s.values[lastIdx]) + (isTop ? -26 : 46)}" text-anchor="end" class="f-label" font-size="24" style="fill:${color}">${esc(s.name)}</text>`;
     }
+    g = outer + stepG(g, s.step);
   });
   (o.annotations || []).forEach((a, i) => {
     const s = series[a.series || 0];
     const v = a.value ?? s.values[a.at];
     const x = X(a.at), y = Y(v);
     const dy = a.dy ?? -60;
-    g += `<g class="fade-in" style="--i:${6 + i}"><line x1="${x}" y1="${y}" x2="${x}" y2="${y + dy + 14}" style="stroke:var(--fg)" stroke-width="2"/>
-      <text x="${x}" y="${y + dy}" text-anchor="${a.anchor || "middle"}" class="f-heading" font-size="${a.size || 30}" style="fill:var(--fg)">${esc(a.text)}</text></g>`;
+    g += stepG(`<g class="fade-in" style="--i:${6 + i}"><line x1="${x}" y1="${y}" x2="${x}" y2="${y + dy + 14}" style="stroke:var(--fg)" stroke-width="2"/>
+      <text x="${x}" y="${y + dy}" text-anchor="${a.anchor || "middle"}" class="f-heading" font-size="${a.size || 30}" style="fill:var(--fg)">${esc(a.text)}</text></g>`, a.step);
   });
-  return wrap(W, H, g + axisTitles(o, W, H, L), o, "line");
+  return wrap(W, H, g + stepG(axisTitles(o, W, H, L), o.axisLabelStep ?? o.axisStep), o, "line");
 }
 
 function donut(o, W, H) {
