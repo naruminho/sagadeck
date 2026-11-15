@@ -94,3 +94,33 @@ test("Venn, anotações do gráfico e fonte do stats não se sobrepõem nem saem
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("mock: chat na apresentação — mensagem entra no seu clique e a de `fade` desbota sem sumir", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-chat-"));
+  try {
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "terminal-pro", slides: [{ layout: "split", title: "Na hora 3, a IA esqueceu", body: "A conversa encheu.",
+      figure: { mock: "chat", title: "Assistente", build: true, messages: [
+        { from: "você", text: "Datas sempre em dd/mm/aaaa.", note: "hora 1", fade: 4 },
+        { from: "ia", text: "Combinado." },
+        { from: "você", text: "Agora o relatório mensal.", note: "hora 3" },
+        { from: "ia", text: "Pronto:", code: "format(data, 'MM/dd/yyyy')", language: "javascript", mark: true }] } }] }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`file://${file.replace(/\\/g, "/")}#1`); await page.waitForTimeout(500);
+    const state = () => page.evaluate(() => [...document.querySelectorAll(".mk-msg")].map((m) => +getComputedStyle(m).opacity));
+    const s0 = await state();
+    assert.ok(s0.every((o) => o < 0.1), `nada antes do primeiro clique: ${s0}`);
+    for (let k = 0; k < 3; k++) { await page.keyboard.press("ArrowRight"); }
+    await page.waitForTimeout(900);
+    const s3 = await state();
+    assert.ok(s3.slice(0, 3).every((o) => o > 0.9) && s3[3] < 0.1, `três mensagens no 3º clique: ${s3}`);
+    await page.keyboard.press("ArrowRight"); await page.waitForTimeout(900);
+    const s4 = await state();
+    assert.ok(s4[0] > 0.1 && s4[0] < 0.4, `a mensagem da hora 1 desbota, mas fica: ${s4[0]}`);
+    assert.ok(s4[3] > 0.9, "a última entrou");
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -1173,3 +1173,32 @@ test("infográfico sem centro: o disco do meio não fica vazio", () => {
     assert.ok(/\w/.test(center[1].replace(/<[^>]+>/g, "")), `${shape}: o centro tem conteúdo`);
   }
 });
+
+// A conversa com a IA é a cena central de qualquer palestra sobre construir com IA. Sem ela, o deck "Vibe coding sem as
+// obviedades" (gerado pela IA em 15/11/2026) não tinha como mostrar um pedido vago e o que a IA fez com ele.
+test("mock: chat — balões da pessoa e da IA, um por clique, código na resposta e mensagem que desbota", () => {
+  const out = html({ layout: "split", title: "O pedido vago", figure: { mock: "chat", title: "Assistente", build: true, messages: [
+    { from: "você", text: "Faz um app de **gastos**", note: "hora 1" },
+    { from: "ia", text: "Pronto! Criei login, banco e 3 telas.", code: "const total = gastos.reduce((a, g) => a + g.valor, 0);", language: "javascript", fade: 4 },
+    { from: "ia", thinking: true },
+    { from: "pessoa", text: "Datas em dd/mm, por favor", mark: true },
+  ], input: "Escreva aqui…" } }).replace(/\s+/g, " ");
+  assert.match(out, /fig fig-mock[^"]*"[^>]*>\s*<div class="mk mk-chat"/);
+  assert.ok(out.includes('<div class="mk-chat-bar"><i></i><i></i><i></i><span class="mk-chat-title">Assistente</span>'), "barra da janela com o título");
+  // build: cada mensagem no seu clique, na ordem
+  const msgs = [...out.matchAll(/<div class="mk-msg ([^"]+)"([^>]*)>/g)].map((m) => [m[1], m[2].trim()]);
+  assert.equal(msgs.length, 4);
+  assert.deepEqual(msgs.map(([c]) => c.split(" ")[0]), ["mk-me", "mk-ai", "mk-ai", "mk-me"], "você/pessoa à direita, ia à esquerda");
+  assert.deepEqual(msgs.map(([, a]) => (a.match(/data-step="(\d+)"/) || [])[1]), ["1", "2", "3", "4"]);
+  assert.match(msgs[1][1], /data-exit="4"/, "fade: desbota (sai do foco) no clique 4");
+  assert.ok(msgs[2][0].includes("mk-thinking"), "balão de pensando");
+  assert.ok(msgs[3][0].includes("mk-marked"), "mensagem marcada");
+  assert.ok(out.includes("<b>gastos</b>"), "marcação no texto");
+  assert.match(out, /mk-tag">hora 1</);
+  assert.match(out, /<pre class="mk-code"><code>[\s\S]*tok tok-keyword">const</, "código com realce");
+  assert.match(out, /mk-input[^>]*>Escreva aqui…</);
+  // sem build, o step de cada mensagem vale como escrito
+  const solto = html({ layout: "blocks", content: [{ mock: "chat", messages: [{ from: "ia", text: "oi" }, { from: "eu", text: "tchau", step: 2 }] }] });
+  assert.match(solto, /<div class="mk-msg mk-ai">/);
+  assert.match(solto, /<div class="mk-msg mk-me" data-step="2">/);
+});
