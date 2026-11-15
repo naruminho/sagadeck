@@ -148,7 +148,7 @@ test("compare com conversa nos dois lados: a peça não cobre rótulo nem títul
       const texts = [...slide.querySelectorAll(".safe .t")].filter((t) => !t.closest(".mk") && t.textContent.trim());
       const over = [];
       for (const t of texts) for (const m of mks) if (hit(B(t), B(m))) over.push(t.textContent.trim().slice(0, 30));
-      const cards = [...slide.querySelectorAll(".card, .cmp-side, .cmp-card")];
+      const cards = [...slide.querySelectorAll(".cp-col")];
       const out = [];
       for (const t of texts) { const c = cards.find((c) => c.contains(t)); if (c && B(t).bottom > B(c).bottom + 4) out.push(t.textContent.trim().slice(0, 30)); }
       return { over, out };

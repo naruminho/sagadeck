@@ -107,7 +107,8 @@
   //  - um texto fica por cima de outro texto ou de uma figura.
   function leakingIn(safe, sc) {
     const tol = 6 * sc, sr = safe.getBoundingClientRect();
-    for (const e of safe.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
+    // (o cartão do compare também: com figura, o texto da direita passava do fundo do cartão)
+    for (const e of safe.querySelectorAll(".row, .col, .cp-col")) if (e.scrollHeight > e.clientHeight + 2) return true;
     // grade de cartões que a área apertou (stats com `add` embaixo): os cartões passavam do fundo da grade e a fonte
     // caía por baixo deles. A grade cresce até o conteúdo e o resto do slide encolhe junto.
     for (const e of safe.querySelectorAll(".stats-grid, .hub-grid")) {
