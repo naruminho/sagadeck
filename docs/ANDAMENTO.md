@@ -8,6 +8,39 @@ começar. Trabalho em curso vai para o GitHub (commit + push) a cada etapa, nunc
 
 ---
 
+## Palestra de dicas encenada ("Vibe coding sem as obviedades") — 15/11/2026 (branch `claude/vibe-coding-cenas`)
+
+Caso de teste: a pessoa pediu uma palestra de dicas de vibe coding, "sempre com exemplo, nada de slide só de texto",
+com as anotações dela. O sagadeck gerou sozinho (14 slides) e o resultado foi medido slide a slide pelas capturas.
+O que saiu errado e o que virou:
+
+- **Defeitos do motor que o fiscal não via**: Venn com rótulos de 40 px fixos (cortava "escrever o prompt" e
+  encavalava o do meio; agora caixas por região, quebrando e descendo a letra); anotação do gráfico de linha centrada e
+  sempre acima (invadia o texto ao lado e ficava em cima da curva; agora vai para o lado e a altura em que a curva não
+  passa e nunca sai do gráfico); `stats` com `add` e `source` (a grade apertada deixava a fonte por baixo dos
+  cartões; o encolhimento agora percebe grade de cartões que transborda); `highlight` do `diagram: flow` contava do 0
+  e `5` num fluxo de 5 não acendia nada (agora aceita o texto da etapa, e o fim + 1 é a última); infográfico sem
+  `center` deixava o disco do meio vazio (agora mostra quantos itens são). Testes em `figuras-sobrepostas.test.js` e
+  `engine.test.js`.
+- **Peças de tela novas** (`src/figures/mocks.js`, REFERENCIA): `mock: chat` (conversa com a IA, mensagem por clique,
+  código na resposta, `fade` desbota o que a IA "esqueceu", `mark`, `thinking`), `mock: diff` (antes/depois em linhas
+  - e +, diferença calculada), `mock: files` (árvore do projeto a partir dos caminhos) e `mock: browser` (página e
+  DevTools com a linha marcada). Testes em `mocks-tela.test.js` e `engine.test.js`.
+- **Gráfico ilustrativo**: `illustrative: true` no `chart` tira os números do eixo e põe o selo. A IA tinha
+  inventado valores para uma curva conceitual e escrito "esquema ilustrativo" na fonte.
+- **Prompt**: regra MOSTRAR, NÃO CONTAR em `deck-ai.js` (um caso atravessa a palestra; cada ponto é cena com as peças
+  de tela; exemplo é cena, não fonte citada; anotações ambíguas: escolher a leitura e dizer nas notas). Na decisão de
+  pesquisa (`research.js`), palestra de experiência da pessoa não é motivo para pesquisar documentação de fornecedor
+  (a primeira geração trocou as dicas dela por custo do Claude Code e novidades do Cursor).
+- **Studio — dúvida no meio do trabalho** (retorno da pessoa: a resposta de uma pergunta feita enquanto a IA
+  trabalha se perdia no texto da tarefa): na fila, o botão **Responder já** manda a dúvida na hora para
+  `/api/ai/ask` (`src/ai/ask.js`), só conversa, com o pedido em andamento e as etapas já escritas no contexto. A
+  resposta sai num cartão com a pergunta em cima; nada muda nos slides; a troca entra na conversa como `talk`.
+  Teste em `studio-ai.test.js`; teste ao vivo em `ai-live.test.js`.
+
+**Falta / ideias**: medidor que enche (janela de contexto, orçamento) como figura própria; `diagram` (Mermaid) com
+revelação nó a nó e ênfase "quebrou"; o `sagadeck new` pelo terminal não passa pela revisão por imagem (só o Studio).
+
 ## Retorno de uso no servidor: revisão que "recomeça", fila no chat e leitura — 10/11/2026 (branch `claude/revisao-rodadas`)
 
 Uma pessoa gerou no servidor (1.11.7) uma aula de 20 slides a partir de um roteiro e mandou o retorno enquanto usava.

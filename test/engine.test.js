@@ -1216,3 +1216,13 @@ test("gráfico ilustrativo: curva sem números no eixo e com o selo", () => {
   const en = buildHTML({ title: "x", lang: "en", slides: [{ layout: "chart", title: "t", chart: { ...base, illustrative: true } }] }).html;
   assert.match(en, />illustrative</i, "em inglês");
 });
+
+// Segunda geração do mesmo deck: barras ilustrativas (1 e 3) ainda mostravam os números na ponta da barra.
+test("gráfico de barras ilustrativo: sem os números nas barras", () => {
+  const base = { chart: "bar", data: [{ label: "Primeiros 90% da tela", value: 1 }, { label: "Os últimos 10%", value: 3 }] };
+  assert.match(chart(base), />3</, "o normal mostra o valor");
+  const ilus = chart({ ...base, illustrative: true });
+  assert.doesNotMatch(ilus.replace(/data-chart='[^']*'/, ""), />\s*[13]\s*</, "sem 1 e 3 escritos");
+  assert.match(ilus, />ilustrativo</);
+  assert.match(ilus, />Os últimos 10%</, "os rótulos ficam");
+});

@@ -84,7 +84,21 @@
     const safe = slide && slide.querySelector(":scope > .safe");
     if (!safe || !safe.firstElementChild) return 1;
     measuring(slide, true);
-    try { return shrinkNow(slide, safe); } finally { measuring(slide, false); }
+    try { fitMocks(safe); return shrinkNow(slide, safe); } finally { measuring(slide, false); }
+  }
+
+  // Peça de tela (mock: chat, diff, files…) numa caixa de altura fixa (a figura do compare tem 300 px): encolhe a peça
+  // para caber, como uma imagem. Sem isso ela passava da caixa e cobria o rótulo e o título do lado.
+  function fitMocks(safe) {
+    for (const box of safe.querySelectorAll(".fig-mock")) {
+      const mk = box.firstElementChild;
+      if (!mk || !mk.classList.contains("mk")) continue;
+      mk.style.zoom = "";
+      const bh = box.clientHeight, bw = box.clientWidth, mh = mk.offsetHeight, mw = mk.offsetWidth;
+      if (!bh || !mh) continue;
+      const z = Math.min(1, bh / mh, bw / Math.max(1, mw));
+      if (z < 0.99) mk.style.zoom = String(Math.max(0.4, +(z - 0.01).toFixed(3)));
+    }
   }
 
   // Regra geral (vale para qualquer layout): o conteúdo da área útil "vaza" se

@@ -156,10 +156,22 @@ export function inPageCheck(i) {
       if (ix > 8 && iy > 8) issues.push({ kind: "sobreposicao", text: `${label(A)} ⟂ tabela` });
     }
   }
-  // sobreposição entre blocos de texto que não são pai/filho
+  // texto por cima de uma peça de tela (conversa, diff, arquivos…: o texto de dentro não é .t)
+  for (const mk of slide.querySelectorAll(".mk")) {
+    const rb = R(mk);
+    if (!rb.width) continue;
+    for (const A of texts) {
+      if (mk.contains(A) || A.contains(mk) || A.closest("[data-exit]")) continue;
+      const ra = R(A), ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), iy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      if (ix > 8 && iy > 8) issues.push({ kind: "sobreposicao", text: `${label(A)} ⟂ peça de tela` });
+    }
+  }
+  // sobreposição entre blocos de texto que não são pai/filho (frente e verso do cartão que vira ocupam o mesmo lugar
+  // de propósito, como o balão do + e os textos do carrossel que não são o da vez)
+  const together = (e) => e.closest(".flip-back, .pop-card, .car-text:not(.active)");
   for (let a = 0; a < texts.length; a++) for (let b = a + 1; b < texts.length; b++) {
     const A = texts[a], B = texts[b];
-    if (A.contains(B) || B.contains(A)) continue;
+    if (A.contains(B) || B.contains(A) || together(A) || together(B)) continue;
     const ra = R(A), rb = R(B);
     const ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
     const iy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);

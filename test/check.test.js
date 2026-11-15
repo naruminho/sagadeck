@@ -36,3 +36,27 @@ test("fiscal: contraste pelo que está embaixo do texto (desenho SVG conta) e ma
     assert.ok(kinds(5).some((k) => k === "sobreposicao: texto por cima ⟂ tabela"), JSON.stringify(kinds(5)));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+// Deck "Vibe coding alem do obvio 2" (15/11/2026): o fiscal acusava frente e verso do cartão que vira (build: flip)
+// como texto sobreposto (é de propósito: ocupam o mesmo lugar) e não via a conversa (mock: chat) que transbordava a
+// caixa num compare e cobria o rótulo e o título do lado.
+test("fiscal: frente e verso do cartão que vira não são sobreposição; texto por cima de peça de tela é", { timeout: 120000 }, async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  await browser.close();
+  const { check } = await import("../src/export/shots.js");
+  const slides = [
+    { layout: "cards", title: "O pedido vago custa mais caro", build: "flip", items: [
+      { icon: "wand-sparkles", title: "\"Faz umas melhorias no app\"", flip: { title: "O que voltou", text: "Melhorei 14 arquivos, troquei o login e mudei o banco." } },
+      { icon: "palette", title: "\"Deixa mais bonito\"", flip: { title: "O que voltou", text: "Fonte nova, contraste pior." } }] },
+    { layout: "canvas", elements: [{ mock: "chat", messages: [{ from: "você", text: "Oi" }, { from: "ia", text: "Olá, tudo certo?" }], x: 100, y: 200, w: 800 }, { text: "texto por cima da conversa", x: 150, y: 330, w: 600 }] },
+  ];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-check2-"));
+  try {
+    const file = path.join(dir, "d.html");
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "sinal", slides }).html);
+    const { report } = await check(file);
+    const kinds = (n) => (report.find((r) => r.slide === n)?.issues || []).map((i) => `${i.kind}: ${i.text}`);
+    assert.deepEqual(kinds(1).filter((k) => k.startsWith("sobreposicao")), [], "frente e verso no mesmo lugar é o cartão que vira");
+    assert.ok(kinds(2).some((k) => /^sobreposicao: texto por cima da conversa ⟂ peça de tela/.test(k)), JSON.stringify(kinds(2)));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

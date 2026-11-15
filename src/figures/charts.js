@@ -429,7 +429,9 @@ export function chart(o, w = 1200, h = 620) {
   // vez de valores inventados e "esquema ilustrativo" escrito à mão na fonte
   if (o.illustrative) {
     const W = o.w || w, H = o.h || h;
-    const out = fn({ ...o, axis: false }, W, H);
+    // os números escritos nas barras (e no meio da rosca) também saem: o "1" e o "3" de uma proporção conceitual
+    // pareciam medição
+    const out = fn({ ...o, axis: false }, W, H).replace(/<text class="fade-in f-display"[^>]*>[^<]*<\/text>/g, "");
     const word = /^pt/i.test(deckLocale()) ? "ilustrativo" : /^es/i.test(deckLocale()) ? "ilustrativo" : "illustrative";
     return out.replace(/<\/svg>$/, `<text x="${W - 8}" y="26" text-anchor="end" class="f-label ch-illustrative" font-size="20" letter-spacing="3" style="fill:var(--muted);text-transform:uppercase">${word}</text></svg>`);
   }

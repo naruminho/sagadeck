@@ -124,3 +124,38 @@ test("mock: chat na apresentação — mensagem entra no seu clique e a de `fade
     await page.close();
   } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+// Mesmo dia, segunda geração: conversa (mock: chat) em cada lado de um compare. A peça passava do fundo da caixa da
+// figura, cobria o rótulo "Hora 1" e o título de baixo, e o texto da direita saía do cartão. O encolhimento media a
+// caixa da figura, não a peça que transbordava dela.
+test("compare com conversa nos dois lados: a peça não cobre rótulo nem título e o texto fica no cartão", async (t) => {
+  const browser = await browserOrSkip(t); if (!browser) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sgd-cmpchat-"));
+  try {
+    const file = path.join(dir, "d.html");
+    const side = (label, title, text, ia) => ({ label, title, text, figure: { mock: "chat", messages: [{ from: "Carla", text: "Adiciona o campo de categoria na despesa." }, { from: "ia", text: ia }] } });
+    fs.writeFileSync(file, buildHTML({ title: "x", theme: "terminal-pro", slides: [{ layout: "compare", kicker: "Lição 1", title: "O que mudou entre a hora 1 e a hora 4?",
+      left: side("Hora 1", "A conversa está curta", "O agente lembra do que combinou e segue o padrão que ele mesmo criou.", "Feito. Usei o mesmo padrão de data das outras telas."),
+      right: side("Hora 4", "A conversa tem 180 mensagens", "Ele esquece o padrão, renomeia o campo e refaz o que já estava pronto.", "Criei um campo novo, tipo, com a data em outro formato."),
+      after: "O app não piorou. A conversa encheu." }] }).html);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`file://${file.replace(/\\/g, "/")}?export#1`); await page.waitForTimeout(700);
+    const r = await page.evaluate(() => {
+      const slide = document.querySelector(".slide"), B = (e) => e.getBoundingClientRect();
+      const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 4 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 4;
+      const mks = [...slide.querySelectorAll(".mk")];
+      const texts = [...slide.querySelectorAll(".safe .t")].filter((t) => !t.closest(".mk") && t.textContent.trim());
+      const over = [];
+      for (const t of texts) for (const m of mks) if (hit(B(t), B(m))) over.push(t.textContent.trim().slice(0, 30));
+      const cards = [...slide.querySelectorAll(".card, .cmp-side, .cmp-card")];
+      const out = [];
+      for (const t of texts) { const c = cards.find((c) => c.contains(t)); if (c && B(t).bottom > B(c).bottom + 4) out.push(t.textContent.trim().slice(0, 30)); }
+      return { over, out };
+    });
+    assert.deepEqual(r.over, [], "nenhum texto embaixo da conversa");
+    assert.deepEqual(r.out, [], "o texto fica dentro do cartão");
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await browser.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
