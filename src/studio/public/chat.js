@@ -127,12 +127,12 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     const targetIdx = state.currentSlideIndex;
 
     // Indicador de progresso ao vivo (etapa, segundos, texto chegando)
-    const job = chatJob = { file: state.file, id: crypto.randomUUID(), controller: new AbortController() };
+    const job = chatJob = { file: state.file, id: crypto.randomUUID(), controller: new AbortController(), message };
     job.stop = async () => {
       job.controller.abort();
       await fetch("api/ai/chat/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: job.id }) }).catch(() => {});
     };
-    const work = createProgressBubble(state.ai.available
+    const work = job.work = createProgressBubble(state.ai.available
       ? (state.ai.textModel ? `Enviando para o LLM (${state.ai.textModel})…` : "Enviando para a IA…")
       : "Verificando se a IA está no ar…");
     dom.chatSend.disabled = false;
@@ -267,15 +267,47 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
   function enqueueChat(text) {
     const el = document.createElement("div");
     el.className = "chat-queued";
-    el.innerHTML = '<span class="cq-tag">Na fila</span><span class="cq-text"></span><button type="button" class="cq-remove" title="Tirar da fila" aria-label="Tirar da fila"><i class="ic" data-ic="x"></i></button>';
+    el.innerHTML = '<span class="cq-tag">Na fila</span><span class="cq-text"></span><button type="button" class="cq-ask" title="É uma dúvida? Responde agora, sem esperar o pedido em andamento (só conversa: não mexe nos slides)"><i class="ic" data-ic="circle-help"></i> Responder já</button><button type="button" class="cq-remove" title="Tirar da fila" aria-label="Tirar da fila"><i class="ic" data-ic="x"></i></button>';
     el.querySelector(".cq-text").textContent = text;
     hydrateIcons(el);
     const item = { text, el };
-    el.querySelector(".cq-remove").onclick = () => { const k = chatQueue.indexOf(item); if (k >= 0) chatQueue.splice(k, 1); el.remove(); };
+    const drop = () => { const k = chatQueue.indexOf(item); if (k >= 0) chatQueue.splice(k, 1); el.remove(); };
+    el.querySelector(".cq-remove").onclick = drop;
+    el.querySelector(".cq-ask").onclick = () => { drop(); askNow(text); };
     chatQueue.push(item);
     dom.chatForm.before(el);
     dom.chatInput.value = "";
     autoGrowChat();
+  }
+
+  // Dúvida no meio do trabalho: respondida na hora, num cartão próprio com a pergunta em cima, para não se perder no
+  // texto do pedido em andamento. Vai junto o que a IA está fazendo (o pedido e as etapas que ela já escreveu).
+  // A troca entra na conversa marcada como conversa (talk): os próximos pedidos sabem que ela foi respondida.
+  async function askNow(question) {
+    const card = appendChatMessage("ai", "");
+    card.classList.add("chat-ask");
+    const box = card.querySelector(".ai-content");
+    box.innerHTML = '<div class="ask-q"><span class="ask-tag"><i class="ic" data-ic="circle-help"></i> Sua pergunta</span><div class="ask-qtext"></div></div><div class="ask-tag ask-tag-a">Resposta</div><div class="ask-atext"><span class="work-dots"><i></i><i></i><i></i></span></div>';
+    box.querySelector(".ask-qtext").textContent = question;
+    hydrateIcons(box);
+    const answer = box.querySelector(".ask-atext");
+    const job = chatJob;
+    try {
+      const r = await fetch("api/ai/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        question, spec: state.deck, targetSlide: state.currentSlideIndex, history: state.chatHistory.slice(), expectFile: state.file,
+        working: job ? { request: job.message, progress: job.work?.log?.() || "" } : null,
+      }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || `erro ${r.status}`);
+      answer.innerHTML = chatFormat(data.reply);
+      state.chatHistory.push({ role: "user", text: question }, { role: "assistant", text: data.reply, talk: true });
+      if (!chatJob) await saveChatHistory(); // com um pedido em andamento, ele grava no fim (com esta troca junto)
+    } catch (e) {
+      answer.textContent = `Não deu para responder agora: ${e.message}. A pergunta pode ir de novo quando o pedido terminar.`;
+      answer.style.color = "var(--danger)";
+    }
+    // a resposta fica à vista: rola até ela mesmo que o andamento tenha andado
+    card.scrollIntoView({ block: "nearest" });
   }
 
   // A conversa é desta apresentação e fica ao lado dela (<deck>.conversa.json): volta ao reabrir o deck.
@@ -446,6 +478,13 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     el.style.overflowY = need > 180 ? "auto" : "hidden";
   }
 
+  // Formatar quebras de linha e negritos
+  function chatFormat(text) {
+    return String(text)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+      .replace(/\n/g, "<br>");
+  }
   function appendChatMessage(sender, text, actions = []) {
     dom.chatEmpty?.remove();
     // resposta da IA com o chat fora da vista: o atalho flutuante acende (some quando o chat abre)
@@ -461,12 +500,7 @@ window.SagaChat = function ({ state, dom, escHtml, hydrateIcons, showToast, open
     const content = document.createElement("div");
     content.className = sender === "user" ? "user-content" : "ai-content";
 
-    // Formatar quebras de linha e negritos
-    const formatted = String(text)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
-      .replace(/\n/g, "<br>");
-    content.innerHTML = formatted;
+    content.innerHTML = chatFormat(text);
 
     // Exibir badges de ações realizadas pela IA
     if (actions && actions.length > 0) {

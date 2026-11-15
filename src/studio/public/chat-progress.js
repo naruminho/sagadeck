@@ -9,6 +9,8 @@ window.SagaChatProgress = function ({ dom, appendChatMessage, hydrateIcons, getC
     const preview = content.querySelector(".work-preview");
     const started = Date.now();
     text.textContent = initial;
+    // as etapas já mostradas (só a última fica na tela): vão junto de uma pergunta feita no meio do trabalho
+    const seen = [initial];
     const timer = setInterval(() => {
       const s = Math.round((Date.now() - started) / 1000);
       time.textContent = `${s}s`;
@@ -18,6 +20,7 @@ window.SagaChatProgress = function ({ dom, appendChatMessage, hydrateIcons, getC
       update(ev) {
         if (ev.type !== "progress") return;
         text.textContent = ev.chars ? `${ev.text} (${(ev.chars / 1000).toFixed(1)} mil caracteres)` : ev.text;
+        if (ev.text && seen.at(-1) !== ev.text) { seen.push(ev.text); if (seen.length > 60) seen.splice(1, 1); }
         // transformação da apresentação inteira: pode levar muitos minutos, então dá para parar (o feito fica guardado)
         if (String(ev.phase || "").startsWith("transform") && !getChatJob() && !content.querySelector(".work-stop")) {
           const stop = document.createElement("button");
@@ -30,6 +33,8 @@ window.SagaChatProgress = function ({ dom, appendChatMessage, hydrateIcons, getC
         if (ev.preview) preview.textContent = ev.preview;
         dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
       },
+      // o que a IA já escreveu na tela neste pedido (etapas e o começo da resposta que está chegando)
+      log() { return [...seen, preview.textContent ? `Resposta chegando: ${preview.textContent.slice(-1500)}` : ""].filter(Boolean).join("\n"); },
       done() { clearInterval(timer); el.remove(); },
       fail(msg) {
         clearInterval(timer);

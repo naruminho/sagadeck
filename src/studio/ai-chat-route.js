@@ -95,6 +95,22 @@ _${c.naoConfirmados.length} observação(ões) descartada(s): o trecho citado n�
     }
     return true;
   }
+  // Pergunta no meio do trabalho ("Responder já" na fila do chat): só conversa, em paralelo ao pedido em andamento,
+  // com o que está sendo feito no contexto. Nada muda nos slides. src/ai/ask.js
+  if (pathname === "/api/ai/ask" && req.method === "POST") {
+    const body = await readJSON(req);
+    if (staleTab(body, W, res)) return true;
+    const send = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+    if (!(await llmAvailable()) && !(await llmAvailable({ force: true }))) { send(200, { talk: true, reply: "A IA está desligada, então não dá para responder agora. Configure em Configurar IA." }); return true; }
+    const controller = new AbortController();
+    res.on("close", () => { if (!res.writableEnded) controller.abort(); });
+    try {
+      const { answerQuestion } = await import("../ai/ask.js");
+      const r = await answerQuestion({ question: body.question, spec: body.spec || W.spec, targetSlide: body.targetSlide, history: body.history, working: body.working }, { signal: controller.signal });
+      send(200, { talk: true, ask: true, reply: r.reply });
+    } catch (e) { if (!controller.signal.aborted) send(500, { error: e.message }); }
+    return true;
+  }
   if (pathname === "/api/ai/chat" && req.method === "POST") {
     const body = await readJSON(req);
     if (staleTab(body, W, res)) return true;

@@ -318,3 +318,18 @@ test("gerar palestra de dicas: cada ponto encenado (conversa, diff, arquivos, na
   assert.ok(mocks.some((m) => /chat/.test(m)), "pelo menos uma conversa com a IA");
   assert.ok(!/"value":"?\$?1[35]0?|por desenvolvedor, por (dia|mês)/.test(json), "sem custo de fornecedor no lugar das dicas dela");
 });
+
+// Dúvida no meio do trabalho (Responder já): o modelo responde a pergunta sobre o que ele escreveu no andamento, curto,
+// e não diz que mudou slide.
+test("pergunta no meio do trabalho: responde sobre o andamento, curto e sem mexer nos slides", opts, async () => {
+  const { answerQuestion } = await import("../src/ai/ask.js");
+  const r = await answerQuestion({
+    question: "o que você quis dizer com 'paleta por ato'?",
+    spec: { title: "Vieses", slides: [{ layout: "cover", title: "Vieses" }, { layout: "section", title: "Parte 1", sectionPalette: "oceano" }] },
+    working: { request: "dê uma cor para cada parte", progress: "Lendo o deck…\nVou usar paleta por ato nos slides de seção (sectionPalette)…" },
+  });
+  console.log(r.reply);
+  assert.match(r.reply, /sectionPalette|seç|parte/i, "explica pelo que está no andamento");
+  assert.ok(r.reply.length < 1200, `curta (${r.reply.length} caracteres)`);
+  assert.doesNotMatch(r.reply, /\b(já )?(mudei|alterei|apliquei|troquei)\b/i, "não diz que mexeu");
+});

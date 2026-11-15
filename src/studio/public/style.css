@@ -1398,3 +1398,12 @@ textarea.form-control.napkin-input { min-height: 220px; resize: vertical; font-f
 .chat-queued .cq-tag { flex: none; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
 .chat-queued .cq-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-queued .cq-remove { flex: none; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px; display: flex; }
+.chat-queued .cq-ask { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--ui-line-strong); border-radius: 6px; background: var(--ui-surface, transparent); color: inherit; cursor: pointer; padding: 2px 8px; font-size: 12px; }
+.chat-queued .cq-ask:hover { border-color: var(--accent); color: var(--accent); }
+/* dúvida respondida no meio do trabalho: cartão próprio, com a pergunta em cima, que não se perde no andamento */
+.chat-ask .ai-content { border-left: 3px solid var(--accent); padding-left: 12px; }
+.chat-ask .ask-q { margin-bottom: 8px; }
+.chat-ask .ask-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.chat-ask .ask-qtext { margin-top: 2px; font-style: italic; color: var(--text-muted, var(--text)); }
+.chat-ask .ask-tag-a { margin-top: 4px; }
+.chat-ask .ask-atext { margin-top: 2px; }

@@ -24,6 +24,11 @@ async function script(req) {
   if (/Crie a apresentação inteira/.test(req.lastUser)) return NEW_DECK;
   if (/Resultado do comando 1/.test(req.lastUser)) return `Conferi.\n\`\`\`yaml\nedit:\n  1:\n    kicker: "Conta ${/\b42\b/.test(req.lastUser) ? "42" : "?"}"\n\`\`\``;
   if (/NÃO autorizou/.test(req.lastUser)) return "Tudo bem, não rodei nada.";
+  // dúvida respondida no meio do trabalho (Responder já): só conversa, e com o que está sendo feito no contexto
+  if (/PERGUNTA:/.test(req.lastUser)) {
+    const comContexto = /O QUE VOCÊ ESTÁ FAZENDO AGORA[\s\S]*pedido lento com dúvida/.test(req.lastUser);
+    return `Paleta por ato é a cor que vale de um slide de seção em diante.${comContexto ? " (vi o pedido em andamento)" : ""}`;
+  }
   const p = pedido(req);
   if (/rode a conta/.test(p)) return RUN_CONTA;
   if (/sem visão/.test(p) && req.hasImages) return { status: 404, error: "No endpoints found that support image input" };
@@ -49,6 +54,7 @@ async function script(req) {
     return "Troquei o chapéu da capa.\n```yaml\nslides:\n  1:\n    layout: cover\n    kicker: Chapéu da IA\n    title: Título da ==capa==\n    subtitle: Subtítulo\n    author: Equipe\n    figure: { icon: rocket, size: 320 }\n```";
   }
   if (/pedido demorado/.test(p)) { await new Promise((ok) => setTimeout(ok, 1500)); return "Terminei o demorado."; }
+  if (/pedido lento com dúvida/.test(p)) { await new Promise((ok) => setTimeout(ok, 4000)); return "Terminei o lento.\n```yaml\nedit:\n  1:\n    subtitle: Veio do lento\n```"; }
   if (/segundo da fila/.test(p)) return "Fiz o segundo da fila.\n```yaml\nedit:\n  1:\n    subtitle: Veio da fila\n```";
   return "Entendi, não mudei nada.";
 }
@@ -323,6 +329,33 @@ test("studio + IA (LLM falso)", async (t) => {
       const texts = await p.evaluate(() => [...document.querySelectorAll("#chat-messages .user-msg")].map((m) => m.innerText));
       assert.ok(texts.findIndex((x) => /pedido demorado/.test(x)) < texts.findIndex((x) => /segundo da fila/.test(x)));
       assert.doesNotMatch(await p.getAttribute("#chat-input", "placeholder"), /fila/);
+    });
+
+    // Retorno de uso (15/11): a dúvida feita enquanto a IA trabalha esperava na fila e a resposta chegava no fim,
+    // diluída no texto da tarefa. "Responder já" responde na hora, num cartão com a pergunta, sem mexer nos slides.
+    await t.test("dúvida no meio do trabalho: Responder já responde na hora, com a pergunta à vista, sem mexer nos slides", async () => {
+      await p.fill("#chat-input", "pedido lento com dúvida: mude o subtítulo");
+      await p.press("#chat-input", "Enter");
+      await p.waitForSelector(".ai-working");
+      await p.fill("#chat-input", "o que é paleta por ato?");
+      await p.press("#chat-input", "Enter");
+      const antes = (await deck()).slides[0].subtitle;
+      await p.locator(".chat-queued", { hasText: "paleta por ato" }).locator(".cq-ask").click();
+      await p.waitForFunction(() => /Paleta por ato é/.test(document.querySelector(".chat-ask .ask-atext")?.innerText || ""), null, { timeout: 30000 });
+      // ainda trabalhando no pedido lento: a resposta não esperou
+      assert.equal(await p.locator(".ai-working").count(), 1, "o pedido lento ainda está em andamento");
+      assert.equal(await p.locator(".chat-queued").count(), 0, "a dúvida saiu da fila");
+      assert.match(await p.locator(".chat-ask .ask-qtext").innerText(), /o que é paleta por ato\?/, "a pergunta fica em cima da resposta");
+      assert.match(await p.locator(".chat-ask .ask-atext").innerText(), /vi o pedido em andamento/, "o modelo recebeu o que está sendo feito");
+      assert.equal((await deck()).slides[0].subtitle, antes, "responder não mexe nos slides");
+      await waitAI();
+      assert.equal((await deck()).slides[0].subtitle, "Veio do lento", "o pedido em andamento terminou normalmente");
+      assert.ok(!llm.requests.some((r) => /Pedido: o que é paleta por ato/.test(r.lastUser)), "a dúvida não foi tratada como pedido de mudança");
+      // a troca fica na conversa salva (como conversa), na ordem
+      const conversa = await p.evaluate(() => fetch("api/chat/history").then((r) => r.json()));
+      const hist = conversa.history || conversa;
+      const q = hist.findIndex((m) => m.role === "user" && /paleta por ato/.test(m.text));
+      assert.ok(q >= 0 && hist[q + 1]?.role === "assistant" && hist[q + 1].talk && /Paleta por ato é/.test(hist[q + 1].text), JSON.stringify(hist).slice(-600));
     });
 
     await t.test("sem erros de JavaScript na página", () => assert.deepEqual(errors, []));
