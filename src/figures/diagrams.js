@@ -98,6 +98,10 @@ export function boxFontSize(text, w, h, { max = 36, min = 18, lh = 1.15, em = 0.
 
 export function flow(o = {}) {
   const steps = o.steps || [];
+  // destaque: o texto da etapa ou a posição contando do 0; a posição logo depois do fim (5 num fluxo de 5) foi
+  // escrita contando do 1 e é a última caixa
+  const hl = typeof o.highlight === "string" && !/^\d+$/.test(o.highlight) ? steps.findIndex((x) => String(x).trim().toLowerCase() === o.highlight.trim().toLowerCase())
+    : o.highlight == null ? -1 : Number(o.highlight) === steps.length ? steps.length - 1 : Number(o.highlight);
   const n = steps.length, bw = 300, gap = 90, bh = 150, vgap = 130;
   const perRow = Math.max(1, o.cols || 5);
   const rows = Math.max(1, Math.ceil(n / perRow));
@@ -112,7 +116,7 @@ export function flow(o = {}) {
     const W = n * bw + (n - 1) * gap;
     steps.forEach((s, i) => {
       const x = i * (bw + gap);
-      g += box(x, 0, s, o.highlight === i);
+      g += box(x, 0, s, hl === i);
       if (i < n - 1) g += arrow(x + bw + 12, bh / 2, x + bw + gap - 20, bh / 2);
     });
     return wrap([-4, -4, W + 8, bh + 8], g, "flow");
@@ -126,7 +130,7 @@ export function flow(o = {}) {
   };
   steps.forEach((s, i) => {
     const { x, y } = at(i);
-    g += box(x, y, s, o.highlight === i);
+    g += box(x, y, s, hl === i);
     if (i >= n - 1) return;
     const a = at(i), b = at(i + 1);
     if (a.y === b.y) {
@@ -140,12 +144,19 @@ export function flow(o = {}) {
   return wrap([-4, -4, W + 8, rows * bh + (rows - 1) * vgap + 8], g, "flow");
 }
 
+// Cada rótulo numa caixa da sua região (só A, só B, interseção), quebrando linha e descendo a letra até caber.
+// Com <text> de 40 px fixos, "escrever o prompt" passava da borda do círculo e encavalava com o rótulo do meio.
 export function venn(o = {}) {
   let g = `<circle cx="300" cy="260" r="220" style="fill:var(--hi)" opacity=".85"/>
 <circle cx="560" cy="260" r="220" style="fill:var(--fg)" opacity=".85"/>`;
-  g += `<text x="220" y="270" text-anchor="middle" class="f-heading" font-size="40" style="fill:var(--on-hi)">${esc(o.a || "")}</text>`;
-  g += `<text x="650" y="270" text-anchor="middle" class="f-heading" font-size="40" style="fill:var(--bg)">${esc(o.b || "")}</text>`;
-  if (o.both) g += `<text x="430" y="270" text-anchor="middle" class="f-label" font-size="26" style="fill:var(--bg)">${esc(o.both)}</text>`;
+  const label = (x, w, h, text, color, cls, max) => {
+    const fs = boxFontSize(text, w, h, { max, min: 16 });
+    return `<foreignObject x="${x}" y="${260 - h / 2}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" class="venn-label ${cls}" style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;font-size:${fs}px;color:var(${color});overflow-wrap:normal">${esc(text)}</div></foreignObject>`;
+  };
+  // só A: de 100 a 335 (a interseção começa em 340); só B: de 525 a 760; interseção: de 348 a 512
+  g += label(100, 232, 220, String(o.a || ""), "--on-hi", "f-heading", 40);
+  g += label(528, 232, 220, String(o.b || ""), "--bg", "f-heading", 40);
+  if (o.both) g += label(350, 160, 200, String(o.both), "--bg", "f-label", 26);
   return wrap([60, 20, 740, 480], g, "venn");
 }
 

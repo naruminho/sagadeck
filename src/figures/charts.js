@@ -279,13 +279,31 @@ function line(o, W, H) {
     }
     g = outer + stepG(g, s.step);
   });
+  // Anotação: o texto vai para o lado e a altura em que a curva não passa, e nunca sai do gráfico. Centrado e sempre
+  // acima, "esqueceu a tarefa original" no último ponto vazava para o texto ao lado e "já repete…" ficava em cima da
+  // linha que desce. `anchor`/`dy` escritos no deck valem como estão.
   (o.annotations || []).forEach((a, i) => {
     const s = series[a.series || 0];
     const v = a.value ?? s.values[a.at];
     const x = X(a.at), y = Y(v);
-    const dy = a.dy ?? -60;
-    g += stepG(`<g class="fade-in" style="--i:${6 + i}"><line x1="${x}" y1="${y}" x2="${x}" y2="${y + dy + 14}" style="stroke:var(--fg)" stroke-width="2"/>
-      <text x="${x}" y="${y + dy}" text-anchor="${a.anchor || "middle"}" class="f-heading" font-size="${a.size || 30}" style="fill:var(--fg)">${esc(a.text)}</text></g>`, a.step);
+    const fs = a.size || 30, tw = textW(a.text, fs, 0.56);
+    let anchor = a.anchor, dy = a.dy;
+    if (!anchor) {
+      const fitsRight = x + tw <= W - 4, fitsLeft = x - tw >= L, fitsMid = x - tw / 2 >= L && x + tw / 2 <= W - 4;
+      anchor = fitsRight ? "start" : fitsLeft ? "end" : fitsMid ? "middle" : "end";
+    }
+    if (dy == null) {
+      // do lado para onde o texto se estende, a curva sobe ou desce? texto vai do lado oposto
+      const vals = s.values, j = a.at;
+      const ahead = anchor === "start" ? vals[j + 1] : anchor === "end" ? vals[j - 1] : null;
+      const goesUp = ahead != null && v != null ? Y(ahead) < y : false; // na tela, Y menor é mais alto
+      dy = goesUp ? 64 : -60;
+    }
+    const tx = anchor === "start" ? x + 10 : anchor === "end" ? x - 10 : x;
+    const tx2 = Math.max(L + (anchor === "start" ? 0 : anchor === "end" ? tw : tw / 2), Math.min(W - 4 - (anchor === "start" ? tw : anchor === "end" ? 0 : tw / 2), tx));
+    const ly2 = dy < 0 ? y + dy + 14 : y + dy - fs * 0.85;
+    g += stepG(`<g class="fade-in" style="--i:${6 + i}"><line x1="${x}" y1="${y}" x2="${x}" y2="${ly2}" style="stroke:var(--fg)" stroke-width="2"/>
+      <text x="${tx2}" y="${y + dy}" text-anchor="${anchor}" class="f-heading ch-note" font-size="${fs}" style="fill:var(--fg)">${esc(a.text)}</text></g>`, a.step);
   });
   return wrap(W, H, g + stepG(axisTitles(o, W, H, L), o.axisLabelStep ?? o.axisStep), o, "line");
 }

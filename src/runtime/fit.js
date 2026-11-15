@@ -94,6 +94,12 @@
   function leakingIn(safe, sc) {
     const tol = 6 * sc, sr = safe.getBoundingClientRect();
     for (const e of safe.querySelectorAll(".row, .col")) if (e.scrollHeight > e.clientHeight + 2) return true;
+    // grade de cartões que a área apertou (stats com `add` embaixo): os cartões passavam do fundo da grade e a fonte
+    // caía por baixo deles. A grade cresce até o conteúdo e o resto do slide encolhe junto.
+    for (const e of safe.querySelectorAll(".stats-grid, .hub-grid")) {
+      const gr = e.getBoundingClientRect();
+      for (const c of e.children) { const cr = c.getBoundingClientRect(); if (cr.height && cr.bottom - gr.bottom > tol) return true; }
+    }
     // (o verso do cartão que vira, o balão do + e os textos do carrossel que não são o da vez ocupam o mesmo lugar de
     // outro texto de propósito: ficam de fora; o carrossel encolhia para o mínimo por causa deles)
     const texts = [...safe.querySelectorAll(".t")].filter((t) => !t.querySelector(".t") && !t.closest(".flip-back, .pop-card, .car-text:not(.active)"));

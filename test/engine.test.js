@@ -1150,3 +1150,26 @@ test("variedade (o que a IA revisa): sequência longa com o mesmo fundo vira pro
   assert.ok(!varietyReport(tones).problems.some((p) => /mesmo fundo/.test(p)));
   assert.ok(!varietyReport({ ...flat, purpose: "consulta" }).problems.some((p) => /mesmo fundo/.test(p)));
 });
+
+// Deck gerado pela IA (15/11/2026): `highlight: 5` num fluxo de 5 caixas (a 5ª, contando do 1) não acendia nada,
+// porque a posição conta do 0. Agora o texto da etapa também vale, e a posição logo depois do fim é a última caixa.
+test("destaque do fluxo: pelo texto da etapa, pela posição e pela 5ª de 5 escrita contando do 1", () => {
+  const steps = ["Carregando", "Vazio", "Erro", "Sem permissão", "Sucesso"];
+  const lit = (svg) => [...svg.matchAll(/<rect [^>]*fill:var\(--(hi|surface)\)/g)].map((m) => m[1] === "hi");
+  assert.deepEqual(lit(flow({ steps, highlight: 0 })), [true, false, false, false, false], "0 é a primeira");
+  assert.deepEqual(lit(flow({ steps, highlight: "Sucesso" })), [false, false, false, false, true], "pelo texto");
+  assert.deepEqual(lit(flow({ steps, highlight: 5 })), [false, false, false, false, true], "5 de 5 é a última, não nenhuma");
+  assert.deepEqual(lit(flow({ steps, highlight: 9 })), [false, false, false, false, false], "fora de alcance não acende nada");
+});
+
+// Mesmo deck: `infographic` em ramos sem `center` deixava um disco cinza vazio no meio do slide.
+test("infográfico sem centro: o disco do meio não fica vazio", () => {
+  const s = { layout: "infographic", shape: "ramos", kicker: "Como dividir", title: "Três formas de não deixar a janela encher",
+    items: [{ title: "Compactar", text: "Resuma a conversa." }, { title: "Anotar fora", text: "Anote num arquivo." }, { title: "Delegar", text: "Um subagente resume." }] };
+  for (const shape of ["arco", "ramos", "lados", "trilhas"]) {
+    const html = renderSlide({ ...s, shape }, 0, { theme: "terminal-pro" }).html;
+    const center = html.match(/<div class="ig-box ig-center"[^>]*>([\s\S]*?)<\/div><div class="ig-layer/);
+    if (!center) continue;
+    assert.ok(/\w/.test(center[1].replace(/<[^>]+>/g, "")), `${shape}: o centro tem conteúdo`);
+  }
+});

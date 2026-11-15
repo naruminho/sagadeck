@@ -582,7 +582,7 @@ Todo elemento aceita: `step` (clique em que aparece), `exit` (clique em que some
   - `console` (`screen: "TEXTO"`, `alarm: true`) · `desk` (`papers: true`) · `pair` · `judge` · `elevator` (`button: false`)
   - `car-top` — carro visto de cima: `driver` / `passenger`: `human | human-watch | human-phone | machine`, `back: sleep | human`, `button: true`
 
-**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: 1, cols: 5 }` (mais de 5 passos desce em serpentina, ida e volta, sem encolher a letra) · `{ diagram: venn, a, b, both }`
+**Diagramas**: `{ diagram: loop, nodes: [a, b, c, d], actor: in|on|out, at: 2 }` · `{ diagram: spectrum, stops: [...], at: 1, left, right }` · `{ diagram: flow, steps: [...], highlight: Sucesso, cols: 5 }` (`highlight`: o texto da etapa que acende, ou a posição contando do 0; mais de 5 passos desce em serpentina, ida e volta, sem encolher a letra; as setas dizem "um depois do outro": estados alternativos, como carregando/vazio/erro, vão em `cards` ou `mosaic`, não em `flow`) · `{ diagram: venn, a, b, both }`
 
 **Gráficos** (animados no HTML; com `--native-charts` viram gráficos nativos editáveis no PowerPoint):
 ```yaml
@@ -999,6 +999,8 @@ Modelos, estilos, demos e exemplos de **Modelo pronto** (na vitrine, "Visuais pa
 ## Infográficos (`infographic`)
 
 As formas clássicas de slide de consultoria, desenhadas na hora para a quantidade de itens que vier (o desenho se reorganiza; o texto encolhe para caber). Uma cor por item, tirada do tema (numa paleta de família, os parentes dela); o texto é editável no PowerPoint. `build: true` revela um item por clique.
+
+`center` é o que vai na peça do meio (o tema, a pergunta, um ícone); sem ele, o meio mostra quantos itens são.
 
 | `shape` | para quê | itens |
 |---|---|---|

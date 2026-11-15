@@ -100,7 +100,14 @@ const hash = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h <
 // cada item numa camada: com build, aparece no seu clique
 const layer = (inner, step) => `<div class="ig-layer"${step ? ` data-step="${step}"` : ""}>${inner}</div>`;
 const norm = (x) => (typeof x === "string" ? { title: x } : x && typeof x === "object" ? x : {});
-const centerOf = (s) => norm(s.center ?? s.hub ?? "");
+// sem `center`, o meio leva quantos itens são (o "3" de "três formas"; o chapéu já está no alto do slide): o
+// disco vazio parecia defeito
+const centerOf = (s) => {
+  const c = norm(s.center ?? s.hub ?? "");
+  if (c.title || c.text || c.icon) return c;
+  const n = (s.items || []).length;
+  return n ? { title: String(n) } : c;
+};
 
 // ---- formas -----------------------------------------------------------------------------------------------------
 function arco(s, items, cols, theme) {
