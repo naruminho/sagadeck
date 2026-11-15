@@ -1322,3 +1322,12 @@ test("prompt pede variar o tom visual nos momentos-chave (decks saíam todos cla
   const { systemPrompt } = await import("../src/ai/deck-ai.js");
   assert.match(systemPrompt(), /Varie também o TOM visual \(regra dura\): em 6\+ slides, nem todos `tone: light` — pelo menos 1 slide/);
 });
+
+test("prompt de geração: MOSTRAR, NÃO CONTAR com as peças de tela e o caso que atravessa a palestra", async () => {
+  const { systemPrompt } = await import("../src/ai/deck-ai.js");
+  const p = systemPrompt();
+  assert.match(p, /MOSTRAR, NÃO CONTAR/);
+  for (const m of ["mock: chat", "mock: diff", "mock: files", "mock: browser", "illustrative: true"]) assert.ok(p.includes(m), `regra cita ${m}`);
+  // e a referência (que vai inteira no prompt) explica cada uma
+  for (const m of ["mock: chat", "mock: diff", "mock: files", "mock: browser"]) assert.ok(p.split(m).length > 2, `${m} documentado na referência`);
+});

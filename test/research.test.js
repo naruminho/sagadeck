@@ -164,3 +164,16 @@ test("resposta da IA cortada no meio (ela gasta tokens pensando): os itens compl
   assert.deepEqual(r.fatos, [{ fato: "Modelo A em primeiro", trecho: "A first" }]);
   assert.throws(() => jsonOf("não sei"));
 });
+
+// Deck "Vibe coding sem as obviedades" (15/11/2026): pedido de dicas da própria pessoa virou pesquisa de documentação
+// de fornecedor, e "exemplo concreto" virou fonte citada. A decisão é do modelo; aqui garantimos que a regra chega.
+test('decisão de pesquisa: palestra de experiência da pessoa não troca exemplo por fonte', async () => {
+ const llm = await startMockLLM(() => '{"pesquisar":false,"buscas":[]}');
+ process.env.SAGADECK_LLM_URL = llm.url;
+ try {
+  const {decideResearch} = await import('../src/research/research.js');
+  await decideResearch('Palestra com minhas dicas de vibe coding, sempre com exemplo.');
+  assert.match(llm.requests[0].lastUser,/experiência e opinião da pessoa/);
+  assert.match(llm.requests[0].lastUser,/"exemplo concreto" é uma cena/);
+ } finally { await llm.close(); }
+});

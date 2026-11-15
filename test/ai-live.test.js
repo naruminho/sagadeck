@@ -306,3 +306,15 @@ test("gerar deck de palestra: perguntas antes das respostas e uma cor por parte,
   assert.ok(!slides.some((s) => s.layout === "poll"), "sem enquete: a plataforma não tem");
   assert.ok(!varietyReport(r.spec).problems.some((p) => /mesmo fundo/.test(p)), varietyReport(r.spec).problems.join("; "));
 });
+
+// Deck "Vibe coding sem as obviedades" (15/11/2026): pedido de dicas próprias, "sempre com exemplo", "nada de slide só
+// de texto". Saiu uma palestra de documentação citada, sem conversa com a IA e sem caso que atravessasse o deck.
+test("gerar palestra de dicas: cada ponto encenado (conversa, diff, arquivos, navegador), sem virar resumo de documentação", { ...opts, timeout: 900000 }, async () => {
+  const r = await generateDeck("Quero uma palestra sobre como criar aplicações vibe codando, mas sem as coisas óbvias. Todo ponto precisa de um exemplo concreto, pra ficar claro o que estou falando, em vez de só jogar uma lista de dicas. Público misto: gente de produto/negócio que constrói com IA e devs. Nada de slide só de texto: quero elementos visuais atraentes em cada ponto. Minhas anotações: contexto vai enchendo e vai piorando, no começo tudo começa bem, então dividir em pedaços; não mexa no tamanho da entrada e saída; skills são importantes; saiba o que pedir, não faça prompt solto, só gasta token e você é o dono do produto; refinar demora, a UI tá 90% pronta mas você gasta a maior parte do tempo nos 10%.", { duration: 20 });
+  const slides = r.spec.slides, json = JSON.stringify(slides);
+  const mocks = (json.match(/"mock":"(chat|diff|files|browser)"/g) || []);
+  console.log(`layouts: ${slides.map((s) => s.layout).join(", ")}\npeças de tela: ${mocks.join(" ")}\npesquisa: ${JSON.stringify(r.research || r.researchReport || {}).slice(0, 160)}`);
+  assert.ok(mocks.length >= 3, `pelo menos 3 cenas com peças de tela (achou ${mocks.length})`);
+  assert.ok(mocks.some((m) => /chat/.test(m)), "pelo menos uma conversa com a IA");
+  assert.ok(!/"value":"?\$?1[35]0?|por desenvolvedor, por (dia|mês)/.test(json), "sem custo de fornecedor no lugar das dicas dela");
+});
