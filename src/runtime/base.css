@@ -817,6 +817,42 @@ body.presenter #viewport{display:none}
 @keyframes mk-dot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-6px)}}
 .mk-ttext{font-size:24px;color:#6b707b}
 .mk-input{margin:0 30px 28px;border:2px solid #e1e3e8;border-radius:16px;padding:16px 22px;font-size:26px;color:#9aa0ab}
+/* diff: editor escuro, linhas tiradas em vermelho e postas em verde */
+.mk-diff{background:#16181f;color:#e6e8ee;border-radius:18px;overflow:hidden;box-shadow:0 40px 80px -36px rgba(0,0,0,.6);border:1px solid #2a2d38}
+.mk-diff-head{display:flex;align-items:center;gap:12px;padding:16px 24px;background:#1f222b;border-bottom:1px solid #2a2d38;color:#aab0bd}
+.mk-diff-file{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:24px}
+.mk-diff-body{padding:14px 0;font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:26px;line-height:1.5}
+.mk-dl{display:flex;gap:16px;padding:2px 24px;white-space:pre-wrap;overflow-wrap:anywhere}
+.mk-dl code{font:inherit;min-width:0}
+.mk-sign{flex:none;width:1ch;color:#7d8494}
+.mk-del{background:rgba(229,83,75,.18)}.mk-del .mk-sign{color:#ff7b72}
+.mk-add{background:rgba(63,185,80,.18)}.mk-add .mk-sign{color:#56d364}
+.mk-diff-note{margin:4px 24px 20px;padding:12px 18px;border-left:5px solid #ff7b72;background:rgba(255,123,114,.1);font-size:26px;color:#ffd2ce}
+/* árvore do projeto: painel de arquivos claro */
+.mk-files{background:#fbfbfc;color:#16181d;border-radius:18px;overflow:hidden;box-shadow:0 40px 80px -36px rgba(0,0,0,.55);border:1px solid #dcdfe5}
+.mk-files-head{padding:16px 26px;background:#eef0f4;border-bottom:1px solid #dcdfe5;font-size:22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#5b606b}
+.mk-files-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:2px}
+.mk-fl{position:relative;display:flex;align-items:center;gap:12px;padding:6px 12px 6px calc(12px + var(--lv) * 34px);font-size:28px;line-height:1.25;border-radius:8px}
+.mk-fl>.mk-hl{border-radius:8px}
+.mk-fic{position:relative;flex:none;display:flex;color:#8a8f99}.mk-dir .mk-fic{color:#d7a21a}
+.mk-fname{position:relative;font-family:var(--mono,ui-monospace,Consolas,monospace)}.mk-dir .mk-fname{font-weight:600}
+.mk-fnote{position:relative;margin-left:auto;font-size:22px;font-weight:700;color:#d93a2b;padding-left:18px}
+/* navegador com DevTools */
+.mk-browser{background:#fff;color:#16181d;border-radius:18px;overflow:hidden;box-shadow:0 40px 80px -36px rgba(0,0,0,.6);border:1px solid #d9dbe1}
+.mk-br-bar{display:flex;align-items:center;gap:10px;padding:14px 20px;background:#eef0f4;border-bottom:1px solid #dcdfe5}
+.mk-br-bar>i{width:15px;height:15px;border-radius:50%;background:#d4d6dc;flex:none}
+.mk-url{margin-left:12px;flex:1;background:#fff;border:1px solid #dcdfe5;border-radius:999px;padding:8px 20px;font-size:22px;color:#4a4f5a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-page{padding:26px 34px;display:flex;flex-direction:column;gap:16px}
+.mk-page .mk-title{font-size:40px}
+.mk-devtools{background:#1d1f27;color:#d7dae0;border-top:1px solid #2a2d38}
+.mk-dt-tabs{display:flex;gap:4px;padding:0 14px;background:#24262f;border-bottom:1px solid #2f3240}
+.mk-dt-tab{font-size:20px;padding:10px 16px;color:#8d93a1}.mk-dt-tab.mk-on{color:#fff;box-shadow:inset 0 -3px 0 #4c8dff}
+.mk-dt-body{padding:10px 0 14px;font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:23px;line-height:1.45}
+.mk-dt-line{position:relative;padding:4px 22px;white-space:pre-wrap;overflow-wrap:anywhere}
+.mk-dt-line>span{position:relative}
+.mk-dt-line .mk-hl{border-radius:0;border-width:3px;background:rgba(217,58,43,.28)}
+.mk-dt-line.mk-marked{color:#fff;padding:4px 22px;margin:0}
+.mk-fl.mk-marked{margin:0;padding:6px 12px 6px calc(12px + var(--lv) * 34px)}
 /* fade: a mensagem não some, desbota (a IA "esqueceu"): fica no lugar, apagada */
 .mk-chat .mk-msg[data-exit].out{opacity:.22!important;filter:grayscale(1)!important;transform:none!important}
 .mk [data-step]:not(.in){transform:none}
