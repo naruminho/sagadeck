@@ -12,7 +12,7 @@
 // Cores: por padrão usam o tom do slide (--cb base, --ca destaque, --s1..--s5 séries).
 // Qualquer item aceita color: hi | em | fg | muted | "FF0000".
 import { esc } from "../markup.js";
-import { formatNumber } from "../locale.js";
+import { formatNumber, deckLocale } from "../locale.js";
 import { iconSVG } from "./icons.js";
 import { humanBody } from "./pictos.js";
 
@@ -425,5 +425,13 @@ export function chart(o, w = 1200, h = 620) {
   o = unwrapType(o);
   const fn = TYPES[o.chart];
   if (!fn) throw new Error(o.chart ? `gráfico "${o.chart}" desconhecido (${Object.keys(TYPES).join(" | ")})` : `gráfico sem tipo: diga qual em chart (${Object.keys(TYPES).join(" | ")}), ex.: { chart: line, labels: [...], series: [...] }`);
+  // illustrative: curva conceitual (a forma importa, os números não existem): sem números no eixo e com o selo, em
+  // vez de valores inventados e "esquema ilustrativo" escrito à mão na fonte
+  if (o.illustrative) {
+    const W = o.w || w, H = o.h || h;
+    const out = fn({ ...o, axis: false }, W, H);
+    const word = /^pt/i.test(deckLocale()) ? "ilustrativo" : /^es/i.test(deckLocale()) ? "ilustrativo" : "illustrative";
+    return out.replace(/<\/svg>$/, `<text x="${W - 8}" y="26" text-anchor="end" class="f-label ch-illustrative" font-size="20" letter-spacing="3" style="fill:var(--muted);text-transform:uppercase">${word}</text></svg>`);
+  }
   return fn(o, o.w || w, o.h || h);
 }

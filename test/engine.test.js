@@ -1202,3 +1202,17 @@ test("mock: chat — balões da pessoa e da IA, um por clique, código na respos
   assert.match(solto, /<div class="mk-msg mk-ai">/);
   assert.match(solto, /<div class="mk-msg mk-me" data-step="2">/);
 });
+
+// O deck gerado pela IA (15/11/2026) inventou valores (100, 99, 96…) para uma curva conceitual e escreveu
+// "Esquema ilustrativo" à mão na fonte. `illustrative: true` mostra a forma sem números e põe o selo sozinho.
+test("gráfico ilustrativo: curva sem números no eixo e com o selo", () => {
+  const base = { chart: "line", labels: ["início", "", "", "", "fim"], series: [{ name: "acerto", values: [100, 96, 80, 50, 26] }] };
+  const normal = chart(base);
+  assert.match(normal, />100</, "o normal mostra os números do eixo");
+  const ilus = chart({ ...base, illustrative: true });
+  assert.doesNotMatch(ilus, />(0|20|40|60|80|100)</, "sem números no eixo");
+  assert.match(ilus, /class="[^"]*ch-illustrative[^"]*"[^>]*>ilustrativo</i, "o selo");
+  assert.match(ilus, />início</, "os rótulos de texto ficam");
+  const en = buildHTML({ title: "x", lang: "en", slides: [{ layout: "chart", title: "t", chart: { ...base, illustrative: true } }] }).html;
+  assert.match(en, />illustrative</i, "em inglês");
+});
